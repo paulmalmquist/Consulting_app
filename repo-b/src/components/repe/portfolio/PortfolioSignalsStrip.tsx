@@ -6,6 +6,7 @@ import { getPortfolioSignals, type PortfolioSignal } from "@/lib/bos-api";
 import { useRepeContext } from "@/lib/repe-context";
 import { usePortfolioFilters } from "./PortfolioFilterContext";
 import { useRepeBasePath } from "@/lib/repe-context";
+import type { DataQuality } from "./DataIntegrityBanner";
 
 // ---------------------------------------------------------------------------
 // Severity styling
@@ -148,7 +149,11 @@ function SignalCard({ signal }: { signal: PortfolioSignal }) {
 // Signals Strip
 // ---------------------------------------------------------------------------
 
-export function PortfolioSignalsStrip() {
+interface PortfolioSignalsStripProps {
+  dataQuality?: DataQuality;
+}
+
+export function PortfolioSignalsStrip({ dataQuality }: PortfolioSignalsStripProps) {
   const { environmentId } = useRepeContext();
   const { filters } = usePortfolioFilters();
   const [signals, setSignals] = useState<PortfolioSignal[]>([]);
@@ -163,6 +168,9 @@ export function PortfolioSignalsStrip() {
       .finally(() => setLoading(false));
   }, [environmentId, filters.quarter]);
 
+  // Suppress signals entirely when data is invalid or missing
+  if (dataQuality === "invalid" || dataQuality === "missing") return null;
+
   if (loading) {
     return (
       <div className="flex gap-2 overflow-x-auto">
@@ -176,10 +184,17 @@ export function PortfolioSignalsStrip() {
   if (signals.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-      {signals.map((signal) => (
-        <SignalCard key={signal.signal_id} signal={signal} />
-      ))}
+    <div className="relative">
+      {dataQuality === "degraded" && (
+        <div className="absolute -top-1 right-0 z-10 rounded-full bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-400">
+          Limited data
+        </div>
+      )}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {signals.map((signal) => (
+          <SignalCard key={signal.signal_id} signal={signal} />
+        ))}
+      </div>
     </div>
   );
 }

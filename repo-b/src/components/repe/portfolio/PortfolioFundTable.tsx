@@ -7,7 +7,7 @@ import { getFundTableRows, type FundTableRow } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { usePortfolioFilters } from "./PortfolioFilterContext";
 import { StateCard } from "@/components/ui/StateCard";
-import { fmtMoney, fmtPct } from "@/lib/format-utils";
+import { fmtMoney, fmtPct, fmtPctFromDecimal } from "@/lib/format-utils";
 import {
   reIndexTableShellClass,
   reIndexTableClass,
@@ -158,7 +158,7 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
           return v > -Infinity ? pctBar(Math.abs(v * 100), maxIrr * 100) : null;
         },
         format: (r) => (
-          <span data-metric="gross_irr">{fmtPct(r.gross_irr)}</span>
+          <span data-metric="gross_irr">{fmtPctFromDecimal(r.gross_irr)}</span>
         ),
         sortValue: (r) => numVal(r.gross_irr),
       },
@@ -167,7 +167,7 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         label: "Net IRR",
         align: "right",
         sortable: true,
-        format: (r) => fmtPct(r.net_irr),
+        format: (r) => fmtPctFromDecimal(r.net_irr),
         sortValue: (r) => numVal(r.net_irr),
       },
       {
@@ -203,7 +203,7 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
           const v = numVal(r.pct_invested);
           return v > -Infinity ? v * 100 : null;
         },
-        format: (r) => fmtPct(r.pct_invested),
+        format: (r) => fmtPctFromDecimal(r.pct_invested),
         sortValue: (r) => numVal(r.pct_invested),
       },
       {

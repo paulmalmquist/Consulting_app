@@ -2,14 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Info, XCircle } from "lucide-react";
-import { getReV2EnvironmentPortfolioKpis, type ReV2EnvironmentPortfolioKpis } from "@/lib/bos-api";
+import {
+  getReV2EnvironmentPortfolioKpis,
+  getFundTableRows,
+  type ReV2EnvironmentPortfolioKpis,
+  type FundTableRow,
+} from "@/lib/bos-api";
 import { useRepeContext } from "@/lib/repe-context";
 import { usePortfolioFilters, formatQuarterLabel } from "./PortfolioFilterContext";
+
+export type DataQuality = "ok" | "degraded" | "missing" | "invalid";
 
 interface IntegrityWarning {
   severity: "critical" | "warning" | "info";
   message: string;
-  level?: string; // "fund" | "investment" | "asset" | "period"
+  level?: string;
 }
 
 const SEVERITY_ICON = {
@@ -24,7 +31,22 @@ const SEVERITY_STYLES = {
   info: "bg-blue-500/8 border-blue-500/20 text-blue-400",
 };
 
-export function DataIntegrityBanner() {
+/**
+ * Compute overall data quality from integrity warnings.
+ * Returns the worst quality level found.
+ */
+export function computeDataQuality(warnings: IntegrityWarning[]): DataQuality {
+  if (warnings.length === 0) return "ok";
+  if (warnings.some((w) => w.severity === "critical")) return "invalid";
+  if (warnings.some((w) => w.severity === "warning")) return "degraded";
+  return "degraded"; // info-only warnings still count as degraded
+}
+
+interface DataIntegrityBannerProps {
+  onDataQualityChange?: (quality: DataQuality) => void;
+}
+
+export function DataIntegrityBanner({ onDataQualityChange }: DataIntegrityBannerProps) {
   const { environmentId } = useRepeContext();
   const { filters } = usePortfolioFilters();
   const [warnings, setWarnings] = useState<IntegrityWarning[]>([]);
@@ -32,53 +54,109 @@ export function DataIntegrityBanner() {
   useEffect(() => {
     if (!environmentId) return;
 
-    getReV2EnvironmentPortfolioKpis(environmentId, filters.quarter, filters.activeModelId || undefined)
-      .then((kpis) => {
-        const items: IntegrityWarning[] = [];
+    // Fetch KPIs and fund table rows in parallel for cross-referencing
+    Promise.all([
+      getReV2EnvironmentPortfolioKpis(environmentId, filters.quarter, filters.activeModelId || undefined),
+      getFundTableRows(environmentId, filters.quarter, filters.activeModelId || undefined).catch(() => [] as FundTableRow[]),
+    ]).then(([kpis, fundRows]) => {
+      const items: IntegrityWarning[] = [];
 
-        // 1. Missing data warnings from KPI endpoint
-        for (const w of kpis.warnings || []) {
-          items.push({
-            severity: "warning",
-            message: w,
-            level: "period",
-          });
+      // 1. Server-provided warnings
+      for (const w of kpis.warnings || []) {
+        items.push({ severity: "warning", message: w, level: "period" });
+      }
+
+      // 2. Stale period detection
+      if (kpis.effective_quarter !== filters.quarter) {
+        items.push({
+          severity: "info",
+          message: `No data for ${formatQuarterLabel(filters.quarter)}. Showing ${formatQuarterLabel(kpis.effective_quarter)} as latest available.`,
+          level: "period",
+        });
+      }
+
+      // 3. Missing portfolio NAV
+      if (kpis.portfolio_nav === null || kpis.portfolio_nav === undefined) {
+        items.push({
+          severity: "warning",
+          message: "Portfolio NAV not computed. Run quarter close to generate fund-level state.",
+          level: "fund",
+        });
+      }
+
+      // 4. pct_invested > 100% for any fund (CRITICAL — impossible or data defect)
+      for (const row of fundRows) {
+        if (row.pct_invested) {
+          const ratio = parseFloat(row.pct_invested);
+          if (!isNaN(ratio) && ratio > 1.0) {
+            items.push({
+              severity: "critical",
+              message: `${row.name}: % Invested is ${(ratio * 100).toFixed(0)}% — capital call data may contain duplicates.`,
+              level: "fund",
+            });
+          }
         }
+      }
 
-        // 2. Stale period detection
-        if (kpis.effective_quarter !== filters.quarter) {
-          items.push({
-            severity: "info",
-            message: `No data for ${formatQuarterLabel(filters.quarter)}. Showing ${formatQuarterLabel(kpis.effective_quarter)} as latest available.`,
-            level: "period",
-          });
-        }
+      // 5. Missing NAV for individual funds
+      const fundsWithMissingNav = fundRows.filter((r) => r.portfolio_nav === null || r.portfolio_nav === undefined);
+      if (fundsWithMissingNav.length > 0 && fundRows.length > 0) {
+        const names = fundsWithMissingNav.map((r) => r.name).join(", ");
+        items.push({
+          severity: "warning",
+          message: `Missing NAV for ${formatQuarterLabel(filters.quarter)}: ${names}`,
+          level: "fund",
+        });
+      }
 
-        // 3. Missing metrics (signals incomplete data)
-        if (kpis.portfolio_nav === null || kpis.portfolio_nav === undefined) {
+      // 6. Missing TVPI for individual funds
+      const fundsWithMissingTvpi = fundRows.filter(
+        (r) => (r.tvpi === null || r.tvpi === undefined) && r.portfolio_nav !== null
+      );
+      if (fundsWithMissingTvpi.length > 0) {
+        const names = fundsWithMissingTvpi.map((r) => r.name).join(", ");
+        items.push({
+          severity: "warning",
+          message: `Missing TVPI: ${names}`,
+          level: "fund",
+        });
+      }
+
+      // 7. Header NAV vs sum of fund NAVs reconciliation
+      if (kpis.portfolio_nav && fundRows.length > 0) {
+        const headerNav = parseFloat(kpis.portfolio_nav);
+        const rowNavSum = fundRows.reduce((sum, r) => {
+          const v = r.portfolio_nav ? parseFloat(r.portfolio_nav) : 0;
+          return sum + (isNaN(v) ? 0 : v);
+        }, 0);
+        if (headerNav > 0 && Math.abs(headerNav - rowNavSum) / headerNav > 0.01) {
           items.push({
-            severity: "warning",
-            message: "Portfolio NAV not computed. Run quarter close to generate fund-level state.",
+            severity: "critical",
+            message: `Portfolio NAV ($${(headerNav / 1e6).toFixed(0)}M) does not reconcile with fund table sum ($${(rowNavSum / 1e6).toFixed(0)}M).`,
             level: "fund",
           });
         }
+      }
 
-        if (kpis.weighted_dscr === null && kpis.active_assets > 0) {
-          items.push({
-            severity: "info",
-            message: "Weighted DSCR unavailable — debt data may be incomplete for some assets.",
-            level: "asset",
-          });
-        }
+      // 8. DSCR warning
+      if (kpis.weighted_dscr === null && kpis.active_assets > 0) {
+        items.push({
+          severity: "info",
+          message: "Weighted DSCR unavailable — debt data may be incomplete for some assets.",
+          level: "asset",
+        });
+      }
 
-        setWarnings(items);
-      })
-      .catch(() => setWarnings([]));
-  }, [environmentId, filters.quarter, filters.activeModelId]);
+      setWarnings(items);
+      onDataQualityChange?.(computeDataQuality(items));
+    }).catch(() => {
+      setWarnings([]);
+      onDataQualityChange?.("missing");
+    });
+  }, [environmentId, filters.quarter, filters.activeModelId, onDataQualityChange]);
 
   if (warnings.length === 0) return null;
 
-  // Show highest severity first
   const sortedWarnings = [...warnings].sort((a, b) => {
     const order = { critical: 0, warning: 1, info: 2 };
     return order[a.severity] - order[b.severity];

@@ -18,8 +18,8 @@ const STATUS_CHIPS: { label: string; value: StatusFilter }[] = [
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="min-w-0">
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-bm-muted2">{label}</p>
-      <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-bm-text">{String(value)}</p>
+      <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-bm-muted2/80">{label}</p>
+      <p className="mt-0.5 font-display text-sm font-semibold tabular-nums text-bm-text">{String(value)}</p>
     </div>
   );
 }
@@ -41,45 +41,41 @@ export function PortfolioAssetMap({
   const summary = data?.summary;
 
   return (
-    <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-3">
-      {/* Header */}
-      <div>
-        <h3 className="text-[1.05rem] font-semibold tracking-tight text-bm-text">
-          Owned and Pipelined Assets
-        </h3>
-        <p className="mt-0.5 text-xs text-bm-muted2">
-          Geographic footprint of owned assets and active pipeline opportunities.
-        </p>
-      </div>
-
+    <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] overflow-hidden">
       {loading ? (
-        <StateCard state="loading" />
+        <div className="p-4">
+          <StateCard state="loading" />
+        </div>
       ) : !data || points.length === 0 ? (
-        <StateCard
-          state="empty"
-          title="No assets with location data"
-          description={`${data?.summary?.owned_assets ?? 0} assets exist but lack geolocation or market metadata. Add coordinates or assign valid market mappings to enable portfolio map analysis.`}
-        />
+        <div className="p-4">
+          <StateCard
+            state="empty"
+            title="No assets with location data"
+            description={`${data?.summary?.owned_assets ?? 0} assets exist but lack geolocation or market metadata. Add coordinates or assign valid market mappings to enable portfolio map analysis.`}
+          />
+        </div>
       ) : (
-        <>
-          {/* Summary callouts */}
-          <div className="flex flex-wrap gap-x-5 sm:gap-x-8 gap-y-2 border-b border-bm-border/20 pb-3">
-            <SummaryMetric label="Owned Assets" value={summary?.owned_assets ?? 0} />
-            <SummaryMetric label="Pipeline Assets" value={summary?.pipeline_assets ?? 0} />
-            <SummaryMetric label="Markets" value={summary?.markets ?? 0} />
+        <div className="relative">
+          {/* Summary overlay — compact, inside map corner */}
+          <div className="absolute top-2 left-2 z-10 bg-bm-bg/80 backdrop-blur-sm rounded-md border border-bm-border/20 px-3 py-2">
+            <div className="flex gap-x-4 gap-y-1">
+              <SummaryMetric label="Owned" value={summary?.owned_assets ?? 0} />
+              <SummaryMetric label="Pipeline" value={summary?.pipeline_assets ?? 0} />
+              <SummaryMetric label="Markets" value={summary?.markets ?? 0} />
+            </div>
           </div>
 
-          {/* Status filter chips */}
-          <div className="flex gap-1.5">
+          {/* Status filter chips — top-right overlay */}
+          <div className="absolute top-2 right-2 z-10 flex gap-1">
             {STATUS_CHIPS.map((s) => (
               <button
                 key={s.value}
                 type="button"
                 onClick={() => setFilter(s.value)}
-                className={`rounded-md px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] transition-colors ${
+                className={`rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.06em] transition-colors backdrop-blur-sm ${
                   filter === s.value
-                    ? "bg-bm-accent/20 text-bm-accent"
-                    : "text-bm-muted2 hover:bg-bm-surface/25 hover:text-bm-text"
+                    ? "bg-bm-accent/20 text-bm-accent border border-bm-accent/30"
+                    : "bg-bm-bg/60 text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text border border-bm-border/20"
                 }`}
               >
                 {s.label}
@@ -87,10 +83,12 @@ export function PortfolioAssetMap({
             ))}
           </div>
 
-          {/* Map */}
-          <div className="h-[200px] sm:h-[260px] lg:h-[320px] rounded-lg overflow-hidden border border-bm-border/20">
+          {/* Map — fills container */}
+          <div className="h-[280px] sm:h-[320px] lg:h-[380px]">
             {mounted && <MapInner points={filtered} />}
           </div>
+
+          {/* Approximate location note */}
           {(() => {
             const noCoords = filtered.filter((p) => {
               const lat = Number(p.lat);
@@ -98,12 +96,12 @@ export function PortfolioAssetMap({
               return isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0);
             }).length;
             return noCoords > 0 ? (
-              <p className="text-[10px] text-bm-muted2">
-                {noCoords} asset{noCoords > 1 ? "s" : ""} placed at market centroid or missing location data
+              <p className="text-[10px] text-bm-muted2 px-3 py-1 border-t border-bm-border/10">
+                {noCoords} asset{noCoords > 1 ? "s" : ""} placed at market centroid
               </p>
             ) : null;
           })()}
-        </>
+        </div>
       )}
     </div>
   );

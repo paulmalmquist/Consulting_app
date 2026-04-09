@@ -8,7 +8,7 @@ import {
   formatQuarterLabel,
   getAvailableQuarters,
 } from "./PortfolioFilterContext";
-import { fmtMoney, fmtPct } from "@/lib/format-utils";
+import { fmtMoney, fmtPctFromDecimal } from "@/lib/format-utils";
 
 // ---------------------------------------------------------------------------
 // Quarter Selector
@@ -153,12 +153,12 @@ export function PortfolioKpiBar() {
         <div className="flex gap-4 border-r border-bm-border/15 pr-6">
           <KpiMetric
             label="Gross IRR"
-            value={fmtPct(kpis.gross_irr) || "—"}
+            value={fmtPctFromDecimal(kpis.gross_irr) || "—"}
             subtitle={formatQuarterLabel(kpis.effective_quarter)}
           />
           <KpiMetric
             label="Net IRR"
-            value={fmtPct(kpis.net_irr) || "—"}
+            value={fmtPctFromDecimal(kpis.net_irr) || "—"}
             subtitle="Net of fees & carry"
           />
           <KpiMetric
@@ -196,7 +196,7 @@ export function PortfolioKpiBar() {
           />
           <KpiMetric
             label="WTD LTV"
-            value={kpis.weighted_ltv ? fmtPct(kpis.weighted_ltv) || "—" : "—"}
+            value={kpis.weighted_ltv ? fmtPctFromDecimal(kpis.weighted_ltv) || "—" : "—"}
             subtitle="Loan to value"
           />
           <KpiMetric

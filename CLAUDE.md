@@ -70,7 +70,7 @@ notes:
 `CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.
 
 When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
-
+`
 ## Routing Precedence
 
 1. Explicit skill, agent, harness, or command mention

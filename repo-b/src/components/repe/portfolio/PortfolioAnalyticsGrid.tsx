@@ -18,7 +18,7 @@ export function PortfolioAnalyticsGrid({
   const { setMapHighlight } = usePortfolioFilters();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* LEFT: Map (40%) */}
       <div>
         <PortfolioAssetMap
