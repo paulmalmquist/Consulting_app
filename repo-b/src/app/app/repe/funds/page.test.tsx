@@ -24,18 +24,24 @@ const mockDeleteRepeFund = vi.fn();
 const mockGetPortfolioSignals = vi.fn();
 const mockGetFundTableRows = vi.fn();
 const mockGetFundComparison = vi.fn();
+const mockGetAllocationBreakdown = vi.fn();
 
-vi.mock("@/lib/bos-api", () => ({
-  listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
-  getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
-    mockGetReV2EnvironmentPortfolioKpis(...args),
-  getCapitalActivity: (...args: unknown[]) => mockGetCapitalActivity(...args),
-  getAssetMapPoints: (...args: unknown[]) => mockGetAssetMapPoints(...args),
-  deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
-  getPortfolioSignals: (...args: unknown[]) => mockGetPortfolioSignals(...args),
-  getFundTableRows: (...args: unknown[]) => mockGetFundTableRows(...args),
-  getFundComparison: (...args: unknown[]) => mockGetFundComparison(...args),
-}));
+vi.mock("@/lib/bos-api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/bos-api")>();
+  return {
+    ...actual,
+    listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
+    getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
+      mockGetReV2EnvironmentPortfolioKpis(...args),
+    getCapitalActivity: (...args: unknown[]) => mockGetCapitalActivity(...args),
+    getAssetMapPoints: (...args: unknown[]) => mockGetAssetMapPoints(...args),
+    deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
+    getPortfolioSignals: (...args: unknown[]) => mockGetPortfolioSignals(...args),
+    getFundTableRows: (...args: unknown[]) => mockGetFundTableRows(...args),
+    getFundComparison: (...args: unknown[]) => mockGetFundComparison(...args),
+    getAllocationBreakdown: (...args: unknown[]) => mockGetAllocationBreakdown(...args),
+  };
+});
 
 const MOCK_FUNDS = [
   {
@@ -101,6 +107,7 @@ describe("REPE funds page", () => {
     mockGetPortfolioSignals.mockResolvedValue([]);
     mockGetFundTableRows.mockResolvedValue([]);
     mockGetFundComparison.mockResolvedValue([]);
+    mockGetAllocationBreakdown.mockResolvedValue({ strategies: [], property_types: [] });
     mockGetReV2EnvironmentPortfolioKpis.mockResolvedValue({
       env_id: "test-env",
       business_id: "test-biz",
