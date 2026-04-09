@@ -112,7 +112,7 @@ export function FundFootprintMap({
             </div>
 
             {/* Map */}
-            <div className="h-[340px] rounded-lg overflow-hidden border border-[#E2E8F0]/50">
+            <div className="h-[240px] sm:h-[340px] rounded-lg overflow-hidden border border-[#E2E8F0]/50">
               {mounted && <MapInner points={filtered} />}
             </div>
           </div>

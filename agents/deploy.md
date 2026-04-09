@@ -121,6 +121,30 @@ Immediately after deploy:
 After backend deploy, explicitly run the migration step for the target backend/database.
 Never assume migrations ran automatically.
 
+### Migration commands
+
+```bash
+# Production — requires DATABASE_URL exported or in backend/.env
+make db:migrate:prod
+
+# Or manually:
+cd repo-b && DATABASE_URL="<production-url>" NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js
+cd repo-b && DATABASE_URL="<production-url>" NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js
+```
+
+### Consulting module migration check
+
+After migrations, verify the consulting health endpoint passes:
+
+```bash
+curl https://<backend-host>/api/consulting/health
+```
+
+Expected: `{"schema_ready": true, ...}`
+
+If `schema_ready` is false, the response lists exactly which migrations are missing.
+Required consulting migrations: **260, 280, 281, 302, 311, 431**.
+
 After migration:
 - capture migration command output
 - record migration revision now present in DB

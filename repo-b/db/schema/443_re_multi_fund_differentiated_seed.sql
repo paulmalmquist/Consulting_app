@@ -105,6 +105,15 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Guard: skip if repe_fund doesn't have expected columns
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'repe_fund' AND column_name = 'target_irr'
+  ) THEN
+    RAISE NOTICE '443: repe_fund.target_irr not present, skipping differentiated seed';
+    RETURN;
+  END IF;
+
   -- Resolve Granite Peak fund_id (may exist from 358; use deterministic UUID)
   SELECT fund_id INTO v_fund_granite
   FROM repe_fund

@@ -13,6 +13,7 @@ function fmtCurrency(raw: number | string | null | undefined): string {
 export function PipelineActionBar({
   todayCount,
   staleCount,
+  criticalCount,
   noActionCount,
   revenueAtRisk,
   totalPipeline,
@@ -22,6 +23,7 @@ export function PipelineActionBar({
 }: {
   todayCount: number;
   staleCount: number;
+  criticalCount: number;
   noActionCount: number;
   revenueAtRisk: number;
   totalPipeline: number;
@@ -47,6 +49,13 @@ export function PipelineActionBar({
           value={String(staleCount)}
           accent={staleCount > 0 ? "orange" : undefined}
         />
+        {criticalCount > 0 ? (
+          <Stat
+            label="Critical"
+            value={String(criticalCount)}
+            accent="red"
+          />
+        ) : null}
         {noActionCount > 0 ? (
           <Stat
             label="No action"

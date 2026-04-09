@@ -21,6 +21,7 @@ ALTER TABLE IF EXISTS repe_property_asset
 -- Disposed / pipeline assets are filtered from active portfolio metrics.
 -- ═══════════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS v_fund_portfolio_summary CASCADE;
 CREATE OR REPLACE VIEW v_fund_portfolio_summary AS
 WITH latest_asset_state AS (
   -- Latest base-scenario quarter-close snapshot per asset
@@ -150,6 +151,7 @@ GROUP BY f.fund_id, f.name, f.strategy, f.status, f.vintage_year, las.quarter;
 -- Hard-coded 5.5% cap rate removed; LTV uses canonical asset_value.
 -- ═══════════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS v_asset_operating_summary CASCADE;
 CREATE OR REPLACE VIEW v_asset_operating_summary AS
 WITH canonical AS (
   -- Prefer the quarter-close snapshot (base scenario) as canonical source
@@ -260,6 +262,7 @@ ORDER BY a.asset_id, bs.quarter DESC;
 -- Per-fund: committed, called, distributed, DPI, unfunded
 -- ═══════════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS v_fund_capital_summary CASCADE;
 CREATE OR REPLACE VIEW v_fund_capital_summary AS
 SELECT
   f.fund_id,
@@ -299,6 +302,7 @@ GROUP BY f.fund_id, f.name, f.strategy, f.status,
 -- Deal count and total AUM by pipeline status
 -- ═══════════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS v_pipeline_stage_summary CASCADE;
 CREATE OR REPLACE VIEW v_pipeline_stage_summary AS
 SELECT
   pd.status,
@@ -328,6 +332,7 @@ ORDER BY
 -- Per-partner: commitment, called, distributed, TVPI across funds
 -- ═══════════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS v_partner_portfolio_summary CASCADE;
 CREATE OR REPLACE VIEW v_partner_portfolio_summary AS
 SELECT
   p.partner_id,

@@ -83,8 +83,8 @@ export function PdsInterventionQueue({
     <section className="rounded-[24px] border border-bm-border/70 bg-bm-surface/20 p-5" data-testid="pds-intervention-queue">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Interventions Today</p>
-          <h3 className="mt-1 text-xl font-semibold text-bm-text">Priority actions generated from the operating surface</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Intervention Queue</p>
+          <h3 className="mt-1 text-xl font-semibold text-bm-text">Ranked issues, quantified impact, and the next move</h3>
         </div>
         <div className="text-xs text-bm-muted2">
           {visibleItems.length} active interventions
@@ -161,7 +161,7 @@ export function PdsInterventionQueue({
               </button>
               {item.href ? (
                 <Link href={item.href} className="rounded-full border border-pds-accent/30 px-3 py-1.5 text-xs text-pds-accentText transition hover:bg-pds-accent/10">
-                  Open detail
+                  Open project
                 </Link>
               ) : null}
             </div>

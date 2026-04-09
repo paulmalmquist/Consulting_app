@@ -33,10 +33,11 @@ ALTER TABLE IF EXISTS repe_asset
   ADD COLUMN IF NOT EXISTS asset_status     text;
 
 DO $$ BEGIN
+  ALTER TABLE repe_asset DROP CONSTRAINT IF EXISTS chk_repe_asset_status;
   ALTER TABLE repe_asset
     ADD CONSTRAINT chk_repe_asset_status
     CHECK (asset_status IS NULL OR asset_status IN (
-      'pipeline', 'active', 'held', 'exited', 'written_off'
+      'pipeline', 'active', 'held', 'lease_up', 'operating', 'exited', 'disposed', 'realized', 'written_off'
     ));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;

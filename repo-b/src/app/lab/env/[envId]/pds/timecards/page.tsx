@@ -29,10 +29,11 @@ type DistributionBin = {
 type BenchEmployee = {
   employee_id: string;
   employee_name: string;
-  role: string;
-  last_billable_date: string | null;
-  weeks_on_bench: number;
-  skills: string[];
+  role_level: string;
+  region: string | null;
+  allocation_pct: number;
+  availability_pct: number;
+  assignment_count: number;
 };
 
 type OvertimeAlert = {
@@ -55,7 +56,7 @@ export default function PdsTimecardsPage() {
   const [bench, setBench] = useState<BenchEmployee[]>([]);
   const [overtime, setOvertime] = useState<OvertimeAlert[]>([]);
 
-  const [benchSort, setBenchSort] = useState<keyof BenchEmployee>("weeks_on_bench");
+  const [benchSort, setBenchSort] = useState<keyof BenchEmployee>("availability_pct");
   const [benchAsc, setBenchAsc] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -69,13 +70,23 @@ export default function PdsTimecardsPage() {
       };
 
       const [distRes, benchRes] = await Promise.all([
-        bosFetch<{ bins: DistributionBin[]; overtime_alerts: OvertimeAlert[] }>("/api/pds/v2/utilization/distribution", { params }),
-        bosFetch<{ employees: BenchEmployee[] }>("/api/pds/v2/utilization/bench", { params }),
+        bosFetch<{ distribution: Array<{ period: string; bin_floor: number; bin_label: string; employee_count: number }> }>("/api/pds/v2/utilization/distribution", { params }),
+        bosFetch<{ bench: BenchEmployee[] }>("/api/pds/v2/utilization/bench", { params }),
       ]);
 
-      setDistribution(distRes.bins ?? []);
-      setOvertime(distRes.overtime_alerts ?? []);
-      setBench(benchRes.employees ?? []);
+      const latestPeriod = [...new Set((distRes.distribution ?? []).map((row) => row.period))].sort().at(-1);
+      const latestBins = (distRes.distribution ?? [])
+        .filter((row) => row.period === latestPeriod)
+        .map((row) => ({
+          bin: row.bin_label,
+          count: row.employee_count,
+          pct_low: Number(row.bin_floor),
+          pct_high: Number(row.bin_floor) >= 110 ? 120 : Number(row.bin_floor) + 10,
+        }));
+
+      setDistribution(latestBins);
+      setOvertime([]);
+      setBench(benchRes.bench ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load timecard data");
     } finally {
@@ -142,7 +153,7 @@ export default function PdsTimecardsPage() {
       <div>
         <h1 className="text-2xl font-bold text-zinc-100">Timecard Analytics</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          Analyze workload distribution, bench resources, and overtime alerts.
+          Analyze workload distribution and identify the most available bench resources from current timecard and allocation data.
         </p>
       </div>
 
@@ -215,9 +226,9 @@ export default function PdsTimecardsPage() {
                   {(
                     [
                       ["employee_name", "Name"],
-                      ["role", "Role"],
-                      ["weeks_on_bench", "Weeks on Bench"],
-                      ["last_billable_date", "Last Billable"],
+                      ["role_level", "Role"],
+                      ["availability_pct", "Availability"],
+                      ["assignment_count", "Assignments"],
                     ] as [keyof BenchEmployee, string][]
                   ).map(([field, label]) => (
                     <th
@@ -228,30 +239,20 @@ export default function PdsTimecardsPage() {
                       {label} {benchSort === field ? (benchAsc ? "\u25B2" : "\u25BC") : ""}
                     </th>
                   ))}
-                  <th className="py-2 text-left text-xs font-medium text-zinc-400">Skills</th>
+                  <th className="py-2 text-left text-xs font-medium text-zinc-400">Region</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedBench.map((emp) => (
                   <tr key={emp.employee_id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
                     <td className="py-2 text-zinc-200">{emp.employee_name}</td>
-                    <td className="py-2 text-zinc-400">{emp.role}</td>
-                    <td className="py-2 text-zinc-300">
-                      <span className={emp.weeks_on_bench > 4 ? "text-red-400 font-medium" : ""}>
-                        {emp.weeks_on_bench}
-                      </span>
-                    </td>
-                    <td className="py-2 text-zinc-400">
-                      {emp.last_billable_date ?? "Never"}
-                    </td>
+                    <td className="py-2 text-zinc-400">{emp.role_level}</td>
+                    <td className="py-2 text-zinc-300">{formatPercent(emp.availability_pct / 100)}</td>
+                    <td className="py-2 text-zinc-400">{emp.assignment_count}</td>
                     <td className="py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {emp.skills.map((s) => (
-                          <span key={s} className="rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-300">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-300">
+                        {emp.region ?? "Unspecified"}
+                      </span>
                     </td>
                   </tr>
                 ))}

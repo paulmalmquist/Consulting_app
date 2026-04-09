@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS app.business_departments (
   sort_order_override  int,
   PRIMARY KEY (business_id, department_id)
 );
+ALTER TABLE app.business_departments ADD COLUMN IF NOT EXISTS environment_id uuid REFERENCES app.environments(env_id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS app.business_capabilities (
   business_id          uuid NOT NULL REFERENCES app.businesses(business_id) ON DELETE CASCADE,
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS app.business_capabilities (
   sort_order_override  int,
   PRIMARY KEY (business_id, capability_id)
 );
+ALTER TABLE app.business_capabilities ADD COLUMN IF NOT EXISTS environment_id uuid REFERENCES app.environments(env_id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS app.executions (
   execution_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),

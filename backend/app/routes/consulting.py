@@ -16,10 +16,16 @@ from app.schemas.consulting import (
     AdvanceStageRequest,
     ClientOut,
     ConvertToClientRequest,
+    DailyExecutionBriefOut,
     DemoReadinessOut,
     DemoReadinessUpdateRequest,
     EngagementCreateRequest,
     EngagementOut,
+    ExecutionBoardOut,
+    ExecutionCardOut,
+    ExecutionCommandRequest,
+    ExecutionCommandResult,
+    ExecutionDetailOut,
     LeadCreateRequest,
     LeadOut,
     LeadScoreUpdate,
@@ -80,6 +86,8 @@ from app.schemas.consulting import (
     StrategicOutreachMonitorResult,
     StrategicOutreachSeedRequest,
     StrategicOutreachSeedResult,
+    SimulateActionOut,
+    SimulateActionRequest,
     TriggerSignalCreateRequest,
     TriggerSignalOut,
     DailyBriefOut,
@@ -112,6 +120,7 @@ from app.services import (
     cro_objections,
     cro_outreach,
     cro_pipeline,
+    pipeline_execution_engine,
     cro_proof_assets,
     cro_proposal_generator,
     cro_proposals,
@@ -135,7 +144,7 @@ def _to_http(exc: Exception) -> HTTPException:
             {
                 "error_code": "SCHEMA_NOT_MIGRATED",
                 "message": "Consulting Revenue OS schema not migrated.",
-                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431.",
+                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431, 457.",
                 "health_check_url": "/bos/api/consulting/health",
             },
         )
@@ -148,6 +157,49 @@ def _to_http(exc: Exception) -> HTTPException:
 
 def _log(action: str, msg: str, **ctx):
     emit_log(level="info", service="backend", action=action, message=msg, context=ctx)
+
+
+# ── Health Check ───────────────────────────────────────────────────────────────
+
+_REQUIRED_TABLES = {
+    "260": ["crm_account", "crm_contact", "crm_pipeline_stage", "crm_opportunity", "crm_activity"],
+    "280": ["cro_lead_profile", "cro_outreach_template", "cro_outreach_log", "cro_proposal", "cro_client", "cro_engagement"],
+    "281": ["cro_strategic_lead", "cro_outreach_sequence"],
+    "302": ["nv_loop"],
+    "311": ["cro_next_action"],
+    "431": ["cro_proof_asset", "cro_objection"],
+    "457": ["cro_execution_profile", "cro_execution_audit"],
+}
+
+
+@router.get("/health")
+def consulting_health():
+    """Check whether consulting schema tables exist in the database."""
+    try:
+        from app.db import get_cursor
+        all_tables = [t for tables in _REQUIRED_TABLES.values() for t in tables]
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT tablename FROM pg_catalog.pg_tables
+                   WHERE schemaname = 'public' AND tablename = ANY(%s)""",
+                (all_tables,),
+            )
+            found = {row["tablename"] for row in cur.fetchall()}
+
+        missing_migrations = []
+        for num, tables in _REQUIRED_TABLES.items():
+            missing = [t for t in tables if t not in found]
+            if missing:
+                missing_migrations.append(f"{num} — missing: {', '.join(missing)}")
+
+        return {
+            "schema_ready": len(missing_migrations) == 0,
+            "total_required": len(all_tables),
+            "total_found": len(found),
+            "migrations_needed": missing_migrations,
+        }
+    except Exception as exc:
+        return {"schema_ready": False, "error": str(exc)}
 
 
 # ── Pipeline ────────────────────────────────────────────────────────────────────
@@ -187,6 +239,115 @@ def advance_stage(body: AdvanceStageRequest):
         )
         _log("cro.pipeline.advanced", f"Opportunity advanced to {body.to_stage_key}")
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/execution-board", response_model=ExecutionBoardOut)
+def get_execution_board(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return pipeline_execution_engine.get_execution_board(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/{opportunity_id}/execution-detail", response_model=ExecutionDetailOut)
+def get_execution_detail(opportunity_id: UUID, env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return pipeline_execution_engine.get_execution_detail(
+            env_id=env_id,
+            business_id=business_id,
+            opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/daily-execution-brief", response_model=DailyExecutionBriefOut)
+def get_daily_execution_brief(env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return pipeline_execution_engine.get_daily_execution_brief(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/stuck-deals", response_model=list[ExecutionCardOut])
+def get_stuck_deals(env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return pipeline_execution_engine.list_stuck_deals(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/stage-suggestions", response_model=list[dict])
+def get_stage_suggestions(env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return pipeline_execution_engine.list_stage_suggestions(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/{opportunity_id}/draft-outreach")
+def draft_outreach(opportunity_id: UUID, body: SeedRequest):
+    try:
+        return pipeline_execution_engine.draft_outreach(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/{opportunity_id}/generate-followups")
+def generate_followups(opportunity_id: UUID, body: SeedRequest):
+    try:
+        return pipeline_execution_engine.generate_followups(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/{opportunity_id}/meeting-prep")
+def meeting_prep(opportunity_id: UUID, body: SeedRequest):
+    try:
+        return pipeline_execution_engine.meeting_prep(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/{opportunity_id}/simulate-action", response_model=SimulateActionOut)
+def simulate_action(opportunity_id: UUID, body: SimulateActionRequest, env_id: str = Query(...), business_id: UUID = Query(...)):
+    try:
+        return pipeline_execution_engine.simulate_action(
+            env_id=env_id,
+            business_id=business_id,
+            opportunity_id=opportunity_id,
+            action=body.action,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/command", response_model=ExecutionCommandResult)
+def execution_command(body: ExecutionCommandRequest):
+    try:
+        return pipeline_execution_engine.run_command(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            command=body.command,
+            confirm=body.confirm,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

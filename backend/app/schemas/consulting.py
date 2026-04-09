@@ -101,6 +101,151 @@ class PipelineKanbanResult(BaseModel):
     weighted_pipeline: float
 
 
+class ExecutionRankedActionOut(BaseModel):
+    action_key: str
+    label: str
+    description: str
+    impact: str
+    urgency: str
+    reasoning: str
+
+
+class ExecutionStageSuggestionOut(BaseModel):
+    suggested_execution_column: str
+    underlying_stage_key: str
+    reasoning: str
+    confidence: float
+    trigger_source: str
+
+
+class ExecutionDraftOut(BaseModel):
+    kind: str
+    angle_key: str
+    framing: str
+    tone: str
+    cta: str
+    subject: str
+    body: str
+
+
+class MeetingPrepOut(BaseModel):
+    company_summary: str
+    likely_pain_points: list[str]
+    tailored_demo_path: str
+    key_questions: list[str]
+    risks_to_watch: list[str]
+
+
+class ExecutionCardOut(BaseModel):
+    crm_opportunity_id: UUID
+    crm_account_id: UUID | None = None
+    name: str
+    amount: float
+    status: str
+    account_name: str | None = None
+    industry: str | None = None
+    stage_key: str | None = None
+    stage_label: str | None = None
+    win_probability: float | None = None
+    contact_name: str | None = None
+    expected_close_date: date | None = None
+    created_at: datetime
+    last_activity_at: datetime | None = None
+    next_action_description: str | None = None
+    next_action_due: date | None = None
+    next_action_type: str | None = None
+    execution_column_key: str
+    execution_column_label: str
+    personas: list[str] = Field(default_factory=list)
+    pain_hypothesis: str | None = None
+    value_prop: str | None = None
+    demo_angle: str | None = None
+    priority_score: int
+    engagement_summary: str | None = None
+    execution_pressure: str
+    momentum_status: str
+    risk_flags: list[str] = Field(default_factory=list)
+    deal_drift_status: str
+    latest_angle_used: str | None = None
+    latest_objection: str | None = None
+    ranked_next_actions: list[ExecutionRankedActionOut] = Field(default_factory=list)
+    stage_suggestions: list[ExecutionStageSuggestionOut] = Field(default_factory=list)
+    auto_draft_stack: dict = Field(default_factory=dict)
+    execution_state: dict = Field(default_factory=dict)
+    narrative_memory: dict = Field(default_factory=dict)
+
+
+class ExecutionBoardColumnOut(BaseModel):
+    execution_column_key: str
+    execution_column_label: str
+    cards: list[ExecutionCardOut]
+    total_value: float
+    weighted_value: float
+
+
+class ExecutionAlertOut(BaseModel):
+    level: str
+    deal_id: str
+    message: str
+
+
+class ExecutionBoardOut(BaseModel):
+    columns: list[ExecutionBoardColumnOut]
+    total_pipeline: float
+    weighted_pipeline: float
+    today_queue: list[ExecutionCardOut]
+    critical_deals: list[ExecutionCardOut]
+    alerts: list[ExecutionAlertOut]
+
+
+class ExecutionDetailOut(BaseModel):
+    card: ExecutionCardOut
+    ranked_next_actions: list[ExecutionRankedActionOut]
+    stage_suggestions: list[ExecutionStageSuggestionOut]
+    auto_draft_stack: dict
+
+
+class DailyExecutionActionOut(BaseModel):
+    deal_id: UUID
+    company_name: str | None = None
+    execution_pressure: str
+    next_actions: list[ExecutionRankedActionOut]
+    drafts: dict
+
+
+class DailyExecutionBriefOut(BaseModel):
+    generated_at: str
+    top_deals: list[ExecutionCardOut]
+    actions: list[DailyExecutionActionOut]
+    critical_count: int
+
+
+class SimulateActionRequest(BaseModel):
+    action: str
+
+
+class SimulateActionOut(BaseModel):
+    audit_id: str | None = None
+    action: str
+    expected_outcome: str
+    reasoning: str
+    deal_name: str
+
+
+class ExecutionCommandRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    command: str
+    confirm: bool = False
+
+
+class ExecutionCommandResult(BaseModel):
+    intent: str
+    requires_confirmation: bool
+    audit_id: str | None = None
+    result: dict | list
+
+
 class AdvanceStageRequest(BaseModel):
     env_id: str
     business_id: UUID

@@ -14,13 +14,14 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import {
-  fetchPipelineKanban,
-  fetchNextActions,
+  fetchExecutionBoard,
   advanceOpportunityStage,
-  type NextAction,
-  type PipelineKanbanResult,
-  type PipelineKanbanColumn,
-  type PipelineKanbanCard,
+  fetchSchemaHealth,
+  runExecutionCommand,
+  type ExecutionBoard,
+  type ExecutionBoardColumn,
+  type ExecutionCard,
+  type SchemaHealth,
 } from "@/lib/cro-api";
 import { TodayPanel } from "@/components/consulting/TodayPanel";
 import { PipelineActionBar } from "@/components/consulting/PipelineActionBar";
@@ -67,11 +68,108 @@ function formatError(err: unknown): string {
   return msg || "Consulting API unreachable. Backend service is not available.";
 }
 
+function mapExecutionColumnToStage(columnKey: string): string {
+  const mapping: Record<string, string> = {
+    target_identified: "identified",
+    outreach_drafted: "identified",
+    outreach_sent: "contacted",
+    engaged: "engaged",
+    discovery_scheduled: "meeting",
+    demo_completed: "qualified",
+    proposal_sent: "proposal",
+    negotiation: "proposal",
+    closed_won: "closed_won",
+    closed_lost: "closed_lost",
+  };
+  return mapping[columnKey] || columnKey;
+}
+
+function isSchemaError(msg: string | null): boolean {
+  if (!msg) return false;
+  return msg.includes("schema not migrated") || msg.includes("SCHEMA_NOT_MIGRATED");
+}
+
+function SchemaErrorBanner({ envId, onRetry }: { envId: string; onRetry: () => void }) {
+  const [health, setHealth] = useState<SchemaHealth | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [checked, setChecked] = useState<string | null>(null);
+
+  const checkHealth = useCallback(async () => {
+    setLoading(true);
+    try {
+      const h = await fetchSchemaHealth();
+      setHealth(h);
+      setChecked(new Date().toLocaleTimeString());
+    } catch {
+      setHealth(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { checkHealth(); }, [checkHealth]);
+
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-amber-400">
+            Consulting environment not initialized
+          </h3>
+          <p className="text-xs text-bm-muted2 mt-1">
+            Required database migrations have not been applied. The consulting module cannot load until the schema is ready.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => { checkHealth().then(() => onRetry()); }}
+            disabled={loading}
+            className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
+          >
+            {loading ? "Checking..." : "Retry"}
+          </button>
+        </div>
+      </div>
+
+      {health ? (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`h-2 w-2 rounded-full ${health.schema_ready ? "bg-emerald-500" : "bg-red-500"}`} />
+            <span className="text-bm-text">
+              Schema: {health.total_found}/{health.total_required} tables present
+            </span>
+            {checked ? (
+              <span className="text-bm-muted2 ml-auto">
+                Last check: {checked}
+              </span>
+            ) : null}
+          </div>
+          {health.migrations_needed.length > 0 ? (
+            <div className="rounded-lg bg-bm-surface/20 border border-bm-border/30 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2 mb-1">
+                Missing Migrations
+              </p>
+              <ul className="space-y-0.5">
+                {health.migrations_needed.map((m, i) => (
+                  <li key={i} className="text-xs text-red-400/80 font-mono">{m}</li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-bm-muted2 mt-2">
+                Run: <code className="text-bm-accent/80">make db:migrate</code> or <code className="text-bm-accent/80">cd repo-b && node db/schema/apply.js</code>
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DraggableCard({
   card,
   onSelect,
 }: {
-  card: PipelineKanbanCard;
+  card: ExecutionCard;
   onSelect: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -145,6 +243,13 @@ function DraggableCard({
               </span>
             ) : null}
           </div>
+          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-bm-muted2">
+            <span className={card.execution_pressure === "critical" ? "text-red-400" : card.execution_pressure === "high" ? "text-orange-400" : ""}>
+              {card.execution_pressure}
+            </span>
+            <span>{card.deal_drift_status}</span>
+            {card.latest_angle_used ? <span>{card.latest_angle_used}</span> : null}
+          </div>
         </div>
       </div>
     </div>
@@ -155,12 +260,12 @@ function DroppableColumn({
   column,
   onSelectCard,
 }: {
-  column: PipelineKanbanColumn;
+  column: ExecutionBoardColumn;
   onSelectCard: (id: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `column-${column.stage_key}`,
-    data: { stageKey: column.stage_key },
+    id: `column-${column.execution_column_key}`,
+    data: { stageKey: column.execution_column_key },
   });
 
   return (
@@ -172,7 +277,7 @@ function DroppableColumn({
     >
       <div className="flex items-center justify-between mb-2 px-1">
         <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-bm-muted2">
-          {column.stage_label}
+          {column.execution_column_label}
         </h3>
         <span className="text-xs text-bm-muted">
           {fmtCurrency(column.weighted_value)} wt
@@ -201,7 +306,7 @@ function DroppableColumn({
   );
 }
 
-function CardOverlay({ card }: { card: PipelineKanbanCard }) {
+function CardOverlay({ card }: { card: ExecutionCard }) {
   return (
     <div className="w-[260px]">
       <div className="rounded-lg border border-bm-accent/40 bg-bm-surface/60 shadow-lg px-3 py-2.5">
@@ -226,12 +331,15 @@ export default function PipelinePage({
     loading: contextLoading,
     ready,
   } = useConsultingEnv();
-  const [kanban, setKanban] = useState<PipelineKanbanResult | null>(null);
+  const [kanban, setKanban] = useState<ExecutionBoard | null>(null);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [activeCard, setActiveCard] = useState<PipelineKanbanCard | null>(null);
+  const [activeCard, setActiveCard] = useState<ExecutionCard | null>(null);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [command, setCommand] = useState("");
+  const [commandOutput, setCommandOutput] = useState<string | null>(null);
+  const [commandBusy, setCommandBusy] = useState(false);
   const [closeDialog, setCloseDialog] = useState<{
     opportunityId: string;
     stageKey: string;
@@ -249,7 +357,7 @@ export default function PipelinePage({
     }
     setLoading(true);
     setDataError(null);
-    fetchPipelineKanban(params.envId, businessId)
+    fetchExecutionBoard(params.envId, businessId)
       .then((result) => {
         setKanban(result);
       })
@@ -268,23 +376,13 @@ export default function PipelinePage({
   const allCards = useMemo(() => {
     if (!kanban) return [];
     return kanban.columns
-      .filter((c) => !["closed_won", "closed_lost"].includes(c.stage_key))
+      .filter((c) => !["closed_won", "closed_lost"].includes(c.execution_column_key))
       .flatMap((c) => c.cards);
   }, [kanban]);
 
-  // Compute action metrics
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayActions = useMemo(
-    () => allCards.filter((c) => c.next_action_due && c.next_action_due <= todayStr),
-    [allCards, todayStr],
-  );
+  const todayActions = useMemo(() => kanban?.today_queue ?? [], [kanban]);
   const staleCards = useMemo(
-    () => {
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-      const cutoff = threeDaysAgo.toISOString();
-      return allCards.filter((c) => !c.last_activity_at || c.last_activity_at < cutoff);
-    },
+    () => allCards.filter((c) => c.risk_flags.includes("stalled_7d") || c.risk_flags.includes("inactive_3d")),
     [allCards],
   );
   const noActionCards = useMemo(
@@ -297,7 +395,7 @@ export default function PipelinePage({
   );
 
   function handleDragStart(event: DragStartEvent) {
-    const card = event.active.data.current?.card as PipelineKanbanCard | undefined;
+    const card = event.active.data.current?.card as ExecutionCard | undefined;
     if (card) setActiveCard(card);
   }
 
@@ -315,7 +413,7 @@ export default function PipelinePage({
     const currentColumn = kanban?.columns.find((col) =>
       col.cards.some((c) => c.crm_opportunity_id === oppId),
     );
-    if (!currentColumn || currentColumn.stage_key === targetStageKey) return;
+    if (!currentColumn || currentColumn.execution_column_key === targetStageKey) return;
 
     // Block stage movement if card has no next action — open side panel instead
     const draggedCard = currentColumn.cards.find((c) => c.crm_opportunity_id === oppId);
@@ -336,7 +434,7 @@ export default function PipelinePage({
         env_id: params.envId,
         business_id: businessId,
         opportunity_id: oppId,
-        to_stage_key: targetStageKey,
+        to_stage_key: mapExecutionColumnToStage(targetStageKey),
       });
       loadData();
     } catch (err) {
@@ -352,7 +450,7 @@ export default function PipelinePage({
         env_id: params.envId,
         business_id: businessId,
         opportunity_id: closeDialog.opportunityId,
-        to_stage_key: closeDialog.stageKey,
+        to_stage_key: mapExecutionColumnToStage(closeDialog.stageKey),
         close_reason: closeReason || undefined,
       });
       setCloseDialog(null);
@@ -367,9 +465,33 @@ export default function PipelinePage({
     setSelectedDealId(id);
   }
 
-  function handleMarkDone(cardId: string) {
+  function handleMarkDone(_cardId: string) {
     // Reload data to reflect completion
     loadData();
+  }
+
+  async function handleRunCommand(confirm = false) {
+    if (!businessId || !command.trim()) return;
+    setCommandBusy(true);
+    setAdvanceError(null);
+    try {
+      const result = await runExecutionCommand({
+        env_id: params.envId,
+        business_id: businessId,
+        command,
+        confirm,
+      });
+      if (result.requires_confirmation) {
+        setCommandOutput(`Confirm move: ${JSON.stringify(result.result)}`);
+      } else {
+        setCommandOutput(JSON.stringify(result.result, null, 2));
+        loadData();
+      }
+    } catch (err) {
+      setAdvanceError(err instanceof Error ? err.message : "Command failed");
+    } finally {
+      setCommandBusy(false);
+    }
   }
 
   const bannerMessage = contextError
@@ -378,8 +500,7 @@ export default function PipelinePage({
       : contextError
     : dataError;
   const isLoading = contextLoading || (ready && loading);
-  const openDeals =
-    kanban?.columns.reduce((total, column) => total + column.cards.length, 0) ?? 0;
+  const openDeals = allCards.length;
 
   if (isLoading) {
     return (
@@ -397,9 +518,13 @@ export default function PipelinePage({
   return (
     <div className="space-y-4">
       {bannerMessage ? (
-        <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
-          {bannerMessage}
-        </div>
+        isSchemaError(bannerMessage) ? (
+          <SchemaErrorBanner envId={params.envId} onRetry={loadData} />
+        ) : (
+          <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
+            {bannerMessage}
+          </div>
+        )
       ) : null}
 
       {advanceError ? (
@@ -408,6 +533,34 @@ export default function PipelinePage({
           <button onClick={() => setAdvanceError(null)} className="text-red-400/60 hover:text-red-400 ml-2 text-xs">dismiss</button>
         </div>
       ) : null}
+
+      {kanban?.critical_deals.length ? (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {kanban.critical_deals.length} critical deal{kanban.critical_deals.length !== 1 ? "s" : ""} pinned until cleared.
+        </div>
+      ) : null}
+
+      <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-4 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <input
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder='Try: "move Baptist to engaged" or "what should I do today"'
+            className="flex-1 rounded-lg border border-bm-border bg-bm-bg px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted2"
+          />
+          <div className="flex gap-2">
+            <button onClick={() => void handleRunCommand(false)} disabled={commandBusy} className="rounded-lg border border-bm-border px-3 py-2 text-xs font-medium text-bm-text hover:bg-bm-surface/30 disabled:opacity-50">
+              {commandBusy ? "Running..." : "Run Command"}
+            </button>
+            <button onClick={() => void handleRunCommand(true)} disabled={commandBusy} className="rounded-lg border border-bm-accent/40 px-3 py-2 text-xs font-medium text-bm-accent hover:bg-bm-accent/10 disabled:opacity-50">
+              Confirm
+            </button>
+          </div>
+        </div>
+        {commandOutput ? (
+          <pre className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-bm-bg/70 px-3 py-2 text-[11px] text-bm-muted2">{commandOutput}</pre>
+        ) : null}
+      </div>
 
       {/* TODAY PANEL — What do I do RIGHT NOW? */}
       <TodayPanel
@@ -424,6 +577,7 @@ export default function PipelinePage({
       <PipelineActionBar
         todayCount={todayActions.length}
         staleCount={staleCards.length}
+        criticalCount={kanban?.critical_deals.length ?? 0}
         noActionCount={noActionCards.length}
         revenueAtRisk={revenueAtRisk}
         totalPipeline={kanban?.total_pipeline ?? 0}
@@ -447,7 +601,7 @@ export default function PipelinePage({
       >
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
           {kanban?.columns.map((col) => (
-            <div key={col.stage_key} className="snap-start">
+            <div key={col.execution_column_key} className="snap-start">
               <DroppableColumn
                 column={col}
                 onSelectCard={handleSelectCard}

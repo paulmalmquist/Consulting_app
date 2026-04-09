@@ -547,3 +547,34 @@ class PdsV2ReportPacketOut(BaseModel):
     title: str
     sections: list[dict[str, Any]] = Field(default_factory=list)
     narrative: str | None = None
+
+
+class PdsV2ReportExportRunRequest(BaseModel):
+    env_id: str | None = None
+    business_id: UUID | None = None
+    packet_type: str = Field(default="forecast_pack", min_length=3, max_length=80)
+    lens: PdsLens = "market"
+    horizon: PdsHorizon = "Forecast"
+    role_preset: PdsRolePreset = "executive"
+    actor: str | None = None
+    formats: list[Literal["pdf", "xlsx"]] = Field(default_factory=lambda: ["pdf", "xlsx"])
+
+
+class PdsV2ReportExportRunOut(BaseModel):
+    report_run_id: UUID
+    run_id: str
+    packet_type: str
+    title: str
+    status: str
+    source: str
+    period: str
+    lens: PdsLens
+    horizon: PdsHorizon
+    role_preset: PdsRolePreset
+    available_formats: list[Literal["pdf", "xlsx"]] = Field(default_factory=list)
+    generated_at: datetime
+    created_at: datetime
+
+
+class PdsV2ReportExportRunListOut(BaseModel):
+    runs: list[PdsV2ReportExportRunOut] = Field(default_factory=list)

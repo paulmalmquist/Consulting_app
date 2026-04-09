@@ -49,15 +49,19 @@ def _safe_dumps(data: object) -> str:
 
 
 SUGGESTED_QUESTIONS = [
-    "What's our firm-wide utilization this quarter?",
-    "Show revenue trend, budget vs actual",
-    "Which accounts have declining NPS?",
-    "Compare regional performance",
-    "What's our pipeline coverage ratio?",
-    "Show me the bench by region",
-    "Top accounts by revenue and satisfaction",
-    "Technology adoption rates across tools",
+    "Why is this project over budget?",
+    "What are the top risks?",
+    "What should we do?",
+    "Generate report",
 ]
+
+
+ALLOWED_PREFIXES = tuple(question.lower() for question in SUGGESTED_QUESTIONS)
+
+
+def _is_allowed_demo_prompt(text: str) -> bool:
+    normalized = text.strip().lower()
+    return any(normalized.startswith(prefix) for prefix in ALLOWED_PREFIXES)
 
 
 def _sse_text(text: str) -> str:
@@ -81,6 +85,15 @@ async def _stream_chat(req: ChatRequest):
 
     if not user_message:
         yield _sse_text("Please ask a question about your PDS data.")
+        return
+
+    if not _is_allowed_demo_prompt(user_message):
+        allowed = "\n".join(f"- {question}" for question in SUGGESTED_QUESTIONS)
+        yield _sse_text(
+            "This flagship demo is locked to four command-safe prompts:\n\n"
+            f"{allowed}\n\n"
+            "Choose one of those prompts so the answer stays deterministic and audit-ready."
+        )
         return
 
     yield _sse_text("Analyzing your question...\n\n")

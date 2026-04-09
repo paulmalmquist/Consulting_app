@@ -655,6 +655,54 @@ def test_context_and_command_center_routes(client, monkeypatch, repe_log_context
     assert body["delivery_risk"][0]["severity"] == "red"
 
 
+def test_command_center_route_survives_pipeline_seed_failure(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+    payload = _command_center_payload(env_id, business_id)
+
+    monkeypatch.setattr(pds_v2_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(
+        pds_v2_routes.enterprise_svc,
+        "_fetch_environment",
+        lambda _env_id: {
+            "env_id": env_id,
+            "industry": "pds_command",
+            "industry_type": "pds_command",
+            "workspace_template_key": "pds_enterprise",
+        },
+    )
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_ensure_workspace_lazy", lambda **_: None)
+
+    def _raise_pipeline_seed_failure(**_):
+        raise RuntimeError("demo pipeline seed failed")
+
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_ensure_pipeline_demo_data", _raise_pipeline_seed_failure)
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_performance_table", lambda **_: payload["performance_table"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_delivery_risk", lambda **_: payload["delivery_risk"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_resource_health", lambda **_: payload["resource_health"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_timecard_health", lambda **_: payload["timecard_health"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_forecast", lambda **_: payload["forecast_points"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_satisfaction", lambda **_: payload["satisfaction"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_closeout", lambda **_: payload["closeout"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "get_executive_briefing", lambda **_: payload["briefing"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_build_intervention_queue", lambda **_: payload["intervention_queue"])
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_build_map_summary", lambda **_: payload["map_summary"])
+
+    command_center_resp = client.get(
+        f"/api/pds/v2/command-center?env_id={env_id}&business_id={business_id}&lens=market&horizon=YTD&role_preset=executive",
+        headers=repe_log_context["headers"],
+    )
+    _assert_headers(command_center_resp, repe_log_context)
+    assert command_center_resp.status_code == 200
+
+    body = command_center_resp.json()
+    assert body["workspace_template_key"] == "pds_enterprise"
+    assert body["performance_table"]["rows"][0]["entity_label"] == "South Florida"
+    assert body["pipeline_summary"]["active_deals"] == 0
+    assert body["pipeline_summary"]["overdue_close_count"] == 0
+    assert body["pipeline_summary"]["top_deal_name"] is None
+
+
 def test_report_packet_route(client, monkeypatch, repe_log_context):
     env_id = str(uuid4())
     business_id = str(uuid4())
@@ -688,6 +736,101 @@ def test_report_packet_route(client, monkeypatch, repe_log_context):
     assert resp.status_code == 200
     assert resp.json()["packet_type"] == "forecast_pack"
     assert resp.json()["sections"][0]["key"] == "headline_metrics"
+
+
+def test_report_export_run_routes(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+    report_run_id = str(uuid4())
+
+    monkeypatch.setattr(pds_v2_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(
+        pds_v2_routes.enterprise_svc,
+        "create_report_export_run",
+        lambda **_: {
+            "report_run_id": report_run_id,
+            "run_id": "pds_v2_export_20260408120000",
+            "packet_type": "forecast_pack",
+            "title": "Forecast Pack - Market / Forecast",
+            "status": "completed",
+            "source": "pds_v2_export",
+            "period": "Forecast",
+            "lens": "market",
+            "horizon": "Forecast",
+            "role_preset": "executive",
+            "available_formats": ["pdf", "xlsx"],
+            "generated_at": datetime(2026, 4, 8, 12, 0, 0),
+            "created_at": datetime(2026, 4, 8, 12, 1, 0),
+        },
+    )
+    monkeypatch.setattr(
+        pds_v2_routes.enterprise_svc,
+        "list_report_export_runs",
+        lambda **_: [
+            {
+                "report_run_id": report_run_id,
+                "run_id": "pds_v2_export_20260408120000",
+                "packet_type": "forecast_pack",
+                "title": "Forecast Pack - Market / Forecast",
+                "status": "completed",
+                "source": "pds_v2_export",
+                "period": "Forecast",
+                "lens": "market",
+                "horizon": "Forecast",
+                "role_preset": "executive",
+                "available_formats": ["pdf", "xlsx"],
+                "generated_at": datetime(2026, 4, 8, 12, 0, 0),
+                "created_at": datetime(2026, 4, 8, 12, 1, 0),
+            }
+        ],
+    )
+
+    create_resp = client.post(
+        "/api/pds/v2/reports/export/runs",
+        headers=repe_log_context["headers"],
+        json={
+            "env_id": env_id,
+            "business_id": business_id,
+            "packet_type": "forecast_pack",
+            "lens": "market",
+            "horizon": "Forecast",
+            "role_preset": "executive",
+            "formats": ["pdf", "xlsx"],
+        },
+    )
+    _assert_headers(create_resp, repe_log_context)
+    assert create_resp.status_code == 200
+    assert create_resp.json()["available_formats"] == ["pdf", "xlsx"]
+
+    list_resp = client.get(
+        f"/api/pds/v2/reports/export/runs?env_id={env_id}&business_id={business_id}&packet_type=forecast_pack",
+        headers=repe_log_context["headers"],
+    )
+    _assert_headers(list_resp, repe_log_context)
+    assert list_resp.status_code == 200
+    assert list_resp.json()["runs"][0]["report_run_id"] == report_run_id
+
+
+def test_report_export_download_route(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+    report_run_id = str(uuid4())
+
+    monkeypatch.setattr(pds_v2_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(
+        pds_v2_routes.enterprise_svc,
+        "render_report_export",
+        lambda **_: (b"%PDF-1.4 test", "forecast_pack_1234abcd.pdf", "application/pdf"),
+    )
+
+    resp = client.get(
+        f"/api/pds/v2/reports/export/runs/{report_run_id}/download?env_id={env_id}&business_id={business_id}&format=pdf",
+        headers=repe_log_context["headers"],
+    )
+    _assert_headers(resp, repe_log_context)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert 'attachment; filename="forecast_pack_1234abcd.pdf"' == resp.headers["content-disposition"]
 
 
 def test_account_lens_command_center_and_preview_routes(client, monkeypatch, repe_log_context):
@@ -812,3 +955,43 @@ def test_pipeline_workspace_and_deal_routes(client, monkeypatch, repe_log_contex
     _assert_headers(update_resp, repe_log_context)
     assert update_resp.status_code == 200
     assert update_resp.json()["deal"]["stage"] == "negotiation"
+
+
+def test_business_lines_route_returns_empty_when_table_missing(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+
+    monkeypatch.setattr(pds_v2_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_ensure_workspace_lazy", lambda **_: None)
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_table_exists", lambda table_name: table_name != "pds_business_lines")
+
+    resp = client.get(
+        f"/api/pds/v2/business-lines?env_id={env_id}&business_id={business_id}",
+        headers=repe_log_context["headers"],
+    )
+
+    _assert_headers(resp, repe_log_context)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_leader_coverage_route_returns_empty_when_optional_tables_missing(client, monkeypatch, repe_log_context):
+    env_id = str(uuid4())
+    business_id = str(uuid4())
+
+    monkeypatch.setattr(pds_v2_routes, "_resolve_context", _resolver(env_id, business_id))
+    monkeypatch.setattr(pds_v2_routes.enterprise_svc, "_ensure_workspace_lazy", lambda **_: None)
+    monkeypatch.setattr(
+        pds_v2_routes.enterprise_svc,
+        "_table_exists",
+        lambda table_name: table_name not in {"pds_leader_coverage", "pds_business_lines"},
+    )
+
+    resp = client.get(
+        f"/api/pds/v2/leader-coverage?env_id={env_id}&business_id={business_id}",
+        headers=repe_log_context["headers"],
+    )
+
+    _assert_headers(resp, repe_log_context)
+    assert resp.status_code == 200
+    assert resp.json() == []

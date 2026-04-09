@@ -38,10 +38,11 @@ type HeatmapRow = {
 };
 
 type CapacityDemandRow = {
-  period: string;
-  supply: number;
-  demand: number;
-  gap: number;
+  month: string;
+  supply_hours: number;
+  demand_hours: number;
+  gap_hours: number;
+  gap_pct: number;
 };
 
 /* ---------- component ---------- */
@@ -67,15 +68,37 @@ export default function PdsResourcesPage() {
         business_id: businessId ?? undefined,
       };
 
-      const [hmRes, cdRes] = await Promise.all([
-        bosFetch<{ kpi: KpiData; months: string[]; rows: HeatmapRow[] }>("/api/pds/v2/utilization/heatmap", { params }),
-        bosFetch<{ rows: CapacityDemandRow[] }>("/api/pds/v2/utilization/capacity-demand", { params }),
+      const [summary, heatmapPayload, benchPayload, capacityPayload] = await Promise.all([
+        bosFetch<{ summary: Array<{ utilization_pct?: number }> }>("/api/pds/v2/utilization/summary", { params }),
+        bosFetch<{ heatmap: Array<{ employee_id: string; employee_name: string; role_level: string; period: string; utilization_pct: number }> }>("/api/pds/v2/utilization/heatmap", { params }),
+        bosFetch<{ bench: Array<Record<string, unknown>> }>("/api/pds/v2/utilization/bench", { params }),
+        bosFetch<{ forecast: CapacityDemandRow[] }>("/api/pds/v2/utilization/capacity-demand", { params }),
       ]);
 
-      setKpi(hmRes.kpi);
-      setHeatmap(hmRes.rows ?? []);
-      setHeatmapMonths(hmRes.months ?? []);
-      setCapacityDemand(cdRes.rows ?? []);
+      const summaryRows = summary.summary ?? [];
+      const latestSummary = summaryRows[summaryRows.length - 1];
+      const heatmapCells = heatmapPayload.heatmap ?? [];
+      const months = Array.from(new Set(heatmapCells.map((row) => String(row.period).slice(0, 7)))).sort();
+      const byEmployee = new Map<string, HeatmapRow>();
+      for (const cell of heatmapCells) {
+        const monthKey = String(cell.period).slice(0, 7);
+        const existing = byEmployee.get(cell.employee_id) ?? {
+          employee_id: cell.employee_id,
+          employee_name: cell.employee_name,
+          role: cell.role_level,
+          months: {},
+        };
+        existing.months[monthKey] = Math.round(Number(cell.utilization_pct ?? 0));
+        byEmployee.set(cell.employee_id, existing);
+      }
+
+      setKpi({
+        firm_utilization_pct: Number(latestSummary?.utilization_pct ?? 0),
+        bench_count: (benchPayload.bench ?? []).length,
+      });
+      setHeatmap(Array.from(byEmployee.values()));
+      setHeatmapMonths(months);
+      setCapacityDemand(capacityPayload.forecast ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load utilization data");
     } finally {
@@ -226,7 +249,7 @@ export default function PdsResourcesPage() {
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={capacityDemand}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="period" tick={{ fill: "#9ca3af", fontSize: 12 }} />
+              <XAxis dataKey="month" tick={{ fill: "#9ca3af", fontSize: 12 }} />
               <YAxis tick={{ fill: "#9ca3af", fontSize: 12 }} />
               <Tooltip
                 contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
@@ -235,8 +258,8 @@ export default function PdsResourcesPage() {
               <ReferenceLine y={0} stroke="#6b7280" />
               <Area
                 type="monotone"
-                dataKey="supply"
-                name="Supply (FTE)"
+                dataKey="supply_hours"
+                name="Supply Hours"
                 stroke="#3b82f6"
                 fill="#3b82f6"
                 fillOpacity={0.15}
@@ -244,8 +267,8 @@ export default function PdsResourcesPage() {
               />
               <Area
                 type="monotone"
-                dataKey="demand"
-                name="Demand (FTE)"
+                dataKey="demand_hours"
+                name="Demand Hours"
                 stroke="#f59e0b"
                 fill="#f59e0b"
                 fillOpacity={0.15}
@@ -253,8 +276,8 @@ export default function PdsResourcesPage() {
               />
               <Area
                 type="monotone"
-                dataKey="gap"
-                name="Gap"
+                dataKey="gap_hours"
+                name="Gap Hours"
                 stroke="#ef4444"
                 fill="#ef4444"
                 fillOpacity={0.1}

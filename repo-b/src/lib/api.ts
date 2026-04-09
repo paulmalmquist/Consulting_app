@@ -65,7 +65,14 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
       const payload = await response.json();
       debugBody = payload;
       const raw = payload.message || payload.detail || message;
-      message = typeof raw === "string" ? raw : JSON.stringify(raw);
+      if (typeof raw === "string") {
+        message = raw;
+      } else if (raw && typeof raw === "object") {
+        // FastAPI returns structured error objects like {error_code, message, detail}
+        message = raw.message || raw.detail || JSON.stringify(raw);
+      } else {
+        message = String(raw);
+      }
     } catch {
       try {
         const snippet = (await responseClone.text()).slice(0, 220);

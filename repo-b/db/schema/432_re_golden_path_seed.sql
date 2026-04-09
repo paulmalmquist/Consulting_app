@@ -89,11 +89,20 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Guard: skip if repe_deal doesn't have the expected columns yet
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'repe_deal' AND column_name = 'acquisition_date'
+  ) THEN
+    RAISE NOTICE '432: repe_deal.acquisition_date not present, skipping golden-path seed';
+    RETURN;
+  END IF;
+
   -- ═══════════════════════════════════════════════════════════════
   -- I. DEAL (investment)
   -- ═══════════════════════════════════════════════════════════════
   INSERT INTO repe_deal (
-    deal_id, fund_id, name, deal_type, status,
+    deal_id, fund_id, name, deal_type, stage,
     committed_capital, invested_capital, realized_distributions,
     acquisition_date
   )

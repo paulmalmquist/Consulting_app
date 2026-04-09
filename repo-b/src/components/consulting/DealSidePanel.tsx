@@ -3,19 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import {
-  fetchOpportunityDetail,
-  fetchOpportunityContacts,
-  fetchOpportunityStageHistory,
-  fetchActivities,
-  fetchNextActions,
   completeNextAction,
-  type OpportunityDetail,
-  type AccountContact,
-  type StageHistoryEntry,
+  draftOpportunityOutreach,
+  fetchActivities,
+  fetchExecutionDetail,
+  fetchNextActions,
+  fetchOpportunityDetail,
+  generateOpportunityFollowups,
+  generateOpportunityMeetingPrep,
+  simulateOpportunityAction,
   type Activity,
+  type ExecutionDetail,
   type NextAction,
+  type OpportunityDetail,
 } from "@/lib/cro-api";
-import { WinstonAssistPanel } from "@/components/consulting/WinstonAssistPanel";
 
 function fmtCurrency(raw: number | string | null | undefined): string {
   const n = typeof raw === "string" ? parseFloat(raw) : raw;
@@ -25,20 +26,7 @@ function fmtCurrency(raw: number | string | null | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
-function relativeTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const days = Math.floor(diffMs / 86_400_000);
-  if (days < 0) return "future";
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
-type Tab = "summary" | "contacts" | "activity" | "assist";
+type Tab = "summary" | "activity" | "execution" | "drafts" | "prep" | "simulate";
 
 export function DealSidePanel({
   dealId,
@@ -53,50 +41,45 @@ export function DealSidePanel({
   onClose: () => void;
   onDataChange: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("summary");
+  const [tab, setTab] = useState<Tab>("execution");
   const [deal, setDeal] = useState<OpportunityDetail | null>(null);
-  const [contacts, setContacts] = useState<AccountContact[]>([]);
-  const [history, setHistory] = useState<StageHistoryEntry[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
+  const [execution, setExecution] = useState<ExecutionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [simulationAction, setSimulationAction] = useState("send follow-up");
+  const [simulationResult, setSimulationResult] = useState<{ expected_outcome: string; reasoning: string } | null>(null);
 
   const loadDeal = useCallback(async () => {
     if (!dealId || !businessId) return;
     setLoading(true);
     setError(null);
     try {
-      const results = await Promise.allSettled([
+      const [dealRes, activityRes, actionRes, executionRes] = await Promise.all([
         fetchOpportunityDetail(dealId, envId, businessId),
-        fetchOpportunityContacts(dealId, envId, businessId),
-        fetchOpportunityStageHistory(dealId, envId, businessId),
         fetchActivities(envId, businessId, { opportunity_id: dealId, limit: 20 }),
         fetchNextActions(envId, businessId),
+        fetchExecutionDetail(dealId, envId, businessId),
       ]);
-      if (results[0].status === "fulfilled") setDeal(results[0].value);
-      else throw results[0].reason;
-      if (results[1].status === "fulfilled") setContacts(results[1].value);
-      if (results[2].status === "fulfilled") setHistory(results[2].value);
-      if (results[3].status === "fulfilled") setActivities(results[3].value);
-      if (results[4].status === "fulfilled") {
-        const oppActions = results[4].value.filter(
-          (a) => a.entity_id === dealId && (a.status === "pending" || a.status === "in_progress"),
-        );
-        setNextActions(oppActions);
-      }
+      setDeal(dealRes);
+      setActivities(activityRes);
+      setNextActions(
+        actionRes.filter((a) => a.entity_id === dealId && (a.status === "pending" || a.status === "in_progress")),
+      );
+      setExecution(executionRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load deal");
     } finally {
       setLoading(false);
     }
-  }, [dealId, envId, businessId]);
+  }, [businessId, dealId, envId]);
 
   useEffect(() => {
-    loadDeal();
+    void loadDeal();
   }, [loadDeal]);
 
-  // Close on escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -108,258 +91,267 @@ export function DealSidePanel({
   async function handleCompleteAction(actionId: string) {
     try {
       await completeNextAction(actionId, businessId);
-      loadDeal();
+      await loadDeal();
       onDataChange();
     } catch {
-      // ignore
+      // keep current error state unchanged
     }
   }
 
-  const tabs: { key: Tab; label: string }[] = [
+  async function runQuickAction(kind: "draft" | "followups" | "prep") {
+    setBusyAction(kind);
+    setError(null);
+    try {
+      if (kind === "draft") {
+        await draftOpportunityOutreach(dealId, { env_id: envId, business_id: businessId });
+      } else if (kind === "followups") {
+        await generateOpportunityFollowups(dealId, { env_id: envId, business_id: businessId });
+      } else {
+        await generateOpportunityMeetingPrep(dealId, { env_id: envId, business_id: businessId });
+      }
+      await loadDeal();
+      onDataChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Quick action failed");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function runSimulation() {
+    setBusyAction("simulate");
+    setError(null);
+    try {
+      const result = await simulateOpportunityAction(dealId, envId, businessId, { action: simulationAction });
+      setSimulationResult({ expected_outcome: result.expected_outcome, reasoning: result.reasoning });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Simulation failed");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const tabs: Array<{ key: Tab; label: string }> = [
     { key: "summary", label: "Summary" },
-    { key: "contacts", label: "Contacts" },
     { key: "activity", label: "Activity" },
-    { key: "assist", label: "Assist" },
+    { key: "execution", label: "Execution" },
+    { key: "drafts", label: "Drafts" },
+    { key: "prep", label: "Prep" },
+    { key: "simulate", label: "Simulate" },
   ];
+
+  const draftStack = execution?.auto_draft_stack ?? {};
+  const initialDraft = draftStack.initial_outreach as { subject?: string; body?: string } | undefined;
+  const followups = (draftStack.followups as Array<{ subject?: string; body?: string; angle_key?: string }> | undefined) ?? [];
+  const prep = draftStack.meeting_prep as {
+    company_summary?: string;
+    likely_pain_points?: string[];
+    tailored_demo_path?: string;
+    key_questions?: string[];
+    risks_to_watch?: string[];
+  } | undefined;
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 h-full w-full md:w-[480px] bg-bm-bg border-l border-bm-border shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-bm-border/50">
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full flex-col overflow-hidden border-l border-bm-border bg-bm-bg shadow-2xl md:w-[560px]">
+        <div className="flex items-center justify-between border-b border-bm-border/50 px-4 py-3">
           <div className="min-w-0 flex-1">
             {loading ? (
-              <div className="h-5 w-40 bg-bm-surface/60 rounded animate-pulse" />
+              <div className="h-5 w-40 animate-pulse rounded bg-bm-surface/60" />
             ) : deal ? (
               <>
-                <h2 className="text-sm font-semibold text-bm-text truncate">
-                  {deal.account_name || "—"}
-                </h2>
-                <p className="text-xs text-bm-muted2 truncate">
-                  {deal.name} · {fmtCurrency(deal.amount)} · {deal.stage_label || deal.stage_key}
+                <h2 className="truncate text-sm font-semibold text-bm-text">{deal.account_name || "—"}</h2>
+                <p className="truncate text-xs text-bm-muted2">
+                  {deal.name} · {fmtCurrency(deal.amount)} · {execution?.card.execution_pressure || "medium"} pressure
                 </p>
               </>
             ) : null}
           </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-bm-muted2 hover:text-bm-text hover:bg-bm-surface/30"
-          >
+          <button onClick={onClose} className="rounded-lg p-1.5 text-bm-muted2 hover:bg-bm-surface/30 hover:text-bm-text">
             <X size={16} />
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b border-bm-border/30 px-4">
-          {tabs.map((t) => (
+          {tabs.map((item) => (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-3 py-2 text-xs font-medium transition-colors border-b-2 ${
-                tab === t.key
-                  ? "border-bm-accent text-bm-text"
-                  : "border-transparent text-bm-muted2 hover:text-bm-text"
+              key={item.key}
+              onClick={() => setTab(item.key)}
+              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+                tab === item.key ? "border-bm-accent text-bm-text" : "border-transparent text-bm-muted2 hover:text-bm-text"
               }`}
             >
-              {t.label}
+              {item.label}
             </button>
           ))}
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 bg-bm-surface/40 rounded animate-pulse" />
-              ))}
+              {[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded bg-bm-surface/40" />)}
             </div>
           ) : error ? (
-            <div className="text-sm text-red-400">{error}</div>
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
           ) : tab === "summary" ? (
-            <SummaryTab deal={deal} nextActions={nextActions} onComplete={handleCompleteAction} />
-          ) : tab === "contacts" ? (
-            <ContactsTab contacts={contacts} />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <MetricBox label="Amount" value={fmtCurrency(deal?.amount)} />
+                <MetricBox label="Stage" value={execution?.card.execution_column_label || deal?.stage_label || "—"} />
+                <MetricBox label="Momentum" value={execution?.card.momentum_status || "—"} />
+                <MetricBox label="Drift" value={execution?.card.deal_drift_status || "—"} />
+              </div>
+              <SectionTitle title="Next Actions" />
+              {nextActions.length === 0 ? (
+                <p className="text-xs text-red-400">No next action defined. Use Execution to generate one.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {nextActions.map((action) => (
+                    <div key={action.id} className="flex items-center gap-2 rounded-lg border border-bm-border/40 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-bm-text">{action.description}</p>
+                        <p className="text-[10px] text-bm-muted2">{action.action_type} · due {action.due_date} · {action.priority}</p>
+                      </div>
+                      <button onClick={() => void handleCompleteAction(action.id)} className="rounded px-2 py-0.5 text-[10px] font-medium text-emerald-400 hover:bg-emerald-400/10">
+                        Done
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : tab === "activity" ? (
-            <ActivityTab activities={activities} history={history} />
-          ) : tab === "assist" ? (
-            <WinstonAssistPanel
-              dealId={dealId}
-              envId={envId}
-              businessId={businessId}
-              stageKey={deal?.stage_key || undefined}
-              onActionApplied={() => { loadDeal(); onDataChange(); }}
-            />
-          ) : null}
+            <div className="space-y-2">
+              {activities.map((item) => (
+                <div key={item.crm_activity_id} className="rounded-lg border border-bm-border/40 px-3 py-2">
+                  <p className="text-xs font-medium text-bm-text">{item.subject || item.activity_type}</p>
+                  <p className="text-[10px] text-bm-muted2">{new Date(item.activity_at).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          ) : tab === "execution" ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <MetricBox label="Pressure" value={execution?.card.execution_pressure || "—"} tone={execution?.card.execution_pressure === "critical" ? "red" : execution?.card.execution_pressure === "high" ? "orange" : undefined} />
+                <MetricBox label="Priority" value={String(execution?.card.priority_score || 0)} />
+              </div>
+              <SectionTitle title="Risk Flags" />
+              <div className="flex flex-wrap gap-2">
+                {(execution?.card.risk_flags || []).map((flag) => (
+                  <span key={flag} className="rounded-full border border-bm-border/50 px-2 py-1 text-[10px] text-bm-muted2">{flag}</span>
+                ))}
+              </div>
+              <SectionTitle title="Next Best Actions" />
+              <div className="space-y-2">
+                {(execution?.ranked_next_actions || []).map((action) => (
+                  <div key={action.action_key} className="rounded-lg border border-bm-border/40 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-bm-text">{action.label}</p>
+                      <span className="text-[10px] uppercase text-bm-muted2">{action.impact}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-bm-muted2">{action.reasoning}</p>
+                  </div>
+                ))}
+              </div>
+              <SectionTitle title="Suggestions" />
+              <div className="space-y-2">
+                {(execution?.stage_suggestions || []).map((suggestion) => (
+                  <div key={suggestion.trigger_source} className="rounded-lg border border-bm-border/40 px-3 py-2">
+                    <p className="text-xs font-medium text-bm-text">{suggestion.suggested_execution_column}</p>
+                    <p className="mt-1 text-[11px] text-bm-muted2">{suggestion.reasoning}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <QuickButton label="Draft Outreach" busy={busyAction === "draft"} onClick={() => void runQuickAction("draft")} />
+                <QuickButton label="Generate Follow-up" busy={busyAction === "followups"} onClick={() => void runQuickAction("followups")} />
+                <QuickButton label="Prep Me" busy={busyAction === "prep"} onClick={() => void runQuickAction("prep")} />
+              </div>
+            </div>
+          ) : tab === "drafts" ? (
+            <div className="space-y-4">
+              <SectionTitle title="Initial Outreach" />
+              <DraftBlock subject={initialDraft?.subject} body={initialDraft?.body} />
+              <SectionTitle title="Follow-up Stack" />
+              {followups.map((draft, index) => (
+                <DraftBlock key={`${draft.angle_key}-${index}`} subject={draft.subject} body={draft.body} label={draft.angle_key} />
+              ))}
+            </div>
+          ) : tab === "prep" ? (
+            <div className="space-y-4">
+              <SectionTitle title="Company Summary" />
+              <p className="text-sm text-bm-text">{prep?.company_summary || "Run Prep Me to generate meeting prep."}</p>
+              <SectionTitle title="Tailored Demo Path" />
+              <p className="text-sm text-bm-text">{prep?.tailored_demo_path || "—"}</p>
+              <SectionTitle title="Key Questions" />
+              <ul className="space-y-1 text-sm text-bm-text">
+                {(prep?.key_questions || []).map((item) => <li key={item}>• {item}</li>)}
+              </ul>
+              <SectionTitle title="Risks To Watch" />
+              <ul className="space-y-1 text-sm text-bm-text">
+                {(prep?.risks_to_watch || []).map((item) => <li key={item}>• {item}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <SectionTitle title="Before / After Simulation" />
+              <select
+                className="w-full rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+                value={simulationAction}
+                onChange={(e) => setSimulationAction(e.target.value)}
+              >
+                <option value="send follow-up">send follow-up</option>
+                <option value="move to engaged">move to engaged</option>
+                <option value="schedule demo">schedule demo</option>
+              </select>
+              <QuickButton label="Run Simulation" busy={busyAction === "simulate"} onClick={() => void runSimulation()} />
+              {simulationResult ? (
+                <div className="rounded-lg border border-bm-border/40 px-3 py-2">
+                  <p className="text-xs font-medium text-bm-text">Expected outcome: {simulationResult.expected_outcome}</p>
+                  <p className="mt-1 text-[11px] text-bm-muted2">{simulationResult.reasoning}</p>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </>
   );
 }
 
-function SummaryTab({
-  deal,
-  nextActions,
-  onComplete,
-}: {
-  deal: OpportunityDetail | null;
-  nextActions: NextAction[];
-  onComplete: (id: string) => void;
-}) {
-  if (!deal) return null;
-
+function QuickButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
   return (
-    <div className="space-y-4">
-      {/* Key metrics */}
-      <div className="grid grid-cols-2 gap-2">
-        <MetricBox label="Amount" value={fmtCurrency(deal.amount)} />
-        <MetricBox label="Stage" value={deal.stage_label || deal.stage_key || "—"} />
-        <MetricBox label="Close date" value={deal.expected_close_date || "—"} />
-        <MetricBox label="Status" value={deal.status} />
-      </div>
-
-      {/* Next Actions */}
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-bm-muted2 mb-2">
-          Next Actions
-        </h3>
-        {nextActions.length === 0 ? (
-          <p className="text-xs text-red-400">No next action defined. Use Assist to generate one.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {nextActions.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 rounded-lg border border-bm-border/40 px-3 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-bm-text truncate">{a.description}</p>
-                  <p className="text-[10px] text-bm-muted2">
-                    {a.action_type} · due {a.due_date} · {a.priority}
-                  </p>
-                </div>
-                <button
-                  onClick={() => onComplete(a.id)}
-                  className="shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-emerald-400 hover:bg-emerald-400/10"
-                >
-                  Done
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Close info */}
-      {deal.status !== "open" ? (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-bm-muted2 mb-2">
-            Close Info
-          </h3>
-          {deal.close_reason ? (
-            <p className="text-xs text-bm-text">{deal.close_reason}</p>
-          ) : null}
-          {deal.close_notes ? (
-            <p className="text-xs text-bm-muted2 mt-1">{deal.close_notes}</p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    <button
+      onClick={onClick}
+      disabled={busy}
+      className="rounded-lg border border-bm-border px-3 py-2 text-xs font-medium text-bm-text hover:bg-bm-surface/30 disabled:opacity-50"
+    >
+      {busy ? "Working..." : label}
+    </button>
   );
 }
 
-function ContactsTab({ contacts }: { contacts: AccountContact[] }) {
-  if (contacts.length === 0) {
-    return <p className="text-xs text-bm-muted2">No contacts found for this deal.</p>;
-  }
-
+function MetricBox({ label, value, tone }: { label: string; value: string; tone?: "red" | "orange" }) {
+  const toneClass = tone === "red" ? "text-red-400" : tone === "orange" ? "text-orange-400" : "text-bm-text";
   return (
-    <div className="space-y-2">
-      {contacts.map((c) => (
-        <div key={c.crm_contact_id} className="rounded-lg border border-bm-border/40 px-3 py-2">
-          <p className="text-sm font-medium text-bm-text">{c.full_name}</p>
-          {c.title ? <p className="text-xs text-bm-muted2">{c.title}</p> : null}
-          <div className="flex flex-wrap gap-3 mt-1.5 text-[11px] text-bm-muted">
-            {c.email ? <span>{c.email}</span> : null}
-            {c.phone ? <span>{c.phone}</span> : null}
-            {c.decision_role ? (
-              <span className="text-bm-accent/80">{c.decision_role}</span>
-            ) : null}
-            {c.last_outreach_at ? (
-              <span>Last outreach: {relativeTime(c.last_outreach_at)}</span>
-            ) : null}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ActivityTab({
-  activities,
-  history,
-}: {
-  activities: Activity[];
-  history: StageHistoryEntry[];
-}) {
-  // Merge activities and stage history into a timeline
-  type TimelineItem =
-    | { type: "activity"; data: Activity; date: string }
-    | { type: "stage"; data: StageHistoryEntry; date: string };
-
-  const items: TimelineItem[] = [
-    ...activities.map((a) => ({
-      type: "activity" as const,
-      data: a,
-      date: a.activity_at || a.created_at,
-    })),
-    ...history.map((h) => ({
-      type: "stage" as const,
-      data: h,
-      date: h.changed_at,
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  if (items.length === 0) {
-    return <p className="text-xs text-bm-muted2">No activity recorded yet.</p>;
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-2 py-1.5 border-b border-bm-border/20 last:border-b-0">
-          <div className="w-1 shrink-0 rounded-full bg-bm-border/40 mt-1" style={{ minHeight: 12 }} />
-          <div className="flex-1 min-w-0">
-            {item.type === "activity" ? (
-              <p className="text-xs text-bm-text">
-                <span className="font-medium">{item.data.activity_type}</span>
-                {item.data.subject ? ` — ${item.data.subject}` : ""}
-              </p>
-            ) : (
-              <p className="text-xs text-bm-text">
-                Stage: {item.data.from_stage_label || "—"} → {item.data.to_stage_label || "—"}
-                {item.data.note ? ` (${item.data.note})` : ""}
-              </p>
-            )}
-            <p className="text-[10px] text-bm-muted2 mt-0.5">
-              {relativeTime(item.date)}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MetricBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-bm-border/30 bg-bm-surface/15 px-3 py-2">
+    <div className="rounded-lg border border-bm-border/40 px-3 py-2">
       <p className="text-[10px] uppercase tracking-wider text-bm-muted2">{label}</p>
-      <p className="text-sm font-semibold text-bm-text mt-0.5">{value}</p>
+      <p className={`mt-1 text-sm font-semibold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return <h3 className="text-xs font-semibold uppercase tracking-wider text-bm-muted2">{title}</h3>;
+}
+
+function DraftBlock({ subject, body, label }: { subject?: string; body?: string; label?: string }) {
+  return (
+    <div className="rounded-lg border border-bm-border/40 px-3 py-2">
+      {label ? <p className="mb-1 text-[10px] uppercase tracking-wider text-bm-muted2">{label}</p> : null}
+      <p className="text-xs font-medium text-bm-text">{subject || "No draft yet"}</p>
+      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-bm-muted2">{body || "Generate drafts to populate this stack."}</pre>
     </div>
   );
 }

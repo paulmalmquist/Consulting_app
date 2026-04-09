@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { bosFetch } from "@/lib/bos-api";
-import { formatCurrency, formatPercent, formatDate } from "@/components/pds-enterprise/pdsEnterprise";
+import { formatCurrency, formatDate } from "@/components/pds-enterprise/pdsEnterprise";
 import {
   BarChart,
   Bar,
@@ -25,18 +25,15 @@ type PipelineStage = {
 };
 
 type PortfolioAccount = {
-  id: string;
+  account_id: string;
   account_name: string;
-  contract_value: number;
-  annual_run_rate: number;
-  renewal_date: string | null;
-  scope_utilization_pct: number;
-  status: "green" | "amber" | "red";
+  annual_contract_value: number;
+  monthly_run_rate: number;
+  ytd_revenue: number;
+  contract_end_date: string | null;
 };
 
 type ActiveTab = "pipeline" | "portfolio";
-
-const STAGE_COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#3b82f6", "#06b6d4", "#22c55e"];
 
 /* ---------- component ---------- */
 
@@ -48,6 +45,7 @@ export default function PdsForecastPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [pipeline, setPipeline] = useState<PipelineStage[]>([]);
+  const [pipelineCoverageRatio, setPipelineCoverageRatio] = useState<number | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioAccount[]>([]);
   const [sortField, setSortField] = useState<keyof PortfolioAccount>("account_name");
   const [sortAsc, setSortAsc] = useState(true);
@@ -63,8 +61,14 @@ export default function PdsForecastPage() {
       };
 
       if (tab === "pipeline") {
-        const res = await bosFetch<{ stages: PipelineStage[] }>("/api/pds/v2/revenue/pipeline", { params });
-        setPipeline(res.stages ?? []);
+        const res = await bosFetch<{ stages: PipelineStage[]; coverage_ratio?: number }>("/api/pds/v2/revenue/pipeline", { params });
+        setPipeline((res.stages ?? []).map((stage) => ({
+          ...stage,
+          count: Number(stage.count ?? 0),
+          weighted_value: Number(stage.weighted_value ?? 0),
+          unweighted_value: Number(stage.unweighted_value ?? 0),
+        })));
+        setPipelineCoverageRatio(res.coverage_ratio ?? null);
       } else {
         const res = await bosFetch<{ accounts: PortfolioAccount[] }>("/api/pds/v2/revenue/portfolio", { params });
         setPortfolio(res.accounts ?? []);
@@ -99,10 +103,12 @@ export default function PdsForecastPage() {
     return sortAsc ? cmp : -cmp;
   });
 
-  const statusColor = (s: string) => {
-    if (s === "green") return "bg-green-500";
-    if (s === "amber") return "bg-yellow-500";
-    return "bg-red-500";
+  const portfolioStatus = (contractEndDate: string | null) => {
+    if (!contractEndDate) return "bg-zinc-500";
+    const daysUntilEnd = Math.round((new Date(contractEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (daysUntilEnd <= 60) return "bg-red-500";
+    if (daysUntilEnd <= 180) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   /* ---------- render ---------- */
@@ -197,6 +203,12 @@ export default function PdsForecastPage() {
                     {formatCurrency(pipeline.reduce((s, r) => s + (r.weighted_value ?? 0), 0))}
                   </span>
                 </div>
+                <div>
+                  <span className="text-zinc-400">Coverage Ratio:</span>{" "}
+                  <span className="font-medium text-zinc-200">
+                    {pipelineCoverageRatio != null ? `${pipelineCoverageRatio.toFixed(2)}x` : "—"}
+                  </span>
+                </div>
               </div>
             </>
           ) : (
@@ -214,14 +226,13 @@ export default function PdsForecastPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-700 text-zinc-400">
-                    {(
+                  {(
                       [
                         ["account_name", "Account"],
-                        ["contract_value", "Contract Value"],
-                        ["annual_run_rate", "Run Rate"],
-                        ["renewal_date", "Renewal"],
-                        ["scope_utilization_pct", "Scope Util."],
-                        ["status", "Status"],
+                        ["annual_contract_value", "Contract Value"],
+                        ["monthly_run_rate", "Monthly Run Rate"],
+                        ["ytd_revenue", "YTD Revenue"],
+                        ["contract_end_date", "Renewal"],
                       ] as [keyof PortfolioAccount, string][]
                     ).map(([field, label]) => (
                       <th
@@ -232,18 +243,19 @@ export default function PdsForecastPage() {
                         {label} {sortField === field ? (sortAsc ? "\u25B2" : "\u25BC") : ""}
                       </th>
                     ))}
+                    <th className="py-2 text-left font-medium text-zinc-400">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedPortfolio.map((acct) => (
-                    <tr key={acct.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                    <tr key={acct.account_id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
                       <td className="py-2 text-zinc-200">{acct.account_name}</td>
-                      <td className="py-2 text-zinc-300">{formatCurrency(acct.contract_value)}</td>
-                      <td className="py-2 text-zinc-300">{formatCurrency(acct.annual_run_rate)}</td>
-                      <td className="py-2 text-zinc-300">{formatDate(acct.renewal_date)}</td>
-                      <td className="py-2 text-zinc-300">{formatPercent(acct.scope_utilization_pct / 100)}</td>
+                      <td className="py-2 text-zinc-300">{formatCurrency(acct.annual_contract_value)}</td>
+                      <td className="py-2 text-zinc-300">{formatCurrency(acct.monthly_run_rate)}</td>
+                      <td className="py-2 text-zinc-300">{formatCurrency(acct.ytd_revenue)}</td>
+                      <td className="py-2 text-zinc-300">{formatDate(acct.contract_end_date)}</td>
                       <td className="py-2">
-                        <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusColor(acct.status)}`} />
+                        <span className={`inline-block h-2.5 w-2.5 rounded-full ${portfolioStatus(acct.contract_end_date)}`} />
                       </td>
                     </tr>
                   ))}

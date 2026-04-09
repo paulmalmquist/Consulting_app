@@ -16,7 +16,7 @@ BEGIN
       s.fund_id,
       'Default Model',
       'Auto-generated default model for existing scenarios',
-      'approved',
+      'draft',
       now(),
       now()
     FROM re_scenario s
@@ -40,7 +40,7 @@ BEGIN
       s.fund_id,
       'Default Model',
       'Auto-generated default model for existing scenarios',
-      'approved',
+      'draft',
       now(),
       now()
     FROM re_scenario s

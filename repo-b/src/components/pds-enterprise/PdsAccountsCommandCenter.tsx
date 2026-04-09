@@ -164,7 +164,7 @@ function AccountPreviewPanel({
   onClose: () => void;
 }) {
   if (!selectedRow && !preview && !loading && !error) {
-    return <EmptyState title="Select an account" body="Choose an account from alerts, rankings, or action items to open its inline preview." />;
+    return <EmptyState title="Select a cost package" body="Choose a cost package from alerts, rankings, or action items to open its inline preview." />;
   }
 
   const accountName = preview?.account_name ?? selectedRow?.account_name ?? "Account";
@@ -183,7 +183,7 @@ function AccountPreviewPanel({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Account Preview</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Cost Breakdown Preview</p>
           <h3 className="text-xl font-semibold text-bm-text">{accountName}</h3>
           <p className="text-sm text-bm-muted2">Owner: {ownerName}</p>
         </div>
@@ -229,7 +229,7 @@ function AccountPreviewPanel({
       {preview ? (
         <>
           <section className="space-y-3 rounded-2xl border border-bm-border/70 bg-bm-surface/18 p-4">
-            <SectionHeader label="Score Breakdown" title="Account Health Composition" subtitle="Composite score out of 100." />
+            <SectionHeader label="Score Breakdown" title="Cost Risk Composition" subtitle="Composite recovery pressure score out of 100." />
             <div className="grid gap-3 sm:grid-cols-2">
               <PreviewMetric label="Revenue Score" value={formatNumber(preview.score_breakdown.revenue_score, 0)} />
               <PreviewMetric label="Staffing Score" value={formatNumber(preview.score_breakdown.staffing_score, 0)} />
@@ -239,7 +239,7 @@ function AccountPreviewPanel({
           </section>
 
           <section className="space-y-3 rounded-2xl border border-bm-border/70 bg-bm-surface/18 p-4">
-            <SectionHeader label="Operating Detail" title="Staffing, Timecards, and Satisfaction" />
+            <SectionHeader label="Operating Detail" title="Variance, staffing, and execution pressure" />
             <div className="grid gap-3 sm:grid-cols-2">
               <PreviewMetric label="Utilization" value={optionalPercent(preview.team_utilization_pct)} />
               <PreviewMetric label="Timecard Compliance" value={optionalPercent(preview.timecard_compliance_pct)} />
@@ -294,7 +294,7 @@ function AccountPreviewPanel({
                 ))}
               </div>
             ) : (
-              <EmptyState title="No project risks surfaced" body="This account does not have an active project watchlist in the latest snapshot." />
+              <EmptyState title="No project risks surfaced" body="This cost package does not have an active project watchlist in the latest snapshot." />
             )}
           </section>
         </>
@@ -496,13 +496,13 @@ export function PdsAccountsCommandCenter() {
   }, [businessId, envId, horizon, selectedAccountId]);
 
   if (!envId) {
-    return <EmptyState title="Environment unavailable" body="The Accounts workspace needs an active environment binding before it can load." />;
+    return <EmptyState title="Environment unavailable" body="The Cost Breakdown workspace needs an active environment binding before it can load." />;
   }
 
   if (loading && !commandCenter) {
     return (
       <div className="rounded-2xl border border-bm-border/70 bg-bm-surface/20 p-4 text-sm text-bm-muted2">
-        Loading Accounts command center...
+        Loading Cost Breakdown workspace...
       </div>
     );
   }
@@ -523,17 +523,17 @@ export function PdsAccountsCommandCenter() {
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-bm-text">Accounts</h1>
+              <h1 className="text-xl font-semibold text-bm-text">Cost Breakdown</h1>
               <span className="rounded-full border border-pds-accent/20 px-2 py-0.5 text-[10px] font-medium text-pds-accentText">
                 PDS Enterprise OS
               </span>
             </div>
             <p className="mt-0.5 text-xs text-bm-muted2">
-              Account health, plan variance, staffing pressure, and intervention paths on one operating surface.
+              Cost pressure, plan variance, staffing pressure, and intervention paths on one operating surface.
             </p>
           </div>
           <div className="rounded-lg border border-bm-border/50 bg-bm-surface/15 px-3 py-2 text-xs text-bm-muted2">
-            The page answers one question: which accounts matter right now, why, and what do we do about them?
+            The page answers one question: where is the money going wrong, why, and what do we do about it?
           </div>
         </div>
       </section>
@@ -556,7 +556,7 @@ export function PdsAccountsCommandCenter() {
               onClick={() => replaceUrlState({ alert: isActive ? null : item.key })}
               className={`rounded-2xl border p-4 text-left transition hover:translate-y-[-1px] hover:border-bm-border ${alertCardClasses(item.tone, isActive)}`}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Account Alert</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Cost Alert</p>
               <p className="mt-2 text-3xl font-semibold text-bm-text">{formatNumber(item.count, 0)}</p>
               <p className="mt-1 text-sm font-medium text-bm-text">{item.label}</p>
               <p className="mt-2 text-sm text-bm-muted2">{item.description || "Filter this page to the flagged accounts."}</p>
@@ -596,9 +596,9 @@ export function PdsAccountsCommandCenter() {
             <section className="space-y-4 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4 xl:col-span-8" data-testid="pds-account-health-overview">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <SectionHeader
-                  label="Account Health Overview"
-                  title="Health distribution and ranked intervention list"
-                  subtitle="Use the distribution chips to focus the page, then select an account to open the preview."
+                  label="Cost Pressure Overview"
+                  title="Distribution and ranked intervention list"
+                  subtitle="Use the distribution chips to focus the page, then select a cost package to open the preview."
                 />
                 <div className="flex flex-wrap gap-1.5">
                   {ACCOUNT_SORT_OPTIONS.map((option) => (
@@ -689,14 +689,14 @@ export function PdsAccountsCommandCenter() {
                   })}
                 </div>
               ) : (
-                <EmptyState title="No accounts match the active filters" body="Clear the current alert or health-band filter to repopulate the health ranking." />
+                <EmptyState title="No cost packages match the active filters" body="Clear the current alert or health-band filter to repopulate the recovery ranking." />
               )}
             </section>
 
             <section className="space-y-4 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4 xl:col-span-4" data-testid="pds-account-action-required">
               <SectionHeader
                 label="Action Required"
-                title="Accounts to act on today"
+                title="Cost packages to act on today"
                 subtitle="Severity first, then impact."
               />
 
@@ -735,7 +735,7 @@ export function PdsAccountsCommandCenter() {
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="space-y-4 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-top-performing-accounts">
-              <SectionHeader label="Top Accounts" title="Top Performing" subtitle="Highest plan attainment, tie-broken by revenue." />
+              <SectionHeader label="Top Cost Packages" title="Best Controlled" subtitle="Highest plan attainment, tie-broken by revenue." />
               {topPerforming.length > 0 ? (
                 <div className="overflow-hidden rounded-2xl border border-bm-border/60">
                   <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.7fr_0.9fr] gap-3 bg-[#101922] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">
@@ -766,7 +766,7 @@ export function PdsAccountsCommandCenter() {
             </section>
 
             <section className="space-y-4 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4" data-testid="pds-most-at-risk-accounts">
-              <SectionHeader label="Top Accounts" title="Most At Risk" subtitle="Lowest health scores and clearest intervention cases." />
+              <SectionHeader label="Top Cost Packages" title="Most At Risk" subtitle="Lowest recovery scores and clearest intervention cases." />
               {mostAtRisk.length > 0 ? (
                 <div className="overflow-hidden rounded-2xl border border-bm-border/60">
                   <div className="grid grid-cols-[minmax(0,1.1fr)_0.6fr_1.2fr_0.9fr] gap-3 bg-[#101922] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-bm-muted2">

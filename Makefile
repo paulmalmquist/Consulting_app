@@ -1,10 +1,11 @@
 # ── Consulting App Makefile ────────────────────────────────────────
 .PHONY: dev dev-bos dev-demo test test-backend test-demo test-frontend test-e2e test-repe-backend test-repe-unit test-repe-e2e test-repe \
         test-live test-dashboard-validation test-dashboard-live test-dashboard-report \
-        lint lint-strict typecheck quality fmt db\:migrate db\:seed db\:dry db\:verify install \
+        lint lint-strict typecheck quality fmt db\:migrate db\:migrate\:prod db\:seed db\:dry db\:verify install \
         bmctl smoke mcp-smoke command-regression public-walloff-smoke \
         orchestration\:install-hooks orchestration\:validate orchestration\:verify-logs \
-        perf\:smoke perf\:baseline perf\:nightly
+        perf\:smoke perf\:baseline perf\:nightly \
+        verify-backend verify-finance verify-api verify-ui verify-ai verify-all
 
 # ── Ports ──────────────────────────────────────────────────────────
 BACKEND_PORT   ?= 8000
@@ -94,6 +95,12 @@ fmt:  ## Format all code
 db\:migrate:  ## Apply DB migrations (backbone + business_os)
 	cd repo-b && NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js
 
+db\:migrate\:prod:  ## Apply DB migrations to production (requires DATABASE_URL)
+	@test -n "$$DATABASE_URL" || (echo "ERROR: DATABASE_URL not set. Export it or source backend/.env first." && exit 1)
+	cd repo-b && NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js
+	cd repo-b && NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js
+	@echo "Production migrations applied and verified."
+
 db\:dry:  ## Dry-run DB migrations
 	cd repo-b && node db/schema/apply.js --dry-run
 
@@ -150,3 +157,22 @@ perf\:baseline: ## Re-run local smoke three times and build baseline medians
 
 perf\:nightly: ## Run full backend query performance matrix + soak profiles
 	./backend/perf/scripts/run_nightly.sh
+
+# ── Verification (Truth Parity) ───────────────────────────────────
+verify-backend:  ## Schema + endpoint contract tests
+	cd backend && python -m pytest tests/test_re_env_portfolio.py tests/test_pds_v2_routes.py -x --tb=short -q
+
+verify-finance:  ## Python metric parity unit tests
+	cd backend && python -m pytest tests/ -k "portfolio or fund_table or query_resolver" -x --tb=short -q
+
+verify-api:  ## Cross-layer SQL vs Python vs API reconciliation
+	python verification/runners/run_spec.py verification/specs/query_resolver.yaml --quarter 2026Q2
+
+verify-ui:  ## Placeholder for Playwright interaction + value extraction tests
+	@echo "Playwright tests not yet configured. Run: npx playwright test"
+
+verify-ai:  ## Placeholder for conversational parity tests
+	@echo "AI verification not yet configured."
+
+verify-all: verify-backend verify-finance verify-api  ## Full verification suite
+	@echo "All verification targets complete."

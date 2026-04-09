@@ -40,6 +40,15 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Guard: skip if repe_deal doesn't have the expected columns yet
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'repe_deal' AND column_name = 'committed_equity'
+  ) THEN
+    RAISE NOTICE '446: repe_deal.committed_equity not present, skipping seed';
+    RETURN;
+  END IF;
+
   -- ════════════════════════════════════════════════════════════════════
   -- 1. DEALS (investments)
   -- ════════════════════════════════════════════════════════════════════

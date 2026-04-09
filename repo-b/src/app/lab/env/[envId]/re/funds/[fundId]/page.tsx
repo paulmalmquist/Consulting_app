@@ -89,6 +89,7 @@ import { DebugFooter } from "@/components/repe/DebugFooter";
 import { FundFootprintMap } from "@/components/repe/fund/FundFootprintMap";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   buildExposureInsights,
   buildFundHealthSummary,
@@ -364,7 +365,7 @@ function NarrativeSectionHeading({
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">{eyebrow}</p>
-        <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">{title}</h2>
+        <h2 className="mt-1 text-[17px] sm:text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">{title}</h2>
       </div>
       {description ? <p className="max-w-2xl text-sm leading-6 text-[#64748B]">{description}</p> : null}
     </div>
@@ -476,43 +477,46 @@ function PortfolioSnapshotRow({
 function FundValueCreationCard({
   data,
   loading,
+  isMobile,
 }: {
   data: ValueCreationPoint[];
   loading: boolean;
+  isMobile: boolean;
 }) {
   return (
-    <div className={`${FUND_PANEL_CLASS} p-5`} data-testid="fund-value-creation">
+    <div className={`${FUND_PANEL_CLASS} p-3 sm:p-5`} data-testid="fund-value-creation">
       <NarrativeSectionHeading
         eyebrow="Value Creation"
         title="Fund Value Creation"
         description="Tracks deployed capital against realized and unrealized value so the fund's progress reads at a glance."
       />
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4">
         {loading ? (
-          <div className="h-[220px] min-w-[640px] md:min-w-0 md:h-[260px] lg:h-[300px] xl:h-[340px]">
+          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
             <OverviewChartSkeleton />
           </div>
         ) : data.length > 0 ? (
-          <div className="h-[220px] min-w-[640px] md:min-w-0 md:h-[260px] lg:h-[300px] xl:h-[340px]">
+          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={data}
-                margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
-                barCategoryGap={28}
+                margin={{ top: 8, right: isMobile ? 4 : 12, left: isMobile ? -20 : -12, bottom: isMobile ? 4 : 0 }}
+                barCategoryGap={isMobile ? 12 : 28}
               >
                 <CartesianGrid vertical={false} stroke={FUND_DASHBOARD_COLORS.grid} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="quarter"
-                  tick={{ fontSize: 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  tick={{ fontSize: isMobile ? 10 : 12, fill: FUND_DASHBOARD_COLORS.axis }}
                   axisLine={false}
                   tickLine={false}
+                  interval={isMobile ? "preserveStartEnd" : 0}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  tick={{ fontSize: isMobile ? 9 : 12, fill: FUND_DASHBOARD_COLORS.axis }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value: number) => fmtCompact(value)}
-                  width={70}
+                  width={isMobile ? 45 : 70}
                 />
                 <Tooltip
                   contentStyle={{
@@ -521,16 +525,17 @@ function FundValueCreationCard({
                     borderRadius: 14,
                     boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
                     color: FUND_DASHBOARD_COLORS.text,
+                    maxWidth: isMobile ? 240 : undefined,
                   }}
                   formatter={(value: number, name: string) => [fmtMoney(value), name]}
                   labelFormatter={(label: string | number) => `Quarter ${label}`}
                   labelStyle={{ color: FUND_DASHBOARD_COLORS.text, fontWeight: 600 }}
                 />
                 <Legend
-                  align="right"
-                  verticalAlign="top"
-                  height={28}
-                  wrapperStyle={{ fontSize: 11, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: 8 }}
+                  align={isMobile ? "center" : "right"}
+                  verticalAlign={isMobile ? "bottom" : "top"}
+                  height={isMobile ? 36 : 28}
+                  wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: isMobile ? 0 : 8 }}
                 />
                 <Bar
                   dataKey="distributions"
@@ -538,7 +543,7 @@ function FundValueCreationCard({
                   stackId="value"
                   fill={FUND_DASHBOARD_COLORS.realized}
                   radius={[6, 6, 0, 0]}
-                  barSize={32}
+                  barSize={isMobile ? 16 : 32}
                 />
                 <Bar
                   dataKey="nav"
@@ -546,16 +551,16 @@ function FundValueCreationCard({
                   stackId="value"
                   fill={FUND_DASHBOARD_COLORS.unrealized}
                   radius={[6, 6, 0, 0]}
-                  barSize={32}
+                  barSize={isMobile ? 16 : 32}
                 />
                 <Line
                   type="monotone"
                   dataKey="calledCapital"
                   name="Called Capital"
                   stroke={FUND_DASHBOARD_COLORS.primary}
-                  strokeWidth={2.5}
-                  dot={{ r: 2.5, fill: FUND_DASHBOARD_COLORS.primary }}
-                  activeDot={{ r: 4 }}
+                  strokeWidth={isMobile ? 2 : 2.5}
+                  dot={{ r: isMobile ? 2 : 2.5, fill: FUND_DASHBOARD_COLORS.primary }}
+                  activeDot={{ r: isMobile ? 3 : 4 }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -598,9 +603,11 @@ function HorizontalInsightBar({
 function PortfolioAllocationCard({
   rows,
   loading,
+  isMobile,
 }: {
   rows: ExposureDatum[];
   loading: boolean;
+  isMobile: boolean;
 }) {
   const donutColors = [
     FUND_DASHBOARD_COLORS.primary,
@@ -613,7 +620,7 @@ function PortfolioAllocationCard({
   const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
 
   return (
-    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-5`} data-testid="portfolio-allocation">
+    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-3 sm:p-5`} data-testid="portfolio-allocation">
       <NarrativeSectionHeading
         eyebrow="Allocation"
         title="Portfolio Allocation"
@@ -636,6 +643,7 @@ function PortfolioAllocationCard({
                       borderRadius: 14,
                       boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
                       color: FUND_DASHBOARD_COLORS.text,
+                      maxWidth: isMobile ? 240 : undefined,
                     }}
                     formatter={(value: number, _name: string, item: { payload?: ExposureDatum }) => [
                       `${fmtMoney(value)} • ${item.payload?.pct.toFixed(1) ?? "0.0"}%`,
@@ -646,8 +654,8 @@ function PortfolioAllocationCard({
                     data={rows}
                     dataKey="value"
                     nameKey="label"
-                    innerRadius={58}
-                    outerRadius={88}
+                    innerRadius={isMobile ? 40 : 58}
+                    outerRadius={isMobile ? 64 : 88}
                     paddingAngle={2}
                     stroke="#FFFFFF"
                     strokeWidth={3}
@@ -659,8 +667,8 @@ function PortfolioAllocationCard({
                 </PieChart>
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">Total Value</span>
-                <span className="mt-1 text-[26px] font-semibold tracking-[-0.03em] text-[#0F172A] tabular-nums">
+                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">Total Value</span>
+                <span className="mt-1 text-[20px] sm:text-[26px] font-semibold tracking-[-0.03em] text-[#0F172A] tabular-nums">
                   {fmtMoney(totalValue)}
                 </span>
               </div>
@@ -1190,6 +1198,7 @@ export default function FundDetailPage({
   const router = useRouter();
   const { push } = useToast();
   const { envId, businessId } = useReEnv();
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<TabKey>("Overview");
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
@@ -1529,12 +1538,12 @@ export default function FundDetailPage({
   const TABS = fund?.strategy === "debt" ? DEBT_TABS : EQUITY_TABS;
 
   return (
-    <section className="flex w-full flex-col gap-4" data-testid="re-fund-detail">
+    <section className="flex w-full max-w-full flex-col gap-4 overflow-x-hidden" data-testid="re-fund-detail">
       <div className={`${FUND_PANEL_CLASS} px-5 pb-[18px] pt-[20px]`} data-testid="fund-overview-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Fund</p>
-            <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.02em] text-[#0F172A]">
+            <h1 className="mt-2 text-[24px] sm:text-[28px] xl:text-[32px] font-semibold tracking-[-0.02em] text-[#0F172A]">
               {fund?.name || "—"}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-[#6B7280]">
@@ -1684,7 +1693,7 @@ export default function FundDetailPage({
       )}
 
       <div
-        className="sticky top-4 z-20 flex flex-wrap gap-1 rounded-[18px] border border-[#E2E8F0] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05)] backdrop-blur md:top-6 xl:top-8"
+        className="sticky top-[60px] z-20 flex flex-wrap gap-1 rounded-[18px] border border-[#E2E8F0] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05)] backdrop-blur md:top-4 xl:top-8"
         data-testid="fund-tabs"
       >
         {TABS.map((label) => (
@@ -1718,6 +1727,7 @@ export default function FundDetailPage({
           overviewData={overviewData}
           onRunQuarterClose={handleRunQuarterClose}
           runningClose={runningClose}
+          isMobile={isMobile}
         />
       )}
       {tab === "Asset Variance" && envId && businessId && (
@@ -1840,7 +1850,7 @@ function InvestmentRow({
         onClick={handleToggle}
         data-testid={`investment-row-${inv.investment_id}`}
       >
-        <td className="px-4 py-3">
+        <td className="px-2 py-2 sm:px-4 sm:py-3">
           <div className="flex items-start gap-2">
             <span className="mt-0.5 text-xs text-[#94A3B8]">{open ? "▾" : "▸"}</span>
             <div className="min-w-0">
@@ -1874,14 +1884,14 @@ function InvestmentRow({
             </div>
           </div>
         </td>
-        <td className="px-4 py-3 text-sm text-[#475569]">{propertyType !== "—" ? propertyType : <span className="text-slate-400">No type</span>}</td>
-        <td className="px-4 py-3 text-sm text-[#475569]">{row.market || <span className="text-slate-400">No market</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.currentValue != null ? fmtMoney(row.currentValue) : <span className="text-slate-400 text-xs">No valuation</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.irr != null ? fmtPercent(row.irr) : <span className="text-slate-400 text-xs">Pending</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.noi != null ? fmtMoney(row.noi) : <span className="text-slate-400 text-xs">No operating data</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.occupancy) !== "—" ? fmtFlexiblePercent(row.occupancy) : <span className="text-slate-400 text-xs">—</span>}</td>
-        <td className="px-4 py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.ltv) !== "—" ? fmtFlexiblePercent(row.ltv) : <span className="text-slate-400 text-xs">No debt data</span>}</td>
+        <td className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 text-sm text-[#475569]">{propertyType !== "—" ? propertyType : <span className="text-slate-400">No type</span>}</td>
+        <td className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 text-sm text-[#475569]">{row.market || <span className="text-slate-400">No market</span>}</td>
+        <td className="px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.equityInvested != null ? fmtMoney(row.equityInvested) : "—"}</td>
+        <td className="px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.currentValue != null ? fmtMoney(row.currentValue) : <span className="text-slate-400 text-xs">No valuation</span>}</td>
+        <td className="px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.irr != null ? fmtPercent(row.irr) : <span className="text-slate-400 text-xs">Pending</span>}</td>
+        <td className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{row.noi != null ? fmtMoney(row.noi) : <span className="text-slate-400 text-xs">No operating data</span>}</td>
+        <td className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.occupancy) !== "—" ? fmtFlexiblePercent(row.occupancy) : <span className="text-slate-400 text-xs">—</span>}</td>
+        <td className="hidden lg:table-cell px-2 py-2 sm:px-4 sm:py-3 text-right text-sm tabular-nums text-[#0F172A]">{fmtFlexiblePercent(row.ltv) !== "—" ? fmtFlexiblePercent(row.ltv) : <span className="text-slate-400 text-xs">No debt data</span>}</td>
       </tr>
       {open ? (
         <tr>
@@ -1894,21 +1904,21 @@ function InvestmentRow({
               <table className="w-full text-sm">
                 <thead className="bg-white text-left text-[10px] uppercase tracking-[0.12em] text-[#64748B]">
                   <tr>
-                    <th className="pl-12 pr-4 py-2 font-medium">Asset</th>
-                    <th className="px-4 py-2 font-medium">Type</th>
-                    <th className="px-4 py-2 font-medium">Market</th>
-                    <th className="px-4 py-2 font-medium text-right">Equity Basis</th>
-                    <th className="px-4 py-2 font-medium text-right">Current Value</th>
-                    <th className="px-4 py-2 font-medium text-right">NAV</th>
-                    <th className="px-4 py-2 font-medium text-right">NOI</th>
-                    <th className="px-4 py-2 font-medium text-right">Occupancy</th>
-                    <th className="px-4 py-2 font-medium text-right">LTV</th>
+                    <th className="pl-4 pr-2 sm:pl-12 sm:pr-4 py-2 font-medium">Asset</th>
+                    <th className="hidden sm:table-cell px-4 py-2 font-medium">Type</th>
+                    <th className="hidden sm:table-cell px-4 py-2 font-medium">Market</th>
+                    <th className="px-2 sm:px-4 py-2 font-medium text-right">Equity Basis</th>
+                    <th className="px-2 sm:px-4 py-2 font-medium text-right">Current Value</th>
+                    <th className="hidden md:table-cell px-4 py-2 font-medium text-right">NAV</th>
+                    <th className="hidden md:table-cell px-4 py-2 font-medium text-right">NOI</th>
+                    <th className="hidden md:table-cell px-4 py-2 font-medium text-right">Occupancy</th>
+                    <th className="hidden lg:table-cell px-4 py-2 font-medium text-right">LTV</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB]">
                   {assets.map((asset) => (
                     <tr key={asset.asset_id} className="transition-colors duration-150 hover:bg-[#EFF6FF]">
-                      <td className="pl-12 pr-4 py-2 font-medium text-sm">
+                      <td className="pl-4 pr-2 sm:pl-12 sm:pr-4 py-2 font-medium text-sm">
                         <Link href={`/lab/env/${envId}/re/assets/${asset.asset_id}`} className="text-[#2563EB] hover:underline">
                           {asset.name}
                         </Link>
@@ -1920,28 +1930,28 @@ function InvestmentRow({
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-2 text-xs text-[#64748B]">
+                      <td className="hidden sm:table-cell px-4 py-2 text-xs text-[#64748B]">
                         {labelFn(PROPERTY_TYPE_LABELS, asset.property_type || asset.asset_type || "")}
                       </td>
-                      <td className="px-4 py-2 text-xs text-[#64748B]">
+                      <td className="hidden sm:table-cell px-4 py-2 text-xs text-[#64748B]">
                         {asset.market || asset.msa || "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="px-2 sm:px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.cost_basis ? fmtMoney(asset.cost_basis) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="px-2 sm:px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.asset_value ? fmtMoney(asset.asset_value) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="hidden md:table-cell px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.nav ? fmtMoney(asset.nav) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="hidden md:table-cell px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.noi ? fmtMoney(asset.noi) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="hidden md:table-cell px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {fmtFlexiblePercent(asset.occupancy)}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
+                      <td className="hidden lg:table-cell px-4 py-2 text-right text-xs text-[#64748B] tabular-nums">
                         {asset.asset_value && asset.debt_balance
                           ? fmtFlexiblePercent(Number(asset.debt_balance) / Math.max(Number(asset.asset_value), 1))
                           : "—"}
@@ -2119,7 +2129,7 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose, isMobile }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
@@ -2131,6 +2141,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   overviewData: FundOverviewData;
   onRunQuarterClose?: () => void;
   runningClose?: boolean;
+  isMobile: boolean;
 }) {
   const isDebtFund = fund?.strategy === "debt";
 
@@ -2250,9 +2261,9 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
 
       <BaseScenarioSummaryCard baseScenario={baseScenario} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
-        <FundValueCreationCard data={valueCreationSeries} loading={overviewData.loading} />
-        <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
+        <FundValueCreationCard data={valueCreationSeries} loading={overviewData.loading} isMobile={isMobile} />
+        <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} isMobile={isMobile} />
       </div>
 
       <FundFootprintMap envId={envId} businessId={businessId} fundId={fund?.fund_id ?? ""} />
@@ -2287,15 +2298,15 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-white text-left text-xs uppercase tracking-[0.12em] text-[#64748B]">
-                  <th className="px-4 py-3 font-medium">Investment</th>
-                  <th className="px-4 py-3 font-medium">Property Type</th>
-                  <th className="px-4 py-3 font-medium">Market</th>
-                  <th className="px-4 py-3 font-medium text-right">Equity Invested</th>
-                  <th className="px-4 py-3 font-medium text-right">Current Value</th>
-                  <th className="px-4 py-3 font-medium text-right">IRR</th>
-                  <th className="px-4 py-3 font-medium text-right">NOI</th>
-                  <th className="px-4 py-3 font-medium text-right">Occupancy</th>
-                  <th className="px-4 py-3 font-medium text-right">LTV</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Investment</th>
+                  <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium">Property Type</th>
+                  <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium">Market</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Equity Invested</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Current Value</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">IRR</th>
+                  <th className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">NOI</th>
+                  <th className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Occupancy</th>
+                  <th className="hidden lg:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">LTV</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
@@ -2369,7 +2380,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
   return (
     <div className="space-y-4" data-testid="variance-section">
       {/* Rollup Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard label="NOI Actual" value={fmtMoney(data.rollup.total_actual)} size="large" />
         <MetricCard label="NOI Plan" value={fmtMoney(data.rollup.total_plan)} size="large" />
         <MetricCard
@@ -2456,23 +2467,23 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-              <th className="px-4 py-3 font-medium">Line Item</th>
-              <th className="px-4 py-3 font-medium text-right">Actual</th>
-              <th className="px-4 py-3 font-medium text-right">Plan</th>
-              <th className="px-4 py-3 font-medium text-right">Var $</th>
-              <th className="px-4 py-3 font-medium text-right">Var %</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Line Item</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Actual</th>
+              <th className="hidden sm:table-cell px-4 py-3 font-medium text-right">Plan</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Var $</th>
+              <th className="hidden sm:table-cell px-4 py-3 font-medium text-right">Var %</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bm-border/40">
             {data.items.map((item) => (
               <tr key={item.id} className="hover:bg-bm-surface/20">
-                <td className="px-4 py-3 font-medium">{fmtLineCode(item.line_code)}</td>
-                <td className="px-4 py-3 text-right">{fmtMoney(item.actual_amount)}</td>
-                <td className="px-4 py-3 text-right">{fmtMoney(item.plan_amount)}</td>
-                <td className={`px-4 py-3 text-right ${Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{fmtLineCode(item.line_code)}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(item.actual_amount)}</td>
+                <td className="hidden sm:table-cell px-4 py-3 text-right">{fmtMoney(item.plan_amount)}</td>
+                <td className={`px-2 py-2 sm:px-4 sm:py-3 text-right ${Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {fmtMoney(item.variance_amount)}
                 </td>
-                <td className="px-4 py-3 text-right text-bm-muted2">
+                <td className="hidden sm:table-cell px-4 py-3 text-right text-bm-muted2">
                   {item.variance_pct !== null ? fmtPercent(item.variance_pct) : "—"}
                 </td>
               </tr>
@@ -2496,7 +2507,7 @@ function PerformanceMetric({
   context?: string;
 }) {
   return (
-    <div className="min-w-[118px] flex-1">
+    <div className="min-w-0 flex-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
@@ -2598,7 +2609,7 @@ function ReturnsTab({ baseScenario, loading }: {
 
   return (
     <div className="space-y-4" data-testid="returns-section">
-      <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="returns-kpis">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5" data-testid="returns-kpis">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold tracking-tight text-slate-900">Base Scenario Returns</h3>
@@ -2610,8 +2621,8 @@ function ReturnsTab({ baseScenario, loading }: {
             {summary.active_assets} active / {summary.disposed_assets} disposed / {summary.pipeline_assets} pipeline
           </div>
         </div>
-        <div className="mt-4 overflow-x-auto">
-          <div className="flex min-w-[980px] flex-nowrap gap-5">
+        <div className="mt-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:flex xl:flex-nowrap xl:gap-5">
             <PerformanceMetric label="Paid-In" value={fmtMoney(summary.paid_in_capital)} />
             <PerformanceMetric label="Distributed" value={fmtMoney(summary.distributed_capital)} />
             <PerformanceMetric label="Remaining Value" value={fmtMoney(summary.remaining_value)} />
@@ -2676,7 +2687,7 @@ function ReturnsTab({ baseScenario, loading }: {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="asset-contribution-table">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -2692,22 +2703,22 @@ function ReturnsTab({ baseScenario, loading }: {
             </div>
           </div>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
+            <table className="w-full text-sm">
               <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
                 <tr>
-                  <th className="px-3 py-3 font-medium">Asset</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
-                  <th className="px-3 py-3 font-medium text-right">Ownership</th>
-                  <th className="px-3 py-3 font-medium text-right">Attributable NAV</th>
-                  <th className="px-3 py-3 font-medium text-right">Realized Proceeds</th>
-                  <th className="px-3 py-3 font-medium text-right">Hypothetical Sale</th>
-                  <th className="px-3 py-3 font-medium text-right">Current Value</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium">Asset</th>
+                  <th className="hidden sm:table-cell px-3 py-3 font-medium">Status</th>
+                  <th className="hidden md:table-cell px-3 py-3 font-medium text-right">Ownership</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium text-right">Attributable NAV</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium text-right">Realized Proceeds</th>
+                  <th className="hidden lg:table-cell px-3 py-3 font-medium text-right">Hypothetical Sale</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium text-right">Current Value</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedAssets.map((asset) => (
                   <tr key={asset.asset_id}>
-                    <td className="px-3 py-3">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3">
                       <div>
                         <p className="font-medium text-slate-900">{asset.asset_name}</p>
                         <p className="mt-1 text-xs text-slate-500">
@@ -2716,7 +2727,7 @@ function ReturnsTab({ baseScenario, loading }: {
                         </p>
                       </div>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="hidden sm:table-cell px-3 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                         asset.status_category === "active"
                           ? "bg-blue-50 text-blue-700"
@@ -2727,19 +2738,19 @@ function ReturnsTab({ baseScenario, loading }: {
                         {asset.status_category}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-slate-600">
+                    <td className="hidden md:table-cell px-3 py-3 text-right tabular-nums text-slate-600">
                       {fmtFlexiblePercent(asset.ownership_percent)}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900">
                       {fmtMoney(asset.attributable_nav)}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900">
                       {fmtMoney(asset.attributable_realized_proceeds)}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                    <td className="hidden lg:table-cell px-3 py-3 text-right tabular-nums text-slate-900">
                       {asset.has_sale_assumption ? fmtMoney(asset.attributable_hypothetical_proceeds) : "—"}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums font-medium text-slate-900">
                       {fmtMoney(asset.current_value_contribution)}
                     </td>
                   </tr>
@@ -2838,13 +2849,13 @@ function LoanBookTab({ envId, businessId, fundId, quarter }: {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-              <th className="px-4 py-3 font-medium">Loan</th>
-              <th className="px-4 py-3 font-medium text-right">UPB</th>
-              <th className="px-4 py-3 font-medium text-right">Rate</th>
-              <th className="px-4 py-3 font-medium text-right">DSCR</th>
-              <th className="px-4 py-3 font-medium text-right">LTV</th>
-              <th className="px-4 py-3 font-medium text-right">Debt Yield</th>
-              <th className="px-4 py-3 font-medium text-center">Status</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Loan</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">UPB</th>
+              <th className="hidden sm:table-cell px-4 py-3 font-medium text-right">Rate</th>
+              <th className="hidden md:table-cell px-4 py-3 font-medium text-right">DSCR</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">LTV</th>
+              <th className="hidden md:table-cell px-4 py-3 font-medium text-right">Debt Yield</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-center">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bm-border/40">
@@ -2857,13 +2868,13 @@ function LoanBookTab({ envId, businessId, fundId, quarter }: {
                 const passed = latest ? latest.pass : null;
                 return (
                   <tr key={loan.id} className="hover:bg-bm-surface/20">
-                    <td className="px-4 py-3 font-medium">{loan.loan_name}</td>
-                    <td className="px-4 py-3 text-right">{fmtMoney(loan.upb)}</td>
-                    <td className="px-4 py-3 text-right">{fmtPercent(loan.rate)}</td>
-                    <td className="px-4 py-3 text-right">{latest?.dscr ? Number(latest.dscr).toFixed(2) : "—"}</td>
-                    <td className="px-4 py-3 text-right">{latest?.ltv ? fmtPercent(latest.ltv) : "—"}</td>
-                    <td className="px-4 py-3 text-right">{latest?.debt_yield ? fmtPercent(latest.debt_yield) : "—"}</td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{loan.loan_name}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(loan.upb)}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-right">{fmtPercent(loan.rate)}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-right">{latest?.dscr ? Number(latest.dscr).toFixed(2) : "—"}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{latest?.ltv ? fmtPercent(latest.ltv) : "—"}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-right">{latest?.debt_yield ? fmtPercent(latest.debt_yield) : "—"}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-center">
                       {passed === null ? (
                         <span className="rounded-full bg-bm-surface/40 px-2 py-0.5 text-xs">Not tested</span>
                       ) : passed ? (
@@ -2897,7 +2908,7 @@ function LoanBookTab({ envId, businessId, fundId, quarter }: {
         <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 space-y-2" data-testid="watchlist-section">
           <h3 className="text-xs uppercase tracking-[0.12em] text-amber-300">Watchlist Events</h3>
           {watchlist.map((evt) => (
-            <div key={evt.id} className="rounded-lg border border-amber-500/30 px-3 py-2 flex items-center justify-between">
+            <div key={evt.id} className="rounded-lg border border-amber-500/30 px-3 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <span className={`rounded-full px-2 py-0.5 text-xs mr-2 ${
                   evt.severity === "HIGH" ? "bg-red-500/20 text-red-300" :
@@ -3576,44 +3587,45 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-bm-border/50 bg-bm-surface/30 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-              <th className="px-4 py-3 font-medium">Partner</th>
-              <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium text-right">Committed</th>
-              <th className="px-4 py-3 font-medium text-right">Contributed</th>
-              <th className="px-4 py-3 font-medium text-right">Distributed</th>
-              <th className="px-4 py-3 font-medium text-right">NAV Share</th>
-              <th className="px-4 py-3 font-medium text-right">DPI</th>
-              <th className="px-4 py-3 font-medium text-right">TVPI</th>
-              <th className="px-4 py-3 font-medium text-right">IRR</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Partner</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Type</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Committed</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Contributed</th>
+              <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Distributed</th>
+              <th className="hidden md:table-cell px-4 py-3 font-medium text-right">NAV Share</th>
+              <th className="hidden md:table-cell px-4 py-3 font-medium text-right">DPI</th>
+              <th className="hidden lg:table-cell px-4 py-3 font-medium text-right">TVPI</th>
+              <th className="hidden lg:table-cell px-4 py-3 font-medium text-right">IRR</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bm-border/40">
             {sortedPartners.map((p) => (
               <tr key={p.partner_id} className="hover:bg-bm-surface/20">
-                <td className="px-4 py-3 font-medium">{p.name}</td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{p.name}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3">
                   <span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-[11px] uppercase tracking-[0.08em]">
                     {p.partner_type}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">{fmtMoney(p.committed)}</td>
-                <td className="px-4 py-3 text-right">{fmtMoney(p.contributed)}</td>
-                <td className="px-4 py-3 text-right">{fmtMoney(p.distributed)}</td>
-                <td className="px-4 py-3 text-right">{p.nav_share ? fmtMoney(p.nav_share) : "—"}</td>
-                <td className="px-4 py-3 text-right">{p.dpi ? fmtMultiple(p.dpi) : "—"}</td>
-                <td className="px-4 py-3 text-right">{p.tvpi ? fmtMultiple(p.tvpi) : "—"}</td>
-                <td className="px-4 py-3 text-right">{p.irr ? fmtPercent(p.irr) : "—"}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(p.committed)}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(p.contributed)}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(p.distributed)}</td>
+                <td className="hidden md:table-cell px-4 py-3 text-right">{p.nav_share ? fmtMoney(p.nav_share) : "—"}</td>
+                <td className="hidden md:table-cell px-4 py-3 text-right">{p.dpi ? fmtMultiple(p.dpi) : "—"}</td>
+                <td className="hidden lg:table-cell px-4 py-3 text-right">{p.tvpi ? fmtMultiple(p.tvpi) : "—"}</td>
+                <td className="hidden lg:table-cell px-4 py-3 text-right">{p.irr ? fmtPercent(p.irr) : "—"}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-bm-border/60 bg-bm-surface/20 font-semibold">
-              <td className="px-4 py-3" colSpan={2}>Total</td>
-              <td className="px-4 py-3 text-right">{fmtMoney(data.total_committed)}</td>
-              <td className="px-4 py-3 text-right">{fmtMoney(data.total_contributed)}</td>
-              <td className="px-4 py-3 text-right">{fmtMoney(data.total_distributed)}</td>
-              <td className="px-4 py-3 text-right">{fmtMoney(data.fund_nav)}</td>
-              <td className="px-4 py-3 text-right" colSpan={3} />
+              <td className="px-2 py-2 sm:px-4 sm:py-3" colSpan={2}>Total</td>
+              <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(data.total_committed)}</td>
+              <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(data.total_contributed)}</td>
+              <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(data.total_distributed)}</td>
+              <td className="hidden md:table-cell px-4 py-3 text-right">{fmtMoney(data.fund_nav)}</td>
+              <td className="hidden md:table-cell px-4 py-3" />
+              <td className="hidden lg:table-cell px-4 py-3" colSpan={2} />
             </tr>
           </tfoot>
         </table>
@@ -3654,21 +3666,21 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-bm-border/50 text-left text-xs uppercase tracking-[0.1em] text-bm-muted2">
-                <th className="px-4 py-2 font-medium">Partner</th>
-                <th className="px-4 py-2 font-medium text-right">Return of Capital</th>
-                <th className="px-4 py-2 font-medium text-right">Pref Return</th>
-                <th className="px-4 py-2 font-medium text-right">Carry</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
+                <th className="px-2 py-2 sm:px-4 font-medium">Partner</th>
+                <th className="px-2 py-2 sm:px-4 font-medium text-right">Return of Capital</th>
+                <th className="hidden sm:table-cell px-4 py-2 font-medium text-right">Pref Return</th>
+                <th className="hidden sm:table-cell px-4 py-2 font-medium text-right">Carry</th>
+                <th className="px-2 py-2 sm:px-4 font-medium text-right">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bm-border/40">
               {data.partners.filter((p) => p.waterfall_allocation).map((p) => (
                 <tr key={p.partner_id} className="hover:bg-bm-surface/20">
-                  <td className="px-4 py-2 font-medium">{p.name}</td>
-                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.return_of_capital)}</td>
-                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.preferred_return)}</td>
-                  <td className="px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.carry)}</td>
-                  <td className="px-4 py-2 text-right font-semibold">{fmtMoney(p.waterfall_allocation?.total)}</td>
+                  <td className="px-2 py-2 sm:px-4 font-medium">{p.name}</td>
+                  <td className="px-2 py-2 sm:px-4 text-right">{fmtMoney(p.waterfall_allocation?.return_of_capital)}</td>
+                  <td className="hidden sm:table-cell px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.preferred_return)}</td>
+                  <td className="hidden sm:table-cell px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.carry)}</td>
+                  <td className="px-2 py-2 sm:px-4 text-right font-semibold">{fmtMoney(p.waterfall_allocation?.total)}</td>
                 </tr>
               ))}
             </tbody>

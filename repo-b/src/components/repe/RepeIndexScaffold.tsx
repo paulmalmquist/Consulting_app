@@ -49,7 +49,7 @@ export function RepeIndexScaffold({
   className?: string;
 }) {
   return (
-    <section className={cn("space-y-5", className)}>
+    <section className={cn("space-y-3", className)}>
       <div className={cn(metrics ? "space-y-3" : "space-y-0")}>
         <div className="flex flex-col gap-2 rounded-lg border border-bm-border/10 bg-bm-surface/[0.02] px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">

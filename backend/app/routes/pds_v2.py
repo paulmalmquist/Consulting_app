@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.pds_v2 import (
@@ -24,6 +25,9 @@ from app.schemas.pds_v2 import (
     PdsV2PipelineDealUpdateRequest,
     PdsV2PipelineLookupsOut,
     PdsV2PipelineSummaryOut,
+    PdsV2ReportExportRunListOut,
+    PdsV2ReportExportRunOut,
+    PdsV2ReportExportRunRequest,
     PdsV2ReportPacketOut,
     PdsV2ReportPacketRequest,
     PdsV2ResourceHealthItemOut,
@@ -402,6 +406,97 @@ def build_report_packet(req: PdsV2ReportPacketRequest, request: Request):
         )
 
 
+@router.post("/reports/export/runs", response_model=PdsV2ReportExportRunOut)
+def create_report_export_run(req: PdsV2ReportExportRunRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        return PdsV2ReportExportRunOut(
+            **enterprise_svc.create_report_export_run(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                packet_type=req.packet_type,
+                lens=req.lens,
+                horizon=req.horizon,
+                role_preset=req.role_preset,
+                actor=req.actor,
+                formats=req.formats,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.report_export_run.failed",
+            context={"env_id": req.env_id, "packet_type": req.packet_type},
+        )
+
+
+@router.get("/reports/export/runs", response_model=PdsV2ReportExportRunListOut)
+def list_report_export_runs(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    packet_type: str | None = Query(default=None),
+    limit: int = Query(default=6, ge=1, le=25),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PdsV2ReportExportRunListOut(
+            runs=enterprise_svc.list_report_export_runs(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                packet_type=packet_type,
+                limit=limit,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.report_export_runs.failed",
+            context={"env_id": env_id, "packet_type": packet_type},
+        )
+
+
+@router.get("/reports/export/runs/{report_run_id}/download")
+def download_report_export(
+    report_run_id: UUID,
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    format: str = Query(default="pdf"),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        payload, filename, media_type = enterprise_svc.render_report_export(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            report_run_id=report_run_id,
+            export_format=format,
+        )
+        return StreamingResponse(
+            iter([payload]),
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="pds.v2.report_export_download.failed",
+            context={"env_id": env_id, "report_run_id": str(report_run_id), "format": format},
+        )
+
+
 @router.get("/pipeline/lookups", response_model=PdsV2PipelineLookupsOut)
 def get_pipeline_lookups(
     request: Request,
@@ -544,6 +639,8 @@ def get_business_lines(
     try:
         resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
         enterprise_svc._ensure_workspace_lazy(env_id=resolved_env_id, business_id=resolved_business_id)  # noqa: SLF001
+        if not enterprise_svc._table_exists("pds_business_lines"):  # noqa: SLF001
+            return []
         from app.db import get_cursor
 
         with get_cursor() as cur:
@@ -571,6 +668,8 @@ def get_leader_coverage(
     try:
         resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
         enterprise_svc._ensure_workspace_lazy(env_id=resolved_env_id, business_id=resolved_business_id)  # noqa: SLF001
+        if not enterprise_svc._table_exists("pds_leader_coverage") or not enterprise_svc._table_exists("pds_business_lines"):  # noqa: SLF001
+            return []
         from app.db import get_cursor
 
         sql = """

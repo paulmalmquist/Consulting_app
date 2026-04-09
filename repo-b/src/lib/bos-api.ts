@@ -1269,6 +1269,22 @@ export interface PdsV2ReportPacket {
   narrative?: string | null;
 }
 
+export interface PdsV2ReportExportRun {
+  report_run_id: string;
+  run_id: string;
+  packet_type: string;
+  title: string;
+  status: string;
+  source: string;
+  period: string;
+  lens: PdsV2Lens;
+  horizon: PdsV2Horizon;
+  role_preset: PdsV2RolePreset;
+  available_formats: Array<"pdf" | "xlsx">;
+  generated_at: string;
+  created_at: string;
+}
+
 export interface PdsV2PipelineDeal {
   deal_id: string;
   account_id?: string | null;
@@ -1961,6 +1977,57 @@ export function buildPdsReportPacket(body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function createPdsReportExportRun(body: {
+  env_id: string;
+  business_id?: string;
+  packet_type: string;
+  lens?: PdsV2Lens;
+  horizon?: PdsV2Horizon;
+  role_preset?: PdsV2RolePreset;
+  actor?: string;
+  formats?: Array<"pdf" | "xlsx">;
+}): Promise<PdsV2ReportExportRun> {
+  return bosFetch("/api/pds/v2/reports/export/runs", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listPdsReportExportRuns(
+  envId: string,
+  options?: {
+    business_id?: string;
+    packet_type?: string;
+    limit?: number;
+  },
+): Promise<{ runs: PdsV2ReportExportRun[] }> {
+  return bosFetch("/api/pds/v2/reports/export/runs", {
+    params: {
+      env_id: envId,
+      business_id: options?.business_id,
+      packet_type: options?.packet_type,
+      limit: options?.limit?.toString(),
+    },
+  });
+}
+
+export async function downloadPdsReportExport(params: {
+  env_id: string;
+  business_id?: string;
+  report_run_id: string;
+  format: "pdf" | "xlsx";
+}): Promise<Blob> {
+  const url = new URL(
+    `${_bosConfig.origin}${_bosConfig.proxyPrefix}/api/pds/v2/reports/export/runs/${params.report_run_id}/download`,
+  );
+  url.searchParams.set("env_id", params.env_id);
+  if (params.business_id) url.searchParams.set("business_id", params.business_id);
+  url.searchParams.set("format", params.format);
+  const res = await fetch(url.toString(), { credentials: "include" });
+  if (!res.ok) throw new Error(`Report export download failed (${res.status})`);
+  return res.blob();
 }
 
 // ── PDS Executive ────────────────────────────────────────────────────
@@ -4152,6 +4219,169 @@ export function getReV2EnvironmentPortfolioKpis(
   });
 }
 
+// ── Fund Table (enriched with quarter-state metrics) ──────────────────────
+
+export interface FundTableRow {
+  fund_id: string;
+  business_id: string;
+  name: string;
+  vintage_year: number | null;
+  fund_type: string | null;
+  strategy: string | null;
+  sub_strategy: string | null;
+  target_size: string | null;
+  status: string;
+  base_currency: string;
+  inception_date: string | null;
+  created_at: string | null;
+  portfolio_nav: string | null;
+  total_committed: string | null;
+  total_called: string | null;
+  total_distributed: string | null;
+  dpi: string | null;
+  rvpi: string | null;
+  tvpi: string | null;
+  gross_irr: string | null;
+  net_irr: string | null;
+  weighted_dscr: string | null;
+  weighted_ltv: string | null;
+  pct_invested: string | null;
+}
+
+export function getFundTableRows(
+  envId: string,
+  quarter: string,
+  modelId?: string
+): Promise<FundTableRow[]> {
+  return directFetch(`/api/re/v2/environments/${envId}/fund-table`, {
+    params: { quarter, model_id: modelId },
+  });
+}
+
+// ── Fund Comparison (bar chart data) ──────────────────────────────────────
+
+export interface FundComparisonItem {
+  fund_id: string;
+  fund_name: string;
+  value: string | null;
+}
+
+export function getFundComparison(
+  envId: string,
+  quarter: string,
+  metric: string,
+  modelId?: string
+): Promise<FundComparisonItem[]> {
+  return directFetch(`/api/re/v2/environments/${envId}/fund-comparison`, {
+    params: { quarter, metric, model_id: modelId },
+  });
+}
+
+// ── Allocation Breakdown ──────────────────────────────────────────────────
+
+export interface AllocationGroup {
+  name: string;
+  total_nav: string;
+  asset_count: number;
+  pct: number;
+}
+
+export interface AllocationBreakdownResponse {
+  group_by: string;
+  quarter: string;
+  grand_total_nav: string;
+  groups: AllocationGroup[];
+}
+
+export function getAllocationBreakdown(
+  envId: string,
+  quarter: string,
+  groupBy: "sector" | "geography" = "sector",
+  modelId?: string
+): Promise<AllocationBreakdownResponse> {
+  return directFetch(`/api/re/v2/environments/${envId}/allocation-breakdown`, {
+    params: { quarter, group_by: groupBy, model_id: modelId },
+  });
+}
+
+// ── Query Resolver (command bar backend) ──────────────────────────────────
+
+export interface QueryResolverFilter {
+  field: string;
+  operator: string;
+  value: number | string;
+}
+
+export interface QueryResolverEntity {
+  entity_type: string;
+  entity_id: string;
+  name: string;
+  secondary?: string | null;
+  metric?: { label: string; value: string } | null;
+}
+
+export interface QueryResolverAction {
+  command: string;
+  label: string;
+  params?: Record<string, string> | null;
+}
+
+export interface QueryResolverResponse {
+  filters: QueryResolverFilter[];
+  entities: QueryResolverEntity[];
+  actions: QueryResolverAction[];
+  slash_command: string | null;
+}
+
+export function resolveQuery(
+  envId: string,
+  query: string,
+  quarter?: string
+): Promise<QueryResolverResponse> {
+  return directFetch(`/api/re/v2/environments/${envId}/query-resolve`, {
+    params: { q: query, quarter },
+  });
+}
+
+// ── Portfolio Signals ─────────────────────────────────────────────────────
+
+export interface SignalAttributionItem {
+  asset_name: string;
+  fund: string;
+  [key: string]: unknown;
+}
+
+export interface SignalAttribution {
+  breakdown: SignalAttributionItem[];
+  drill_url?: string;
+}
+
+export interface RecommendedAction {
+  label: string;
+  command: string;
+  params?: Record<string, string>;
+}
+
+export interface PortfolioSignal {
+  signal_id: string;
+  severity: "critical" | "warning" | "info" | "positive";
+  headline: string;
+  detail: string;
+  filter_overrides: Record<string, string>;
+  entity_refs: Array<{ entity_type: string; entity_id: string; name: string }>;
+  attribution_payload: SignalAttribution | null;
+  recommended_actions: RecommendedAction[];
+}
+
+export function getPortfolioSignals(
+  envId: string,
+  quarter?: string
+): Promise<PortfolioSignal[]> {
+  return directFetch(`/api/re/v2/environments/${envId}/portfolio-signals`, {
+    params: { quarter },
+  });
+}
+
 export function getReV2Investment(investmentId: string): Promise<ReV2Investment> {
   return directFetch(`/api/re/v2/investments/${investmentId}`);
 }
@@ -5010,6 +5240,8 @@ export type ReV2EnvironmentPortfolioKpis = {
   gross_irr?: string | null;
   net_irr?: string | null;
   weighted_dscr?: string | null;
+  weighted_ltv?: string | null;
+  pct_invested?: string | null;
   active_assets: number;
   warnings: string[];
 };

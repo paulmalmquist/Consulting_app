@@ -3,17 +3,17 @@ import { PdsWorkspacePage } from "@/components/pds-enterprise/PdsWorkspacePage";
 export default function PdsReportsPage() {
   return (
     <PdsWorkspacePage
-      title="Reports"
-      description="Generate management-ready operating packets for forecast review, market review, account review, and closeout governance."
-      defaultLens="market"
+      title="Report Output"
+      description="Generate the executive recovery memo the buyer can imagine sending immediately after the project review."
+      defaultLens="project"
       defaultHorizon="Forecast"
       sections={["briefing", "reportPacket"]}
-      reportPacketType="forecast_pack"
+      reportPacketType="recovery_memo"
       moduleNotes={[
         {
-          label: "Packet Builder",
-          title: "Executive Review Packs",
-          body: "Reports are generated from the same snapshot package as the command center so the numbers and commentary stay aligned.",
+          label: "Flagship Output",
+          title: "Executive Recovery Memo",
+          body: "This is the third step in the demo flow and should read like a client-ready recovery document, not a dashboard export.",
         },
       ]}
     />

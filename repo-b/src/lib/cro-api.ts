@@ -53,6 +53,130 @@ export type PipelineKanbanResult = {
   weighted_pipeline: number;
 };
 
+export type ExecutionRankedAction = {
+  action_key: string;
+  label: string;
+  description: string;
+  impact: string;
+  urgency: string;
+  reasoning: string;
+};
+
+export type ExecutionStageSuggestion = {
+  suggested_execution_column: string;
+  underlying_stage_key: string;
+  reasoning: string;
+  confidence: number;
+  trigger_source: string;
+};
+
+export type ExecutionDraft = {
+  kind: string;
+  angle_key: string;
+  framing: string;
+  tone: string;
+  cta: string;
+  subject: string;
+  body: string;
+};
+
+export type MeetingPrep = {
+  company_summary: string;
+  likely_pain_points: string[];
+  tailored_demo_path: string;
+  key_questions: string[];
+  risks_to_watch: string[];
+};
+
+export type ExecutionCard = {
+  crm_opportunity_id: string;
+  crm_account_id?: string | null;
+  name: string;
+  amount: number;
+  status: string;
+  account_name: string | null;
+  industry: string | null;
+  stage_key: string | null;
+  stage_label: string | null;
+  win_probability: number | null;
+  contact_name: string | null;
+  expected_close_date: string | null;
+  created_at: string;
+  last_activity_at: string | null;
+  next_action_description: string | null;
+  next_action_due: string | null;
+  next_action_type: string | null;
+  execution_column_key: string;
+  execution_column_label: string;
+  personas: string[];
+  pain_hypothesis: string | null;
+  value_prop: string | null;
+  demo_angle: string | null;
+  priority_score: number;
+  engagement_summary: string | null;
+  execution_pressure: "low" | "medium" | "high" | "critical";
+  momentum_status: "increasing" | "flat" | "declining";
+  risk_flags: string[];
+  deal_drift_status: "stable" | "drifting" | "at_risk";
+  latest_angle_used: string | null;
+  latest_objection: string | null;
+  ranked_next_actions: ExecutionRankedAction[];
+  stage_suggestions: ExecutionStageSuggestion[];
+  auto_draft_stack: Record<string, unknown>;
+  execution_state: Record<string, unknown>;
+  narrative_memory: Record<string, unknown>;
+};
+
+export type ExecutionBoardColumn = {
+  execution_column_key: string;
+  execution_column_label: string;
+  cards: ExecutionCard[];
+  total_value: number;
+  weighted_value: number;
+};
+
+export type ExecutionAlert = {
+  level: string;
+  deal_id: string;
+  message: string;
+};
+
+export type ExecutionBoard = {
+  columns: ExecutionBoardColumn[];
+  total_pipeline: number;
+  weighted_pipeline: number;
+  today_queue: ExecutionCard[];
+  critical_deals: ExecutionCard[];
+  alerts: ExecutionAlert[];
+};
+
+export type ExecutionDetail = {
+  card: ExecutionCard;
+  ranked_next_actions: ExecutionRankedAction[];
+  stage_suggestions: ExecutionStageSuggestion[];
+  auto_draft_stack: Record<string, unknown>;
+};
+
+export type DailyExecutionBrief = {
+  generated_at: string;
+  top_deals: ExecutionCard[];
+  actions: Array<{
+    deal_id: string;
+    company_name: string | null;
+    execution_pressure: string;
+    next_actions: ExecutionRankedAction[];
+    drafts: Record<string, unknown>;
+  }>;
+  critical_count: number;
+};
+
+export type ExecutionCommandResult = {
+  intent: string;
+  requires_confirmation: boolean;
+  audit_id: string | null;
+  result: Record<string, unknown> | Array<Record<string, unknown>>;
+};
+
 export type MetricsSnapshot = {
   weighted_pipeline: number;
   unweighted_pipeline: number;
@@ -267,6 +391,10 @@ export function fetchPipelineKanban(envId: string, businessId: string) {
   return apiFetch<PipelineKanbanResult>(`${CRO_BASE}/pipeline/kanban?env_id=${envId}&business_id=${businessId}`);
 }
 
+export function fetchExecutionBoard(envId: string, businessId: string) {
+  return apiFetch<ExecutionBoard>(`${CRO_BASE}/pipeline/execution-board?env_id=${envId}&business_id=${businessId}`);
+}
+
 export function advanceOpportunityStage(body: {
   env_id: string;
   business_id: string;
@@ -281,6 +409,57 @@ export function advanceOpportunityStage(body: {
     `${CRO_BASE}/pipeline/advance`,
     { method: "POST", body: JSON.stringify(body) },
   );
+}
+
+export function fetchExecutionDetail(opportunityId: string, envId: string, businessId: string) {
+  return apiFetch<ExecutionDetail>(`${CRO_BASE}/pipeline/${opportunityId}/execution-detail?env_id=${envId}&business_id=${businessId}`);
+}
+
+export function fetchDailyExecutionBrief(envId: string, businessId: string) {
+  return apiFetch<DailyExecutionBrief>(`${CRO_BASE}/pipeline/daily-execution-brief?env_id=${envId}&business_id=${businessId}`);
+}
+
+export function fetchStuckDeals(envId: string, businessId: string) {
+  return apiFetch<ExecutionCard[]>(`${CRO_BASE}/pipeline/stuck-deals?env_id=${envId}&business_id=${businessId}`);
+}
+
+export function fetchStageSuggestions(envId: string, businessId: string) {
+  return apiFetch<Array<Record<string, unknown>>>(`${CRO_BASE}/pipeline/stage-suggestions?env_id=${envId}&business_id=${businessId}`);
+}
+
+export function draftOpportunityOutreach(opportunityId: string, body: { env_id: string; business_id: string }) {
+  return apiFetch<{ audit_id: string | null; draft_stack: Record<string, unknown> }>(
+    `${CRO_BASE}/pipeline/${opportunityId}/draft-outreach`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function generateOpportunityFollowups(opportunityId: string, body: { env_id: string; business_id: string }) {
+  return apiFetch<{ audit_id: string | null; followups: ExecutionDraft[] }>(
+    `${CRO_BASE}/pipeline/${opportunityId}/generate-followups`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function generateOpportunityMeetingPrep(opportunityId: string, body: { env_id: string; business_id: string }) {
+  return apiFetch<{ audit_id: string | null; meeting_prep: MeetingPrep }>(
+    `${CRO_BASE}/pipeline/${opportunityId}/meeting-prep`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function simulateOpportunityAction(opportunityId: string, envId: string, businessId: string, body: { action: string }) {
+  return apiFetch<{ audit_id: string | null; action: string; expected_outcome: string; reasoning: string; deal_name: string }>(
+    `${CRO_BASE}/pipeline/${opportunityId}/simulate-action?env_id=${envId}&business_id=${businessId}`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function runExecutionCommand(body: { env_id: string; business_id: string; command: string; confirm?: boolean }) {
+  return apiFetch<ExecutionCommandResult>(`${CRO_BASE}/pipeline/command`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Leads ────────────────────────────────────────────────────────────────────

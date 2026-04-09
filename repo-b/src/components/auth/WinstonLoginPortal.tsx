@@ -128,7 +128,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
                 WINSTON
               </h1>
               <p className="max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-                Winston is the system we use to run Novendor. Client environments are provisioned based on access. After sign-in, you&apos;ll see the workspaces available to your account.
+                Winston is a full-stack operating system I built for real estate, consulting, and AI delivery. After sign-in, you&apos;ll see the workspaces available to your account.
               </p>
             </div>
 

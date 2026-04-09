@@ -61,7 +61,7 @@ BEGIN
         v_fund_id,
         'UW IO - ' || v_deal.name,
         'Initial offering underwriting for ' || v_deal.name,
-        'approved',
+        'draft',
         'underwriting_io',
         now(),
         'seed'
@@ -74,7 +74,7 @@ BEGIN
         v_fund_id,
         'UW IO - ' || v_deal.name,
         'Initial offering underwriting for ' || v_deal.name,
-        'approved',
+        'draft',
         'underwriting_io',
         now(),
         'seed'

@@ -1,6 +1,6 @@
 "use client";
 
-import { type PipelineKanbanCard } from "@/lib/cro-api";
+import { type ExecutionCard } from "@/lib/cro-api";
 
 function fmtCurrency(raw: number | string | null | undefined): string {
   const n = typeof raw === "string" ? parseFloat(raw) : raw;
@@ -19,7 +19,7 @@ export function TodayPanel({
   onSelectCard,
   onMarkDone,
 }: {
-  cards: PipelineKanbanCard[];
+  cards: ExecutionCard[];
   staleCount: number;
   revenueAtRisk: number;
   envId: string;
@@ -71,6 +71,13 @@ export function TodayPanel({
                 <span className="text-xs text-bm-muted2 ml-2">
                   {card.next_action_description || "Define next step"}
                 </span>
+                <div className="mt-0.5 flex items-center gap-2 text-[10px] text-bm-muted2">
+                  <span className={card.execution_pressure === "critical" ? "text-red-400" : card.execution_pressure === "high" ? "text-orange-400" : ""}>
+                    {card.execution_pressure}
+                  </span>
+                  <span>{card.deal_drift_status}</span>
+                  {card.latest_angle_used ? <span>last angle: {card.latest_angle_used}</span> : null}
+                </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                 <button

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from io import BytesIO
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Iterable
@@ -10,6 +12,8 @@ from app.db import get_cursor
 from app.services import pds as pds_core
 from app.services.pds_executive import queue as queue_svc
 from app.services.workspace_templates import resolve_workspace_template_key
+
+logger = logging.getLogger(__name__)
 
 VALID_LENSES = {"market", "account", "project", "resource", "business_line"}
 VALID_HORIZONS = {"MTD", "QTD", "YTD", "Forecast"}
@@ -44,12 +48,43 @@ def _q(value: Any) -> Decimal:
     return pds_core._q(value)
 
 
+def _table_exists(table_name: str) -> bool:
+    with get_cursor() as cur:
+        cur.execute("SELECT to_regclass(%s) IS NOT NULL AS exists", (table_name,))
+        row = cur.fetchone() or {}
+    return bool(row.get("exists"))
+
+
+def _table_rows_or_empty(
+    *,
+    key: str,
+    table_name: str,
+    sql: str,
+    env_id: UUID,
+    business_id: UUID,
+) -> list[dict[str, Any]]:
+    if not _table_exists(table_name):
+        logger.warning("Optional PDS table missing; returning empty rows", extra={"table": table_name, "key": key})
+        return []
+
+    with get_cursor() as cur:
+        cur.execute(sql, (str(env_id), str(business_id)))
+        return cur.fetchall()
+
+
 def _ensure_workspace_lazy(*, env_id: UUID, business_id: UUID) -> None:
     """Fast-path workspace check: only runs full ensure if snapshots don't exist yet.
 
     This avoids the expensive refresh_snapshots() call on every read request.
     Full refresh should happen via the /seed or /refresh-snapshots endpoints.
     """
+    if not _table_exists("pds_market_performance_snapshot"):
+        logger.warning(
+            "PDS market snapshot table missing; skipping lazy workspace bootstrap",
+            extra={"env_id": str(env_id), "business_id": str(business_id)},
+        )
+        return
+
     with get_cursor() as cur:
         cur.execute(
             "SELECT 1 FROM pds_market_performance_snapshot WHERE env_id = %s::uuid AND business_id = %s::uuid LIMIT 1",
@@ -410,6 +445,8 @@ def _account_impact_label(issue_code: str | None, row: dict[str, Any]) -> str:
 
 
 def _recent_snapshot_dates(table: str, *, env_id: UUID, business_id: UUID, horizon: str, limit: int = 2) -> list[date]:
+    if not _table_exists(table):
+        return []
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -435,6 +472,8 @@ def _snapshot_rows_for_date(
     snapshot_date: date | None,
 ) -> list[dict[str, Any]]:
     if snapshot_date is None:
+        return []
+    if not _table_exists(table):
         return []
     with get_cursor() as cur:
         cur.execute(
@@ -1405,9 +1444,20 @@ def _load_rows_by_table(*, env_id: UUID, business_id: UUID) -> dict[str, list[di
         "business_lines": "SELECT * FROM pds_business_lines WHERE env_id = %s::uuid AND business_id = %s::uuid ORDER BY sort_order",
         "leader_coverage": "SELECT * FROM pds_leader_coverage WHERE env_id = %s::uuid AND business_id = %s::uuid AND effective_to IS NULL ORDER BY market_id, business_line_id",
     }
+    optional_tables = {
+        "claims": "pds_contractor_claims",
+        "permits": "pds_permits",
+        "change_orders": "pds_change_orders",
+        "milestones": "pds_milestones",
+        "business_lines": "pds_business_lines",
+        "leader_coverage": "pds_leader_coverage",
+    }
     rows: dict[str, list[dict[str, Any]]] = {}
     with get_cursor() as cur:
         for key, sql in table_map.items():
+            if key in optional_tables and not _table_exists(optional_tables[key]):
+                rows[key] = []
+                continue
             cur.execute(sql, (str(env_id), str(business_id)))
             rows[key] = cur.fetchall()
     rows["projects"] = pds_core.list_projects(env_id=env_id, business_id=business_id, limit=200)
@@ -2195,6 +2245,8 @@ def refresh_snapshots(*, env_id: UUID, business_id: UUID, actor: str = "system")
 
 
 def _latest_snapshot_rows(table: str, *, env_id: UUID, business_id: UUID, horizon: str) -> list[dict[str, Any]]:
+    if not _table_exists(table):
+        return []
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -3687,12 +3739,16 @@ def _ensure_pipeline_demo_data(*, env_id: UUID, business_id: UUID) -> None:
         )
         if int((cur.fetchone() or {}).get("cnt") or 0) >= 6:
             return
+        # Demo seeding must not assume optional schema columns on pds_accounts.
+        # In live environments, business line ownership lives on downstream entities
+        # like resources/projects/pipeline deals, so inherit from the owner resource
+        # when available and otherwise keep the seeded deal nullable.
         cur.execute(
             """
             SELECT a.account_id, a.account_name, a.market_id, a.owner_name,
                    COALESCE(r.resource_id, a.owner_resource_id) AS owner_resource_id,
                    COALESCE(r.full_name, a.owner_name) AS resource_name,
-                   a.business_line_id
+                   r.business_line_id AS business_line_id
             FROM pds_accounts a
             LEFT JOIN pds_resources r ON r.resource_id = a.owner_resource_id
             WHERE a.env_id = %s::uuid AND a.business_id = %s::uuid
@@ -3767,6 +3823,23 @@ def _ensure_pipeline_demo_data(*, env_id: UUID, business_id: UUID) -> None:
                     ),
                 )
     _upsert_pipeline_snapshot(env_id=env_id, business_id=business_id)
+
+
+def _empty_pipeline_summary() -> dict[str, Any]:
+    return {
+        "has_deals": False,
+        "empty_state_title": "Pipeline unavailable",
+        "empty_state_body": "Pipeline demo data could not be prepared for this workspace.",
+        "required_fields": ["Deal", "Account", "Stage", "Value", "Probability", "Expected Close", "Owner"],
+        "example_deal": _pipeline_example_deal(),
+        "metrics": [],
+        "attention_items": [],
+        "stages": [],
+        "timeline": [],
+        "deals": [],
+        "total_pipeline_value": Decimal("0"),
+        "total_weighted_value": Decimal("0"),
+    }
 
 
 def get_pipeline_lookups(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
@@ -3991,10 +4064,20 @@ def update_pipeline_deal(*, env_id: UUID, business_id: UUID, deal_id: UUID, payl
     return get_pipeline_deal_detail(env_id=env_id, business_id=business_id, deal_id=deal_id)
 
 
-def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
+def get_pipeline_summary(*, env_id: UUID, business_id: UUID, tolerate_seed_failure: bool = False) -> dict[str, Any]:
     """Return the board-first pipeline workspace model for the PDS pipeline module."""
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
-    _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
+    if tolerate_seed_failure:
+        try:
+            _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
+        except Exception:
+            logger.exception(
+                "PDS pipeline demo seeding failed during pipeline summary load",
+                extra={"env_id": str(env_id), "business_id": str(business_id)},
+            )
+            return _empty_pipeline_summary()
+    else:
+        _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
     today = _today()
     raw_rows = _fetch_pipeline_deal_rows(env_id=env_id, business_id=business_id)
     deals = [_pipeline_deal_from_row(row, today=today) for row in raw_rows]
@@ -4022,7 +4105,6 @@ def get_pipeline_summary(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
 def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: str, role_preset: str) -> dict[str, Any]:
     environment = _fetch_environment(env_id)
     _ensure_workspace_lazy(env_id=env_id, business_id=business_id)
-    _ensure_pipeline_demo_data(env_id=env_id, business_id=business_id)
     normalized_lens = normalize_lens(lens, role_preset)
     normalized_horizon = normalize_horizon(horizon)
     performance_table = get_performance_table(env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon)
@@ -4038,7 +4120,7 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
     forecast = get_forecast(env_id=env_id, business_id=business_id, horizon=normalized_horizon, lens=normalized_lens)
     satisfaction = get_satisfaction(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
     closeout = get_closeout(env_id=env_id, business_id=business_id, horizon=normalized_horizon)
-    pipeline_summary = get_pipeline_summary(env_id=env_id, business_id=business_id)
+    pipeline_summary = get_pipeline_summary(env_id=env_id, business_id=business_id, tolerate_seed_failure=True)
     pipeline_rollup = _build_pipeline_rollup(pipeline_summary)
     briefing = get_executive_briefing(
         env_id=env_id, business_id=business_id, lens=normalized_lens, horizon=normalized_horizon, role_preset=role_preset,
@@ -4293,3 +4375,307 @@ def build_report_packet(*, env_id: UUID, business_id: UUID, packet_type: str, le
         "sections": sections,
         "narrative": narrative,
     }
+
+
+def _json_ready(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
+
+def _normalize_export_formats(formats: Iterable[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for fmt in formats or ("pdf", "xlsx"):
+        candidate = str(fmt).strip().lower()
+        if candidate in {"pdf", "xlsx"} and candidate not in normalized:
+            normalized.append(candidate)
+    return normalized or ["pdf", "xlsx"]
+
+
+def _packet_export_rows(value: Any, prefix: str = "") -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            next_prefix = f"{prefix}.{key}" if prefix else str(key)
+            rows.extend(_packet_export_rows(item, next_prefix))
+        return rows
+    if isinstance(value, list):
+        for index, item in enumerate(value, start=1):
+            next_prefix = f"{prefix}[{index}]" if prefix else f"[{index}]"
+            rows.extend(_packet_export_rows(item, next_prefix))
+        return rows
+    rows.append((prefix or "value", "" if value is None else str(value)))
+    return rows
+
+
+def _sanitize_sheet_title(title: str, fallback: str) -> str:
+    cleaned = "".join(ch for ch in title if ch not in '[]:*?/\\').strip()
+    return (cleaned or fallback)[:31]
+
+
+def _safe_filename_token(value: str) -> str:
+    token = "".join(ch.lower() if ch.isalnum() else "_" for ch in value.strip())
+    while "__" in token:
+        token = token.replace("__", "_")
+    return token.strip("_") or "report"
+
+
+def _report_export_filename(title: str, report_run_id: UUID, export_format: str) -> str:
+    base = _safe_filename_token(title)
+    return f"{base}_{str(report_run_id)[:8]}.{export_format}"
+
+
+def _render_packet_pdf(packet: dict[str, Any], generated_at: str | None) -> bytes:
+    from reportlab.lib.pagesizes import LETTER
+    from reportlab.pdfgen import canvas
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=LETTER)
+    width, height = LETTER
+    y = height - 54
+
+    def write_line(text: str, *, size: int = 10, gap: int = 14) -> None:
+        nonlocal y
+        if y < 54:
+            pdf.showPage()
+            y = height - 54
+        pdf.setFont("Helvetica", size)
+        pdf.drawString(54, y, text[:110])
+        y -= gap
+
+    pdf.setTitle(str(packet.get("title") or "PDS Report Packet"))
+    write_line(str(packet.get("title") or "PDS Report Packet"), size=16, gap=20)
+    write_line(f"Generated: {generated_at or packet.get('generated_at') or 'Unknown'}", size=9, gap=16)
+    narrative = str(packet.get("narrative") or "Narrative pending.")
+    for line in [narrative[i:i + 105] for i in range(0, len(narrative), 105)] or ["Narrative pending."]:
+        write_line(line, size=10, gap=13)
+
+    for section in packet.get("sections") or []:
+        write_line("", gap=8)
+        write_line(str(section.get("title") or section.get("key") or "Section"), size=12, gap=16)
+        flat_rows = _packet_export_rows(section.get("content"))
+        if not flat_rows:
+            write_line("No data available.", size=9, gap=12)
+            continue
+        for path, value in flat_rows[:18]:
+            write_line(f"{path}: {value}", size=9, gap=12)
+        if len(flat_rows) > 18:
+            write_line(f"... {len(flat_rows) - 18} more values available in XLSX export", size=9, gap=12)
+
+    pdf.save()
+    return buffer.getvalue()
+
+
+def _render_packet_xlsx(packet: dict[str, Any], generated_at: str | None) -> bytes:
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    overview = workbook.active
+    overview.title = "Overview"
+    overview.append(["Title", str(packet.get("title") or "PDS Report Packet")])
+    overview.append(["Generated At", generated_at or str(packet.get("generated_at") or "")])
+    overview.append(["Packet Type", str(packet.get("packet_type") or "")])
+    overview.append(["Narrative", str(packet.get("narrative") or "")])
+
+    for index, section in enumerate(packet.get("sections") or [], start=1):
+        title = str(section.get("title") or section.get("key") or f"Section {index}")
+        sheet = workbook.create_sheet(title=_sanitize_sheet_title(title, f"Section {index}"))
+        sheet.append(["Path", "Value"])
+        for path, value in _packet_export_rows(section.get("content")):
+            sheet.append([path, value])
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def create_report_export_run(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    packet_type: str,
+    lens: str,
+    horizon: str,
+    role_preset: str,
+    actor: str | None = None,
+    formats: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    packet = build_report_packet(
+        env_id=env_id,
+        business_id=business_id,
+        packet_type=packet_type,
+        lens=lens,
+        horizon=horizon,
+        role_preset=role_preset,
+    )
+    available_formats = _normalize_export_formats(formats)
+    timestamp = datetime.utcnow()
+    generated_at = packet.get("generated_at")
+    packet_json = _json_ready(packet)
+    metadata_json = {
+        "packet_type": packet_type,
+        "title": packet.get("title"),
+        "lens": normalize_lens(lens, role_preset),
+        "horizon": normalize_horizon(horizon),
+        "role_preset": normalize_role_preset(role_preset),
+        "available_formats": available_formats,
+        "generated_at": _json_ready(generated_at),
+        "packet": packet_json,
+    }
+    artifact_refs = [
+        {"artifact_type": "pds_v2_report_export", "format": fmt, "status": "available"}
+        for fmt in available_formats
+    ]
+    run_id = f"pds_v2_export_{timestamp.strftime('%Y%m%d%H%M%S')}"
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pds_report_runs
+            (env_id, business_id, period, run_id, status, snapshot_hash, deterministic_deltas_json,
+             artifact_refs_json, narrative_text, source, version_no, metadata_json, created_by, updated_by)
+            VALUES (%s::uuid, %s::uuid, %s, %s, 'completed', %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING report_run_id, run_id, period, status, source, created_at, metadata_json
+            """,
+            (
+                str(env_id),
+                str(business_id),
+                normalize_horizon(horizon),
+                run_id,
+                packet.get("generated_at").isoformat() if isinstance(packet.get("generated_at"), datetime) else None,
+                json.dumps({}),
+                json.dumps(artifact_refs),
+                packet.get("narrative"),
+                "pds_v2_export",
+                2,
+                json.dumps(metadata_json),
+                actor,
+                actor,
+            ),
+        )
+        row = cur.fetchone() or {}
+    return _format_report_export_run(row)
+
+
+def _format_report_export_run(row: dict[str, Any]) -> dict[str, Any]:
+    metadata = row.get("metadata_json") or {}
+    packet = metadata.get("packet") or {}
+    return {
+        "report_run_id": row["report_run_id"],
+        "run_id": row.get("run_id") or "",
+        "packet_type": metadata.get("packet_type") or packet.get("packet_type") or "forecast_pack",
+        "title": metadata.get("title") or packet.get("title") or "PDS Report Packet",
+        "status": row.get("status") or "completed",
+        "source": row.get("source") or "pds_v2_export",
+        "period": row.get("period") or metadata.get("horizon") or "Forecast",
+        "lens": metadata.get("lens") or "market",
+        "horizon": metadata.get("horizon") or "Forecast",
+        "role_preset": metadata.get("role_preset") or "executive",
+        "available_formats": _normalize_export_formats(metadata.get("available_formats")),
+        "generated_at": metadata.get("generated_at") or packet.get("generated_at") or row.get("created_at") or datetime.utcnow(),
+        "created_at": row.get("created_at") or datetime.utcnow(),
+    }
+
+
+def list_report_export_runs(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    packet_type: str | None = None,
+    limit: int = 6,
+) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(limit, 25))
+    with get_cursor() as cur:
+        if packet_type:
+            cur.execute(
+                """
+                SELECT report_run_id, run_id, period, status, source, created_at, metadata_json
+                FROM pds_report_runs
+                WHERE env_id = %s::uuid
+                  AND business_id = %s::uuid
+                  AND source = 'pds_v2_export'
+                  AND COALESCE(metadata_json->>'packet_type', '') = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (str(env_id), str(business_id), packet_type, safe_limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT report_run_id, run_id, period, status, source, created_at, metadata_json
+                FROM pds_report_runs
+                WHERE env_id = %s::uuid
+                  AND business_id = %s::uuid
+                  AND source = 'pds_v2_export'
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (str(env_id), str(business_id), safe_limit),
+            )
+        rows = cur.fetchall()
+    return [_format_report_export_run(row) for row in rows]
+
+
+def get_report_export_run(*, env_id: UUID, business_id: UUID, report_run_id: UUID) -> dict[str, Any] | None:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT report_run_id, run_id, period, status, source, created_at, metadata_json
+            FROM pds_report_runs
+            WHERE env_id = %s::uuid
+              AND business_id = %s::uuid
+              AND report_run_id = %s::uuid
+              AND source = 'pds_v2_export'
+            LIMIT 1
+            """,
+            (str(env_id), str(business_id), str(report_run_id)),
+        )
+        row = cur.fetchone()
+    return None if row is None else _format_report_export_run(row) | {"metadata_json": row.get("metadata_json") or {}}
+
+
+def render_report_export(
+    *,
+    env_id: UUID,
+    business_id: UUID,
+    report_run_id: UUID,
+    export_format: str,
+) -> tuple[bytes, str, str]:
+    run = get_report_export_run(env_id=env_id, business_id=business_id, report_run_id=report_run_id)
+    if run is None:
+        raise ValueError("Report export run not found")
+
+    fmt = str(export_format).strip().lower()
+    if fmt not in set(run["available_formats"]):
+        raise ValueError(f"Unsupported export format: {export_format}")
+
+    metadata = run.get("metadata_json") or {}
+    packet = metadata.get("packet")
+    if not isinstance(packet, dict):
+        raise ValueError("Saved report packet is unavailable")
+
+    generated_at = metadata.get("generated_at")
+    if fmt == "pdf":
+        return (
+            _render_packet_pdf(packet, generated_at),
+            _report_export_filename(run["title"], report_run_id, "pdf"),
+            "application/pdf",
+        )
+    return (
+        _render_packet_xlsx(packet, generated_at),
+        _report_export_filename(run["title"], report_run_id, "xlsx"),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )

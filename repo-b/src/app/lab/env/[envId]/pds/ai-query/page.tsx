@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { bosFetch } from "@/lib/bos-api";
+import { useSearchParams } from "next/navigation";
 import {
   LineChart, Line, BarChart, Bar, ScatterChart, Scatter,
   PieChart, Pie, Cell,
@@ -107,11 +108,26 @@ function DynamicChart({ config }: { config: ChartConfig }) {
 
 export default function PdsAiQueryPage() {
   const { envId, businessId } = useDomainEnv();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seededPrompt = searchParams.get("q") || "";
+  const projectName = searchParams.get("project_name") || "";
+
+  const allowedPrompts = [
+    "Why is this project over budget?",
+    "What are the top risks?",
+    "What should we do?",
+    "Generate report",
+  ];
+
+  function isAllowedPrompt(text: string) {
+    const normalized = text.trim().toLowerCase();
+    return allowedPrompts.some((prompt) => normalized.startsWith(prompt.toLowerCase()));
+  }
 
   useEffect(() => {
     bosFetch<{ suggestions: string[] }>("/api/pds/v2/chat/suggestions", {
@@ -122,11 +138,30 @@ export default function PdsAiQueryPage() {
   }, [envId, businessId]);
 
   useEffect(() => {
+    if (!seededPrompt) return;
+    setInput(seededPrompt);
+  }, [seededPrompt]);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || !envId || isStreaming) return;
+    if (!isAllowedPrompt(text)) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `u-${Date.now()}`, role: "user", content: text.trim() },
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          content:
+            "This flagship demo is locked to four commands only:\n\n- Why is this project over budget?\n- What are the top risks?\n- What should we do?\n- Generate report",
+        },
+      ]);
+      setInput("");
+      return;
+    }
 
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text.trim() };
     const assistantMsg: Message = { id: `a-${Date.now()}`, role: "assistant", content: "" };
@@ -205,15 +240,16 @@ export default function PdsAiQueryPage() {
   return (
     <div className="flex h-[calc(100vh-280px)] flex-col">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-zinc-100">Custom Query</h1>
-        <p className="text-sm text-zinc-400">Ask custom questions about your PDS data in natural language.</p>
+        <h1 className="text-2xl font-bold text-zinc-100">AI Command Layer</h1>
+        <p className="text-sm text-zinc-400">Use one of the four command-safe prompts so the flagship demo stays deterministic and audit-ready.</p>
+        {projectName ? <p className="mt-1 text-xs text-zinc-500">Project context: {projectName}</p> : null}
       </div>
 
       {/* Message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
-            <p className="text-zinc-500 text-sm">Ask a custom question or pick a suggestion below</p>
+            <p className="text-zinc-500 text-sm">Pick one of the four approved prompts below</p>
             <div className="flex flex-wrap justify-center gap-2">
               {suggestions.map((q, i) => (
                 <button

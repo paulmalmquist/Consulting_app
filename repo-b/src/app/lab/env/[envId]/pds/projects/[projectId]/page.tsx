@@ -15,7 +15,7 @@ import {
 import type { PdsChangeOrder, PdsProjectOverview, PdsSiteReport } from "@/lib/bos-api";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-const TABS = ["Overview", "Budget", "Schedule", "Change Orders", "Contracts", "Field Reports"] as const;
+const TABS = ["Overview", "Budget", "Schedule", "Change Orders", "Contracts", "Field Reports", "AI Assistant"] as const;
 
 function currentPeriod(): string {
   const now = new Date();
@@ -49,6 +49,7 @@ export default function PdsProjectCockpitPage({ params }: { params: { projectId:
   const [changeOrders, setChangeOrders] = useState<PdsChangeOrder[]>([]);
   const [contracts, setContracts] = useState<Array<Record<string, unknown>>>([]);
   const [siteReports, setSiteReports] = useState<PdsSiteReport[]>([]);
+  const [beforeAfterMode, setBeforeAfterMode] = useState<"before" | "after">("before");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +136,29 @@ export default function PdsProjectCockpitPage({ params }: { params: { projectId:
   }, [overview]);
 
   const project = overview?.project;
+  const projectedRecovery = useMemo(() => {
+    if (!overview) return null;
+    const variance = Number(overview.budget.variance || 0);
+    const slipDays = Number(overview.schedule.total_slip_days || 0);
+    const pendingChangeOrders = Number(overview.counts.pending_change_orders || 0);
+    const criticalFlags = Number(overview.schedule.critical_flags || 0);
+    const varianceReduction = Math.round(Math.abs(variance) * Math.min(0.45, 0.2 + pendingChangeOrders * 0.05));
+    const slipReduction = Math.min(slipDays, Math.max(7, criticalFlags * 5));
+    const projectedVariance = variance < 0 ? variance + varianceReduction : variance;
+    const projectedSlip = Math.max(0, slipDays - slipReduction);
+    return {
+      variance,
+      projectedVariance,
+      slipDays,
+      projectedSlip,
+      recommendedAction:
+        pendingChangeOrders > 0
+          ? "Approve the recovery change package and lock the revised forecast."
+          : criticalFlags > 0
+            ? "Escalate the critical path recovery plan with the primary vendor."
+            : "Reforecast the remaining work and clear remaining blockers.",
+    };
+  }, [overview]);
 
   return (
     <section className="space-y-4" data-testid="pds-project-cockpit">
@@ -166,7 +190,7 @@ export default function PdsProjectCockpitPage({ params }: { params: { projectId:
             className="rounded-lg border border-bm-border px-3 py-2 text-sm hover:bg-bm-surface/40"
             onClick={() => void onRunReport()}
           >
-            Run Report Pack
+            Generate Recovery Report
           </button>
           <Link
             href={`/lab/env/${envId}/pds/projects`}
@@ -211,6 +235,50 @@ export default function PdsProjectCockpitPage({ params }: { params: { projectId:
 
         {!loading && !error && activeTab === "Overview" && overview ? (
           <div className="space-y-4">
+            {projectedRecovery ? (
+              <section className="rounded-xl border border-pds-accent/25 bg-pds-accent/[0.08] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-bm-muted2">Before / After</p>
+                    <h3 className="mt-1 text-lg font-semibold text-bm-text">What changes if we execute the recommendation?</h3>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setBeforeAfterMode("before")}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${beforeAfterMode === "before" ? "border-pds-accent/35 bg-pds-accent/10 text-pds-accentText" : "border-bm-border/60 text-bm-muted2"}`}
+                    >
+                      Before
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBeforeAfterMode("after")}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${beforeAfterMode === "after" ? "border-pds-accent/35 bg-pds-accent/10 text-pds-accentText" : "border-bm-border/60 text-bm-muted2"}`}
+                    >
+                      After
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-lg border border-bm-border/60 bg-[#101922] p-3">
+                    <div className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Variance</div>
+                    <div className={`mt-1 text-lg font-semibold ${(beforeAfterMode === "before" ? projectedRecovery.variance : projectedRecovery.projectedVariance) < 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                      {formatMoney(beforeAfterMode === "before" ? projectedRecovery.variance : projectedRecovery.projectedVariance)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-bm-border/60 bg-[#101922] p-3">
+                    <div className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Schedule Slip</div>
+                    <div className="mt-1 text-lg font-semibold">
+                      {beforeAfterMode === "before" ? projectedRecovery.slipDays : projectedRecovery.projectedSlip} days
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-bm-border/60 bg-[#101922] p-3">
+                    <div className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Recommended Action</div>
+                    <div className="mt-1 text-sm font-medium text-bm-text">{projectedRecovery.recommendedAction}</div>
+                  </div>
+                </div>
+              </section>
+            ) : null}
             <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
               <div className="rounded-lg border border-bm-border/60 bg-bm-surface/20 p-4">
                 <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Milestone Timeline</p>
@@ -406,6 +474,34 @@ export default function PdsProjectCockpitPage({ params }: { params: { projectId:
                 </div>
               ))
             )}
+          </div>
+        ) : null}
+
+        {!loading && !error && activeTab === "AI Assistant" ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-bm-border/60 bg-[#101922] p-4">
+              <p className="text-xs uppercase tracking-[0.1em] text-bm-muted2">Locked Demo Commands</p>
+              <p className="mt-2 text-sm text-bm-muted2">The flagship demo only allows four commands so the answer stays explainable and consistent.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                "Why is this project over budget?",
+                "What are the top risks?",
+                "What should we do?",
+                "Generate report",
+              ].map((prompt) => (
+                <Link
+                  key={prompt}
+                  href={`/lab/env/${envId}/pds/ai-query?q=${encodeURIComponent(`${prompt} ${project?.name || "this project"}`)}&project_name=${encodeURIComponent(project?.name || "Project")}`}
+                  className="rounded-lg border border-bm-border/60 bg-bm-surface/10 p-4 text-sm font-medium text-bm-text transition hover:bg-bm-surface/25"
+                >
+                  {prompt}
+                </Link>
+              ))}
+            </div>
+            <div className="rounded-lg border border-pds-accent/25 bg-pds-accent/[0.08] p-4 text-sm text-bm-muted2">
+              Recommended next step: open the recovery command, then generate the report from this project context.
+            </div>
           </div>
         ) : null}
       </div>

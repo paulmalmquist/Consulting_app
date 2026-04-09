@@ -81,6 +81,8 @@ from app.services import (
     re_capital_ledger,
     re_cashflow_ledger,
     re_env_portfolio,
+    re_portfolio_signals,
+    re_query_resolver,
     re_scenario,
     re_model,
     re_model_scenario,
@@ -200,6 +202,151 @@ def get_environment_portfolio_readiness(
         )
     except Exception as exc:
         raise _to_http(exc)
+
+
+# ── Fund Table (enriched rows with quarter state) ────────────────────────────
+
+@router.get("/environments/{env_id}/fund-table")
+def get_environment_fund_table(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(...),
+    model_id: UUID | None = Query(None),
+):
+    """
+    Returns enriched fund rows with performance metrics from re_fund_quarter_state.
+    Supports model overlay via optional model_id parameter.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        return re_env_portfolio.get_fund_table_rows(
+            business_id=resolved.business_id,
+            quarter=quarter,
+            model_id=model_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Fund Comparison (bar chart data) ─────────────────────────────────────────
+
+@router.get("/environments/{env_id}/fund-comparison")
+def get_environment_fund_comparison(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(...),
+    metric: str = Query("gross_irr"),
+    model_id: UUID | None = Query(None),
+):
+    """Returns metric values per fund for comparison bar chart."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        return re_env_portfolio.get_fund_comparison(
+            business_id=resolved.business_id,
+            quarter=quarter,
+            metric=metric,
+            model_id=model_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Allocation Breakdown ─────────────────────────────────────────────────────
+
+@router.get("/environments/{env_id}/allocation-breakdown")
+def get_environment_allocation_breakdown(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(...),
+    group_by: str = Query("sector"),
+    model_id: UUID | None = Query(None),
+):
+    """Returns allocation breakdown grouped by sector or geography."""
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        return re_env_portfolio.get_allocation_breakdown(
+            business_id=resolved.business_id,
+            quarter=quarter,
+            group_by=group_by,
+            model_id=model_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Query Resolver (command bar backend) ─────────────────────────────────────
+
+@router.get("/environments/{env_id}/query-resolve")
+def resolve_query(
+    env_id: UUID,
+    request: Request,
+    q: str = Query(""),
+    quarter: str = Query(None),
+):
+    """
+    Resolves a raw query string into structured filters, entities, and actions.
+    Used by the portfolio command bar — all semantic parsing happens here.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        effective_quarter = quarter or _current_quarter()
+        return re_query_resolver.resolve_query(
+            query=q,
+            business_id=resolved.business_id,
+            env_id=env_id,
+            quarter=effective_quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Portfolio Signals ────────────────────────────────────────────────────────
+
+@router.get("/environments/{env_id}/portfolio-signals")
+def get_portfolio_signals(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(None),
+):
+    """
+    Returns deterministic portfolio signals with attribution and recommended actions.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        effective_quarter = quarter or _current_quarter()
+        return re_portfolio_signals.generate_signals(
+            business_id=resolved.business_id,
+            quarter=effective_quarter,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+def _current_quarter() -> str:
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    q = (now.month - 1) // 3 + 1
+    return f"{now.year}Q{q}"
 
 
 # ── Asset Map ─────────────────────────────────────────────────────────────────

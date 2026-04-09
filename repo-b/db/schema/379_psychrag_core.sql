@@ -38,20 +38,20 @@ CREATE TABLE IF NOT EXISTS psychrag_practices (
 
 -- CI schema-gate runs against vanilla Postgres instead of a full Supabase bootstrapped
 -- database. Provide a minimal auth.users stub when that schema is missing.
-CREATE SCHEMA IF NOT EXISTS auth;
-
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql STABLE
-AS $$
-  SELECT COALESCE(
-    NULLIF((COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::json ->> 'sub'), ''),
-    NULLIF(current_setting('app.current_user_id', true), '')
-  )::uuid;
-$$;
-
-CREATE TABLE IF NOT EXISTS auth.users (
-  id uuid PRIMARY KEY
-);
+-- On Supabase, auth schema is managed and read-only — skip stub creation.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'auth') THEN
+    CREATE SCHEMA auth;
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $fn$
+      SELECT COALESCE(
+        NULLIF((COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::json ->> 'sub'), ''),
+        NULLIF(current_setting('app.current_user_id', true), '')
+      )::uuid;
+    $fn$;
+    CREATE TABLE auth.users (id uuid PRIMARY KEY);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS psychrag_profiles (
   id                  uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

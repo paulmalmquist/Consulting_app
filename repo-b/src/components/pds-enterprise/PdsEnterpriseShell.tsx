@@ -28,77 +28,25 @@ function isActive(pathname: string, href: string, exact = false): boolean {
 function navGroups(base: string): NavGroup[] {
   return [
     {
-      domain: "Command",
+      domain: "Demo Flow",
       items: [
-        { href: base, label: "Home", exact: true },
-        { href: `${base}/ai-briefing`, label: "Exec Briefing" },
-      ],
-    },
-    {
-      domain: "Portfolio",
-      items: [
-        { href: `${base}/markets`, label: "Markets" },
-        { href: `${base}/accounts`, label: "Accounts" },
+        { href: base, label: "Intervention Queue", exact: true },
         { href: `${base}/projects`, label: "Projects" },
-        { href: `${base}/pipeline`, label: "Pipeline" },
+        { href: `${base}/reports`, label: "Report Output" },
       ],
     },
     {
-      domain: "Financials",
+      domain: "Recovery Views",
       items: [
-        { href: `${base}/revenue`, label: "Revenue & CI" },
-        { href: `${base}/forecast`, label: "Forecast" },
-        { href: `${base}/backlog`, label: "Backlog" },
-        { href: `${base}/fee-variance`, label: "Fee Variance" },
+        { href: `${base}/accounts`, label: "Cost Breakdown" },
+        { href: `${base}/ai-briefing`, label: "Operating Posture" },
+        { href: `${base}/audit`, label: "Audit Log" },
       ],
     },
     {
-      domain: "Delivery",
+      domain: "Tools",
       items: [
-        { href: `${base}/risk`, label: "Delivery Risk" },
-        { href: `${base}/closeout`, label: "Closeout" },
-        { href: `${base}/schedule`, label: "Schedule Health" },
-        { href: `${base}/project-status`, label: "Project Status" },
-      ],
-    },
-    {
-      domain: "Resources",
-      items: [
-        { href: `${base}/resources`, label: "Resources" },
-        { href: `${base}/timecards`, label: "Timecards" },
-        { href: `${base}/utilization`, label: "Utilization" },
-        { href: `${base}/capacity`, label: "Capacity Planning" },
-      ],
-    },
-    {
-      domain: "Client",
-      items: [
-        { href: `${base}/satisfaction`, label: "Client Satisfaction" },
-        { href: `${base}/strategic-accounts`, label: "Strategic Accounts" },
-        { href: `${base}/relationship-health`, label: "Relationship Health" },
-      ],
-    },
-    {
-      domain: "Operations",
-      items: [
-        { href: `${base}/adoption`, label: "Tech Adoption" },
-        { href: `${base}/process-compliance`, label: "Process Compliance" },
-        { href: `${base}/operational-signals`, label: "Operational Signals" },
-      ],
-    },
-    {
-      domain: "Governance",
-      items: [
-        { href: `${base}/reports`, label: "Reports" },
-        { href: `${base}/documents`, label: "Documents" },
-        { href: `${base}/audit`, label: "Audit" },
-        { href: `${base}/configuration`, label: "Configuration" },
-      ],
-    },
-    {
-      domain: "Special Tools",
-      items: [
-        { href: `${base}/ai-query`, label: "Custom Query", tone: "special" },
+        { href: `${base}/ai-query`, label: "AI Command Layer", tone: "special" },
       ],
     },
   ];
@@ -119,11 +67,11 @@ export default function PdsEnterpriseShell({
   const groups = navGroups(base);
   const mobileNavItems = useMemo<MobileNavItem[]>(
     () => [
-      { href: base, label: "Home", icon: "home", matchPrefix: false },
-      { href: `${base}/accounts`, label: "Accounts", icon: "accounts", matchPrefix: true },
-      { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: true },
-      { href: `${base}/revenue`, label: "Revenue", icon: "revenue", matchPrefix: true },
-      { href: `${base}/risk`, label: "Risk", icon: "risk", matchPrefix: true },
+      { href: base, label: "Queue", icon: "home", matchPrefix: false },
+      { href: `${base}/projects`, label: "Projects", icon: "pipeline", matchPrefix: true },
+      { href: `${base}/reports`, label: "Reports", icon: "revenue", matchPrefix: true },
+      { href: `${base}/accounts`, label: "Costs", icon: "accounts", matchPrefix: true },
+      { href: `${base}/audit`, label: "Audit", icon: "risk", matchPrefix: true },
     ],
     [base],
   );
@@ -136,7 +84,7 @@ export default function PdsEnterpriseShell({
     }) || "pds_enterprise";
   const activeNavLabel = useMemo(
     () =>
-      groups.flatMap((group) => group.items).find((item) => isActive(pathname, item.href, item.exact))?.label || "Home",
+      groups.flatMap((group) => group.items).find((item) => isActive(pathname, item.href, item.exact))?.label || "Intervention Queue",
     [groups, pathname],
   );
 
@@ -287,10 +235,10 @@ export default function PdsEnterpriseShell({
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{envLabel}</h1>
                   <span className="inline-flex items-center rounded-full border border-pds-accent/20 px-2.5 py-1 text-xs text-pds-accentText">
-                    PDS Enterprise OS
+                    Executive Recovery System
                   </span>
                 </div>
-                <p className="text-sm text-bm-muted2">Fee revenue, forecast, staffing, client health, and closeout on one operating surface.</p>
+                <p className="text-sm text-bm-muted2">Lead with the problem, open the project, and ship the recovery report while the numbers stay coherent.</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-bm-muted2">

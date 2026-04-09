@@ -81,7 +81,8 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM tenant t
   WHERE t.tenant_id = at.tenant_id
-);
+)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO business (business_id, tenant_id, name, slug, region)
 SELECT
