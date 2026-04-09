@@ -56,7 +56,9 @@ describe("PdsEnterpriseShell", () => {
 
     expect(sidebar.getByRole("link", { name: "Intervention Queue" })).not.toHaveAttribute("aria-current", "page");
     expect(sidebar.getByRole("link", { name: "Projects" })).toHaveAttribute("aria-current", "page");
-    expect(container.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
+    // Scope active-link count to sidebar (mobile nav may also render active links)
+    const sidebarEl = screen.getByTestId("pds-sidebar");
+    expect(sidebarEl.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
   });
 
   it("shows the nav groups and the special AI Command Layer entry", () => {
