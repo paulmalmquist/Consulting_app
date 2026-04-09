@@ -1,0 +1,51 @@
+# Truth parity spec: Query Resolver
+# Verifies that natural language queries produce correct structured filters.
+
+name: "Query Resolver — Deterministic Mapping"
+category: query_resolver
+entity_type: portfolio
+entity_id: "${BUSINESS_ID}"
+quarter: "${QUARTER}"
+
+test_cases:
+  - input: "DSCR < 1.25"
+    expected_filters:
+      - field: weighted_dscr
+        operator: "<"
+        value: 1.25
+
+  - input: "multifamily in texas"
+    expected_filters:
+      - field: property_type
+        operator: "="
+        value: multifamily
+      - field: state
+        operator: "="
+        value: TX
+
+  - input: "IRR > 12%"
+    expected_filters:
+      - field: gross_irr
+        operator: ">"
+        value: 0.12
+
+  - input: "vintage 2024"
+    expected_filters:
+      - field: vintage_year
+        operator: "="
+        value: 2024
+
+  - input: "/debt surveillance"
+    expected_slash_command: "/debt surveillance"
+
+  - input: "DSCR < 1.25 multifamily texas"
+    expected_filters:
+      - field: weighted_dscr
+        operator: "<"
+        value: 1.25
+      - field: property_type
+        operator: "="
+        value: multifamily
+      - field: state
+        operator: "="
+        value: TX

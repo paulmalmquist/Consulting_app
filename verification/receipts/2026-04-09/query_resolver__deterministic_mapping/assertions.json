@@ -1,0 +1,266 @@
+{
+  "spec_name": "Query Resolver \u2014 Deterministic Mapping",
+  "category": "query_resolver",
+  "test_cases": [
+    {
+      "input": "DSCR < 1.25",
+      "result": {
+        "filters": [
+          {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          }
+        ],
+        "entities": [],
+        "actions": [
+          {
+            "command": "/debt-surveillance",
+            "label": "Open Debt Surveillance",
+            "params": null
+          }
+        ],
+        "slash_command": null
+      },
+      "assertions": [
+        {
+          "check": "filter_weighted_dscr",
+          "expected": {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          },
+          "actual": {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          },
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "input": "multifamily in texas",
+      "result": {
+        "filters": [
+          {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          }
+        ],
+        "entities": [],
+        "actions": [],
+        "slash_command": null
+      },
+      "assertions": [
+        {
+          "check": "filter_property_type",
+          "expected": {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          "actual": {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          "passed": true
+        },
+        {
+          "check": "filter_state",
+          "expected": {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          },
+          "actual": {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          },
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "input": "IRR > 12%",
+      "result": {
+        "filters": [
+          {
+            "field": "gross_irr",
+            "operator": ">",
+            "value": 0.12
+          }
+        ],
+        "entities": [],
+        "actions": [
+          {
+            "command": "/compare-funds",
+            "label": "Compare Funds",
+            "params": null
+          }
+        ],
+        "slash_command": null
+      },
+      "assertions": [
+        {
+          "check": "filter_gross_irr",
+          "expected": {
+            "field": "gross_irr",
+            "operator": ">",
+            "value": 0.12
+          },
+          "actual": {
+            "field": "gross_irr",
+            "operator": ">",
+            "value": 0.12
+          },
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "input": "vintage 2024",
+      "result": {
+        "filters": [
+          {
+            "field": "vintage_year",
+            "operator": "=",
+            "value": 2024
+          }
+        ],
+        "entities": [],
+        "actions": [],
+        "slash_command": null
+      },
+      "assertions": [
+        {
+          "check": "filter_vintage_year",
+          "expected": {
+            "field": "vintage_year",
+            "operator": "=",
+            "value": 2024
+          },
+          "actual": {
+            "field": "vintage_year",
+            "operator": "=",
+            "value": 2024
+          },
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "input": "/debt surveillance",
+      "result": {
+        "filters": [],
+        "entities": [],
+        "actions": [
+          {
+            "command": "/debt surveillance",
+            "label": "Open debt surveillance",
+            "params": null
+          }
+        ],
+        "slash_command": "/debt surveillance"
+      },
+      "assertions": [
+        {
+          "check": "slash_command",
+          "expected": "/debt surveillance",
+          "actual": "/debt surveillance",
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "input": "DSCR < 1.25 multifamily texas",
+      "result": {
+        "filters": [
+          {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          },
+          {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          }
+        ],
+        "entities": [],
+        "actions": [
+          {
+            "command": "/debt-surveillance",
+            "label": "Open Debt Surveillance",
+            "params": null
+          }
+        ],
+        "slash_command": null
+      },
+      "assertions": [
+        {
+          "check": "filter_weighted_dscr",
+          "expected": {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          },
+          "actual": {
+            "field": "weighted_dscr",
+            "operator": "<",
+            "value": 1.25
+          },
+          "passed": true
+        },
+        {
+          "check": "filter_property_type",
+          "expected": {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          "actual": {
+            "field": "property_type",
+            "operator": "=",
+            "value": "multifamily"
+          },
+          "passed": true
+        },
+        {
+          "check": "filter_state",
+          "expected": {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          },
+          "actual": {
+            "field": "state",
+            "operator": "=",
+            "value": "TX"
+          },
+          "passed": true
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "all_passed": true
+}

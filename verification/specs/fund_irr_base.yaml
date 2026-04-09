@@ -1,0 +1,27 @@
+# Truth parity spec: Fund Gross IRR (base case)
+# Verifies that SQL, Python, API, and frontend all agree on fund-level IRR.
+
+name: "Fund Gross IRR — Base Case"
+category: metric
+entity_type: fund
+entity_id: "${FUND_ID}"
+quarter: "${QUARTER}"
+model_id: null
+metric: gross_irr
+
+tolerances:
+  sql_vs_python: 0.0001    # 1 basis point
+  api_vs_python: 0.0001
+  frontend_vs_api: 0.0001
+  ai_vs_api: 0.005         # 50 bps for AI
+
+layers:
+  - sql
+  - python
+  - api
+
+frontend:
+  route: "/lab/env/${ENV_ID}/re/funds"
+  selector: "[data-testid='fund-row-${FUND_ID}'] [data-metric='gross_irr']"
+
+ai_prompt: "What is the gross IRR for this fund this quarter?"

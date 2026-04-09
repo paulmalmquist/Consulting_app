@@ -1,0 +1,32 @@
+# Truth parity spec: NAV Rollup Reconciliation
+# Verifies that fund NAV = sum of investment NAVs = sum of asset NAVs.
+
+name: "NAV Rollup Reconciliation"
+category: rollup
+entity_type: portfolio
+entity_id: "${BUSINESS_ID}"
+quarter: "${QUARTER}"
+model_id: null
+metric: nav
+
+tolerances:
+  fund_vs_investment: 1     # $1 tolerance
+  investment_vs_asset: 1
+  api_vs_sql: 1
+
+layers:
+  - sql
+  - api
+
+checks:
+  - type: sum_equals
+    description: "Portfolio NAV = sum of fund NAVs"
+    lhs: "portfolio.portfolio_nav"
+    rhs: "sum(funds[*].portfolio_nav)"
+    tolerance: 1
+
+  - type: allocation_sum
+    description: "Allocation percentages sum to 100%"
+    field: "allocation.groups[*].pct"
+    expected_sum: 100
+    tolerance: 0.01
