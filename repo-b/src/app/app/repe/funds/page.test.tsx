@@ -21,6 +21,9 @@ vi.mock("@/lib/repe-context", () => ({
 const mockGetCapitalActivity = vi.fn();
 const mockGetAssetMapPoints = vi.fn();
 const mockDeleteRepeFund = vi.fn();
+const mockGetPortfolioSignals = vi.fn();
+const mockGetFundTableRows = vi.fn();
+const mockGetFundComparison = vi.fn();
 
 vi.mock("@/lib/bos-api", () => ({
   listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
@@ -29,6 +32,9 @@ vi.mock("@/lib/bos-api", () => ({
   getCapitalActivity: (...args: unknown[]) => mockGetCapitalActivity(...args),
   getAssetMapPoints: (...args: unknown[]) => mockGetAssetMapPoints(...args),
   deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
+  getPortfolioSignals: (...args: unknown[]) => mockGetPortfolioSignals(...args),
+  getFundTableRows: (...args: unknown[]) => mockGetFundTableRows(...args),
+  getFundComparison: (...args: unknown[]) => mockGetFundComparison(...args),
 }));
 
 const MOCK_FUNDS = [
@@ -92,6 +98,9 @@ describe("REPE funds page", () => {
     mockListReV1Funds.mockResolvedValue([]);
     mockGetCapitalActivity.mockResolvedValue({ summary: {}, series: [] });
     mockGetAssetMapPoints.mockResolvedValue([]);
+    mockGetPortfolioSignals.mockResolvedValue([]);
+    mockGetFundTableRows.mockResolvedValue([]);
+    mockGetFundComparison.mockResolvedValue([]);
     mockGetReV2EnvironmentPortfolioKpis.mockResolvedValue({
       env_id: "test-env",
       business_id: "test-biz",

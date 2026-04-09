@@ -43,8 +43,8 @@ describe("PdsEnterpriseShell", () => {
     });
   });
 
-  it("highlights only the active child route and leaves Home inactive", () => {
-    mockUsePathname.mockReturnValue("/lab/env/env-stonepds/pds/markets");
+  it("highlights only the active child route and leaves Intervention Queue inactive", () => {
+    mockUsePathname.mockReturnValue("/lab/env/env-stonepds/pds/projects");
 
     const { container } = render(
       <PdsEnterpriseShell envId="env-stonepds">
@@ -54,12 +54,12 @@ describe("PdsEnterpriseShell", () => {
 
     const sidebar = within(screen.getByTestId("pds-sidebar"));
 
-    expect(sidebar.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current", "page");
-    expect(sidebar.getByRole("link", { name: "Markets" })).toHaveAttribute("aria-current", "page");
+    expect(sidebar.getByRole("link", { name: "Intervention Queue" })).not.toHaveAttribute("aria-current", "page");
+    expect(sidebar.getByRole("link", { name: "Projects" })).toHaveAttribute("aria-current", "page");
     expect(container.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
   });
 
-  it("shows the renamed command items and the special tools entry", () => {
+  it("shows the nav groups and the special AI Command Layer entry", () => {
     mockUsePathname.mockReturnValue("/lab/env/env-stonepds/pds");
 
     render(
@@ -70,11 +70,9 @@ describe("PdsEnterpriseShell", () => {
 
     const sidebar = within(screen.getByTestId("pds-sidebar"));
 
-    expect(sidebar.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    expect(sidebar.getByRole("link", { name: "Exec Briefing" })).toBeInTheDocument();
-    expect(sidebar.getByText("Special Tools")).toBeInTheDocument();
-    expect(sidebar.getByRole("link", { name: "Custom Query" })).toBeInTheDocument();
-    expect(screen.queryByText("AI Briefing")).not.toBeInTheDocument();
-    expect(screen.queryByText("AI Query")).not.toBeInTheDocument();
+    expect(sidebar.getByRole("link", { name: "Intervention Queue" })).toHaveAttribute("aria-current", "page");
+    expect(sidebar.getByRole("link", { name: "Operating Posture" })).toBeInTheDocument();
+    expect(sidebar.getByText("Tools")).toBeInTheDocument();
+    expect(sidebar.getByRole("link", { name: "AI Command Layer" })).toBeInTheDocument();
   });
 });
