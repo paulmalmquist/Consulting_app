@@ -37,6 +37,7 @@
     "repo-b/src/app/api/re/v2/assets/[assetId]/accounting/upload/[batchId]/map/route.ts",
     "repo-b/src/app/api/re/v2/assets/[assetId]/accounting/upload/[batchId]/validate/route.ts",
     "repo-b/src/app/api/re/v2/assets/[assetId]/accounting/upload/route.ts",
+    "repo-b/src/app/api/re/v2/authoritative-state/[entityType]/[entityId]/[quarter]/route.ts",
     "repo-b/src/app/api/re/v2/assets/[assetId]/covenants/route.ts",
     "repo-b/src/app/api/re/v2/assets/[assetId]/leasing/documents/route.ts",
     "repo-b/src/app/api/re/v2/assets/[assetId]/leasing/economics/route.ts",

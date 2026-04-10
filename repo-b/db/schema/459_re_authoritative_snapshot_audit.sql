@@ -1,4 +1,4 @@
--- 99991_re_authoritative_snapshot_audit.sql
+-- 459_re_authoritative_snapshot_audit.sql
 --
 -- Meridian authoritative snapshot layer.
 --

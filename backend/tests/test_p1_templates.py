@@ -17,37 +17,42 @@ def test_irr_ranked_template_exists():
     assert t is not None, "repe.irr_ranked must be registered"
 
 
-def test_irr_ranked_uses_fund_quarter_state():
+def test_irr_ranked_uses_authoritative_snapshot():
     from app.sql_agent.query_templates import get_template
     t = get_template("repe.irr_ranked")
-    assert "re_fund_quarter_state" in t.sql
+    assert "re_authoritative_fund_state_qtr" in t.sql
     assert "repe_fund" in t.sql
-    assert "gross_irr" in t.sql
-    assert "net_irr" in t.sql
-    assert "ORDER BY fs.gross_irr DESC" in t.sql
+    assert "promotion_state = 'released'" in t.sql
+    assert "canonical_metrics->>'gross_irr'" in t.sql
+    assert "canonical_metrics->>'net_irr'" in t.sql
+    assert "ORDER BY NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric DESC" in t.sql
 
 
 def test_irr_ranked_has_latest_quarter_coalesce():
     from app.sql_agent.query_templates import get_template
     t = get_template("repe.irr_ranked")
     assert "COALESCE" in t.sql
-    assert "MAX(fs2.quarter)" in t.sql
+    assert "MAX(afs2.quarter)" in t.sql
 
 
 def test_tvpi_ranked_template_exists():
     from app.sql_agent.query_templates import get_template
     t = get_template("repe.tvpi_ranked")
     assert t is not None
-    assert "tvpi" in t.sql
-    assert "ORDER BY fs.tvpi DESC" in t.sql
+    assert "re_authoritative_fund_state_qtr" in t.sql
+    assert "canonical_metrics->>'tvpi'" in t.sql
+    assert "ORDER BY NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric DESC" in t.sql
 
 
 def test_nav_ranked_template_exists():
     from app.sql_agent.query_templates import get_template
     t = get_template("repe.nav_ranked")
     assert t is not None
-    assert "portfolio_nav" in t.sql
-    assert "ORDER BY fs.portfolio_nav DESC" in t.sql
+    assert "re_authoritative_fund_state_qtr" in t.sql
+    assert "canonical_metrics->>'portfolio_nav'" in t.sql
+    # NAV ranking falls back to ending_nav before portfolio_nav
+    assert "canonical_metrics->>'ending_nav'" in t.sql
+    assert "ORDER BY COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) DESC" in t.sql
 
 
 def test_dscr_ranked_template_exists():
@@ -103,9 +108,10 @@ def test_meridian_fund_performance_summary_template_exists():
     from app.sql_agent.query_templates import get_template
     t = get_template("repe.fund_performance_summary")
     assert t is not None
-    assert "re_fund_quarter_state" in t.sql
-    assert "gross_irr" in t.sql
-    assert "portfolio_nav" in t.sql
+    assert "re_authoritative_fund_state_qtr" in t.sql
+    assert "promotion_state = 'released'" in t.sql
+    assert "canonical_metrics->>'gross_irr'" in t.sql
+    assert "canonical_metrics->>'portfolio_nav'" in t.sql
 
 
 def test_meridian_commitments_breakout_template_exists():
