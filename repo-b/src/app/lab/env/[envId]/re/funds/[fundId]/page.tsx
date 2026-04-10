@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, GitBranch, MoreHorizontal } from "lucide-react";
 import { CircularCreateButton } from "@/components/ui/CircularCreateButton";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   CartesianGrid,
@@ -71,7 +71,11 @@ import {
   type IrrContributionItem,
   type ModelPreviewResult,
   type ModelPreviewAssumption,
-  getFundBaseScenario,
+  // Authoritative State Lockdown — Phase 3
+  // The fund page no longer calls getFundBaseScenario for KPI rendering.
+  // KPI cards (TVPI, IRR, NOI, gross-to-net) come from
+  // useAuthoritativeState. The legacy base-scenario route returns 409
+  // for any released period. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
   type FundBaseScenario,
   getFundExposureInsights,
   type FundExposureInsights as FundExposureInsightsPayload,
@@ -79,6 +83,12 @@ import {
   runReV2QuarterClose,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import {
+  isLockStateRenderable,
+  useAuthoritativeState,
+} from "@/hooks/useAuthoritativeState";
+import { AuditDrawer } from "@/components/re/AuditDrawer";
+import { TrustChip } from "@/components/re/TrustChip";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
 import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
@@ -1220,24 +1230,56 @@ export default function FundDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [runningClose, setRunningClose] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement | null>(null);
-  const quarter = pickCurrentQuarter();
+
+  // Authoritative State Lockdown — Phase 3
+  // Quarter must come from the URL when supplied so the verification
+  // harness and any deep-link can target a specific period. Defaults
+  // to the platform-current quarter.
+  const searchParams = useSearchParams();
+  const quarterFromUrl = searchParams?.get("quarter") || null;
+  const auditMode = searchParams?.get("audit_mode") === "1";
+  const quarter = quarterFromUrl ?? pickCurrentQuarter();
+
+  // Single-fetch authoritative state — the ONLY source for KPI values
+  // (TVPI, IRR, NOI, gross-to-net) when the period is released.
+  const {
+    state: authoritativeState,
+    lockState: authoritativeLockState,
+  } = useAuthoritativeState({
+    entityType: "fund",
+    entityId: params.fundId,
+    quarter,
+  });
+  const authoritativeMetrics = (authoritativeState?.state?.canonical_metrics ?? {}) as Record<string, unknown>;
+  const authoritativeIsRenderable = isLockStateRenderable(authoritativeLockState);
+  const authoritativeNumber = (key: string): number | null => {
+    if (!authoritativeIsRenderable) return null;
+    const raw = authoritativeMetrics[key];
+    if (raw == null) return null;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
 
   const refreshCanonical = useCallback(async () => {
     setLineageLoading(true);
     setLineageError(null);
     try {
-      const [fs, sc, rollup, lineageData, baseScenarioData] = await Promise.all([
+      // Authoritative State Lockdown — Phase 3
+      // Drop the getFundBaseScenario call entirely. The legacy base-scenario
+      // route returns 409 for released periods, and the lint forbids
+      // calling it from here. Released-period KPIs come from
+      // useAuthoritativeState below. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+      const [fs, sc, rollup, lineageData] = await Promise.all([
         getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
         listReV2Scenarios(params.fundId).catch(() => []),
         getReV2FundInvestmentRollup(params.fundId, quarter).catch(() => []),
         getReV2FundLineage(params.fundId, quarter).catch(() => null),
-        getFundBaseScenario({ fund_id: params.fundId, quarter }).catch(() => null),
       ]);
       setFundState(fs);
       setScenarios(sc);
       setInvestmentRollup(rollup);
       setLineage(lineageData);
-      setBaseScenario(baseScenarioData);
+      setBaseScenario(null);
       // Fetch covenant alerts for banner
       if (envId && businessId) {
         getFiWatchlist({ env_id: envId, business_id: businessId, fund_id: params.fundId, quarter })
@@ -1349,35 +1391,61 @@ export default function FundDetailPage({
       }),
     [fundState, investmentRollup, overviewData.rollup]
   );
-  const committedCapital = toFiniteNumber(baseScenario?.summary.total_committed) ?? toFiniteNumber(fundState?.total_committed);
-  const paidInCapital = toFiniteNumber(baseScenario?.summary.paid_in_capital) ?? toFiniteNumber(fundState?.total_called);
-  const distributedCapital = toFiniteNumber(baseScenario?.summary.distributed_capital) ?? toFiniteNumber(fundState?.total_distributed);
+  // Authoritative State Lockdown — Phase 3
+  // The KPI cards prefer authoritative snapshot values for any released
+  // period. fundState (the legacy quarter-state) is only consulted as a
+  // visible-but-untrusted fallback when no released snapshot exists.
+  // The TrustChip next to each card discloses which source produced
+  // each value. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+  const committedCapital =
+    authoritativeNumber("total_committed") ?? toFiniteNumber(fundState?.total_committed);
+  const paidInCapital =
+    authoritativeNumber("paid_in_capital") ??
+    authoritativeNumber("total_called") ??
+    toFiniteNumber(fundState?.total_called);
+  const distributedCapital =
+    authoritativeNumber("distributed_capital") ??
+    authoritativeNumber("total_distributed") ??
+    toFiniteNumber(fundState?.total_distributed);
   const capitalMetrics: HeaderMetric[] = [
     {
       label: "Committed",
-      value: fmtMoney(baseScenario?.summary.total_committed ?? fundState?.total_committed),
+      value: fmtMoney(committedCapital ?? null),
       ratio: committedCapital && committedCapital > 0 ? 1 : null,
       barColor: FUND_DASHBOARD_COLORS.primarySoft,
     },
     {
       label: "Paid-In",
-      value: fmtMoney(baseScenario?.summary.paid_in_capital ?? fundState?.total_called),
+      value: fmtMoney(paidInCapital ?? null),
       ratio: getRatioOfBase(paidInCapital, committedCapital),
       barColor: FUND_DASHBOARD_COLORS.primary,
     },
     {
       label: "Distributed",
-      value: fmtMoney(baseScenario?.summary.distributed_capital ?? fundState?.total_distributed),
+      value: fmtMoney(distributedCapital ?? null),
       ratio: getRatioOfBase(distributedCapital, paidInCapital ?? committedCapital),
       barColor: FUND_DASHBOARD_COLORS.realized,
     },
   ];
   const performanceMetrics: HeaderMetric[] = [
-    { label: "Remaining Value", value: fmtMoney(baseScenario?.summary.remaining_value ?? fundState?.portfolio_nav) },
-    { label: "DPI", value: fmtMultiple(baseScenario?.summary.dpi ?? fundState?.dpi) },
-    { label: "TVPI", value: fmtMultiple(baseScenario?.summary.tvpi ?? fundState?.tvpi) },
-    { label: "Gross IRR", value: fmtPercent(baseScenario?.summary.gross_irr ?? fundState?.gross_irr) },
-    { label: "Net IRR", value: fmtPercent(baseScenario?.summary.net_irr ?? fundState?.net_irr) },
+    {
+      label: "Remaining Value",
+      value: fmtMoney(
+        authoritativeNumber("ending_nav") ??
+          authoritativeNumber("remaining_value") ??
+          fundState?.portfolio_nav,
+      ),
+    },
+    { label: "DPI", value: fmtMultiple(authoritativeNumber("dpi") ?? fundState?.dpi) },
+    { label: "TVPI", value: fmtMultiple(authoritativeNumber("tvpi") ?? fundState?.tvpi) },
+    {
+      label: "Gross IRR",
+      value: fmtPercent(authoritativeNumber("gross_irr") ?? fundState?.gross_irr),
+    },
+    {
+      label: "Net IRR",
+      value: fmtPercent(authoritativeNumber("net_irr") ?? fundState?.net_irr),
+    },
   ];
 
   const handleDeleteFund = useCallback(async () => {
@@ -1672,6 +1740,38 @@ export default function FundDetailPage({
         <KpiGroupCard title="Capital" metrics={capitalMetrics} testId="kpi-group-capital" />
         <KpiGroupCard title="Performance" metrics={performanceMetrics} testId="kpi-group-performance" />
       </div>
+
+      {/* Authoritative State Lockdown — Phase 3
+          TrustChip discloses where the KPI values came from. AuditDrawer
+          renders inline when ?audit_mode=1. See
+          docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 3 + 8). */}
+      <div
+        data-testid="returns-kpis"
+        className="flex flex-wrap items-center gap-3 text-xs text-slate-600"
+      >
+        <span className="font-semibold text-slate-700">Lineage</span>
+        <TrustChip
+          lockState={authoritativeLockState}
+          snapshotVersion={authoritativeState?.snapshot_version}
+          trustStatus={authoritativeState?.trust_status}
+        />
+        <span className="text-slate-500">
+          requested quarter: <span className="font-mono">{quarter}</span>
+        </span>
+        {authoritativeState?.snapshot_version && (
+          <span className="text-slate-500">
+            snapshot: <span className="font-mono">{authoritativeState.snapshot_version}</span>
+          </span>
+        )}
+      </div>
+
+      {auditMode && (
+        <AuditDrawer
+          state={authoritativeState}
+          lockState={authoritativeLockState}
+          requestedQuarter={quarter}
+        />
+      )}
 
       <PortfolioSnapshotRow metrics={portfolioSnapshotMetrics} loading={overviewData.loading} />
 

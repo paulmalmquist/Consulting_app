@@ -140,10 +140,42 @@ def compute_fee_accrual(
 
     Fee = basis_amount * annual_rate / 4  (quarterly)
     Uses stepdown_rate after stepdown_date if applicable.
+
+    Authoritative State Lockdown — Phase 6b: a fee may not accrue for a
+    quarter that ends before the fund term's effective_from date. The
+    Meridian verification on 2026-04-10 surfaced
+    `fee_rule_missing_basis` for MRF III 2025Q4 because management fees
+    were accruing before the fund term's effective_from of 2026-01-15.
+    See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
     """
     as_of = _quarter_end_date(quarter)
 
     with get_cursor() as cur:
+        # Authoritative State Lockdown — Phase 6b
+        # Verify the fund term covering this quarter end. If no term is
+        # in effect (effective_from > quarter end OR effective_to < quarter
+        # end), accrue zero and skip the insert. The audit pack reads
+        # repe_fund_term and flags any nonzero accrual outside an
+        # effective term as `fee_rule_missing_basis`.
+        cur.execute(
+            """
+            SELECT effective_from, effective_to
+            FROM repe_fund_term
+            WHERE fund_id = %s::uuid
+              AND effective_from <= %s
+              AND (effective_to IS NULL OR effective_to >= %s)
+            ORDER BY effective_from DESC
+            LIMIT 1
+            """,
+            (str(fund_id), as_of, as_of),
+        )
+        active_term = cur.fetchone()
+        if not active_term:
+            # No fund term in effect for this quarter — fail closed.
+            # Do NOT insert an accrual row; the bridge will treat
+            # management_fees as missing for the quarter.
+            return Decimal("0")
+
         # Get fee policy
         cur.execute(
             """

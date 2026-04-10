@@ -27,6 +27,11 @@ const assetId = config.asset_id;
 const requestedQuarter = config.requested_quarter;
 const stoneEnvId = config.stone_env_id;
 const stoneProjectId = config.stone_project_id;
+// Authoritative State Lockdown — Phase 2 verification session.
+// Cookie name + value are minted by sign_verification_session.mjs and
+// passed in via the config JSON. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+const platformSessionCookieName = config.platform_session_cookie_name || null;
+const platformSessionCookieValue = config.platform_session_cookie_value || null;
 
 function normalizeWhitespace(value) {
   return (value || "").replace(/\s+/g, " ").trim();
@@ -153,7 +158,11 @@ async function collectIsolatedPageState(options) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const cookieUrl = new URL(baseUrl);
-  await context.addCookies([
+  // Authoritative State Lockdown — Phase 2
+  // Inject the real signed bm_session cookie when one is provided.
+  // The legacy demo_lab_session cookie is kept only as a no-op fallback
+  // so existing audit logs still mention it.
+  const cookies = [
     {
       name: "demo_lab_session",
       value: "active",
@@ -163,7 +172,23 @@ async function collectIsolatedPageState(options) {
       sameSite: "Lax",
       secure: cookieUrl.protocol === "https:",
     },
-  ]);
+  ];
+  if (platformSessionCookieName && platformSessionCookieValue) {
+    cookies.push({
+      name: platformSessionCookieName,
+      value: platformSessionCookieValue,
+      domain: cookieUrl.hostname,
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: cookieUrl.protocol === "https:",
+    });
+  } else {
+    console.error(
+      "[surface_probe] no platform_session_cookie_value supplied; auth-protected URLs will return 4xx",
+    );
+  }
+  await context.addCookies(cookies);
   try {
     return await collectPageState(context, options);
   } catch (error) {

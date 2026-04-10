@@ -162,6 +162,19 @@ Mandatory database rules:
 6. New indexes require a named query path or workload justification.
 7. Add `COMMENT ON TABLE` for every new table explaining its purpose and owning module.
 
+## Authoritative State Lockdown (REPE)
+
+Every coding session that touches REPE financial reads — fund/investment/asset KPIs, returns, NOI, gross-to-net, asset counts, IRR, TVPI, carry — must read [`docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md) before writing code.
+
+Mandatory rules (enforced by `verification/lint/no_legacy_repe_reads.py` and `backend/tests/test_state_lock_invariants.py`):
+
+1. **STATE LOCK** — For any released `(entity, quarter)`, every read goes through `re_authoritative_snapshots.get_authoritative_state` (backend) and `getReV2AuthoritativeState` / `useAuthoritativeState` (frontend). No legacy / base-scenario / SQL aggregation may be displayed for that period.
+2. **SINGLE FETCH LAYER** — REPE financial reads are forbidden from any module other than the authoritative-state contract. Banned symbols: `getFundBaseScenario`, `computeFundBaseScenario`, and any `repe.count_assets(...)` / `repe.list_property_assets(...)` call without a `fund_id` argument from inside `backend/app/assistant_runtime/`.
+3. **FAIL CLOSED** — Waterfall-dependent metrics (carry, promote, gp_share) must return `null` + `null_reason: "out_of_scope_requires_waterfall"`. Approximation is forbidden.
+4. **AUDIT SURFACE MODE** — Every audited page accepts `?audit_mode=1` and renders the `AuditDrawer` component with snapshot version, trust status, period_exact, null reasons, formulas, and provenance.
+
+When the lint test fails, do **not** allowlist the offending file. Re-route the code through the single fetch layer.
+
 ## Autonomous Intelligence Directory
 
 22+ scheduled tasks run daily and write structured outputs to `docs/`. **Any coding agent should check relevant intelligence folders before starting work** — they contain competitor findings, feature ideas, test results, and production health data that directly inform implementation decisions.

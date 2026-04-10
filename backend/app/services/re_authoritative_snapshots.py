@@ -14,6 +14,95 @@ _TABLE_BY_ENTITY = {
     "fund": ("re_authoritative_fund_state_qtr", "fund_id"),
 }
 
+
+class StateLockViolation(RuntimeError):
+    """Raised when a non-snapshot path tries to read/serve a value for a
+    (entity, quarter) that already has a released authoritative snapshot.
+
+    Per the Authoritative State Lockdown rules in
+    docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md, any released snapshot is the
+    single source of truth for that period. Legacy routes, base-scenario
+    fetchers, and direct SQL aggregates must yield to it.
+    """
+
+    def __init__(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID | str,
+        quarter: str,
+        snapshot_version: str | None,
+    ) -> None:
+        self.entity_type = entity_type
+        self.entity_id = str(entity_id)
+        self.quarter = quarter
+        self.snapshot_version = snapshot_version
+        super().__init__(
+            f"State lock violation: released authoritative snapshot exists for "
+            f"{entity_type}={entity_id} quarter={quarter} "
+            f"(snapshot_version={snapshot_version}). Read from "
+            f"re_authoritative_snapshots.get_authoritative_state instead."
+        )
+
+
+def released_state_lock(
+    *,
+    entity_type: str,
+    entity_id: UUID | str,
+    quarter: str,
+) -> str | None:
+    """Return the released snapshot_version for a given (entity, quarter)
+    if one exists, else None. Callers in legacy / base-scenario / SQL paths
+    MUST consult this before serving a financial value and either:
+
+    - raise StateLockViolation, or
+    - return a 409 with a redirect to /api/re/v2/authoritative-state/...
+
+    See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 1 and 2).
+    """
+    if entity_type not in _TABLE_BY_ENTITY:
+        raise ValueError(f"Unsupported authoritative entity type: {entity_type}")
+    table_name, id_col = _TABLE_BY_ENTITY[entity_type]
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT snapshot_version
+            FROM {table_name}
+            WHERE {id_col} = %s::uuid
+              AND quarter = %s
+              AND promotion_state = 'released'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (str(entity_id), quarter),
+        )
+        row = cur.fetchone()
+    return row["snapshot_version"] if row else None
+
+
+def assert_released_state_lock(
+    *,
+    entity_type: str,
+    entity_id: UUID | str,
+    quarter: str,
+) -> None:
+    """Raise StateLockViolation if a released snapshot exists for the
+    (entity, quarter). Use this in legacy code paths that compute
+    financial values to make sure they yield to the snapshot.
+    """
+    snapshot_version = released_state_lock(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        quarter=quarter,
+    )
+    if snapshot_version is not None:
+        raise StateLockViolation(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            quarter=quarter,
+            snapshot_version=snapshot_version,
+        )
+
 _PROMOTION_ORDER = {
     "draft_audit": 0,
     "verified": 1,
@@ -328,6 +417,9 @@ def _build_missing_state(
         "entity_type": entity_type,
         "entity_id": str(entity_id),
         "quarter": quarter,
+        "requested_quarter": quarter,
+        "period_exact": False,
+        "state_origin": "fallback",
         "audit_run_id": None,
         "snapshot_version": None,
         "promotion_state": None,
@@ -410,10 +502,14 @@ def get_authoritative_state(
                 "formulas": bridge.get("formulas") or {},
                 "null_reasons": bridge.get("null_reasons") or {},
             }
+    returned_quarter = str(row["quarter"])
     return {
         "entity_type": entity_type,
         "entity_id": str(entity_id),
-        "quarter": quarter,
+        "quarter": returned_quarter,
+        "requested_quarter": quarter,
+        "period_exact": returned_quarter == quarter,
+        "state_origin": "authoritative",
         "audit_run_id": str(row["audit_run_id"]),
         "snapshot_version": row["snapshot_version"],
         "promotion_state": row["promotion_state"],
@@ -460,29 +556,41 @@ def get_fund_gross_to_net_bridge(
         row = cur.fetchone()
 
     if not row:
+        missing_reason = (
+            "authoritative_state_not_released"
+            if not snapshot_version and not audit_run_id
+            else "authoritative_state_not_found"
+        )
         return {
             "fund_id": str(fund_id),
             "quarter": quarter,
+            "requested_quarter": quarter,
+            "period_exact": False,
+            "state_origin": "fallback",
             "audit_run_id": None,
             "snapshot_version": None,
             "promotion_state": None,
             "trust_status": "missing_source",
             "breakpoint_layer": None,
-            "null_reason": "authoritative_state_not_released" if not snapshot_version and not audit_run_id else "authoritative_state_not_found",
+            "null_reason": missing_reason,
             "gross_return_amount": None,
             "management_fees": None,
             "fund_expenses": None,
             "net_return_amount": None,
             "bridge_items": [],
-            "null_reasons": {"bridge": "authoritative_state_not_released" if not snapshot_version and not audit_run_id else "authoritative_state_not_found"},
+            "null_reasons": {"bridge": missing_reason},
             "formulas": {},
             "provenance": [],
             "artifact_paths": {},
         }
 
+    returned_quarter = str(row["quarter"])
     return {
         "fund_id": str(fund_id),
-        "quarter": quarter,
+        "quarter": returned_quarter,
+        "requested_quarter": quarter,
+        "period_exact": returned_quarter == quarter,
+        "state_origin": "authoritative",
         "audit_run_id": str(row["audit_run_id"]),
         "snapshot_version": row["snapshot_version"],
         "promotion_state": row["promotion_state"],

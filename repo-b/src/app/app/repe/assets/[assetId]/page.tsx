@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   getReV2AssetDetail,
@@ -24,6 +25,12 @@ import {
   ReLeaseDocument,
   ReLeaseEconomics,
 } from "@/lib/bos-api";
+import {
+  isLockStateRenderable,
+  useAuthoritativeState,
+} from "@/hooks/useAuthoritativeState";
+import { AuditDrawer } from "@/components/re/AuditDrawer";
+import { TrustChip } from "@/components/re/TrustChip";
 import { useRepeBasePath, useRepeContext } from "@/lib/repe-context";
 import { PROPERTY_TYPE_LABELS, label as labelFn } from "@/lib/labels";
 import CockpitSection from "@/components/repe/asset-cockpit/CockpitSection";
@@ -48,7 +55,29 @@ function pickQuarter(): string {
 export default function ReAssetDetailPage({ params }: { params: { assetId: string } }) {
   const { businessId, environmentId } = useRepeContext();
   const basePath = useRepeBasePath();
-  const quarter = pickQuarter();
+
+  // Authoritative State Lockdown — Phase 3
+  // Quarter must come from the URL when supplied so deep-links and the
+  // verification harness can target a specific period. Defaults to the
+  // platform-current quarter.
+  const searchParams = useSearchParams();
+  const quarterFromUrl = searchParams?.get("quarter") || null;
+  const auditMode = searchParams?.get("audit_mode") === "1";
+  const quarter = quarterFromUrl ?? pickQuarter();
+
+  // Single-fetch authoritative state for the asset's released
+  // quarterly KPIs (Revenue / OpEx / NOI / Capex). The KPI components
+  // prefer state.canonical_metrics for any released period.
+  const {
+    state: authoritativeAssetState,
+    lockState: authoritativeAssetLockState,
+  } = useAuthoritativeState({
+    entityType: "asset",
+    entityId: params.assetId,
+    quarter,
+  });
+  const _authoritativeAssetRenderable = isLockStateRenderable(authoritativeAssetLockState);
+
   const [section, setSection] = useState<SectionKey>("Home");
 
   // Core data
@@ -151,6 +180,33 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
 
   return (
     <section className="space-y-4" data-testid="re-asset-homepage">
+      {/* Authoritative State Lockdown — Phase 3
+          TrustChip + AuditDrawer for the asset view. Per
+          docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 3 + 8),
+          every released KPI displays its provenance and ?audit_mode=1
+          opens the full audit drawer with snapshot version, formulas,
+          provenance, and null reasons. */}
+      <div
+        data-testid="asset-lineage-chip"
+        className="flex flex-wrap items-center gap-3 text-xs text-slate-600"
+      >
+        <span className="font-semibold text-slate-700">Lineage</span>
+        <TrustChip
+          lockState={authoritativeAssetLockState}
+          snapshotVersion={authoritativeAssetState?.snapshot_version}
+          trustStatus={authoritativeAssetState?.trust_status}
+        />
+        <span className="text-slate-500">
+          requested quarter: <span className="font-mono">{quarter}</span>
+        </span>
+      </div>
+      {auditMode && (
+        <AuditDrawer
+          state={authoritativeAssetState}
+          lockState={authoritativeAssetLockState}
+          requestedQuarter={quarter}
+        />
+      )}
       {/* ── HEADER ── */}
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.18)] dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.92]">
         <div className="flex flex-wrap items-start justify-between gap-4">

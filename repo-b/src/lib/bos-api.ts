@@ -4204,6 +4204,73 @@ export function getReInvestorStatement(investorId: string, fundId: string, quart
 
 // ── RE V2 Institutional API ──────────────────────────────────────────────────
 
+// ── Authoritative State Lockdown — Phase 3 single fetch layer ────────────────
+//
+// Per docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md, all REPE financial reads
+// for released periods MUST go through these two functions. Any other
+// fetcher used to render IRR/TVPI/NOI/asset counts is a lockdown
+// violation and will be flagged by verification/lint/no_legacy_repe_reads.py.
+
+export type ReV2AuthoritativeEntityType = "fund" | "investment" | "asset";
+
+export type ReV2AuthoritativeStateOrigin = "authoritative" | "derived" | "fallback";
+
+export interface ReV2AuthoritativeBridge {
+  gross_return_amount: string | null;
+  management_fees: string | null;
+  fund_expenses: string | null;
+  net_return_amount: string | null;
+  bridge_items: Array<Record<string, unknown>>;
+  formulas: Record<string, unknown>;
+  null_reasons: Record<string, unknown>;
+  provenance?: Array<Record<string, unknown>>;
+}
+
+export interface ReV2AuthoritativeState {
+  entity_type: ReV2AuthoritativeEntityType;
+  entity_id: string;
+  quarter: string;
+  requested_quarter: string;
+  period_exact: boolean;
+  state_origin: ReV2AuthoritativeStateOrigin;
+  audit_run_id: string | null;
+  snapshot_version: string | null;
+  promotion_state: "draft_audit" | "verified" | "released" | null;
+  trust_status: "trusted" | "untrusted" | "missing_source";
+  breakpoint_layer: string | null;
+  null_reason: string | null;
+  state: {
+    period_start: string | null;
+    period_end: string | null;
+    canonical_metrics: Record<string, unknown>;
+    display_metrics: Record<string, unknown>;
+    gross_to_net_bridge?: ReV2AuthoritativeBridge;
+  } | null;
+  null_reasons: Record<string, unknown>;
+  formulas: Record<string, unknown>;
+  provenance: Array<Record<string, unknown>>;
+  artifact_paths: Record<string, unknown>;
+}
+
+export function getReV2AuthoritativeState(args: {
+  entityType: ReV2AuthoritativeEntityType;
+  entityId: string;
+  quarter: string;
+  snapshotVersion?: string;
+  auditRunId?: string;
+}): Promise<ReV2AuthoritativeState> {
+  const { entityType, entityId, quarter, snapshotVersion, auditRunId } = args;
+  return directFetch(
+    `/api/re/v2/authoritative-state/${entityType}/${entityId}/${quarter}`,
+    {
+      params: {
+        snapshot_version: snapshotVersion,
+        audit_run_id: auditRunId,
+      },
+    },
+  );
+}
+
 // Investments
 export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
   return directFetch(`/api/re/v2/funds/${fundId}/investments`);

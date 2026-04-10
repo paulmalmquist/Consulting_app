@@ -24,7 +24,11 @@ const mockGetFundValuationRollup = vi.fn();
 const mockGetIrrTimeline = vi.fn();
 const mockGetCapitalTimeline = vi.fn();
 const mockGetIrrContribution = vi.fn();
-const mockGetFundBaseScenario = vi.fn();
+// Authoritative State Lockdown — Phase 3
+// getFundBaseScenario is no longer called from the fund page. KPI cards
+// come from the authoritative-state contract via useAuthoritativeState.
+// See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+const mockGetReV2AuthoritativeState = vi.fn();
 const mockGetFundExposureInsights = vi.fn();
 
 class ResizeObserverMock {
@@ -37,6 +41,11 @@ vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
+  // Authoritative State Lockdown — Phase 3
+  // The fund page now reads ?quarter= and ?audit_mode= from
+  // useSearchParams. The test fixture does not exercise URL params, so
+  // we return a minimal stub that yields null for both keys.
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/components/repe/workspace/ReEnvProvider", () => ({
@@ -90,7 +99,7 @@ vi.mock("@/lib/bos-api", async () => {
     getIrrTimeline: (...args: unknown[]) => mockGetIrrTimeline(...args),
     getCapitalTimeline: (...args: unknown[]) => mockGetCapitalTimeline(...args),
     getIrrContribution: (...args: unknown[]) => mockGetIrrContribution(...args),
-    getFundBaseScenario: (...args: unknown[]) => mockGetFundBaseScenario(...args),
+    getReV2AuthoritativeState: (...args: unknown[]) => mockGetReV2AuthoritativeState(...args),
     getFundExposureInsights: (...args: unknown[]) => mockGetFundExposureInsights(...args),
   };
 });
@@ -135,6 +144,30 @@ describe("fund detail narrative dashboard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Authoritative State Lockdown — Phase 3
+    // Default the authoritative-state fetch to a "no released snapshot"
+    // shape so the page falls through to legacy quarter-state for
+    // tests that don't exercise the lockdown path.
+    mockGetReV2AuthoritativeState.mockResolvedValue({
+      entity_type: "fund",
+      entity_id: "fund-1",
+      quarter: "2026Q1",
+      requested_quarter: "2026Q1",
+      period_exact: false,
+      state_origin: "fallback",
+      audit_run_id: null,
+      snapshot_version: null,
+      promotion_state: null,
+      trust_status: "missing_source",
+      breakpoint_layer: null,
+      null_reason: "authoritative_state_not_released",
+      state: null,
+      null_reasons: { state: "authoritative_state_not_released" },
+      formulas: {},
+      provenance: [],
+      artifact_paths: {},
+    });
 
     mockGetRepeFund.mockResolvedValue({
       fund: {
@@ -299,192 +332,6 @@ describe("fund detail narrative dashboard", () => {
 
     mockGetFundExposureInsights.mockResolvedValue(makeExposurePayload());
 
-    mockGetFundBaseScenario.mockResolvedValue({
-      fund_id: "fund-1",
-      fund_name: "Institutional Growth Fund VII",
-      quarter: "2026Q1",
-      scenario_id: null,
-      liquidation_mode: "current_state",
-      as_of_date: "2026-03-31",
-      summary: {
-        active_assets: 1,
-        disposed_assets: 1,
-        pipeline_assets: 0,
-        attributable_nav: 182_000_000,
-        attributable_unrealized_nav: 182_000_000,
-        hypothetical_asset_value: 182_000_000,
-        realized_proceeds: 46_000_000,
-        retained_realized_cash: 18_000_000,
-        current_distributable_proceeds: 18_000_000,
-        remaining_value: 200_000_000,
-        total_value: 340_000_000,
-        paid_in_capital: 320_000_000,
-        distributed_capital: 140_000_000,
-        total_committed: 500_000_000,
-        dpi: 0.4375,
-        rvpi: 0.625,
-        tvpi: 1.0625,
-        gross_irr: 0.185,
-        net_irr: 0.152,
-        net_tvpi: 0.9844,
-        unrealized_gain_loss: 48_000_000,
-        realized_gain_loss: 12_000_000,
-        management_fees: 9_500_000,
-        fund_expenses: 3_200_000,
-        carry_shadow: 2_400_000,
-        lp_historical_distributed: 128_000_000,
-        gp_historical_distributed: 12_000_000,
-        lp_liquidation_allocation: 186_000_000,
-        gp_liquidation_allocation: 14_000_000,
-        promote_earned: 2_400_000,
-        preferred_return_shortfall: 0,
-        preferred_return_excess: 0,
-      },
-      value_composition: {
-        historical_realized_proceeds: 46_000_000,
-        retained_realized_cash: 18_000_000,
-        attributable_unrealized_nav: 182_000_000,
-        hypothetical_liquidation_value: 182_000_000,
-        remaining_value: 200_000_000,
-        total_value: 340_000_000,
-      },
-      waterfall: {
-        definition_id: "wf-1",
-        waterfall_type: "european",
-        total_liquidation_value: 200_000_000,
-        lp_total: 186_000_000,
-        gp_total: 14_000_000,
-        promote_total: 2_400_000,
-        tiers: [
-          {
-            tier_code: "return_of_capital",
-            tier_label: "Return of Capital",
-            lp_amount: 150_000_000,
-            gp_amount: 10_000_000,
-            total_amount: 160_000_000,
-            remaining_after: 40_000_000,
-          },
-          {
-            tier_code: "split",
-            tier_label: "Residual Split",
-            lp_amount: 36_000_000,
-            gp_amount: 4_000_000,
-            total_amount: 40_000_000,
-            remaining_after: 0,
-          },
-        ],
-        partner_allocations: [
-          {
-            partner_id: "lp-1",
-            name: "State Pension Fund",
-            partner_type: "lp",
-            committed: 200_000_000,
-            contributed: 128_000_000,
-            distributed: 56_000_000,
-            nav_share: 72_000_000,
-            dpi: 0.4375,
-            rvpi: 0.5625,
-            tvpi: 1,
-            irr: 0.144,
-            waterfall_allocation: {
-              return_of_capital: 60_000_000,
-              preferred_return: 0,
-              catch_up: 0,
-              split: 12_000_000,
-              total: 72_000_000,
-            },
-          },
-        ],
-      },
-      bridge: [
-        { label: "Paid-In Capital", amount: -320_000_000, kind: "base" },
-        { label: "Distributed Capital", amount: 140_000_000, kind: "positive" },
-        { label: "Historical Realized Proceeds", amount: 46_000_000, kind: "positive" },
-        { label: "Remaining Asset Value", amount: 182_000_000, kind: "positive" },
-        { label: "Fees and Expenses", amount: -12_700_000, kind: "negative" },
-        { label: "Promote / Carry", amount: -2_400_000, kind: "negative" },
-        { label: "Ending Total Value", amount: 340_000_000, kind: "total" },
-      ],
-      assets: [
-        {
-          asset_id: "asset-1",
-          asset_name: "Harborview Building A",
-          investment_id: "inv-1",
-          investment_name: "Harborview Logistics Park",
-          asset_status: "active",
-          status_category: "active",
-          property_type: "industrial",
-          market: "Dallas",
-          valuation_method: "cap_rate",
-          ownership_percent: 0.85,
-          attributable_equity_basis: 74_000_000,
-          gross_asset_value: 185_000_000,
-          debt_balance: 88_000_000,
-          net_asset_value: 123_000_000,
-          attributable_gross_value: 157_250_000,
-          attributable_nav: 104_550_000,
-          attributable_noi: 7_140_000,
-          attributable_net_cash_flow: 5_900_000,
-          gross_sale_price: 0,
-          sale_costs: 0,
-          debt_payoff: 0,
-          net_sale_proceeds: 0,
-          attributable_realized_proceeds: 0,
-          attributable_hypothetical_proceeds: 0,
-          current_value_contribution: 104_550_000,
-          realized_gain_loss: 0,
-          unrealized_gain_loss: 30_550_000,
-          has_sale_assumption: false,
-          sale_assumption_id: null,
-          sale_date: null,
-          source: "current_mark",
-          notes: [],
-        },
-        {
-          asset_id: "asset-2",
-          asset_name: "Legacy Retail Center",
-          investment_id: "inv-2",
-          investment_name: "Legacy Retail Center",
-          asset_status: "exited",
-          status_category: "disposed",
-          property_type: "retail",
-          market: "Atlanta",
-          valuation_method: "sale",
-          ownership_percent: 1,
-          attributable_equity_basis: 34_000_000,
-          gross_asset_value: 0,
-          debt_balance: 0,
-          net_asset_value: 0,
-          attributable_gross_value: 0,
-          attributable_nav: 0,
-          attributable_noi: 0,
-          attributable_net_cash_flow: 0,
-          gross_sale_price: 62_000_000,
-          sale_costs: 1_500_000,
-          debt_payoff: 14_500_000,
-          net_sale_proceeds: 46_000_000,
-          attributable_realized_proceeds: 46_000_000,
-          attributable_hypothetical_proceeds: 0,
-          current_value_contribution: 0,
-          realized_gain_loss: 12_000_000,
-          unrealized_gain_loss: 0,
-          has_sale_assumption: false,
-          sale_assumption_id: null,
-          sale_date: "2025-11-15",
-          source: "seed",
-          notes: [],
-        },
-      ],
-      assumptions: {
-        ownership_model: "Direct asset ownership uses JV ownership when present; LP/GP economics are applied in the fund waterfall layer.",
-        realized_allocation_method: "Historical asset realizations use explicit asset events when available and otherwise allocate deal-level realized distributions by cost basis.",
-        liquidation_mode: "current_state",
-        notes: [
-          "Paid-in capital uses contribution ledger entries through the selected quarter.",
-        ],
-      },
-    });
-
     mockGetReV2InvestmentAssets.mockResolvedValue([
       {
         asset_id: "asset-1",
@@ -638,24 +485,16 @@ describe("fund detail narrative dashboard", () => {
     expect(cells[7]).toHaveTextContent("95.0%");
   });
 
-  it("renders the base scenario summary and performance bridge", async () => {
-    const user = userEvent.setup();
-
-    renderPage();
-
-    const summary = await screen.findByTestId("base-scenario-summary");
-    expect(summary).toHaveTextContent("Current Fund Economics");
-    expect(summary).toHaveTextContent("Disposed Assets");
-    expect(summary).toHaveTextContent("$46.0M");
-
-    await user.click(screen.getByRole("button", { name: "Performance" }));
-
-    const returns = await screen.findByTestId("returns-section");
-    expect(within(returns).getByTestId("value-composition-card")).toHaveTextContent("Historical Realized Proceeds");
-    expect(within(returns).getByTestId("fund-returns-card")).toHaveTextContent("TVPI");
-    expect(within(returns).getByTestId("waterfall-allocation-card")).toHaveTextContent("Promote Earned");
-    expect(within(returns).getByTestId("asset-contribution-table")).toHaveTextContent("Legacy Retail Center");
-    expect(within(returns).getByTestId("waterfall-tier-results")).toHaveTextContent("Return of Capital");
+  // Authoritative State Lockdown — Phase 3
+  // The base-scenario summary card and performance bridge previously
+  // rendered from getFundBaseScenario(). The lockdown removed that data
+  // source for any released period: KPIs come from useAuthoritativeState
+  // and the audit lineage view is the AuditDrawer (?audit_mode=1).
+  // The legacy bridge UI is replaced by the gross_to_net_bridge inside
+  // the authoritative-state response. The verification harness asserts
+  // the new flow end-to-end. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+  it.skip("renders the base scenario summary and performance bridge (replaced by lockdown)", async () => {
+    // This test is intentionally skipped — see comment above.
   });
 
   it("publishes fund assistant context once the route resolves", async () => {

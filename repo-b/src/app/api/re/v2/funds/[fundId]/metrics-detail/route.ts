@@ -1,3 +1,7 @@
+import {
+  buildStateLockViolationResponse,
+  checkReleasedStateLock,
+} from "@/lib/server/authoritativeStateLock";
 import { getPool } from "@/lib/server/db";
 import { computeFundBaseScenario } from "@/lib/server/reBaseScenario";
 
@@ -12,6 +16,11 @@ export async function OPTIONS() {
  *
  * Returns FI fund metrics (gross/net IRR, TVPI, DPI, RVPI, cash-on-cash)
  * plus gross-net bridge for a quarter.
+ *
+ * Authoritative State Lockdown — Phase 5: when a released authoritative
+ * snapshot exists for the requested (fund, quarter), this legacy route
+ * MUST NOT compute or serve a value. It returns 409 with a redirect to
+ * the snapshot contract. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
  */
 export async function GET(
   request: Request,
@@ -22,6 +31,18 @@ export async function GET(
 
   const { searchParams } = new URL(request.url);
   const quarter = searchParams.get("quarter") || "2026Q1";
+
+  // Authoritative State Lockdown — refuse to serve if a released
+  // snapshot exists for this period.
+  const lock = await checkReleasedStateLock(pool, "fund", params.fundId, quarter);
+  if (lock) {
+    return buildStateLockViolationResponse({
+      entityType: "fund",
+      entityId: params.fundId,
+      quarter,
+      lock,
+    });
+  }
 
   try {
     const baseScenario = await computeFundBaseScenario({

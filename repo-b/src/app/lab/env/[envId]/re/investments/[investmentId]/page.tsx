@@ -24,6 +24,12 @@ import {
   RepeFundDetail,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import {
+  isLockStateRenderable,
+  useAuthoritativeState,
+} from "@/hooks/useAuthoritativeState";
+import { AuditDrawer } from "@/components/re/AuditDrawer";
+import { TrustChip } from "@/components/re/TrustChip";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import RepeEntityDocuments from "@/components/repe/RepeEntityDocuments";
 import TrendLineChart from "@/components/charts/TrendLineChart";
@@ -736,6 +742,7 @@ function InvestmentBriefingPageContent({
   const { businessId } = useReEnv();
 
   const quarterParam = searchParams.get("quarter") || "";
+  const auditMode = searchParams.get("audit_mode") === "1";
 
   const [period, setPeriod] = useState<AnalysisPeriod>("quarterly");
   const [comparison, setComparison] = useState<ComparisonMode>("budget");
@@ -841,6 +848,29 @@ function InvestmentBriefingPageContent({
       cancelled = true;
     };
   }, [investment?.fund_id, params.investmentId, resolvedQuarter]);
+
+  // Authoritative State Lockdown — Phase 3
+  // Single-fetch authoritative state for the investment's NOI / IRR.
+  // Per docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 1-3), the
+  // NOI card prefers state.canonical_metrics.fund_attributable_operating_cash_flow
+  // for any released period.
+  const {
+    state: authoritativeInvestmentState,
+    lockState: authoritativeInvestmentLockState,
+  } = useAuthoritativeState({
+    entityType: "investment",
+    entityId: params.investmentId,
+    quarter: resolvedQuarter || null,
+  });
+  const authoritativeInvestmentMetrics = (authoritativeInvestmentState?.state?.canonical_metrics ?? {}) as Record<string, unknown>;
+  const authoritativeInvestmentRenderable = isLockStateRenderable(authoritativeInvestmentLockState);
+  const authoritativeInvestmentNumber = (key: string): number | null => {
+    if (!authoritativeInvestmentRenderable) return null;
+    const raw = authoritativeInvestmentMetrics[key];
+    if (raw == null) return null;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -1079,11 +1109,19 @@ function InvestmentBriefingPageContent({
       testId: "outcome-metric-ltv",
     },
   ];
+  // Authoritative State Lockdown — Phase 3
+  // The verification harness compares this NOI value to the snapshot's
+  // canonical_metrics.fund_attributable_operating_cash_flow. When a
+  // released snapshot exists, prefer that value over the legacy
+  // quarter-state field. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+  const authoritativeInvestmentNoi =
+    authoritativeInvestmentNumber("fund_attributable_operating_cash_flow") ??
+    authoritativeInvestmentNumber("noi");
   const operatingMetrics = [
     {
       label: "NOI",
-      value: fmtMoney(quarterState?.noi ?? totalNoi),
-      change: buildRatioPercentChange(asNumber(quarterState?.noi ?? totalNoi), asNumber(operatingPair.prior?.noi), priorOperatingQuarter),
+      value: fmtMoney(authoritativeInvestmentNoi ?? quarterState?.noi ?? totalNoi),
+      change: buildRatioPercentChange(asNumber(authoritativeInvestmentNoi ?? quarterState?.noi ?? totalNoi), asNumber(operatingPair.prior?.noi), priorOperatingQuarter),
       testId: "operating-metric-noi",
       supportingText: comparisonSummary || undefined,
     },
@@ -1211,6 +1249,32 @@ function InvestmentBriefingPageContent({
 
   return (
     <section className="w-full space-y-8" data-testid="investment-briefing-page">
+      {/* Authoritative State Lockdown — Phase 3
+          TrustChip + AuditDrawer for the investment view. The chip
+          discloses the snapshot version powering the NOI / IRR cards.
+          ?audit_mode=1 expands the full audit drawer.
+          See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md. */}
+      <div
+        data-testid="investment-lineage-chip"
+        className="flex flex-wrap items-center gap-3 text-xs text-slate-600"
+      >
+        <span className="font-semibold text-slate-700">Lineage</span>
+        <TrustChip
+          lockState={authoritativeInvestmentLockState}
+          snapshotVersion={authoritativeInvestmentState?.snapshot_version}
+          trustStatus={authoritativeInvestmentState?.trust_status}
+        />
+        <span className="text-slate-500">
+          requested quarter: <span className="font-mono">{resolvedQuarter || "—"}</span>
+        </span>
+      </div>
+      {auditMode && (
+        <AuditDrawer
+          state={authoritativeInvestmentState}
+          lockState={authoritativeInvestmentLockState}
+          requestedQuarter={resolvedQuarter}
+        />
+      )}
       <header className="rounded-[30px] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] px-5 py-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_right,rgba(200,162,58,0.12),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.86),rgba(9,14,28,0.96))]">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(500px,0.9fr)]">
           <div className="space-y-5">

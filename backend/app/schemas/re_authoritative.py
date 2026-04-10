@@ -10,12 +10,16 @@ from pydantic import BaseModel, Field
 PromotionState = Literal["draft_audit", "verified", "released"]
 TrustStatus = Literal["trusted", "untrusted", "missing_source"]
 EntityType = Literal["asset", "investment", "fund"]
+StateOrigin = Literal["authoritative", "derived", "fallback"]
 
 
 class ReAuthoritativeStateOut(BaseModel):
     entity_type: EntityType
     entity_id: UUID
     quarter: str
+    requested_quarter: str
+    period_exact: bool
+    state_origin: StateOrigin
     audit_run_id: UUID | None = None
     snapshot_version: str | None = None
     promotion_state: PromotionState | None = None
@@ -32,6 +36,9 @@ class ReAuthoritativeStateOut(BaseModel):
 class ReAuthoritativeGrossToNetOut(BaseModel):
     fund_id: UUID
     quarter: str
+    requested_quarter: str
+    period_exact: bool
+    state_origin: StateOrigin
     audit_run_id: UUID | None = None
     snapshot_version: str | None = None
     promotion_state: PromotionState | None = None

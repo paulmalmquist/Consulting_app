@@ -142,6 +142,57 @@ def discover_snapshot_version() -> tuple[str, Path]:
     return latest.name, latest
 
 
+def mint_verification_session() -> tuple[str, str] | None:
+    """Authoritative State Lockdown — Phase 2.
+
+    Run sign_verification_session.mjs to mint a real signed bm_session
+    cookie for the verification harness. Returns (cookie_name, cookie_value)
+    or None when the secret is missing (in which case the harness will
+    record an explicit "no auth" failure for surface tests).
+
+    See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+    """
+    secret = (
+        os.environ.get("PLATFORM_SESSION_SECRET")
+        or os.environ.get("BM_SESSION_SECRET")
+        or os.environ.get("AUTH_SESSION_SECRET")
+        or ""
+    ).strip()
+    if not secret:
+        print(
+            "[verification] PLATFORM_SESSION_SECRET not set; surface probe will hit "
+            "auth-protected URLs without a session and surface tests will record HTTP 401/403",
+            file=sys.stderr,
+        )
+        return None
+    helper = ROOT / "verification" / "runners" / "sign_verification_session.mjs"
+    if not helper.exists():
+        print(f"[verification] sign_verification_session.mjs missing at {helper}", file=sys.stderr)
+        return None
+    try:
+        result = subprocess.run(
+            ["node", str(helper), "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PLATFORM_SESSION_SECRET": secret},
+            timeout=30,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        print(f"[verification] failed to mint verification session: {exc}", file=sys.stderr)
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"[verification] sign helper returned invalid JSON: {exc}", file=sys.stderr)
+        return None
+    name = payload.get("name")
+    value = payload.get("value")
+    if not name or not value:
+        return None
+    return name, value
+
+
 def http_json(
     url: str,
     *,
@@ -351,9 +402,13 @@ def summarize_stone_page(page_result: dict[str, Any]) -> dict[str, Any]:
     return page_result
 
 
-def run_surface_probe(output_dir: Path) -> dict[str, Any]:
+def run_surface_probe(
+    output_dir: Path,
+    *,
+    session_cookie: tuple[str, str] | None = None,
+) -> dict[str, Any]:
     raw_path = output_dir / "_surface_probe.json"
-    config = {
+    config: dict[str, Any] = {
         "base_url": SITE_URL,
         "env_id": ENV_ID,
         "fund_id": FUND_IGF_VII,
@@ -363,6 +418,10 @@ def run_surface_probe(output_dir: Path) -> dict[str, Any]:
         "stone_env_id": STONE_ENV_ID,
         "stone_project_id": STONE_PROJECT_ID,
     }
+    if session_cookie:
+        cookie_name, cookie_value = session_cookie
+        config["platform_session_cookie_name"] = cookie_name
+        config["platform_session_cookie_value"] = cookie_value
     payload: dict[str, Any] = {}
     try:
         completed = subprocess.run(
@@ -395,6 +454,14 @@ def run_surface_probe(output_dir: Path) -> dict[str, Any]:
 def main() -> None:
     verification_root = ROOT / "audit" / f"verification_run_{now_slug()}"
     ensure_dir(verification_root)
+
+    # Authoritative State Lockdown — Phase 2
+    # Mint a real signed bm_session cookie so the surface probe and
+    # fallback HTTP fetcher can authenticate against the live Meridian
+    # and Stone PDS pages. Without this, every /lab/* URL hits the
+    # auth-protected redirect and the verification harness records
+    # HTTP 4xx for every UI surface.
+    verification_session = mint_verification_session()
 
     snapshot_version, versioned_artifact_root = discover_snapshot_version()
     hierarchy_root = ROOT / "audit" / "meridian_hierarchy_trace"
@@ -736,7 +803,7 @@ def main() -> None:
     write_csv(verification_root / "endpoint_comparison.csv", endpoint_rows)
 
     # 3. Surface proof
-    surface_probe = run_surface_probe(verification_root)
+    surface_probe = run_surface_probe(verification_root, session_cookie=verification_session)
     fund_authoritative = load_json(
         hierarchy_root / f"authoritative_period_state.fund.{FUND_IGF_VII}.{QUARTER_PRIMARY}.json"
     )
@@ -748,7 +815,17 @@ def main() -> None:
     )
     surface_probe_error = surface_probe.get("error")
     if surface_probe_error:
-        cookie_headers = {"Cookie": "demo_lab_session=active"}
+        # Authoritative State Lockdown — Phase 2
+        # Use the real signed bm_session cookie minted at the top of
+        # main(). The legacy demo_lab_session=active cookie is a no-op
+        # against parseSessionFromNextRequest. If we have no minted
+        # session, fall back to the legacy value so the response status
+        # is still recorded as a hard failure (not a hang).
+        if verification_session:
+            cookie_name, cookie_value = verification_session
+            cookie_headers = {"Cookie": f"{cookie_name}={cookie_value}"}
+        else:
+            cookie_headers = {"Cookie": "demo_lab_session=active"}
 
         def fallback_page(label: str, url: str) -> dict[str, Any]:
             result = http_text(url, headers=cookie_headers)

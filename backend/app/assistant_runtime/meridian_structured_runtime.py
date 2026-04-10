@@ -21,7 +21,7 @@ from app.assistant_runtime.turn_receipts import StructuredQueryReceipt
 from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.schemas.ai_gateway import AssistantContextEnvelope
-from app.services import re_env_portfolio, repe
+from app.services import re_authoritative_snapshots, re_env_portfolio, repe
 from app.sql_agent.executor import execute_sql
 from app.sql_agent.query_classifier import extract_conditions
 from app.sql_agent.query_templates import render_template
@@ -525,6 +525,7 @@ def _execute_contract(
             contract=contract,
             business_id=business_id,
             env_id=env_id,
+            resolved_scope=resolved_scope,
             memory_used=memory_used,
         )
 
@@ -676,9 +677,38 @@ def _fund_performance_outcome(
     contract: StructuredPortfolioQueryContract,
     business_id: str,
     env_id: str,
+    resolved_scope: Any,
     memory_used: bool,
 ) -> MeridianStructuredOutcome:
+    """Fund performance handler.
+
+    Authoritative State Lockdown — Phase 4: when the resolved scope is
+    fund-typed, this handler reads only from the authoritative snapshot
+    contract (`re_authoritative_snapshots.get_authoritative_state`).
+    No SQL aggregation. No fallback to base scenario. The unscoped
+    fan-out template path remains for genuinely portfolio-wide questions.
+    See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+    """
     quarter = _resolve_fund_quarter(contract.timeframe_value, business_id)
+
+    # Single-fund fast path: read directly from the released authoritative
+    # snapshot instead of running a SQL aggregate over the table.
+    scope_entity_type = getattr(resolved_scope, "entity_type", None)
+    scope_entity_id = getattr(resolved_scope, "entity_id", None)
+    if scope_entity_type == "fund" and scope_entity_id:
+        return _snapshot_fund_performance_outcome(
+            contract=contract,
+            business_id=business_id,
+            env_id=env_id,
+            fund_id=str(scope_entity_id),
+            fund_name=getattr(resolved_scope, "entity_name", None),
+            quarter=quarter,
+            memory_used=memory_used,
+        )
+
+    # Unscoped portfolio-wide fan-out (kept for "show me all funds" style
+    # questions). The query template only joins released rows, but each
+    # row's metrics still come from the snapshot table.
     rows = _run_template(
         "repe.fund_performance_summary",
         {
@@ -729,6 +759,136 @@ def _fund_performance_outcome(
     )
     return MeridianStructuredOutcome(
         text="\n".join(lines),
+        receipt=receipt,
+        result_memory=result_memory,
+        structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+    )
+
+
+def _snapshot_fund_performance_outcome(
+    *,
+    contract: StructuredPortfolioQueryContract,
+    business_id: str,
+    env_id: str,
+    fund_id: str,
+    fund_name: str | None,
+    quarter: str,
+    memory_used: bool,
+) -> MeridianStructuredOutcome:
+    """Read fund KPIs from the released authoritative snapshot only.
+
+    Authoritative State Lockdown — Phase 4. See
+    docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+    """
+    payload = re_authoritative_snapshots.get_authoritative_state(
+        entity_type="fund",
+        entity_id=fund_id,
+        quarter=quarter,
+    )
+    display_name = fund_name or "this fund"
+    canonical_metrics = ((payload.get("state") or {}).get("canonical_metrics") or {})
+    null_reason = payload.get("null_reason")
+    state_origin = payload.get("state_origin")
+    snapshot_version = payload.get("snapshot_version")
+    trust_status = payload.get("trust_status")
+    period_exact = payload.get("period_exact")
+
+    if null_reason or state_origin != "authoritative" or not period_exact:
+        text = (
+            f"No released authoritative snapshot is available for {display_name} in {quarter}. "
+            f"Reason: {null_reason or 'state_origin=' + str(state_origin)}. "
+            f"Per the Authoritative State Lockdown rules, I will not return an approximation."
+        )
+        receipt = _build_receipt(
+            contract=contract,
+            execution_path="snapshot",
+            transformation_applied="summary",
+            memory_used=memory_used,
+            canonical_source="re_authoritative_fund_state_qtr",
+            canonical_check="snapshot_missing_or_unexact",
+        )
+        scope = build_memory_scope(
+            business_id=business_id,
+            environment_id=env_id,
+            entity_type="fund",
+            entity_id=fund_id,
+            entity_name=display_name,
+        )
+        result_memory = build_list_result_memory(
+            scope=scope,
+            query_signature=build_query_signature(
+                result_type="list",
+                source_name="fund_performance_snapshot",
+                scope=scope,
+            ),
+            summary={"total": 0, "item_label": "fund performance row(s)"},
+            rows=[],
+        )
+        return MeridianStructuredOutcome(
+            text=text,
+            receipt=receipt,
+            result_memory=result_memory,
+            structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+        )
+
+    gross_irr = canonical_metrics.get("gross_irr")
+    net_irr = canonical_metrics.get("net_irr")
+    tvpi = canonical_metrics.get("tvpi")
+    dpi = canonical_metrics.get("dpi")
+    rvpi = canonical_metrics.get("rvpi")
+    portfolio_nav = canonical_metrics.get("ending_nav") or canonical_metrics.get("portfolio_nav")
+    text = (
+        f"Fund performance for {display_name} as of {quarter} "
+        f"(snapshot {snapshot_version}, trust {trust_status}):\n"
+        f"- Gross IRR: {_format_percent(gross_irr)}\n"
+        f"- Net IRR: {_format_percent(net_irr)}\n"
+        f"- TVPI: {tvpi if tvpi is not None else 'n/a'}\n"
+        f"- DPI: {dpi if dpi is not None else 'n/a'}\n"
+        f"- RVPI: {rvpi if rvpi is not None else 'n/a'}\n"
+        f"- NAV: {_format_currency(portfolio_nav)}"
+    )
+    scope = build_memory_scope(
+        business_id=business_id,
+        environment_id=env_id,
+        entity_type="fund",
+        entity_id=fund_id,
+        entity_name=display_name,
+    )
+    result_memory = build_list_result_memory(
+        scope=scope,
+        query_signature=build_query_signature(
+            result_type="list",
+            source_name="fund_performance_snapshot",
+            scope=scope,
+        ),
+        summary={"total": 1, "item_label": "fund performance row"},
+        rows=[
+            {
+                "id": fund_id,
+                "name": display_name,
+                "entity_type": "fund",
+                "quarter": quarter,
+                "gross_irr": gross_irr,
+                "net_irr": net_irr,
+                "tvpi": tvpi,
+                "ending_nav": portfolio_nav,
+                "snapshot_version": snapshot_version,
+                "state_origin": state_origin,
+                "trust_status": trust_status,
+                "period_exact": period_exact,
+            }
+        ],
+    )
+    receipt = _build_receipt(
+        contract=contract,
+        execution_path="snapshot",
+        transformation_applied="summary",
+        memory_used=memory_used,
+        canonical_source="re_authoritative_fund_state_qtr",
+        canonical_check="snapshot_authoritative_period_exact",
+    )
+    return MeridianStructuredOutcome(
+        text=text,
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
@@ -813,7 +973,23 @@ def _asset_count_outcome(
     resolved_scope: Any,
     memory_used: bool,
 ) -> MeridianStructuredOutcome:
-    assets = list(repe.list_property_assets(business_id=UUID(business_id)))
+    # Authoritative State Lockdown — Phase 4
+    # When the resolved scope is fund-typed, restrict the asset query to
+    # that fund instead of returning the env-wide count. The Meridian
+    # verification on 2026-04-10 caught this returning 45 for IGF VII
+    # when the authoritative count is 22. See
+    # docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 2 and 7).
+    scope_entity_type = getattr(resolved_scope, "entity_type", None)
+    scope_entity_id = getattr(resolved_scope, "entity_id", None)
+    fund_id_arg: UUID | None = None
+    if scope_entity_type == "fund" and scope_entity_id:
+        try:
+            fund_id_arg = UUID(str(scope_entity_id))
+        except (TypeError, ValueError):
+            fund_id_arg = None
+    assets = list(
+        repe.list_property_assets(business_id=UUID(business_id), fund_id=fund_id_arg)
+    )
     bucket_members: dict[str, list[dict[str, Any]]] = {
         "active": [],
         "disposed": [],
@@ -833,7 +1009,7 @@ def _asset_count_outcome(
         rows.append(normalized)
         bucket_members.setdefault(bucket, []).append(normalized)
 
-    counts = repe.count_assets(business_id=UUID(business_id))
+    counts = repe.count_assets(business_id=UUID(business_id), fund_id=fund_id_arg)
     non_active_rows = list(bucket_members.get("disposed") or []) + list(bucket_members.get("pipeline") or []) + list(bucket_members.get("other") or [])
     summary = {
         "total": counts["total"],

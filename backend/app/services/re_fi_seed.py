@@ -243,11 +243,17 @@ def seed_fi_data(
             (fund_id, "2026Q2", "legal", 10000),
         ]
         for fid, qtr, etype, amt in expenses:
+            # Authoritative State Lockdown — Phase 6a
+            # UPSERT instead of raw INSERT so re-running the seed does
+            # not create duplicate (env, business, fund, quarter, type)
+            # rows. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
             cur.execute(
                 """
                 INSERT INTO re_fund_expense_qtr
                     (env_id, business_id, fund_id, quarter, expense_type, amount)
                 VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT ON CONSTRAINT re_fund_expense_qtr_unique_natural_key
+                DO UPDATE SET amount = EXCLUDED.amount
                 """,
                 (env_id, str(business_id), str(fid), qtr, etype, amt),
             )
@@ -554,19 +560,28 @@ def seed_institutional_fund(
         )
 
         # ─── 8. Fund expenses per quarter ─────────────────────────────────
+        # Authoritative State Lockdown — Phase 6a
+        # UPSERT each (quarter, expense_type) pair so re-runs do not
+        # multiply rows. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
         expense_qtrs = ["2025Q1", "2025Q2", "2025Q3"]
+        expense_amounts = [
+            ("admin", 40000),
+            ("audit", 25000),
+            ("legal", 20000),
+        ]
         for eq in expense_qtrs:
-            cur.execute(
-                """
-                INSERT INTO re_fund_expense_qtr
-                    (env_id, business_id, fund_id, quarter, expense_type, amount)
-                VALUES (%s, %s, %s, %s, 'admin', 40000),
-                       (%s, %s, %s, %s, 'audit', 25000),
-                       (%s, %s, %s, %s, 'legal', 20000)
-                """,
-                (env_id, str(business_id), str(fund_id), eq) * 3,
-            )
-        result["fund_expenses"] = len(expense_qtrs) * 3
+            for etype, amt in expense_amounts:
+                cur.execute(
+                    """
+                    INSERT INTO re_fund_expense_qtr
+                        (env_id, business_id, fund_id, quarter, expense_type, amount)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT ON CONSTRAINT re_fund_expense_qtr_unique_natural_key
+                    DO UPDATE SET amount = EXCLUDED.amount
+                    """,
+                    (env_id, str(business_id), str(fund_id), eq, etype, amt),
+                )
+        result["fund_expenses"] = len(expense_qtrs) * len(expense_amounts)
 
         # ─── 9. Waterfall definition ──────────────────────────────────────
         wf_def_id = uuid4()
