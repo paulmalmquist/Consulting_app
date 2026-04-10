@@ -100,12 +100,15 @@ function SchemaErrorBanner({ envId, onRetry }: { envId: string; onRetry: () => v
       const h = await fetchSchemaHealth();
       setHealth(h);
       setChecked(new Date().toLocaleTimeString());
+      if (h.schema_ready) {
+        onRetry();
+      }
     } catch {
       setHealth(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onRetry]);
 
   useEffect(() => { checkHealth(); }, [checkHealth]);
 

@@ -57,6 +57,10 @@ const MIGRATION_TABLE_MAP: Record<string, { migration: string; tables: string[] 
     migration: "431_consulting_proof_assets_objections.sql",
     tables: ["cro_proof_asset", "cro_objection", "cro_demo_readiness"],
   },
+  "457": {
+    migration: "457_pipeline_operator_layer.sql",
+    tables: ["cro_execution_profile", "cro_execution_audit"],
+  },
 };
 
 const ALL_REQUIRED_TABLES = Object.values(MIGRATION_TABLE_MAP).flatMap((m) => m.tables);
@@ -115,7 +119,7 @@ export async function GET(_request: NextRequest) {
     if (existingSet.has("crm_activity")) {
       try {
         const { rows } = await pool.query(
-          `SELECT MAX(activity_date)::text AS last_at FROM crm_activity`,
+          `SELECT MAX(activity_at)::text AS last_at FROM crm_activity`,
         );
         lastActivity = rows[0]?.last_at ?? null;
       } catch {
