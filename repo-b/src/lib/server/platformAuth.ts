@@ -99,6 +99,34 @@ function splitBootstrapEmails() {
   );
 }
 
+function splitBootstrapDomains() {
+  const configured = (process.env.PLATFORM_BOOTSTRAP_ADMIN_DOMAINS || "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (configured.length === 0) {
+    return new Set(["novendor.ai"]);
+  }
+  return new Set(configured);
+}
+
+function splitResumeHiddenDomains() {
+  const configured = (process.env.PLATFORM_HIDE_RESUME_DOMAINS || "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (configured.length === 0) return new Set(["novendor.ai"]);
+  return new Set(configured);
+}
+
+function extractEmailDomain(email: string) {
+  const normalized = normalizeEmail(email);
+  const [, domain = ""] = normalized.split("@");
+  return domain.trim().toLowerCase();
+}
+
 function membershipToSummary(row: Record<string, unknown>): PlatformMembershipSummary {
   return {
     env_id: String(row.env_id),
@@ -295,7 +323,13 @@ async function bootstrapOwnerMemberships(
   platformUserId: string,
   email: string,
 ) {
-  if (!splitBootstrapEmails().has(normalizeEmail(email))) return;
+  const normalizedEmail = normalizeEmail(email);
+  const emailDomain = extractEmailDomain(email);
+  const shouldBootstrap =
+    splitBootstrapEmails().has(normalizedEmail)
+    || splitBootstrapDomains().has(emailDomain);
+
+  if (!shouldBootstrap) return;
 
   await client.query(
     `
@@ -311,7 +345,7 @@ async function bootstrapOwnerMemberships(
         e.env_id,
         'owner',
         'active',
-        e.slug = 'novendor'
+        e.slug = 'hall-boys'
       FROM app.environments e
       WHERE e.slug = ANY($2::text[])
       ON CONFLICT (platform_user_id, env_id)
@@ -320,8 +354,21 @@ async function bootstrapOwnerMemberships(
         status = 'active',
         updated_at = now()
     `,
-    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading"]],
+    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading", "hall-boys"]],
   );
+
+  if (splitResumeHiddenDomains().has(emailDomain)) {
+    await client.query(
+      `
+        DELETE FROM app.environment_memberships m
+        USING app.environments e
+        WHERE m.env_id = e.env_id
+          AND m.platform_user_id = $1::uuid
+          AND e.slug = 'resume'
+      `,
+      [platformUserId],
+    );
+  }
 }
 
 async function loadMemberships(client: PoolClient, platformUserId: string) {
