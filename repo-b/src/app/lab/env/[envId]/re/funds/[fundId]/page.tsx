@@ -1427,6 +1427,13 @@ export default function FundDetailPage({
       barColor: FUND_DASHBOARD_COLORS.realized,
     },
   ];
+  // Authoritative State Lockdown — Phase 4 follow-up
+  // Asset Count and Gross Operating Cash Flow are exposed as KPI tiles
+  // so the verification harness can scrape them from a single
+  // [data-testid='returns-kpis'] node alongside TVPI/IRR/NAV. Both
+  // values come from the released fund snapshot's canonical_metrics —
+  // no fallback for released periods. See
+  // docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
   const performanceMetrics: HeaderMetric[] = [
     {
       label: "Remaining Value",
@@ -1445,6 +1452,17 @@ export default function FundDetailPage({
     {
       label: "Net IRR",
       value: fmtPercent(authoritativeNumber("net_irr") ?? fundState?.net_irr),
+    },
+    {
+      label: "Gross Op Cash Flow",
+      value: fmtMoney(authoritativeNumber("gross_operating_cash_flow")),
+    },
+    {
+      label: "Asset Count",
+      value: (() => {
+        const n = authoritativeNumber("asset_count");
+        return n != null ? String(n) : "—";
+      })(),
     },
   ];
 

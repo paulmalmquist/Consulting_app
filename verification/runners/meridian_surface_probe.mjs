@@ -248,6 +248,9 @@ async function main() {
           gross_irr: extractMetricValue(returnsText, "Gross IRR"),
           net_irr: extractMetricValue(returnsText, "Net IRR"),
           net_tvpi: extractMetricValue(returnsText, "Net TVPI"),
+          // Authoritative State Lockdown — Phase 4 follow-up tiles
+          gross_operating_cash_flow: extractMetricValue(returnsText, "Gross Op Cash Flow"),
+          asset_count: extractMetricValue(returnsText, "Asset Count"),
         },
       };
     },

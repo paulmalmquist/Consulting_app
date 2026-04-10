@@ -22,6 +22,20 @@ from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.services import re_authoritative_snapshots, re_env_portfolio, repe
+
+# Authoritative State Lockdown — Phase 4 follow-up
+# Single-metric questions that the runtime should answer by reading
+# canonical_metrics directly from a released fund snapshot. The keys
+# here MUST exist in re_authoritative_fund_state_qtr.canonical_metrics.
+# Add a parser entry to _METRIC_MAP and a capability row in
+# meridian_structured_capabilities.MERIDIAN_STRUCTURED_CAPABILITIES for
+# each entry, then list the contract.metric here.
+SNAPSHOT_FUND_METRICS: dict[str, dict[str, str]] = {
+    "gross_operating_cash_flow": {
+        "display_name": "gross operating cash flow",
+        "format": "currency",
+    },
+}
 from app.sql_agent.executor import execute_sql
 from app.sql_agent.query_classifier import extract_conditions
 from app.sql_agent.query_templates import render_template
@@ -539,6 +553,21 @@ def _execute_contract(
             memory_used=memory_used,
         )
 
+    # Authoritative State Lockdown — Phase 4 follow-up
+    # Direct snapshot reader for any single canonical_metrics field on
+    # re_authoritative_fund_state_qtr. Today this routes
+    # gross_operating_cash_flow only; future single-metric questions
+    # (e.g., asset_count at fund grain) can extend SNAPSHOT_FUND_METRICS.
+    if contract.metric in SNAPSHOT_FUND_METRICS:
+        return _snapshot_fund_metric_outcome(
+            contract=contract,
+            business_id=business_id,
+            env_id=env_id,
+            resolved_scope=resolved_scope,
+            metric_key=contract.metric,
+            memory_used=memory_used,
+        )
+
     if contract.entity == "investment" and contract.metric == "gross_irr" and contract.transformation == "rank":
         return _investment_irr_grain_fallback_outcome(
             contract=contract,
@@ -886,6 +915,162 @@ def _snapshot_fund_performance_outcome(
         memory_used=memory_used,
         canonical_source="re_authoritative_fund_state_qtr",
         canonical_check="snapshot_authoritative_period_exact",
+    )
+    return MeridianStructuredOutcome(
+        text=text,
+        receipt=receipt,
+        result_memory=result_memory,
+        structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+    )
+
+
+def _snapshot_fund_metric_outcome(
+    *,
+    contract: StructuredPortfolioQueryContract,
+    business_id: str,
+    env_id: str,
+    resolved_scope: Any,
+    metric_key: str,
+    memory_used: bool,
+) -> MeridianStructuredOutcome:
+    """Read a single canonical_metrics value from the released authoritative
+    fund snapshot. The runtime routes here for any metric in
+    SNAPSHOT_FUND_METRICS so that single-field questions (e.g. "what is
+    the gross operating cash flow for IGF VII in 2025Q4") never reach the
+    LLM with a fallback to the metric registry.
+
+    Authoritative State Lockdown — Phase 4 follow-up. See
+    docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+    """
+    quarter = _resolve_fund_quarter(contract.timeframe_value, business_id)
+    metric_meta = SNAPSHOT_FUND_METRICS[metric_key]
+    display_name = metric_meta["display_name"]
+    fmt = metric_meta["format"]
+
+    scope_entity_type = getattr(resolved_scope, "entity_type", None)
+    scope_entity_id = getattr(resolved_scope, "entity_id", None)
+    scope_entity_name = getattr(resolved_scope, "entity_name", None)
+
+    # Resolve which fund to read. The lockdown only allows snapshot reads
+    # for a specific fund — broad portfolio aggregates are not in scope.
+    if scope_entity_type == "fund" and scope_entity_id:
+        fund_id = str(scope_entity_id)
+        fund_label = scope_entity_name or "this fund"
+    else:
+        text = (
+            f"To answer the {display_name} question I need a specific fund. "
+            f"Please name the fund (e.g. 'Institutional Growth Fund VII') "
+            f"and the quarter (e.g. '2025Q4'). I will not return a portfolio "
+            f"aggregate from the snapshot contract."
+        )
+        receipt = _build_receipt(
+            contract=contract,
+            execution_path="snapshot",
+            transformation_applied=contract.transformation or "summary",
+            memory_used=memory_used,
+            canonical_source="re_authoritative_fund_state_qtr",
+            canonical_check="snapshot_requires_fund_scope",
+        )
+        scope = build_memory_scope(
+            business_id=business_id,
+            environment_id=env_id,
+            entity_type="environment",
+            entity_id=env_id,
+            entity_name="Meridian Capital Management",
+        )
+        result_memory = build_list_result_memory(
+            scope=scope,
+            query_signature=build_query_signature(
+                result_type="list",
+                source_name=f"{metric_key}_snapshot",
+                scope=scope,
+            ),
+            summary={"total": 0, "item_label": display_name},
+            rows=[],
+        )
+        return MeridianStructuredOutcome(
+            text=text,
+            receipt=receipt,
+            result_memory=result_memory,
+            structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+        )
+
+    payload = re_authoritative_snapshots.get_authoritative_state(
+        entity_type="fund",
+        entity_id=fund_id,
+        quarter=quarter,
+    )
+    canonical_metrics = ((payload.get("state") or {}).get("canonical_metrics") or {})
+    null_reason = payload.get("null_reason")
+    state_origin = payload.get("state_origin")
+    snapshot_version = payload.get("snapshot_version")
+    trust_status = payload.get("trust_status")
+    period_exact = payload.get("period_exact")
+    raw_value = canonical_metrics.get(metric_key)
+
+    if null_reason or state_origin != "authoritative" or not period_exact:
+        text = (
+            f"No released authoritative snapshot is available for {fund_label} "
+            f"in {quarter}. Reason: {null_reason or 'state_origin=' + str(state_origin)}. "
+            f"Per the Authoritative State Lockdown rules, I will not return an approximation."
+        )
+        check = "snapshot_missing_or_unexact"
+    elif raw_value is None:
+        text = (
+            f"The released snapshot for {fund_label} in {quarter} does not record "
+            f"a {display_name} value (canonical_metrics.{metric_key} is null). "
+            f"Snapshot version {snapshot_version}."
+        )
+        check = "snapshot_metric_null"
+    else:
+        if fmt == "currency":
+            formatted = _format_currency(raw_value)
+        elif fmt == "percent":
+            formatted = _format_percent(raw_value)
+        else:
+            formatted = str(raw_value)
+        text = (
+            f"{display_name.capitalize()} for {fund_label} in {quarter} is "
+            f"{formatted} (snapshot {snapshot_version}, trust {trust_status})."
+        )
+        check = "snapshot_authoritative_period_exact"
+
+    receipt = _build_receipt(
+        contract=contract,
+        execution_path="snapshot",
+        transformation_applied=contract.transformation or "summary",
+        memory_used=memory_used,
+        canonical_source="re_authoritative_fund_state_qtr",
+        canonical_check=check,
+    )
+    scope = build_memory_scope(
+        business_id=business_id,
+        environment_id=env_id,
+        entity_type="fund",
+        entity_id=fund_id,
+        entity_name=fund_label,
+    )
+    result_memory = build_list_result_memory(
+        scope=scope,
+        query_signature=build_query_signature(
+            result_type="list",
+            source_name=f"{metric_key}_snapshot",
+            scope=scope,
+        ),
+        summary={"total": 1 if raw_value is not None else 0, "item_label": display_name},
+        rows=[
+            {
+                "id": fund_id,
+                "name": fund_label,
+                "entity_type": "fund",
+                "quarter": quarter,
+                metric_key: raw_value,
+                "snapshot_version": snapshot_version,
+                "state_origin": state_origin,
+                "trust_status": trust_status,
+                "period_exact": period_exact,
+            }
+        ] if raw_value is not None else [],
     )
     return MeridianStructuredOutcome(
         text=text,

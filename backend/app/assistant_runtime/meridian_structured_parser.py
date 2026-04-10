@@ -159,6 +159,15 @@ _METRIC_MAP: dict[str, str] = {
     "debt yield": "debt_yield",
     "cash on cash": "cash_on_cash",
     "performance": "performance",
+    # Authoritative State Lockdown — Phase 4 follow-up
+    # Recognize the gross operating cash flow question variants so the
+    # contract carries metric=gross_operating_cash_flow and the runtime
+    # can route directly to the snapshot reader.
+    "gross operating cash flow": "gross_operating_cash_flow",
+    "operating cash flow": "gross_operating_cash_flow",
+    "gross op cash flow": "gross_operating_cash_flow",
+    "gross opcf": "gross_operating_cash_flow",
+    "gross operating cf": "gross_operating_cash_flow",
 }
 
 _METRIC_RE_SORTED = re.compile(

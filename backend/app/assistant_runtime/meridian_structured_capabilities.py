@@ -43,6 +43,21 @@ MERIDIAN_STRUCTURED_CAPABILITIES: tuple[MeridianStructuredCapability, ...] = (
         runtime_fact_keys=("performance_family",),
         template_keys=("repe.fund_performance_summary",),
     ),
+    # Authoritative State Lockdown — Phase 4 follow-up
+    # Direct snapshot reader for any single canonical_metrics field on
+    # re_authoritative_fund_state_qtr. The runtime maps metric=
+    # 'gross_operating_cash_flow' (and the fund/portfolio TVPI/IRR set
+    # via _fund_performance_outcome) onto _snapshot_metric_outcome.
+    MeridianStructuredCapability(
+        inventory_key="gross_operating_cash_flow",
+        display_name="Gross Operating Cash Flow",
+        key_kind="metric",
+        canonical_source="re_authoritative_fund_state_qtr",
+        natural_grain="fund_quarter",
+        supported_transformations=("summary",),
+        runtime_metric_keys=("gross_operating_cash_flow",),
+        service_keys=("re_authoritative_snapshots.get_authoritative_state",),
+    ),
     MeridianStructuredCapability(
         inventory_key="gross_irr",
         display_name="Gross IRR",
