@@ -1738,15 +1738,21 @@ export default function FundDetailPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <KpiGroupCard title="Capital" metrics={capitalMetrics} testId="kpi-group-capital" />
-        <KpiGroupCard title="Performance" metrics={performanceMetrics} testId="kpi-group-performance" />
+        {/* Authoritative State Lockdown — Phase 3
+            data-testid="returns-kpis" wraps the Performance KPI card so
+            the verification harness's Playwright probe can scrape TVPI,
+            Gross IRR, Net IRR from this exact node. See
+            docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md and
+            verification/runners/meridian_surface_probe.mjs. */}
+        <div data-testid="returns-kpis">
+          <KpiGroupCard title="Performance" metrics={performanceMetrics} testId="kpi-group-performance" />
+        </div>
       </div>
 
-      {/* Authoritative State Lockdown — Phase 3
-          TrustChip discloses where the KPI values came from. AuditDrawer
-          renders inline when ?audit_mode=1. See
-          docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md (Invariants 3 + 8). */}
+      {/* TrustChip discloses where the KPI values came from. AuditDrawer
+          renders inline when ?audit_mode=1. */}
       <div
-        data-testid="returns-kpis"
+        data-testid="returns-lineage-chip"
         className="flex flex-wrap items-center gap-3 text-xs text-slate-600"
       >
         <span className="font-semibold text-slate-700">Lineage</span>

@@ -225,7 +225,17 @@ def http_json(
 
 
 def http_text(url: str, *, headers: dict[str, str] | None = None) -> HttpResult:
-    request_headers = {"Accept": "text/html,application/xhtml+xml"}
+    # Cloudflare in front of www.paulmalmquist.com blocks the default
+    # urllib User-Agent (error 1010). Send a real browser UA so the
+    # fallback HTTP probes don't get bot-blocked.
+    request_headers = {
+        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
     if headers:
         request_headers.update(headers)
     request = Request(url, headers=request_headers, method="GET")
@@ -429,7 +439,9 @@ def run_surface_probe(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            # Surface probe visits ~7 pages with settle times. 60s is
+            # not enough on a real link. Phase 2 lockdown bumps to 5min.
+            timeout=300,
         )
         payload = load_json(raw_path) if raw_path.exists() else {}
         if completed.returncode != 0:

@@ -130,12 +130,22 @@ function main() {
   const args = process.argv.slice(2);
   const asJson = args.includes("--json");
 
-  const secret = (
+  // The secret is read from PLATFORM_SESSION_SECRET / BM_SESSION_SECRET.
+  // .trim() strips real whitespace; we additionally drop a single
+  // trailing literal "\n" sequence because `vercel env pull` writes
+  // newlines in the stored value as the two-character escape \n in the
+  // env file, but the runtime delivers them unescaped. The Vercel-side
+  // sessionAuth.ts trims real whitespace, so the effective secret is
+  // the input minus any trailing literal \n marker.
+  let secret = (
     process.env.PLATFORM_SESSION_SECRET ||
     process.env.BM_SESSION_SECRET ||
     process.env.AUTH_SESSION_SECRET ||
     ""
   ).trim();
+  if (secret.endsWith("\\n")) {
+    secret = secret.slice(0, -2);
+  }
 
   if (!secret) {
     console.error(
