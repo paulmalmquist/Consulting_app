@@ -165,6 +165,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.resume.get_cursor",
     "app.services.winston_readiness.get_cursor",
     "app.services.entity_search.get_cursor",
+    "app.services.history_rhymes_service.get_cursor",
 ]
 
 

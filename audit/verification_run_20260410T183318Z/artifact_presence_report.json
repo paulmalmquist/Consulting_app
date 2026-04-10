@@ -1,0 +1,334 @@
+{
+  "generated_at": "2026-04-10T18:33:18.345512+00:00",
+  "audit_run_id": "0a9b7b1f-7944-4c67-b1b2-e114ac5f12a0",
+  "snapshot_version": "meridian-20260410T182315Z-3881843b",
+  "artifact_root": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b",
+  "required_files": [
+    {
+      "name": "lineage_map.json",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/lineage_map.json",
+      "exists": true
+    },
+    {
+      "name": "sampled_entity_manifest.json",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/sampled_entity_manifest.json",
+      "exists": true
+    },
+    {
+      "name": "accounting_to_asset_cashflow.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/accounting_to_asset_cashflow.csv",
+      "exists": true
+    },
+    {
+      "name": "asset_to_investment_receipt.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/asset_to_investment_receipt.csv",
+      "exists": true
+    },
+    {
+      "name": "investment_gross_return_receipt.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/investment_gross_return_receipt.csv",
+      "exists": true
+    },
+    {
+      "name": "fund_rollup_receipt.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/fund_rollup_receipt.csv",
+      "exists": true
+    },
+    {
+      "name": "reconciliation_matrix.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/reconciliation_matrix.csv",
+      "exists": true
+    },
+    {
+      "name": "audit_exceptions.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/audit_exceptions.csv",
+      "exists": true
+    },
+    {
+      "name": "methodology.md",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/methodology.md",
+      "exists": true
+    },
+    {
+      "name": "findings.md",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/findings.md",
+      "exists": true
+    },
+    {
+      "name": "narrative_audit_report.md",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/narrative_audit_report.md",
+      "exists": true
+    },
+    {
+      "name": "audit_summary.json",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/audit_summary.json",
+      "exists": true
+    },
+    {
+      "name": "asset_input_receipt.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/asset_input_receipt.csv",
+      "exists": true
+    },
+    {
+      "name": "investment_rollup_receipt.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/investment_rollup_receipt.csv",
+      "exists": true
+    },
+    {
+      "name": "gross_to_net_bridge.csv",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/gross_to_net_bridge.csv",
+      "exists": true
+    },
+    {
+      "name": "assistant_answer_receipt.json",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/assistant_answer_receipt.json",
+      "exists": true
+    },
+    {
+      "name": "variance_report.json",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/variance_report.json",
+      "exists": true
+    }
+  ],
+  "authoritative_period_state_files": [
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2025Q4",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.fund.a1b2c3d4-0003-0030-0001-000000000001.2025Q4.json",
+      "exists": true
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2026Q2",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.fund.a1b2c3d4-0003-0030-0001-000000000001.2026Q2.json",
+      "exists": true
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2025Q4",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.fund.a1b2c3d4-0001-0010-0001-000000000001.2025Q4.json",
+      "exists": true
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "quarter": "2026Q2",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.fund.a1b2c3d4-0002-0020-0001-000000000001.2026Q2.json",
+      "exists": true
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2025Q4",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.investment.2d54b971-21ac-41b8-a548-a506fe516c6c.2025Q4.json",
+      "exists": true
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2025Q4",
+      "path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T182315Z-3881843b/authoritative_period_state.asset.3371333b-a54a-46e3-b4d9-0ad8443dd6a9.2025Q4.json",
+      "exists": true
+    }
+  ],
+  "intended_chain_status": [
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T182315Z-3881843b"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T182315Z-3881843b"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T182315Z-3881843b"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T182315Z-3881843b"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T182315Z-3881843b"
+    }
+  ],
+  "audit_exception_count": 16,
+  "audit_exceptions_understood": [
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0001-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0002-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0003-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0004-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0005-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0006-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0007-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0008-000000000001",
+      "quarter": "2025Q4",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0001-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0002-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0003-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0004-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0005-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0006-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0007-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    },
+    {
+      "exception_type": "missing_asset_rollup",
+      "severity": "high",
+      "entity_type": "asset",
+      "entity_id": "d4560000-0456-0201-0008-000000000001",
+      "quarter": "2026Q2",
+      "breakpoint_layer": "asset_rollup",
+      "detail": "No re_asset_acct_quarter_rollup row found for sampled asset period."
+    }
+  ],
+  "audit_exceptions_all_acceptable": false,
+  "reconciliation_all_pass": true,
+  "reconciliation_failures": []
+}

@@ -1,0 +1,6 @@
+route,metric,source,status
+/api/re/v2/environments/[envId]/portfolio-kpis,portfolio_nav,re_authoritative_fund_state_qtr,trusted
+/api/re/v2/environments/[envId]/portfolio-kpis,gross_irr,re_authoritative_fund_state_qtr,trusted
+/api/re/v2/funds/[fundId]/returns/[quarter],gross_irr,re_authoritative_fund_state_qtr,trusted
+/api/re/v2/funds/[fundId]/returns/[quarter],gross_to_net_bridge,re_authoritative_fund_gross_to_net_qtr,trusted
+/api/re/v2/funds/[fundId]/quarter-close,gross_irr,route-level approximation,untrusted

@@ -1,0 +1,14 @@
+label,message,assistant_text,assistant_extracted_value,authoritative_value,execution_path,turn_status,pass_fail,notes
+fund_asset_count,How many assets are in Institutional Growth Fund VII in 2025Q4?,"Meridian has 30 total property assets in the portal.
+Active: 28
+Disposed: 0
+Pipeline: 0
+Other / non-canonical status: 2",30,30,service,success,PASS,
+fund_net_irr,What is the net IRR for Institutional Growth Fund VII in 2025Q4?,"Fund performance summary as of **2025Q4**:
+
+**Meridian Real Estate Fund III** — No quarter state data for 2025Q4
+**Meridian Credit Opportunities Fund I** — No quarter state data for 2025Q4
+**Institutional Growth Fund VII** — Gross IRR: -87.1%, Net IRR: -88.3%, TVPI: 0.24x, DPI: 0.14x, NAV: $66.8M
+**Meridian Real Estate Fund III** — Gross IRR: -99.5%, Net IRR: -99.5%, TVPI: 0.10x, DPI: 0.02x, NAV: $48.3M
+**Meridian Credit Opportunities Fund I** — Gross IRR: -94.0%, Net IRR: -94.3%, TVPI: 0.23x, DPI: 0.04x, NAV: $82.2M",-87.1,-88.3%,fund_performance,success,FAIL,Assistant should match authoritative state exactly on audited metrics.
+fund_gross_operating_cash_flow,What is the gross operating cash flow for Institutional Growth Fund VII in 2025Q4?,,,$-134K,,,FAIL,The read operation timed out
