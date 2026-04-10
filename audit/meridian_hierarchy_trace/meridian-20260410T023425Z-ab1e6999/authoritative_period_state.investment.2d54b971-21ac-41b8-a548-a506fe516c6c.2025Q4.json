@@ -1,0 +1,75 @@
+{
+  "entity_type": "investment",
+  "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+  "investment_name": "Tech Campus North",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "84033809.090000000000",
+    "ending_nav_full": "83487024.590000000000",
+    "beginning_nav_attributable": "67227047.272000000000",
+    "ending_nav_attributable": "66789619.672000000000",
+    "gross_operating_cash_flow_full": "-167056.33",
+    "fund_attributable_operating_cash_flow": "-133645.064000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-546784.500000000000",
+    "fund_attributable_valuation_movement": "-437427.600000000000",
+    "gross_return_amount": "-571072.664000000000000000000000000000000000",
+    "gross_return_rate": "-0.006795748880",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-0.679574888000"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "f3f3024b-6e49-40cf-91e8-a024e3a3f917"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "0ee66dab-57e6-4e63-a72e-c937ba623bba"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "5a170cb5-9aa9-4e11-9c61-54d48972e598"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "cc5a24a4-07c5-4f40-8603-4be0084ef87c"
+    }
+  ]
+}

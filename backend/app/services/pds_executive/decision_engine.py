@@ -9,6 +9,7 @@ from uuid import UUID
 import psycopg
 
 from app.db import get_cursor
+from app.services.datetime_normalization import utc_now
 from app.services.pds_executive import catalog, queue, signals
 
 DEFAULT_THRESHOLDS = {
@@ -316,7 +317,7 @@ def evaluate_decisions(*, env_id: UUID, business_id: UUID) -> list[DecisionEvalu
         meta = catalog_map.get(decision_code, {"decision_title": decision_code})
         due_at = None
         if due_days is not None:
-            due_at = datetime.utcnow() + timedelta(days=due_days)
+            due_at = utc_now() + timedelta(days=due_days)
 
         evaluations.append(
             DecisionEvaluation(

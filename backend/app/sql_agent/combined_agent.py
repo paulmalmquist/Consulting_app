@@ -73,7 +73,7 @@ Every query MUST filter by business_id.
 - LIMIT 500 unless user specified a count
 - Order meaningfully (by name, quarter, amount DESC)
 - For NOI by asset: use re_asset_quarter_state joined to repe_asset for names
-- For fund returns: use re_fund_quarter_state joined to repe_fund for names
+- For fund returns: use re_authoritative_fund_state_qtr joined to repe_fund for names and filter to promotion_state = 'released'
 
 ## Output format (JSON only, no markdown, no explanation):
 {{

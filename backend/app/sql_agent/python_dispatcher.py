@@ -442,18 +442,24 @@ def _resolve_fund_id(business_id: UUID, params: dict[str, Any]) -> UUID | None:
 
 
 def _get_fund_nav(fund_id: UUID, quarter: str | None) -> Decimal:
-    """Get the latest NAV for a fund."""
+    """Get the latest released authoritative NAV for a fund."""
     with get_cursor() as cur:
         if quarter:
             cur.execute(
-                "SELECT portfolio_nav FROM re_fund_quarter_state "
-                "WHERE fund_id = %s AND quarter = %s LIMIT 1",
+                "SELECT COALESCE(NULLIF(canonical_metrics->>'ending_nav', '')::numeric, "
+                "NULLIF(canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav "
+                "FROM re_authoritative_fund_state_qtr "
+                "WHERE fund_id = %s AND quarter = %s AND promotion_state = 'released' "
+                "ORDER BY released_at DESC NULLS LAST, created_at DESC LIMIT 1",
                 (str(fund_id), quarter),
             )
         else:
             cur.execute(
-                "SELECT portfolio_nav FROM re_fund_quarter_state "
-                "WHERE fund_id = %s ORDER BY quarter DESC LIMIT 1",
+                "SELECT COALESCE(NULLIF(canonical_metrics->>'ending_nav', '')::numeric, "
+                "NULLIF(canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav "
+                "FROM re_authoritative_fund_state_qtr "
+                "WHERE fund_id = %s AND promotion_state = 'released' "
+                "ORDER BY quarter DESC, released_at DESC NULLS LAST, created_at DESC LIMIT 1",
                 (str(fund_id),),
             )
         row = cur.fetchone()

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services.datetime_normalization import serialize_utc_datetime, utc_now
 
 DRAFT_TYPES = {
     "earnings_call": "Earnings Call Statement",
@@ -129,7 +129,7 @@ def _get_metrics(*, env_id: UUID, business_id: UUID) -> dict:
         "open_queue": int(queue_row.get("open_queue") or 0),
         "risk_events": int(risk_row.get("risk_events") or 0),
         "hours_saved": int(float(kpi_row.get("admin_workload_delta") or 0) * 10),
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": serialize_utc_datetime(utc_now()),
     }
 
 

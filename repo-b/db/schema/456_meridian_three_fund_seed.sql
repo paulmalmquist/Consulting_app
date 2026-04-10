@@ -590,10 +590,10 @@ BEGIN
   VALUES
     (gen_random_uuid(), v_fund_igf, v_p_gp, 'contribution',
      799000000, 799000000, '2024-06-15', '2024Q2',
-     'Pre-2024Q3 cumulative capital calls (vintage 2021)', 'seed'),
+     'Pre-2024Q3 cumulative capital calls (vintage 2021)', 'generated'),
     (gen_random_uuid(), v_fund_igf, v_p_gp, 'distribution',
      80000000, 80000000, '2024-06-28', '2024Q2',
-     'Pre-2024Q3 cumulative operational distributions', 'seed')
+     'Pre-2024Q3 cumulative operational distributions', 'generated')
   ON CONFLICT DO NOTHING;
 
   -- Fund 2: pre-window cumulative
@@ -602,10 +602,10 @@ BEGIN
   VALUES
     (gen_random_uuid(), v_fund_mref, v_p_gp, 'contribution',
      530000000, 530000000, '2024-06-15', '2024Q2',
-     'Fully called capital (vintage 2019)', 'seed'),
+     'Fully called capital (vintage 2019)', 'generated'),
     (gen_random_uuid(), v_fund_mref, v_p_gp, 'distribution',
      75000000, 75000000, '2024-06-28', '2024Q2',
-     'Pre-2024Q3 cumulative distributions', 'seed')
+     'Pre-2024Q3 cumulative distributions', 'generated')
   ON CONFLICT DO NOTHING;
 
   -- Quarterly capital entries for all 3 funds
@@ -620,7 +620,7 @@ BEGIN
         amount, amount_base, effective_date, quarter, memo, source)
       VALUES (gen_random_uuid(), v_fund_igf, v_p_gp, 'contribution',
               v_f1_call_amts[qi+1], v_f1_call_amts[qi+1], v_qdate, v_quarters[qi+1],
-              'Capital call ' || v_quarters[qi+1], 'seed')
+              'Capital call ' || v_quarters[qi+1], 'generated')
       ON CONFLICT DO NOTHING;
     END IF;
 
@@ -631,7 +631,7 @@ BEGIN
       VALUES (gen_random_uuid(), v_fund_igf, v_p_gp, 'distribution',
               v_f1_dist_amts[qi+1], v_f1_dist_amts[qi+1],
               (v_year || '-' || LPAD((v_q_num * 3)::text, 2, '0') || '-28')::date,
-              v_quarters[qi+1], 'Distribution ' || v_quarters[qi+1], 'seed')
+              v_quarters[qi+1], 'Distribution ' || v_quarters[qi+1], 'generated')
       ON CONFLICT DO NOTHING;
     END IF;
 
@@ -647,7 +647,7 @@ BEGIN
                 WHEN qi = 4 THEN 'Emerald Ridge exit + ops'
                 WHEN qi = 5 THEN 'Biscayne Towers exit + ops'
                 ELSE 'Operational distribution ' || v_quarters[qi+1]
-              END, 'seed')
+              END, 'generated')
       ON CONFLICT DO NOTHING;
     END IF;
 
@@ -660,7 +660,7 @@ BEGIN
               ROUND(600000000 * v_f3_call_pcts[qi+1], 2),
               v_qdate, v_quarters[qi+1],
               'Capital call ' || v_quarters[qi+1] || ' (' || (v_f3_call_pcts[qi+1]*100)::int || '%)',
-              'seed')
+              'generated')
       ON CONFLICT DO NOTHING;
     END IF;
 
@@ -671,7 +671,7 @@ BEGIN
       VALUES (gen_random_uuid(), v_fund_mcof, v_p_gp, 'distribution',
               v_f3_dist_amts[qi+1], v_f3_dist_amts[qi+1],
               (v_year || '-' || LPAD((v_q_num * 3)::text, 2, '0') || '-28')::date,
-              v_quarters[qi+1], 'Interest income ' || v_quarters[qi+1], 'seed')
+              v_quarters[qi+1], 'Interest income ' || v_quarters[qi+1], 'generated')
       ON CONFLICT DO NOTHING;
     END IF;
   END LOOP;

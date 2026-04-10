@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services import re_authoritative_snapshots
 
 
 def _money_to_string(value: Decimal | None) -> str | None:
@@ -39,6 +40,38 @@ def get_portfolio_kpis(
     env_text = str(env_id)
     business_text = str(business_id)
     scenario_text = str(scenario_id) if scenario_id else None
+
+    if scenario_text:
+        return {
+            "env_id": env_text,
+            "business_id": business_text,
+            "quarter": quarter,
+            "effective_quarter": quarter,
+            "scenario_id": scenario_text,
+            "fund_count": 0,
+            "total_commitments": "0",
+            "portfolio_nav": None,
+            "active_assets": 0,
+            "gross_irr": None,
+            "net_irr": None,
+            "weighted_dscr": None,
+            "weighted_ltv": None,
+            "pct_invested": None,
+            "warnings": ["Authoritative portfolio KPIs are only available for released base-scenario snapshots."],
+            "null_reason": "unsupported_metric_at_scope",
+            "trust_status": "missing_source",
+        }
+
+    authoritative = re_authoritative_snapshots.get_released_portfolio_kpis(
+        env_id=env_text,
+        business_id=business_text,
+        quarter=quarter,
+    )
+    authoritative["scenario_id"] = scenario_text
+    authoritative.setdefault("weighted_dscr", None)
+    authoritative.setdefault("weighted_ltv", None)
+    authoritative.setdefault("pct_invested", None)
+    return authoritative
 
     # Build scenario filter once — reused across all sub-queries that reference
     # re_fund_quarter_state. "s" is the alias in each subquery.
