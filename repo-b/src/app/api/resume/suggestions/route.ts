@@ -4,6 +4,7 @@
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const FASTAPI_BASE = (
   process.env.BOS_API_ORIGIN || "http://localhost:8000"
@@ -12,7 +13,10 @@ const FASTAPI_BASE = (
 export async function GET(_req: NextRequest) {
   const upstream = await fetch(
     `${FASTAPI_BASE}/api/resume/v1/chat/suggestions`,
-    { signal: AbortSignal.timeout(5_000) },
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    },
   );
 
   const data = await upstream.text();

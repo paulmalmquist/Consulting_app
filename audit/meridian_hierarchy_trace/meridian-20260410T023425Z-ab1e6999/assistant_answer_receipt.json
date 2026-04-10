@@ -1,0 +1,12 @@
+{
+  "question": "What are the gross and net returns for Institutional Growth Fund VII in 2026Q2?",
+  "answer_contract": {
+    "entity_type": "fund",
+    "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+    "quarter": "2026Q2",
+    "snapshot_version": "meridian-20260410T023425Z-ab1e6999",
+    "audit_run_id": "3fa920b6-9759-47e0-8e8e-66e22cb5f95c"
+  },
+  "authoritative_state_path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T023425Z-ab1e6999/authoritative_period_state.fund.a1b2c3d4-0003-0030-0001-000000000001.2026Q2.json",
+  "gross_to_net_bridge_path": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/audit/meridian_hierarchy_trace/meridian-20260410T023425Z-ab1e6999/gross_to_net_bridge.csv"
+}

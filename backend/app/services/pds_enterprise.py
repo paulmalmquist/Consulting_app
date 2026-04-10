@@ -9,6 +9,7 @@ from typing import Any, Iterable
 from uuid import UUID
 
 from app.db import get_cursor
+from app.services.datetime_normalization import coerce_utc_datetime, utc_now
 from app.services import pds as pds_core
 from app.services.pds_executive import queue as queue_svc
 from app.services.workspace_templates import resolve_workspace_template_key
@@ -1147,7 +1148,7 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                 for week in range(0, 4):
                     week_ending = today - timedelta(days=today.weekday()) + timedelta(days=6 - (week * 7))
                     status = "submitted" if week < 2 or index % 2 == 0 else "draft"
-                    submitted_at = datetime.combine(week_ending - timedelta(days=1), datetime.min.time()) if status == "submitted" else None
+                    submitted_at = coerce_utc_datetime(week_ending - timedelta(days=1)) if status == "submitted" else None
                     project_id = projects[index % len(projects)]["project_id"] if projects else None
                     hours = Decimal("42") if index in {0, 1} else Decimal("36")
                     cur.execute(
@@ -1272,8 +1273,8 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                         today + timedelta(days=10 + (index * 12)),
                         None if index == 0 else today - timedelta(days=10),
                         "pending" if index == 0 else "submitted",
-                        None if index == 0 else datetime.utcnow(),
-                        None if index == 0 else datetime.utcnow(),
+                        None if index == 0 else utc_now(),
+                        None if index == 0 else utc_now(),
                         json.dumps([{"title": f"Closeout blocker {i + 1}"} for i in range(blocker_count)]),
                         "active",
                         "{}",
@@ -1403,7 +1404,7 @@ def seed_enterprise_workspace(*, env_id: UUID, business_id: UUID, actor: str = "
                             (env_id, business_id, deal_id, from_stage, to_stage, changed_at, note)
                             VALUES (%s::uuid, %s::uuid, %s::uuid, NULL, %s, %s, %s)
                             """,
-                            (str(env_id), str(business_id), str(inserted["deal_id"]), stage, datetime.utcnow(), "Initial stage"),
+                            (str(env_id), str(business_id), str(inserted["deal_id"]), stage, utc_now(), "Initial stage"),
                         )
                     except Exception:
                         pass
@@ -2666,7 +2667,7 @@ def get_executive_briefing(
         "Trigger executive outreach on low-satisfaction accounts.",
     ]
     return {
-        "generated_at": datetime.utcnow(),
+        "generated_at": utc_now(),
         "lens": normalize_lens(lens),
         "horizon": normalize_horizon(horizon),
         "role_preset": normalize_role_preset(role_preset),
@@ -2677,19 +2678,7 @@ def get_executive_briefing(
 
 
 def _coerce_datetime(value: Any) -> datetime | None:
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, date):
-        return datetime.combine(value, datetime.min.time())
-    if isinstance(value, str):
-        candidate = value.strip()
-        if not candidate:
-            return None
-        try:
-            return datetime.fromisoformat(candidate.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    return None
+    return coerce_utc_datetime(value)
 
 
 def _pipeline_stage_label(stage: str) -> str:
@@ -2947,7 +2936,7 @@ def _pipeline_stage_summaries(*, deals: list[dict[str, Any]], history_rows: list
         elif any(reason in {"stalled", "overdue_close"} for reason in deal["attention_reasons"]):
             stage_map[stage]["tone"] = "warn"
 
-    window_start = datetime.utcnow() - timedelta(days=180)
+    window_start = utc_now() - timedelta(days=180)
     entered_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
     transition_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
     drop_counts: dict[str, int] = {stage: 0 for stage in PIPELINE_STAGE_ORDER}
@@ -3407,7 +3396,7 @@ def _queue_payload_for_intervention(
         priority={"critical": "critical", "warning": "high", "watch": "medium", "neutral": "low"}[item["severity"]],
         recommended_action=item["recommended_action"],
         recommended_owner=item.get("owner_label"),
-        due_at=datetime.utcnow() + timedelta(days=1 if item["severity"] == "critical" else 3),
+        due_at=utc_now() + timedelta(days=1 if item["severity"] == "critical" else 3),
         risk_score=_q(item.get("risk_score") or 0),
         project_id=UUID(str(item["entity_id"])) if item["entity_type"] == "project" else None,
         signal_event_id=None,
@@ -3774,8 +3763,8 @@ def _ensure_pipeline_demo_data(*, env_id: UUID, business_id: UUID) -> None:
         for idx, (deal_name, stage, deal_value, probability_pct, expected_close_date, notes) in enumerate(seed_rows):
             account = accounts[idx % len(accounts)]
             owner_name = account.get("resource_name") or account.get("owner_name") or "Dana Park"
-            last_activity_at = datetime.utcnow() - timedelta(days=18 if idx in {1, 2, 6, 7} else 6)
-            stage_entered_at = datetime.utcnow() - timedelta(days=20 if idx in {1, 2, 6} else 9)
+            last_activity_at = utc_now() - timedelta(days=18 if idx in {1, 2, 6, 7} else 6)
+            stage_entered_at = utc_now() - timedelta(days=20 if idx in {1, 2, 6} else 9)
             cur.execute(
                 """
                 INSERT INTO pds_pipeline_deals
@@ -3907,7 +3896,7 @@ def get_pipeline_deal_detail(*, env_id: UUID, business_id: UUID, deal_id: UUID) 
             "stage_history_id": item["stage_history_id"],
             "from_stage": item.get("from_stage"),
             "to_stage": _normalize_pipeline_stage(item.get("to_stage")),
-            "changed_at": _coerce_datetime(item.get("changed_at")) or datetime.utcnow(),
+            "changed_at": _coerce_datetime(item.get("changed_at")) or utc_now(),
             "note": item.get("note"),
         }
         for item in _fetch_pipeline_history_rows(env_id=env_id, business_id=business_id, deal_id=deal_id)
@@ -3933,7 +3922,7 @@ def create_pipeline_deal(*, env_id: UUID, business_id: UUID, payload: dict[str, 
     account_id = payload.get("account_id")
     if account_id is not None:
         account_id = UUID(str(account_id))
-    changed_at = datetime.utcnow()
+    changed_at = utc_now()
     with get_cursor() as cur:
         cur.execute(
             """
@@ -3988,7 +3977,7 @@ def update_pipeline_deal(*, env_id: UUID, business_id: UUID, deal_id: UUID, payl
         raise LookupError("Pipeline deal not found")
 
     next_stage = _normalize_pipeline_stage(payload["stage"]) if "stage" in payload else _normalize_pipeline_stage(current.get("stage"))
-    changed_at = datetime.utcnow()
+    changed_at = utc_now()
     updates: dict[str, Any] = {}
 
     if "deal_name" in payload:
@@ -4277,7 +4266,7 @@ def get_command_center(*, env_id: UUID, business_id: UUID, lens: str, horizon: s
         "lens": normalized_lens,
         "horizon": normalized_horizon,
         "role_preset": normalize_role_preset(role_preset),
-        "generated_at": datetime.utcnow(),
+        "generated_at": utc_now(),
         "metrics_strip": enriched_metrics_strip,
         "performance_table": performance_table,
         "delivery_risk": delivery_risk,
@@ -4370,7 +4359,7 @@ def build_report_packet(*, env_id: UUID, business_id: UUID, packet_type: str, le
     narrative = " ".join(command_center["briefing"]["summary_lines"])
     return {
         "packet_type": packet_type,
-        "generated_at": datetime.utcnow(),
+        "generated_at": utc_now(),
         "title": f"{packet_type.replace('_', ' ').title()} - {normalize_lens(lens).title()} / {normalize_horizon(horizon)}",
         "sections": sections,
         "narrative": narrative,
@@ -4521,7 +4510,7 @@ def create_report_export_run(
         role_preset=role_preset,
     )
     available_formats = _normalize_export_formats(formats)
-    timestamp = datetime.utcnow()
+    timestamp = utc_now()
     generated_at = packet.get("generated_at")
     packet_json = _json_ready(packet)
     metadata_json = {
@@ -4584,8 +4573,8 @@ def _format_report_export_run(row: dict[str, Any]) -> dict[str, Any]:
         "horizon": metadata.get("horizon") or "Forecast",
         "role_preset": metadata.get("role_preset") or "executive",
         "available_formats": _normalize_export_formats(metadata.get("available_formats")),
-        "generated_at": metadata.get("generated_at") or packet.get("generated_at") or row.get("created_at") or datetime.utcnow(),
-        "created_at": row.get("created_at") or datetime.utcnow(),
+        "generated_at": _coerce_datetime(metadata.get("generated_at")) or _coerce_datetime(packet.get("generated_at")) or _coerce_datetime(row.get("created_at")) or utc_now(),
+        "created_at": _coerce_datetime(row.get("created_at")) or utc_now(),
     }
 
 

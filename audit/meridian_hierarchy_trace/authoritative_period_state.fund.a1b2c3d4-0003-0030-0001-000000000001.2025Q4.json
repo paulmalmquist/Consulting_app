@@ -1,0 +1,110 @@
+{
+  "entity_type": "fund",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav": "67227047.272000000000",
+    "ending_nav": "66789619.672000000000",
+    "gross_operating_cash_flow": "-133645.064000000000",
+    "contributions": "60000000.000000000000",
+    "distributions": "19542998.810000000000",
+    "management_fees": "1875000.000000000000",
+    "fund_expenses": 0,
+    "net_operating_cash_flow": "-2008645.064000000000",
+    "gross_irr": "-0.8706922531489705",
+    "net_irr": "-0.8830306732750322",
+    "dpi": "0.140091790818",
+    "rvpi": "0.101196393442",
+    "tvpi": "0.241288184260",
+    "net_tvpi": "0.212492729715",
+    "gross_net_spread": "0.0123384201260617",
+    "asset_count": 22,
+    "total_committed": "1000000000.000000000000",
+    "total_called": "660000000.000000000000",
+    "total_distributed": "92460581.940000000000"
+  },
+  "display_metrics": {
+    "gross_irr_pct": "-87.0692253148970500",
+    "net_irr_pct": "-88.3030673275032200"
+  },
+  "null_reasons": {},
+  "formulas": {
+    "gross_operating_cash_flow": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees",
+    "net_operating_cash_flow": "net operating cash flow = gross operating cash flow - management fees - fund expenses",
+    "gross_irr": "gross IRR = XIRR(capital calls, distributions, terminal ending NAV)",
+    "net_irr": "net IRR = XIRR(capital calls, distributions, fee and expense deductions, terminal ending NAV)"
+  },
+  "provenance": [
+    {
+      "table": "re_authoritative_investment_state_qtr",
+      "notes": "Aggregated operating cash flow and attributable NAV"
+    },
+    {
+      "table": "re_cash_event",
+      "notes": "Dated call/distribution/fee/expense series for IRR"
+    },
+    {
+      "table": "re_fee_accrual_qtr",
+      "notes": "Management fee accrual"
+    },
+    {
+      "table": "re_fund_expense_qtr",
+      "notes": "Fund expense detail"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "f3f3024b-6e49-40cf-91e8-a024e3a3f917"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "0ee66dab-57e6-4e63-a72e-c937ba623bba"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "5a170cb5-9aa9-4e11-9c61-54d48972e598"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "cc5a24a4-07c5-4f40-8603-4be0084ef87c"
+    }
+  ],
+  "gross_to_net_bridge": {
+    "gross_return_amount": "-133645.064000000000",
+    "management_fees": "1875000.000000000000",
+    "fund_expenses": 0,
+    "net_return_amount": "-2008645.064000000000",
+    "bridge_items": [
+      {
+        "code": "gross_operating_cash_flow",
+        "label": "Gross operating cash flow",
+        "amount": "-133645.064000000000",
+        "formula": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees"
+      },
+      {
+        "code": "management_fees",
+        "label": "Management fees",
+        "amount": "1875000.000000000000",
+        "formula": "management fees = latest released fee accrual row for the quarter"
+      },
+      {
+        "code": "fund_expenses",
+        "label": "Fund expenses",
+        "amount": 0,
+        "formula": "fund expenses = sum of latest expense rows per expense_type for the quarter"
+      },
+      {
+        "code": "net_operating_cash_flow",
+        "label": "Net operating cash flow",
+        "amount": "-2008645.064000000000",
+        "formula": "net operating cash flow = gross operating cash flow - management fees - fund expenses"
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ and returns a StructuredExecutionResult — no LLM, no narrative fallback.
 
 Hard-mapped use cases (spec §E):
   1. fund inventory / rundown / list         → repe.list_funds
-  2. summarize each fund's performance       → re_fund_quarter_state
+  2. summarize each fund's performance       → released authoritative fund snapshots
   3. total commitments / breakout by fund    → re_env_portfolio.get_portfolio_kpis
   4. total asset count / active asset count  → repe.count_assets
   5. NOI variance ranked / filter / list     → re_asset_variance_qtr
@@ -75,15 +75,15 @@ def _fmt_multiple(val: Any) -> str:
 
 
 def _latest_quarter(business_id: str) -> str:
-    """Get the latest quarter with fund state data for this business."""
+    """Get the latest quarter with released authoritative fund state data."""
     with get_cursor() as cur:
         cur.execute(
             """
             SELECT DISTINCT s.quarter
-            FROM re_fund_quarter_state s
+            FROM re_authoritative_fund_state_qtr s
             JOIN repe_fund f ON f.fund_id = s.fund_id
             WHERE f.business_id = %s::uuid
-              AND s.scenario_id IS NULL
+              AND s.promotion_state = 'released'
             ORDER BY s.quarter DESC
             LIMIT 1
             """,
@@ -152,8 +152,8 @@ def _execute_fund_performance_summary(
     if not funds:
         return StructuredExecutionResult(
             answer_text="No funds found.",
-            source_path="re_fund_quarter_state",
-            canonical_source="re_fund_quarter_state",
+            source_path="re_authoritative_fund_state_qtr",
+            canonical_source="re_authoritative_fund_state_qtr",
         )
 
     lines = [f"Fund performance summary as of **{quarter}**:\n"]
@@ -167,12 +167,18 @@ def _execute_fund_performance_summary(
             cur.execute(
                 """
                 SELECT
-                    gross_irr, net_irr, tvpi, dpi, rvpi,
-                    portfolio_nav, total_called, total_distributed
-                FROM re_fund_quarter_state
+                    NULLIF(canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+                    NULLIF(canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+                    NULLIF(canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+                    NULLIF(canonical_metrics->>'dpi', '')::numeric AS dpi,
+                    NULLIF(canonical_metrics->>'rvpi', '')::numeric AS rvpi,
+                    COALESCE(NULLIF(canonical_metrics->>'ending_nav', '')::numeric, NULLIF(canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav,
+                    NULLIF(canonical_metrics->>'total_called', '')::numeric AS total_called,
+                    NULLIF(canonical_metrics->>'total_distributed', '')::numeric AS total_distributed
+                FROM re_authoritative_fund_state_qtr
                 WHERE fund_id = %s::uuid
                   AND quarter = %s
-                  AND scenario_id IS NULL
+                  AND promotion_state = 'released'
                 ORDER BY created_at DESC
                 LIMIT 1
                 """,
@@ -210,11 +216,11 @@ def _execute_fund_performance_summary(
         answer_text="\n".join(lines),
         rows=rows,
         columns=["name", "gross_irr", "net_irr", "tvpi", "dpi", "rvpi", "nav"],
-        source_path="re_fund_quarter_state",
-        canonical_source="re_fund_quarter_state",
+        source_path="re_authoritative_fund_state_qtr",
+        canonical_source="re_authoritative_fund_state_qtr",
         result_memory=_build_list_memory(
             rows=rows,
-            source_name="re_fund_quarter_state",
+            source_name="re_authoritative_fund_state_qtr",
             scope={"business_id": business_id, "environment_id": env_id},
             result_type="ranked_list",
         ),
@@ -276,7 +282,7 @@ def _execute_portfolio_kpis(
         rows=[kpis],
         columns=["fund_count", "total_commitments", "portfolio_nav", "active_assets", "gross_irr", "net_irr"],
         source_path="re_env_portfolio.get_portfolio_kpis",
-        canonical_source="re_fund_quarter_state + re_partner_commitment",
+        canonical_source="re_authoritative_fund_state_qtr + re_partner_commitment",
     )
 
 
@@ -503,14 +509,17 @@ def _execute_investment_irr_degraded(
             """
             SELECT
                 f.name AS fund_name,
-                s.gross_irr, s.net_irr, s.tvpi, s.portfolio_nav
-            FROM re_fund_quarter_state s
+                NULLIF(s.canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+                NULLIF(s.canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+                NULLIF(s.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+                COALESCE(NULLIF(s.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(s.canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav
+            FROM re_authoritative_fund_state_qtr s
             JOIN repe_fund f ON f.fund_id = s.fund_id
             WHERE f.business_id = %s::uuid
               AND s.quarter = %s
-              AND s.scenario_id IS NULL
-              AND s.gross_irr IS NOT NULL
-            ORDER BY s.gross_irr DESC
+              AND s.promotion_state = 'released'
+              AND NULLIF(s.canonical_metrics->>'gross_irr', '')::numeric IS NOT NULL
+            ORDER BY NULLIF(s.canonical_metrics->>'gross_irr', '')::numeric DESC
             """,
             (business_id, quarter),
         )
@@ -521,8 +530,8 @@ def _execute_investment_irr_degraded(
             answer_text="No fund-level IRR data available.",
             degraded=True,
             degraded_reason="no_data",
-            source_path="re_fund_quarter_state",
-            canonical_source="re_fund_quarter_state",
+            source_path="re_authoritative_fund_state_qtr",
+            canonical_source="re_authoritative_fund_state_qtr",
         )
 
     lines = [
@@ -548,13 +557,13 @@ def _execute_investment_irr_degraded(
         answer_text="\n".join(lines),
         rows=result_rows,
         columns=["name", "gross_irr", "net_irr", "tvpi"],
-        source_path="re_fund_quarter_state",
-        canonical_source="re_fund_quarter_state",
+        source_path="re_authoritative_fund_state_qtr",
+        canonical_source="re_authoritative_fund_state_qtr",
         degraded=True,
         degraded_reason="investment_level_irr_unavailable",
         result_memory=_build_list_memory(
             rows=result_rows,
-            source_name="re_fund_quarter_state",
+            source_name="re_authoritative_fund_state_qtr",
             scope={"business_id": business_id, "environment_id": env_id},
             result_type="ranked_list",
         ),

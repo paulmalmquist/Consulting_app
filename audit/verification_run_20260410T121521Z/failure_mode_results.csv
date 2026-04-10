@@ -1,0 +1,13 @@
+case,surface,result,expected,pass_fail,notes
+missing_quarter_versioned,backend_authoritative_state,authoritative_state_not_found,authoritative_state_not_found,PASS,Versioned authoritative contract should fail instead of falling back.
+waterfall_metric_legacy_metrics_detail,public_metrics_detail_route,,null + out_of_scope_requires_waterfall,PASS,Legacy metrics-detail still returns carry_shadow from base-scenario approximations.
+legacy_approximate_surface_detected,/api/re/v2/funds/[fundId]/metrics-detail,,fail_closed_or_untrusted,PASS,This route still bypasses authoritative released snapshots and computes from computeFundBaseScenario().
+assistant_waterfall_metric_request,assistant_runtime,"Carried interest rate: 20%.
+
+Context: Per the fund terms for Institutional Growth Fund VII, the promote is 20% with a European waterfall and full catch-up (effective since 2021-03-01).
+
+If you meant the carried interest amount accrued/distributed in 2025Q4, that figure isn’t available in the current data. It requires running the 2025Q4 waterfall to compute the promote for that quarter. I can run that if you’d like.",explicit failure or out-of-scope response,FAIL,Waterfall-dependent metrics should not be approximated in the audited Meridian path.
+stone_command_center,stone_pds_page,loaded,loaded_without_datetime_crash,FAIL,surface probe timed out after 60 seconds; HTTP Error 403: Forbidden
+stone_pipeline,stone_pds_page,loaded,loaded_without_datetime_crash,FAIL,surface probe timed out after 60 seconds; HTTP Error 403: Forbidden
+stone_forecast,stone_pds_page,loaded,loaded_without_datetime_crash,FAIL,surface probe timed out after 60 seconds; HTTP Error 403: Forbidden
+stone_project_detail,stone_pds_page,loaded,loaded_without_datetime_crash,FAIL,surface probe timed out after 60 seconds; HTTP Error 403: Forbidden

@@ -212,17 +212,18 @@ LIMIT %(limit)s""",
         description="Fund return metrics (IRR, TVPI, DPI) by quarter",
         sql="""\
 SELECT f.name AS fund_name,
-       fs.quarter,
-       fs.gross_irr,
-       fs.net_irr,
-       fs.tvpi,
-       fs.dpi,
-       fs.rvpi,
-       fs.portfolio_nav
-FROM re_fund_quarter_state fs
-JOIN repe_fund f ON f.fund_id = fs.fund_id
+       afs.quarter,
+       NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+       NULLIF(afs.canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+       NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+       NULLIF(afs.canonical_metrics->>'dpi', '')::numeric AS dpi,
+       NULLIF(afs.canonical_metrics->>'rvpi', '')::numeric AS rvpi,
+       COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav
+FROM re_authoritative_fund_state_qtr afs
+JOIN repe_fund f ON f.fund_id = afs.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-ORDER BY f.name, fs.quarter DESC
+  AND afs.promotion_state = 'released'
+ORDER BY f.name, afs.quarter DESC
 LIMIT %(limit)s""",
         required_params=frozenset({"business_id"}),
         optional_params=frozenset({"limit"}),
@@ -230,7 +231,7 @@ LIMIT %(limit)s""",
         query_type=QueryType.TIME_SERIES,
         domain="repe",
         tags=frozenset({"fund", "returns", "irr", "tvpi"}),
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         natural_grain="fund_quarter",
         supported_group_bys=frozenset({"quarter", "vintage_year", "strategy"}),
         supported_transformations=frozenset({"summary", "list", "trend"}),
@@ -243,23 +244,25 @@ LIMIT %(limit)s""",
 SELECT f.name          AS fund_name,
        f.vintage_year,
        f.fund_type,
-       fs.gross_irr,
-       fs.net_irr,
-       fs.tvpi,
-       fs.dpi,
-       fs.rvpi,
-       fs.quarter
-FROM re_fund_quarter_state fs
-JOIN repe_fund f ON f.fund_id = fs.fund_id
+       NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+       NULLIF(afs.canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+       NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+       NULLIF(afs.canonical_metrics->>'dpi', '')::numeric AS dpi,
+       NULLIF(afs.canonical_metrics->>'rvpi', '')::numeric AS rvpi,
+       afs.quarter
+FROM re_authoritative_fund_state_qtr afs
+JOIN repe_fund f ON f.fund_id = afs.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-  AND fs.quarter = COALESCE(
+  AND afs.promotion_state = 'released'
+  AND afs.quarter = COALESCE(
         %(quarter)s::text,
-        (SELECT MAX(fs2.quarter)
-         FROM re_fund_quarter_state fs2
-         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
-         WHERE f2.business_id = %(business_id)s::uuid)
+        (SELECT MAX(afs2.quarter)
+         FROM re_authoritative_fund_state_qtr afs2
+         JOIN repe_fund f2 ON f2.fund_id = afs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid
+           AND afs2.promotion_state = 'released')
       )
-ORDER BY fs.gross_irr DESC NULLS LAST
+ORDER BY NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric DESC NULLS LAST
 LIMIT %(limit)s""",
         required_params=frozenset({"business_id"}),
         optional_params=frozenset({"quarter", "limit"}),
@@ -267,7 +270,7 @@ LIMIT %(limit)s""",
         query_type=QueryType.RANKED_COMPARISON,
         domain="repe",
         tags=frozenset({"fund", "irr", "ranking", "returns"}),
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         natural_grain="fund_quarter",
         supported_group_bys=frozenset({"quarter", "vintage_year", "strategy"}),
         supported_transformations=frozenset({"rank", "list"}),
@@ -279,23 +282,24 @@ LIMIT %(limit)s""",
 SELECT f.name          AS fund_name,
        f.vintage_year,
        f.fund_type,
-       fs.tvpi,
-       fs.dpi,
-       fs.rvpi,
-       fs.gross_irr,
-       fs.portfolio_nav,
-       fs.quarter
-FROM re_fund_quarter_state fs
-JOIN repe_fund f ON f.fund_id = fs.fund_id
+       NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+       NULLIF(afs.canonical_metrics->>'dpi', '')::numeric AS dpi,
+       NULLIF(afs.canonical_metrics->>'rvpi', '')::numeric AS rvpi,
+       NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+       COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav,
+       afs.quarter
+FROM re_authoritative_fund_state_qtr afs
+JOIN repe_fund f ON f.fund_id = afs.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-  AND fs.quarter = COALESCE(
+  AND afs.promotion_state = 'released'
+  AND afs.quarter = COALESCE(
         %(quarter)s::text,
-        (SELECT MAX(fs2.quarter)
-         FROM re_fund_quarter_state fs2
-         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+        (SELECT MAX(afs2.quarter)
+         FROM re_authoritative_fund_state_qtr afs2
+         JOIN repe_fund f2 ON f2.fund_id = afs2.fund_id
          WHERE f2.business_id = %(business_id)s::uuid)
       )
-ORDER BY fs.tvpi DESC NULLS LAST
+ORDER BY NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric DESC NULLS LAST
 LIMIT %(limit)s""",
         required_params=frozenset({"business_id"}),
         optional_params=frozenset({"quarter", "limit"}),
@@ -303,7 +307,7 @@ LIMIT %(limit)s""",
         query_type=QueryType.RANKED_COMPARISON,
         domain="repe",
         tags=frozenset({"fund", "tvpi", "ranking", "returns"}),
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         natural_grain="fund_quarter",
         supported_group_bys=frozenset({"quarter", "vintage_year", "strategy"}),
         supported_transformations=frozenset({"rank", "list"}),
@@ -315,22 +319,23 @@ LIMIT %(limit)s""",
 SELECT f.name          AS fund_name,
        f.vintage_year,
        f.fund_type,
-       fs.portfolio_nav,
-       fs.total_called,
-       fs.total_distributed,
-       fs.tvpi,
-       fs.quarter
-FROM re_fund_quarter_state fs
-JOIN repe_fund f ON f.fund_id = fs.fund_id
+       COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav,
+       NULLIF(afs.canonical_metrics->>'total_called', '')::numeric AS total_called,
+       NULLIF(afs.canonical_metrics->>'total_distributed', '')::numeric AS total_distributed,
+       NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+       afs.quarter
+FROM re_authoritative_fund_state_qtr afs
+JOIN repe_fund f ON f.fund_id = afs.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-  AND fs.quarter = COALESCE(
+  AND afs.promotion_state = 'released'
+  AND afs.quarter = COALESCE(
         %(quarter)s::text,
-        (SELECT MAX(fs2.quarter)
-         FROM re_fund_quarter_state fs2
-         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
+        (SELECT MAX(afs2.quarter)
+         FROM re_authoritative_fund_state_qtr afs2
+         JOIN repe_fund f2 ON f2.fund_id = afs2.fund_id
          WHERE f2.business_id = %(business_id)s::uuid)
       )
-ORDER BY fs.portfolio_nav DESC NULLS LAST
+ORDER BY COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) DESC NULLS LAST
 LIMIT %(limit)s""",
         required_params=frozenset({"business_id"}),
         optional_params=frozenset({"quarter", "limit"}),
@@ -338,7 +343,7 @@ LIMIT %(limit)s""",
         query_type=QueryType.RANKED_COMPARISON,
         domain="repe",
         tags=frozenset({"fund", "nav", "ranking"}),
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         natural_grain="fund_quarter",
         supported_group_bys=frozenset({"quarter", "vintage_year", "strategy"}),
         supported_transformations=frozenset({"rank", "list"}),
@@ -528,23 +533,25 @@ LIMIT %(limit)s""",
         sql="""\
 SELECT f.fund_id::text AS fund_id,
        f.name AS fund_name,
-       fs.quarter,
-       fs.gross_irr,
-       fs.net_irr,
-       fs.tvpi,
-       fs.dpi,
-       fs.rvpi,
-       fs.portfolio_nav,
-       fs.total_committed
-FROM re_fund_quarter_state fs
-JOIN repe_fund f ON f.fund_id = fs.fund_id
+       afs.quarter,
+       NULLIF(afs.canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
+       NULLIF(afs.canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+       NULLIF(afs.canonical_metrics->>'tvpi', '')::numeric AS tvpi,
+       NULLIF(afs.canonical_metrics->>'dpi', '')::numeric AS dpi,
+       NULLIF(afs.canonical_metrics->>'rvpi', '')::numeric AS rvpi,
+       COALESCE(NULLIF(afs.canonical_metrics->>'ending_nav', '')::numeric, NULLIF(afs.canonical_metrics->>'portfolio_nav', '')::numeric) AS portfolio_nav,
+       NULLIF(afs.canonical_metrics->>'total_committed', '')::numeric AS total_committed
+FROM re_authoritative_fund_state_qtr afs
+JOIN repe_fund f ON f.fund_id = afs.fund_id
 WHERE f.business_id = %(business_id)s::uuid
-  AND fs.quarter = COALESCE(
+  AND afs.promotion_state = 'released'
+  AND afs.quarter = COALESCE(
         %(quarter)s::text,
-        (SELECT MAX(fs2.quarter)
-         FROM re_fund_quarter_state fs2
-         JOIN repe_fund f2 ON f2.fund_id = fs2.fund_id
-         WHERE f2.business_id = %(business_id)s::uuid)
+        (SELECT MAX(afs2.quarter)
+         FROM re_authoritative_fund_state_qtr afs2
+         JOIN repe_fund f2 ON f2.fund_id = afs2.fund_id
+         WHERE f2.business_id = %(business_id)s::uuid
+           AND afs2.promotion_state = 'released')
       )
 ORDER BY f.name ASC
 LIMIT %(limit)s""",
@@ -554,7 +561,7 @@ LIMIT %(limit)s""",
         query_type=QueryType.GROUPED_AGGREGATION,
         domain="repe",
         tags=frozenset({"fund", "performance", "summary"}),
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         natural_grain="fund_quarter",
         supported_group_bys=frozenset({"fund", "quarter", "strategy", "vintage_year"}),
         supported_transformations=frozenset({"summary", "list", "breakout"}),

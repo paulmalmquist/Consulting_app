@@ -65,6 +65,7 @@ from app.routes import (
     opportunity_engine,
     psychrag,
 )
+from app.routes import re_authoritative
 from app.routes.ai import router as ai_router
 from app.routes.ai_gateway import router as ai_gateway_router
 from app.routes.ai_audit import router as ai_audit_router
@@ -338,6 +339,7 @@ app.include_router(re_reports.router)
 app.include_router(re_v1_context.router)
 app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
+app.include_router(re_authoritative.router)
 app.include_router(re_query.router)
 app.include_router(re_financial_intelligence.router)
 app.include_router(re_sustainability.router)

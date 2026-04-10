@@ -724,7 +724,7 @@ def _fund_performance_outcome(
         execution_path="template",
         transformation_applied="summary",
         memory_used=memory_used,
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         canonical_check="canonical_source_used",
     )
     return MeridianStructuredOutcome(
@@ -781,7 +781,7 @@ def _investment_irr_grain_fallback_outcome(
     lines = [
         f"I checked investment-level gross IRR for {quarter}.",
         "That metric is not available at the investment grain in Meridian.",
-        "The closest valid grain is fund-level performance from re_fund_quarter_state, so I ranked the funds instead:",
+        "The closest valid grain is released authoritative fund performance, so I ranked the funds instead:",
     ]
     for index, row in enumerate(rows, start=1):
         lines.append(f"{index}. {row.get('fund_name')} — gross IRR {_format_percent(row.get('gross_irr'))}")
@@ -791,7 +791,7 @@ def _investment_irr_grain_fallback_outcome(
         transformation_applied="rank",
         memory_used=memory_used,
         degraded=True,
-        canonical_source="re_fund_quarter_state",
+        canonical_source="re_authoritative_fund_state_qtr",
         canonical_check="investment_grain_checked;fund_grain_used",
         degradation_reason=(
             f"Requested investment-level gross IRR for {quarter}; executed closest valid fund-level ranking instead."
@@ -1195,9 +1195,10 @@ def _resolve_fund_quarter(explicit_quarter: str | None, business_id: str) -> str
     return explicit_quarter or _latest_quarter(
         """
         SELECT MAX(fs.quarter) AS quarter
-        FROM re_fund_quarter_state fs
+        FROM re_authoritative_fund_state_qtr fs
         JOIN repe_fund f ON f.fund_id = fs.fund_id
         WHERE f.business_id = %s::uuid
+          AND fs.promotion_state = 'released'
         """,
         business_id,
     )

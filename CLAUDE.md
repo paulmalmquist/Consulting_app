@@ -71,6 +71,7 @@ notes:
 
 When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
 `
+
 ## Routing Precedence
 
 1. Explicit skill, agent, harness, or command mention

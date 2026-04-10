@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
+from app.services.datetime_normalization import datetime_sort_key, utc_now
 from app.services import pds_engines
 
 
@@ -968,7 +969,7 @@ def update_rfi(*, env_id: UUID, business_id: UUID, project_id: UUID, rfi_id: UUI
     filtered = {key: value for key, value in updates.items() if value is not None}
     if payload.get("response_text") is not None:
         filtered["response_text"] = payload.get("response_text")
-        filtered["responded_at"] = datetime.utcnow()
+        filtered["responded_at"] = utc_now()
         if "status" not in filtered:
             filtered["status"] = "responded"
     if payload.get("metadata_json") is not None:
@@ -1466,7 +1467,7 @@ def get_project_overview(*, env_id: UUID, business_id: UUID, project_id: UUID) -
                 "created_at": row.get("created_at"),
             }
         )
-    recent_activity.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+    recent_activity.sort(key=lambda item: datetime_sort_key(item.get("created_at")), reverse=True)
 
     team_size = 1 if project.get("project_manager") else 0
 
@@ -2815,7 +2816,7 @@ def get_portfolio_health(
     }
 
     return {
-        "generated_at": datetime.utcnow(),
+        "generated_at": utc_now(),
         "period": period,
         "summary": summary,
         "projects_requiring_attention": [row for _, row in attention_rows[:12]],
@@ -2905,7 +2906,7 @@ def get_portfolio_dashboard(*, env_id: UUID, business_id: UUID, period: str) -> 
             activity["project_name"] = project.get("name")
             recent_activity.append(activity)
 
-    recent_activity.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+    recent_activity.sort(key=lambda item: datetime_sort_key(item.get("created_at")), reverse=True)
 
     approved_budget = _q(kpis.get("approved_budget"))
     on_budget_count = sum(1 for card in project_cards if card["budget_variance"] >= 0)
@@ -2969,7 +2970,7 @@ def _ensure_phase2_demo_records(*, env_id: UUID, business_id: UUID, project_ids:
                     "status": "open",
                     "claimed_amount": Decimal("480000") if index == 0 else Decimal("185000"),
                     "exposure_amount": Decimal("325000") if index == 0 else Decimal("125000"),
-                    "received_at": datetime.utcnow(),
+                    "received_at": utc_now(),
                     "response_due_at": date.today() + timedelta(days=3 + (index * 2)),
                     "owner_name": "Project Executive",
                     "summary": "Seeded contractor claim for mission control alerting",

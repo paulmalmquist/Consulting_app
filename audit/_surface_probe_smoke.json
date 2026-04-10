@@ -1,0 +1,170 @@
+{
+  "generated_at": "2026-04-10T12:09:10.178Z",
+  "base_url": "https://www.paulmalmquist.com",
+  "requested_quarter": "2025Q4",
+  "fund_page": {
+    "label": "fund_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/funds/a1b2c3d4-0003-0030-0001-000000000001?quarter=2025Q4",
+    "final_url": "https://www.paulmalmquist.com/app?quarter=2025Q4&denied=a1b2c3d4-0001-0001-0003-000000000001",
+    "status": 200,
+    "page_blocked": false,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a1b2c3d4-0001-0001-0003-000000000001. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston What needs attention? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+    "page_errors": [
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    ],
+    "console_errors": [],
+    "responses": [],
+    "observed_quarters": [],
+    "requested_quarter": "2025Q4",
+    "returns_kpis_text": null,
+    "fund_visible": false,
+    "metric_values": {
+      "tvpi": null,
+      "gross_irr": null,
+      "net_irr": null,
+      "net_tvpi": null
+    }
+  },
+  "investment_page": {
+    "label": "investment_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/investments/2d54b971-21ac-41b8-a548-a506fe516c6c?quarter=2025Q4",
+    "final_url": "https://www.paulmalmquist.com/app?quarter=2025Q4&denied=a1b2c3d4-0001-0001-0003-000000000001",
+    "status": 200,
+    "page_blocked": false,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a1b2c3d4-0001-0001-0003-000000000001. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston How can I assist? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+    "page_errors": [
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    ],
+    "console_errors": [],
+    "responses": [],
+    "observed_quarters": [],
+    "requested_quarter": "2025Q4",
+    "header_text": "Ask Winston",
+    "metric_blocks": {
+      "hero-metric-gross-irr": null,
+      "outcome-metric-nav": null,
+      "outcome-metric-gross-irr": null,
+      "operating-metric-noi": null,
+      "operating-metric-revenue": null
+    },
+    "extracted_values": {
+      "hero_gross_irr": null,
+      "nav": null,
+      "outcome_gross_irr": null,
+      "noi": null,
+      "revenue": null
+    }
+  },
+  "asset_page": {
+    "label": "asset_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+    "final_url": "https://www.paulmalmquist.com/app?denied=a1b2c3d4-0001-0001-0003-000000000001",
+    "status": 200,
+    "page_blocked": true,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a1b2c3d4-0001-0001-0003-000000000001. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston What would you like handled? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+    "page_errors": [
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    ],
+    "console_errors": [],
+    "responses": [],
+    "observed_quarters": [],
+    "requested_quarter": "2025Q4",
+    "selected_quarter": null,
+    "history_row": null,
+    "pnl_rows": []
+  },
+  "stone_pages": [
+    {
+      "label": "stone_command_center",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds",
+      "final_url": "https://www.paulmalmquist.com/app?denied=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston What needs a closer look? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_pipeline",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/pipeline",
+      "final_url": "https://www.paulmalmquist.com/app?denied=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston What would you like to know about this? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_forecast",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/forecast",
+      "final_url": "https://www.paulmalmquist.com/app?denied=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston Want a breakdown or quick answer? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_project_detail",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/projects/e0000001-0000-4da0-0002-000000000001",
+      "final_url": "https://www.paulmalmquist.com/app?denied=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "WINSTON Login grants capability. Environment grants scope. AVAILABLE WORKSPACES No workspaces are provisioned to this account yet. You do not have access to a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2. Your account can only enter provisioned environments. WORKSPACE ACCESS No workspace selected Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left. Ask Winston What's the priority? Summarize page Next actions Explore elsewhere Send Summarize page Next actions Explore elsewhere Explore Search funds, assets, models, investors, and related pages.",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    }
+  ]
+}

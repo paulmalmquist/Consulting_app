@@ -1,0 +1,177 @@
+{
+  "audit_run_id": "3fa920b6-9759-47e0-8e8e-66e22cb5f95c",
+  "snapshot_version": "meridian-20260410T023425Z-ab1e6999",
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "entities": [
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "a1b2c3d4-0002-0020-0003-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "a1b2c3d4-0002-0020-0003-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0002-0020-0002-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0002-0020-0002-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "untrusted",
+      "breakpoint_layer": "fees",
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "untrusted",
+      "breakpoint_layer": "fees",
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260410T023425Z-ab1e6999"
+    }
+  ],
+  "findings_summary": {
+    "audit_run_id": "3fa920b6-9759-47e0-8e8e-66e22cb5f95c",
+    "snapshot_version": "meridian-20260410T023425Z-ab1e6999",
+    "exception_count": 4,
+    "reconciliation_failures": 0,
+    "untrusted_entities": 2
+  }
+}

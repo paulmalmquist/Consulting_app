@@ -41,9 +41,9 @@ Examples:
   - "Revenue trend for Q1-Q4" -> sql
   - "List loans maturing in 2026" -> sql
   - "Compare NOI across all multifamily assets" -> sql
-  - "What's our fund IRR?" -> sql (reads from re_fund_metrics_qtr snapshot)
+  - "What's our fund IRR?" -> sql (reads from released authoritative fund snapshots)
   - "Fund returns this quarter" -> sql
-  - "DPI for Fund II" -> sql (reads from re_fund_quarter_state)
+  - "DPI for Fund II" -> sql (reads from released authoritative fund snapshots)
 
 ## Route: "python"
 Use for questions that require CALCULATION over cash flow sequences or iterative math.

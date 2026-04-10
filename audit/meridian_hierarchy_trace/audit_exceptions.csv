@@ -1,0 +1,5 @@
+exception_type,severity,entity_type,entity_id,quarter,breakpoint_layer,detail
+duplicate_fund_expense_row,medium,fund,a1b2c3d4-0003-0030-0001-000000000001,2026Q2,fees,3 expense rows exist for expense type admin; authoritative bridge uses the latest row only.
+duplicate_fund_expense_row,medium,fund,a1b2c3d4-0003-0030-0001-000000000001,2026Q2,fees,3 expense rows exist for expense type audit; authoritative bridge uses the latest row only.
+duplicate_fund_expense_row,medium,fund,a1b2c3d4-0003-0030-0001-000000000001,2026Q2,fees,3 expense rows exist for expense type legal; authoritative bridge uses the latest row only.
+fee_rule_missing_basis,high,fund,a1b2c3d4-0001-0010-0001-000000000001,2025Q4,fees,Management fee accrued for 2025Q4 before fund term effective_from 2026-01-15.

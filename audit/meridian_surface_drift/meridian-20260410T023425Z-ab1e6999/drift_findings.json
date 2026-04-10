@@ -1,0 +1,23 @@
+[
+  {
+    "severity": "critical",
+    "surface": "/api/re/v2/funds/[fundId]/quarter-close",
+    "file": "repo-b/src/app/api/re/v2/funds/[fundId]/quarter-close/route.ts",
+    "finding": "Legacy route still performs route-level approximations for IRR and fee logic.",
+    "status": "comparison_only"
+  },
+  {
+    "severity": "info",
+    "surface": "assistant_runtime",
+    "file": "backend/app/assistant_runtime/meridian_structured_executor.py",
+    "finding": "Compatibility executor now reads released authoritative fund snapshots; keep it aligned until the deprecated path is removed.",
+    "status": "aligned_but_deprecated"
+  },
+  {
+    "severity": "medium",
+    "surface": "legacy_tables",
+    "file": "re_fund_quarter_state / re_fund_metrics_qtr",
+    "finding": "Legacy tables differ from authoritative snapshot values for at least one sampled fund/quarter.",
+    "status": "gap_open"
+  }
+]

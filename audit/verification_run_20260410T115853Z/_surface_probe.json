@@ -1,0 +1,4 @@
+{
+  "generated_at": "2026-04-10T12:01:57.098Z",
+  "error": "browserContext.newPage: Target page, context or browser has been closed\n    at collectPageState (/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/verification/runners/meridian_surface_probe.mjs:67:30)\n    at main (/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/verification/runners/meridian_surface_probe.mjs:217:27)"
+}

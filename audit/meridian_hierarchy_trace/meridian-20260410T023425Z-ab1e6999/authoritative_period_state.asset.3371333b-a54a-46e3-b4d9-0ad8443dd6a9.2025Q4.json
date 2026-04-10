@@ -1,0 +1,68 @@
+{
+  "entity_type": "asset",
+  "asset_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+  "asset_name": "Tech Campus North",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "revenue": "1999806.54",
+    "opex": "999903.27",
+    "noi": "999903.27",
+    "capex": "199980.65",
+    "ti_lc": "159984.52",
+    "reserves": "24997.58",
+    "debt_service": "580937.50",
+    "net_cash_flow": "34003.02",
+    "beginning_nav": "53051267.150000000000",
+    "ending_nav": "52719522.060000000000",
+    "ending_asset_value": "88469522.060000000000"
+  },
+  "display_metrics": {},
+  "null_reasons": {
+    "value": null,
+    "occupancy": null,
+    "debt": null,
+    "noi": null
+  },
+  "formulas": {
+    "noi": "NOI = operating revenue - operating expenses",
+    "net_cash_flow": "net cash flow = NOI - capex - TI/LC - reserves - debt service"
+  },
+  "provenance": [
+    {
+      "table": "acct_gl_balance_monthly",
+      "notes": "Raw accounting entries"
+    },
+    {
+      "table": "acct_mapping_rule",
+      "notes": "GL account mapping"
+    },
+    {
+      "table": "acct_normalized_noi_monthly",
+      "notes": "Standardized monthly NOI lines"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "notes": "Quarter cash-flow rollup"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "notes": "Quarter ending NAV and value"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "f3f3024b-6e49-40cf-91e8-a024e3a3f917"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "0ee66dab-57e6-4e63-a72e-c937ba623bba"
+    }
+  ]
+}
