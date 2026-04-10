@@ -28,7 +28,6 @@ import {
   pickCurrentQuarter,
   formatQuarterLabel,
 } from "@/components/repe/portfolio/PortfolioFilterContext";
-import { PortfolioCommandBar } from "@/components/repe/portfolio/command/PortfolioCommandBar";
 import { DataIntegrityBanner, type DataQuality } from "@/components/repe/portfolio/DataIntegrityBanner";
 import { PortfolioKpiBar } from "@/components/repe/portfolio/PortfolioKpiBar";
 import { PortfolioSignalsStrip } from "@/components/repe/portfolio/PortfolioSignalsStrip";
@@ -161,11 +160,6 @@ function RepeFundsPageContent() {
           transform: mounted ? "translateY(0)" : "translateY(10px)",
         }}
       >
-        {/* Command bar */}
-        <div className="flex items-center justify-center mb-3">
-          <PortfolioCommandBar />
-        </div>
-
         {/* Data integrity warnings */}
         <DataIntegrityBanner onDataQualityChange={setDataQuality} />
 

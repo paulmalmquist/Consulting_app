@@ -2,62 +2,84 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
-import { getFundComparison, type FundComparisonItem } from "@/lib/bos-api";
+import { getFundTimeseries, type FundTimeseriesResponse } from "@/lib/bos-api";
 import { useRepeContext } from "@/lib/repe-context";
 import { usePortfolioFilters } from "./PortfolioFilterContext";
-import { getChartColors, fmtCompact, fmtPct as fmtPctChart } from "@/components/charts/chart-theme";
+import { getChartColors, getTooltipStyle, getAxisTickStyle, getGridStyle, fmtCompact, fmtPct as fmtPctChart } from "@/components/charts/chart-theme";
 
 const METRIC_OPTIONS = [
-  { key: "gross_irr", label: "IRR" },
-  { key: "tvpi", label: "TVPI" },
-  { key: "portfolio_nav", label: "NAV" },
-  { key: "dpi", label: "DPI" },
+  { key: "portfolio_nav", label: "NAV", format: "dollar" as const },
+  { key: "gross_irr", label: "IRR", format: "percent" as const },
+  { key: "tvpi", label: "TVPI", format: "multiple" as const },
+  { key: "dpi", label: "DPI", format: "multiple" as const },
 ] as const;
 
 type MetricKey = (typeof METRIC_OPTIONS)[number]["key"];
+type FormatType = "dollar" | "percent" | "multiple";
 
-function formatValue(metric: MetricKey, val: number): string {
-  if (metric === "gross_irr") return `${(val * 100).toFixed(1)}%`;
-  if (metric === "tvpi" || metric === "dpi") return `${val.toFixed(2)}x`;
+function formatValue(format: FormatType, val: number): string {
+  if (format === "percent") return fmtPctChart(val, 1);
+  if (format === "multiple") return `${val.toFixed(2)}x`;
   return fmtCompact(val);
 }
 
+function formatQuarterShort(q: string): string {
+  // "2025Q3" → "Q3 '25"
+  const year = q.slice(2, 4);
+  const qNum = q.slice(-2);
+  return `${qNum} '${year}`;
+}
+
+// Assign distinct colors to each fund line
+const LINE_COLORS = [
+  "#38bdf8", // cyan
+  "#34d399", // emerald
+  "#f87171", // red
+  "#a78bfa", // purple
+  "#fbbf24", // amber
+  "#f472b6", // pink
+  "#60a5fa", // blue
+  "#4ade80", // green
+];
+
 export function FundComparisonChart() {
   const { environmentId } = useRepeContext();
-  const { filters, setChartSelection, ui } = usePortfolioFilters();
-  const [metric, setMetric] = useState<MetricKey>("gross_irr");
-  const [data, setData] = useState<FundComparisonItem[]>([]);
+  const { filters } = usePortfolioFilters();
+  const [metric, setMetric] = useState<MetricKey>("portfolio_nav");
+  const [response, setResponse] = useState<FundTimeseriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const currentFormat = METRIC_OPTIONS.find((o) => o.key === metric)?.format ?? "dollar";
 
   useEffect(() => {
     if (!environmentId) return;
     setLoading(true);
-    getFundComparison(environmentId, filters.quarter, metric, filters.activeModelId || undefined)
-      .then(setData)
-      .catch(() => setData([]))
+    getFundTimeseries(environmentId, metric)
+      .then(setResponse)
+      .catch(() => setResponse(null))
       .finally(() => setLoading(false));
-  }, [environmentId, filters.quarter, metric, filters.activeModelId]);
+  }, [environmentId, metric]);
 
-  const chartData = useMemo(() => {
-    return data.map((d) => ({
-      name: d.fund_name.length > 16 ? d.fund_name.slice(0, 14) + "…" : d.fund_name,
-      fullName: d.fund_name,
-      value: d.value ? parseFloat(d.value) : 0,
-      fund_id: d.fund_id,
-    }));
-  }, [data]);
-
-  const colors = getChartColors();
-  const selectedFundId = ui.chartSelection?.dimension === "fund" ? ui.chartSelection.value : null;
+  const { chartData, fundNames } = useMemo(() => {
+    if (!response?.data) return { chartData: [], fundNames: [] };
+    return {
+      chartData: response.data.map((d) => ({
+        ...d,
+        quarter: formatQuarterShort(d.quarter as string),
+        _rawQuarter: d.quarter,
+      })),
+      fundNames: response.funds ?? [],
+    };
+  }, [response]);
 
   return (
     <div className="rounded-md border border-bm-border/20 bg-bm-surface/30 p-3">
@@ -84,68 +106,61 @@ export function FundComparisonChart() {
       </div>
 
       {loading ? (
-        <div className="h-[180px] animate-pulse rounded bg-bm-surface/20" />
+        <div className="h-[200px] animate-pulse rounded bg-bm-surface/20" />
       ) : chartData.length === 0 ? (
-        <div className="flex h-[180px] items-center justify-center text-xs text-bm-muted2">
+        <div className="flex h-[200px] items-center justify-center text-xs text-bm-muted2">
           No fund data for this metric
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--bm-chart-grid, #1e293b)" />
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} {...getGridStyle()} />
             <XAxis
-              dataKey="name"
-              tick={{ fontSize: 10, fill: "var(--bm-muted, #64748b)" }}
-              tickLine={false}
+              dataKey="quarter"
+              tick={getAxisTickStyle()}
               axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fontSize: 10, fill: "var(--bm-muted, #64748b)" }}
-              tickLine={false}
+              tick={getAxisTickStyle()}
               axisLine={false}
-              tickFormatter={(v: number) => formatValue(metric, v)}
-              width={50}
+              tickLine={false}
+              tickFormatter={(v: number) => formatValue(currentFormat, v)}
+              width={54}
+              domain={[
+                (dataMin: number) => {
+                  if (currentFormat === "dollar") return 0;
+                  return Math.min(0, dataMin);
+                },
+                "auto",
+              ]}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--bm-surface, #0f172a)",
-                border: "1px solid var(--bm-border, #1e293b)",
-                borderRadius: 6,
-                fontSize: 11,
-              }}
-              formatter={(value: number) => [formatValue(metric, value), METRIC_OPTIONS.find((o) => o.key === metric)?.label]}
-              labelFormatter={(label: string, payload: Array<{ payload?: { fullName?: string } }>) =>
-                payload?.[0]?.payload?.fullName || label
+              contentStyle={getTooltipStyle()}
+              formatter={(value: number, name: string) => [formatValue(currentFormat, value), name]}
+              labelFormatter={(_label: string, payload: Array<{ payload?: { _rawQuarter?: string } }>) =>
+                payload?.[0]?.payload?._rawQuarter || _label
               }
             />
-            <Bar
-              dataKey="value"
-              radius={[2, 2, 0, 0]}
-              cursor="pointer"
-              onClick={(entry: { fund_id?: string }) => {
-                if (entry.fund_id) {
-                  if (selectedFundId === entry.fund_id) {
-                    setChartSelection(null);
-                  } else {
-                    setChartSelection({ dimension: "fund", value: entry.fund_id });
-                  }
-                }
-              }}
-            >
-              {chartData.map((entry) => (
-                <Cell
-                  key={entry.fund_id}
-                  fill={
-                    selectedFundId === entry.fund_id
-                      ? colors.primary
-                      : selectedFundId
-                      ? `${colors.primary}40`
-                      : colors.primary
-                  }
-                />
-              ))}
-            </Bar>
-          </BarChart>
+            <Legend
+              wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+              iconType="line"
+              iconSize={10}
+            />
+            {fundNames.map((name, i) => (
+              <Line
+                key={name}
+                dataKey={name}
+                name={name.length > 20 ? name.slice(0, 18) + "…" : name}
+                stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls
+              />
+            ))}
+          </LineChart>
         </ResponsiveContainer>
       )}
     </div>

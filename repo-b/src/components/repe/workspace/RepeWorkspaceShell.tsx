@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Upload } from "lucide-react";
 import { WinstonUmbrellaMenu } from "@/components/repe/workspace/WinstonUmbrellaMenu";
+import { RepeCommandBar } from "@/components/repe/workspace/RepeCommandBar";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { RepeSidebarCompactRail, RepeSidebarNav } from "@/components/repe/workspace/RepeSidebarNav";
@@ -739,8 +740,8 @@ export default function RepeWorkspaceShell({
         base={base}
       />
       <div className="flex flex-col min-h-0">
-        {/* Section links strip — desktop only */}
-        <div className="hidden xl:flex items-center justify-end h-10
+        {/* Section links strip + command bar — desktop only */}
+        <div className="hidden xl:flex items-center h-10
                         border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0">
           <TopUtilityNav
             pathname={pathname}
@@ -749,6 +750,9 @@ export default function RepeWorkspaceShell({
             className="flex items-center gap-6"
             testId="repe-utility-nav"
           />
+          <div className="flex-1 flex justify-center px-4">
+            <RepeCommandBar base={base} />
+          </div>
         </div>
         <div className="flex-1 min-h-0">
           {children}

@@ -4277,6 +4277,23 @@ export function getFundComparison(
   });
 }
 
+// ── Fund Time Series (multi-fund trend) ─────────────────────────────────
+
+export interface FundTimeseriesResponse {
+  metric: string;
+  funds: string[];
+  data: Record<string, unknown>[];
+}
+
+export function getFundTimeseries(
+  envId: string,
+  metric: string
+): Promise<FundTimeseriesResponse> {
+  return directFetch(`/api/re/v2/environments/${envId}/fund-timeseries`, {
+    params: { metric },
+  });
+}
+
 // ── Allocation Breakdown ──────────────────────────────────────────────────
 
 export interface AllocationGroup {
