@@ -345,7 +345,7 @@ async function bootstrapOwnerMemberships(
         e.env_id,
         'owner',
         'active',
-        e.slug = 'hall-boys'
+        false
       FROM app.environments e
       WHERE e.slug = ANY($2::text[])
       ON CONFLICT (platform_user_id, env_id)
@@ -355,6 +355,30 @@ async function bootstrapOwnerMemberships(
         updated_at = now()
     `,
     [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading", "hall-boys"]],
+  );
+
+  // Promote hall-boys to default only when the user has no default yet.
+  // Touching is_default during the bulk upsert above would collide with the
+  // partial unique index `idx_app_env_memberships_default` whenever an
+  // existing default already lives on a different env (see info@novendor.ai).
+  await client.query(
+    `
+      UPDATE app.environment_memberships m
+      SET is_default = true, updated_at = now()
+      FROM app.environments e
+      WHERE m.env_id = e.env_id
+        AND m.platform_user_id = $1::uuid
+        AND m.status = 'active'
+        AND e.slug = 'hall-boys'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM app.environment_memberships existing
+          WHERE existing.platform_user_id = $1::uuid
+            AND existing.is_default = true
+            AND existing.status = 'active'
+        )
+    `,
+    [platformUserId],
   );
 
   if (splitResumeHiddenDomains().has(emailDomain)) {
