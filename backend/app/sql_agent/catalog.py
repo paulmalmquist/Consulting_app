@@ -203,6 +203,23 @@ STATEMENT_TABLES: list[Table] = [
         ],
     ),
     Table(
+        name="re_authoritative_fund_state_qtr",
+        description="Authoritative released-period fund snapshot — single source of truth for IRR/TVPI/NAV when promotion_state='released'. Read alongside repe_fund.",
+        pk="id",
+        parent_fk="fund_id → repe_fund",
+        columns=[
+            Column("fund_id", "uuid", "FK to repe_fund"),
+            Column("env_id", "text", "Tenant scope"),
+            Column("business_id", "uuid", "Business scope"),
+            Column("quarter", "text", "e.g. 2025Q4"),
+            Column("promotion_state", "text", "draft_audit | verified | released"),
+            Column("trust_status", "text", "trusted | untrusted | missing_source"),
+            Column("canonical_metrics", "jsonb", "Released metrics: gross_irr, net_irr, tvpi, dpi, rvpi, portfolio_nav, etc."),
+            Column("display_metrics", "jsonb", "UI-formatted metrics"),
+            Column("snapshot_version", "text", "Versioned audit run identifier"),
+        ],
+    ),
+    Table(
         name="re_fund_quarter_state",
         description="Fund-level quarterly snapshot — NAV, returns, leverage metrics",
         pk="id",

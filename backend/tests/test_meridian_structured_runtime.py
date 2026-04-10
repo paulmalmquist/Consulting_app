@@ -372,9 +372,9 @@ def test_meridian_runtime_short_circuits_before_dispatch(monkeypatch):
     assert receipt["structured_query"]["execution_path"] == "degraded"
     assert receipt["structured_query"]["degraded"] is True
     assert receipt["structured_query"]["transformation_applied"] == "rank"
-    assert "closest valid grain is fund-level" in payload["response_blocks"][0]["markdown"].lower()
+    assert "closest valid grain is released authoritative fund performance" in payload["response_blocks"][0]["markdown"].lower()
     assert stored_state["last_execution"]["degraded"] is True
-    assert stored_state["last_execution"]["canonical_source"] == "re_fund_quarter_state"
+    assert stored_state["last_execution"]["canonical_source"] == "re_authoritative_fund_state_qtr"
 
 
 def test_meridian_conversation_pack_exact_prompts(monkeypatch, capsys):
@@ -436,7 +436,7 @@ def test_meridian_conversation_pack_exact_prompts(monkeypatch, capsys):
         elif prompt == "list all funds":
             valid = response_text.count("Meridian") >= 2
         elif prompt == "list investments by gross IRR descending as of 2026Q1":
-            valid = "closest valid grain is fund-level" in response_text.lower()
+            valid = "closest valid grain is released authoritative fund performance" in response_text.lower()
         elif prompt == "sort the assets by NOI variance":
             valid = "Alpha Tower" in response_text and "Harbor Retail" in response_text
         elif prompt == "rank the assets by NOI variance worst to best":

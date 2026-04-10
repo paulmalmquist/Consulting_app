@@ -164,7 +164,7 @@ def test_get_context_wrong_industry_returns_400(client, monkeypatch):
     data = resp.json()
     assert data["detail"]["error_code"] == "WRONG_INDUSTRY"
     assert data["detail"]["detail"]["actual_industry"] == "legal"
-    assert data["detail"]["detail"]["required_industry"] == "real_estate"
+    assert data["detail"]["detail"]["required_industries"] == ["real_estate", "real_estate_pe", "repe"]
 
 
 def test_get_context_missing_env_id_returns_400(client, monkeypatch):

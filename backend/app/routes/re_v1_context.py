@@ -114,19 +114,27 @@ def get_re_context(
                 env_row = cur.fetchone()
                 if env_row:
                     industry = env_row.get("industry") or "real_estate"
-                    if industry != "real_estate":
+                    # Accept the canonical real-estate industry codes:
+                    #   - real_estate (legacy slug)
+                    #   - real_estate_pe (Meridian-style PE shop)
+                    #   - repe (older code path)
+                    # The RE workspace's data contracts are identical
+                    # for all three. See repo-b/src/lib/labels.ts +
+                    # backend/app/services/workspace_templates.py.
+                    if industry not in ("real_estate", "real_estate_pe", "repe"):
                         raise HTTPException(
                             400,
                             {
                                 "error_code": "WRONG_INDUSTRY",
                                 "message": (
                                     f"Environment {resolved.env_id} has industry '{industry}', "
-                                    "not 'real_estate'. The RE workspace requires industry=real_estate."
+                                    "not a real-estate industry. The RE workspace requires "
+                                    "industry in (real_estate, real_estate_pe, repe)."
                                 ),
                                 "detail": {
                                     "env_id": resolved.env_id,
                                     "actual_industry": industry,
-                                    "required_industry": "real_estate",
+                                    "required_industries": ["real_estate", "real_estate_pe", "repe"],
                                 },
                             },
                         )

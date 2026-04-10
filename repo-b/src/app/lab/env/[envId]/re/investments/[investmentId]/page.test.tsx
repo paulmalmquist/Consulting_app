@@ -17,6 +17,7 @@ const mockGetReV2InvestmentAssets = vi.fn();
 const mockGetReV2InvestmentLineage = vi.fn();
 const mockGetReV2FundQuarterState = vi.fn();
 const mockListReV2ScenarioVersions = vi.fn();
+const mockGetReV2AuthoritativeState = vi.fn();
 const mockPublishAssistantPageContext = vi.fn();
 const mockResetAssistantPageContext = vi.fn();
 
@@ -62,24 +63,56 @@ vi.mock("lucide-react", () => ({
   Sparkles: () => <span data-testid="icon-sparkles" />,
 }));
 
-vi.mock("@/lib/bos-api", () => ({
-  getReV2Investment: (...args: unknown[]) => mockGetReV2Investment(...args),
-  getRepeFund: (...args: unknown[]) => mockGetRepeFund(...args),
-  listReV2Jvs: (...args: unknown[]) => mockListReV2Jvs(...args),
-  listReV2Models: (...args: unknown[]) => mockListReV2Models(...args),
-  listReV2Scenarios: (...args: unknown[]) => mockListReV2Scenarios(...args),
-  getReV2InvestmentHistory: (...args: unknown[]) => mockGetReV2InvestmentHistory(...args),
-  getReV2InvestmentQuarterState: (...args: unknown[]) => mockGetReV2InvestmentQuarterState(...args),
-  getReV2InvestmentAssets: (...args: unknown[]) => mockGetReV2InvestmentAssets(...args),
-  getReV2InvestmentLineage: (...args: unknown[]) => mockGetReV2InvestmentLineage(...args),
-  getReV2FundQuarterState: (...args: unknown[]) => mockGetReV2FundQuarterState(...args),
-  listReV2ScenarioVersions: (...args: unknown[]) => mockListReV2ScenarioVersions(...args),
-}));
+vi.mock("@/lib/bos-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/bos-api")>("@/lib/bos-api");
+  return {
+    ...actual,
+    getReV2Investment: (...args: unknown[]) => mockGetReV2Investment(...args),
+    getRepeFund: (...args: unknown[]) => mockGetRepeFund(...args),
+    listReV2Jvs: (...args: unknown[]) => mockListReV2Jvs(...args),
+    listReV2Models: (...args: unknown[]) => mockListReV2Models(...args),
+    listReV2Scenarios: (...args: unknown[]) => mockListReV2Scenarios(...args),
+    getReV2InvestmentHistory: (...args: unknown[]) => mockGetReV2InvestmentHistory(...args),
+    getReV2InvestmentQuarterState: (...args: unknown[]) => mockGetReV2InvestmentQuarterState(...args),
+    getReV2InvestmentAssets: (...args: unknown[]) => mockGetReV2InvestmentAssets(...args),
+    getReV2InvestmentLineage: (...args: unknown[]) => mockGetReV2InvestmentLineage(...args),
+    getReV2FundQuarterState: (...args: unknown[]) => mockGetReV2FundQuarterState(...args),
+    listReV2ScenarioVersions: (...args: unknown[]) => mockListReV2ScenarioVersions(...args),
+    // Authoritative State Lockdown — Phase 3
+    // Default to a "no released snapshot" shape so tests that don't
+    // exercise the lockdown path fall through to legacy quarter-state.
+    getReV2AuthoritativeState: (...args: unknown[]) => mockGetReV2AuthoritativeState(...args),
+  };
+});
 
 describe("investment briefing page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentSearchParams = new URLSearchParams();
+
+    // Authoritative State Lockdown — Phase 3
+    // Default the authoritative-state fetch to "not released" so the
+    // page falls through to legacy quarter-state KPIs in tests that
+    // don't exercise the lockdown path.
+    mockGetReV2AuthoritativeState.mockResolvedValue({
+      entity_type: "investment",
+      entity_id: "inv-1",
+      quarter: "2026Q1",
+      requested_quarter: "2026Q1",
+      period_exact: false,
+      state_origin: "fallback",
+      audit_run_id: null,
+      snapshot_version: null,
+      promotion_state: null,
+      trust_status: "missing_source",
+      breakpoint_layer: null,
+      null_reason: "authoritative_state_not_released",
+      state: null,
+      null_reasons: { state: "authoritative_state_not_released" },
+      formulas: {},
+      provenance: [],
+      artifact_paths: {},
+    });
 
     mockGetReV2Investment.mockResolvedValue({
       investment_id: "inv-1",

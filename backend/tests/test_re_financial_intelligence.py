@@ -132,7 +132,12 @@ class TestQuarterCloseCreatesRun:
             "created_at": NOW,
         }])
 
-        # 2. fee_accrual: SELECT fee_policy
+        # 2a. fee_accrual: SELECT repe_fund_term (Phase 6b lockdown — fund term must be in effect)
+        fake_cursor.push_result([{
+            "effective_from": date(2025, 1, 1),
+            "effective_to": None,
+        }])
+        # 2b. fee_accrual: SELECT fee_policy
         fake_cursor.push_result([{
             "fee_basis": "COMMITTED",
             "annual_rate": Decimal("0.015"),
