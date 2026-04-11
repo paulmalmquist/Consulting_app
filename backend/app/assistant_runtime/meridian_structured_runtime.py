@@ -22,6 +22,9 @@ from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.services import re_authoritative_snapshots, re_env_portfolio, repe
+from app.sql_agent.executor import execute_sql
+from app.sql_agent.query_classifier import extract_conditions
+from app.sql_agent.query_templates import render_template
 
 # Authoritative State Lockdown — Phase 4 follow-up
 # Single-metric questions that the runtime should answer by reading
@@ -36,9 +39,6 @@ SNAPSHOT_FUND_METRICS: dict[str, dict[str, str]] = {
         "format": "currency",
     },
 }
-from app.sql_agent.executor import execute_sql
-from app.sql_agent.query_classifier import extract_conditions
-from app.sql_agent.query_templates import render_template
 
 MERIDIAN_BUSINESS_ID = "a1b2c3d4-0001-0001-0001-000000000001"
 MERIDIAN_ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001"
