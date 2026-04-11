@@ -36,6 +36,7 @@ export default function ConsultingWorkspaceShell({
       { href: `${base}/proposals`, label: "Proposals", isBase: false },
       { href: `${base}/clients`, label: "Clients", isBase: false },
       { href: `${base}/proof-assets`, label: "Proof Assets", isBase: false },
+      { href: `${base}/research`, label: "Research", isBase: false },
       { href: `${base}/tasks`, label: "Tasks", isBase: false },
       { href: `${base}/revenue`, label: "Revenue", isBase: false },
     ],

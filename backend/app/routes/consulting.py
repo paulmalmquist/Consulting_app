@@ -92,6 +92,25 @@ from app.schemas.consulting import (
     TriggerSignalOut,
     DailyBriefOut,
     DealOut,
+    AppInboxDiscardRequest,
+    AppInboxItemCreateRequest,
+    AppInboxItemOut,
+    AppOpportunityConvertRequest,
+    AppOpportunityDraftOut,
+    AppOpportunityDraftRequest,
+    AppOpportunityListOut,
+    AppOpportunityOut,
+    AppOpportunityUpdateRequest,
+    AppPatternCreateRequest,
+    AppPatternCreateResponse,
+    AppPatternEvidenceUpsertRequest,
+    AppPatternOut,
+    AppRecordExtractRequest,
+    AppRecordOut,
+    AppRecordUpdateRequest,
+    AppScoreboardOut,
+    AppWeeklyMemoGenerateRequest,
+    AppWeeklyMemoOut,
     DealSummaryOut,
     IngestLeadsRequest,
     IngestLeadsResult,
@@ -130,6 +149,8 @@ from app.services import (
     cro_strategic_outreach,
     lead_ingest,
     local_training_crm,
+    nv_app_intel,
+    nv_app_intel_memo,
     nv_outreach_engine,
     winston_assist,
 )
@@ -144,12 +165,14 @@ def _to_http(exc: Exception) -> HTTPException:
             {
                 "error_code": "SCHEMA_NOT_MIGRATED",
                 "message": "Consulting Revenue OS schema not migrated.",
-                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431, 457.",
+                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431, 457, 460, 461.",
                 "health_check_url": "/bos/api/consulting/health",
             },
         )
     if isinstance(exc, LookupError):
         return HTTPException(404, {"error_code": "NOT_FOUND", "message": str(exc)})
+    if isinstance(exc, nv_app_intel.AppIntelMemoMaterialError):
+        return HTTPException(422, {"error_code": "INSUFFICIENT_MATERIAL", "message": exc.detail, "missing": exc.missing})
     if isinstance(exc, ValueError):
         return HTTPException(400, {"error_code": "VALIDATION_ERROR", "message": str(exc)})
     return HTTPException(500, {"error_code": "INTERNAL_ERROR", "message": str(exc)})
@@ -169,6 +192,8 @@ _REQUIRED_TABLES = {
     "311": ["cro_next_action"],
     "431": ["cro_proof_asset", "cro_objection"],
     "457": ["cro_execution_profile", "cro_execution_audit"],
+    "460": ["cro_app_inbox_item", "cro_app_record", "cro_app_pattern", "cro_app_pattern_evidence"],
+    "461": ["cro_app_opportunity", "cro_app_weekly_memo"],
 }
 
 
@@ -1226,6 +1251,287 @@ def seed_strategic_outreach(body: StrategicOutreachSeedRequest):
         )
         _log("cro.strategic_outreach.seed", "Strategic outreach targets seeded")
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ─── App Intelligence ───────────────────────────────────────────────────────
+
+@router.post("/app-intelligence/inbox", response_model=AppInboxItemOut, status_code=201)
+def create_app_intelligence_inbox_item(
+    body: AppInboxItemCreateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.create_inbox_item(
+            env_id=env_id,
+            business_id=business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/inbox", response_model=list[AppInboxItemOut])
+def list_app_intelligence_inbox(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    status: str | None = Query(None),
+):
+    try:
+        return nv_app_intel.list_inbox(env_id=env_id, business_id=business_id, status=status)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/inbox/{inbox_item_id}/discard", response_model=AppInboxItemOut)
+def discard_app_intelligence_inbox_item(
+    inbox_item_id: UUID,
+    body: AppInboxDiscardRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.discard_inbox_item(
+            env_id=env_id,
+            business_id=business_id,
+            inbox_item_id=inbox_item_id,
+            reason=body.reason,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/inbox/{inbox_item_id}/extract", response_model=AppRecordOut, status_code=201)
+def extract_app_intelligence_record(
+    inbox_item_id: UUID,
+    body: AppRecordExtractRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.extract_app_record(
+            env_id=env_id,
+            business_id=business_id,
+            inbox_item_id=inbox_item_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/records", response_model=list[AppRecordOut])
+def list_app_intelligence_records(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    prime_only: bool = Query(False),
+    unconverted: bool = Query(False),
+):
+    try:
+        return nv_app_intel.list_records(
+            env_id=env_id,
+            business_id=business_id,
+            prime_only=prime_only,
+            unconverted=unconverted,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/app-intelligence/records/{record_id}", response_model=AppRecordOut)
+def update_app_intelligence_record(
+    record_id: UUID,
+    body: AppRecordUpdateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.update_record(
+            env_id=env_id,
+            business_id=business_id,
+            record_id=record_id,
+            payload=body.model_dump(mode="json", exclude_none=True),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/patterns", response_model=AppPatternCreateResponse, status_code=201)
+def create_app_intelligence_pattern(
+    body: AppPatternCreateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.create_pattern(
+            env_id=env_id,
+            business_id=business_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/patterns", response_model=list[AppPatternOut])
+def list_app_intelligence_patterns(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.list_patterns(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/patterns/{pattern_id}/evidence", response_model=AppPatternOut)
+def upsert_app_intelligence_pattern_evidence(
+    pattern_id: UUID,
+    body: AppPatternEvidenceUpsertRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.link_pattern_evidence(
+            env_id=env_id,
+            business_id=business_id,
+            pattern_id=pattern_id,
+            payload=body.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/converter/draft", response_model=AppOpportunityDraftOut)
+def draft_app_intelligence_opportunity(
+    body: AppOpportunityDraftRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.draft_opportunity_payload(
+            env_id=env_id,
+            business_id=business_id,
+            kind=body.kind,
+            source_pattern_id=body.source_pattern_id,
+            source_app_record_id=body.source_app_record_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/patterns/{pattern_id}/convert", response_model=AppOpportunityOut, status_code=201)
+def convert_app_intelligence_pattern(
+    pattern_id: UUID,
+    body: AppOpportunityConvertRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.create_pattern_opportunity(
+            env_id=env_id,
+            business_id=business_id,
+            pattern_id=pattern_id,
+            kind=body.kind,
+            title=body.title,
+            payload=body.payload,
+            status=body.status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/records/{record_id}/convert", response_model=AppOpportunityOut, status_code=201)
+def convert_app_intelligence_record(
+    record_id: UUID,
+    body: AppOpportunityConvertRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.create_record_opportunity(
+            env_id=env_id,
+            business_id=business_id,
+            record_id=record_id,
+            kind=body.kind,
+            title=body.title,
+            payload=body.payload,
+            status=body.status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/opportunities", response_model=AppOpportunityListOut)
+def list_app_intelligence_opportunities(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    kind: str | None = Query(None),
+    status: str | None = Query(None),
+):
+    try:
+        return nv_app_intel.list_opportunities(
+            env_id=env_id,
+            business_id=business_id,
+            kind=kind,
+            status=status,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/app-intelligence/opportunities/{opportunity_id}", response_model=AppOpportunityOut)
+def update_app_intelligence_opportunity(
+    opportunity_id: UUID,
+    body: AppOpportunityUpdateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.update_opportunity(
+            env_id=env_id,
+            business_id=business_id,
+            opportunity_id=opportunity_id,
+            payload=body.model_dump(mode="json", exclude_none=True),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/scoreboard", response_model=AppScoreboardOut)
+def get_app_intelligence_scoreboard(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.get_scoreboard(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/app-intelligence/weekly-memo/generate", response_model=AppWeeklyMemoOut, status_code=201)
+def generate_app_intelligence_weekly_memo(
+    body: AppWeeklyMemoGenerateRequest,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel_memo.generate_weekly_memo(
+            env_id=env_id,
+            business_id=business_id,
+            generated_by=body.generated_by,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/app-intelligence/weekly-memo/latest", response_model=AppWeeklyMemoOut)
+def get_latest_app_intelligence_weekly_memo(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return nv_app_intel.get_latest_weekly_memo(env_id=env_id, business_id=business_id)
     except Exception as exc:
         raise _to_http(exc)
 

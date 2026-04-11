@@ -1791,3 +1791,316 @@ export async function applyAssistAsNextAction(body: {
     priority: "high",
   });
 }
+
+
+// ── App Intelligence ───────────────────────────────────────────────────────
+
+export type AppOpportunityKind = "winston_backlog" | "consulting_offer" | "outreach_angle" | "demo_brief";
+export type AppOpportunityStatus = "draft" | "ready" | "sent" | "exported" | "discarded";
+
+export type AppInboxItem = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  source: string | null;
+  platform: string | null;
+  app_name: string;
+  category: string | null;
+  search_term: string | null;
+  url: string | null;
+  raw_notes: string | null;
+  screenshot_urls: string[];
+  status: "raw" | "extracted" | "discarded";
+  discarded_reason: string | null;
+  discarded_at: string | null;
+  processed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type AppRecord = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  inbox_item_id: string | null;
+  app_name: string;
+  target_user: string | null;
+  core_workflow_input: string;
+  core_workflow_process: string;
+  core_workflow_output: string;
+  pain_signals: string[];
+  relevance_score: number;
+  weakness_score: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  workflow_shape: string | null;
+  top_pain_signal: string | null;
+  linked_pattern_count: number;
+  linked_opportunity_count: number;
+  is_prime: boolean;
+};
+
+export type AppPatternEvidence = {
+  app_record_id: string;
+  app_name: string;
+  workflow_shape: string;
+  pain_signals: string[];
+  contribution_note: string | null;
+  auto_suggested: boolean;
+  created_at: string | null;
+};
+
+export type SuggestedEvidence = AppPatternEvidence & {
+  score: number;
+};
+
+export type AppPattern = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  pattern_name: string;
+  workflow_shape: string | null;
+  industries_seen_in: string[];
+  recurring_pain: string | null;
+  bad_implementation_pattern: string | null;
+  winston_module_opportunity: string | null;
+  consulting_offer_opportunity: string | null;
+  demo_idea: string | null;
+  priority: "low" | "med" | "high";
+  confidence: number;
+  status: "draft" | "active" | "archived";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  evidence_count: number;
+  linked_opportunity_count: number;
+  evidence: AppPatternEvidence[];
+};
+
+export type AppPatternCreateResponse = {
+  pattern: AppPattern;
+  suggested_evidence: SuggestedEvidence[];
+};
+
+export type AppOpportunityDraft = {
+  title: string;
+  payload: Record<string, unknown>;
+  must_edit_fields: string[];
+};
+
+export type AppOpportunity = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  pattern_id: string | null;
+  app_record_id: string | null;
+  kind: AppOpportunityKind;
+  title: string;
+  payload: Record<string, unknown>;
+  brief_markdown: string | null;
+  status: AppOpportunityStatus;
+  exported_to: string | null;
+  exported_ref: string | null;
+  created_at: string;
+  updated_at: string;
+  source_label: string | null;
+  source_type: string | null;
+};
+
+export type AppOpportunityList = {
+  sent_this_week_count: number;
+  rows: AppOpportunity[];
+};
+
+export type AppScoreboard = {
+  unconverted_patterns: number;
+  prime_unsent: number;
+  sent_this_week: number;
+  avg_hours_inbox_to_opportunity: number | null;
+  avg_hours_opportunity_to_sent: number | null;
+};
+
+export type AppWeeklyMemo = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  period_start: string;
+  period_end: string;
+  summary_markdown: string;
+  memo_payload: Record<string, unknown>;
+  generated_at: string;
+  generated_by: string | null;
+};
+
+function appIntelQuery(envId: string, businessId: string, extra?: Record<string, string | undefined>) {
+  const params = new URLSearchParams({ env_id: envId, business_id: businessId });
+  if (extra) {
+    Object.entries(extra).forEach(([key, value]) => {
+      if (value !== undefined) params.set(key, value);
+    });
+  }
+  return params.toString();
+}
+
+export function fetchAppInbox(envId: string, businessId: string, status?: string) {
+  return apiFetch<AppInboxItem[]>(`${CRO_BASE}/app-intelligence/inbox?${appIntelQuery(envId, businessId, { status })}`);
+}
+
+export function createAppInboxItem(envId: string, businessId: string, body: {
+  source?: string;
+  platform?: string;
+  app_name: string;
+  category?: string;
+  search_term?: string;
+  url?: string;
+  raw_notes?: string;
+  screenshot_urls?: string[];
+  created_by?: string;
+}) {
+  return apiFetch<AppInboxItem>(`${CRO_BASE}/app-intelligence/inbox?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function discardAppInboxItem(envId: string, businessId: string, inboxItemId: string, reason: string) {
+  return apiFetch<AppInboxItem>(`${CRO_BASE}/app-intelligence/inbox/${inboxItemId}/discard?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function extractAppRecord(envId: string, businessId: string, inboxItemId: string, body: {
+  target_user?: string;
+  core_workflow_input: string;
+  core_workflow_process: string;
+  core_workflow_output: string;
+  pain_signals: string[];
+  relevance_score?: number;
+  weakness_score?: number;
+  notes?: string;
+}) {
+  return apiFetch<AppRecord>(`${CRO_BASE}/app-intelligence/inbox/${inboxItemId}/extract?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAppRecords(envId: string, businessId: string, opts?: { primeOnly?: boolean; unconverted?: boolean }) {
+  return apiFetch<AppRecord[]>(`${CRO_BASE}/app-intelligence/records?${appIntelQuery(envId, businessId, {
+    prime_only: opts?.primeOnly ? "true" : undefined,
+    unconverted: opts?.unconverted ? "true" : undefined,
+  })}`);
+}
+
+export function updateAppRecord(envId: string, businessId: string, recordId: string, body: Partial<Pick<AppRecord, "target_user" | "core_workflow_input" | "core_workflow_process" | "core_workflow_output" | "pain_signals" | "relevance_score" | "weakness_score" | "notes">>) {
+  return apiFetch<AppRecord>(`${CRO_BASE}/app-intelligence/records/${recordId}?${appIntelQuery(envId, businessId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAppPatterns(envId: string, businessId: string) {
+  return apiFetch<AppPattern[]>(`${CRO_BASE}/app-intelligence/patterns?${appIntelQuery(envId, businessId)}`);
+}
+
+export function createAppPattern(envId: string, businessId: string, body: {
+  pattern_name: string;
+  workflow_shape?: string;
+  industries_seen_in?: string[];
+  recurring_pain?: string;
+  bad_implementation_pattern?: string;
+  winston_module_opportunity?: string;
+  consulting_offer_opportunity?: string;
+  demo_idea?: string;
+  priority?: "low" | "med" | "high";
+  confidence?: number;
+  status?: "draft" | "active" | "archived";
+  notes?: string;
+}) {
+  return apiFetch<AppPatternCreateResponse>(`${CRO_BASE}/app-intelligence/patterns?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function linkAppPatternEvidence(envId: string, businessId: string, patternId: string, body: {
+  app_record_id: string;
+  contribution_note?: string;
+  auto_suggested?: boolean;
+  unlink?: boolean;
+}) {
+  return apiFetch<AppPattern>(`${CRO_BASE}/app-intelligence/patterns/${patternId}/evidence?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function draftAppOpportunity(envId: string, businessId: string, body: {
+  kind: AppOpportunityKind;
+  source_pattern_id?: string;
+  source_app_record_id?: string;
+}) {
+  return apiFetch<AppOpportunityDraft>(`${CRO_BASE}/app-intelligence/converter/draft?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function convertAppPattern(envId: string, businessId: string, patternId: string, body: {
+  kind: AppOpportunityKind;
+  title: string;
+  payload: Record<string, unknown>;
+  status?: AppOpportunityStatus;
+}) {
+  return apiFetch<AppOpportunity>(`${CRO_BASE}/app-intelligence/patterns/${patternId}/convert?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function convertAppRecord(envId: string, businessId: string, recordId: string, body: {
+  kind: AppOpportunityKind;
+  title: string;
+  payload: Record<string, unknown>;
+  status?: AppOpportunityStatus;
+}) {
+  return apiFetch<AppOpportunity>(`${CRO_BASE}/app-intelligence/records/${recordId}/convert?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAppOpportunities(envId: string, businessId: string, opts?: { kind?: AppOpportunityKind; status?: AppOpportunityStatus }) {
+  return apiFetch<AppOpportunityList>(`${CRO_BASE}/app-intelligence/opportunities?${appIntelQuery(envId, businessId, {
+    kind: opts?.kind,
+    status: opts?.status,
+  })}`);
+}
+
+export function updateAppOpportunity(envId: string, businessId: string, opportunityId: string, body: {
+  title?: string;
+  payload?: Record<string, unknown>;
+  status?: AppOpportunityStatus;
+}) {
+  return apiFetch<AppOpportunity>(`${CRO_BASE}/app-intelligence/opportunities/${opportunityId}?${appIntelQuery(envId, businessId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAppScoreboard(envId: string, businessId: string) {
+  return apiFetch<AppScoreboard>(`${CRO_BASE}/app-intelligence/scoreboard?${appIntelQuery(envId, businessId)}`);
+}
+
+export function generateAppWeeklyMemo(envId: string, businessId: string, body?: { generated_by?: string }) {
+  return apiFetch<AppWeeklyMemo>(`${CRO_BASE}/app-intelligence/weekly-memo/generate?${appIntelQuery(envId, businessId)}`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export function fetchLatestAppWeeklyMemo(envId: string, businessId: string) {
+  return apiFetch<AppWeeklyMemo>(`${CRO_BASE}/app-intelligence/weekly-memo/latest?${appIntelQuery(envId, businessId)}`);
+}

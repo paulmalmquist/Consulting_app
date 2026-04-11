@@ -61,6 +61,14 @@ const MIGRATION_TABLE_MAP: Record<string, { migration: string; tables: string[] 
     migration: "457_pipeline_operator_layer.sql",
     tables: ["cro_execution_profile", "cro_execution_audit"],
   },
+  "460": {
+    migration: "460_cro_app_intelligence_mining.sql",
+    tables: ["cro_app_inbox_item", "cro_app_record", "cro_app_pattern", "cro_app_pattern_evidence"],
+  },
+  "461": {
+    migration: "461_cro_app_intelligence_converter.sql",
+    tables: ["cro_app_opportunity", "cro_app_weekly_memo"],
+  },
 };
 
 const ALL_REQUIRED_TABLES = Object.values(MIGRATION_TABLE_MAP).flatMap((m) => m.tables);

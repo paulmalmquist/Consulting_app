@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -1280,3 +1281,223 @@ class IngestLeadsResult(BaseModel):
     opportunities_created: int
     skipped_dupes: int
     errors: list[str] | None = None
+
+
+# ── App Intelligence ─────────────────────────────────────────────────────────
+
+class AppInboxItemCreateRequest(BaseModel):
+    source: str | None = None
+    platform: str | None = None
+    app_name: str
+    category: str | None = None
+    search_term: str | None = None
+    url: str | None = None
+    raw_notes: str | None = None
+    screenshot_urls: list[str] = Field(default_factory=list)
+    created_by: str | None = None
+
+
+class AppInboxItemOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    source: str | None = None
+    platform: str | None = None
+    app_name: str
+    category: str | None = None
+    search_term: str | None = None
+    url: str | None = None
+    raw_notes: str | None = None
+    screenshot_urls: list[str] = Field(default_factory=list)
+    status: str
+    discarded_reason: str | None = None
+    discarded_at: datetime | None = None
+    processed_at: datetime | None = None
+    created_by: str | None = None
+    created_at: datetime
+
+
+class AppInboxDiscardRequest(BaseModel):
+    reason: str
+
+
+class AppRecordExtractRequest(BaseModel):
+    target_user: str | None = None
+    core_workflow_input: str
+    core_workflow_process: str
+    core_workflow_output: str
+    pain_signals: list[str] = Field(default_factory=list)
+    relevance_score: Decimal | None = None
+    weakness_score: Decimal | None = None
+    notes: str | None = None
+
+
+class AppRecordUpdateRequest(BaseModel):
+    target_user: str | None = None
+    core_workflow_input: str | None = None
+    core_workflow_process: str | None = None
+    core_workflow_output: str | None = None
+    pain_signals: list[str] | None = None
+    relevance_score: Decimal | None = None
+    weakness_score: Decimal | None = None
+    notes: str | None = None
+
+
+class AppRecordOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    inbox_item_id: UUID | None = None
+    app_name: str
+    target_user: str | None = None
+    core_workflow_input: str
+    core_workflow_process: str
+    core_workflow_output: str
+    pain_signals: list[str] = Field(default_factory=list)
+    relevance_score: Decimal
+    weakness_score: Decimal
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    workflow_shape: str | None = None
+    top_pain_signal: str | None = None
+    linked_pattern_count: int = 0
+    linked_opportunity_count: int = 0
+    is_prime: bool = False
+
+
+class AppPatternEvidenceRecordOut(BaseModel):
+    app_record_id: UUID
+    app_name: str
+    workflow_shape: str
+    pain_signals: list[str] = Field(default_factory=list)
+    contribution_note: str | None = None
+    auto_suggested: bool = False
+    created_at: datetime | None = None
+
+
+class SuggestedEvidenceOut(AppPatternEvidenceRecordOut):
+    score: float
+
+
+class AppPatternCreateRequest(BaseModel):
+    pattern_name: str
+    workflow_shape: str | None = None
+    industries_seen_in: list[str] = Field(default_factory=list)
+    recurring_pain: str | None = None
+    bad_implementation_pattern: str | None = None
+    winston_module_opportunity: str | None = None
+    consulting_offer_opportunity: str | None = None
+    demo_idea: str | None = None
+    priority: str = Field(default='med', pattern=r'^(low|med|high)$')
+    confidence: Decimal = Decimal('0.5')
+    status: str = Field(default='draft', pattern=r'^(draft|active|archived)$')
+    notes: str | None = None
+
+
+class AppPatternEvidenceUpsertRequest(BaseModel):
+    app_record_id: UUID
+    contribution_note: str | None = None
+    auto_suggested: bool = False
+    unlink: bool = False
+
+
+class AppPatternOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    pattern_name: str
+    workflow_shape: str | None = None
+    industries_seen_in: list[str] = Field(default_factory=list)
+    recurring_pain: str | None = None
+    bad_implementation_pattern: str | None = None
+    winston_module_opportunity: str | None = None
+    consulting_offer_opportunity: str | None = None
+    demo_idea: str | None = None
+    priority: str
+    confidence: Decimal
+    status: str
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    evidence_count: int = 0
+    linked_opportunity_count: int = 0
+    evidence: list[AppPatternEvidenceRecordOut] = Field(default_factory=list)
+
+
+class AppPatternCreateResponse(BaseModel):
+    pattern: AppPatternOut
+    suggested_evidence: list[SuggestedEvidenceOut] = Field(default_factory=list)
+
+
+class AppOpportunityDraftRequest(BaseModel):
+    kind: str = Field(pattern=r'^(winston_backlog|consulting_offer|outreach_angle|demo_brief)$')
+    source_pattern_id: UUID | None = None
+    source_app_record_id: UUID | None = None
+
+
+class AppOpportunityDraftOut(BaseModel):
+    title: str
+    payload: dict[str, Any]
+    must_edit_fields: list[str] = Field(default_factory=list)
+
+
+class AppOpportunityConvertRequest(BaseModel):
+    kind: str = Field(pattern=r'^(winston_backlog|consulting_offer|outreach_angle|demo_brief)$')
+    title: str
+    payload: dict[str, Any]
+    status: str = Field(default='draft', pattern=r'^(draft|ready|sent|exported|discarded)$')
+
+
+class AppOpportunityUpdateRequest(BaseModel):
+    title: str | None = None
+    payload: dict[str, Any] | None = None
+    status: str | None = Field(default=None, pattern=r'^(draft|ready|sent|exported|discarded)$')
+
+
+class AppOpportunityOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    pattern_id: UUID | None = None
+    app_record_id: UUID | None = None
+    kind: str
+    title: str
+    payload: dict[str, Any]
+    brief_markdown: str | None = None
+    status: str
+    exported_to: str | None = None
+    exported_ref: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    source_label: str | None = None
+    source_type: str | None = None
+
+
+class AppOpportunityListOut(BaseModel):
+    sent_this_week_count: int
+    rows: list[AppOpportunityOut]
+
+
+class AppScoreboardOut(BaseModel):
+    unconverted_patterns: int
+    prime_unsent: int
+    sent_this_week: int
+    avg_hours_inbox_to_opportunity: float | None = None
+    avg_hours_opportunity_to_sent: float | None = None
+
+
+class AppWeeklyMemoGenerateRequest(BaseModel):
+    generated_by: str | None = None
+
+
+class AppWeeklyMemoOut(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    period_start: date
+    period_end: date
+    summary_markdown: str
+    memo_payload: dict[str, Any]
+    generated_at: datetime
+    generated_by: str | None = None
