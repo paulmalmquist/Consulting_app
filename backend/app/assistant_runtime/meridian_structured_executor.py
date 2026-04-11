@@ -17,6 +17,8 @@ Hard-mapped use cases (spec §E):
 """
 from __future__ import annotations
 
+import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -25,6 +27,19 @@ from uuid import UUID
 from app.assistant_runtime.meridian_structured_parser import MeridianStructuredContract
 from app.db import get_cursor
 from app.observability.logger import emit_log
+
+# Phase 4 follow-up: the single-metric snapshot executor needs the
+# original user message to resolve fund names that the parser did not
+# pre-populate into contract.entity_name. The gate sets this right
+# before calling execute_meridian_contract; callers from elsewhere can
+# leave it None.
+_CONTEXT_MESSAGE: ContextVar[str | None] = ContextVar("meridian_structured_message", default=None)
+
+
+def set_executor_message_context(message: str | None) -> None:
+    """Set the original user message on the executor contextvar so
+    single-metric snapshot reads can resolve fund names."""
+    _CONTEXT_MESSAGE.set(message)
 
 
 @dataclass
@@ -593,6 +608,199 @@ def _build_list_memory(
     )
 
 
+# ── Single-metric snapshot reader (Phase 4 follow-up) ─────────────────
+#
+# Authoritative State Lockdown — metrics listed here route to a single
+# snapshot read against re_authoritative_fund_state_qtr.canonical_metrics.
+# The executor reads the value straight from the released snapshot and
+# refuses to return an approximation. Add a parser entry and a capability
+# row for each new metric, then list it here and in SNAPSHOT_FUND_METRIC_META.
+#
+# See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+
+SNAPSHOT_FUND_METRIC_META: dict[str, dict[str, str]] = {
+    "gross_operating_cash_flow": {
+        "display_name": "gross operating cash flow",
+        "format": "currency",
+    },
+}
+
+
+def _match_fund_from_message(message: str, funds: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Match the user's message against the fund list by name.
+
+    Returns the first fund whose name (or any non-trivial word from the
+    name) appears in the message, preferring longer matches. Used for
+    single-metric snapshot reads when the parser didn't pre-resolve
+    entity_name.
+    """
+    if not message or not funds:
+        return None
+    haystack = message.lower()
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for f in funds:
+        name = (f.get("name") or "").strip()
+        if not name:
+            continue
+        lower = name.lower()
+        if lower in haystack:
+            scored.append((len(lower), f))
+            continue
+        # Fall back to longest distinctive token match (>= 6 chars so
+        # "fund", "iii", "vii", "capital" don't cause false positives).
+        tokens = [t for t in re.split(r"[^a-z0-9]+", lower) if len(t) >= 6]
+        hit = next((t for t in tokens if t in haystack), None)
+        if hit:
+            scored.append((len(hit), f))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return scored[0][1] if scored else None
+
+
+def _execute_fund_metric_snapshot(
+    contract: MeridianStructuredContract,
+    business_id: str,
+    env_id: str,
+) -> StructuredExecutionResult:
+    """Read a single canonical_metrics field from the released fund snapshot.
+
+    Routes:
+      metric ∈ SNAPSHOT_FUND_METRIC_META → direct snapshot read for the
+      scoped fund at contract.timeframe_value. Refuses portfolio
+      aggregates. Fund resolution order: (1) entity_name, (2) scan the
+      original message against the fund list, (3) single-fund fallback.
+
+    Authoritative State Lockdown — Phase 4 follow-up.
+    """
+    from app.services.repe import list_funds
+
+    metric_key = contract.metric or ""
+    meta = SNAPSHOT_FUND_METRIC_META[metric_key]
+    display_name = meta["display_name"]
+    fmt = meta["format"]
+    quarter = contract.timeframe_value or _latest_quarter(business_id)
+
+    entity_name = getattr(contract, "entity_name", None)
+
+    try:
+        funds = list_funds(business_id=UUID(business_id))
+    except Exception:
+        funds = []
+
+    fund_id: str | None = None
+    fund_name: str | None = None
+    if entity_name:
+        needle = entity_name.lower().strip()
+        for f in funds:
+            fname = (f.get("name") or "").lower().strip()
+            if fname == needle or needle in fname or fname in needle:
+                fund_id = str(f.get("fund_id") or "")
+                fund_name = f.get("name")
+                break
+
+    # Fallback 1: scan the contract's original matched patterns for a
+    # fund-name substring. The contract dataclass stores _matched_patterns
+    # but not the raw message. The executor signature does not include
+    # the raw message either. Instead, read the latest thread_state
+    # active_context for a resolved fund identity.
+    if not fund_id:
+        match = _match_fund_from_message(_CONTEXT_MESSAGE.get() or "", funds)
+        if match:
+            fund_id = str(match.get("fund_id") or "")
+            fund_name = match.get("name")
+
+    # Fallback 2: single fund in scope.
+    if not fund_id and len(funds) == 1:
+        fund_id = str(funds[0].get("fund_id") or "")
+        fund_name = funds[0].get("name")
+
+    if not fund_id:
+        return StructuredExecutionResult(
+            answer_text=(
+                f"To answer the {display_name} question I need a specific fund. "
+                f"Please name the fund (e.g. 'Institutional Growth Fund VII') "
+                f"and the quarter (e.g. '2025Q4'). I will not return a "
+                f"portfolio aggregate from the snapshot contract."
+            ),
+            source_path="re_authoritative_fund_state_qtr",
+            canonical_source="re_authoritative_fund_state_qtr",
+            degraded=True,
+            degraded_reason="snapshot_requires_fund_scope",
+        )
+
+    from app.services import re_authoritative_snapshots
+
+    payload = re_authoritative_snapshots.get_authoritative_state(
+        entity_type="fund",
+        entity_id=fund_id,
+        quarter=quarter,
+    )
+    canonical_metrics = ((payload.get("state") or {}).get("canonical_metrics") or {})
+    null_reason = payload.get("null_reason")
+    state_origin = payload.get("state_origin")
+    snapshot_version = payload.get("snapshot_version")
+    trust_status = payload.get("trust_status")
+    period_exact = payload.get("period_exact")
+    raw_value = canonical_metrics.get(metric_key)
+    label = fund_name or "this fund"
+
+    if null_reason or state_origin != "authoritative" or not period_exact:
+        return StructuredExecutionResult(
+            answer_text=(
+                f"No released authoritative snapshot is available for {label} "
+                f"in {quarter}. Reason: {null_reason or 'state_origin=' + str(state_origin)}. "
+                f"Per the Authoritative State Lockdown rules, I will not return "
+                f"an approximation."
+            ),
+            source_path="re_authoritative_fund_state_qtr",
+            canonical_source="re_authoritative_fund_state_qtr",
+            degraded=True,
+            degraded_reason="snapshot_missing_or_unexact",
+        )
+
+    if raw_value is None:
+        return StructuredExecutionResult(
+            answer_text=(
+                f"The released snapshot for {label} in {quarter} does not record "
+                f"a {display_name} value (canonical_metrics.{metric_key} is null). "
+                f"Snapshot version {snapshot_version}."
+            ),
+            source_path="re_authoritative_fund_state_qtr",
+            canonical_source="re_authoritative_fund_state_qtr",
+            degraded=True,
+            degraded_reason="snapshot_metric_null",
+        )
+
+    if fmt == "currency":
+        formatted = _fmt_money(raw_value)
+    elif fmt == "percent":
+        formatted = _fmt_pct(raw_value)
+    else:
+        formatted = str(raw_value)
+
+    answer = (
+        f"{display_name.capitalize()} for **{label}** in {quarter} is "
+        f"**{formatted}** (snapshot {snapshot_version}, trust {trust_status})."
+    )
+    return StructuredExecutionResult(
+        answer_text=answer,
+        rows=[
+            {
+                "fund_id": fund_id,
+                "name": label,
+                "quarter": quarter,
+                metric_key: str(raw_value),
+                "formatted": formatted,
+                "snapshot_version": snapshot_version,
+                "trust_status": trust_status,
+                "period_exact": period_exact,
+            }
+        ],
+        columns=["name", "quarter", metric_key, "snapshot_version", "trust_status"],
+        source_path="re_authoritative_fund_state_qtr",
+        canonical_source="re_authoritative_fund_state_qtr",
+    )
+
+
 # ── Routing: contract → executor ───────────────────────────────────────
 
 def _route_contract(contract: MeridianStructuredContract) -> str:
@@ -608,6 +816,11 @@ def _route_contract(contract: MeridianStructuredContract) -> str:
     entity = contract.entity
 
     # ── Metric-first routes (highest priority) ────────────────────────
+
+    # Phase 4 follow-up: single-metric snapshot reads (gross operating
+    # cash flow and future canonical_metrics fields).
+    if metric in SNAPSHOT_FUND_METRIC_META:
+        return "fund_metric_snapshot"
 
     # Use case 5: NOI variance (any query mentioning NOI/NOI variance with data intent)
     if metric in ("noi_variance", "noi") and transformation in ("rank", "filter", "list", "summary", "breakout", None):
@@ -654,6 +867,8 @@ _EXECUTORS: dict[str, Any] = {
     "asset_count": _execute_asset_count,
     "noi_variance": _execute_noi_variance,
     "investment_irr_degraded": _execute_investment_irr_degraded,
+    # Phase 4 follow-up — single-metric snapshot reads.
+    "fund_metric_snapshot": _execute_fund_metric_snapshot,
 }
 
 

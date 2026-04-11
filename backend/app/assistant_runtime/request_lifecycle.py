@@ -600,10 +600,16 @@ async def _try_meridian_structured_gate(
 
     from app.assistant_runtime.meridian_structured_executor import (
         execute_meridian_contract,
+        set_executor_message_context,
     )
 
     business_id = str(resolved_scope.business_id)
     env_id = str(resolved_scope.environment_id or "")
+
+    # Phase 4 follow-up: hand the raw message to the executor so
+    # _execute_fund_metric_snapshot can resolve a fund name that the
+    # parser did not populate into contract.entity_name.
+    set_executor_message_context(message)
 
     result = await asyncio.get_event_loop().run_in_executor(
         None,
