@@ -73,6 +73,7 @@ from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_rou
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
+from app.routes import re_opportunities
 from app.routes import (
     nv_discovery, nv_data_studio, nv_workflow_intel, nv_vendor_intel,
     nv_metric_dict, nv_data_chaos, nv_exec_blueprint, nv_pilot_builder,
@@ -349,6 +350,7 @@ app.include_router(re_sustainability.router)
 app.include_router(re_uw_reports.router)
 app.include_router(re_uw_links.router)
 app.include_router(re_pipeline.router)
+app.include_router(re_opportunities.router)
 app.include_router(re_geography.router)
 app.include_router(re_intelligence.router)
 app.include_router(cre_work_packages.router)

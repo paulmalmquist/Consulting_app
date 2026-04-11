@@ -165,6 +165,27 @@ def fetchone(sql: str, params: tuple[Any, ...] | list[Any] = ()) -> dict[str, An
     return dict(row) if row else None
 
 
+def load_prior_released_ending_nav(fund_id: str, before_quarter: str) -> Decimal | None:
+    """Return ending_nav from the most recent released authoritative snapshot for fund_id
+    where quarter < before_quarter. Used as a period-continuity fallback when investment-level
+    aggregation produces beginning_nav=0 (NF-3: investment has 0 prior NAV but fund does not)."""
+    row = fetchone(
+        """
+        SELECT canonical_metrics->>'ending_nav' AS ending_nav
+        FROM re_authoritative_fund_state_qtr
+        WHERE fund_id = %s::uuid
+          AND quarter < %s
+          AND promotion_state = 'released'
+        ORDER BY quarter DESC
+        LIMIT 1
+        """,
+        (fund_id, before_quarter),
+    )
+    if row and row.get("ending_nav"):
+        return decimal_or_none(row["ending_nav"])
+    return None
+
+
 def classify_line_code(target_line_code: str | None, target_statement: str | None) -> str:
     if not target_line_code:
         return "unmapped"
@@ -1042,6 +1063,17 @@ def build_fund_receipts(
                 ending_nav += decimal_or_zero(canonical.get("ending_nav_attributable"))
                 gross_operating_cf += decimal_or_zero(canonical.get("fund_attributable_operating_cash_flow"))
                 source_refs.extend(inv_state.get("source_row_refs", []))
+
+            # NF-3 fix: investment-level aggregation gives beginning_nav=0 when the selected
+            # investment(s) for this fund had zero NAV in the prior quarter (e.g. IGF VII /
+            # Tech Campus North whose 2026Q1 state is 0). Fall back to the prior released
+            # authoritative snapshot's ending_nav to preserve period-over-period continuity.
+            # Only applies when aggregation produces 0 AND a prior released snapshot exists;
+            # a genuine first-period fund (no prior snapshot) correctly stays 0.
+            if beginning_nav == Decimal("0"):
+                prior_ending = load_prior_released_ending_nav(fund_id, quarter)
+                if prior_ending is not None:
+                    beginning_nav = prior_ending
 
             fee_row, raw_fee_rows = load_latest_fee_rows(fund_id, quarter)
             latest_expense_rows, raw_expense_rows = load_latest_expense_rows(fund_id, quarter)

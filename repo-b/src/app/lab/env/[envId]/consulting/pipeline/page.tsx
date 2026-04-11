@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
@@ -12,7 +12,6 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useDroppable, useDraggable } from "@dnd-kit/core";
 import {
   fetchExecutionBoard,
   advanceOpportunityStage,
@@ -24,38 +23,22 @@ import {
   type SchemaHealth,
 } from "@/lib/cro-api";
 import { TodayPanel } from "@/components/consulting/TodayPanel";
-import { PipelineActionBar } from "@/components/consulting/PipelineActionBar";
 import { DealSidePanel } from "@/components/consulting/DealSidePanel";
+import PipelineLaneView, {
+  PipelineCommandBand,
+  LaneCardOverlay,
+  type LaneMode,
+} from "@/components/consulting/PipelineLaneView";
+import PipelineActionPanel, {
+  type ActiveSlice,
+} from "@/components/consulting/PipelineActionPanel";
+import {
+  computeInsight,
+  healthLabel,
+  momentumArrow,
+  type StageRow,
+} from "@/components/consulting/pipeline-insight";
 
-function fmtCurrency(raw: number | string | null | undefined): string {
-  const n = typeof raw === "string" ? parseFloat(raw) : raw;
-  if (n == null || isNaN(n)) return "—";
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-function relativeTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const days = Math.floor(diffMs / 86_400_000);
-  if (days < 0) return "future";
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  if (days < 30) return `${days}d ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
-function isOverdue(dueDateStr: string | null | undefined): boolean {
-  if (!dueDateStr) return false;
-  const d = new Date(dueDateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return d < today;
-}
 
 function formatError(err: unknown): string {
   if (!(err instanceof Error)) {
@@ -168,160 +151,6 @@ function SchemaErrorBanner({ envId, onRetry }: { envId: string; onRetry: () => v
   );
 }
 
-function DraggableCard({
-  card,
-  onSelect,
-}: {
-  card: ExecutionCard;
-  onSelect: (id: string) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.crm_opportunity_id,
-    data: { card },
-  });
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, opacity: isDragging ? 0.5 : 1 }
-    : undefined;
-
-  const hasNoAction = !card.next_action_description;
-  const overdue = isOverdue(card.next_action_due);
-
-  let borderClass = "border-bm-border/60";
-  let glowClass = "";
-  if (hasNoAction) {
-    borderClass = "border-red-500/60";
-  } else if (overdue) {
-    glowClass = "ring-2 ring-orange-400/40";
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <div
-        onClick={(e) => {
-          if (isDragging) return;
-          e.stopPropagation();
-          onSelect(card.crm_opportunity_id);
-        }}
-        className="block cursor-pointer"
-      >
-        <div
-          className={`rounded-lg border ${borderClass} ${glowClass} bg-bm-surface/30 hover:border-bm-accent/40 transition-all cursor-grab active:cursor-grabbing px-3 py-2.5`}
-        >
-          {/* Line 1: Company name (bold) */}
-          <p className="text-sm font-semibold truncate text-bm-text">
-            {card.account_name || "—"}
-          </p>
-
-          {/* Line 2: Deal title + value */}
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-bm-muted truncate flex-1 mr-2">
-              {card.name}
-            </p>
-            <span className="text-xs font-semibold text-bm-text shrink-0">
-              {fmtCurrency(card.amount)}
-            </span>
-          </div>
-
-          {/* Line 3: Next action */}
-          {card.next_action_description ? (
-            <p className="text-[11px] text-bm-muted2 mt-1.5 truncate">
-              <span className="text-bm-accent/80">Next:</span>{" "}
-              {card.next_action_description}
-            </p>
-          ) : (
-            <p className="text-[11px] text-red-400/80 mt-1.5">
-              No next action defined
-            </p>
-          )}
-
-          {/* Line 4: Last touch + due date */}
-          <div className="flex items-center justify-between mt-1.5 text-[10px] text-bm-muted2">
-            <span>
-              {card.contact_name || "No contact"} · {relativeTime(card.last_activity_at)}
-            </span>
-            {card.next_action_due ? (
-              <span className={overdue ? "text-orange-400 font-medium" : ""}>
-                Due {card.next_action_due}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-bm-muted2">
-            <span className={card.execution_pressure === "critical" ? "text-red-400" : card.execution_pressure === "high" ? "text-orange-400" : ""}>
-              {card.execution_pressure}
-            </span>
-            <span>{card.deal_drift_status}</span>
-            {card.latest_angle_used ? <span>{card.latest_angle_used}</span> : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DroppableColumn({
-  column,
-  onSelectCard,
-}: {
-  column: ExecutionBoardColumn;
-  onSelectCard: (id: string) => void;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `column-${column.execution_column_key}`,
-    data: { stageKey: column.execution_column_key },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`min-w-[260px] flex flex-col rounded-lg transition-colors ${
-        isOver ? "bg-bm-accent/5 ring-1 ring-bm-accent/30" : ""
-      }`}
-    >
-      <div className="flex items-center justify-between mb-2 px-1">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-bm-muted2">
-          {column.execution_column_label}
-        </h3>
-        <span className="text-xs text-bm-muted">
-          {fmtCurrency(column.weighted_value)} wt
-        </span>
-      </div>
-      <div className="space-y-2 flex-1 min-h-[60px]">
-        {column.cards.length === 0 ? (
-          <div className="bm-glass rounded-lg p-3 text-xs text-bm-muted2 text-center">
-            No deals
-          </div>
-        ) : (
-          column.cards.map((card) => (
-            <DraggableCard
-              key={card.crm_opportunity_id}
-              card={card}
-              onSelect={onSelectCard}
-            />
-          ))
-        )}
-      </div>
-      <div className="mt-2 px-1 text-xs text-bm-muted2">
-        {column.cards.length} deal{column.cards.length !== 1 ? "s" : ""} ·{" "}
-        {fmtCurrency(column.total_value)}
-      </div>
-    </div>
-  );
-}
-
-function CardOverlay({ card }: { card: ExecutionCard }) {
-  return (
-    <div className="w-[260px]">
-      <div className="rounded-lg border border-bm-accent/40 bg-bm-surface/60 shadow-lg px-3 py-2.5">
-        <p className="text-sm font-semibold truncate">{card.account_name || "—"}</p>
-        <div className="flex items-center justify-between mt-1">
-          <p className="text-xs text-bm-muted truncate flex-1 mr-2">{card.name}</p>
-          <span className="text-xs font-semibold">{fmtCurrency(card.amount)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PipelinePage({
   params,
@@ -348,6 +177,14 @@ export default function PipelinePage({
     stageKey: string;
   } | null>(null);
   const [closeReason, setCloseReason] = useState("");
+
+  const [selectedIndustries, setSelectedIndustries] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [focusedStage, setFocusedStage] = useState<string | null>(null);
+  const [activeSlice, setActiveSlice] = useState<ActiveSlice | null>(null);
+  const [chartMode, setChartMode] = useState<LaneMode>("count");
+  const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -396,6 +233,174 @@ export default function PipelinePage({
     () => staleCards.reduce((sum, c) => sum + (c.amount || 0), 0),
     [staleCards],
   );
+
+  // Stable industry list (from unfiltered board) so chips don't flicker
+  const industries = useMemo(() => {
+    const s = new Set<string>();
+    allCards.forEach((c) => {
+      const key = (c.industry || "Other").trim() || "Other";
+      s.add(key);
+    });
+    return Array.from(s).sort();
+  }, [allCards]);
+
+  // Industry-filtered columns — drives BOTH kanban render and chart
+  const filteredColumns = useMemo((): ExecutionBoardColumn[] => {
+    if (!kanban) return [];
+    if (selectedIndustries.size === 0) return kanban.columns;
+    return kanban.columns.map((col) => ({
+      ...col,
+      cards: col.cards.filter((c) => {
+        const key = (c.industry || "Other").trim() || "Other";
+        return selectedIndustries.has(key);
+      }),
+    }));
+  }, [kanban, selectedIndustries]);
+
+  // Chart rows — one per non-closed stage
+  const chartData = useMemo((): StageRow[] => {
+    const now = Date.now();
+    return filteredColumns
+      .filter(
+        (c) =>
+          !["closed_won", "closed_lost"].includes(c.execution_column_key),
+      )
+      .map((col) => {
+        const row: StageRow = {
+          stage_key: col.execution_column_key,
+          stage_label: col.execution_column_label,
+          _total: 0,
+          _noAction: 0,
+          _stale: 0,
+          _hot: 0,
+          _moved24h: 0,
+        };
+        industries.forEach((ind) => {
+          row[ind] = 0;
+        });
+        for (const c of col.cards) {
+          const ind = (c.industry || "Other").trim() || "Other";
+          const contrib = chartMode === "count" ? 1 : c.amount || 0;
+          row[ind] = (Number(row[ind]) || 0) + contrib;
+          row._total += 1;
+          if (!c.next_action_description) row._noAction += 1;
+          if (
+            c.risk_flags.includes("inactive_3d") ||
+            c.risk_flags.includes("stalled_7d")
+          ) {
+            row._stale += 1;
+          }
+          if (c.momentum_status === "increasing") row._hot += 1;
+          if (
+            c.last_activity_at &&
+            now - new Date(c.last_activity_at).getTime() < 86_400_000
+          ) {
+            row._moved24h += 1;
+          }
+        }
+        row._healthLabel = healthLabel(row);
+        row._momentum = momentumArrow(row);
+        return row;
+      });
+  }, [filteredColumns, industries, chartMode]);
+
+  const insight = useMemo(
+    () => computeInsight(filteredColumns),
+    [filteredColumns],
+  );
+
+  const hasActiveFilters =
+    selectedIndustries.size > 0 || focusedStage !== null || activeSlice !== null;
+
+  const handleToggleIndustry = useCallback((industry: string) => {
+    setSelectedIndustries((prev) => {
+      const next = new Set(prev);
+      if (next.has(industry)) next.delete(industry);
+      else next.add(industry);
+      return next;
+    });
+  }, []);
+
+  const scrollToColumn = useCallback((stageKey: string) => {
+    const el = columnRefs.current[stageKey];
+    if (el) {
+      el.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, []);
+
+  // Toggle stage focus: clicking the same bar twice clears everything.
+  // Both focusedStage and activeSlice are cleared together to avoid divergence.
+  const handleSelectStage = useCallback(
+    (stageKey: string) => {
+      setFocusedStage((prev) => {
+        const next = prev === stageKey ? null : stageKey;
+        setActiveSlice(next === null ? null : { stage: stageKey });
+        return next;
+      });
+      scrollToColumn(stageKey);
+    },
+    [scrollToColumn],
+  );
+
+  // Toggle segment: clicking the same (stage, industry) pair clears filters.
+  const handleSelectSegment = useCallback(
+    (stageKey: string, industry: string) => {
+      if (focusedStage === stageKey && activeSlice?.industry === industry) {
+        setSelectedIndustries(new Set());
+        setFocusedStage(null);
+        setActiveSlice(null);
+      } else {
+        setSelectedIndustries(new Set([industry]));
+        setFocusedStage(stageKey);
+        setActiveSlice({ stage: stageKey, industry });
+        scrollToColumn(stageKey);
+      }
+    },
+    [focusedStage, activeSlice, scrollToColumn],
+  );
+
+  const handleInsightAction = useCallback(() => {
+    const rec = insight.recommendation;
+    if (rec.focusIndustry) {
+      setSelectedIndustries(new Set([rec.focusIndustry]));
+    }
+    if (rec.focusStage) {
+      setFocusedStage(rec.focusStage);
+      setActiveSlice({
+        stage: rec.focusStage,
+        industry: rec.focusIndustry ?? undefined,
+      });
+      scrollToColumn(rec.focusStage);
+    }
+  }, [insight, scrollToColumn]);
+
+  const handleClearFilters = useCallback(() => {
+    setSelectedIndustries(new Set());
+    setFocusedStage(null);
+    setActiveSlice(null);
+  }, []);
+
+  const handleToggleMode = useCallback(() => {
+    setChartMode((m) => (m === "count" ? "value" : "count"));
+  }, []);
+
+  // Stable per-key ref callbacks cached so LaneColumn doesn't see new
+  // function references on every render (avoids unnecessary dnd-kit re-registration).
+  const columnRefCallbackCache = useRef<
+    Record<string, (el: HTMLDivElement | null) => void>
+  >({});
+  const makeColumnRef = useCallback((stageKey: string) => {
+    if (!columnRefCallbackCache.current[stageKey]) {
+      columnRefCallbackCache.current[stageKey] = (el: HTMLDivElement | null) => {
+        columnRefs.current[stageKey] = el;
+      };
+    }
+    return columnRefCallbackCache.current[stageKey];
+  }, []);
 
   function handleDragStart(event: DragStartEvent) {
     const card = event.active.data.current?.card as ExecutionCard | undefined;
@@ -576,19 +581,6 @@ export default function PipelinePage({
         onMarkDone={handleMarkDone}
       />
 
-      {/* ACTION BAR — Counts + Revenue at risk */}
-      <PipelineActionBar
-        todayCount={todayActions.length}
-        staleCount={staleCards.length}
-        criticalCount={kanban?.critical_deals.length ?? 0}
-        noActionCount={noActionCards.length}
-        revenueAtRisk={revenueAtRisk}
-        totalPipeline={kanban?.total_pipeline ?? 0}
-        weightedPipeline={kanban?.weighted_pipeline ?? 0}
-        openDeals={openDeals}
-        envId={params.envId}
-      />
-
       {kanban && openDeals === 0 ? (
         <Card>
           <CardContent className="py-5 text-sm text-bm-muted2">
@@ -597,25 +589,69 @@ export default function PipelinePage({
         </Card>
       ) : null}
 
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
-          {kanban?.columns.map((col) => (
-            <div key={col.execution_column_key} className="snap-start">
-              <DroppableColumn
-                column={col}
-                onSelectCard={handleSelectCard}
-              />
-            </div>
-          ))}
+      {/* UNIFIED LANE VIEW — chart bars aligned above kanban columns */}
+      {kanban ? (
+        <div
+          style={{
+            borderRadius: 10,
+            border: "1px solid rgba(245,185,66,0.12)",
+            overflow: "hidden",
+          }}
+        >
+          <PipelineCommandBand
+            insight={insight}
+            industries={industries}
+            selectedIndustries={selectedIndustries}
+            mode={chartMode}
+            hasActiveFilters={hasActiveFilters}
+            openDeals={openDeals}
+            staleCount={staleCards.length}
+            criticalCount={kanban.critical_deals.length}
+            noActionCount={noActionCards.length}
+            revenueAtRisk={revenueAtRisk}
+            totalPipeline={kanban.total_pipeline ?? 0}
+            weightedPipeline={kanban.weighted_pipeline ?? 0}
+            onToggleIndustry={handleToggleIndustry}
+            onInsightAction={handleInsightAction}
+            onToggleMode={handleToggleMode}
+            onClearFilters={handleClearFilters}
+          />
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <PipelineLaneView
+              columns={filteredColumns}
+              chartData={chartData}
+              industries={industries}
+              selectedIndustries={selectedIndustries}
+              focusedStage={focusedStage}
+              activeSlice={activeSlice}
+              mode={chartMode}
+              onSelectStage={handleSelectStage}
+              onSelectSegment={handleSelectSegment}
+              onSelectCard={handleSelectCard}
+              makeColumnRef={makeColumnRef}
+            />
+            <DragOverlay>
+              {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
+            </DragOverlay>
+          </DndContext>
         </div>
-        <DragOverlay>
-          {activeCard ? <CardOverlay card={activeCard} /> : null}
-        </DragOverlay>
-      </DndContext>
+      ) : null}
+
+      {kanban ? (
+        <PipelineActionPanel
+          slice={activeSlice}
+          columns={filteredColumns}
+          envId={params.envId}
+          businessId={businessId || ""}
+          onExecuted={loadData}
+          onOpenDeal={handleSelectCard}
+          onDismiss={() => setActiveSlice(null)}
+        />
+      ) : null}
 
       {/* DEAL SIDE PANEL */}
       {selectedDealId ? (

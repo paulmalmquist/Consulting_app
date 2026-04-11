@@ -10273,3 +10273,364 @@ export function getTradePortfolioDecision(businessId: string): Promise<Portfolio
     params: _tradeParams(businessId),
   });
 }
+
+
+// ─── REPE Opportunity Layer ─────────────────────────────────────────────────
+// Types and client functions for the signals → opportunities → model →
+// fund impact → approve → convert workflow.
+
+export interface ReSignalSource {
+  source_id: string;
+  source_code: string;
+  source_name: string;
+  source_type: "broker" | "market_data" | "internal" | "news" | "ai_scan" | "manual";
+  active: boolean;
+}
+
+export interface ReSignal {
+  signal_id: string;
+  env_id: string;
+  source_id: string | null;
+  source_name: string | null;
+  source_type: string | null;
+  signal_type: string;
+  market: string | null;
+  submarket: string | null;
+  property_type: string | null;
+  signal_date: string;
+  strength: number | null;
+  raw_value: number | null;
+  direction: "positive" | "negative" | "neutral";
+  signal_headline: string;
+  signal_body: string | null;
+  ai_generated: boolean;
+  ai_model_version: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ReOpportunity {
+  opportunity_id: string;
+  env_id: string;
+  fund_id: string | null;
+  name: string;
+  thesis: string | null;
+  property_type: string | null;
+  market: string | null;
+  submarket: string | null;
+  strategy: string | null;
+  stage: "signal" | "hypothesis" | "underwriting" | "modeled" | "ic_ready" | "approved" | "live" | "archived";
+  priority: "low" | "medium" | "high" | "critical";
+  target_equity_check: string | null;
+  target_ltv: string | null;
+  score_return_estimated: number | null;
+  score_return_modeled: number | null;
+  score_source: "estimated" | "modeled";
+  score_fund_fit: number | null;
+  score_signal: number | null;
+  score_execution: number | null;
+  score_risk_penalty: number | null;
+  composite_score: number | null;
+  ai_generated: boolean;
+  ai_model_version: string | null;
+  current_assumption_version_id: string | null;
+  promoted_investment_id: string | null;
+  created_at: string;
+  updated_at: string | null;
+  signal_count?: number;
+  latest_model_run_status?: string | null;
+}
+
+export interface ReOpportunityScoreBreakdown {
+  opportunity_id: string;
+  score_source: "estimated" | "modeled";
+  score_return_estimated: number | null;
+  score_return_modeled: number | null;
+  active_return_score: number | null;
+  score_fund_fit: number | null;
+  score_signal: number | null;
+  score_execution: number | null;
+  score_risk_penalty: number | null;
+  composite_score: number | null;
+  notes: Record<string, string>;
+}
+
+export interface ReAssumptionVersion {
+  assumption_version_id: string;
+  env_id: string;
+  opportunity_id: string;
+  version_number: number;
+  label: string | null;
+  is_current: boolean;
+  purchase_price: string | null;
+  equity_check: string | null;
+  loan_amount: string | null;
+  ltv: string | null;
+  interest_rate_pct: string | null;
+  io_period_months: number | null;
+  amort_years: number | null;
+  base_noi: string | null;
+  rent_growth_pct: string | null;
+  vacancy_pct: string | null;
+  exit_cap_rate_pct: string | null;
+  hold_years: number;
+  fee_load_pct: string | null;
+  operating_json: Record<string, unknown>;
+  lease_json: Record<string, unknown>;
+  capex_json: Record<string, unknown>;
+  debt_json: Record<string, unknown>;
+  exit_json: Record<string, unknown>;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ReModelRun {
+  model_run_id: string;
+  opportunity_id: string;
+  assumption_version_id: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  input_hash: string | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+  triggered_by: string;
+}
+
+export interface ReModelOutput {
+  output_id: string;
+  model_run_id: string;
+  opportunity_id: string;
+  // Provenance fields (non-negotiable)
+  assumption_version_id: string;
+  engine_version: string;
+  run_timestamp: string;
+  // Return metrics
+  gross_irr: string | null;
+  net_irr: string | null;
+  gross_equity_multiple: string | null;
+  net_equity_multiple: string | null;
+  tvpi: string | null;
+  dpi: string | null;
+  nav: string | null;
+  // Risk metrics
+  min_dscr: string | null;
+  exit_ltv: string | null;
+  debt_yield: string | null;
+  cashflow_json: unknown[];
+}
+
+export interface ReFundImpact {
+  fund_impact_id: string;
+  opportunity_id: string;
+  model_run_id: string;
+  fund_id: string;
+  fund_nav_before: string | null;
+  fund_nav_after: string | null;
+  fund_gross_irr_before: string | null;
+  fund_gross_irr_after: string | null;
+  fund_tvpi_before: string | null;
+  fund_tvpi_after: string | null;
+  irr_delta: string | null;
+  tvpi_delta: string | null;
+  nav_delta: string | null;
+  capital_available_before: string | null;
+  capital_available_after: string | null;
+  leverage_ratio_before: string | null;
+  leverage_ratio_after: string | null;
+  fund_fit_score: string | null;
+  fit_rationale: string | null;
+  allocation_pct: string | null;
+  fund_fit_breakdown_json: {
+    mandate?: number;
+    geography?: number;
+    concentration?: number;
+    capital_availability?: number;
+    duration?: number;
+    leverage_tolerance?: number;
+  };
+}
+
+export interface RePromotion {
+  promotion_id: string;
+  opportunity_id: string;
+  assumption_version_id: string;
+  model_run_id: string;
+  promoted_to_investment_id: string | null;
+  promotion_status: "pending" | "approved" | "rejected" | "rolled_back";
+  conversion_status: "pending" | "completed" | "failed";
+  ic_memo_text: string | null;
+  promoted_by: string | null;
+  approved_by: string | null;
+  promoted_at: string;
+  approved_at: string | null;
+  converted_at: string | null;
+  conversion_error: string | null;
+}
+
+const _OPP_BASE = "/api/re/v2/opportunities";
+
+export function listReSignalSources(): Promise<ReSignalSource[]> {
+  return bosFetch(`${_OPP_BASE}/signal-sources`);
+}
+
+export function listReSignals(
+  envId: string,
+  filters: {
+    signal_type?: string;
+    market?: string;
+    direction?: string;
+    min_strength?: number;
+    date_from?: string;
+    date_to?: string;
+  } = {},
+): Promise<ReSignal[]> {
+  return bosFetch(`${_OPP_BASE}/signals`, {
+    params: { env_id: envId, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) },
+  });
+}
+
+export function getReSignal(signalId: string): Promise<ReSignal> {
+  return bosFetch(`${_OPP_BASE}/signals/${signalId}`);
+}
+
+export function listReOpportunities(
+  envId: string,
+  filters: {
+    stage?: string;
+    fund_id?: string;
+    strategy?: string;
+    min_score?: number;
+    market?: string;
+  } = {},
+): Promise<ReOpportunity[]> {
+  return bosFetch(`${_OPP_BASE}/`, {
+    params: { env_id: envId, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) },
+  });
+}
+
+export function getReOpportunity(opportunityId: string): Promise<ReOpportunity> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}`);
+}
+
+export function createReOpportunity(envId: string, payload: Partial<ReOpportunity> & { name: string }): Promise<ReOpportunity> {
+  return bosFetch(`${_OPP_BASE}/?env_id=${envId}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function updateReOpportunity(opportunityId: string, payload: Partial<ReOpportunity>): Promise<ReOpportunity> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function getReOpportunityScoreBreakdown(opportunityId: string): Promise<ReOpportunityScoreBreakdown> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/score-breakdown`);
+}
+
+export function listReSignalLinks(opportunityId: string): Promise<ReSignal[]> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/signals`);
+}
+
+export function linkReSignal(
+  opportunityId: string,
+  payload: { signal_id: string; weight?: number; attribution_note?: string },
+): Promise<unknown> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/signals`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function unlinkReSignal(opportunityId: string, signalId: string): Promise<void> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/signals/${signalId}`, {
+    method: "DELETE",
+  });
+}
+
+export function listReAssumptionVersions(opportunityId: string): Promise<ReAssumptionVersion[]> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/assumptions`);
+}
+
+export function createReAssumptionVersion(
+  opportunityId: string,
+  envId: string,
+  payload: Partial<ReAssumptionVersion>,
+): Promise<ReAssumptionVersion> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/assumptions?env_id=${envId}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function listReModelRuns(opportunityId: string): Promise<(ReModelRun & Partial<ReModelOutput>)[]> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/model-runs`);
+}
+
+export function triggerReModelRun(
+  opportunityId: string,
+  assumptionVersionId: string,
+  triggeredBy = "api",
+): Promise<ReModelRun & Partial<ReModelOutput>> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/model-runs`, {
+    method: "POST",
+    body: JSON.stringify({ assumption_version_id: assumptionVersionId, triggered_by: triggeredBy }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function getReModelRunWithOutput(opportunityId: string, modelRunId: string): Promise<ReModelRun & Partial<ReModelOutput>> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/model-runs/${modelRunId}`);
+}
+
+export function getReOpportunityFundImpact(opportunityId: string): Promise<ReFundImpact[]> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/fund-impact`);
+}
+
+export function computeReFundImpact(
+  opportunityId: string,
+  payload: { fund_id: string; model_run_id: string },
+): Promise<ReFundImpact> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/fund-impact/compute`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function approveReOpportunity(
+  opportunityId: string,
+  payload: { ic_memo_text?: string; approved_by?: string } = {},
+): Promise<RePromotion> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/approve`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function convertReOpportunityToInvestment(
+  opportunityId: string,
+  payload: { fund_id: string; promoted_by?: string },
+): Promise<ReOpportunity> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/convert-to-investment`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function getReOpportunityPromotion(opportunityId: string): Promise<RePromotion> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/promotion`);
+}
+
+export function getReOpportunityReceipts(opportunityId: string): Promise<Record<string, unknown>> {
+  return bosFetch(`${_OPP_BASE}/${opportunityId}/receipts`);
+}

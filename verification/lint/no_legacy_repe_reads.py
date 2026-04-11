@@ -15,6 +15,23 @@ The lint is *deliberately conservative*. It is allowed to be wrong on
 the side of more violations rather than fewer. If a legitimate use of a
 banned symbol appears, add it to ALLOWLIST_FILES with a one-line
 comment explaining why.
+
+Rules
+─────
+Existing:
+  ui_forbidden_symbol              — banned REPE UI symbols
+  ui_restricted_symbol_used_for_kpi — restricted symbols used for KPI display
+  assistant_sql_aggregate_over_repe_tables — raw SQL aggregates in assistant runtime
+  assistant_unscoped_asset_fn      — asset functions without fund_id scope
+
+Phase 7 additions (INV-1…INV-5, NF-2):
+  backend_nav_source_drift         — INV-1: backend service reads NAV from legacy table
+  banned_legacy_table_reads        — INV-1: direct reads from banned tables outside snapshot builder
+  period_coherence_violation       — INV-2: quarter_state joins without quarter filter
+  ownership_at_aggregation         — INV-4: ownership multiplication inside rollup loop
+  fail_closed_violation            — INV-5: except-run_waterfall returns numeric fallback; || 0 coercions
+  ui_fallback_to_stale_metrics     — INV-1+5: React component mixes authoritative + legacy with fallback
+  canonical_metrics_key_drift      — NF-2: code references canonical_metrics.gross_tvpi (wrong key)
 """
 
 from __future__ import annotations
@@ -279,10 +296,319 @@ def _check_assistant_files(report: LintReport) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# Phase 7 additions — INV-1 through INV-5, NF-2
+# ---------------------------------------------------------------------------
+
+BACKEND_SERVICE_ROOTS = (
+    ("backend/app/services", (".py",)),
+    ("backend/app/routes", (".py",)),
+)
+
+# backend_nav_source_drift (INV-1)
+# Backend service files that compute fund-level return metrics must source
+# NAV from get_authoritative_state, not legacy tables.
+_METRIC_COMPUTE_REGEX = re.compile(
+    r"\b(dpi|rvpi|tvpi|gross_tvpi|net_tvpi)\s*=",
+    re.IGNORECASE,
+)
+_LEGACY_NAV_TABLE_REGEX = re.compile(
+    r"FROM\s+re_fund_quarter_state\b",
+    re.IGNORECASE,
+)
+
+# banned_legacy_table_reads (INV-1)
+# Direct reads from banned tables outside the snapshot-builder / authoritative
+# snapshots allowlist.
+BANNED_TABLE_READS_REGEX = re.compile(
+    r"\b(re_fund_quarter_state|re_fund_metrics_qtr)\b",
+    re.IGNORECASE,
+)
+# raw re_cash_event aggregate for fund-level metrics
+BANNED_CASH_EVENT_AGG_REGEX = re.compile(
+    r"FROM\s+re_cash_event\b(?!.*event_date\s*<=)",  # missing event_date filter
+    re.IGNORECASE,
+)
+
+SNAPSHOT_BUILDER_ALLOWLIST = {
+    "backend/app/services/re_authoritative_snapshots.py",
+    "backend/app/routes/re_authoritative.py",
+    "backend/app/schemas/re_authoritative.py",
+    "backend/app/services/re_fund_metrics.py",  # patched — reads banned tables only for bridge inserts
+}
+
+# period_coherence_violation (INV-2)
+# SQL JOINs on *_quarter_state tables must have an explicit quarter filter.
+_QS_JOIN_REGEX = re.compile(
+    r"JOIN\s+\w*_quarter_state\b",
+    re.IGNORECASE,
+)
+_QUARTER_FILTER_REGEX = re.compile(
+    r"quarter\s*=",
+    re.IGNORECASE,
+)
+
+# ownership_at_aggregation (INV-4)
+# Ownership multiplied inside aggregation loops is banned. Pre-normalize at edge.
+_OWNERSHIP_MULTIPLY_REGEX = re.compile(
+    r"\*\s*(ownership|ownership_percent|ownership_pct)\b",
+    re.IGNORECASE,
+)
+
+# fail_closed_violation (INV-5, backend)
+# except blocks around run_waterfall that return a numeric value rather than None.
+_RUN_WATERFALL_EXCEPT_REGEX = re.compile(
+    r"except\s*\([^)]*\)\s*:\s*\n(?:[^\n]*\n){0,5}.*return\s+Decimal\(",
+    re.MULTILINE,
+)
+
+# fail_closed_violation (INV-5, frontend)
+# || 0 / ?? 0 / Number(x) || 0 coercions on authoritative-state fields.
+_ZERO_COERCION_REGEX = re.compile(
+    r"(gross_irr|net_irr|gross_tvpi|net_tvpi|dpi|rvpi|carry|carry_shadow"
+    r"|gross_net_spread|net_return|gross_return)"
+    r"[^;{}]*(\?\?\s*0\b|\|\|\s*0\b|Number\([^)]+\)\s*\|\|\s*0\b)",
+    re.IGNORECASE,
+)
+
+# ui_fallback_to_stale_metrics (INV-1 + INV-5)
+# React files that import both useAuthoritativeState and a legacy fetcher.
+_AUTH_STATE_IMPORT_REGEX = re.compile(r"\buseAuthoritativeState\b")
+_LEGACY_FETCHER_IMPORT_REGEX = re.compile(
+    r"\b(getReV2FundQuarterState|re_fund_metrics_qtr|getFundMetricsQtr)\b"
+)
+_FALLBACK_PATTERN_REGEX = re.compile(
+    r"\?\?\s*(legacy|stale|cached|fallback|fund_state)",
+    re.IGNORECASE,
+)
+
+# canonical_metrics_key_drift (NF-2)
+# The correct key in canonical_metrics is 'tvpi', not 'gross_tvpi'.
+_CANONICAL_GROSS_TVPI_REGEX = re.compile(
+    r"""canonical_metrics['".\s\[]*gross_tvpi""",
+    re.IGNORECASE,
+)
+
+
+def _check_backend_nav_source_drift(report: LintReport) -> None:
+    """INV-1: backend services must not compute fund-level metrics from legacy NAV table."""
+    for path in _iter_files(BACKEND_SERVICE_ROOTS):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel in SNAPSHOT_BUILDER_ALLOWLIST or rel in ALLOWLIST_FILES:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        # Flag files that both compute a fund-level metric AND read from
+        # the legacy re_fund_quarter_state table.
+        computes_metric = any(_METRIC_COMPUTE_REGEX.search(ln) for ln in lines)
+        reads_legacy_nav = any(_LEGACY_NAV_TABLE_REGEX.search(ln) for ln in lines)
+        if computes_metric and reads_legacy_nav:
+            for i, ln in enumerate(lines, start=1):
+                if _LEGACY_NAV_TABLE_REGEX.search(ln):
+                    report.add(Violation(
+                        rule="backend_nav_source_drift",
+                        file=rel,
+                        line=i,
+                        snippet=ln.rstrip()[:200],
+                    ))
+
+
+def _check_banned_legacy_table_reads(report: LintReport) -> None:
+    """INV-1: direct reads from banned tables outside snapshot-builder allowlist."""
+    for path in _iter_files(BACKEND_SERVICE_ROOTS):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel in SNAPSHOT_BUILDER_ALLOWLIST or rel in ALLOWLIST_FILES:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        for i, ln in enumerate(lines, start=1):
+            stripped = ln.strip()
+            if stripped.startswith("#"):
+                continue
+            if BANNED_TABLE_READS_REGEX.search(ln):
+                report.add(Violation(
+                    rule="banned_legacy_table_reads",
+                    file=rel,
+                    line=i,
+                    snippet=ln.rstrip()[:200],
+                ))
+
+
+def _check_period_coherence(report: LintReport) -> None:
+    """INV-2: SQL JOINs on *_quarter_state must carry an explicit quarter filter."""
+    all_roots = BACKEND_SERVICE_ROOTS + (("backend/app/assistant_runtime", (".py",)),)
+    for path in _iter_files(all_roots):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if _is_allowed(path) or rel in SNAPSHOT_BUILDER_ALLOWLIST:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        for i, ln in enumerate(lines, start=1):
+            if not _QS_JOIN_REGEX.search(ln):
+                continue
+            # Check a ±10-line window for a quarter = filter
+            window_start = max(0, i - 5)
+            window_end = min(len(lines), i + 10)
+            window = "\n".join(lines[window_start:window_end])
+            if not _QUARTER_FILTER_REGEX.search(window):
+                report.add(Violation(
+                    rule="period_coherence_violation",
+                    file=rel,
+                    line=i,
+                    snippet=ln.rstrip()[:200],
+                ))
+
+
+def _check_ownership_at_aggregation(report: LintReport) -> None:
+    """INV-4: ownership must not be multiplied inside aggregation loops."""
+    rollup_roots = (("backend/app/services", (".py",)),)
+    for path in _iter_files(rollup_roots):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if _is_allowed(path) or rel in SNAPSHOT_BUILDER_ALLOWLIST:
+            continue
+        if "rollup" not in path.name and "aggregat" not in path.name:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        for i, ln in enumerate(lines, start=1):
+            stripped = ln.strip()
+            if stripped.startswith("#"):
+                continue
+            if _OWNERSHIP_MULTIPLY_REGEX.search(ln):
+                report.add(Violation(
+                    rule="ownership_at_aggregation",
+                    file=rel,
+                    line=i,
+                    snippet=ln.rstrip()[:200],
+                ))
+
+
+def _check_fail_closed(report: LintReport) -> None:
+    """INV-5: except-run_waterfall must not return numeric fallback; no || 0 coercions on KPI fields."""
+    # Backend: multiline except block check
+    for path in _iter_files(BACKEND_SERVICE_ROOTS):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if _is_allowed(path) or rel in SNAPSHOT_BUILDER_ALLOWLIST:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if "run_waterfall" not in content:
+            continue
+        for match in _RUN_WATERFALL_EXCEPT_REGEX.finditer(content):
+            line_no = content.count("\n", 0, match.start()) + 1
+            snippet = content[match.start():match.start() + 120].replace("\n", " ")
+            report.add(Violation(
+                rule="fail_closed_violation",
+                file=rel,
+                line=line_no,
+                snippet=snippet[:200],
+            ))
+
+    # Frontend: zero coercions on KPI fields
+    fe_roots = REPE_PAGE_ROOTS + (("repo-b/src/components/re", (".tsx", ".ts")),)
+    for path in _iter_files(fe_roots):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if _is_allowed(path):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        for i, ln in enumerate(lines, start=1):
+            stripped = ln.strip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            if _ZERO_COERCION_REGEX.search(ln):
+                report.add(Violation(
+                    rule="fail_closed_violation",
+                    file=rel,
+                    line=i,
+                    snippet=ln.rstrip()[:200],
+                ))
+
+
+def _check_ui_fallback_to_stale_metrics(report: LintReport) -> None:
+    """INV-1+5: React components may not mix authoritative state + legacy fetcher with fallback."""
+    fe_roots = (
+        ("repo-b/src/app/lab/env", (".tsx", ".ts")),
+        ("repo-b/src/components/re", (".tsx", ".ts")),
+    )
+    for path in _iter_files(fe_roots, require_segments=("/re/",)):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if _is_allowed(path):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        has_auth = bool(_AUTH_STATE_IMPORT_REGEX.search(content))
+        has_legacy = bool(_LEGACY_FETCHER_IMPORT_REGEX.search(content))
+        has_fallback = bool(_FALLBACK_PATTERN_REGEX.search(content))
+        if has_auth and has_legacy and has_fallback:
+            # Flag the line with the legacy fetcher reference
+            lines = content.splitlines()
+            for i, ln in enumerate(lines, start=1):
+                if _LEGACY_FETCHER_IMPORT_REGEX.search(ln):
+                    report.add(Violation(
+                        rule="ui_fallback_to_stale_metrics",
+                        file=rel,
+                        line=i,
+                        snippet=ln.rstrip()[:200],
+                    ))
+
+
+def _check_canonical_metrics_key_drift(report: LintReport) -> None:
+    """NF-2: canonical_metrics key must be 'tvpi', not 'gross_tvpi'."""
+    all_roots = BACKEND_SERVICE_ROOTS + REPE_PAGE_ROOTS + (
+        ("repo-b/src/components/re", (".tsx", ".ts")),
+        ("repo-b/src/lib", (".ts",)),
+    )
+    for path in _iter_files(all_roots):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        lines = content.splitlines()
+        for i, ln in enumerate(lines, start=1):
+            stripped = ln.strip()
+            if stripped.startswith("#") or stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            if _CANONICAL_GROSS_TVPI_REGEX.search(ln):
+                report.add(Violation(
+                    rule="canonical_metrics_key_drift",
+                    file=rel,
+                    line=i,
+                    snippet=ln.rstrip()[:200],
+                ))
+
+
 def run_lint() -> LintReport:
     report = LintReport()
     _check_ui_files(report)
     _check_assistant_files(report)
+    _check_backend_nav_source_drift(report)
+    _check_banned_legacy_table_reads(report)
+    _check_period_coherence(report)
+    _check_ownership_at_aggregation(report)
+    _check_fail_closed(report)
+    _check_ui_fallback_to_stale_metrics(report)
+    _check_canonical_metrics_key_drift(report)
     return report
 
 

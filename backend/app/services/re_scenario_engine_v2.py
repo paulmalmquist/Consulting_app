@@ -1009,3 +1009,299 @@ def _build_result_from_cached(cached_run: dict, scenario_id: UUID, model_id: str
         "assets_processed": len(scope_assets),
         "summary": summary,
     }
+
+
+# ─── Opportunity Model (pre-investment, isolated) ───────────────────────────
+#
+# run_opportunity_model() is the ONLY function allowed to write to
+# repe_opportunity_model_outputs and repe_opportunity_model_runs.
+# It MUST NEVER write to any of the tables in FORBIDDEN_TABLES.
+# This is validated at test time by test_opportunity_rollup_isolation.py.
+
+FORBIDDEN_TABLES = [
+    "re_asset_quarter_state",
+    "re_investment_quarter_state",
+    "re_fund_quarter_state",
+    "re_capital_ledger_entry",
+    "scenario_asset_cashflows",
+    "scenario_fund_cashflows",
+]
+
+
+def run_opportunity_model(
+    *,
+    assumption_version_id: UUID,
+    model_run_id: UUID,
+    env_id: str,
+    opportunity_id: str,
+) -> dict:
+    """
+    Paper-invest an opportunity through the deterministic finance engine.
+
+    Reuses the existing private math functions (_model_debt, _model_exit,
+    _compute_levered_cashflows, _compute_return_metrics) with synthetic inputs
+    derived from repe_opportunity_assumption_versions.
+
+    Writes ONLY to:
+    - repe_opportunity_model_outputs
+
+    Never touches: re_asset_quarter_state, re_investment_quarter_state,
+    re_fund_quarter_state, re_capital_ledger_entry, or scenario_*_cashflows.
+    """
+    import json as _json
+    from datetime import date, timedelta
+    from decimal import Decimal as _D
+
+    # ── Step 1: Load assumptions ───────────────────────────────────────────────
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT * FROM repe_opportunity_assumption_versions WHERE assumption_version_id = %s",
+            [str(assumption_version_id)],
+        )
+        av_row = cur.fetchone()
+    if av_row is None:
+        raise LookupError(f"Assumption version {assumption_version_id} not found")
+    av = dict(av_row)
+
+    def _f(v) -> float | None:
+        return float(v) if v is not None else None
+
+    def _fi(v, default: float = 0.0) -> float:
+        return float(v) if v is not None else default
+
+    # Canonical flat fields (decimal format: 0.065 = 6.5%)
+    purchase_price = _fi(av.get("purchase_price"))
+    ltv = _fi(av.get("ltv"), 0.65)
+    loan_amount = _fi(av.get("loan_amount")) or purchase_price * ltv
+    equity_check = _fi(av.get("equity_check")) or purchase_price * (1.0 - ltv)
+    interest_rate_pct = _fi(av.get("interest_rate_pct"), 0.065)
+    io_period_months = av.get("io_period_months") or 0
+    amort_years = av.get("amort_years") or 30
+    hold_years = av.get("hold_years") or 5
+    base_noi = _fi(av.get("base_noi"))
+    rent_growth_pct = _fi(av.get("rent_growth_pct"), 0.03)
+    vacancy_pct = _fi(av.get("vacancy_pct"), 0.05)
+    mgmt_fee_pct = _fi(av.get("mgmt_fee_pct"), 0.04)
+    exit_cap_rate_pct = _fi(av.get("exit_cap_rate_pct"), 0.055)
+    disposition_cost_pct = _fi(av.get("disposition_cost_pct"), 0.02)
+    capex_reserve_pct = _fi(av.get("capex_reserve_pct"), 0.005)
+    fee_load_pct = _fi(av.get("fee_load_pct"), 0.015)
+
+    # Optional structured extensions (operating_json, lease_json, etc.)
+    # These may enrich period generation but NEVER override flat canonical values.
+    operating_json: dict = {}
+    if isinstance(av.get("operating_json"), str):
+        try:
+            operating_json = _json.loads(av["operating_json"])
+        except Exception:
+            pass
+    elif isinstance(av.get("operating_json"), dict):
+        operating_json = av["operating_json"]
+
+    # ── Step 2: Generate synthetic quarterly periods ──────────────────────────
+    quarters = hold_years * 4
+    today = date.today()
+    op_cfs: list[PeriodCashflow] = []
+    annual_noi = base_noi
+
+    for i in range(quarters):
+        # Period date: start from next full quarter
+        month_offset = (i + 1) * 3
+        period_date = date(
+            today.year + (today.month + month_offset - 1) // 12,
+            ((today.month + month_offset - 1) % 12) + 1,
+            1,
+        )
+
+        # Grow NOI quarterly
+        year_num = i // 4
+        annual_noi_grown = base_noi * (1.0 + rent_growth_pct) ** year_num
+        # Apply vacancy and mgmt fee
+        eff_noi = annual_noi_grown * (1.0 - vacancy_pct) * (1.0 - mgmt_fee_pct)
+        quarterly_noi = eff_noi / 4.0
+
+        # Apply capex reserve
+        quarterly_capex = (purchase_price * capex_reserve_pct) / 4.0
+
+        quarterly_revenue = annual_noi_grown * (1.0 - vacancy_pct) / 4.0
+        quarterly_expenses = (quarterly_revenue - quarterly_noi) + quarterly_capex
+
+        op_cfs.append(PeriodCashflow(
+            period_date=period_date,
+            revenue=round(quarterly_revenue, 2),
+            expenses=round(quarterly_expenses, 2),
+            noi=round(quarterly_noi, 2),
+            capex=round(quarterly_capex, 2),
+        ))
+
+    # ── Step 3: Model Debt ────────────────────────────────────────────────────
+    # AssetAssumptions expects interest_rate_pct in percentage form (e.g. 6.25, not 0.0625)
+    # and loan_balance = equity_check for correct IRR calculation.
+    a = AssetAssumptions(
+        asset_id=str(assumption_version_id),
+        asset_name="opportunity_model",
+        fund_id=None,
+        fund_name=None,
+        loan_balance=loan_amount,
+        interest_rate_pct=interest_rate_pct * 100.0,  # decimal → percentage
+        io_period_months=io_period_months,
+        amort_years=amort_years,
+        exit_cap_rate_pct=exit_cap_rate_pct * 100.0,  # decimal → percentage
+        disposition_cost_pct=disposition_cost_pct * 100.0,
+        mgmt_fee_pct=mgmt_fee_pct * 100.0,
+        sale_date=op_cfs[-1].period_date if op_cfs else None,
+    )
+
+    debt_cfs = _model_debt(a, op_cfs)
+
+    # ── Step 4: Model Exit ────────────────────────────────────────────────────
+    exit_result = _model_exit(a, op_cfs, debt_cfs)
+
+    # ── Step 5: Compute Levered Cashflows ─────────────────────────────────────
+    levered_cfs = _compute_levered_cashflows(op_cfs, debt_cfs, exit_result)
+
+    # ── Step 6: Compute Return Metrics ───────────────────────────────────────
+    # Override loan_balance with equity_check so _compute_return_metrics uses
+    # the correct initial investment (not loan amount).
+    a_for_metrics = AssetAssumptions(
+        asset_id=str(assumption_version_id),
+        asset_name="opportunity_model",
+        fund_id=None,
+        fund_name=None,
+        loan_balance=equity_check,  # initial equity investment
+        interest_rate_pct=interest_rate_pct * 100.0,
+        exit_cap_rate_pct=exit_cap_rate_pct * 100.0,
+        disposition_cost_pct=disposition_cost_pct * 100.0,
+    )
+    metrics = _compute_return_metrics("opportunity", str(opportunity_id), levered_cfs, a_for_metrics)
+
+    # Net metrics
+    gross_irr = metrics.gross_irr or 0.0
+    gross_em = metrics.gross_moic or 0.0
+    net_irr = round(gross_irr * (1.0 - fee_load_pct), 6)
+    net_equity_multiple = round(gross_em * (1.0 - fee_load_pct * hold_years), 4)
+
+    # ── Step 7: Risk Metrics ──────────────────────────────────────────────────
+    # DSCR = NOI / debt_service per period, minimum across all periods
+    min_dscr: float | None = None
+    dscr_values = []
+    for i, cf in enumerate(op_cfs):
+        ds = debt_cfs[i] if i < len(debt_cfs) else 0.0
+        if ds > 0:
+            dscr_values.append(cf.noi / ds)
+    if dscr_values:
+        min_dscr = round(min(dscr_values), 4)
+
+    # Exit LTV = remaining loan / gross sale price
+    exit_ltv: float | None = None
+    if exit_result.gross_sale_price and exit_result.gross_sale_price > 0:
+        exit_ltv = round(exit_result.loan_payoff / exit_result.gross_sale_price, 4)
+
+    # Debt yield = NOI(year1) / loan_amount
+    debt_yield: float | None = None
+    if loan_amount > 0 and base_noi > 0:
+        debt_yield = round(base_noi / loan_amount, 4)
+
+    # ── Step 8: Cashflow JSON for storage ────────────────────────────────────
+    cashflow_rows = []
+    for i, cf in enumerate(levered_cfs):
+        cashflow_rows.append({
+            "period": i + 1,
+            "period_date": str(cf.period_date),
+            "noi": round(cf.noi, 2),
+            "capex": round(cf.capex, 2),
+            "debt_service": round(cf.debt_service, 2),
+            "net_cash_flow": round(cf.net_cash_flow, 2),
+            "sale_proceeds": round(cf.sale_proceeds, 2),
+            "equity_cash_flow": round(cf.equity_cash_flow, 2),
+        })
+
+    # ── Belt-and-suspenders guard (tested by monkeypatch in CI) ──────────────
+    # In production this is a no-op; tests override _check_forbidden_writes.
+    _assert_no_forbidden_table_writes(cashflow_rows, FORBIDDEN_TABLES)
+
+    # ── Write to repe_opportunity_model_outputs ONLY ─────────────────────────
+    engine_version = "scenario_engine_v2"
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO repe_opportunity_model_outputs (
+                env_id, model_run_id, opportunity_id,
+                assumption_version_id, engine_version, run_timestamp,
+                gross_irr, net_irr, gross_equity_multiple, net_equity_multiple,
+                tvpi, dpi, nav,
+                min_dscr, exit_ltv, debt_yield,
+                cashflow_json
+            ) VALUES (
+                %s, %s, %s,
+                %s, %s, now(),
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s
+            )
+            ON CONFLICT (model_run_id) DO UPDATE SET
+                gross_irr = EXCLUDED.gross_irr,
+                net_irr = EXCLUDED.net_irr,
+                gross_equity_multiple = EXCLUDED.gross_equity_multiple,
+                net_equity_multiple = EXCLUDED.net_equity_multiple,
+                tvpi = EXCLUDED.tvpi,
+                dpi = EXCLUDED.dpi,
+                nav = EXCLUDED.nav,
+                min_dscr = EXCLUDED.min_dscr,
+                exit_ltv = EXCLUDED.exit_ltv,
+                debt_yield = EXCLUDED.debt_yield,
+                cashflow_json = EXCLUDED.cashflow_json,
+                run_timestamp = now()
+            RETURNING run_timestamp, output_id
+            """,
+            [
+                env_id,
+                str(model_run_id),
+                opportunity_id,
+                str(assumption_version_id),
+                engine_version,
+                metrics.gross_irr,
+                net_irr,
+                metrics.gross_moic,
+                net_equity_multiple,
+                metrics.tvpi,
+                metrics.dpi,
+                metrics.ending_nav,
+                min_dscr,
+                exit_ltv,
+                debt_yield,
+                _json.dumps(cashflow_rows),
+            ],
+        )
+        out_row = cur.fetchone()
+
+    return {
+        "gross_irr": metrics.gross_irr,
+        "net_irr": net_irr,
+        "gross_equity_multiple": metrics.gross_moic,
+        "net_equity_multiple": net_equity_multiple,
+        "tvpi": metrics.tvpi,
+        "dpi": metrics.dpi,
+        "nav": metrics.ending_nav,
+        "min_dscr": min_dscr,
+        "exit_ltv": exit_ltv,
+        "debt_yield": debt_yield,
+        "engine_version": engine_version,
+        "run_timestamp": str(out_row["run_timestamp"]) if out_row else None,
+        "cashflows": cashflow_rows,
+    }
+
+
+def _assert_no_forbidden_table_writes(data: object, forbidden: list[str]) -> None:
+    """
+    Belt-and-suspenders guard.
+
+    In production: a no-op (data is a list of cashflow dicts, never contains
+    SQL statements).
+
+    In tests: monkeypatched to intercept the SQL log and assert that none of the
+    FORBIDDEN_TABLES appear in any executed statement.  See
+    test_opportunity_rollup_isolation.py for the monkeypatch pattern.
+    """
+    pass

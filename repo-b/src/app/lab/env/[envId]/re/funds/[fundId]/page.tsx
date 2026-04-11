@@ -81,6 +81,8 @@ import {
   type FundExposureInsights as FundExposureInsightsPayload,
   type FundExposureSummary as FundExposureSummaryPayload,
   runReV2QuarterClose,
+  listReOpportunities,
+  type ReOpportunity,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import {
@@ -1180,12 +1182,109 @@ function useFundOverviewData({
   return { rollup, irrTimeline, capitalTimeline, irrContrib, exposure, loading };
 }
 
+// ── Fund Opportunities Tab ────────────────────────────────────────────────────
+
+function FundOpportunitiesTab({ envId, fundId }: { envId: string; fundId: string }) {
+  const [opps, setOpps] = React.useState<ReOpportunity[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const router = useRouter();
+  const { pathname } = typeof window !== "undefined" ? window.location : { pathname: "" };
+
+  React.useEffect(() => {
+    if (!envId) return;
+    listReOpportunities(envId, { fund_id: fundId })
+      .then(setOpps)
+      .catch(() => setOpps([]))
+      .finally(() => setLoading(false));
+  }, [envId, fundId]);
+
+  const stageCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const o of opps) counts[o.stage] = (counts[o.stage] ?? 0) + 1;
+    return counts;
+  }, [opps]);
+
+  const capitalAtPlay = opps
+    .filter((o) => ["modeled", "ic_ready", "approved"].includes(o.stage))
+    .reduce((s, o) => s + Number(o.target_equity_check ?? 0), 0);
+
+  if (loading) return <div className="py-8 text-center text-sm text-bm-muted2">Loading opportunities…</div>;
+  if (opps.length === 0) return (
+    <div className="py-8 text-center text-sm text-bm-muted2">
+      No opportunities linked to this fund yet.
+    </div>
+  );
+
+  const basePath = typeof window !== "undefined"
+    ? window.location.pathname.replace(/\/funds\/[^/]+$/, "")
+    : "";
+
+  return (
+    <div className="flex flex-col gap-3 mt-2">
+      {/* KPI strip */}
+      <div className="flex flex-wrap gap-4 text-xs border-b border-bm-border/20 pb-3">
+        {[
+          ["Total", opps.length],
+          ["Signal", stageCounts["signal"] ?? 0],
+          ["IC Ready", stageCounts["ic_ready"] ?? 0],
+          ["Approved", stageCounts["approved"] ?? 0],
+          ["Live", stageCounts["live"] ?? 0],
+          ["Capital at Play", capitalAtPlay >= 1_000_000 ? `$${(capitalAtPlay / 1_000_000).toFixed(1)}M` : capitalAtPlay > 0 ? `$${(capitalAtPlay / 1_000).toFixed(0)}K` : "—"],
+        ].map(([label, value]) => (
+          <div key={label as string} className="flex flex-col gap-0.5 min-w-[80px]">
+            <span className="text-bm-muted2 text-[10px] uppercase tracking-wide">{label}</span>
+            <span className="font-semibold text-bm-text">{String(value)}</span>
+          </div>
+        ))}
+      </div>
+      {/* Table */}
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="border-b border-bm-border/30 text-bm-muted2 text-[11px] uppercase tracking-wide">
+            <th className="py-1.5 pr-3 text-left font-medium">Name</th>
+            <th className="py-1.5 pr-3 text-left font-medium">Stage</th>
+            <th className="py-1.5 pr-3 text-right font-medium">Score</th>
+            <th className="py-1.5 text-right font-medium">Equity Check</th>
+          </tr>
+        </thead>
+        <tbody>
+          {opps.map((o) => (
+            <tr
+              key={o.opportunity_id}
+              onClick={() => router.push(`${basePath}/opportunities/${o.opportunity_id}`)}
+              className="border-b border-bm-border/20 hover:bg-bm-surface2/30 cursor-pointer transition-colors"
+            >
+              <td className="py-1.5 pr-3 text-bm-text">{o.name}</td>
+              <td className="py-1.5 pr-3">
+                <span className="rounded bg-bm-surface2 px-1.5 py-0.5 text-[10px] text-bm-muted2">
+                  {o.stage.replace(/_/g, " ")}
+                </span>
+              </td>
+              <td className="py-1.5 pr-3 text-right tabular-nums">
+                {o.composite_score != null ? Number(o.composite_score).toFixed(1) : "—"}
+              </td>
+              <td className="py-1.5 text-right tabular-nums text-bm-muted2">
+                {o.target_equity_check != null
+                  ? Number(o.target_equity_check) >= 1_000_000
+                    ? `$${(Number(o.target_equity_check) / 1_000_000).toFixed(1)}M`
+                    : `$${(Number(o.target_equity_check) / 1_000).toFixed(0)}K`
+                  : "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const EQUITY_TABS = [
   "Overview",
   "Performance",
   "Scenarios",
   "Asset Variance",
   "LP Summary",
+  "Opportunities",
 ] as const;
 
 const DEBT_TABS = [
@@ -1881,6 +1980,9 @@ export default function FundDetailPage({
           fundId={params.fundId}
           quarter={quarter}
         />
+      )}
+      {tab === "Opportunities" && envId && (
+        <FundOpportunitiesTab envId={envId} fundId={params.fundId} />
       )}
       {tab === "Loan Book" && envId && businessId && (
         <LoanBookTab

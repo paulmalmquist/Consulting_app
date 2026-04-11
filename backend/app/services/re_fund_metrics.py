@@ -16,6 +16,15 @@ from uuid import UUID
 from app.db import get_cursor
 from app.finance.irr_engine import xirr as _xirr
 from app.observability.logger import emit_log
+from app.services.re_authoritative_snapshots import get_authoritative_state
+
+
+class AuthoritativeStateNotReleasedError(RuntimeError):
+    """Raised when compute_return_metrics cannot find a released authoritative snapshot.
+
+    Callers must catch this and return a null-state response with
+    null_reason='authoritative_state_not_released'.  No partial writes are made.
+    """
 
 
 def _q(v: Decimal | None) -> str | None:
@@ -95,21 +104,28 @@ def _compute_net_xirr(
     terminal_nav: Decimal,
     mgmt_fees: Decimal,
     fund_expenses: Decimal,
-    carry: Decimal,
+    carry: Decimal | None,
 ) -> Decimal | None:
     """Compute fund-level net XIRR.
 
     Same as gross XIRR but terminal value is reduced by cumulative
-    fees, expenses, and carry.
+    fees, expenses, and carry.  Returns None if carry is None
+    (waterfall not defined — null_reason: out_of_scope_requires_waterfall).
     """
+    if carry is None:
+        return None
     net_terminal = terminal_nav - mgmt_fees - fund_expenses - carry
     if net_terminal < 0:
         net_terminal = Decimal("0")
     return _compute_fund_xirr(cur, env_id, business_id, fund_id, quarter, net_terminal)
 
 
-def _compute_waterfall_carry(fund_id: UUID, quarter: str, gross_return: Decimal, total_called: Decimal) -> Decimal:
-    """Compute carry using real waterfall engine if definition exists, else simplified fallback."""
+def _compute_waterfall_carry(fund_id: UUID, quarter: str, gross_return: Decimal, total_called: Decimal) -> Decimal | None:
+    """Compute carry using real waterfall engine.
+
+    Returns None (null_reason: out_of_scope_requires_waterfall) if the waterfall engine raises.
+    Fail-closed per INV-5 / SYSTEM_RULES_AUTHORITATIVE_STATE Rule 3 — no fallback approximation.
+    """
     try:
         from app.services.re_waterfall_runtime import run_waterfall
         wf_result = run_waterfall(fund_id=fund_id, quarter=quarter)
@@ -121,11 +137,8 @@ def _compute_waterfall_carry(fund_id: UUID, quarter: str, gross_return: Decimal,
                 carry += Decimal(str(result.get("amount", 0)))
         return carry.quantize(Decimal("0.01"))
     except (LookupError, ValueError, ImportError):
-        # Fallback: simplified carry (20% of gains above 8% pref hurdle)
-        pref_hurdle = total_called * Decimal("0.08")
-        if gross_return > pref_hurdle:
-            return ((gross_return - pref_hurdle) * Decimal("0.20")).quantize(Decimal("0.01"))
-        return Decimal("0")
+        # Fail closed — null_reason: out_of_scope_requires_waterfall
+        return None
 
 
 def compute_fee_accrual(
@@ -283,19 +296,25 @@ def compute_return_metrics(
     """Compute gross/net return metrics and store in re_fund_metrics_qtr + re_gross_net_bridge_qtr."""
     inputs_missing = []
 
-    with get_cursor() as cur:
-        # Get fund state for NAV
-        cur.execute(
-            """
-            SELECT * FROM re_fund_quarter_state
-            WHERE fund_id = %s AND quarter = %s
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (str(fund_id), quarter),
+    # INV-1: NAV must come from authoritative snapshot, never from legacy re_fund_quarter_state
+    auth_state = get_authoritative_state(
+        entity_type="fund",
+        entity_id=fund_id,
+        quarter=quarter,
+    )
+    if auth_state.get("promotion_state") != "released":
+        raise AuthoritativeStateNotReleasedError(
+            f"fund {fund_id} / {quarter}: promotion_state="
+            f"{auth_state.get('promotion_state')!r} — "
+            f"null_reason={auth_state.get('null_reason')!r}"
         )
-        fund_state = cur.fetchone()
+    _cm = auth_state.get("state", {}).get("canonical_metrics") or {}
+    _auth_nav = _cm.get("ending_nav") or _cm.get("portfolio_nav")
 
-        # Get capital totals from cash events
+    with get_cursor() as cur:
+
+        # Get capital totals from cash events — INV-2: only events on or before quarter end
+        as_of = _quarter_end_date(quarter)
         cur.execute(
             """
             SELECT
@@ -303,19 +322,21 @@ def compute_return_metrics(
                 COALESCE(SUM(CASE WHEN event_type = 'DIST' THEN amount ELSE 0 END), 0) AS total_distributed
             FROM re_cash_event
             WHERE env_id = %s AND business_id = %s AND fund_id = %s
+              AND event_date <= %s
             """,
-            (env_id, str(business_id), str(fund_id)),
+            (env_id, str(business_id), str(fund_id), as_of),
         )
         cash_totals = cur.fetchone()
 
         total_called = Decimal(str(cash_totals["total_called"])) if cash_totals else Decimal("0")
         total_distributed = Decimal(str(cash_totals["total_distributed"])) if cash_totals else Decimal("0")
-        nav = Decimal(str(fund_state["portfolio_nav"])) if fund_state and fund_state.get("portfolio_nav") else Decimal("0")
+        # INV-1: NAV sourced from authoritative snapshot (fetched before cursor block)
+        nav = Decimal(str(_auth_nav)) if _auth_nav is not None else Decimal("0")
 
         if total_called == 0:
             inputs_missing.append("no_capital_calls")
-        if nav == 0 and not fund_state:
-            inputs_missing.append("no_fund_state")
+        if nav == 0 and _auth_nav is None:
+            inputs_missing.append("no_authoritative_nav")
 
         # Compute metrics
         dpi = (total_distributed / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
@@ -354,23 +375,30 @@ def compute_return_metrics(
         expense_row = cur.fetchone()
         fund_expenses = Decimal(str(expense_row["total"])) if expense_row else Decimal("0")
 
-        # Carry via real waterfall engine (falls back to simplified if no definition)
+        # Carry via real waterfall engine — None if waterfall not defined (INV-5, fail-closed)
         carry_shadow = _compute_waterfall_carry(fund_id, quarter, gross_return, total_called)
 
-        # Net return
-        net_return = gross_return - mgmt_fees - fund_expenses - carry_shadow
+        # Net metrics propagate None when carry is unknown (null_reason: out_of_scope_requires_waterfall)
+        if carry_shadow is None:
+            net_return = None
+            net_irr = None
+            net_tvpi = None
+            gross_net_spread = None
+        else:
+            # Net return
+            net_return = gross_return - mgmt_fees - fund_expenses - carry_shadow
 
-        # Net IRR via XIRR engine (terminal NAV reduced by fees/expenses/carry)
-        net_irr = _compute_net_xirr(
-            cur, env_id, business_id, fund_id, quarter,
-            nav, mgmt_fees, fund_expenses, carry_shadow,
-        )
+            # Net IRR via XIRR engine (terminal NAV reduced by fees/expenses/carry)
+            net_irr = _compute_net_xirr(
+                cur, env_id, business_id, fund_id, quarter,
+                nav, mgmt_fees, fund_expenses, carry_shadow,
+            )
 
-        net_tvpi = ((total_distributed + nav - mgmt_fees - fund_expenses - carry_shadow) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
+            net_tvpi = ((total_distributed + nav - mgmt_fees - fund_expenses - carry_shadow) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
 
-        gross_net_spread = None
-        if gross_irr is not None and net_irr is not None:
-            gross_net_spread = (gross_irr - net_irr).quantize(Decimal("0.0001"))
+            gross_net_spread = None
+            if gross_irr is not None and net_irr is not None:
+                gross_net_spread = (gross_irr - net_irr).quantize(Decimal("0.0001"))
 
         # Store metrics
         cur.execute(
