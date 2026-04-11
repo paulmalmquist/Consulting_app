@@ -1,4 +1,4 @@
--- 10000_ai_prompt_receipts.sql
+-- 462_ai_prompt_receipts.sql
 -- Winston AI Gateway — Prompt Strategy / Compilation / Receipt System
 --
 -- Durable admin-inspectable receipts of the final prompt sent to the model,
