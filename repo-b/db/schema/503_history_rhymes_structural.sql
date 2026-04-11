@@ -69,8 +69,12 @@ CREATE POLICY episode_embeddings_read ON public.episode_embeddings
     FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS episode_embeddings_service_write ON public.episode_embeddings;
-CREATE POLICY episode_embeddings_service_write ON public.episode_embeddings
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        EXECUTE 'CREATE POLICY episode_embeddings_service_write ON public.episode_embeddings FOR ALL TO service_role USING (true) WITH CHECK (true)';
+    END IF;
+END $$;
 
 COMMENT ON TABLE public.episode_embeddings IS
     'pgvector(256) embeddings of historical episodes for History Rhymes analog retrieval. '
@@ -126,8 +130,12 @@ CREATE POLICY episode_detection_audit_read ON public.episode_detection_audit
     FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS episode_detection_audit_service_write ON public.episode_detection_audit;
-CREATE POLICY episode_detection_audit_service_write ON public.episode_detection_audit
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        EXECUTE 'CREATE POLICY episode_detection_audit_service_write ON public.episode_detection_audit FOR ALL TO service_role USING (true) WITH CHECK (true)';
+    END IF;
+END $$;
 
 COMMENT ON TABLE public.episode_detection_audit IS
     'Audit trail for the FRED-driven non-event detector '

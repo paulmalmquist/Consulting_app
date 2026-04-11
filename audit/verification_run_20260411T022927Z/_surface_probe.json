@@ -1,0 +1,478 @@
+{
+  "generated_at": "2026-04-11T02:30:11.458Z",
+  "base_url": "https://www.paulmalmquist.com",
+  "requested_quarter": "2025Q4",
+  "fund_page": {
+    "label": "fund_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/funds/a1b2c3d4-0003-0030-0001-000000000001?quarter=2025Q4",
+    "final_url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/funds/a1b2c3d4-0003-0030-0001-000000000001?quarter=2025Q4",
+    "status": 200,
+    "page_blocked": false,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON WORKSPACE Meridian Capital Management Real Estate Private Equity PORTFOLIO Funds Investments Assets Pipeline Development INVESTOR OPERATIONS Investors Capital Call Ops Distribution Ops Fees IR Review FUND ACCOUNTING Period Close Variance ANALYTICS Models Dashboards Saved Analyses Reports Sustainability GOVERNANCE Documents Approvals AI Audit AUTOMATION Winston CREATE Fund Investment Manual intake or source docs Asset OVERVIEW FUNDS INVESTMENTS ASSETS K FUND Institutional Growth Fund VII equity · value_add • Vintage 2021 • Target $850.0M Lineage Actions STRONG Strong performance with TVPI of 2.06x and Net IRR of 12.8% across multifamily exposure, led by Lakeside Senior Living.. 92% of value remains unrealized versus 8% realized, and multifamily remains the largest portfolio exposure. PREF 8.0% CARRY 20.0% European CAPITAL COMMITTED $1.0B PAID-IN $660.0M DISTRIBUTED $92.5M PERFORMANCE REMAINING VALUE $66.8M DPI 0.14x TVPI 0.24x GROSS IRR -87.1% NET IRR -88.3% GROSS OP CASH FLOW $-134K ASSET COUNT 30 Lineage RELEASED 3881843b requested quarter: 2025Q4 snapshot: meridian-20260410T182315Z-3881843b PORTFOLIO SNAPSHOT Portfolio Snapshot Current scale, leverage, occupancy, and inco",
+    "page_errors": [],
+    "console_errors": [],
+    "responses": [
+      {
+        "url": "https://www.paulmalmquist.com/bos/api/re/v1/context?env_id=a1b2c3d4-0001-0001-0003-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/quarter-state/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/authoritative-state/fund/a1b2c3d4-0003-0030-0001-000000000001/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/scenarios",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/investments",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/scenarios",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/investment-rollup/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/quarter-state/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/valuation/rollup?quarter=2025Q4&env_id=a1b2c3d4-0001-0001-0003-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/lineage/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/irr-contribution?env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001&quarter=2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/exposure?quarter=2025Q4&env_id=a1b2c3d4-0001-0001-0003-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/capital-timeline?env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/watchlist?env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001&quarter=2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/irr-timeline?env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/asset-map?env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001&fund_id=a1b2c3d4-0003-0030-0001-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/runs",
+        "status": 200,
+        "ok": true
+      }
+    ],
+    "observed_quarters": [
+      "2025Q4"
+    ],
+    "requested_quarter": "2025Q4",
+    "returns_kpis_text": "PERFORMANCE\n\nREMAINING VALUE\n$66.8M\nDPI\n0.14x\nTVPI\n0.24x\nGROSS IRR\n-87.1%\nNET IRR\n-88.3%\nGROSS OP CASH FLOW\n$-134K\nASSET COUNT\n30",
+    "fund_visible": true,
+    "metric_values": {
+      "tvpi": "0.24x",
+      "gross_irr": "-87.1%",
+      "net_irr": "-88.3%",
+      "net_tvpi": null,
+      "gross_operating_cash_flow": "$-134K",
+      "asset_count": "30"
+    }
+  },
+  "investment_page": {
+    "label": "investment_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/investments/2d54b971-21ac-41b8-a548-a506fe516c6c?quarter=2025Q4",
+    "final_url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/investments/2d54b971-21ac-41b8-a548-a506fe516c6c?quarter=2025Q4",
+    "status": 200,
+    "page_blocked": false,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON WORKSPACE Meridian Capital Management Real Estate Private Equity PORTFOLIO Funds Investments Assets Pipeline Development INVESTOR OPERATIONS Investors Capital Call Ops Distribution Ops Fees IR Review FUND ACCOUNTING Period Close Variance ANALYTICS Models Dashboards Saved Analyses Reports Sustainability GOVERNANCE Documents Approvals AI Audit AUTOMATION Winston CREATE Fund Investment Manual intake or source docs Asset OVERVIEW FUNDS INVESTMENTS ASSETS K Lineage RELEASED 3881843b requested quarter: 2025Q4 INSTITUTIONAL GROWTH FUND VII / INVESTMENT DETAIL Tech Campus North equity – value_add • Exited • Acquired Aug 21, 2022 • As of 2025 Q4 Generate Report More actions TYPE equity VINTAGE 2021 MARKET Dallas-Fort Worth-Arlington HOLD 3.7 yrs Strong performance Gross IRR is 23.4%, MOIC is 4.07x, and NOI is up 55.4% versus the comparable prior period. GROSS IRR 23.4% ↓ -16 BPS vs 2025 Q3 MOIC 4.07x ↓ -0.02X vs 2025 Q3 CURRENT VALUE $143.7M ↓ -$547K vs 2025 Q3 INVESTMENT OUTCOME Investment Outcome Return metrics and leverage stay in their own band so outcomes read separately from operating drivers. NAV $83.5M ↓ -0.7% vs 2025 Q3 GROSS IRR 23.4% ↓ -16 BPS vs 2025 Q3 MOIC 4.07x ↓ -0.0",
+    "page_errors": [
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    ],
+    "console_errors": [],
+    "responses": [
+      {
+        "url": "https://www.paulmalmquist.com/bos/api/re/v1/context?env_id=a1b2c3d4-0001-0001-0003-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/jvs",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/history",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/funds/a1b2c3d4-0003-0030-0001-000000000001/quarter-state/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/authoritative-state/investment/2d54b971-21ac-41b8-a548-a506fe516c6c/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/lineage/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/assets/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/quarter-state/2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/investments/2d54b971-21ac-41b8-a548-a506fe516c6c/statements?statement=IS&period_type=quarterly&period=2025Q4&scenario=actual&comparison=none&env_id=a1b2c3d4-0001-0001-0003-000000000001&business_id=a1b2c3d4-0001-0001-0001-000000000001",
+        "status": 200,
+        "ok": true
+      }
+    ],
+    "observed_quarters": [
+      "2025Q4"
+    ],
+    "requested_quarter": "2025Q4",
+    "header_text": null,
+    "metric_blocks": {
+      "hero-metric-gross-irr": "GROSS IRR\n\n23.4%\n\n↓ -16 BPS\n\nvs 2025 Q3",
+      "outcome-metric-nav": "NAV\n\n$83.5M\n\n↓ -0.7%\n\nvs 2025 Q3",
+      "outcome-metric-gross-irr": "GROSS IRR\n\n23.4%\n\n↓ -16 BPS\n\nvs 2025 Q3",
+      "operating-metric-noi": "NOI\n\n$-134K\n\n↓ -106.7%\n\nLatest NOI is below the run-rate plan by 11.2%.",
+      "operating-metric-revenue": "REVENUE\n\n$3.1M\n\n→ -0.0%\n\nvs 2025 Q3"
+    },
+    "extracted_values": {
+      "hero_gross_irr": "23.4%",
+      "nav": "$83.5M",
+      "outcome_gross_irr": "23.4%",
+      "noi": "$-134K",
+      "revenue": "$3.1M"
+    }
+  },
+  "asset_page": {
+    "label": "asset_page",
+    "url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+    "final_url": "https://www.paulmalmquist.com/lab/env/a1b2c3d4-0001-0001-0003-000000000001/re/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+    "status": 200,
+    "page_blocked": false,
+    "navigation_error": null,
+    "body_text_excerpt": "WINSTON WORKSPACE Meridian Capital Management Real Estate Private Equity PORTFOLIO Funds Investments Assets Pipeline Development INVESTOR OPERATIONS Investors Capital Call Ops Distribution Ops Fees IR Review FUND ACCOUNTING Period Close Variance ANALYTICS Models Dashboards Saved Analyses Reports Sustainability GOVERNANCE Documents Approvals AI Audit AUTOMATION Winston CREATE Fund Investment Manual intake or source docs Asset OVERVIEW FUNDS INVESTMENTS ASSETS K Lineage RELEASED 3881843b requested quarter: 2026Q2 INSTITUTIONAL GROWTH FUND VII / TECH CAMPUS NORTH / TECH CAMPUS NORTH Tech Campus North exited Office Dallas, TX Dallas-Fort Worth-Arlington Institutional Growth Fund VII ACQUISITION 2024-11-01T00:00:00.000Z COST BASIS $55.0M SALE PRICE $62.4M PROPERTY TYPE Office MARKET Plano/Frisco SALE DATE Jun 29, 2025 HOME LEASING FINANCIALS DEBT VALUATION DOCUMENTS AUDIT PERIOD 2024Q1 2024Q2 2024Q3 2024Q4 2025Q1 2025Q2 2025Q3 2025Q4 2026Q1 2026Q2 2026Q3 2026Q4 Historical NOI BRIDGE · 2025Q4 Revenue OpEx NOI $0 $550K $1.1M $1.6M $2.2M QUARTERLY HISTORY QUARTER REVENUE OPEX NOI 2024Q1 $1.5M $544K $1.0M 2024Q2 $1.6M $558K $1.0M 2024Q3 $1.6M $573K $1.1M 2024Q4 $1.2M $449K $775K 2025Q1 $1.9",
+    "page_errors": [],
+    "console_errors": [],
+    "responses": [
+      {
+        "url": "https://www.paulmalmquist.com/bos/api/re/v1/context?env_id=a1b2c3d4-0001-0001-0003-000000000001",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/authoritative-state/asset/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/2026Q2",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/lineage/2026Q2",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/periods",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/quarter-state/2026Q2",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/accounting/trial-balance?quarter=2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/accounting/transactions?quarter=2025Q4",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "https://www.paulmalmquist.com/api/re/v2/assets/3371333b-a54a-46e3-b4d9-0ad8443dd6a9/accounting/pnl?quarter=2025Q4",
+        "status": 200,
+        "ok": true
+      }
+    ],
+    "observed_quarters": [
+      "2025Q4",
+      "2026Q2"
+    ],
+    "requested_quarter": "2025Q4",
+    "selected_quarter": "2025Q4",
+    "history_row": [
+      "2025Q4",
+      "$1.9M",
+      "$668K",
+      "$1.2M"
+    ],
+    "pnl_rows": [
+      {
+        "line_code": "ADMIN",
+        "amount": "$-49K"
+      },
+      {
+        "line_code": "INSURANCE",
+        "amount": "$-200K"
+      },
+      {
+        "line_code": "MGMT_FEE_PROP",
+        "amount": "$-58K"
+      },
+      {
+        "line_code": "MGMT_FEES",
+        "amount": "$-100K"
+      },
+      {
+        "line_code": "OTHER_INCOME",
+        "amount": "$600K"
+      },
+      {
+        "line_code": "PAYROLL",
+        "amount": "$-500K"
+      },
+      {
+        "line_code": "RENT",
+        "amount": "$3.4M"
+      },
+      {
+        "line_code": "REPAIRS",
+        "amount": "$-84K"
+      },
+      {
+        "line_code": "REPAIRS_MAINT",
+        "amount": "$-150K"
+      },
+      {
+        "line_code": "TAXES",
+        "amount": "$-400K"
+      },
+      {
+        "line_code": "UTILITIES",
+        "amount": "$-400K"
+      },
+      {
+        "line_code": "VACANCY",
+        "amount": "$-108K"
+      }
+    ]
+  },
+  "stone_pages": [
+    {
+      "label": "stone_command_center",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds",
+      "final_url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "Stone PDS Executive Recovery System Lead with the problem, open the project, and ship the recovery report while the numbers stay coherent. Environment env_stonepds Business 68b3d128 Template pds_workspace Home DEMO FLOW Intervention Queue Projects Report Output RECOVERY VIEWS Cost Breakdown Operating Posture Audit Log TOOLS AI Command Layer could not determine data type of parameter $7 (req: ab248d6a-9253-483f-aca5-468d34d6a043) Ask Winston Intervention Queue Where should I focus? Summarize operations Delivery risks Next actions Send Summarize operations Delivery risks Next actions Explore Home PDS command home Projects Delivery and project health Financials Revenue and plan",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [
+        "Failed to load resource: the server responded with a status of 500 ()",
+        "{\"ts\":\"2026-04-11T02:29:58.078Z\",\"level\":\"error\",\"service\":\"frontend\",\"env_id\":null,\"business_id\":null,\"user\":\"anonymous\",\"request_id\":\"ab248d6a-9253-483f-aca5-468d34d6a043\",\"run_id\":null,\"action\":\"api.request_error\",\"message\":\"API request failed\",\"context\":{\"route\":\"/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds\",\"path\":\"/api/pds/v2/command-center\",\"method\":\"GET\",\"request_id\":\"ab248d6a-9253-483f-aca5-468d34d6a043\",\"run_id\":null,\"status\":500,\"content_type\":\"application/json\",\"response_request_id\":\"ab248d6a-9253-483f-aca5-468d34d6a043\",\"duration_ms\":1815},\"duration_ms\":1815}"
+      ],
+      "responses": [
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/context?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v2/command-center?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d&lens=project&horizon=Forecast&role_preset=executive",
+          "status": 500,
+          "ok": false
+        }
+      ],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_pipeline",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/pipeline",
+      "final_url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/pipeline",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "Stone PDS Executive Recovery System Lead with the problem, open the project, and ship the recovery report while the numbers stay coherent. Environment env_stonepds Business 68b3d128 Template pds_workspace Home DEMO FLOW Intervention Queue Projects Report Output RECOVERY VIEWS Cost Breakdown Operating Posture Audit Log TOOLS AI Command Layer PORTFOLIO Pipeline Turn the StonePDS pipeline into an operating surface: see what is coming in, what is likely to close, what is stuck, and what to push next. Create Deal ACTION LAYER Deals Requiring Attention OVERDUE CLOSE Healthcare Campus Modernization $1,650,000 Close date is overdue. Update the close plan or push the deal forward. Retail Portfolio Rollout $1,120,000 Close date is overdue. Update the close plan or push the deal forward. STALLED Life Sciences Lab Upgrade $980,000 No recent activity on the deal. Re-engage the owner and refresh next steps. Regional Office Consolidation $910,000 No recent activity on the deal. Re-engage the owner and refresh next steps. HIGH VALUE / LOW PROB Data Center Expansion PMO $2,200,000 High value with low close probability. Reassess qualification or raise confidence with a concrete next action. CLOSING ",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/context?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v2/pipeline?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        }
+      ],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_forecast",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/forecast",
+      "final_url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/forecast",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "Stone PDS Executive Recovery System Lead with the problem, open the project, and ship the recovery report while the numbers stay coherent. Environment env_stonepds Business 68b3d128 Template pds_workspace Home DEMO FLOW Intervention Queue Projects Report Output RECOVERY VIEWS Cost Breakdown Operating Posture Audit Log TOOLS AI Command Layer Pipeline & Portfolio Track variable revenue pipeline and dedicated account portfolio health. Pipeline (Variable) Portfolio (Dedicated) Deal Funnel $0k $150k $300k $450k $600k active completed on_hold cancelled Weighted ValueUnweighted Value Total Deals: 202 Weighted Pipeline: $523,990 Coverage Ratio: 3.52x Ask Winston Environment a2ac9edd How can I make this easier? Summarize operations Delivery risks Next actions Send Summarize operations Delivery risks Next actions Explore Home PDS command home Projects Delivery and project health Financials Revenue and plan active",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/context?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v2/revenue/pipeline?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        }
+      ],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    },
+    {
+      "label": "stone_project_detail",
+      "url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/projects/e0000001-0000-4da0-0002-000000000001",
+      "final_url": "https://www.paulmalmquist.com/lab/env/a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2/pds/projects/e0000001-0000-4da0-0002-000000000001",
+      "status": 200,
+      "page_blocked": false,
+      "navigation_error": null,
+      "body_text_excerpt": "Stone PDS Executive Recovery System Lead with the problem, open the project, and ship the recovery report while the numbers stay coherent. Environment env_stonepds Business 68b3d128 Template pds_workspace Home DEMO FLOW Intervention Queue Projects Report Output RECOVERY VIEWS Cost Breakdown Operating Posture Audit Log TOOLS AI Command Layer PROJECT COCKPIT Corporate HQ Renovation — Phase 2 No code Run Snapshot Generate Recovery Report Back to Projects BUDGET HEALTH $400,000 SCHEDULE HEALTH on track OPEN RFIS 0 OPEN RISKS 0 TEAM SIZE 1 PENDING COS 0 Overview Budget Schedule Change Orders Contracts Field Reports AI Assistant BEFORE / AFTER What changes if we execute the recommendation? Before After VARIANCE $400,000 SCHEDULE SLIP 0 days RECOMMENDED ACTION Reforecast the remaining work and clear remaining blockers. MILESTONE TIMELINE No milestones have been loaded yet. RECENT ACTIVITY No recent activity yet. Ask Winston Environment a2ac9edd What should I execute? Summarize operations Delivery risks Next actions Send Summarize operations Delivery risks Next actions Explore Home PDS command home Projects Delivery and project health Financials Revenue and plan",
+      "page_errors": [
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #425; visit https://react.dev/errors/425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #418; visit https://react.dev/errors/418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+        "Minified React error #423; visit https://react.dev/errors/423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "console_errors": [],
+      "responses": [
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/context?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/schedule?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/site-reports?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/contracts?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/budget?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/change-orders?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "url": "https://www.paulmalmquist.com/bos/api/pds/v1/projects/e0000001-0000-4da0-0002-000000000001/overview?env_id=a2ac9edd-fa26-4ca0-bf96-f64f1fee91f2&business_id=68b3d128-bb6d-4d34-818f-608a6a22847d",
+          "status": 200,
+          "ok": true
+        }
+      ],
+      "observed_quarters": [],
+      "datetime_crash_detected": false,
+      "hard_failure_detected": false
+    }
+  ]
+}

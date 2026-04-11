@@ -256,3 +256,74 @@ def test_alerts_route_returns_empty_when_table_missing(client, fake_cursor):
     data = response.json()
     assert data["alerts"] == []
     assert data["count"] == 0
+
+
+# ── Cross-consistency: backend service math must match skills/ service math ──
+#
+# The backend FastAPI service has its own copy of the Hoyt/era-discount math
+# because backend/ and skills/ are sibling roots with no shared import path.
+# This test asserts both copies agree on canonical inputs so drift is caught
+# by CI. If this test fails, fix whichever copy is wrong — don't relax the
+# assertion.
+
+
+def test_backend_hoyt_math_matches_shared_services():
+    """Backend service and skills/ shared service must return identical Hoyt positions."""
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    from skills.historyrhymes.services.hoyt_cycle import (
+        hoyt_cycle_position as shared_hoyt,
+    )
+    from app.services.history_rhymes_service import hoyt_cycle_position as backend_hoyt
+
+    for test_date in [
+        date(2009, 3, 1),    # Anchor
+        date(2015, 6, 15),
+        date(2020, 1, 1),
+        date(2026, 4, 10),   # Current (late peak)
+        date(2027, 3, 1),    # Near wrap
+    ]:
+        assert shared_hoyt(test_date) == pytest.approx(backend_hoyt(test_date), abs=1e-9), (
+            f"Hoyt math drift at {test_date}: "
+            f"shared={shared_hoyt(test_date)}, backend={backend_hoyt(test_date)}"
+        )
+
+
+def test_backend_era_discount_matches_shared_services():
+    """Backend service and skills/ shared service must return identical era discounts."""
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    from skills.historyrhymes.services.era_discount import (
+        apply_structural_era_discount as shared_discount,
+    )
+    from app.services.history_rhymes_service import (
+        apply_structural_era_discount as backend_discount,
+    )
+
+    full_modalities = {"vix_z": 1, "hy_oas_z": 1, "btc_z": 1, "perp_funding_z": 1}
+
+    test_cases = [
+        (0.80, 1973, full_modalities),
+        (0.80, 1990, full_modalities),
+        (0.80, 2010, full_modalities),
+        (0.80, 2020, full_modalities),
+        (0.80, 1973, {}),           # No modalities
+        (1.00, 1973, full_modalities),  # Floor test
+    ]
+
+    for score, year, state in test_cases:
+        s = shared_discount(score, year, state)
+        b = backend_discount(score, year, state)
+        assert s == pytest.approx(b, abs=1e-9), (
+            f"Era discount drift: ({score=}, {year=}) shared={s}, backend={b}"
+        )
