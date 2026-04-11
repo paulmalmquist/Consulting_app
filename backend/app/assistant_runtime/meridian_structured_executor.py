@@ -18,7 +18,6 @@ Hard-mapped use cases (spec §E):
 from __future__ import annotations
 
 import re
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -27,19 +26,6 @@ from uuid import UUID
 from app.assistant_runtime.meridian_structured_parser import MeridianStructuredContract
 from app.db import get_cursor
 from app.observability.logger import emit_log
-
-# Phase 4 follow-up: the single-metric snapshot executor needs the
-# original user message to resolve fund names that the parser did not
-# pre-populate into contract.entity_name. The gate sets this right
-# before calling execute_meridian_contract; callers from elsewhere can
-# leave it None.
-_CONTEXT_MESSAGE: ContextVar[str | None] = ContextVar("meridian_structured_message", default=None)
-
-
-def set_executor_message_context(message: str | None) -> None:
-    """Set the original user message on the executor contextvar so
-    single-metric snapshot reads can resolve fund names."""
-    _CONTEXT_MESSAGE.set(message)
 
 
 @dataclass
@@ -660,14 +646,18 @@ def _execute_fund_metric_snapshot(
     contract: MeridianStructuredContract,
     business_id: str,
     env_id: str,
+    *,
+    raw_message: str | None = None,
 ) -> StructuredExecutionResult:
     """Read a single canonical_metrics field from the released fund snapshot.
 
     Routes:
       metric ∈ SNAPSHOT_FUND_METRIC_META → direct snapshot read for the
       scoped fund at contract.timeframe_value. Refuses portfolio
-      aggregates. Fund resolution order: (1) entity_name, (2) scan the
-      original message against the fund list, (3) single-fund fallback.
+      aggregates. Fund resolution order:
+        1. contract.entity_name (if parser extracted it)
+        2. substring / token match of raw_message against list_funds
+        3. single-fund fallback (only one fund in scope)
 
     Authoritative State Lockdown — Phase 4 follow-up.
     """
@@ -697,18 +687,12 @@ def _execute_fund_metric_snapshot(
                 fund_name = f.get("name")
                 break
 
-    # Fallback 1: scan the contract's original matched patterns for a
-    # fund-name substring. The contract dataclass stores _matched_patterns
-    # but not the raw message. The executor signature does not include
-    # the raw message either. Instead, read the latest thread_state
-    # active_context for a resolved fund identity.
-    if not fund_id:
-        match = _match_fund_from_message(_CONTEXT_MESSAGE.get() or "", funds)
+    if not fund_id and raw_message:
+        match = _match_fund_from_message(raw_message, funds)
         if match:
             fund_id = str(match.get("fund_id") or "")
             fund_name = match.get("name")
 
-    # Fallback 2: single fund in scope.
     if not fund_id and len(funds) == 1:
         fund_id = str(funds[0].get("fund_id") or "")
         fund_name = funds[0].get("name")
@@ -878,8 +862,15 @@ def execute_meridian_contract(
     business_id: str,
     env_id: str,
     thread_state: dict[str, Any] | None = None,
+    raw_message: str | None = None,
 ) -> StructuredExecutionResult | None:
-    """Execute a parsed contract.  Returns None if no executor matches."""
+    """Execute a parsed contract.  Returns None if no executor matches.
+
+    raw_message is the original user message; it is forwarded to
+    executors that need to resolve entities the parser did not
+    pre-populate (e.g. single-metric snapshot reads that need a fund
+    name that's only in the free-text question).
+    """
     use_case = _route_contract(contract)
 
     emit_log(
@@ -901,7 +892,12 @@ def execute_meridian_contract(
         return None
 
     try:
-        result = executor(contract, business_id, env_id)
+        # Phase 4 follow-up: fund_metric_snapshot needs the raw message
+        # to resolve a fund name not populated by the parser.
+        if use_case == "fund_metric_snapshot":
+            result = executor(contract, business_id, env_id, raw_message=raw_message)
+        else:
+            result = executor(contract, business_id, env_id)
         result.structured_receipt = {
             "parsed_contract": {
                 "entity": contract.entity,
