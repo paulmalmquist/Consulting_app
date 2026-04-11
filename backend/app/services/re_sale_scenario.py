@@ -248,9 +248,14 @@ def compute_scenario_metrics(
     # Rebuild with net terminal value
     gross_return = scenario_total_distributed + scenario_nav - total_called
 
-    # Carry estimate (simplified for scenario)
+    # Carry estimate (simplified for scenario).
+    # Patch B: _compute_waterfall_carry returns None when no waterfall is defined.
+    # For scenario modeling purposes (not authoritative reporting), treat None as
+    # zero carry so arithmetic doesn't crash; net TVPI will still exclude carry.
     from app.services.re_fund_metrics import _compute_waterfall_carry
     carry_estimate = _compute_waterfall_carry(fund_id, quarter, gross_return, total_called)
+    if carry_estimate is None:
+        carry_estimate = Decimal("0")
 
     net_terminal = max(scenario_nav - mgmt_fees - fund_expenses - carry_estimate, Decimal("0"))
     net_cashflows: list[tuple[date, Decimal]] = []
@@ -276,7 +281,7 @@ def compute_scenario_metrics(
 
     # ── Compute scenario multiples ───────────────────────────────────────
     scenario_gross_tvpi = ((scenario_total_distributed + scenario_nav) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
-    scenario_net_tvpi = ((scenario_total_distributed + scenario_nav - mgmt_fees - fund_expenses - carry_estimate) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
+    scenario_net_tvpi = ((scenario_total_distributed + scenario_nav - mgmt_fees - fund_expenses - carry_estimate) / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None  # carry_estimate is 0 when waterfall not defined
     scenario_dpi = (scenario_total_distributed / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
     scenario_rvpi = (scenario_nav / total_called).quantize(Decimal("0.0001")) if total_called > 0 else None
 

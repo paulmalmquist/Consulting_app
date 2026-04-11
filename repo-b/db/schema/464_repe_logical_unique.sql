@@ -31,21 +31,21 @@ COMMENT ON INDEX uidx_repe_deal_logical IS
     'Prevents duplicate deal rows within a fund.';
 
 -- ── repe_asset ─────────────────────────────────────────────────────────────
--- An asset is uniquely identified within a deal by (name, property_type).
--- The (name, property_type) pair is used rather than name alone because
+-- An asset is uniquely identified within a deal by (name, asset_type).
+-- The (name, asset_type) pair is used rather than name alone because
 -- the same property address can appear with different product types
 -- (e.g. office vs. retail at the same address) as distinct assets.
 
 CREATE UNIQUE INDEX IF NOT EXISTS uidx_repe_asset_logical
-    ON repe_asset (deal_id, lower(name), property_type)
-    WHERE property_type IS NOT NULL;
+    ON repe_asset (deal_id, lower(name), asset_type)
+    WHERE asset_type IS NOT NULL;
 
--- Fallback constraint when property_type is NULL (seed / pipeline assets)
+-- Fallback constraint when asset_type is NULL (seed / pipeline assets)
 CREATE UNIQUE INDEX IF NOT EXISTS uidx_repe_asset_logical_null_type
     ON repe_asset (deal_id, lower(name))
-    WHERE property_type IS NULL;
+    WHERE asset_type IS NULL;
 
 COMMENT ON INDEX uidx_repe_asset_logical IS
-    'Prevents duplicate asset rows within a deal when property_type is set.';
+    'Prevents duplicate asset rows within a deal when asset_type is set.';
 COMMENT ON INDEX uidx_repe_asset_logical_null_type IS
-    'Prevents duplicate asset rows within a deal when property_type is NULL.';
+    'Prevents duplicate asset rows within a deal when asset_type is NULL.';

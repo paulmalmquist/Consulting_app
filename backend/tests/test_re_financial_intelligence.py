@@ -12,6 +12,7 @@ Tests:
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from tests.conftest import FakeCursor
 
@@ -153,8 +154,14 @@ class TestQuarterCloseCreatesRun:
         }])
 
         # 5-9: compute_return_metrics queries
-        # SELECT fund_state
-        fake_cursor.push_result([{"portfolio_nav": Decimal("28000000")}])
+        # compute_return_metrics now calls get_authoritative_state (Patch C) which opens
+        # its own DB connection outside the FakeCursor. Mock it here so the cursor queue
+        # stays aligned: no "SELECT fund_state" push needed anymore.
+        _auth_state_mock = {
+            "promotion_state": "released",
+            "null_reason": None,
+            "state": {"canonical_metrics": {"ending_nav": "28000000", "portfolio_nav": "28000000"}},
+        }
         # SELECT cash totals
         fake_cursor.push_result([{"total_called": Decimal("25000000"), "total_distributed": Decimal("1500000")}])
         # SELECT re_cash_event for gross XIRR
@@ -209,12 +216,13 @@ class TestQuarterCloseCreatesRun:
         # 10: complete_run UPDATE
         fake_cursor.push_result([])
 
-        response = client.post("/api/re/v2/runs/quarter_close", json={
-            "env_id": ENV_ID,
-            "business_id": BUSINESS_ID,
-            "fund_id": FUND_ID,
-            "quarter": "2026Q1",
-        })
+        with patch("app.services.re_fund_metrics.get_authoritative_state", return_value=_auth_state_mock):
+            response = client.post("/api/re/v2/runs/quarter_close", json={
+                "env_id": ENV_ID,
+                "business_id": BUSINESS_ID,
+                "fund_id": FUND_ID,
+                "quarter": "2026Q1",
+            })
 
         assert response.status_code == 200
         data = response.json()

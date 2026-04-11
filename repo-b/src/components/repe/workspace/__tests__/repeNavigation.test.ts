@@ -24,7 +24,7 @@ describe("REPE navigation model", () => {
   });
 
   it("maps the core section items to the requested order", () => {
-    expect(groups[0]?.items.map((item) => item.label)).toEqual(["Funds", "Investments", "Assets", "Pipeline", "Development"]);
+    expect(groups[0]?.items.map((item) => item.label)).toEqual(["Funds", "Investments", "Assets", "Pipeline", "Opportunities", "Development"]);
     expect(groups[1]?.items.map((item) => item.label)).toEqual(["Investors", "Capital Call Ops", "Distribution Ops", "Fees", "IR Review"]);
     expect(groups[2]?.items.map((item) => item.label)).toEqual(["Period Close", "Variance"]);
     expect(groups[3]?.items.map((item) => item.label)).toEqual(["Models", "Dashboards", "Saved Analyses", "Reports", "Sustainability"]);
