@@ -346,6 +346,27 @@ def first_percent(text: str | None) -> Decimal | None:
     return Decimal(match.group(1)) if match else None
 
 
+def labeled_percent(text: str | None, label: str) -> Decimal | None:
+    """Return the percent value that appears immediately after a
+    specific label in the text. Used by the assistant-vs-authoritative
+    check when the response contains multiple percent values and we
+    need the one for a specific metric.
+
+    Example: find 'Net IRR' in the text, then return -88.3 from
+    "... Net IRR: -88.3% ...".
+    """
+    if not text or not label:
+        return None
+    pattern = re.compile(
+        rf"{re.escape(label)}\s*[:\-–—]?\s*\**\s*(-?\d+(?:\.\d+)?)\s*%",
+        re.IGNORECASE,
+    )
+    match = pattern.search(text)
+    if match:
+        return Decimal(match.group(1))
+    return first_percent(text)
+
+
 def first_int(text: str | None) -> int | None:
     if not text:
         return None
@@ -354,20 +375,35 @@ def first_int(text: str | None) -> int | None:
 
 
 def first_money(text: str | None) -> Decimal | None:
+    """Parse the first $-amount in the text, tolerating commas, minus
+    signs before or after the dollar sign, and optional K/M/B suffixes.
+    Examples handled:
+      - "$1.5M"
+      - "-$134K"
+      - "$-133,645"
+      - "$(1,000)"  (accounting negative)
+    """
     if not text:
         return None
-    match = re.search(r"(-?)\$(\d+(?:\.\d+)?)([KMB])?", text)
+    # Accounting-style negatives: "$(1,234.56)"
+    match = re.search(r"\$\(\s*([\d,]+(?:\.\d+)?)\s*\)", text)
+    if match:
+        return Decimal(match.group(1).replace(",", "")) * Decimal("-1")
+    # Standard pattern: optional leading minus, $, optional minus, number with commas, optional suffix.
+    match = re.search(r"(-)?\$\s*(-)?([\d,]+(?:\.\d+)?)([KMB])?", text)
     if not match:
         return None
-    value = Decimal(match.group(2))
-    suffix = match.group(3)
+    lead_minus = match.group(1) == "-"
+    inner_minus = match.group(2) == "-"
+    value = Decimal(match.group(3).replace(",", ""))
+    suffix = match.group(4)
     if suffix == "K":
         value *= Decimal("1000")
     elif suffix == "M":
         value *= Decimal("1000000")
     elif suffix == "B":
         value *= Decimal("1000000000")
-    if match.group(1) == "-":
+    if lead_minus or inner_minus:
         value *= Decimal("-1")
     return value
 
@@ -1141,7 +1177,10 @@ def main() -> None:
             "label": "fund_net_irr",
             "message": "What is the net IRR for Institutional Growth Fund VII in 2025Q4?",
             "expected_numeric": Decimal("100") * Decimal(str(fund_authoritative["canonical_metrics"]["net_irr"])),
-            "extractor": first_percent,
+            # The fund_performance handler returns multiple funds and
+            # multiple percent values in one answer. Use the label-aware
+            # extractor so we pin to the Net IRR specifically.
+            "extractor": lambda t: labeled_percent(t, "Net IRR"),
             "expected_display": fmt_pct(fund_authoritative["canonical_metrics"]["net_irr"]),
         },
         {
