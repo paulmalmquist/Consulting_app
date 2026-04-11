@@ -275,8 +275,6 @@ def test_approve_requires_completed_model_run(monkeypatch):
             def __enter__(self): return self
             def __exit__(self, *a): pass
 
-        from contextlib import contextmanager
-
         @contextmanager
         def ctx():
             yield NullCur()

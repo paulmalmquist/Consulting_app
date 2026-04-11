@@ -8,7 +8,7 @@ moves, etc.) that may be clustered into investment hypotheses
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from uuid import UUID
 
 from app.db import get_cursor

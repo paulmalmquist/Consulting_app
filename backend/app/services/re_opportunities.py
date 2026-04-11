@@ -583,15 +583,6 @@ def _score_fund_fit(opportunity_id: str | UUID, fund_id: str | UUID) -> float:
             except (TypeError, ValueError):
                 pass
 
-        breakdown = {
-            "mandate": round(mandate_score, 2),
-            "geography": round(geo_score, 2),
-            "concentration": round(concentration_score, 2),
-            "capital_availability": round(cap_score, 2),
-            "duration": round(duration_score, 2),
-            "leverage_tolerance": round(leverage_score, 2),
-        }
-
         fund_fit = (
             0.20 * mandate_score
             + 0.20 * geo_score

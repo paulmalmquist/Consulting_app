@@ -17,7 +17,6 @@ if the DB is not available (CI without DB fixture).
 from __future__ import annotations
 
 import pytest
-from decimal import Decimal
 
 
 pytestmark = pytest.mark.skipif(

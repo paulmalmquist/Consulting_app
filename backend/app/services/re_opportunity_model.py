@@ -540,7 +540,7 @@ def compute_fund_impact(
     nav_delta = nav_after - nav_before
 
     # 6-component fund fit breakdown
-    from app.services.re_opportunities import _score_fund_fit, _score_mandate, _score_geography
+    from app.services.re_opportunities import _score_fund_fit
     fund_fit = _score_fund_fit(opportunity_id, fund_id)
 
     allocation_pct = (opp_eq / nav_before * 100) if nav_before > 0 else 0.0
@@ -927,7 +927,6 @@ def get_receipts(opportunity_id: str | UUID) -> dict:
       "generated_at": "ISO"
     }
     """
-    from app.services.re_signals import get_signal
     from app.services.re_opportunities import get_score_breakdown, get_signal_links
 
     opp = get_opportunity(opportunity_id)

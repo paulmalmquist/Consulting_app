@@ -1049,8 +1049,7 @@ def run_opportunity_model(
     re_fund_quarter_state, re_capital_ledger_entry, or scenario_*_cashflows.
     """
     import json as _json
-    from datetime import date, timedelta
-    from decimal import Decimal as _D
+    from datetime import date
 
     # ── Step 1: Load assumptions ───────────────────────────────────────────────
     with get_cursor() as cur:
@@ -1087,22 +1086,10 @@ def run_opportunity_model(
     capex_reserve_pct = _fi(av.get("capex_reserve_pct"), 0.005)
     fee_load_pct = _fi(av.get("fee_load_pct"), 0.015)
 
-    # Optional structured extensions (operating_json, lease_json, etc.)
-    # These may enrich period generation but NEVER override flat canonical values.
-    operating_json: dict = {}
-    if isinstance(av.get("operating_json"), str):
-        try:
-            operating_json = _json.loads(av["operating_json"])
-        except Exception:
-            pass
-    elif isinstance(av.get("operating_json"), dict):
-        operating_json = av["operating_json"]
-
     # ── Step 2: Generate synthetic quarterly periods ──────────────────────────
     quarters = hold_years * 4
     today = date.today()
     op_cfs: list[PeriodCashflow] = []
-    annual_noi = base_noi
 
     for i in range(quarters):
         # Period date: start from next full quarter
