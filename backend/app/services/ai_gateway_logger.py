@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def log_request(
     *,
+    request_id: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
     business_id: str | None = None,
@@ -58,6 +59,7 @@ def log_request(
         with get_cursor() as cur:
             cur.execute(
                 """INSERT INTO ai_gateway_logs (
+                    request_id,
                     conversation_id, session_id, business_id, env_id, actor,
                     message_preview, route_lane, route_model, is_write, workflow_override,
                     prompt_tokens, completion_tokens, cached_tokens, reasoning_effort,
@@ -69,6 +71,7 @@ def log_request(
                     timings_json, rag_cache_hit, embedding_cache_hit,
                     prompt_audit_json, matched_pattern
                 ) VALUES (
+                    %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
@@ -81,6 +84,7 @@ def log_request(
                     %s, %s
                 ) RETURNING id""",
                 (
+                    request_id,
                     conversation_id,
                     session_id,
                     business_id,

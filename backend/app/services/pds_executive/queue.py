@@ -96,8 +96,8 @@ def upsert_queue_item(
                   %s::uuid IS NULL
                   AND project_id IS NULL
                   AND (
-                    %s IS NULL
-                    OR COALESCE(context_json->>'correlation_key', '') = %s
+                    %s::text IS NULL
+                    OR COALESCE(context_json->>'correlation_key', '') = %s::text
                   )
                 )
               )

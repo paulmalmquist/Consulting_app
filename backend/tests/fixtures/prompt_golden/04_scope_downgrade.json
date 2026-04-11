@@ -1,0 +1,22 @@
+{
+  "id": "scope_downgrade",
+  "description": "Profile requires an entity but the scope is empty — strategy must fail closed (downgrade to default) rather than hallucinate.",
+  "router_lane": "B",
+  "router_skill_id": null,
+  "router_intent": "explain_metric.irr",
+  "scope": {
+    "environment_id": "env-1",
+    "business_id": "biz-1"
+  },
+  "envelope": {
+    "environment_name": "Meridian Capital Management"
+  },
+  "history": [],
+  "summary_text": null,
+  "user_message": "what is the IRR",
+  "expected": {
+    "profile": "default",
+    "lane": "B",
+    "scope_downgraded": true
+  }
+}

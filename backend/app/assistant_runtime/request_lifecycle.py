@@ -56,7 +56,7 @@ from app.services import audit as audit_svc
 from app.services import ai_conversations as convo_svc
 from app.services.ai_client import get_instrumented_client
 from app.services.assistant_blocks import citations_block, confirmation_block, markdown_block
-from app.services.assistant_scope import build_context_block, resolve_visible_context_policy
+from app.services.assistant_scope import resolve_visible_context_policy
 from app.services.model_registry import get_caps, map_openai_error, sanitize_params
 from app.services.pending_action_manager import (
     _CONFIRM_RE,
@@ -65,6 +65,14 @@ from app.services.pending_action_manager import (
     execute_confirmed_action,
 )
 from app.services.rag_indexer import RetrievedChunk
+from app.services.context_compiler import CompiledContext, compile_context
+from app.services.prompt_strategy import (
+    minimal_prompt_for_lane_a,
+    strategize,
+)
+from app.services import prompt_receipts
+from app.services import thread_summary as thread_summary_svc
+from app.services import ai_gateway_logger
 
 _SOURCE_AUDIT_RE = re.compile(
     r"\b(what data is this based on|what is this based on|what data did you use|what source(?:s)? did you use|"
@@ -86,6 +94,17 @@ class FastResponse:
     text: str
     response_blocks: list[dict[str, Any]]
     pending_action: dict[str, Any] | None = None
+
+
+def _lane_letter(lane: Any) -> str:
+    """Normalize a Lane enum or string to its bare letter ('A', 'B', 'C', 'D')."""
+    if lane is None:
+        return "B"
+    value = getattr(lane, "value", None) or str(lane)
+    key = str(value).upper()
+    if "_" in key:
+        key = key.split("_", 1)[0]
+    return key if key in ("A", "B", "C", "D") else "B"
 
 
 def _to_decimal(value: Any) -> Decimal | None:
@@ -807,8 +826,13 @@ async def run_request_lifecycle(
     actor: str = "anonymous",
     pending_continuation: bool = False,
     pending_question_text: str | None = None,
+    request_id: str | None = None,
+    new_conversation_created: bool = False,
 ) -> AsyncGenerator[str, None]:
-    request_id = f"req_{uuid.uuid4()}"
+    # Trace id honors x-bm-request-id from the browser when present so the
+    # receipt and the gateway log join 1:1 on the same id. Without this the
+    # unified runtime minted its own id and broke end-to-end traceability.
+    request_id = request_id or f"req_{uuid.uuid4()}"
     started_at = time.time()
     session_id = session_id or str(uuid.uuid4())
     timings: dict[str, int | None] = {
@@ -1547,32 +1571,151 @@ async def run_request_lifecycle(
         return
 
     prepared_tools = prepare_tools(lane=lane, skill=routed_skill.selection)
-    context_block = build_context_block(
-        context_envelope=normalized_envelope,
-        resolved_scope=resolved_scope,
-        additional_instructions=visible_context_policy["instructions"],
-    )
-    history_msgs: list[dict[str, str]] = []
+    # ── Load full history (for compiler) and load current thread summary ──
+    full_history: list[dict[str, Any]] = []
+    prior_messages_found = 0
     if conversation_id:
         try:
-            history = await asyncio.get_event_loop().run_in_executor(None, convo_svc.get_messages, conversation_id)
-            for msg in [m for m in history if m["role"] in ("user", "assistant")][-6:]:
-                history_msgs.append({"role": msg["role"], "content": msg["content"] or ""})
+            raw_history = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: convo_svc.get_messages(conversation_id=conversation_id)
+            )
+            full_history = [
+                m
+                for m in (raw_history or [])
+                if m.get("role") in ("user", "assistant")
+            ]
+            prior_messages_found = len(full_history)
         except Exception:
-            history_msgs = []
+            full_history = []
+            prior_messages_found = 0
+
+    summary_text: str | None = None
+    summary_version: int | None = None
+    if conversation_id:
+        try:
+            loaded_text, loaded_version, _ = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: thread_summary_svc.load_summary(conversation_id)
+            )
+            summary_text = loaded_text
+            summary_version = loaded_version if loaded_version else None
+        except Exception:
+            summary_text = None
+            summary_version = None
 
     effective_model = route.model
     caps = get_caps(effective_model)
     system_role = "developer" if (caps.supports_reasoning_effort and not caps.supports_temperature) else "system"
-    messages, _prompt_audit = compose_runtime_messages(
-        lane=route.lane,
-        context_block=context_block,
-        rag_context=retrieval_execution.context_text,
-        history=history_msgs,
+
+    # ── Layer 1: Prompt Strategy Engine ─────────────────────────────────
+    _lane_key = _lane_letter(route.lane)
+    plan = strategize(
+        router_lane=_lane_key,
+        router_skill_id=routed_skill.selection.skill_id,
+        router_intent=None,
+        resolved_scope=resolved_scope,
+        context_envelope=normalized_envelope,
+        history_messages=full_history,
+        summary_text=summary_text,
+        summary_version=summary_version,
         user_message=message,
-        skill=routed_skill.selection,
-        system_role=system_role,
     )
+
+    # ── Layer 2: Context Compiler (unless lane-A minimal bypass) ─────────
+    workflow_aug_text = pending_question_text or ""
+    compiled: CompiledContext | None = None
+    if not plan.is_minimal:
+        compiled = compile_context(
+            plan=plan,
+            model=effective_model,
+            history_messages=full_history,
+            raw_rag_chunks=list(retrieval_execution.chunks or []),
+            workflow_augmentation=workflow_aug_text,
+            domain_blocks=None,
+        )
+        # Layer 3: compose OpenAI messages via compose_from_compiled
+        messages, _prompt_audit, _prompt_sections = compose_runtime_messages(
+            compiled=compiled,
+            system_role=system_role,
+        )
+    else:
+        # Minimal path: 3-message prompt, no compile step.
+        from app.assistant_runtime.prompt_registry import (
+            SYSTEM_PROMPT_FILE as _MIN_SYS_FILE,
+            load_prompt as _load_min_prompt,
+        )
+        system_base_minimal = _load_min_prompt(_MIN_SYS_FILE)
+        messages = minimal_prompt_for_lane_a(
+            system_base=system_base_minimal,
+            resolved_user_text=plan.resolved_user_text,
+            scope=plan.scope,
+            system_role=system_role,
+        )
+        _prompt_audit = None
+        _prompt_sections = None
+
+    # ── Continuity notes (used by every receipt row this turn) ──────────
+    _continuity_notes: dict[str, Any] = {
+        "requested_conversation_id": str(conversation_id) if conversation_id else None,
+        "resolved_conversation_id": str(conversation_id) if conversation_id else None,
+        "prior_messages_found": prior_messages_found,
+        "prior_messages_included": (
+            compiled.item("history").metadata.get("turns_included", 0)
+            if compiled and compiled.item("history")
+            else 0
+        ),
+        "thread_entity_state_loaded": bool(thread_entity_state),
+        "thread_entity_state_injected": bool(
+            runtime_context.receipt.inherited_entity_id
+        ),
+        "inherited_entity_id": runtime_context.receipt.inherited_entity_id,
+        "inherited_entity_source": runtime_context.receipt.inherited_entity_source,
+        "new_conversation_created": new_conversation_created,
+    }
+
+    # ── Layer 4: HOOK A — initial receipt capture (pre-send) ─────────────
+    try:
+        if prompt_receipts.is_enabled():
+            if plan.is_minimal:
+                _receipt = prompt_receipts.build_receipt_minimal(
+                    request_id=request_id,
+                    conversation_id=str(conversation_id) if conversation_id else None,
+                    session_id=session_id,
+                    env_id=str(resolved_scope.environment_id) if resolved_scope.environment_id else None,
+                    business_id=str(resolved_scope.business_id) if resolved_scope.business_id else None,
+                    actor=actor,
+                    model=effective_model,
+                    plan=plan,
+                    system_base=messages[0]["content"] if messages else "",
+                    resolved_entity_state=(thread_entity_state or {}),
+                    continuity_notes=_continuity_notes,
+                )
+            else:
+                from app.assistant_runtime.prompt_registry import build_system_base as _build_sb
+                _system_base_text = _build_sb(compiled=compiled) if compiled else ""
+                _receipt = prompt_receipts.build_receipt_from_compiled(
+                    compiled=compiled,
+                    system_base=_system_base_text,
+                    request_id=request_id,
+                    round_index=0,
+                    capture_point="initial",
+                    conversation_id=str(conversation_id) if conversation_id else None,
+                    session_id=session_id,
+                    env_id=str(resolved_scope.environment_id) if resolved_scope.environment_id else None,
+                    business_id=str(resolved_scope.business_id) if resolved_scope.business_id else None,
+                    actor=actor,
+                    model=effective_model,
+                    fallback_used=bool(dispatch.trace.normalized.fallback_used),
+                    active_scope_type=plan.scope.entity_type,
+                    active_scope_id=plan.scope.entity_id,
+                    active_scope_label=plan.scope.short_label,
+                    resolved_entity_state=(thread_entity_state or {}),
+                    continuity_notes=_continuity_notes,
+                )
+            await asyncio.get_event_loop().run_in_executor(
+                None, prompt_receipts.persist_receipt, _receipt
+            )
+    except Exception:  # never break a turn over a receipt failure
+        pass
 
     ctx = McpContext(
         actor=actor,
@@ -1584,6 +1727,8 @@ async def run_request_lifecycle(
     collected_content = ""
     tool_receipts = []
     tool_execution_ms = 0
+    upstream_prompt_tokens: int | None = None
+    upstream_completion_tokens: int | None = None
     yield _sse("progress", {"stage": "computing", "message": "I'll pull that up for you..."})
 
     for _round in range(AI_MAX_TOOL_ROUNDS + 1):
@@ -1636,6 +1781,20 @@ async def run_request_lifecycle(
         collected_tool_calls: dict[int, dict[str, Any]] = {}
         round_content = ""
         async for chunk in stream:
+            # Final chunk from OpenAI carries .usage (when stream_options
+            # include_usage=True, which sanitize_params already sets at
+            # model_registry.py:133) and typically has empty .choices.
+            _chunk_usage = getattr(chunk, "usage", None)
+            if _chunk_usage is not None:
+                try:
+                    _upstream_tokens = getattr(_chunk_usage, "prompt_tokens", None)
+                    if _upstream_tokens is not None:
+                        upstream_prompt_tokens = int(_upstream_tokens)
+                    _upstream_completion = getattr(_chunk_usage, "completion_tokens", None)
+                    if _upstream_completion is not None:
+                        upstream_completion_tokens = int(_upstream_completion)
+                except Exception:
+                    pass
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
@@ -1736,6 +1895,18 @@ async def run_request_lifecycle(
 
     if collected_content.strip():
         response_blocks.insert(0, markdown_block(collected_content.strip()))
+
+    # ── Patch the initial prompt receipt with authoritative upstream tokens ──
+    if upstream_prompt_tokens is not None:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: prompt_receipts.update_upstream_usage(
+                    request_id, 0, upstream_prompt_tokens
+                ),
+            )
+        except Exception:
+            pass
 
     final_status, final_reason = _status_from_tools([receipt.status for receipt in tool_receipts])
 
@@ -1860,6 +2031,66 @@ async def run_request_lifecycle(
         envelope=normalized_envelope,
         result_memory=turn_result_memory,
     )
+
+    # ── HOOK C: ai_gateway_logs row (fixes NULL conversation_id epidemic) ──
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: ai_gateway_logger.log_request(
+                request_id=request_id,
+                conversation_id=str(conversation_id) if conversation_id else None,
+                session_id=session_id,
+                business_id=str(resolved_scope.business_id) if resolved_scope.business_id else None,
+                env_id=str(resolved_scope.environment_id) if resolved_scope.environment_id else None,
+                actor=actor,
+                message_preview=message,
+                route_lane=_lane_letter(route.lane),
+                route_model=effective_model,
+                is_write=bool(dispatch.trace.normalized.write_intent),
+                workflow_override=False,
+                prompt_tokens=int(upstream_prompt_tokens or 0),
+                completion_tokens=int(upstream_completion_tokens or 0),
+                tool_call_count=len(tool_receipts or []),
+                tool_calls_json=[
+                    {"tool_name": tr.tool_name, "status": str(getattr(tr, "status", ""))}
+                    for tr in (tool_receipts or [])
+                ],
+                rag_chunks_raw=(retrieval_execution.receipt.result_count if retrieval_execution else 0),
+                rag_chunks_used=len(list(retrieval_execution.chunks or [])) if retrieval_execution else 0,
+                elapsed_ms=elapsed_ms,
+                ttft_ms=timings.get("first_token_ms"),
+                model_ms=timings.get("render_completion_ms"),
+                fallback_used=bool(dispatch.trace.normalized.fallback_used),
+                error_message=None,
+                timings_json=dict(timings),
+                prompt_audit_json=(
+                    {
+                        "lane": _prompt_audit.lane,
+                        "system_tokens": _prompt_audit.system_tokens,
+                        "context_tokens": _prompt_audit.context_tokens,
+                        "rag_tokens": _prompt_audit.rag_tokens,
+                        "history_tokens": _prompt_audit.history_tokens,
+                        "user_tokens": _prompt_audit.user_tokens,
+                        "total_tokens": _prompt_audit.total_tokens,
+                        "sections_truncated": _prompt_audit.sections_truncated,
+                    }
+                    if _prompt_audit
+                    else None
+                ),
+            ),
+        )
+    except Exception:
+        pass
+
+    # ── HOOK D: rolling thread summary regeneration (non-blocking) ──
+    if conversation_id:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: thread_summary_svc.maybe_generate_summary(conversation_id),
+            )
+        except Exception:
+            pass
 
     try:
         audit_svc.record_event(

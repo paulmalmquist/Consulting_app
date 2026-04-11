@@ -81,6 +81,30 @@ class PromptAudit:
     sections_truncated: list[str] = field(default_factory=list)
 
 
+@dataclass
+class PromptSections:
+    """Pre-merge raw section text for receipt capture.
+
+    Populated by ``compose_from_compiled`` alongside the OpenAI message list
+    so prompt_receipts can inspect each section independently instead of
+    trying to re-parse the merged system blob.
+    """
+    system_text: str = ""
+    skill_instructions_text: str = ""
+    thread_goal_text: str = ""
+    thread_summary_text: str = ""
+    scope_entity_text: str = ""
+    scope_page_text: str = ""
+    scope_environment_text: str = ""
+    scope_filters_text: str = ""
+    scope_visible_records_text: str = ""
+    rag_text: str = ""
+    history_messages: list[dict[str, Any]] = field(default_factory=list)
+    workflow_augmentation_text: str = ""
+    current_user_text: str = ""
+    domain_blocks_text: str = ""
+
+
 def compose_prompt(
     *,
     system_base: str,
@@ -224,3 +248,85 @@ def compose_prompt(
         )
 
     return messages, audit
+
+
+# ── Unified-runtime composition path ──────────────────────────────────────
+#
+# The unified runtime uses ``compose_from_compiled`` instead of
+# ``compose_prompt``. The compiler has already done all the selection, RAG
+# policy, skill trimming, redundancy filtering, and budget enforcement — this
+# function only needs to emit OpenAI-shaped messages and a sidecar of raw
+# section text for receipt capture.
+
+
+def compose_from_compiled(
+    compiled: Any,                       # CompiledContext (late-imported by caller to avoid cycles)
+    *,
+    system_base: str,
+    system_role: str = "system",
+) -> tuple[list[dict[str, Any]], PromptSections]:
+    """Emit OpenAI messages + ``PromptSections`` sidecar from a ``CompiledContext``.
+
+    No truncation happens here. If a compiled item is ``included=False``,
+    it is dropped from both the messages list and the sidecar.
+    """
+    sections = PromptSections()
+    messages: list[dict[str, Any]] = []
+
+    # 1. Always-on system base.
+    messages.append({"role": system_role, "content": system_base})
+    sections.system_text = system_base
+
+    def _text(key: str) -> str:
+        return compiled.item_text(key) if hasattr(compiled, "item_text") else ""
+
+    # 2. Merged dynamic system block. Order here is the order the model sees.
+    dynamic_order = [
+        "skill_instructions",
+        "thread_goal",
+        "scope_entity",
+        "scope_page",
+        "scope_environment",
+        "scope_filters",
+        "scope_visible_records",
+        "thread_summary",
+        "rag",
+        "domain_blocks",
+    ]
+    dynamic_parts: list[str] = []
+    for key in dynamic_order:
+        text = _text(key)
+        if not text:
+            continue
+        dynamic_parts.append(text)
+        # Populate the sidecar with one attribute per section.
+        attr_name = f"{key}_text" if key != "domain_blocks" else "domain_blocks_text"
+        if hasattr(sections, attr_name):
+            setattr(sections, attr_name, text)
+    if dynamic_parts:
+        messages.append(
+            {"role": system_role, "content": "\n\n".join(dynamic_parts)}
+        )
+
+    # 3. History as its own messages.
+    history_item = compiled.item("history") if hasattr(compiled, "item") else None
+    if history_item and history_item.included:
+        raw_msgs = history_item.metadata.get("raw_messages") or []
+        for m in raw_msgs:
+            role = m.get("role") or "user"
+            content = m.get("content") or ""
+            messages.append({"role": role, "content": content})
+        sections.history_messages = list(raw_msgs)
+
+    # 4. Workflow augmentation merges into the current user message.
+    user_text = _text("current_user")
+    wf_text = _text("workflow_aug")
+    if wf_text:
+        user_text = f"{user_text}\n\n{wf_text}" if user_text else wf_text
+        sections.workflow_augmentation_text = wf_text
+    if not user_text:
+        user_text = compiled.plan.resolved_user_text if hasattr(compiled, "plan") else ""
+    sections.current_user_text = user_text
+    messages.append({"role": "user", "content": user_text})
+
+    return messages, sections

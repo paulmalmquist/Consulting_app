@@ -1,0 +1,28 @@
+{
+  "id": "simple_lookup_status",
+  "description": "Yes/no status question — should force lane A minimal bypass.",
+  "router_lane": "C",
+  "router_skill_id": null,
+  "router_intent": "lookup_status",
+  "scope": {
+    "entity_type": "fund",
+    "entity_id": "fund-meridian-1",
+    "entity_name": "Meridian Value Fund I",
+    "environment_id": "env-1",
+    "business_id": "biz-1"
+  },
+  "envelope": {
+    "environment_name": "Meridian Capital Management",
+    "page": {"title": "Fund Detail"},
+    "filters": {"quarter": "2025Q4"}
+  },
+  "history": [],
+  "summary_text": null,
+  "user_message": "is this fund closed",
+  "expected": {
+    "profile": "simple_lookup",
+    "lane": "A",
+    "is_minimal": true,
+    "resolved_user_text_contains": ["Meridian Value Fund I"]
+  }
+}

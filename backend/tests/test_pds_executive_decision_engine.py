@@ -302,3 +302,29 @@ def test_queue_upsert_dedupes_existing(queue_cursor):
         actor="tester",
     )
     assert result["priority"] == "high"
+
+
+def test_queue_upsert_casts_nullable_correlation_key(queue_cursor):
+    queue_svc.upsert_queue_item(
+        env_id=uuid4(),
+        business_id=uuid4(),
+        decision_code="D07",
+        title="Escalate project",
+        summary="Budget and schedule drift",
+        priority="medium",
+        recommended_action="Escalate",
+        recommended_owner="Exec",
+        due_at=None,
+        risk_score=Decimal("3"),
+        project_id=None,
+        signal_event_id=None,
+        context_json={},
+        ai_analysis_json={},
+        input_snapshot_json={},
+        correlation_key=None,
+        actor="tester",
+    )
+
+    select_sql, _params = queue_cursor.calls[0]
+    assert "%s::text IS NULL" in select_sql
+    assert "COALESCE(context_json->>'correlation_key', '') = %s::text" in select_sql

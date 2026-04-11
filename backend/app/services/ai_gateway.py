@@ -4422,6 +4422,8 @@ async def run_gateway_stream(
     actor: str = "anonymous",
     pending_continuation: bool = False,
     pending_question_text: str | None = None,
+    request_id: str | None = None,
+    new_conversation_created: bool = False,
 ) -> AsyncGenerator[str, None]:
     from app.assistant_runtime.request_lifecycle import run_request_lifecycle
 
@@ -4437,5 +4439,7 @@ async def run_gateway_stream(
         actor=actor,
         pending_continuation=pending_continuation,
         pending_question_text=pending_question_text,
+        request_id=request_id,
+        new_conversation_created=new_conversation_created,
     ):
         yield sse_line

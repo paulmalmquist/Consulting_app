@@ -1,0 +1,33 @@
+{
+  "id": "entity_question_irr",
+  "description": "Metric lookup on an active fund entity — should force entity_question / lane B / explain_metric skill.",
+  "router_lane": "C",
+  "router_skill_id": "explain_metric",
+  "router_intent": "explain_metric.irr",
+  "scope": {
+    "entity_type": "fund",
+    "entity_id": "fund-meridian-1",
+    "entity_name": "Meridian Value Fund I",
+    "environment_id": "env-1",
+    "business_id": "biz-1"
+  },
+  "envelope": {
+    "environment_name": "Meridian Capital Management",
+    "page": {"title": "Fund Detail", "route": "/lab/env/1/re/funds/1"},
+    "filters": {"quarter": "2025Q4"}
+  },
+  "history": [
+    {"role": "user", "content": "show me the fund"},
+    {"role": "assistant", "content": "here is the fund overview"}
+  ],
+  "summary_text": null,
+  "user_message": "what is the IRR of this fund",
+  "expected": {
+    "profile": "entity_question",
+    "lane": "B",
+    "skill_source_in": ["router", "profile"],
+    "resolved_user_text_contains": ["Meridian Value Fund I"],
+    "must_include_keys": ["current_user", "scope_entity"],
+    "must_exclude_keys": []
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "analysis_variance",
+  "description": "Variance analysis request — should force lane C and run_analysis skill.",
+  "router_lane": "B",
+  "router_skill_id": null,
+  "router_intent": "analyze.variance",
+  "scope": {
+    "entity_type": "fund",
+    "entity_id": "fund-meridian-1",
+    "entity_name": "Meridian Value Fund I",
+    "environment_id": "env-1",
+    "business_id": "biz-1"
+  },
+  "envelope": {
+    "environment_name": "Meridian Capital Management",
+    "page": {"title": "Fund Detail"},
+    "filters": {"quarter": "2025Q4"}
+  },
+  "history": [
+    {"role": "user", "content": "validate fund returns for IGF VII"},
+    {"role": "assistant", "content": "I'll walk the numbers."}
+  ],
+  "summary_text": null,
+  "user_message": "analyze the NOI variance vs budget",
+  "expected": {
+    "profile": "analysis",
+    "lane": "C",
+    "skill_source_in": ["profile", "rule"],
+    "must_include_keys": ["current_user", "scope_entity", "thread_goal"]
+  }
+}

@@ -82,6 +82,13 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
         require_authenticated_request(request)
 
     actor = request.headers.get("x-bm-actor", "anonymous")
+    # Honor the browser-generated trace id so receipts and gateway logs join
+    # 1:1 end-to-end. Without this the unified runtime would mint its own id
+    # and the frontend would be unable to correlate.
+    request_id = request.headers.get("x-bm-request-id") or request.headers.get("x-request-id")
+    new_conversation_created = (
+        request.headers.get("x-bm-conversation-created", "").lower() == "true"
+    )
 
     async def event_stream() -> AsyncGenerator[bytes, None]:
         async for sse_line in run_gateway_stream(
@@ -96,6 +103,8 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
             actor=actor,
             pending_continuation=payload.pending_continuation,
             pending_question_text=payload.pending_question_text,
+            request_id=request_id,
+            new_conversation_created=new_conversation_created,
         ):
             yield sse_line.encode("utf-8")
 
