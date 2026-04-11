@@ -1,0 +1,275 @@
+{
+  "audit_date": "2026-04-11",
+  "environment": "meridian",
+  "snapshot_version": "meridian-20260410T182315Z-3881843b",
+  "findings": [
+    {
+      "id": "F-01",
+      "name": "IGF VII Cash Event Triplication",
+      "phase_discovered": "Phase 1",
+      "migration_fix": "467_igf7_cash_event_dedup.sql",
+      "root_cause_categories": ["DATA", "SEEDING"],
+      "funds_affected": ["IGF VII"],
+      "severity": "CRITICAL",
+      "status": "FIXED_IN_DB_SNAPSHOT_NEEDS_REPROMOTE",
+      "description": "456_meridian_three_fund_seed.sql was run 3 times on 2026-02-27 without idempotency guards on the 2026 Q1/Q2 cash events. 8 events each appeared 3×, producing 16 duplicate rows.",
+      "metric_impact": {
+        "total_called": "+$70,000,000 overstatement",
+        "total_distributed": "+$7,000,000 overstatement",
+        "cumulative_fees": "+$375,000 overstatement",
+        "cumulative_expenses": "+$194,000 overstatement",
+        "gross_irr": "WRONG — inputs contaminated",
+        "dpi": "WRONG — both numerator and denominator contaminated",
+        "tvpi": "WRONG"
+      },
+      "residual_risk": "Released 2026Q2 IGF VII snapshot metrics still reflect pre-dedup data. Must re-promote after fixing scope (F-05) and Defect B (F-07)."
+    },
+    {
+      "id": "F-02",
+      "name": "Orphan Fund Rows (NF-1)",
+      "phase_discovered": "Phase 0b",
+      "migration_fix": "463_meridian_orphan_fund_dedup.sql",
+      "root_cause_categories": ["DATA", "SEEDING"],
+      "funds_affected": ["MREF III orphan d4560000-0003-0030-0004-...", "MCOF I orphan d4560000-0003-0030-0005-..."],
+      "severity": "HIGH",
+      "status": "FIXED",
+      "description": "Two orphan fund rows existed with entity graphs (8-11 deals each) but zero cash events. Any JOIN from repe_fund → repe_deal → repe_asset without fund_id filter would double-count deal/asset rows for MREF III and MCOF I.",
+      "metric_impact": {
+        "rollup_joins": "Potential JOIN multiplication if not filtered by canonical fund_id"
+      },
+      "residual_risk": "Orphan rows quarantined. Canonical fund_id filter on all rollup queries eliminates further risk."
+    },
+    {
+      "id": "F-03",
+      "name": "canonical_metrics JSONB key mismatch (NF-2)",
+      "phase_discovered": "Phase 0c",
+      "migration_fix": "none — code reader fix only",
+      "root_cause_categories": ["LOGIC"],
+      "funds_affected": ["ALL"],
+      "severity": "HIGH",
+      "status": "REQUIRES_CODE_FIX",
+      "description": "Snapshot builder writes 'tvpi' as the gross TVPI key in canonical_metrics. Any code reading canonical_metrics->>'gross_tvpi' silently gets null. The correct key is 'tvpi'.",
+      "metric_impact": {
+        "gross_tvpi": "Silent null wherever 'gross_tvpi' key is read instead of 'tvpi'"
+      },
+      "residual_risk": "Phase 7 lint scanner 'canonical_metrics_key_drift' will catch all remaining occurrences."
+    },
+    {
+      "id": "F-04",
+      "name": "beginning_nav = 0 in snapshots (NF-3)",
+      "phase_discovered": "Phase 0d",
+      "migration_fix": "466_re_snapshot_beginning_nav_repair.sql",
+      "root_cause_categories": ["LOGIC", "SEEDING"],
+      "funds_affected": ["IGF VII"],
+      "severity": "HIGH",
+      "status": "FIXED",
+      "description": "Snapshot builder computed beginning_nav by summing beginning_nav_attributable from SELECTED_INVESTMENT_IDS. For IGF VII, only Tech Campus North was selected, and Tech Campus North had nav=0 in 2026Q1. Result: fund beginning_nav = 0 despite $66.8M NAV at 2025Q4. Code fix: fallback to prior released snapshot ending_nav when investment aggregation produces 0. Data fix: migration 466 corrected all 5 IGF VII 2026Q2 rows.",
+      "metric_impact": {
+        "beginning_nav": "Fixed: $0 → $66,789,619.672",
+        "period_return": "Period return denominator was 0 (division by zero for any period-return computation)",
+        "pl_attribution": "Opening balance was wrong for any 2026Q2 bridge or waterfall report"
+      },
+      "residual_risk": "None. Fixed in DB and code. MREF III and MCOF I were not affected."
+    },
+    {
+      "id": "F-05",
+      "name": "Snapshot builder scope restriction (SCOPING)",
+      "phase_discovered": "Phase 2",
+      "migration_fix": "none — configuration change required",
+      "root_cause_categories": ["SEEDING", "LOGIC"],
+      "funds_affected": ["IGF VII", "MCOF I"],
+      "severity": "CRITICAL",
+      "status": "REQUIRES_CONFIG_FIX",
+      "description": "SELECTED_INVESTMENT_IDS in the snapshot builder covers only 4 investments across 3 funds: Tech Campus North (IGF VII, 1/20), MRF III Dallas + Phoenix (MREF III, 2/2 — full coverage), Midtown Towers (MCOF I, 1/8). IGF VII and MCOF I snapshots cover massively incomplete portfolios.",
+      "metric_impact": {
+        "IGF VII ending_nav": "$44.3M reported vs $1,446M actual full portfolio — $1,402M understatement",
+        "MCOF I ending_nav": "$28.6M reported vs $116.7M actual — $88.1M understatement",
+        "IGF VII gross_irr": "-84.09% (economically impossible — should be strongly positive with full portfolio)",
+        "MCOF I gross_irr": "-97.44% (should be ~-57% with full portfolio)"
+      },
+      "residual_risk": "All IGF VII and MCOF I metrics are unsafe for investor reporting until scope is expanded and snapshots re-promoted."
+    },
+    {
+      "id": "F-06",
+      "name": "MREF III stale JV quarter state (STALE_CACHE)",
+      "phase_discovered": "Phase 2",
+      "migration_fix": "none — JV quarter state rebuild required",
+      "root_cause_categories": ["STALE_CACHE", "TIMING"],
+      "funds_affected": ["MREF III"],
+      "severity": "MEDIUM",
+      "status": "REQUIRES_DATA_REFRESH",
+      "description": "Dallas Multifamily Cluster asset states were updated 2026-04-09 23:58 UTC. MREF III 2026Q2 snapshot was built 2026-04-10 02:30 UTC using a JV quarter state row that predated the asset update. The snapshot captured a stale $34.3M cluster NAV instead of the current $42.9M.",
+      "metric_impact": {
+        "ending_nav": "$34.3M vs $42.9M — $8.57M understatement",
+        "rvpi": "Understated by $8.57M / $774M = 1.1 percentage points",
+        "tvpi": "Same understatement"
+      },
+      "residual_risk": "JV quarter state for Dallas Cluster must be rebuilt from current asset states. Snapshot must be re-promoted."
+    },
+    {
+      "id": "F-07",
+      "name": "Defect B — Fail-open waterfall carry",
+      "phase_discovered": "Phase 1 (confirmed Phase 6)",
+      "migration_fix": "none — code fix only (Patch B)",
+      "root_cause_categories": ["LOGIC", "WATERFALL_DEFECT"],
+      "funds_affected": ["ALL"],
+      "severity": "HIGH",
+      "status": "REQUIRES_PATCH_B",
+      "description": "re_fund_metrics.py:111-128 _compute_waterfall_carry() catches (LookupError, ValueError, ImportError) from run_waterfall() and falls back to simplified carry formula (0.20 × (gross_return - 0.08 × total_called)) instead of returning None. Violates SYSTEM_RULES_AUTHORITATIVE_STATE.md Rule 3. For 2026Q2, no waterfall runs exist for any of the 3 funds → fallback fires on every metric computation.",
+      "metric_impact": {
+        "carry_shadow": "Returns $0 (fallback) instead of None — numerically correct for Meridian 2026Q2 (all funds underwater) but semantically wrong",
+        "net_irr": "Computed as if carry = 0; should be None with null_reason",
+        "net_tvpi": "Same",
+        "gross_net_spread": "Same"
+      },
+      "residual_risk": "Zero numeric contamination for Meridian 2026Q2 (carry = $0 either way). Future periods with positive gross_return would produce wrong carry from the fallback formula. Must patch before any fund returns to profitability."
+    },
+    {
+      "id": "F-08",
+      "name": "Defect A — Asymmetric ownership weighting (direct-asset path)",
+      "phase_discovered": "Phase 2",
+      "migration_fix": "none — code refactor required (Patch A)",
+      "root_cause_categories": ["LOGIC", "QUERY_JOIN_MULTIPLICATION"],
+      "funds_affected": ["DORMANT — future environments with direct-held assets"],
+      "severity": "MEDIUM",
+      "status": "REQUIRES_PATCH_A_LOW_PRIORITY_FOR_MERIDIAN",
+      "description": "re_rollup.py L151-168 (JV path) applies ownership multiplier. L192-218 (direct-asset path, jv_id IS NULL) does NOT. For Meridian: all 42 assets have jv_id IS NOT NULL → zero blast radius. Defect is dormant for this environment.",
+      "metric_impact": {
+        "fund_nav": "Potentially incorrect for any fund with direct-held assets (jv_id IS NULL)"
+      },
+      "residual_risk": "Must patch before any new environment with direct-held assets is onboarded. No Meridian metric impact confirmed."
+    },
+    {
+      "id": "F-09",
+      "name": "Defect C-1 — NAV reads from legacy re_fund_quarter_state",
+      "phase_discovered": "Phase 6 (from plan)",
+      "migration_fix": "none — code fix (Patch C)",
+      "root_cause_categories": ["UI_SOURCE_MISMATCH", "LOGIC"],
+      "funds_affected": ["ALL"],
+      "severity": "HIGH",
+      "status": "REQUIRES_PATCH_C",
+      "description": "compute_return_metrics() in re_fund_metrics.py:288-295 reads NAV from re_fund_quarter_state (legacy) instead of re_authoritative_fund_state_qtr via get_authoritative_state(). Violates INV-1. re_fund_metrics_qtr rows may show different DPI/TVPI/IRR values than the authoritative snapshot, causing UI tiles to disagree with each other.",
+      "metric_impact": {
+        "re_fund_metrics_qtr": "May differ from authoritative snapshot by the delta between legacy and authoritative NAV values"
+      },
+      "residual_risk": "Active for all funds. Patch C blocks compute_return_metrics from writing when authoritative state is not released."
+    },
+    {
+      "id": "F-10",
+      "name": "Defect C-2 — No event_date filter in cash event aggregation (NEW CRITICAL)",
+      "phase_discovered": "Phase 6",
+      "migration_fix": "none — code fix (Patch C)",
+      "root_cause_categories": ["PERIOD_COHERENCE", "LOGIC"],
+      "funds_affected": ["ALL"],
+      "severity": "CRITICAL",
+      "status": "REQUIRES_PATCH_C",
+      "description": "compute_return_metrics() cash event aggregation query (re_fund_metrics.py:299-308) has NO event_date <= quarter_end filter. All cash events including future-dated Q3/Q4 2026 planned events are summed into total_called and total_distributed. Violates INV-2 period coherence.",
+      "metric_impact": {
+        "IGF VII re_fund_metrics_qtr total_called": "+$45M overstatement (Q3+Q4 calls included)",
+        "MREF III re_fund_metrics_qtr total_called": "+$81M overstatement",
+        "MCOF I re_fund_metrics_qtr total_called": "+$54M overstatement"
+      },
+      "residual_risk": "Active for all funds. Any computation using re_fund_metrics_qtr metrics is contaminated until Patch C adds the event_date filter. The authoritative snapshot is NOT affected (uses separate pipeline)."
+    },
+    {
+      "id": "F-11",
+      "name": "MREF III total_called > total_committed",
+      "phase_discovered": "Phase 4b",
+      "migration_fix": "investigation required",
+      "root_cause_categories": ["DATA", "SEEDING"],
+      "funds_affected": ["MREF III"],
+      "severity": "HIGH",
+      "status": "REQUIRES_INVESTIGATION",
+      "description": "MREF III has total_called = $774M in re_cash_event but repe_fund.target_size (used as total_committed proxy) = $500M. A fund cannot call more capital than is committed. Either: (a) the seed data incorrectly over-seeded CALL events for MREF III, (b) the target_size field does not represent committed capital, or (c) some calls are miscategorized. The $774M call amount drives the near-zero TVPI (0.07) and near-(-100%) IRR for MREF III.",
+      "metric_impact": {
+        "total_called": "Potentially overstated — root cause unknown",
+        "dpi": "Denominator potentially wrong",
+        "gross_irr": "Near -99% — may improve substantially if overcall is corrected"
+      },
+      "residual_risk": "MREF III metrics unreliable until total_called vs total_committed discrepancy is resolved."
+    },
+    {
+      "id": "F-12",
+      "name": "MCOF I total_committed = $0",
+      "phase_discovered": "Phase 4b",
+      "migration_fix": "data entry required",
+      "root_cause_categories": ["DATA", "SEEDING"],
+      "funds_affected": ["MCOF I"],
+      "severity": "MEDIUM",
+      "status": "REQUIRES_DATA_FIX",
+      "description": "repe_fund.target_size = 0 for MCOF I. The committed capital field is unset. No impact on metric computation (total_committed not used in the IRR/DPI formula chain) but means the committed/called ratio cannot be computed and investor reporting would show 0% deployment.",
+      "metric_impact": {
+        "total_committed": "Missing — deployment ratio unavailable"
+      },
+      "residual_risk": "Low — does not affect NAV, IRR, DPI, TVPI computation."
+    },
+    {
+      "id": "F-13",
+      "name": "MREF III and MCOF I inception_date = NULL",
+      "phase_discovered": "Phase 4a",
+      "migration_fix": "data entry required",
+      "root_cause_categories": ["DATA"],
+      "funds_affected": ["MREF III", "MCOF I"],
+      "severity": "MEDIUM",
+      "status": "REQUIRES_DATA_FIX",
+      "description": "inception_date is NULL on repe_fund for MREF III and MCOF I. The IRR engine cannot validate that cash events fall after fund inception. The engine falls back to the first CALL event date (2025-01-15 for both) as the effective start, which is correct behavior — but the check cannot run.",
+      "metric_impact": {
+        "irr_start_anchor": "Falls back to first CALL event — correct numerically but unvalidated"
+      },
+      "residual_risk": "Low. Set inception_date before Phase 4a assertions can run fully."
+    },
+    {
+      "id": "F-14",
+      "name": "IGF VII waterfall tiers 1-3 have NULL split_gp / split_lp",
+      "phase_discovered": "Phase 6",
+      "migration_fix": "data entry required",
+      "root_cause_categories": ["DATA"],
+      "funds_affected": ["IGF VII"],
+      "severity": "MEDIUM",
+      "status": "REQUIRES_DATA_FIX",
+      "description": "re_waterfall_tier tiers 1-3 for IGF VII have split_gp = NULL and split_lp = NULL. Only tier 4 has explicit splits. This likely causes a TypeError or ValueError in run_waterfall for IGF VII — the catch in Defect B masks this error. Tiers 1-3 carry implied splits (0%/100% for ROC and preferred, 100%/0% for catch-up) that must be made explicit.",
+      "metric_impact": {
+        "run_waterfall": "Fails for IGF VII → Defect B fallback fires → net metrics use policy approximation"
+      },
+      "residual_risk": "Even after Patch B (fail-closed), the real waterfall run will fail for IGF VII until the NULL splits are populated."
+    },
+    {
+      "id": "F-15",
+      "name": "4 IGF VII assets with negative NAV",
+      "phase_discovered": "Phase 4a",
+      "migration_fix": "none — requires economic review",
+      "root_cause_categories": ["DATA"],
+      "funds_affected": ["IGF VII"],
+      "severity": "LOW",
+      "status": "FLAGGED_FOR_REVIEW",
+      "description": "Campus Edge Apartments (-$3.2M), Ironworks Mixed-Use (-$1.8M), Meridian Medical Plaza (-$11.1M), Meridian Office Tower a1b2c3d4-9001-... (-$52.9M) have negative 2026Q2 NAV. Negative NAV = debt exceeds appraised value. These assets depress full-portfolio NAV by ~$69M.",
+      "metric_impact": {
+        "portfolio_nav": "-$69M contribution from 4 distressed assets"
+      },
+      "residual_risk": "Requires asset-level economic review. Not a calculation error per se — negative NAV from over-leveraged assets is economically valid."
+    }
+  ],
+  "summary": {
+    "total_findings": 15,
+    "critical": 3,
+    "high": 7,
+    "medium": 4,
+    "low": 1,
+    "fixed": 4,
+    "requires_patch": 4,
+    "requires_data_fix": 5,
+    "requires_investigation": 1,
+    "requires_config": 1,
+    "root_cause_frequency": {
+      "DATA": 8,
+      "SEEDING": 5,
+      "LOGIC": 6,
+      "STALE_CACHE": 2,
+      "WATERFALL_DEFECT": 1,
+      "UI_SOURCE_MISMATCH": 1,
+      "PERIOD_COHERENCE": 1,
+      "QUERY_JOIN_MULTIPLICATION": 1,
+      "TIMING": 1
+    }
+  }
+}

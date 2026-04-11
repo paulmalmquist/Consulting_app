@@ -37,9 +37,31 @@ SELECTED_FUND_IDS = [
     "a1b2c3d4-0002-0020-0001-000000000001",  # Meridian Credit Opportunities Fund I
 ]
 SELECTED_INVESTMENT_IDS = [
-    "2d54b971-21ac-41b8-a548-a506fe516c6c",  # Tech Campus North
+    # ── IGF VII — all 20 investments (phase0b fix: was only Tech Campus North) ──
+    "d4560000-0456-0101-0006-000000000001",  # IGF VII – Lone Star Distribution
+    "d4560000-0456-0101-0007-000000000001",  # IGF VII – Peachtree Logistics Park
+    "d4560000-0456-0101-0001-000000000001",  # IGF VII – Meadowview Apartments
+    "d4560000-0456-0101-0008-000000000001",  # IGF VII – Northwest Commerce Center
+    "d4560000-0456-0101-0002-000000000001",  # IGF VII – Sunbelt Crossing
+    "d4560000-0456-0101-0004-000000000001",  # IGF VII – Bayshore Flats
+    "d4560000-0456-0101-0003-000000000001",  # IGF VII – Pinehurst Residences
+    "594a1367-8109-49db-a353-44685fe6578e",  # IGF VII – Suburban Office Park
+    "d4560000-0456-0101-0005-000000000001",  # IGF VII – Oakridge Residences
+    "5b642a1e-feb7-4407-b38e-cdd2649c1b77",  # IGF VII – Lakeside Senior Living
+    "93b29b91-fa91-47d5-ac93-cf3b7468c63a",  # IGF VII – Cascade Multifamily
+    "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",  # IGF VII – Harborview Logistics Park
+    "2d54b971-21ac-41b8-a548-a506fe516c6c",  # IGF VII – Tech Campus North
+    "eb6e5e5b-a1be-426c-84f8-38e66febb43a",  # IGF VII – Harbor Industrial Portfolio
+    "8d87e8f7-9730-4f48-ab72-1ff741aa753a",  # IGF VII – Riverfront Apartments
+    "b72d7d6d-396d-4787-9075-f739d23a10f3",  # IGF VII – Pacific Gateway Hotel
+    "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",  # IGF VII – Meridian Office Tower
+    "6e5be7a6-b228-4031-8799-ed5ab01c92ff",  # IGF VII – Summit Retail Center
+    "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",  # IGF VII – Downtown Mixed-Use
+    "6a793adf-cdfb-49f3-8a2e-440d38c48dea",  # IGF VII – Ironworks Mixed-Use
+    # ── MREF III ──
     "a1b2c3d4-0001-0010-0002-000000000001",  # MRF III – Dallas Multifamily Cluster
     "a1b2c3d4-0001-0010-0002-000000000002",  # MRF III – Phoenix Value-Add Portfolio
+    # ── MCOF I ──
     "a1b2c3d4-0002-0020-0002-000000000002",  # Midtown Towers – Atlanta GA
 ]
 HIGHLIGHT_ASSET_IDS = [

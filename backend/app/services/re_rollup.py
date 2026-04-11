@@ -113,6 +113,10 @@ def rollup_investment(
         if scenario_id:
             params.append(str(scenario_id))
 
+        # INV-4: ownership resolved at the edge.
+        # re_jv.ownership_percent is the JV's aggregate ownership (default 1.0, not the fund's LP share).
+        # re_jv.lp_percent is the fund's actual LP share in the JV — this is the operative number.
+        # COALESCE: prefer lp_percent; fall back to ownership_percent for JVs that pre-date lp_percent.
         cur.execute(
             f"""
             SELECT
@@ -122,7 +126,7 @@ def rollup_investment(
                 s.debt_balance,
                 s.cash_balance,
                 s.inputs_hash,
-                j.ownership_percent
+                COALESCE(j.lp_percent, j.ownership_percent) AS ownership_percent
             FROM re_jv_quarter_state s
             JOIN re_jv j ON j.jv_id = s.jv_id
             WHERE j.investment_id = %s
@@ -168,28 +172,43 @@ def rollup_investment(
             cash_balance += cash * ownership
             hashes.append(f"jv:{s['inputs_hash']}:{ownership}")
 
+        # INV-4: for direct-held assets (no JV entity), resolve ownership from
+        # repe_asset_entity_link.percent (owner role).  When not set → default 1.0
+        # (fund owns 100% directly). This mirrors the JV path above so that both
+        # code paths apply ownership in exactly the same way.
         direct_params = [str(investment_id), quarter]
         if scenario_id:
             direct_params.append(str(scenario_id))
         cur.execute(
             f"""
-            SELECT asset_id, asset_value, nav, noi, revenue, opex,
-                   debt_service, occupancy, debt_balance, cash_balance, inputs_hash
-            FROM re_asset_quarter_state
-            WHERE asset_id IN (
-                SELECT a.asset_id
-                FROM repe_asset a
-                WHERE a.deal_id = %s AND a.jv_id IS NULL
-            )
-              AND quarter = %s
+            SELECT
+                aqs.asset_id, aqs.asset_value, aqs.nav, aqs.noi, aqs.revenue, aqs.opex,
+                aqs.debt_service, aqs.occupancy, aqs.debt_balance, aqs.cash_balance,
+                aqs.inputs_hash,
+                COALESCE(ael.percent, 1.0) AS ownership_percent
+            FROM re_asset_quarter_state aqs
+            JOIN repe_asset a ON a.asset_id = aqs.asset_id
+            LEFT JOIN LATERAL (
+                SELECT percent
+                FROM repe_asset_entity_link
+                WHERE asset_id = aqs.asset_id
+                  AND role = 'owner'
+                  AND effective_to IS NULL
+                ORDER BY effective_from DESC
+                LIMIT 1
+            ) ael ON true
+            WHERE a.deal_id = %s
+              AND a.jv_id IS NULL
+              AND aqs.quarter = %s
               AND {scenario_clause}
-            ORDER BY created_at DESC
+            ORDER BY aqs.created_at DESC
             """,
             direct_params,
         )
         direct_asset_states = cur.fetchall()
 
         for s in direct_asset_states:
+            ownership = Decimal(str(s["ownership_percent"] or 1))  # INV-4: resolved at edge
             raw_nav = s.get("nav")
             raw_asset_value = s.get("asset_value")
             # NULL nav = unvalued asset — exclude from NAV sum but still track debt.
@@ -198,11 +217,11 @@ def rollup_investment(
             debt = Decimal(s["debt_balance"] or 0)
             cash = Decimal(s["cash_balance"] or 0)
             if nav is not None:
-                agg_nav += nav
-                owned_gross_value += asset_value
+                agg_nav += nav * ownership            # INV-4: ownership applied exactly once
+                owned_gross_value += asset_value * ownership
             gross_asset_value += asset_value
-            debt_balance += debt
-            cash_balance += cash
+            debt_balance += debt * ownership          # INV-4
+            cash_balance += cash * ownership          # INV-4
             hashes.append(f"asset:{s['inputs_hash']}")
             # Operating metrics — aggregate from direct assets
             if s.get("noi") is not None:
