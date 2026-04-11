@@ -243,7 +243,8 @@ def main() -> int:
         _log(f"  FAIL: /health/ready returned {status}")
         all_passed = False
     else:
-        _log(f"  PASS: ready=true, startup={step['data'].get('startup_duration_ms', '?')}ms")
+        startup_ms = step["data"].get("startup_duration_ms", "?") if isinstance(step["data"], dict) else "?"
+        _log(f"  PASS: ready=true, startup={startup_ms}ms")
 
     # ── Step 2: Winston schema readiness ─────────────────────────────────
     _log("[2/5] Checking Winston schema contract...")
@@ -261,7 +262,8 @@ def main() -> int:
             _log(f"    - {issue}")
         all_passed = False
     else:
-        _log(f"  PASS: schema ok, {len(step['data'].get('missing_columns', []))} missing columns")
+        missing = step["data"].get("missing_columns", []) if isinstance(step["data"], dict) else []
+        _log(f"  PASS: schema ok, {len(missing)} missing columns")
 
     # ── Step 3: Conversation create ──────────────────────────────────────
     _log("[3/5] Creating conversation...")
@@ -367,7 +369,9 @@ def main() -> int:
 
     _log(f"[5/5] Summary")
     _log(f"  Readiness:           {'PASS' if receipt['steps'].get('readiness', {}).get('status') == 200 else 'FAIL'}")
-    _log(f"  Schema contract:     {'PASS' if receipt['steps'].get('winston_readiness', {}).get('data', {}).get('ok') else 'FAIL'}")
+    _winston_data = receipt['steps'].get('winston_readiness', {}).get('data', {})
+    _schema_ok = isinstance(_winston_data, dict) and _winston_data.get('ok')
+    _log(f"  Schema contract:     {'PASS' if _schema_ok else 'FAIL'}")
     _log(f"  Conversation create: {'PASS' if receipt['steps'].get('conversation_create', {}).get('status') == 200 else 'FAIL'}")
     _log(f"  Response quality:    {healthy_count}/{total_count} prompts healthy")
     _log(f"  Overall:             {receipt['result']}")
