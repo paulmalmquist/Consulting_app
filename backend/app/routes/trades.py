@@ -6,10 +6,16 @@ from fastapi import APIRouter, Query
 
 from app.schemas.trades import (
     AccountSummaryOut,
+    ClosedPortfolioPositionOut,
     ControlStateOut,
     ExecutionEventOut,
     ExecutionOrderOut,
     KillSwitchRequest,
+    OpenPortfolioPositionOut,
+    PortfolioAccountabilityOut,
+    PortfolioAttributionOut,
+    PortfolioDecisionSummaryOut,
+    PortfolioSnapshotPointOut,
     ModeChangeRequest,
     PortfolioPositionOut,
     PostTradeReviewCreateRequest,
@@ -155,3 +161,59 @@ def get_promotion_checklist(business_id: UUID = Query(...)):
 @router.get("/alerts", response_model=list[ExecutionEventOut])
 def get_alerts(business_id: UUID = Query(...)):
     return trades_svc.get_alerts(business_id)
+
+
+@router.get("/portfolio/overview")
+def get_portfolio_overview(
+    business_id: UUID = Query(...),
+    account_mode: str | None = Query(None),
+    range_key: str | None = Query(None),
+):
+    return trades_svc.get_portfolio_overview(business_id, account_mode=account_mode, range_key=range_key)
+
+
+@router.get("/portfolio/history", response_model=list[PortfolioSnapshotPointOut])
+def get_portfolio_history(
+    business_id: UUID = Query(...),
+    account_mode: str | None = Query(None),
+    range_key: str | None = Query(None),
+):
+    return trades_svc.get_portfolio_history(business_id, account_mode=account_mode, range_key=range_key)
+
+
+@router.get("/portfolio/positions/open", response_model=list[OpenPortfolioPositionOut])
+def get_open_portfolio_positions(
+    business_id: UUID = Query(...),
+    account_mode: str | None = Query(None),
+):
+    return trades_svc.list_open_portfolio_positions(business_id, account_mode=account_mode)
+
+
+@router.get("/portfolio/positions/closed", response_model=list[ClosedPortfolioPositionOut])
+def get_closed_portfolio_positions(
+    business_id: UUID = Query(...),
+    account_mode: str | None = Query(None),
+):
+    return trades_svc.list_closed_portfolio_positions(business_id, account_mode=account_mode)
+
+
+@router.get("/portfolio/attribution", response_model=PortfolioAttributionOut)
+def get_portfolio_attribution(
+    business_id: UUID = Query(...),
+    account_mode: str | None = Query(None),
+):
+    return trades_svc.get_portfolio_attribution(business_id, account_mode=account_mode)
+
+
+@router.get("/portfolio/accountability", response_model=PortfolioAccountabilityOut)
+def get_portfolio_accountability(
+    business_id: UUID = Query(...),
+):
+    return trades_svc.get_portfolio_accountability(business_id)
+
+
+@router.get("/portfolio/decision", response_model=PortfolioDecisionSummaryOut)
+def get_portfolio_decision(
+    business_id: UUID = Query(...),
+):
+    return trades_svc.get_portfolio_decision_summary(business_id)

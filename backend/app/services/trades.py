@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -942,3 +942,505 @@ def get_alerts(business_id: UUID) -> list[dict[str, Any]]:
             (str(business_id),),
         )
         return cur.fetchall()
+
+
+def _range_cutoff(range_key: str | None) -> datetime | None:
+    now = datetime.now(timezone.utc)
+    mapping = {
+        "1D": timedelta(days=1),
+        "1W": timedelta(days=7),
+        "1M": timedelta(days=30),
+        "3M": timedelta(days=90),
+        "YTD": now - datetime(now.year, 1, 1, tzinfo=timezone.utc),
+        "1Y": timedelta(days=365),
+    }
+    if not range_key or range_key == "ALL":
+        return None
+    delta = mapping.get(range_key)
+    if delta is None:
+        return None
+    return now - delta
+
+
+def _seed_mode_label(seed_count: int, mock_count: int) -> str | None:
+    if mock_count > 0 and seed_count > 0:
+        return "Demo / Seeded Portfolio"
+    if mock_count > 0:
+        return "Mock positions with live quotes"
+    if seed_count > 0:
+        return "Fully seeded data"
+    return None
+
+
+def _compute_max_drawdown_pct(points: list[dict[str, Any]]) -> float:
+    peak = 0.0
+    max_drawdown = 0.0
+    for row in sorted(points, key=lambda item: item.get("snapshot_time") or item.get("as_of") or ""):
+        value = float(row.get("portfolio_value") or 0)
+        if value > peak:
+            peak = value
+        if peak > 0:
+            drawdown = ((value - peak) / peak) * 100
+            if drawdown < max_drawdown:
+                max_drawdown = drawdown
+    return round(abs(max_drawdown), 2)
+
+
+def _benchmark_relative_return(points: list[dict[str, Any]], field: str) -> float | None:
+    if len(points) < 2:
+        return None
+    ordered = sorted(points, key=lambda item: item.get("snapshot_time") or item.get("as_of") or "")
+    start = ordered[0]
+    end = ordered[-1]
+    start_portfolio = _to_decimal(start.get("portfolio_value"))
+    end_portfolio = _to_decimal(end.get("portfolio_value"))
+    start_benchmark = _to_decimal(start.get(field))
+    end_benchmark = _to_decimal(end.get(field))
+    if start_portfolio <= 0 or start_benchmark <= 0:
+        return None
+    portfolio_return = ((end_portfolio - start_portfolio) / start_portfolio) * Decimal("100")
+    benchmark_return = ((end_benchmark - start_benchmark) / start_benchmark) * Decimal("100")
+    return float((portfolio_return - benchmark_return).quantize(Decimal("0.01")))
+
+
+def list_open_portfolio_positions(business_id: UUID, account_mode: str | None = None) -> list[dict[str, Any]]:
+    mode = account_mode or "paper"
+    with get_cursor() as cur:
+        try:
+            cur.execute(
+                """
+                SELECT
+                    p.portfolio_position_id,
+                    p.business_id,
+                    p.symbol,
+                    p.asset_class,
+                    p.direction,
+                    p.quantity,
+                    p.entry_price,
+                    p.market_price AS current_price,
+                    p.market_value,
+                    p.unrealized_pnl,
+                    p.realized_pnl,
+                    CASE
+                        WHEN COALESCE(p.entry_price, 0) = 0 THEN NULL
+                        WHEN COALESCE(p.direction, 'long') = 'short'
+                            THEN ROUND(((p.entry_price - COALESCE(p.market_price, p.entry_price)) / p.entry_price) * 100, 4)
+                        ELSE ROUND(((COALESCE(p.market_price, p.entry_price) - p.entry_price) / p.entry_price) * 100, 4)
+                    END AS unrealized_return_pct,
+                    CASE
+                        WHEN p.opened_at IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - p.opened_at)) / 86400))::int
+                    END AS days_held,
+                    ti.thesis_summary,
+                    COALESCE(p.invalidation_condition, ti.invalidation_condition) AS invalidation_condition,
+                    p.stop_loss,
+                    p.take_profit,
+                    p.quote_timestamp,
+                    p.quote_source,
+                    p.quote_freshness_state,
+                    p.quote_data_class,
+                    COALESCE(p.forecast_id, ti.forecast_ref_id) AS forecast_id,
+                    COALESCE(p.top_analog_id, ti.top_analog_id) AS top_analog_id,
+                    p.updated_at
+                FROM app.portfolio_positions p
+                LEFT JOIN app.trade_intents ti
+                  ON ti.trade_intent_id = p.thesis_ref_id
+                WHERE p.business_id = %s
+                  AND p.account_mode = %s
+                  AND COALESCE(p.status, 'open') IN ('open', 'partially_closed')
+                ORDER BY COALESCE(p.market_value, 0) DESC, p.updated_at DESC
+                """,
+                (str(business_id), mode),
+            )
+        except Exception:
+            cur.execute(
+                """
+                SELECT
+                    p.portfolio_position_id,
+                    p.business_id,
+                    p.symbol,
+                    p.asset_class,
+                    'long' AS direction,
+                    p.quantity,
+                    p.avg_cost AS entry_price,
+                    p.market_price AS current_price,
+                    p.market_value,
+                    p.unrealized_pnl,
+                    p.realized_pnl,
+                    CASE
+                        WHEN COALESCE(p.avg_cost, 0) = 0 THEN NULL
+                        ELSE ROUND(((COALESCE(p.market_price, p.avg_cost) - p.avg_cost) / p.avg_cost) * 100, 4)
+                    END AS unrealized_return_pct,
+                    CASE
+                        WHEN p.opened_at IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - p.opened_at)) / 86400))::int
+                    END AS days_held,
+                    ti.thesis_summary,
+                    ti.invalidation_condition,
+                    NULL::numeric AS stop_loss,
+                    NULL::numeric AS take_profit,
+                    NULL::timestamptz AS quote_timestamp,
+                    p.broker AS quote_source,
+                    NULL::text AS quote_freshness_state,
+                    NULL::text AS quote_data_class,
+                    ti.forecast_ref_id AS forecast_id,
+                    NULL::uuid AS top_analog_id,
+                    p.updated_at
+                FROM app.portfolio_positions p
+                LEFT JOIN app.trade_intents ti
+                  ON ti.trade_intent_id = p.thesis_ref_id
+                WHERE p.business_id = %s
+                  AND p.account_mode = %s
+                ORDER BY COALESCE(p.market_value, 0) DESC, p.updated_at DESC
+                """,
+                (str(business_id), mode),
+            )
+        return cur.fetchall()
+
+
+def list_closed_portfolio_positions(business_id: UUID, account_mode: str | None = None) -> list[dict[str, Any]]:
+    mode = account_mode or "paper"
+    with get_cursor() as cur:
+        try:
+            cur.execute(
+                """
+                SELECT
+                    cp.portfolio_closed_position_id,
+                    cp.business_id,
+                    cp.symbol,
+                    cp.asset_class,
+                    cp.direction,
+                    cp.quantity,
+                    cp.entry_price,
+                    cp.exit_price,
+                    cp.realized_pnl,
+                    cp.realized_return_pct,
+                    CASE
+                        WHEN cp.opened_at IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (cp.closed_at - cp.opened_at)) / 86400))::int
+                    END AS holding_period_days,
+                    cp.close_reason,
+                    ti.thesis_summary,
+                    cp.closed_at,
+                    cp.forecast_id,
+                    cp.top_analog_id
+                FROM app.portfolio_closed_positions cp
+                LEFT JOIN app.trade_intents ti
+                  ON ti.trade_intent_id = cp.thesis_ref_id
+                WHERE cp.business_id = %s
+                  AND cp.account_mode = %s
+                ORDER BY cp.closed_at DESC
+                """,
+                (str(business_id), mode),
+            )
+            return cur.fetchall()
+        except Exception:
+            return []
+
+
+def get_portfolio_history(business_id: UUID, account_mode: str | None = None, range_key: str | None = None) -> list[dict[str, Any]]:
+    mode = account_mode or "paper"
+    cutoff = _range_cutoff(range_key)
+    with get_cursor() as cur:
+        sql = """
+            SELECT
+                snapshot_time AS as_of,
+                portfolio_value,
+                cash,
+                gross_exposure,
+                net_exposure,
+                realized_pnl,
+                unrealized_pnl,
+                day_pnl,
+                benchmark_spy,
+                benchmark_btc,
+                freshness_state,
+                source,
+                seed_input_count,
+                mock_input_count
+            FROM app.portfolio_snapshots
+            WHERE business_id = %s
+              AND account_mode = %s
+        """
+        params: list[Any] = [str(business_id), mode]
+        if cutoff is not None:
+            sql += " AND snapshot_time >= %s"
+            params.append(cutoff)
+        sql += " ORDER BY snapshot_time ASC"
+        try:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+        except Exception:
+            rows = []
+    return rows
+
+
+def get_portfolio_attribution(business_id: UUID, account_mode: str | None = None) -> dict[str, Any]:
+    mode = account_mode or "paper"
+    open_positions = list_open_portfolio_positions(business_id, mode)
+    closed_positions = list_closed_portfolio_positions(business_id, mode)
+    best = sorted(open_positions, key=lambda row: float(row.get("unrealized_pnl") or 0), reverse=True)[:5]
+    worst = sorted(open_positions, key=lambda row: float(row.get("unrealized_pnl") or 0))[:5]
+    realized = sum(float(row.get("realized_pnl") or 0) for row in closed_positions)
+    unrealized = sum(float(row.get("unrealized_pnl") or 0) for row in open_positions)
+
+    asset_class_map: dict[str, float] = {}
+    strategy_map: dict[str, float] = {}
+    gross_total = sum(abs(float(row.get("market_value") or 0)) for row in open_positions)
+    long_value = 0.0
+    short_value = 0.0
+    largest_position = 0.0
+    for row in open_positions:
+        pnl = float(row.get("unrealized_pnl") or 0)
+        asset_class = str(row.get("asset_class") or "other")
+        strategy = str(row.get("thesis_summary") or "Unclassified")
+        asset_class_map[asset_class] = asset_class_map.get(asset_class, 0.0) + pnl
+        strategy_map[strategy] = strategy_map.get(strategy, 0.0) + pnl
+        market_value = float(row.get("market_value") or 0)
+        largest_position = max(largest_position, abs(market_value))
+        if str(row.get("direction") or "long") == "short":
+            short_value += abs(market_value)
+        else:
+            long_value += abs(market_value)
+
+    return {
+        "best_contributors": best,
+        "worst_contributors": worst,
+        "realized_vs_unrealized": {
+            "realized": round(realized, 2),
+            "unrealized": round(unrealized, 2),
+        },
+        "contribution_by_asset_class": [
+            {"asset_class": key, "pnl": round(value, 2)} for key, value in sorted(asset_class_map.items(), key=lambda item: item[1], reverse=True)
+        ],
+        "contribution_by_strategy": [
+            {"strategy": key, "pnl": round(value, 2)} for key, value in sorted(strategy_map.items(), key=lambda item: item[1], reverse=True)[:8]
+        ],
+        "largest_position_share_pct": round((largest_position / gross_total) * 100, 2) if gross_total > 0 else 0,
+        "long_short_split": {
+            "long": round(long_value, 2),
+            "short": round(short_value, 2),
+        },
+    }
+
+
+def get_portfolio_accountability(business_id: UUID) -> dict[str, Any]:
+    reviews = list_post_trade_reviews(business_id)
+    checklist = get_promotion_checklist(business_id)
+    resolved = 0
+    unresolved = 0
+    wins = 0
+    brier_scores: list[float] = []
+    for review in reviews:
+        discipline = review.get("discipline_score")
+        if discipline is None:
+            unresolved += 1
+        else:
+            resolved += 1
+            if float(discipline) >= 60:
+                wins += 1
+        if review.get("thesis_quality_score") is not None:
+            normalized = max(0.0, min(1.0, 1 - (float(review["thesis_quality_score"]) / 100)))
+            brier_scores.append(normalized)
+    avg_brier = round(sum(brier_scores) / len(brier_scores), 3) if brier_scores else None
+    promotion_notes = [item["label"] for item in checklist["items"] if not item["passed"]]
+    return {
+        "recent_reviews": reviews[:8],
+        "resolved_count": resolved,
+        "unresolved_count": unresolved,
+        "win_rate": round((wins / resolved) * 100, 2) if resolved > 0 else 0,
+        "avg_brier_score": avg_brier,
+        "confidence_deserves_trust": avg_brier is not None and avg_brier <= 0.22,
+        "promotion_ready": bool(checklist["ready_for_live"]),
+        "promotion_notes": promotion_notes,
+    }
+
+
+def get_portfolio_decision_summary(business_id: UUID) -> dict[str, Any]:
+    from app.services.history_rhymes_service import match_analogs
+
+    analog_result = match_analogs(k=3, request_id=f"portfolio-{business_id}")
+    regime_snapshot = _load_regime_snapshot() or {}
+    bull = float((analog_result.scenarios.get("bull") or {}).get("probability") or 0)
+    base = float((analog_result.scenarios.get("base") or {}).get("probability") or 0)
+    bear = float((analog_result.scenarios.get("bear") or {}).get("probability") or 0)
+    top_analog = analog_result.top_analogs[0] if analog_result.top_analogs else None
+    trap_flag = bool((analog_result.trap_detector or {}).get("trap_flag"))
+    trap_reason = (analog_result.trap_detector or {}).get("trap_reason")
+    confidence = round(float(top_analog.rhyme_score) * 100, 1) if top_analog else float(regime_snapshot.get("confidence") or 0)
+
+    if trap_flag and bear >= 0.25:
+        action = "hedge"
+    elif bear >= 0.5:
+        action = "reduce"
+    elif bull >= 0.55 and not trap_flag:
+        action = "add"
+    elif confidence < 45:
+        action = "abstain"
+    else:
+        action = "hold"
+
+    return {
+        "recommended_action": action,
+        "confidence": confidence,
+        "sizing_guidance": "Scale risk with confidence and promotion status; keep paper-first when calibration is weak.",
+        "invalidation_trigger": trap_reason or "Break in regime alignment or analog divergence widening materially.",
+        "current_regime": regime_snapshot.get("regime_label"),
+        "bull_probability": bull,
+        "base_probability": base,
+        "bear_probability": bear,
+        "trap_warning": trap_reason,
+        "top_analog_name": getattr(top_analog, "episode_name", None),
+        "rhyme_score": getattr(top_analog, "rhyme_score", None),
+        "divergence_note": "What differs this time is surfaced through analog divergence and trap checks.",
+        "calibration_summary": "Promotion remains gated by paper history, Brier quality, and drawdown discipline.",
+    }
+
+
+def get_portfolio_overview(business_id: UUID, account_mode: str | None = None, range_key: str | None = None) -> dict[str, Any]:
+    mode = account_mode or "paper"
+    with get_cursor() as cur:
+        latest_sql = """
+            SELECT *
+            FROM app.portfolio_snapshots
+            WHERE business_id = %s
+              AND account_mode = %s
+            ORDER BY snapshot_time DESC
+            LIMIT 1
+        """
+        try:
+            cur.execute(latest_sql, (str(business_id), mode))
+            latest_snapshot = cur.fetchone()
+        except Exception:
+            latest_snapshot = {}
+        try:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS positions_count,
+                    COALESCE(SUM(unrealized_pnl), 0) AS unrealized_pnl,
+                    COALESCE(SUM(realized_pnl), 0) AS realized_pnl,
+                    COALESCE(SUM(ABS(market_value)), 0) AS gross_exposure,
+                    COALESCE(SUM(CASE WHEN COALESCE(direction, 'long') = 'short' THEN -ABS(market_value) ELSE ABS(market_value) END), 0) AS net_exposure,
+                    COALESCE(SUM(seed_input_count), 0) AS seed_input_count,
+                    COALESCE(SUM(mock_input_count), 0) AS mock_input_count
+                FROM app.portfolio_positions
+                WHERE business_id = %s
+                  AND account_mode = %s
+                  AND COALESCE(status, 'open') IN ('open', 'partially_closed')
+                """,
+                (str(business_id), mode),
+            )
+            open_rollup = cur.fetchone() or {}
+        except Exception:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS positions_count,
+                    COALESCE(SUM(unrealized_pnl), 0) AS unrealized_pnl,
+                    COALESCE(SUM(realized_pnl), 0) AS realized_pnl,
+                    COALESCE(SUM(ABS(market_value)), 0) AS gross_exposure,
+                    COALESCE(SUM(market_value), 0) AS net_exposure,
+                    0 AS seed_input_count,
+                    0 AS mock_input_count
+                FROM app.portfolio_positions
+                WHERE business_id = %s
+                  AND account_mode = %s
+                """,
+                (str(business_id), mode),
+            )
+            open_rollup = cur.fetchone() or {}
+        try:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_closed,
+                    COUNT(*) FILTER (WHERE realized_pnl > 0) AS win_count,
+                    COALESCE(SUM(realized_pnl), 0) AS total_realized
+                FROM app.portfolio_closed_positions
+                WHERE business_id = %s
+                  AND account_mode = %s
+                """,
+                (str(business_id), mode),
+            )
+            closed_rollup = cur.fetchone() or {}
+        except Exception:
+            closed_rollup = {}
+        try:
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(SUM(amount), 0) AS external_cash_flows
+                FROM app.portfolio_cash_flows
+                WHERE business_id = %s
+                  AND effective_at >= date_trunc('day', now())
+                """,
+                (str(business_id),),
+            )
+            today_flows = cur.fetchone() or {}
+        except Exception:
+            today_flows = {}
+
+    history_all = get_portfolio_history(business_id, mode, "ALL")
+    history_range = get_portfolio_history(business_id, mode, range_key)
+    account_summary = get_account_summary(business_id)
+
+    latest = latest_snapshot or {}
+    gross_exposure = float(latest.get("gross_exposure") or open_rollup.get("gross_exposure") or 0)
+    net_exposure = float(latest.get("net_exposure") or open_rollup.get("net_exposure") or 0)
+    unrealized_pnl = float(latest.get("unrealized_pnl") or open_rollup.get("unrealized_pnl") or 0)
+    realized_pnl = float(latest.get("realized_pnl") or closed_rollup.get("total_realized") or account_summary.get("realized_pnl") or 0)
+    portfolio_value = float(latest.get("portfolio_value") or account_summary.get("broker_summary", {}).get("NetLiquidation") or gross_exposure)
+    external_cash_flows = float(latest.get("external_cash_flows") or today_flows.get("external_cash_flows") or 0)
+    day_pnl = float(latest.get("day_pnl") or 0)
+    total_pnl = unrealized_pnl + realized_pnl
+    total_return_pct = round((total_pnl / portfolio_value) * 100, 2) if portfolio_value else 0
+    total_closed = int(closed_rollup.get("total_closed") or 0)
+    win_count = int(closed_rollup.get("win_count") or 0)
+    win_rate = round((win_count / total_closed) * 100, 2) if total_closed else 0
+    seed_count = int(latest.get("seed_input_count") or open_rollup.get("seed_input_count") or 0)
+    mock_count = int(latest.get("mock_input_count") or open_rollup.get("mock_input_count") or 0)
+    seed_mode = _seed_mode_label(seed_count, mock_count)
+    range_benchmark_relative = _benchmark_relative_return(history_range, "benchmark_spy")
+    inception_benchmark_relative = _benchmark_relative_return(history_all, "benchmark_spy")
+    open_positions = list_open_portfolio_positions(business_id, mode)
+    stale_quotes = [row for row in open_positions if str(row.get("quote_freshness_state") or "") == "stale"]
+    decision_summary = get_portfolio_decision_summary(business_id)
+
+    return {
+        "hero": {
+            "business_id": str(business_id),
+            "account_mode": mode,
+            "as_of": latest.get("snapshot_time"),
+            "portfolio_value": round(portfolio_value, 2),
+            "day_pnl": round(day_pnl if day_pnl else (portfolio_value - external_cash_flows), 2),
+            "total_pnl": round(total_pnl, 2),
+            "total_return_pct": total_return_pct,
+            "unrealized_pnl": round(unrealized_pnl, 2),
+            "realized_pnl": round(realized_pnl, 2),
+            "cash": float(latest.get("cash") or 0),
+            "gross_exposure": round(gross_exposure, 2),
+            "net_exposure": round(net_exposure, 2),
+            "win_rate": win_rate,
+            "max_drawdown_pct": _compute_max_drawdown_pct(history_all),
+            "benchmark_relative_return_pct": range_benchmark_relative,
+            "benchmark_relative_return_since_inception_pct": inception_benchmark_relative,
+            "freshness_state": str(latest.get("freshness_state") or "unavailable"),
+            "seed_mode_label": seed_mode,
+            "seed_badge_required": seed_mode is not None,
+            "stale_warning": f"{len(stale_quotes)} positions have stale marks." if stale_quotes else None,
+            "quote_provenance": [
+                {
+                    "symbol": row.get("symbol"),
+                    "source": row.get("quote_source"),
+                    "quote_timestamp": row.get("quote_timestamp"),
+                    "freshness_state": row.get("quote_freshness_state"),
+                    "data_class": row.get("quote_data_class"),
+                }
+                for row in open_positions[:8]
+            ],
+        },
+        "decision": decision_summary,
+        "history_rhymes": decision_summary,
+        "accountability": get_portfolio_accountability(business_id),
+    }

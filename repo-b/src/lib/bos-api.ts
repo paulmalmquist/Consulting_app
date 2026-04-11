@@ -9,7 +9,24 @@
 import { logError, logInfo } from "@/lib/logging/logger";
 import { winstonLoader } from "@/lib/loading-state";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
-import type { AccountSummary, ExecutionControlState, ExecutionEvent, ExecutionOrder, PortfolioPosition, PostTradeReview, PromotionChecklist, TradeIntent, TradeRiskCheck } from "@/lib/trades/types";
+import type {
+  AccountSummary,
+  ClosedPortfolioPosition,
+  ExecutionControlState,
+  ExecutionEvent,
+  ExecutionOrder,
+  OpenPortfolioPosition,
+  PortfolioAccountability,
+  PortfolioAttribution,
+  PortfolioDecisionSummary,
+  PortfolioOverview,
+  PortfolioPosition,
+  PortfolioSnapshotPoint,
+  PostTradeReview,
+  PromotionChecklist,
+  TradeIntent,
+  TradeRiskCheck,
+} from "@/lib/trades/types";
 import type {
   PdsAttentionAction,
   PdsAttentionProject,
@@ -10186,4 +10203,73 @@ export function getTradePromotionChecklist(businessId: string): Promise<Promotio
 
 export function getTradeAlerts(businessId: string): Promise<ExecutionEvent[]> {
   return bosFetch("/api/trades/alerts", { params: _tradeParams(businessId) });
+}
+
+export function getTradePortfolioOverview(
+  businessId: string,
+  options: { accountMode?: string; rangeKey?: string } = {},
+): Promise<PortfolioOverview> {
+  return bosFetch("/api/trades/portfolio/overview", {
+    params: _tradeParams(businessId, undefined, {
+      account_mode: options.accountMode,
+      range_key: options.rangeKey,
+    }),
+  });
+}
+
+export function getTradePortfolioHistory(
+  businessId: string,
+  options: { accountMode?: string; rangeKey?: string } = {},
+): Promise<PortfolioSnapshotPoint[]> {
+  return bosFetch("/api/trades/portfolio/history", {
+    params: _tradeParams(businessId, undefined, {
+      account_mode: options.accountMode,
+      range_key: options.rangeKey,
+    }),
+  });
+}
+
+export function getTradeOpenPortfolioPositions(
+  businessId: string,
+  options: { accountMode?: string } = {},
+): Promise<OpenPortfolioPosition[]> {
+  return bosFetch("/api/trades/portfolio/positions/open", {
+    params: _tradeParams(businessId, undefined, {
+      account_mode: options.accountMode,
+    }),
+  });
+}
+
+export function getTradeClosedPortfolioPositions(
+  businessId: string,
+  options: { accountMode?: string } = {},
+): Promise<ClosedPortfolioPosition[]> {
+  return bosFetch("/api/trades/portfolio/positions/closed", {
+    params: _tradeParams(businessId, undefined, {
+      account_mode: options.accountMode,
+    }),
+  });
+}
+
+export function getTradePortfolioAttribution(
+  businessId: string,
+  options: { accountMode?: string } = {},
+): Promise<PortfolioAttribution> {
+  return bosFetch("/api/trades/portfolio/attribution", {
+    params: _tradeParams(businessId, undefined, {
+      account_mode: options.accountMode,
+    }),
+  });
+}
+
+export function getTradePortfolioAccountability(businessId: string): Promise<PortfolioAccountability> {
+  return bosFetch("/api/trades/portfolio/accountability", {
+    params: _tradeParams(businessId),
+  });
+}
+
+export function getTradePortfolioDecision(businessId: string): Promise<PortfolioDecisionSummary> {
+  return bosFetch("/api/trades/portfolio/decision", {
+    params: _tradeParams(businessId),
+  });
 }

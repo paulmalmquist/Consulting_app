@@ -147,3 +147,142 @@ export interface PromotionChecklist {
   items: PromotionChecklistItem[];
   generated_at: string;
 }
+
+export interface QuoteProvenance {
+  symbol: string;
+  source?: string | null;
+  quote_timestamp?: string | null;
+  freshness_state?: string | null;
+  data_class?: string | null;
+}
+
+export interface PortfolioHeroSnapshot {
+  business_id: string;
+  account_mode: string;
+  as_of?: string | null;
+  portfolio_value: number;
+  day_pnl: number;
+  total_pnl: number;
+  total_return_pct: number;
+  unrealized_pnl: number;
+  realized_pnl: number;
+  cash: number;
+  gross_exposure: number;
+  net_exposure: number;
+  win_rate: number;
+  max_drawdown_pct: number;
+  benchmark_relative_return_pct?: number | null;
+  benchmark_relative_return_since_inception_pct?: number | null;
+  freshness_state: string;
+  seed_mode_label?: string | null;
+  seed_badge_required: boolean;
+  stale_warning?: string | null;
+  quote_provenance: QuoteProvenance[];
+}
+
+export interface PortfolioSnapshotPoint {
+  as_of: string;
+  portfolio_value: number;
+  cash: number;
+  gross_exposure: number;
+  net_exposure: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  day_pnl: number;
+  benchmark_spy?: number | null;
+  benchmark_btc?: number | null;
+  freshness_state?: string | null;
+  source?: string | null;
+  seed_input_count: number;
+  mock_input_count: number;
+}
+
+export interface OpenPortfolioPosition {
+  portfolio_position_id: string;
+  business_id: string;
+  symbol: string;
+  asset_class?: string | null;
+  direction: string;
+  quantity: number;
+  entry_price?: number | null;
+  current_price?: number | null;
+  market_value?: number | null;
+  unrealized_pnl?: number | null;
+  unrealized_return_pct?: number | null;
+  realized_pnl?: number | null;
+  days_held?: number | null;
+  thesis_summary?: string | null;
+  invalidation_condition?: string | null;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  quote_timestamp?: string | null;
+  quote_source?: string | null;
+  quote_freshness_state?: string | null;
+  quote_data_class?: string | null;
+  forecast_id?: string | null;
+  top_analog_id?: string | null;
+  updated_at: string;
+}
+
+export interface ClosedPortfolioPosition {
+  portfolio_closed_position_id: string;
+  business_id: string;
+  symbol: string;
+  asset_class?: string | null;
+  direction: string;
+  quantity: number;
+  entry_price: number;
+  exit_price: number;
+  realized_pnl: number;
+  realized_return_pct?: number | null;
+  holding_period_days?: number | null;
+  close_reason?: string | null;
+  thesis_summary?: string | null;
+  closed_at: string;
+  forecast_id?: string | null;
+  top_analog_id?: string | null;
+}
+
+export interface PortfolioAttribution {
+  best_contributors: Array<Record<string, unknown>>;
+  worst_contributors: Array<Record<string, unknown>>;
+  realized_vs_unrealized: Record<string, number>;
+  contribution_by_asset_class: Array<Record<string, unknown>>;
+  contribution_by_strategy: Array<Record<string, unknown>>;
+  largest_position_share_pct: number;
+  long_short_split: Record<string, number>;
+}
+
+export interface PortfolioAccountability {
+  recent_reviews: PostTradeReview[];
+  resolved_count: number;
+  unresolved_count: number;
+  win_rate: number;
+  avg_brier_score?: number | null;
+  confidence_deserves_trust: boolean;
+  promotion_ready: boolean;
+  promotion_notes: string[];
+}
+
+export interface PortfolioDecisionSummary {
+  recommended_action: "add" | "reduce" | "hold" | "hedge" | "abstain";
+  confidence: number;
+  sizing_guidance?: string | null;
+  invalidation_trigger?: string | null;
+  current_regime?: string | null;
+  bull_probability?: number | null;
+  base_probability?: number | null;
+  bear_probability?: number | null;
+  trap_warning?: string | null;
+  top_analog_name?: string | null;
+  rhyme_score?: number | null;
+  divergence_note?: string | null;
+  calibration_summary?: string | null;
+}
+
+export interface PortfolioOverview {
+  hero: PortfolioHeroSnapshot;
+  decision: PortfolioDecisionSummary;
+  history_rhymes: PortfolioDecisionSummary;
+  accountability: PortfolioAccountability;
+}

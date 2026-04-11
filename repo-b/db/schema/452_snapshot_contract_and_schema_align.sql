@@ -126,6 +126,9 @@ BEGIN
     RAISE EXCEPTION 'Cannot modify locked quarter state (table=%, id=%, quarter=%)',
       TG_TABLE_NAME, OLD.id, OLD.quarter;
   END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

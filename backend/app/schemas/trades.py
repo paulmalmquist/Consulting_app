@@ -237,3 +237,135 @@ class ExecutionEventOut(BaseModel):
     event_message: str
     severity: str
     broker_payload_json: dict[str, Any]
+
+
+class QuoteProvenanceOut(BaseModel):
+    symbol: str
+    source: str | None = None
+    quote_timestamp: datetime | None = None
+    freshness_state: str | None = None
+    data_class: str | None = None
+
+
+class PortfolioHeroSnapshotOut(BaseModel):
+    business_id: UUID
+    account_mode: str
+    as_of: datetime | None = None
+    portfolio_value: float
+    day_pnl: float
+    total_pnl: float
+    total_return_pct: float
+    unrealized_pnl: float
+    realized_pnl: float
+    cash: float
+    gross_exposure: float
+    net_exposure: float
+    win_rate: float
+    max_drawdown_pct: float
+    benchmark_relative_return_pct: float | None = None
+    benchmark_relative_return_since_inception_pct: float | None = None
+    freshness_state: str
+    seed_mode_label: str | None = None
+    seed_badge_required: bool = False
+    stale_warning: str | None = None
+    quote_provenance: list[QuoteProvenanceOut] = Field(default_factory=list)
+
+
+class PortfolioSnapshotPointOut(BaseModel):
+    as_of: datetime
+    portfolio_value: float
+    cash: float
+    gross_exposure: float
+    net_exposure: float
+    realized_pnl: float
+    unrealized_pnl: float
+    day_pnl: float
+    benchmark_spy: float | None = None
+    benchmark_btc: float | None = None
+    freshness_state: str | None = None
+    source: str | None = None
+    seed_input_count: int = 0
+    mock_input_count: int = 0
+
+
+class OpenPortfolioPositionOut(BaseModel):
+    portfolio_position_id: UUID
+    business_id: UUID
+    symbol: str
+    asset_class: str | None = None
+    direction: str
+    quantity: float
+    entry_price: float | None = None
+    current_price: float | None = None
+    market_value: float | None = None
+    unrealized_pnl: float | None = None
+    unrealized_return_pct: float | None = None
+    realized_pnl: float | None = None
+    days_held: int | None = None
+    thesis_summary: str | None = None
+    invalidation_condition: str | None = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    quote_timestamp: datetime | None = None
+    quote_source: str | None = None
+    quote_freshness_state: str | None = None
+    quote_data_class: str | None = None
+    forecast_id: UUID | None = None
+    top_analog_id: UUID | None = None
+    updated_at: datetime
+
+
+class ClosedPortfolioPositionOut(BaseModel):
+    portfolio_closed_position_id: UUID
+    business_id: UUID
+    symbol: str
+    asset_class: str | None = None
+    direction: str
+    quantity: float
+    entry_price: float
+    exit_price: float
+    realized_pnl: float
+    realized_return_pct: float | None = None
+    holding_period_days: int | None = None
+    close_reason: str | None = None
+    thesis_summary: str | None = None
+    closed_at: datetime
+    forecast_id: UUID | None = None
+    top_analog_id: UUID | None = None
+
+
+class PortfolioAttributionOut(BaseModel):
+    best_contributors: list[dict[str, Any]] = Field(default_factory=list)
+    worst_contributors: list[dict[str, Any]] = Field(default_factory=list)
+    realized_vs_unrealized: dict[str, float] = Field(default_factory=dict)
+    contribution_by_asset_class: list[dict[str, Any]] = Field(default_factory=list)
+    contribution_by_strategy: list[dict[str, Any]] = Field(default_factory=list)
+    largest_position_share_pct: float = 0
+    long_short_split: dict[str, float] = Field(default_factory=dict)
+
+
+class PortfolioAccountabilityOut(BaseModel):
+    recent_reviews: list[PostTradeReviewOut] = Field(default_factory=list)
+    resolved_count: int = 0
+    unresolved_count: int = 0
+    win_rate: float = 0
+    avg_brier_score: float | None = None
+    confidence_deserves_trust: bool = False
+    promotion_ready: bool = False
+    promotion_notes: list[str] = Field(default_factory=list)
+
+
+class PortfolioDecisionSummaryOut(BaseModel):
+    recommended_action: str
+    confidence: float
+    sizing_guidance: str | None = None
+    invalidation_trigger: str | None = None
+    current_regime: str | None = None
+    bull_probability: float | None = None
+    base_probability: float | None = None
+    bear_probability: float | None = None
+    trap_warning: str | None = None
+    top_analog_name: str | None = None
+    rhyme_score: float | None = None
+    divergence_note: str | None = None
+    calibration_summary: str | None = None

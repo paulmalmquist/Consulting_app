@@ -239,3 +239,19 @@ def test_submit_trade_blocks_live_rollout(client, fake_cursor):
     )
     assert resp.status_code == 409
     assert "disabled for this rollout" in resp.json()["detail"]
+
+
+def test_seed_mode_label_prefers_explicit_demo_language():
+    assert trades_svc._seed_mode_label(3, 2) == "Demo / Seeded Portfolio"
+    assert trades_svc._seed_mode_label(0, 2) == "Mock positions with live quotes"
+    assert trades_svc._seed_mode_label(4, 0) == "Fully seeded data"
+    assert trades_svc._seed_mode_label(0, 0) is None
+
+
+def test_benchmark_relative_return_uses_selected_range_points():
+    points = [
+        {"snapshot_time": "2026-04-01T00:00:00Z", "portfolio_value": 100000, "benchmark_spy": 500},
+        {"snapshot_time": "2026-04-11T00:00:00Z", "portfolio_value": 110000, "benchmark_spy": 525},
+    ]
+    # Portfolio +10%, SPY +5% => +5% relative
+    assert trades_svc._benchmark_relative_return(points, "benchmark_spy") == 5.0
