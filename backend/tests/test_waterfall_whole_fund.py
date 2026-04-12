@@ -163,3 +163,26 @@ def test_receipt_covers_all_tiers():
     assert any("Pref" in t for t in tier_names)
     assert any("Catch-up" in t for t in tier_names)
     assert any("Residual" in t for t in tier_names)
+
+
+# ── 7. Hurdle classification ────────────────────────────────────────────
+
+def test_above_hurdle_classification():
+    cfs, nav, td = _simple_fund()
+    result = run_whole_fund_waterfall(cfs, nav, td, STD_ASSUMPTIONS)
+    assert result["hurdle_status"] == "above_hurdle"
+    assert result["pref_shortfall"] == Decimal("0")
+    assert result["pref_coverage_pct"] == Decimal("100")
+
+
+def test_below_hurdle_classification():
+    """Fund with tiny return relative to pref → below hurdle."""
+    cfs = [
+        DatedCashFlow(dt=date(2023, 1, 1), amount=Decimal("-100000000")),
+        DatedCashFlow(dt=date(2024, 1, 1), amount=Decimal("5000000")),
+    ]
+    # $100M called, $5M dist + $100M NAV = $105M total, $5M profit
+    # Pref = $8M (1yr at 8%) → below hurdle
+    result = run_whole_fund_waterfall(cfs, Decimal("100000000"), date(2025, 1, 1), STD_ASSUMPTIONS)
+    assert result["hurdle_status"] == "below_hurdle"
+    assert result["pref_shortfall"] > Decimal("0")

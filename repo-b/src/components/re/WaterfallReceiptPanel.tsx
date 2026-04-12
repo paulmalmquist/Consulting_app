@@ -99,6 +99,30 @@ export function WaterfallReceiptPanel({ metrics }: WaterfallReceiptPanelProps) {
         ))}
       </div>
 
+      {/* ── Hurdle Status ── */}
+      {(() => {
+        const hurdle = metrics.hurdle_status as string | undefined;
+        const prefShortfall = metrics.pref_shortfall as number | undefined;
+        const prefCoverage = metrics.pref_coverage_pct as number | undefined;
+        if (!hurdle || hurdle === "no_waterfall") return null;
+        const color = hurdle === "above_hurdle" ? "text-green-400 border-green-500/30 bg-green-500/5"
+          : hurdle === "at_hurdle" ? "text-amber-400 border-amber-500/30 bg-amber-500/5"
+          : "text-red-400 border-red-500/30 bg-red-500/5";
+        const label = hurdle === "above_hurdle" ? "Above Hurdle — GP earns carry"
+          : hurdle === "at_hurdle" ? "At Hurdle — pref exactly satisfied, no excess carry"
+          : "Below Hurdle — pref not fully satisfied, GP earns no carry";
+        return (
+          <div className={`rounded-lg border px-4 py-3 ${color}`}>
+            <p className="text-sm font-semibold">{label}</p>
+            {hurdle === "below_hurdle" && prefShortfall != null && (
+              <p className="mt-1 text-xs opacity-80">
+                Pref shortfall: {fmtMoney(prefShortfall)} ({prefCoverage != null ? `${prefCoverage.toFixed(0)}% covered` : ""})
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Assumptions ── */}
       {assumptions && (
         <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4">

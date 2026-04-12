@@ -264,6 +264,22 @@ def run_american_waterfall(
     total_profit = total_gross - state.total_contributed
     gp_share_of_profit = _q(total_gp / total_profit) if total_profit > ZERO else None
 
+    # Hurdle classification
+    if total_gp > ZERO:
+        hurdle_status = "above_hurdle"
+    elif state.pref_accrued_unpaid > ZERO:
+        hurdle_status = "below_hurdle"
+    elif total_profit > ZERO and total_gp == ZERO:
+        hurdle_status = "at_hurdle"
+    else:
+        hurdle_status = "below_hurdle"
+
+    # Pref tracking for visibility
+    total_pref_paid = sum(s.pref_paid for s in step_receipts)
+    total_pref_accrued = total_pref_paid + state.pref_accrued_unpaid
+    pref_shortfall = state.pref_accrued_unpaid
+    pref_coverage_pct = _q(total_pref_paid / total_pref_accrued * Decimal("100")) if total_pref_accrued > ZERO else Decimal("100")
+
     return {
         "waterfall_type": "american",
         "total_contributed": state.total_contributed,
@@ -282,6 +298,11 @@ def run_american_waterfall(
         "gp_cash_flows": gp_cfs,
         "step_receipts": step_receipts,
         "distribution_count": len(step_receipts),
+        "hurdle_status": hurdle_status,
+        "pref_shortfall": pref_shortfall,
+        "pref_coverage_pct": pref_coverage_pct,
+        "total_pref_accrued": total_pref_accrued,
+        "total_pref_paid": total_pref_paid,
     }
 
 

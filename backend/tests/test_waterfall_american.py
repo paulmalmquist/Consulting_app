@@ -177,3 +177,18 @@ def test_lp_has_multiple_positive_cash_flows():
 
 
 ZERO = Decimal("0")
+
+
+# ── 8. Hurdle classification ────────────────────────────────────────────
+
+def test_mref3_below_hurdle_classification():
+    r = run_american_waterfall(_mref3_cash_flows(), Decimal("42852173.50"), date(2026, 6, 30), STD)
+    assert r["hurdle_status"] == "below_hurdle"
+    assert r["pref_shortfall"] > ZERO
+    assert r["pref_coverage_pct"] < Decimal("100")
+
+
+def test_above_hurdle_fund_classification():
+    cfs = _simple_multi_dist()
+    r = run_american_waterfall(cfs, Decimal("10000000"), date(2026, 1, 1), STD)
+    assert r["hurdle_status"] == "above_hurdle"

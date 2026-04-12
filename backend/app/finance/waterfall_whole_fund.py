@@ -163,6 +163,19 @@ def run_whole_fund_waterfall(
     gross_irr = _xirr(gross_cfs)
     spread = _q(gross_irr - net_irr) if gross_irr is not None and net_irr is not None else None
 
+    # ── Hurdle classification ────────────────────────────────────────
+    if gp_total > ZERO:
+        hurdle_status = "above_hurdle"
+    elif pref_paid < pref_accrued:
+        hurdle_status = "below_hurdle"
+    elif pref_paid == pref_accrued and gp_total == ZERO:
+        hurdle_status = "at_hurdle"
+    else:
+        hurdle_status = "below_hurdle"
+
+    pref_shortfall = _q(pref_accrued - pref_paid) if pref_accrued > pref_paid else ZERO
+    pref_coverage_pct = _q(pref_paid / pref_accrued * Decimal("100")) if pref_accrued > ZERO else Decimal("100")
+
     # ── Receipt ──────────────────────────────────────────────────────
     receipt = [
         {"tier": "Total Contributions", "amount": str(total_called)},
@@ -197,6 +210,9 @@ def run_whole_fund_waterfall(
         "net_tvpi": net_tvpi,
         "gross_irr": gross_irr,
         "gross_net_spread": spread,
+        "hurdle_status": hurdle_status,
+        "pref_shortfall": pref_shortfall,
+        "pref_coverage_pct": pref_coverage_pct,
         "receipt": receipt,
     }
 
