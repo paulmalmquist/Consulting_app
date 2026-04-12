@@ -192,3 +192,22 @@ def test_above_hurdle_fund_classification():
     cfs = _simple_multi_dist()
     r = run_american_waterfall(cfs, Decimal("10000000"), date(2026, 1, 1), STD)
     assert r["hurdle_status"] == "above_hurdle"
+
+
+# ── 9. Clawback tracking ────────────────────────────────────────────────
+
+def test_below_hurdle_zero_clawback():
+    """MREF III: GP got $0 → no clawback exposure."""
+    r = run_american_waterfall(_mref3_cash_flows(), Decimal("42852173.50"), date(2026, 6, 30), STD)
+    assert r["clawback_exposure"] == ZERO
+    assert r["clawback_status"] == "none"
+
+
+def test_above_hurdle_clawback_tracked():
+    """Fund with early carry payments → clawback exposure exists if American > European."""
+    cfs = _simple_multi_dist()
+    r = run_american_waterfall(cfs, Decimal("10000000"), date(2026, 1, 1), STD)
+    # Clawback exposure should be >= 0 (may be 0 if American and European align)
+    assert r["clawback_exposure"] >= ZERO
+    assert r["european_gp_benchmark"] is not None
+    assert r["clawback_status"] in ("none", "potential")

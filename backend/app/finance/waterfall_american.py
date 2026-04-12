@@ -280,6 +280,20 @@ def run_american_waterfall(
     pref_shortfall = state.pref_accrued_unpaid
     pref_coverage_pct = _q(total_pref_paid / total_pref_accrued * Decimal("100")) if total_pref_accrued > ZERO else Decimal("100")
 
+    # Clawback exposure: compare American GP carry vs European GP carry.
+    # If American > European → GP was overpaid early, difference = clawback risk.
+    # Run a hypothetical European waterfall on the same total economics.
+    european_gp = _hypothetical_european_gp(
+        total_called=state.total_contributed,
+        total_value=total_gross,
+        pref_accrued=total_pref_accrued,
+        assumptions=assumptions,
+    )
+    clawback_exposure = _q(max(ZERO, total_gp - european_gp))
+    clawback_status = "none" if clawback_exposure == ZERO else (
+        "potential" if total_gp > ZERO else "none"
+    )
+
     return {
         "waterfall_type": "american",
         "total_contributed": state.total_contributed,
@@ -303,7 +317,37 @@ def run_american_waterfall(
         "pref_coverage_pct": pref_coverage_pct,
         "total_pref_accrued": total_pref_accrued,
         "total_pref_paid": total_pref_paid,
+        "clawback_exposure": clawback_exposure,
+        "clawback_status": clawback_status,
+        "european_gp_benchmark": european_gp,
     }
+
+
+def _hypothetical_european_gp(
+    total_called: Decimal,
+    total_value: Decimal,
+    pref_accrued: Decimal,
+    assumptions: AmericanWaterfallAssumptions,
+) -> Decimal:
+    """What would GP get if this were a European (terminal) waterfall?"""
+    pool = total_value
+    roc = _q(min(pool, total_called))
+    pool -= roc
+    pref = _q(min(pool, pref_accrued))
+    pool -= pref
+    profit = pref + pool
+    if profit <= ZERO or pool <= ZERO:
+        return ZERO
+    gp_target = _q(profit * assumptions.promote_pct)
+    denom = ONE - assumptions.gp_residual
+    if denom > ZERO:
+        raw_catchup = (gp_target - assumptions.gp_residual * pool) / denom
+        catchup = _q(max(ZERO, min(pool, raw_catchup)))
+    else:
+        catchup = _q(min(pool, gp_target))
+    pool -= catchup
+    gp_residual = _q(pool * assumptions.gp_residual)
+    return _q(catchup + gp_residual)
 
 
 def _xirr(cfs: list[DatedCashFlow]) -> Decimal | None:
