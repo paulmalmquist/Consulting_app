@@ -184,7 +184,7 @@ BEGIN
   -- Chicago suburban office distress 2 (loan maturity)
   INSERT INTO repe_signals (env_id, source_id, signal_type, market, property_type,
     signal_date, strength, raw_value, direction,
-    signal_headline, signal_body, ai_generated)
+    signal_headline, signal_body, ai_generated, ai_model_version)
   VALUES (v_env_id, v_src_ai, 'distress', 'Chicago, IL', 'Office',
     '2026-03-18', 85.0, 0.0, 'negative',
     'Chicago office loan maturities: $290M in Q2-Q3 2026 with no refi path evident',
