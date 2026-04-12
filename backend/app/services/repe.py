@@ -27,6 +27,7 @@ def list_funds(*, business_id: UUID) -> list[dict]:
             SELECT *
             FROM repe_fund
             WHERE business_id = %s
+              AND status != 'archived'
             ORDER BY created_at DESC
             """,
             (str(business_id),),
