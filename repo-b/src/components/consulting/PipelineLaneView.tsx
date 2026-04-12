@@ -5,6 +5,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 import type { ExecutionBoardColumn, ExecutionCard } from "@/lib/cro-api";
 import type { StageRow, Insight } from "./pipeline-insight";
 import type { ActiveSlice } from "./PipelineActionPanel";
+import { VERTICAL_COLORS, type ColorMode } from "./pipeline-verticals";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const LANE_W = 206;      // px — active column width (chart + kanban share this)
@@ -94,6 +95,10 @@ type CommandBandProps = {
   insight: Insight;
   industries: string[];
   selectedIndustries: Set<string>;
+  availableVerticals: Array<{ name: string; count: number }>;
+  subVerticals: string[];
+  selectedVertical: string | null;
+  colorMode: ColorMode;
   mode: LaneMode;
   hasActiveFilters: boolean;
   openDeals: number;
@@ -104,6 +109,8 @@ type CommandBandProps = {
   totalPipeline: number;
   weightedPipeline: number;
   onToggleIndustry: (ind: string) => void;
+  onSelectVertical: (v: string) => void;
+  onToggleColorMode: () => void;
   onInsightAction: () => void;
   onToggleMode: () => void;
   onClearFilters: () => void;
@@ -113,6 +120,10 @@ export function PipelineCommandBand({
   insight,
   industries,
   selectedIndustries,
+  availableVerticals,
+  subVerticals,
+  selectedVertical,
+  colorMode,
   mode,
   hasActiveFilters,
   openDeals,
@@ -123,6 +134,8 @@ export function PipelineCommandBand({
   totalPipeline,
   weightedPipeline,
   onToggleIndustry,
+  onSelectVertical,
+  onToggleColorMode,
   onInsightAction,
   onToggleMode,
   onClearFilters,
@@ -204,6 +217,23 @@ export function PipelineCommandBand({
             </button>
           ) : null}
           <button
+            onClick={onToggleColorMode}
+            style={{
+              fontSize: 9,
+              padding: "4px 10px",
+              borderRadius: 3,
+              border: `1px solid ${colorMode === "vertical" ? CP.info + "55" : CP.borderDim}`,
+              color: colorMode === "vertical" ? CP.info : CP.muted,
+              background: colorMode === "vertical" ? "rgba(34,211,238,0.07)" : "transparent",
+              cursor: "pointer",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              fontWeight: colorMode === "vertical" ? 700 : 400,
+            }}
+          >
+            {colorMode === "vertical" ? "BY VERT" : "BY IND"}
+          </button>
+          <button
             onClick={onToggleMode}
             style={{
               fontSize: 9,
@@ -261,7 +291,7 @@ export function PipelineCommandBand({
           flexWrap: "wrap",
           borderLeft: `3px solid ${sevBorder}`,
           paddingLeft: 12,
-          marginBottom: industries.length > 1 ? 12 : 0,
+          marginBottom: 12,
         }}
       >
         <span style={{ fontSize: 12, fontWeight: 700, color: CP.text }}>
@@ -285,50 +315,155 @@ export function PipelineCommandBand({
         </button>
       </div>
 
-      {/* Industry chips */}
-      {industries.length > 1 ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {industries.map((ind, idx) => {
-            const color = indColor(ind, idx);
-            const isActive =
-              selectedIndustries.size === 0 || selectedIndustries.has(ind);
-            return (
-              <button
-                key={ind}
-                onClick={() => onToggleIndustry(ind)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "4px 9px",
-                  borderRadius: 3,
-                  border: `1px solid ${isActive ? color : CP.borderDim}`,
-                  background: isActive ? `${color}1a` : "transparent",
-                  color: isActive ? color : CP.muted,
-                  cursor: "pointer",
-                  opacity: isActive ? 1 : 0.45,
-                  transition: "all 0.15s",
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: color,
-                    flexShrink: 0,
-                  }}
-                />
-                {ind}
-              </button>
-            );
-          })}
+      {/* Vertical rail (vertical mode) or industry chips (industry mode) */}
+      {colorMode === "vertical" ? (
+        <div>
+          {/* Vertical buttons */}
+          {availableVerticals.length > 1 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {availableVerticals.map((v) => {
+                const color = VERTICAL_COLORS[v.name] ?? "#6B7280";
+                const isActive = selectedVertical === v.name;
+                const isDim = selectedVertical !== null && !isActive;
+                return (
+                  <button
+                    key={v.name}
+                    onClick={() => onSelectVertical(v.name)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      padding: "5px 10px",
+                      borderRadius: 3,
+                      border: `1px solid ${isActive ? color : CP.borderDim}`,
+                      background: isActive ? `${color}1a` : "transparent",
+                      color: isActive ? color : isDim ? CP.muted2 : CP.muted,
+                      cursor: "pointer",
+                      opacity: isDim ? 0.4 : 1,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {v.name}
+                    <span
+                      style={{
+                        fontSize: 8,
+                        color: isActive ? color : CP.muted,
+                        opacity: 0.7,
+                        marginLeft: 1,
+                      }}
+                    >
+                      {v.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {/* Sub-vertical chips — shown when a vertical is selected and it has multiple industry tags */}
+          {selectedVertical && subVerticals.length > 1 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+              {subVerticals.map((ind, idx) => {
+                const color = indColor(ind, idx);
+                const isActive =
+                  selectedIndustries.size === 0 || selectedIndustries.has(ind);
+                return (
+                  <button
+                    key={ind}
+                    onClick={() => onToggleIndustry(ind)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 8,
+                      fontWeight: 600,
+                      letterSpacing: "0.09em",
+                      textTransform: "uppercase",
+                      padding: "3px 8px",
+                      borderRadius: 3,
+                      border: `1px solid ${isActive ? color : CP.borderDim}`,
+                      background: isActive ? `${color}14` : "transparent",
+                      color: isActive ? color : CP.muted,
+                      cursor: "pointer",
+                      opacity: isActive ? 1 : 0.45,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background: color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {ind}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      ) : (
+        // Industry mode — original flat chip list
+        industries.length > 1 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {industries.map((ind, idx) => {
+              const color = indColor(ind, idx);
+              const isActive =
+                selectedIndustries.size === 0 || selectedIndustries.has(ind);
+              return (
+                <button
+                  key={ind}
+                  onClick={() => onToggleIndustry(ind)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    padding: "4px 9px",
+                    borderRadius: 3,
+                    border: `1px solid ${isActive ? color : CP.borderDim}`,
+                    background: isActive ? `${color}1a` : "transparent",
+                    color: isActive ? color : CP.muted,
+                    cursor: "pointer",
+                    opacity: isActive ? 1 : 0.45,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {ind}
+                </button>
+              );
+            })}
+          </div>
+        ) : null
+      )}
     </div>
   );
 }
@@ -381,13 +516,14 @@ function KpiChip({
 type PipelineLaneViewProps = {
   columns: ExecutionBoardColumn[];
   chartData: StageRow[];
-  industries: string[];
-  selectedIndustries: Set<string>;
+  chartGroupKeys: string[];
+  chartColorMap: Record<string, string>;
+  colorMode: ColorMode;
+  focusedSegKey: string | null;
   focusedStage: string | null;
-  activeSlice: ActiveSlice | null;
   mode: LaneMode;
   onSelectStage: (key: string) => void;
-  onSelectSegment: (key: string, ind: string) => void;
+  onSelectSegment: (key: string, segKey: string) => void;
   onSelectCard: (id: string) => void;
   makeColumnRef: (key: string) => (el: HTMLDivElement | null) => void;
 };
@@ -397,10 +533,11 @@ const CLOSED = new Set(["closed_won", "closed_lost"]);
 export default function PipelineLaneView({
   columns,
   chartData,
-  industries,
-  selectedIndustries,
+  chartGroupKeys,
+  chartColorMap,
+  colorMode,
+  focusedSegKey,
   focusedStage,
-  activeSlice,
   mode,
   onSelectStage,
   onSelectSegment,
@@ -408,23 +545,28 @@ export default function PipelineLaneView({
   makeColumnRef,
 }: PipelineLaneViewProps) {
   const colorMap = useMemo(() => {
+    if (colorMode === "vertical") {
+      // chartColorMap already has vertical → color from page.tsx
+      return chartColorMap;
+    }
+    // Industry mode: use existing indColor lookup
     const m: Record<string, string> = {};
-    industries.forEach((ind, i) => {
+    chartGroupKeys.forEach((ind, i) => {
       m[ind] = indColor(ind, i);
     });
     return m;
-  }, [industries]);
+  }, [colorMode, chartGroupKeys, chartColorMap]);
 
   // globalMax adjusts for count vs. value mode so bars scale correctly
   const globalMax = useMemo(() => {
     return Math.max(
       ...chartData.map((r) => {
         if (mode === "count") return r._total;
-        return industries.reduce((s, ind) => s + (Number(r[ind]) || 0), 0);
+        return chartGroupKeys.reduce((s, key) => s + (Number(r[key]) || 0), 0);
       }),
       1,
     );
-  }, [chartData, industries, mode]);
+  }, [chartData, chartGroupKeys, mode]);
 
   const rowByKey = useMemo(() => {
     const m: Record<string, StageRow> = {};
@@ -465,12 +607,12 @@ export default function PipelineLaneView({
                 row={row}
                 isClosed={isClosed}
                 globalMax={globalMax}
-                industries={industries}
+                chartGroupKeys={chartGroupKeys}
                 colorMap={colorMap}
                 mode={mode}
                 isFocused={isFocused}
                 isDimmed={isDimmed}
-                activeSlice={activeSlice}
+                focusedSegKey={isFocused ? focusedSegKey : null}
                 onSelectStage={onSelectStage}
                 onSelectSegment={onSelectSegment}
                 onSelectCard={onSelectCard}
@@ -490,12 +632,12 @@ type LaneColumnProps = {
   row: StageRow | null;
   isClosed: boolean;
   globalMax: number;
-  industries: string[];
+  chartGroupKeys: string[];
   colorMap: Record<string, string>;
   mode: LaneMode;
   isFocused: boolean;
   isDimmed: boolean;
-  activeSlice: ActiveSlice | null;
+  focusedSegKey: string | null;
   onSelectStage: (key: string) => void;
   onSelectSegment: (key: string, ind: string) => void;
   onSelectCard: (id: string) => void;
@@ -507,12 +649,12 @@ function LaneColumn({
   row,
   isClosed,
   globalMax,
-  industries,
+  chartGroupKeys,
   colorMap,
   mode,
   isFocused,
   isDimmed,
-  activeSlice,
+  focusedSegKey,
   onSelectStage,
   onSelectSegment,
   onSelectCard,
@@ -549,8 +691,7 @@ function LaneColumn({
   const colW = isClosed ? CLOSED_W : LANE_W;
   const colOpacity = isDimmed ? 0.3 : isClosed ? 0.45 : 1;
 
-  const focusedInd =
-    isFocused && activeSlice?.industry ? activeSlice.industry : null;
+  const focusedInd = isFocused ? focusedSegKey : null;
 
   return (
     <div
@@ -574,14 +715,14 @@ function LaneColumn({
       {!isClosed && row ? (
         <LaneBar
           row={row}
-          industries={industries}
+          chartGroupKeys={chartGroupKeys}
           colorMap={colorMap}
           globalMax={globalMax}
           mode={mode}
           focusedInd={focusedInd}
           onClickBar={() => onSelectStage(column.execution_column_key)}
-          onClickSegment={(ind) =>
-            onSelectSegment(column.execution_column_key, ind)
+          onClickSegment={(segKey) =>
+            onSelectSegment(column.execution_column_key, segKey)
           }
         />
       ) : (
@@ -726,18 +867,18 @@ function LaneColumn({
 // ─── LaneBar ─────────────────────────────────────────────────────────────────
 type LaneBarProps = {
   row: StageRow;
-  industries: string[];
+  chartGroupKeys: string[];
   colorMap: Record<string, string>;
   globalMax: number;
   mode: LaneMode;
   focusedInd: string | null;
   onClickBar: () => void;
-  onClickSegment: (ind: string) => void;
+  onClickSegment: (segKey: string) => void;
 };
 
 function LaneBar({
   row,
-  industries,
+  chartGroupKeys,
   colorMap,
   globalMax,
   mode,
@@ -751,7 +892,7 @@ function LaneBar({
   const rowTotal =
     mode === "count"
       ? row._total
-      : industries.reduce((s, ind) => s + (Number(row[ind]) || 0), 0);
+      : chartGroupKeys.reduce((s, key) => s + (Number(row[key]) || 0), 0);
 
   const drawnH =
     rowTotal > 0
@@ -768,7 +909,7 @@ function LaneBar({
     color: string;
     isTop: boolean;
   }> = [];
-  const activeInds = industries.filter(
+  const activeInds = chartGroupKeys.filter(
     (ind) => (Number(row[ind]) || 0) > 0 && drawnH > 0,
   );
   activeInds.forEach((ind, i) => {

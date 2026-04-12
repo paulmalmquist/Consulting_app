@@ -35,6 +35,12 @@ import {
   momentumArrow,
   type StageRow,
 } from "@/components/consulting/pipeline-insight";
+import {
+  industryToVertical,
+  VERTICAL_ORDER,
+  VERTICAL_COLORS,
+  type ColorMode,
+} from "@/components/consulting/pipeline-verticals";
 
 
 function formatError(err: unknown): string {
@@ -175,6 +181,8 @@ export default function PipelinePage({
   const [selectedIndustries, setSelectedIndustries] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>("vertical");
   const [focusedStage, setFocusedStage] = useState<string | null>(null);
   const [activeSlice, setActiveSlice] = useState<ActiveSlice | null>(null);
   const [chartMode, setChartMode] = useState<LaneMode>("count");
@@ -237,27 +245,70 @@ export default function PipelinePage({
     return Array.from(s).sort();
   }, [allCards]);
 
-  // Industry-filtered columns — drives BOTH kanban render and chart
+  // Vertical + industry filtered columns — drives BOTH kanban render and chart
   const filteredColumns = useMemo((): ExecutionBoardColumn[] => {
     if (!kanban) return [];
-    if (selectedIndustries.size === 0) return kanban.columns;
     return kanban.columns.map((col) => ({
       ...col,
       cards: col.cards.filter((c) => {
-        const key = (c.industry || "Other").trim() || "Other";
-        return selectedIndustries.has(key);
+        const ind = (c.industry || "Other").trim() || "Other";
+        if (selectedVertical && industryToVertical(ind) !== selectedVertical) return false;
+        if (selectedIndustries.size > 0 && !selectedIndustries.has(ind)) return false;
+        return true;
       }),
     }));
-  }, [kanban, selectedIndustries]);
+  }, [kanban, selectedVertical, selectedIndustries]);
+
+  // Verticals present in the full board (stable — not affected by filters)
+  const availableVerticals = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allCards.forEach((c) => {
+      const v = industryToVertical((c.industry || "Other").trim() || "Other");
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    return VERTICAL_ORDER.filter((v) => (counts[v] || 0) > 0).map((v) => ({
+      name: v,
+      count: counts[v] || 0,
+    }));
+  }, [allCards]);
+
+  // Industry tags within the selected vertical (for sub-vertical chips)
+  const subVerticals = useMemo(() => {
+    if (!selectedVertical) return [];
+    const s = new Set<string>();
+    allCards.forEach((c) => {
+      const ind = (c.industry || "Other").trim() || "Other";
+      if (industryToVertical(ind) === selectedVertical) s.add(ind);
+    });
+    return Array.from(s).sort();
+  }, [allCards, selectedVertical]);
+
+  // Chart segment keys — verticals or raw industry tags depending on colorMode
+  const chartGroupKeys = useMemo(() => {
+    if (colorMode === "vertical") {
+      const present = new Set<string>();
+      allCards.forEach((c) => {
+        present.add(industryToVertical((c.industry || "Other").trim() || "Other"));
+      });
+      return VERTICAL_ORDER.filter((v) => present.has(v));
+    }
+    return industries;
+  }, [colorMode, allCards, industries]);
+
+  // Chart color map — vertical colors or industry colors
+  const chartColorMap = useMemo((): Record<string, string> => {
+    const m: Record<string, string> = {};
+    if (colorMode === "vertical") {
+      chartGroupKeys.forEach((v) => { m[v] = VERTICAL_COLORS[v] ?? "#6B7280"; });
+    }
+    return m;
+  }, [colorMode, chartGroupKeys]);
 
   // Chart rows — one per non-closed stage
   const chartData = useMemo((): StageRow[] => {
     const now = Date.now();
     return filteredColumns
-      .filter(
-        (c) =>
-          !["closed_won", "closed_lost"].includes(c.execution_column_key),
-      )
+      .filter((c) => !["closed_won", "closed_lost"].includes(c.execution_column_key))
       .map((col) => {
         const row: StageRow = {
           stage_key: col.execution_column_key,
@@ -268,26 +319,19 @@ export default function PipelinePage({
           _hot: 0,
           _moved24h: 0,
         };
-        industries.forEach((ind) => {
-          row[ind] = 0;
-        });
+        chartGroupKeys.forEach((key) => { row[key] = 0; });
         for (const c of col.cards) {
           const ind = (c.industry || "Other").trim() || "Other";
+          const segKey = colorMode === "vertical" ? industryToVertical(ind) : ind;
           const contrib = chartMode === "count" ? 1 : c.amount || 0;
-          row[ind] = (Number(row[ind]) || 0) + contrib;
+          row[segKey] = (Number(row[segKey]) || 0) + contrib;
           row._total += 1;
           if (!c.next_action_description) row._noAction += 1;
-          if (
-            c.risk_flags.includes("inactive_3d") ||
-            c.risk_flags.includes("stalled_7d")
-          ) {
+          if (c.risk_flags.includes("inactive_3d") || c.risk_flags.includes("stalled_7d")) {
             row._stale += 1;
           }
           if (c.momentum_status === "increasing") row._hot += 1;
-          if (
-            c.last_activity_at &&
-            now - new Date(c.last_activity_at).getTime() < 86_400_000
-          ) {
+          if (c.last_activity_at && now - new Date(c.last_activity_at).getTime() < 86_400_000) {
             row._moved24h += 1;
           }
         }
@@ -295,7 +339,7 @@ export default function PipelinePage({
         row._momentum = momentumArrow(row);
         return row;
       });
-  }, [filteredColumns, industries, chartMode]);
+  }, [filteredColumns, chartGroupKeys, colorMode, chartMode]);
 
   const insight = useMemo(
     () => computeInsight(filteredColumns),
@@ -303,7 +347,16 @@ export default function PipelinePage({
   );
 
   const hasActiveFilters =
-    selectedIndustries.size > 0 || focusedStage !== null || activeSlice !== null;
+    selectedIndustries.size > 0 ||
+    selectedVertical !== null ||
+    focusedStage !== null ||
+    activeSlice !== null;
+
+  // Focused segment key for bar segment dimming (vertical key or industry key)
+  const focusedSegKey =
+    colorMode === "vertical"
+      ? (selectedVertical ?? null)
+      : (activeSlice?.industry ?? null);
 
   const handleToggleIndustry = useCallback((industry: string) => {
     setSelectedIndustries((prev) => {
@@ -312,6 +365,32 @@ export default function PipelinePage({
       else next.add(industry);
       return next;
     });
+  }, []);
+
+  const handleSelectVertical = useCallback((vertical: string) => {
+    setSelectedVertical((prev) => {
+      const next = prev === vertical ? null : vertical;
+      if (!next) {
+        // Clearing vertical: also clear sub-industry selection
+        setSelectedIndustries(new Set());
+        setActiveSlice(null);
+        setFocusedStage(null);
+      } else {
+        // Switching vertical: clear sub-industry selection
+        setSelectedIndustries(new Set());
+        setActiveSlice(null);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleColorMode = useCallback(() => {
+    setColorMode((m) => (m === "vertical" ? "industry" : "vertical"));
+    // Reset all filter state when switching color modes
+    setSelectedVertical(null);
+    setSelectedIndustries(new Set());
+    setFocusedStage(null);
+    setActiveSlice(null);
   }, []);
 
   const scrollToColumn = useCallback((stageKey: string) => {
@@ -339,21 +418,39 @@ export default function PipelinePage({
     [scrollToColumn],
   );
 
-  // Toggle segment: clicking the same (stage, industry) pair clears filters.
+  // Toggle segment: behavior depends on colorMode.
+  // Vertical mode: segment key is a vertical — sets selectedVertical.
+  // Industry mode: segment key is an industry tag — sets selectedIndustries (original behavior).
   const handleSelectSegment = useCallback(
-    (stageKey: string, industry: string) => {
-      if (focusedStage === stageKey && activeSlice?.industry === industry) {
-        setSelectedIndustries(new Set());
-        setFocusedStage(null);
-        setActiveSlice(null);
+    (stageKey: string, segKey: string) => {
+      if (colorMode === "vertical") {
+        const isSame = focusedStage === stageKey && selectedVertical === segKey;
+        if (isSame) {
+          setSelectedVertical(null);
+          setSelectedIndustries(new Set());
+          setFocusedStage(null);
+          setActiveSlice(null);
+        } else {
+          setSelectedVertical(segKey);
+          setSelectedIndustries(new Set());
+          setFocusedStage(stageKey);
+          setActiveSlice({ stage: stageKey });
+          scrollToColumn(stageKey);
+        }
       } else {
-        setSelectedIndustries(new Set([industry]));
-        setFocusedStage(stageKey);
-        setActiveSlice({ stage: stageKey, industry });
-        scrollToColumn(stageKey);
+        if (focusedStage === stageKey && activeSlice?.industry === segKey) {
+          setSelectedIndustries(new Set());
+          setFocusedStage(null);
+          setActiveSlice(null);
+        } else {
+          setSelectedIndustries(new Set([segKey]));
+          setFocusedStage(stageKey);
+          setActiveSlice({ stage: stageKey, industry: segKey });
+          scrollToColumn(stageKey);
+        }
       }
     },
-    [focusedStage, activeSlice, scrollToColumn],
+    [colorMode, focusedStage, selectedVertical, activeSlice, scrollToColumn],
   );
 
   const handleInsightAction = useCallback(() => {
@@ -373,6 +470,7 @@ export default function PipelinePage({
 
   const handleClearFilters = useCallback(() => {
     setSelectedIndustries(new Set());
+    setSelectedVertical(null);
     setFocusedStage(null);
     setActiveSlice(null);
   }, []);
@@ -518,6 +616,10 @@ export default function PipelinePage({
             insight={insight}
             industries={industries}
             selectedIndustries={selectedIndustries}
+            availableVerticals={availableVerticals}
+            subVerticals={subVerticals}
+            selectedVertical={selectedVertical}
+            colorMode={colorMode}
             mode={chartMode}
             hasActiveFilters={hasActiveFilters}
             openDeals={openDeals}
@@ -528,6 +630,8 @@ export default function PipelinePage({
             totalPipeline={kanban.total_pipeline ?? 0}
             weightedPipeline={kanban.weighted_pipeline ?? 0}
             onToggleIndustry={handleToggleIndustry}
+            onSelectVertical={handleSelectVertical}
+            onToggleColorMode={handleToggleColorMode}
             onInsightAction={handleInsightAction}
             onToggleMode={handleToggleMode}
             onClearFilters={handleClearFilters}
@@ -540,10 +644,11 @@ export default function PipelinePage({
             <PipelineLaneView
               columns={filteredColumns}
               chartData={chartData}
-              industries={industries}
-              selectedIndustries={selectedIndustries}
+              chartGroupKeys={chartGroupKeys}
+              chartColorMap={chartColorMap}
+              colorMode={colorMode}
+              focusedSegKey={focusedSegKey}
               focusedStage={focusedStage}
-              activeSlice={activeSlice}
               mode={chartMode}
               onSelectStage={handleSelectStage}
               onSelectSegment={handleSelectSegment}
