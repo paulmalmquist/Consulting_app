@@ -101,6 +101,7 @@ import { DebugFooter } from "@/components/repe/DebugFooter";
 import { FundFootprintMap } from "@/components/repe/fund/FundFootprintMap";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
+import { WaterfallReceiptPanel } from "@/components/re/WaterfallReceiptPanel";
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   buildExposureInsights,
@@ -1281,6 +1282,7 @@ function FundOpportunitiesTab({ envId, fundId }: { envId: string; fundId: string
 const EQUITY_TABS = [
   "Overview",
   "Performance",
+  "Waterfall",
   "Scenarios",
   "Asset Variance",
   "LP Summary",
@@ -1957,6 +1959,13 @@ export default function FundDetailPage({
           baseScenario={baseScenario}
           loading={loading}
         />
+      )}
+      {tab === "Waterfall" && (
+        <div className="py-6">
+          <WaterfallReceiptPanel
+            metrics={(authoritativeState?.state?.canonical_metrics ?? {}) as Record<string, unknown>}
+          />
+        </div>
       )}
       {tab === "Scenarios" && envId && businessId && (
         <ScenariosTab
