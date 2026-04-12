@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS public.research_state_field_provenance (
 CREATE INDEX IF NOT EXISTS idx_research_state_field_provenance_state
   ON public.research_state_field_provenance (research_state_id);
 
+-- Drop dependent views before altering hr_predictions (adding columns shifts
+-- the p.* expansion, breaking CREATE OR REPLACE VIEW on idempotency re-run).
+DROP VIEW IF EXISTS public.hr_pending_predictions;
+
 ALTER TABLE IF EXISTS public.hr_predictions
   ADD COLUMN IF NOT EXISTS research_state_id uuid REFERENCES public.research_state(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS forecast_confidence numeric(5,4),
@@ -74,3 +78,12 @@ ALTER TABLE IF EXISTS public.hr_predictions
 CREATE INDEX IF NOT EXISTS idx_hr_predictions_research_state
   ON public.hr_predictions (research_state_id, prediction_date DESC)
   WHERE research_state_id IS NOT NULL;
+
+-- Re-create the view dropped above (now includes the new columns in p.*)
+CREATE OR REPLACE VIEW public.hr_pending_predictions AS
+SELECT p.*, e.name as analog_name
+FROM public.hr_predictions p
+LEFT JOIN public.episodes e ON p.top_analog_id = e.id
+WHERE p.resolved = FALSE
+  AND p.target_date <= CURRENT_DATE
+ORDER BY p.target_date;
