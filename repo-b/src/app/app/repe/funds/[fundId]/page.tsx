@@ -307,7 +307,10 @@ function FundReturnsSection({
   fundState: ReV2AuthoritativeState | null;
   fundMetrics: ReV2FundMetrics | null;
 }) {
-  const m = (key: string) => authMetricValue(fundState, key);
+  const m = (key: string): number | null => {
+    const v = authMetricValue(fundState, key);
+    return v !== null ? Number(v) : null;
+  };
   const rows: { label: string; value: string; tone: string }[] = [
     {
       label: "DPI",
@@ -605,7 +608,10 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
         run_waterfall: true,
       });
       setCloseResult(result);
-      if (result.fund_state) setFundState(result.fund_state);
+      // Re-fetch authoritative state after quarter close (result.fund_state is legacy shape)
+      getReV2AuthoritativeState({ entityType: "fund", entityId: params.fundId, quarter })
+        .then((auth) => setFundState(auth))
+        .catch(() => {});
       if (result.fund_metrics) setFundMetrics(result.fund_metrics);
     } catch {
       setCloseResult({ status: "failed", run_id: "", fund_id: params.fundId, quarter, assets_processed: 0, jvs_processed: 0, investments_processed: 0 });
@@ -714,10 +720,10 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
             </h2>
             <div className="mt-6 grid grid-cols-2 gap-px border border-bm-border/[0.1] sm:grid-cols-4">
               {[
-                { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-                { label: "Called", value: fmtMoney(fundState?.total_called) },
-                { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
-                { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
+                { label: "Committed", value: fmtMoney(authMetricValue(fundState, "total_committed")) },
+                { label: "Called", value: fmtMoney(authMetricValue(fundState, "total_called")) },
+                { label: "Distributed", value: fmtMoney(authMetricValue(fundState, "total_distributed")) },
+                { label: "NAV", value: fmtMoney(authMetricValue(fundState, "ending_nav")) },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-bm-bg p-6">
                   <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-bm-muted2">{label}</p>

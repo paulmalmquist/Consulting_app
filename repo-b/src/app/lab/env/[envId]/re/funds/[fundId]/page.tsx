@@ -2229,8 +2229,8 @@ function DebtOverviewTab({ envId, businessId, fundId, quarter, fundState }: {
   const debtMetrics = [
     { label: "Total UPB", value: fmtMoney(totalUpb) },
     { label: "Weighted Avg Coupon", value: fmtPercent(weightedCoupon) },
-    { label: "Weighted Avg DSCR", value: authoritativeNumber("weighted_dscr") != null ? Number(authoritativeNumber("weighted_dscr")).toFixed(2) : "—" },
-    { label: "Portfolio LTV", value: authoritativeNumber("weighted_ltv") != null ? fmtPercent(authoritativeNumber("weighted_ltv")) : "—" },
+    { label: "Weighted Avg DSCR", value: fundState?.weighted_dscr ? Number(fundState.weighted_dscr).toFixed(2) : "—" },
+    { label: "Portfolio LTV", value: fundState?.weighted_ltv ? fmtPercent(fundState.weighted_ltv) : "—" },
     { label: "Loan Count", value: String(loans.length) },
     { label: "Watchlist Alerts", value: String(watchlistCount) },
   ];
@@ -2396,8 +2396,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     [legacyExposureInsights, overviewData.exposure]
   );
   const performanceDrivers = useMemo(
-    () => buildPerformanceDrivers(overviewData.irrContrib, authoritativeNumber("ending_nav") ?? overviewData.rollup?.summary.total_equity ?? null),
-    [authoritativeState, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
+    () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
+    [fundState?.portfolio_nav, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
   );
   const portfolioRows = useMemo(
     () => buildPortfolioTableRows(displayInvestments, rollupById),
