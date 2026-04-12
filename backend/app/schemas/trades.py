@@ -112,6 +112,9 @@ class TradeIntentOut(BaseModel):
     expected_scenario: str
     confidence_score: float
     trap_risk_score: float
+    top_analog_id: UUID | None = None
+    scenario_probabilities_json: dict[str, Any] = Field(default_factory=dict)
+    thesis_snapshot_json: dict[str, Any] = Field(default_factory=dict)
     status: str
     created_at: datetime
     updated_at: datetime | None = None
@@ -312,6 +315,8 @@ class OpenPortfolioPositionOut(BaseModel):
     quote_data_class: str | None = None
     forecast_id: UUID | None = None
     top_analog_id: UUID | None = None
+    scenario_probabilities_json: dict[str, Any] = Field(default_factory=dict)
+    thesis_snapshot_json: dict[str, Any] = Field(default_factory=dict)
     updated_at: datetime
 
 
@@ -332,6 +337,8 @@ class ClosedPortfolioPositionOut(BaseModel):
     closed_at: datetime
     forecast_id: UUID | None = None
     top_analog_id: UUID | None = None
+    scenario_probabilities_json: dict[str, Any] = Field(default_factory=dict)
+    thesis_snapshot_json: dict[str, Any] = Field(default_factory=dict)
 
 
 class PortfolioAttributionOut(BaseModel):
@@ -369,3 +376,12 @@ class PortfolioDecisionSummaryOut(BaseModel):
     rhyme_score: float | None = None
     divergence_note: str | None = None
     calibration_summary: str | None = None
+    action_posture: str | None = None
+    action_posture_reasons: list[str] = Field(default_factory=list)
+    size_multiplier: float | None = None
+    state_staleness_status: str | None = None
+    effective_scope_chain: list[dict[str, Any]] = Field(default_factory=list)
+    forecast_confidence: float | None = None
+    scenario_dispersion_score: float | None = None
+    adversarial_risk: float | None = None
+    confidence_delta: dict[str, Any] = Field(default_factory=dict)

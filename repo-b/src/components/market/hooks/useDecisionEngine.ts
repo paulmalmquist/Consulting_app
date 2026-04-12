@@ -52,6 +52,44 @@ export interface DecisionEngineData {
     recent: ApiPrediction[];
     brierHistory: ApiBrierWeek[];
   };
+  researchState?: Record<string, unknown> | null;
+  fieldProvenance?: Array<Record<string, unknown>>;
+  parseQuality?: Record<string, unknown> | null;
+  confidenceDelta?: {
+    previous?: number | null;
+    current?: number | null;
+    delta_points?: number | null;
+    reasons?: string[];
+  } | null;
+  deterministicDecision?: {
+    action_posture?: string;
+    action_posture_reasons?: string[];
+    size_multiplier?: number;
+    analog_influence_enabled?: boolean;
+    state_staleness_status?: string;
+    effective_scope_chain?: Array<Record<string, unknown>>;
+  } | null;
+  scenarioDistribution?: {
+    bull?: number;
+    base?: number;
+    bear?: number;
+  } | null;
+  systemWarnings?: string[];
+  whatChanged?: string[];
+  adversarialView?: string | null;
+  topBar?: {
+    regimeLabel?: string | null;
+    confidence?: number;
+    shockType?: string | null;
+    signalCoherence?: number;
+  } | null;
+  metrics?: {
+    rhymeScore?: number;
+    forecastConfidence?: number;
+    scenarioDispersion?: number;
+    adversarialRisk?: number;
+    analogSignificance?: Record<string, unknown> | null;
+  } | null;
   mismatchData: MismatchItem[];
   currentSignals: Record<string, unknown> | null;
   provenance: {
@@ -222,6 +260,10 @@ export interface ApiPrediction {
   resolved: boolean;
   brier_score: number | null;
   analog_name: string | null;
+  forecast_confidence?: number | null;
+  scenario_dispersion_score?: number | null;
+  adversarial_risk?: number | null;
+  agent_agreement_score?: number | null;
   source: string;
 }
 

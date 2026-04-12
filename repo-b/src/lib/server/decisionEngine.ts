@@ -1,5 +1,7 @@
 import { getPool } from "@/lib/server/db";
 
+const BACKEND_ORIGIN = (process.env.BOS_API_ORIGIN || "http://localhost:8000").replace(/\/+$/, "");
+
 function coerceNumbers<T extends Record<string, unknown>>(row: T): T {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
@@ -157,6 +159,7 @@ export async function getDecisionEnginePayload() {
     trapsRes,
     honeypotRes,
     currentSignalsRes,
+    researchStateRes,
   ] = await Promise.all([
     pool.query(
       `SELECT * FROM public.wss_reality_signals
@@ -248,6 +251,12 @@ export async function getDecisionEnginePayload() {
        ORDER BY signal_date DESC
        LIMIT 1`
     ),
+    fetch(`${BACKEND_ORIGIN}/api/v1/market/research-state/latest`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .catch(() => null),
   ]);
 
   const reality = coerceRows(realityRes.rows);
@@ -267,6 +276,40 @@ export async function getDecisionEnginePayload() {
   const signalDates = [...reality.map((r) => r.signal_date), ...data.map((r) => r.signal_date)].filter(Boolean);
   const latestSignalDate = signalDates.length > 0 ? signalDates.sort().reverse()[0] : null;
   const agents = coerceRows(agentsRes.rows);
+  const latestResearchState = researchStateRes as Record<string, unknown> | null;
+  const latestForecast = (latestResearchState?.latest_forecast as Record<string, unknown> | null) ?? null;
+  const deterministicDecision = (latestResearchState?.deterministic_decision as Record<string, unknown> | null) ?? null;
+  const parseQuality = (latestResearchState?.parse_quality as Record<string, unknown> | null) ?? null;
+  const confidenceDelta = (latestResearchState?.confidence_delta as Record<string, unknown> | null) ?? null;
+  const scenarioDistribution =
+    ((latestResearchState?.scenario_distribution_json as Record<string, unknown> | null) ?? null) ||
+    (latestForecast
+      ? {
+          bull: Number(latestForecast.scenario_bull_prob ?? 0),
+          base: Number(latestForecast.scenario_base_prob ?? 0),
+          bear: Number(latestForecast.scenario_bear_prob ?? 0),
+        }
+      : null);
+  const systemWarnings = [
+    ...(((parseQuality?.parse_warnings as string[]) ?? [])),
+    ...Object.entries((latestResearchState?.data_quality_flags as Record<string, unknown>) ?? {})
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key.replaceAll("_", " ")),
+    ...(((deterministicDecision?.action_posture_reasons as string[]) ?? [])),
+  ];
+  const topAnalogs =
+    (((latestResearchState?.top_analogs as Array<Record<string, unknown>>) ?? []).map((analog, index) => ({
+      episode_name: String(analog.episode ?? analog.episode_name ?? "Unknown analog"),
+      rhyme_score: Number(analog.score ?? analog.rhyme_score ?? 0),
+      cosine_sim: Number(analog.score ?? analog.rhyme_score ?? 0),
+      dtw_distance: 0.25,
+      categorical_match: 0.5,
+      key_similarity: "Historical pattern alignment from the current state vector and weekly research brief.",
+      key_divergence:
+        ((latestResearchState?.divergences as string[]) ?? [])[index] ??
+        "Use this analog as context, not certainty.",
+      rank: index + 1,
+    }))) || [];
 
   return {
     signals: {
@@ -278,7 +321,17 @@ export async function getDecisionEnginePayload() {
       meta: coerceRows(metaRes.rows),
     },
     analogs: {
-      topMatch: analogRes.rows[0] ? coerceNumbers(analogRes.rows[0]) : null,
+      topMatch: analogRes.rows[0]
+        ? coerceNumbers(analogRes.rows[0])
+        : topAnalogs.length > 0
+          ? {
+              id: "research-state-top-analogs",
+              query_date: latestResearchState?.state_date ?? new Date().toISOString().slice(0, 10),
+              asset_class: "global",
+              matches: topAnalogs,
+              source: "research_state",
+            }
+          : null,
       episodeLibrary: coerceRows(episodesRes.rows),
     },
     agents: {
@@ -293,6 +346,30 @@ export async function getDecisionEnginePayload() {
       current: predictionsRes.rows[0] ? coerceNumbers(predictionsRes.rows[0]) : null,
       recent: coerceRows(predictionsRes.rows),
       brierHistory: coerceRows(brierRes.rows),
+    },
+    researchState: latestResearchState,
+    fieldProvenance: (latestResearchState?.field_provenance as Record<string, unknown>[] | null) ?? [],
+    parseQuality,
+    confidenceDelta,
+    deterministicDecision,
+    scenarioDistribution,
+    systemWarnings: [...new Set(systemWarnings)].filter(Boolean),
+    whatChanged: (confidenceDelta?.reasons as string[] | undefined) ?? [],
+    adversarialView:
+      ((latestForecast?.research_context_json as Record<string, unknown> | null)?.adversarial_view as string | undefined) ??
+      (((deterministicDecision?.action_posture_reasons as string[]) ?? []).join("; ") || null),
+    topBar: {
+      regimeLabel: latestResearchState?.regime_label ?? null,
+      confidence: Number(confidenceDelta?.current ?? 0),
+      shockType: latestResearchState?.shock_type ?? null,
+      signalCoherence: Number(latestResearchState?.signal_coherence_index ?? 0),
+    },
+    metrics: {
+      rhymeScore: Number(latestForecast?.rhyme_score ?? topAnalogs[0]?.rhyme_score ?? 0),
+      forecastConfidence: Number(latestForecast?.forecast_confidence ?? 0),
+      scenarioDispersion: Number(latestForecast?.scenario_dispersion_score ?? 0),
+      adversarialRisk: Number(latestForecast?.adversarial_risk ?? latestResearchState?.adversarial_risk ?? 0),
+      analogSignificance: (latestResearchState?.analog_significance_json as Record<string, unknown> | null) ?? null,
     },
     mismatchData,
     currentSignals: currentSignalsRes.rows[0] ? coerceNumbers(currentSignalsRes.rows[0]) : null,

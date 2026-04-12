@@ -93,6 +93,7 @@ from app.routes import resume, resume_chat
 from app.routes import tracking
 from app.routes import market_regime
 from app.routes import market_correlation
+from app.routes import market_research_state
 from app.routes import rhymes
 from app.routes import trading
 from app.routes import trades
@@ -373,6 +374,7 @@ app.include_router(resume.router)
 app.include_router(resume_chat.router)
 app.include_router(market_regime.router)
 app.include_router(market_correlation.router)
+app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
 app.include_router(trading.router)
 app.include_router(trades.router)

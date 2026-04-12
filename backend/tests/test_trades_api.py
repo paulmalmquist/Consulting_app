@@ -52,10 +52,13 @@ def test_create_trade_intent_requires_fields(client):
     assert any(item["loc"][-1] == "thesis_summary" for item in resp.json()["detail"])
 
 
-def test_create_trade_intent_success(client, fake_cursor):
+def test_create_trade_intent_success(client, fake_cursor, monkeypatch):
+    from app.services import trades as trades_svc
+
     business_id = str(uuid4())
     intent_id = str(uuid4())
 
+    monkeypatch.setattr(trades_svc, "_load_latest_research_context", lambda: None)
     fake_cursor.push_result([
         {
             "trade_intent_id": intent_id,

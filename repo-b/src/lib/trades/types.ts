@@ -55,6 +55,9 @@ export interface TradeIntent {
   expected_scenario: string;
   confidence_score: number;
   trap_risk_score: number;
+  top_analog_id?: string | null;
+  scenario_probabilities_json?: Record<string, unknown>;
+  thesis_snapshot_json?: Record<string, unknown>;
   status: string;
   created_at: string;
   updated_at?: string | null;
@@ -221,6 +224,8 @@ export interface OpenPortfolioPosition {
   quote_data_class?: string | null;
   forecast_id?: string | null;
   top_analog_id?: string | null;
+  scenario_probabilities_json?: Record<string, unknown>;
+  thesis_snapshot_json?: Record<string, unknown>;
   updated_at: string;
 }
 
@@ -241,6 +246,8 @@ export interface ClosedPortfolioPosition {
   closed_at: string;
   forecast_id?: string | null;
   top_analog_id?: string | null;
+  scenario_probabilities_json?: Record<string, unknown>;
+  thesis_snapshot_json?: Record<string, unknown>;
 }
 
 export interface PortfolioAttribution {
@@ -265,7 +272,7 @@ export interface PortfolioAccountability {
 }
 
 export interface PortfolioDecisionSummary {
-  recommended_action: "add" | "reduce" | "hold" | "hedge" | "abstain";
+  recommended_action: "add" | "reduce" | "hold" | "hedge" | "abstain" | "paper_trade_only";
   confidence: number;
   sizing_guidance?: string | null;
   invalidation_trigger?: string | null;
@@ -278,6 +285,15 @@ export interface PortfolioDecisionSummary {
   rhyme_score?: number | null;
   divergence_note?: string | null;
   calibration_summary?: string | null;
+  action_posture?: string | null;
+  action_posture_reasons?: string[];
+  size_multiplier?: number | null;
+  state_staleness_status?: string | null;
+  effective_scope_chain?: Array<Record<string, unknown>>;
+  forecast_confidence?: number | null;
+  scenario_dispersion_score?: number | null;
+  adversarial_risk?: number | null;
+  confidence_delta?: Record<string, unknown>;
 }
 
 export interface PortfolioOverview {

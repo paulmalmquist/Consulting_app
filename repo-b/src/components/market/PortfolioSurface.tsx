@@ -26,6 +26,13 @@ import {
   getTooltipStyle,
 } from "@/components/charts/chart-theme";
 import type { DecisionEngineResult } from "@/components/market/hooks/useDecisionEngine";
+import {
+  CoherenceMeter,
+  CreditBreakdownPanel,
+  ShockClassificationBadge,
+  SignalFreshnessCard,
+  VolatilityDivergencePanel,
+} from "@/components/market/ResearchStateCards";
 import type {
   ClosedPortfolioPosition,
   OpenPortfolioPosition,
@@ -144,6 +151,23 @@ export function MarketsHomeSurface({
   const [showSpy, setShowSpy] = useState(true);
   const [showBtc, setShowBtc] = useState(true);
   const topAnalogs = decisionEngine.raw?.analogs.topMatch?.matches?.slice(0, 3) ?? [];
+  const researchState = (decisionEngine.raw?.researchState as Record<string, unknown> | null) ?? null;
+  const deterministicDecision = decisionEngine.raw?.deterministicDecision ?? null;
+  const confidenceDelta = decisionEngine.raw?.confidenceDelta ?? null;
+  const topBar = decisionEngine.raw?.topBar ?? null;
+  const systemWarnings = decisionEngine.raw?.systemWarnings ?? [];
+  const whatChanged = decisionEngine.raw?.whatChanged ?? [];
+  const scenarioDistribution = decisionEngine.raw?.scenarioDistribution ?? null;
+  const volatility = ((researchState?.volatility_regime_json as Record<string, unknown>) ?? null) as {
+    vix_level?: number | null;
+    move_level?: number | null;
+    vol_divergence_score?: number | null;
+  } | null;
+  const credit = ((researchState?.credit_regime_json as Record<string, unknown>) ?? null) as {
+    cre_stress?: number;
+    corporate_stress?: number;
+    consumer_stress?: number;
+  } | null;
 
   if (loading) {
     return <div className="rounded-[28px] border border-white/10 bg-slate-950/70 p-8 text-slate-300">Loading portfolio decision surface…</div>;
@@ -185,6 +209,21 @@ export function MarketsHomeSurface({
               Execution Workspace
             </Link>
           </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 lg:grid-cols-4">
+          <KpiCard label="Regime Label" value={String(topBar?.regimeLabel ?? decision.current_regime ?? "Unknown")} />
+          <KpiCard label="Confidence" value={`${Number(topBar?.confidence ?? decision.confidence ?? 0).toFixed(1)}`} tone="text-sky-100" />
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Shock Type</div>
+            <div className="mt-2">
+              <ShockClassificationBadge
+                shockType={String(researchState?.shock_type ?? topBar?.shockType ?? "")}
+                dominance={Number(researchState?.shock_dominance_score ?? 0)}
+              />
+            </div>
+          </div>
+          <KpiCard label="Signal Coherence" value={`${(Number(topBar?.signalCoherence ?? 0) * 100).toFixed(0)}%`} tone="text-emerald-200" />
         </div>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.75fr_0.95fr]">
@@ -276,6 +315,31 @@ export function MarketsHomeSurface({
                   Confidence {decision.confidence.toFixed(1)}
                 </div>
               </div>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Deterministic Posture</div>
+                    <div className="mt-2 text-xl font-semibold text-white">{String(deterministicDecision?.action_posture ?? decision.action_posture ?? "paper_only").replaceAll("_", " ")}</div>
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-slate-300">
+                    Size {Number(deterministicDecision?.size_multiplier ?? decision.size_multiplier ?? 0).toFixed(2)}x
+                  </div>
+                </div>
+                <div className="mt-3 text-sm leading-6 text-slate-300">
+                  {((deterministicDecision?.action_posture_reasons ?? decision.action_posture_reasons ?? []) as string[]).join("; ") || "No posture reasons captured yet."}
+                </div>
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Why Confidence Moved</div>
+                <div className="mt-2 text-sm leading-6 text-slate-200">
+                  {confidenceDelta?.delta_points != null
+                    ? `Delta ${Number(confidenceDelta.delta_points).toFixed(1)} pts.`
+                    : "No prior confidence delta available."}
+                </div>
+                <div className="mt-2 text-sm leading-6 text-slate-300">
+                  {(confidenceDelta?.reasons ?? []).join("; ") || "No confidence movement reasons captured yet."}
+                </div>
+              </div>
               <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
                 <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Current Regime</div>
@@ -295,9 +359,9 @@ export function MarketsHomeSurface({
                 </div>
               </div>
               <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-3">
-                <KpiCard label="Bull" value={pct((decision.bull_probability ?? 0) * 100)} />
-                <KpiCard label="Base" value={pct((decision.base_probability ?? 0) * 100)} />
-                <KpiCard label="Bear" value={pct((decision.bear_probability ?? 0) * 100)} />
+                <KpiCard label="Bull" value={pct(((scenarioDistribution?.bull ?? decision.bull_probability ?? 0) as number) * 100)} />
+                <KpiCard label="Base" value={pct(((scenarioDistribution?.base ?? decision.base_probability ?? 0) as number) * 100)} />
+                <KpiCard label="Bear" value={pct(((scenarioDistribution?.bear ?? decision.bear_probability ?? 0) as number) * 100)} />
               </div>
             </div>
 
@@ -349,6 +413,69 @@ export function MarketsHomeSurface({
         </div>
 
         <div className="mt-6 space-y-4">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">What Changed</div>
+              <div className="mt-4 space-y-3">
+                {whatChanged.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-slate-300">
+                    No confidence-delta explanations are available yet.
+                  </div>
+                ) : (
+                  whatChanged.slice(0, 4).map((item) => (
+                    <div key={item} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm leading-6 text-slate-200">
+                      {item}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">System Warnings</div>
+              <div className="mt-4 space-y-3">
+                {systemWarnings.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-slate-300">
+                    No active system warnings.
+                  </div>
+                ) : (
+                  systemWarnings.slice(0, 5).map((warning) => (
+                    <div key={warning} className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-50">
+                      {warning}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-5">
+            <SignalFreshnessCard
+              freshness={Number(researchState?.signal_freshness_score ?? 0)}
+              staleness={String(deterministicDecision?.state_staleness_status ?? decision.state_staleness_status ?? "")}
+            />
+            <CoherenceMeter coherence={Number(researchState?.signal_coherence_index ?? 0)} />
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Metric Separation</div>
+              <div className="mt-3 space-y-2 text-sm text-slate-200">
+                <div>Rhyme Score {Number(decisionEngine.raw?.metrics?.rhymeScore ?? 0).toFixed(2)}</div>
+                <div>Forecast Confidence {(Number(decisionEngine.raw?.metrics?.forecastConfidence ?? 0) * 100).toFixed(0)}%</div>
+                <div>Scenario Dispersion {(Number(decisionEngine.raw?.metrics?.scenarioDispersion ?? 0) * 100).toFixed(0)}%</div>
+                <div>Adversarial Risk {(Number(decisionEngine.raw?.metrics?.adversarialRisk ?? 0) * 100).toFixed(0)}%</div>
+              </div>
+            </div>
+            <div className="xl:col-span-2 rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Adversarial View</div>
+              <div className="mt-3 text-sm leading-7 text-slate-200">
+                {decisionEngine.raw?.adversarialView ?? "Adversarial view is not available yet."}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CreditBreakdownPanel credit={credit} />
+            <VolatilityDivergencePanel volatility={volatility} />
+          </div>
+
           <StaleBadge value={hero.stale_warning} />
         </div>
       </div>

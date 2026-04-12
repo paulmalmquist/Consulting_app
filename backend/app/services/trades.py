@@ -39,6 +39,19 @@ def _json(value: Any) -> str:
     return json.dumps(value if value is not None else {}, default=_json_default)
 
 
+def _json_loads(value: Any, default: Any):
+    if value is None:
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return default
+    return default
+
+
 def _to_decimal(value: Any, default: str = "0") -> Decimal:
     if value is None or value == "":
         return Decimal(default)
@@ -72,6 +85,43 @@ def _load_regime_snapshot() -> dict[str, Any] | None:
         return _serialize_regime_snapshot(get_latest_regime())
     except Exception:
         return None
+
+
+def _load_latest_research_context() -> dict[str, Any] | None:
+    try:
+        from app.services.research_state_service import get_latest_state
+
+        return get_latest_state(scope_type="market", scope_key="global")
+    except Exception:
+        return None
+
+
+def _build_trade_research_snapshot(research_state: dict[str, Any] | None) -> dict[str, Any]:
+    if not research_state:
+        return {}
+    deterministic = research_state.get("deterministic_decision") or {}
+    forecast = research_state.get("latest_forecast") or {}
+    top_analogs = _json_loads(research_state.get("top_analogs"), [])
+    return {
+        "research_state_id": str(research_state.get("id")) if research_state.get("id") else None,
+        "state_date": research_state.get("state_date").isoformat() if research_state.get("state_date") else None,
+        "regime_label": research_state.get("regime_label"),
+        "regime_confidence": research_state.get("regime_confidence"),
+        "shock_type": research_state.get("shock_type"),
+        "signal_coherence_index": research_state.get("signal_coherence_index"),
+        "signal_freshness_score": research_state.get("signal_freshness_score"),
+        "divergences": _json_loads(research_state.get("divergences"), []),
+        "model_actions": _json_loads(research_state.get("model_actions"), []),
+        "top_analog": top_analogs[0] if top_analogs else None,
+        "scenario_distribution": _json_loads(research_state.get("scenario_distribution_json"), {}),
+        "confidence_delta": _json_loads(research_state.get("confidence_delta_json"), {}),
+        "deterministic_decision": deterministic,
+        "forecast_confidence": forecast.get("forecast_confidence"),
+        "scenario_dispersion_score": forecast.get("scenario_dispersion_score"),
+        "agent_agreement_score": forecast.get("agent_agreement_score"),
+        "adversarial_risk": forecast.get("adversarial_risk"),
+        "invalidation_triggers": _json_loads(forecast.get("invalidation_triggers_json"), []),
+    }
 
 
 def _load_risk_limits(cur, business_id: UUID) -> dict[str, Decimal]:
@@ -187,6 +237,21 @@ def _resolve_account_mode(control_state: dict[str, Any], requested_mode: str | N
 
 def create_trade_intent(payload: dict[str, Any]) -> dict[str, Any]:
     business_id = UUID(str(payload["business_id"]))
+    research_state = _load_latest_research_context()
+    research_snapshot = _build_trade_research_snapshot(research_state)
+    scenario_probabilities = payload.get("scenario_probabilities_json") or research_snapshot.get("scenario_distribution") or {}
+    thesis_snapshot = {
+        **research_snapshot,
+        **_json_loads(payload.get("thesis_snapshot_json"), {}),
+        "symbol": payload.get("symbol"),
+        "side": payload.get("side"),
+    }
+    top_analog = research_snapshot.get("top_analog") or {}
+    top_analog_id = payload.get("top_analog_id") or top_analog.get("episode_id") or top_analog.get("id")
+    metadata_json = {
+        **research_snapshot.get("deterministic_decision", {}),
+        **(payload.get("metadata_json") or {}),
+    }
     with get_cursor() as cur:
         cur.execute(
             """
@@ -197,7 +262,8 @@ def create_trade_intent(payload: dict[str, Any]) -> dict[str, Any]:
                 trap_risk_score, crowding_score, meta_game_level, forecast_ref_id,
                 invalidation_condition, invalidation_level, expected_scenario,
                 order_type, entry_price, desired_quantity, desired_notional,
-                limit_price, stop_price, status, metadata_json
+                limit_price, stop_price, top_analog_id, scenario_probabilities_json,
+                thesis_snapshot_json, status, metadata_json
             ) VALUES (
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
@@ -205,7 +271,8 @@ def create_trade_intent(payload: dict[str, Any]) -> dict[str, Any]:
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s, %s,
-                %s, %s, %s, %s::jsonb
+                %s, %s, %s, %s::jsonb,
+                %s::jsonb, %s, %s::jsonb
             )
             RETURNING *
             """,
@@ -237,8 +304,11 @@ def create_trade_intent(payload: dict[str, Any]) -> dict[str, Any]:
                 payload.get("desired_notional"),
                 payload.get("limit_price"),
                 payload.get("stop_price"),
+                str(top_analog_id) if top_analog_id else None,
+                _json(scenario_probabilities),
+                _json(thesis_snapshot),
                 "pending_risk",
-                _json(payload.get("metadata_json") or {}),
+                _json(metadata_json),
             ),
         )
         row = cur.fetchone()
@@ -1041,6 +1111,8 @@ def list_open_portfolio_positions(business_id: UUID, account_mode: str | None = 
                     p.quote_data_class,
                     COALESCE(p.forecast_id, ti.forecast_ref_id) AS forecast_id,
                     COALESCE(p.top_analog_id, ti.top_analog_id) AS top_analog_id,
+                    COALESCE(p.scenario_probabilities_json, ti.scenario_probabilities_json) AS scenario_probabilities_json,
+                    COALESCE(p.thesis_snapshot_json, ti.thesis_snapshot_json) AS thesis_snapshot_json,
                     p.updated_at
                 FROM app.portfolio_positions p
                 LEFT JOIN app.trade_intents ti
@@ -1085,6 +1157,8 @@ def list_open_portfolio_positions(business_id: UUID, account_mode: str | None = 
                     NULL::text AS quote_data_class,
                     ti.forecast_ref_id AS forecast_id,
                     NULL::uuid AS top_analog_id,
+                    ti.scenario_probabilities_json,
+                    ti.thesis_snapshot_json,
                     p.updated_at
                 FROM app.portfolio_positions p
                 LEFT JOIN app.trade_intents ti
@@ -1123,7 +1197,9 @@ def list_closed_portfolio_positions(business_id: UUID, account_mode: str | None 
                     ti.thesis_summary,
                     cp.closed_at,
                     cp.forecast_id,
-                    cp.top_analog_id
+                    cp.top_analog_id,
+                    cp.scenario_probabilities_json,
+                    cp.thesis_snapshot_json
                 FROM app.portfolio_closed_positions cp
                 LEFT JOIN app.trade_intents ti
                   ON ti.trade_intent_id = cp.thesis_ref_id
@@ -1257,43 +1333,62 @@ def get_portfolio_accountability(business_id: UUID) -> dict[str, Any]:
 
 
 def get_portfolio_decision_summary(business_id: UUID) -> dict[str, Any]:
-    from app.services.history_rhymes_service import match_analogs
-
-    analog_result = match_analogs(k=3, request_id=f"portfolio-{business_id}")
     regime_snapshot = _load_regime_snapshot() or {}
-    bull = float((analog_result.scenarios.get("bull") or {}).get("probability") or 0)
-    base = float((analog_result.scenarios.get("base") or {}).get("probability") or 0)
-    bear = float((analog_result.scenarios.get("bear") or {}).get("probability") or 0)
-    top_analog = analog_result.top_analogs[0] if analog_result.top_analogs else None
-    trap_flag = bool((analog_result.trap_detector or {}).get("trap_flag"))
-    trap_reason = (analog_result.trap_detector or {}).get("trap_reason")
-    confidence = round(float(top_analog.rhyme_score) * 100, 1) if top_analog else float(regime_snapshot.get("confidence") or 0)
-
-    if trap_flag and bear >= 0.25:
-        action = "hedge"
-    elif bear >= 0.5:
-        action = "reduce"
-    elif bull >= 0.55 and not trap_flag:
-        action = "add"
-    elif confidence < 45:
-        action = "abstain"
-    else:
-        action = "hold"
+    research_state = _load_latest_research_context() or {}
+    deterministic = research_state.get("deterministic_decision") or {}
+    latest_forecast = research_state.get("latest_forecast") or {}
+    scenarios = _json_loads(research_state.get("scenario_distribution_json"), {})
+    if not scenarios and latest_forecast:
+        scenarios = {
+            "bull": float(latest_forecast.get("scenario_bull_prob") or 0),
+            "base": float(latest_forecast.get("scenario_base_prob") or 0),
+            "bear": float(latest_forecast.get("scenario_bear_prob") or 0),
+        }
+    top_analogs = _json_loads(research_state.get("top_analogs"), [])
+    top_analog = top_analogs[0] if top_analogs else None
+    confidence = float(
+        (research_state.get("confidence_delta") or {}).get("current")
+        or ((latest_forecast.get("forecast_confidence") or 0) * 100)
+        or regime_snapshot.get("confidence")
+        or 0
+    )
+    posture = deterministic.get("action_posture") or "paper_only"
+    posture_action_map = {
+        "abstain": "abstain",
+        "paper_only": "paper_trade_only",
+        "reduced_size": "reduce",
+        "normal_conviction": "add" if float(scenarios.get("bull") or 0) > float(scenarios.get("bear") or 0) else "hold",
+    }
+    action = posture_action_map.get(posture, "hold")
+    trap_reason = "; ".join((deterministic.get("action_posture_reasons") or [])[:2]) or None
 
     return {
         "recommended_action": action,
         "confidence": confidence,
-        "sizing_guidance": "Scale risk with confidence and promotion status; keep paper-first when calibration is weak.",
-        "invalidation_trigger": trap_reason or "Break in regime alignment or analog divergence widening materially.",
-        "current_regime": regime_snapshot.get("regime_label"),
-        "bull_probability": bull,
-        "base_probability": base,
-        "bear_probability": bear,
+        "sizing_guidance": f"Posture {posture} with size multiplier {deterministic.get('size_multiplier', 0)}.",
+        "invalidation_trigger": (
+            (_json_loads(latest_forecast.get("invalidation_triggers_json"), []) or [None])[0]
+            or trap_reason
+            or "Break in regime alignment or analog divergence widening materially."
+        ),
+        "current_regime": research_state.get("regime_label") or regime_snapshot.get("regime_label"),
+        "bull_probability": float(scenarios.get("bull") or 0),
+        "base_probability": float(scenarios.get("base") or 0),
+        "bear_probability": float(scenarios.get("bear") or 0),
         "trap_warning": trap_reason,
-        "top_analog_name": getattr(top_analog, "episode_name", None),
-        "rhyme_score": getattr(top_analog, "rhyme_score", None),
-        "divergence_note": "What differs this time is surfaced through analog divergence and trap checks.",
-        "calibration_summary": "Promotion remains gated by paper history, Brier quality, and drawdown discipline.",
+        "top_analog_name": (top_analog or {}).get("episode"),
+        "rhyme_score": (top_analog or {}).get("score"),
+        "divergence_note": "; ".join(_json_loads(research_state.get("divergences"), [])[:2]) or "What differs this time is surfaced through analog divergence and trap checks.",
+        "calibration_summary": "Promotion remains gated by paper history, Brier quality, drawdown discipline, and deterministic action posture.",
+        "action_posture": posture,
+        "action_posture_reasons": deterministic.get("action_posture_reasons") or [],
+        "size_multiplier": deterministic.get("size_multiplier"),
+        "state_staleness_status": deterministic.get("state_staleness_status"),
+        "effective_scope_chain": deterministic.get("effective_scope_chain") or [],
+        "forecast_confidence": latest_forecast.get("forecast_confidence"),
+        "scenario_dispersion_score": latest_forecast.get("scenario_dispersion_score"),
+        "adversarial_risk": latest_forecast.get("adversarial_risk") or research_state.get("adversarial_risk"),
+        "confidence_delta": research_state.get("confidence_delta") or {},
     }
 
 

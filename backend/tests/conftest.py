@@ -166,6 +166,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.winston_readiness.get_cursor",
     "app.services.entity_search.get_cursor",
     "app.services.history_rhymes_service.get_cursor",
+    "app.services.research_state_service.get_cursor",
     "app.services.nv_app_intel.get_cursor",
     "app.services.nv_app_intel_memo.get_cursor",
 ]

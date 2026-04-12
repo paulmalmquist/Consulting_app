@@ -153,6 +153,16 @@ def _rhyme_score(cosine: float, dtw: float | None, categorical: float) -> float:
     return RHYME_W_COSINE * cosine + RHYME_W_DTW * dtw + RHYME_W_CATEGORICAL * categorical
 
 
+def _freshness_multiplier(data_freshness_hours: float | None) -> float:
+    if data_freshness_hours is None:
+        return 0.35
+    if data_freshness_hours <= 48:
+        return 1.15
+    if data_freshness_hours <= 24 * 7:
+        return 0.9
+    return 0.35
+
+
 # ── Categorical match (regime_type alignment) ─────────────────────────────────
 
 
@@ -363,6 +373,12 @@ def match_analogs(
             # Compute Rhyme Score with all corrections, then re-rank
             current_hoyt = hoyt_cycle_position(as_of_date)
             current_regime = None  # TODO: pull from market_state_daily Supabase mirror
+            freshness_hours = (
+                (datetime.now(timezone.utc) - datetime.combine(
+                    current_state["signal_date"], datetime.min.time(), tzinfo=timezone.utc
+                )).total_seconds() / 3600.0
+            )
+            freshness_weight = _freshness_multiplier(freshness_hours)
 
             scored: list[AnalogMatch] = []
             for r in rows:
@@ -370,7 +386,7 @@ def match_analogs(
                 cosine_sim = max(0.0, 1.0 - cosine_distance)  # pgvector cosine distance: 0=identical
                 cat = _categorical_match(r.get("regime_type"), current_regime)
 
-                base_score = _rhyme_score(cosine_sim, dtw=None, categorical=cat)
+                base_score = _rhyme_score(cosine_sim, dtw=None, categorical=cat) * freshness_weight
                 episode_year = r["start_date"].year if r.get("start_date") else 2000
 
                 # Order: era discount BEFORE Hoyt amplification (Section 7 rule 6)
@@ -407,16 +423,12 @@ def match_analogs(
                 m.rank = i + 1
 
             # Update confidence_meta
-            freshness_hours = (
-                (datetime.now(timezone.utc) - datetime.combine(
-                    current_state["signal_date"], datetime.min.time(), tzinfo=timezone.utc
-                )).total_seconds() / 3600.0
-            )
             confidence_meta = {
                 "agent_agreement": None,  # populated by stage 5 (multi-agent forecaster)
                 "permutation_p_value": None,  # populated by 05_backtest_walk_forward
                 "sample_size": len(rows),
                 "data_freshness_hours": round(freshness_hours, 2),
+                "freshness_weight": round(freshness_weight, 4),
             }
 
             # Pull active structural alerts (Section 5.5)
