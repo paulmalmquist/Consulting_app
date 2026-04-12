@@ -8,11 +8,11 @@ import {
   listRepeAssets,
   RepeFundDetail,
   RepeDeal,
-  getReV2FundQuarterState,
+  getReV2AuthoritativeState,
   getReV2FundMetrics,
   runReV2QuarterClose,
   listReV2Scenarios,
-  ReV2FundQuarterState,
+  ReV2AuthoritativeState,
   ReV2FundMetrics,
   ReV2Scenario,
   ReV2QuarterCloseResult,
@@ -51,14 +51,24 @@ type ModuleKey = (typeof MODULES)[number];
 
 // ─── View-model adapters ──────────────────────────────────────────────────────
 
-function deriveCapitalProgress(fundState: ReV2FundQuarterState | null): {
+function authMetricValue(authState: ReV2AuthoritativeState | null, key: string): string | number | null {
+  if (!authState) return null;
+  if (authState.promotion_state !== "released") return null;
+  if (authState.state_origin !== "authoritative") return null;
+  const m = authState.state?.canonical_metrics;
+  if (!m) return null;
+  const v = m[key];
+  return v !== null && v !== undefined ? (v as string | number) : null;
+}
+
+function deriveCapitalProgress(fundState: ReV2AuthoritativeState | null): {
   calledPct: number;
   distributedPct: number;
 } {
-  const committed = Number(fundState?.total_committed ?? 0);
+  const committed = Number(authMetricValue(fundState, "total_committed") ?? 0);
   if (!committed) return { calledPct: 0, distributedPct: 0 };
-  const calledPct = Math.min(1, Math.max(0, Number(fundState?.total_called ?? 0) / committed));
-  const distributedPct = Math.min(1, Math.max(0, Number(fundState?.total_distributed ?? 0) / committed));
+  const calledPct = Math.min(1, Math.max(0, Number(authMetricValue(fundState, "total_called") ?? 0) / committed));
+  const distributedPct = Math.min(1, Math.max(0, Number(authMetricValue(fundState, "total_distributed") ?? 0) / committed));
   return { calledPct, distributedPct };
 }
 
@@ -231,14 +241,14 @@ function FundCommandHeader({
   );
 }
 
-function FundCapitalSection({ fundState }: { fundState: ReV2FundQuarterState | null }) {
+function FundCapitalSection({ fundState }: { fundState: ReV2AuthoritativeState | null }) {
   const { calledPct, distributedPct } = deriveCapitalProgress(fundState);
 
   const metrics = [
-    { label: "NAV", value: fmtMoney(fundState?.portfolio_nav) },
-    { label: "Committed", value: fmtMoney(fundState?.total_committed) },
-    { label: "Called", value: fmtMoney(fundState?.total_called) },
-    { label: "Distributed", value: fmtMoney(fundState?.total_distributed) },
+    { label: "NAV", value: fmtMoney(authMetricValue(fundState, "ending_nav")) },
+    { label: "Committed", value: fmtMoney(authMetricValue(fundState, "total_committed")) },
+    { label: "Called", value: fmtMoney(authMetricValue(fundState, "total_called")) },
+    { label: "Distributed", value: fmtMoney(authMetricValue(fundState, "total_distributed")) },
   ];
 
   return (
@@ -294,34 +304,35 @@ function FundReturnsSection({
   fundState,
   fundMetrics,
 }: {
-  fundState: ReV2FundQuarterState | null;
+  fundState: ReV2AuthoritativeState | null;
   fundMetrics: ReV2FundMetrics | null;
 }) {
+  const m = (key: string) => authMetricValue(fundState, key);
   const rows: { label: string; value: string; tone: string }[] = [
     {
       label: "DPI",
-      value: fmtMultiple(fundState?.dpi),
-      tone: returnTone(fundState?.dpi, 1.0),
+      value: fmtMultiple(m("dpi")),
+      tone: returnTone(m("dpi"), 1.0),
     },
     {
       label: "RVPI",
-      value: fmtMultiple(fundState?.rvpi),
-      tone: returnTone(fundState?.rvpi, 0),
+      value: fmtMultiple(m("rvpi")),
+      tone: returnTone(m("rvpi"), 0),
     },
     {
       label: "TVPI",
-      value: fmtMultiple(fundState?.tvpi),
-      tone: returnTone(fundState?.tvpi, 1.0),
+      value: fmtMultiple(m("tvpi")),
+      tone: returnTone(m("tvpi"), 1.0),
     },
     {
       label: "Gross IRR",
-      value: fmtPct(fundState?.gross_irr),
-      tone: returnTone(fundState?.gross_irr, 0.08),
+      value: fmtPct(m("gross_irr")),
+      tone: returnTone(m("gross_irr"), 0.08),
     },
     {
       label: "Net IRR",
-      value: fmtPct(fundState?.net_irr ?? fundMetrics?.irr),
-      tone: returnTone(fundState?.net_irr ?? fundMetrics?.irr, 0.08),
+      value: fmtPct(m("net_irr")),
+      tone: returnTone(m("net_irr"), 0.08),
     },
   ];
 
@@ -355,7 +366,7 @@ function FundPortfolioStatePanel({
   deals: RepeDeal[];
   totalAssets: number;
   scenarios: ReV2Scenario[];
-  fundState: ReV2FundQuarterState | null;
+  fundState: ReV2AuthoritativeState | null;
 }) {
   const stats = [
     { label: "Investments", value: deals.length },
@@ -538,7 +549,7 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
   const [moduleTab, setModuleTab] = useState<ModuleKey>("Dashboard");
   const [detail, setDetail] = useState<RepeFundDetail | null>(null);
   const [deals, setDeals] = useState<RepeDeal[]>([]);
-  const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
+  const [fundState, setFundState] = useState<ReV2AuthoritativeState | null>(null);
   const [fundMetrics, setFundMetrics] = useState<ReV2FundMetrics | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
   const [assetCounts, setAssetCounts] = useState<Record<string, number>>({});
@@ -556,7 +567,7 @@ export default function RepeFundDetailPage({ params }: { params: { fundId: strin
     Promise.all([
       getRepeFund(params.fundId),
       listRepeDeals(params.fundId),
-      getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
+      getReV2AuthoritativeState({ entityType: "fund", entityId: params.fundId, quarter }).catch(() => null),
       getReV2FundMetrics(params.fundId, quarter).catch(() => null),
       listReV2Scenarios(params.fundId).catch(() => []),
     ])

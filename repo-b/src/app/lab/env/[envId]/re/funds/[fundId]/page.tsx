@@ -1478,8 +1478,8 @@ export default function FundDetailPage({
     [investmentRollup, overviewData.exposure]
   );
   const overviewPerformanceDrivers = useMemo(
-    () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
-    [fundState?.portfolio_nav, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
+    () => buildPerformanceDrivers(overviewData.irrContrib, authoritativeNumber("ending_nav") ?? overviewData.rollup?.summary.total_equity ?? null),
+    [authoritativeState, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
   );
   const portfolioSnapshotMetrics = useMemo(
     () =>
@@ -1490,22 +1490,19 @@ export default function FundDetailPage({
       }),
     [fundState, investmentRollup, overviewData.rollup]
   );
-  // Authoritative State Lockdown — Phase 3
-  // The KPI cards prefer authoritative snapshot values for any released
-  // period. fundState (the legacy quarter-state) is only consulted as a
-  // visible-but-untrusted fallback when no released snapshot exists.
-  // The TrustChip next to each card discloses which source produced
-  // each value. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
+  // Authoritative State Lockdown — Phase 3 (INV-5 enforced)
+  // KPI cards use authoritative snapshot values ONLY. No legacy fallback.
+  // When no released snapshot exists, values render as "—" (null),
+  // never as stale re_fund_quarter_state data.
+  // See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
   const committedCapital =
-    authoritativeNumber("total_committed") ?? toFiniteNumber(fundState?.total_committed);
+    authoritativeNumber("total_committed");
   const paidInCapital =
     authoritativeNumber("paid_in_capital") ??
-    authoritativeNumber("total_called") ??
-    toFiniteNumber(fundState?.total_called);
+    authoritativeNumber("total_called");
   const distributedCapital =
     authoritativeNumber("distributed_capital") ??
-    authoritativeNumber("total_distributed") ??
-    toFiniteNumber(fundState?.total_distributed);
+    authoritativeNumber("total_distributed");
   const capitalMetrics: HeaderMetric[] = [
     {
       label: "Committed",
@@ -1538,19 +1535,18 @@ export default function FundDetailPage({
       label: "Remaining Value",
       value: fmtMoney(
         authoritativeNumber("ending_nav") ??
-          authoritativeNumber("remaining_value") ??
-          fundState?.portfolio_nav,
+          authoritativeNumber("remaining_value"),
       ),
     },
-    { label: "DPI", value: fmtMultiple(authoritativeNumber("dpi") ?? fundState?.dpi) },
-    { label: "TVPI", value: fmtMultiple(authoritativeNumber("tvpi") ?? fundState?.tvpi) },
+    { label: "DPI", value: fmtMultiple(authoritativeNumber("dpi")) },
+    { label: "TVPI", value: fmtMultiple(authoritativeNumber("tvpi")) },
     {
       label: "Gross IRR",
-      value: fmtPercent(authoritativeNumber("gross_irr") ?? fundState?.gross_irr),
+      value: fmtPercent(authoritativeNumber("gross_irr")),
     },
     {
       label: "Net IRR",
-      value: fmtPercent(authoritativeNumber("net_irr") ?? fundState?.net_irr),
+      value: fmtPercent(authoritativeNumber("net_irr")),
     },
     {
       label: "Gross Op Cash Flow",
@@ -2233,8 +2229,8 @@ function DebtOverviewTab({ envId, businessId, fundId, quarter, fundState }: {
   const debtMetrics = [
     { label: "Total UPB", value: fmtMoney(totalUpb) },
     { label: "Weighted Avg Coupon", value: fmtPercent(weightedCoupon) },
-    { label: "Weighted Avg DSCR", value: fundState?.weighted_dscr ? Number(fundState.weighted_dscr).toFixed(2) : "—" },
-    { label: "Portfolio LTV", value: fundState?.weighted_ltv ? fmtPercent(fundState.weighted_ltv) : "—" },
+    { label: "Weighted Avg DSCR", value: authoritativeNumber("weighted_dscr") != null ? Number(authoritativeNumber("weighted_dscr")).toFixed(2) : "—" },
+    { label: "Portfolio LTV", value: authoritativeNumber("weighted_ltv") != null ? fmtPercent(authoritativeNumber("weighted_ltv")) : "—" },
     { label: "Loan Count", value: String(loans.length) },
     { label: "Watchlist Alerts", value: String(watchlistCount) },
   ];
@@ -2400,8 +2396,8 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
     [legacyExposureInsights, overviewData.exposure]
   );
   const performanceDrivers = useMemo(
-    () => buildPerformanceDrivers(overviewData.irrContrib, fundState?.portfolio_nav ?? overviewData.rollup?.summary.total_equity ?? null),
-    [fundState?.portfolio_nav, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
+    () => buildPerformanceDrivers(overviewData.irrContrib, authoritativeNumber("ending_nav") ?? overviewData.rollup?.summary.total_equity ?? null),
+    [authoritativeState, overviewData.irrContrib, overviewData.rollup?.summary.total_equity]
   );
   const portfolioRows = useMemo(
     () => buildPortfolioTableRows(displayInvestments, rollupById),

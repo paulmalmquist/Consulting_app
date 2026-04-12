@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ChevronDown, GitBranch, MoreHorizontal, Sparkles } from "lucide-react";
 import {
-  getReV2FundQuarterState,
+  getReV2AuthoritativeState,
   getReV2Investment,
   getReV2InvestmentAssets,
   getReV2InvestmentHistory,
@@ -14,7 +14,7 @@ import {
   getRepeFund,
   listReV2Jvs,
   ReV2EntityLineageResponse,
-  ReV2FundQuarterState,
+  ReV2AuthoritativeState,
   ReV2Investment,
   ReV2InvestmentAsset,
   ReV2InvestmentHistory,
@@ -750,7 +750,7 @@ function InvestmentBriefingPageContent({
 
   const [investment, setInvestment] = useState<ReV2Investment | null>(null);
   const [fundDetail, setFundDetail] = useState<RepeFundDetail | null>(null);
-  const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
+  const [fundState, setFundState] = useState<ReV2AuthoritativeState | null>(null);
   const [quarterState, setQuarterState] = useState<ReV2InvestmentQuarterState | null>(null);
   const [history, setHistory] = useState<ReV2InvestmentHistory | null>(null);
   const [assets, setAssets] = useState<ReV2InvestmentAsset[]>([]);
@@ -832,7 +832,7 @@ function InvestmentBriefingPageContent({
         getReV2InvestmentQuarterState(params.investmentId, resolvedQuarter),
         getReV2InvestmentAssets(params.investmentId, resolvedQuarter),
         getReV2InvestmentLineage(params.investmentId, resolvedQuarter),
-        getReV2FundQuarterState(investment.fund_id, resolvedQuarter).catch(() => null),
+        getReV2AuthoritativeState({ entityType: "fund", entityId: investment.fund_id, quarter: resolvedQuarter }).catch(() => null),
       ]);
 
       if (cancelled) return;
@@ -987,7 +987,11 @@ function InvestmentBriefingPageContent({
         ? "Scenario overlay stays ready for future versioned operating states."
         : undefined;
 
-  const currentFundNav = Number(fundState?.portfolio_nav || 0);
+  const currentFundNav = Number(
+    (fundState?.promotion_state === "released" && fundState?.state_origin === "authoritative")
+      ? (fundState?.state?.canonical_metrics?.ending_nav ?? 0)
+      : 0
+  );
   const fundNavContribution = Number(
     quarterState?.fund_nav_contribution || quarterState?.nav || totalNav || 0
   );

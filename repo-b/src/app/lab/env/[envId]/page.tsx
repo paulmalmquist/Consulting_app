@@ -21,7 +21,8 @@ import {
 } from "@/components/lab/environments/constants";
 import {
   listReV1Funds,
-  getReV2FundQuarterState,
+  getReV2AuthoritativeState,
+  ReV2AuthoritativeState,
   getResumeCareerSummary,
   listResumeProjects,
   listResumeRoles,
@@ -485,30 +486,35 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
         const states = await Promise.all(
           funds.map(async (fund) => {
             try {
-              return await getReV2FundQuarterState(fund.fund_id, quarter);
+              return await getReV2AuthoritativeState({ entityType: "fund", entityId: fund.fund_id, quarter });
             } catch {
               return null;
             }
           })
         );
         const validStates = states.filter(
-          (state): state is ReV2FundQuarterState => state !== null
+          (state): state is ReV2AuthoritativeState =>
+            state !== null && state.promotion_state === "released" && state.state_origin === "authoritative"
         );
         if (validStates.length === 0) {
           setRepeSummary(null);
           return;
         }
-        const weightedAverage = (key: "tvpi" | "dpi"): number | undefined => {
+        const cm = (s: ReV2AuthoritativeState, key: string): number | null => {
+          const v = s.state?.canonical_metrics?.[key];
+          return v != null ? Number(v) : null;
+        };
+        const weightedAverage = (key: string): number | undefined => {
           let weightedSum = 0;
           let weightedDenominator = 0;
           let fallbackSum = 0;
           let fallbackCount = 0;
           validStates.forEach((state) => {
-            const value = state[key];
+            const value = cm(state, key);
             if (value == null) return;
             fallbackSum += value;
             fallbackCount += 1;
-            const weight = Math.max(0, state.total_committed ?? 0);
+            const weight = Math.max(0, cm(state, "total_committed") ?? 0);
             if (weight > 0) {
               weightedSum += value * weight;
               weightedDenominator += weight;
@@ -524,7 +530,7 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
         };
         setRepeSummary({
           portfolio_nav: validStates.reduce(
-            (sum, state) => sum + (state.portfolio_nav ?? 0),
+            (sum, state) => sum + (cm(state, "ending_nav") ?? 0),
             0
           ),
           tvpi: weightedAverage("tvpi"),
