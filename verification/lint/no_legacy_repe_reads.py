@@ -145,8 +145,6 @@ ALLOWLIST_FILES = {
     "backend/app/services/re_authoritative_snapshots.py",
     "backend/app/routes/re_authoritative.py",
     "backend/app/schemas/re_authoritative.py",
-    # Pending remediation — uses ?? 0 as comparison fallback in reduce(), not display coercion.
-    "repo-b/src/app/lab/env/[envId]/re/page.tsx",
 }
 
 

@@ -7,11 +7,11 @@ import { Minus, Plus } from "lucide-react";
 import {
   deleteRepeFund,
   getReV2EnvironmentPortfolioKpis,
-  getReV2FundQuarterState,
+  getReV2AuthoritativeState,
   getAssetMapPoints,
   RepeFund,
   ReV2EnvironmentPortfolioKpis,
-  ReV2FundQuarterState,
+  ReV2AuthoritativeState,
   type AssetMapResponse,
 } from "@/lib/bos-api";
 import { listReV1Funds } from "@/lib/bos-api";
@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { fmtMoney, fmtMultiple, fmtPct } from '@/lib/format-utils';
 import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
+import { UnavailableCell } from "@/components/re/UnavailableTile";
+import { renderAuthoritativeMetric, type MetricCell } from "@/lib/re/assertAuthoritativeMetric";
 import {
   BarChart,
   Bar,
@@ -61,11 +63,11 @@ const createFundActionClass =
 const deleteFundActionClass =
   "h-8 w-8 rounded-full border border-bm-border/55 bg-transparent p-0 text-bm-muted2 transition-[transform,colors,box-shadow] duration-[120ms] hover:border-bm-danger/25 hover:bg-bm-danger/8 hover:text-bm-danger";
 
-type FundRow = RepeFund & { state?: ReV2FundQuarterState | null };
+type FundRow = RepeFund & { auth?: ReV2AuthoritativeState | null };
 
-type TimeMetric = "portfolio_nav" | "total_called" | "dpi" | "tvpi";
+type TimeMetric = "ending_nav" | "total_called" | "dpi" | "tvpi";
 const TIME_METRIC_OPTIONS: { value: TimeMetric; label: string }[] = [
-  { value: "portfolio_nav", label: "NAV" },
+  { value: "ending_nav", label: "NAV" },
   { value: "total_called", label: "Called Capital" },
   { value: "dpi", label: "DPI" },
   { value: "tvpi", label: "TVPI" },
@@ -75,10 +77,34 @@ const FUND_COLORS = [
   CHART_COLORS.revenue,
   CHART_COLORS.noi,
   CHART_COLORS.opex,
-  "#a78bfa", // violet
-  "#f97316", // orange
-  "#06b6d4", // cyan
+  "#a78bfa",
+  "#f97316",
+  "#06b6d4",
 ];
+
+// ── Authoritative metric helpers ────────────────────────────────────────────
+// Every numeric KPI on this page goes through this path.
+// If the authoritative state is unreleased, period-drifted, or carries a
+// null_reason, the metric is rendered as <UnavailableCell> instead of a number.
+
+function authMetric(fund: FundRow, field: string): MetricCell<string> {
+  return renderAuthoritativeMetric(fund.auth, field, (v) => String(v), {
+    entityLabel: fund.name,
+  });
+}
+
+function authNumeric(fund: FundRow, field: string): number | null {
+  const cell = authMetric(fund, field);
+  if (cell.kind !== "value") return null;
+  const n = Number(cell.value);
+  return isNaN(n) ? null : n;
+}
+
+function isReleased(fund: FundRow): boolean {
+  return fund.auth?.promotion_state === "released" && fund.auth?.state_origin === "authoritative";
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function ReFundListPage() {
   const { envId, businessId } = useReEnv();
@@ -89,15 +115,14 @@ export default function ReFundListPage() {
   const [deleteTarget, setDeleteTarget] = useState<FundRow | null>(null);
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
 
-  // Map data
   const [mapData, setMapData] = useState<AssetMapResponse | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
 
-  // Time series controls
-  const [timeMetric, setTimeMetric] = useState<TimeMetric>("portfolio_nav");
+  const [timeMetric, setTimeMetric] = useState<TimeMetric>("ending_nav");
 
   const quarter = pickCurrentQuarter();
 
+  // ── Data fetch: authoritative state per fund ──────────────────────────
   const refreshFunds = useCallback(async () => {
     if (!businessId && !envId) return;
     setLoading(true);
@@ -106,10 +131,14 @@ export default function ReFundListPage() {
       const enriched: FundRow[] = await Promise.all(
         rows.map(async (f) => {
           try {
-            const state = await getReV2FundQuarterState(f.fund_id, quarter);
-            return { ...f, state };
+            const auth = await getReV2AuthoritativeState({
+              entityType: "fund",
+              entityId: f.fund_id,
+              quarter,
+            });
+            return { ...f, auth };
           } catch {
-            return { ...f, state: null };
+            return { ...f, auth: null };
           }
         })
       );
@@ -141,7 +170,6 @@ export default function ReFundListPage() {
     void refreshPortfolioKpis();
   }, [refreshPortfolioKpis]);
 
-  // Fetch asset map data
   useEffect(() => {
     if (!envId) return;
     setMapLoading(true);
@@ -153,94 +181,66 @@ export default function ReFundListPage() {
 
   const isMultiplier = timeMetric === "dpi" || timeMetric === "tvpi";
 
-  // Cross-sectional fund comparison for the current quarter
+  // ── Chart data: only funds with released authoritative state ──────────
   const comparisonBarData = useMemo(() => {
     return funds
-      .filter((f) => f.state)
-      .map((f, i) => ({
-        name: f.name,
-        value: Number(f.state![timeMetric] ?? 0),
-        color: FUND_COLORS[i % FUND_COLORS.length],
-      }));
+      .filter((f) => isReleased(f))
+      .map((f, i) => {
+        const v = authNumeric(f, timeMetric);
+        return v !== null ? { name: f.name, value: v, color: FUND_COLORS[i % FUND_COLORS.length] } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
   }, [funds, timeMetric]);
 
-  // NAV-weighted average across funds
+  // ── Aggregated KPIs: NAV-weighted IRR from released funds only ────────
   function navWeightedAvg(field: "gross_irr" | "net_irr"): string {
-    const valid = funds.filter((f) => f.state?.[field] != null && f.state?.portfolio_nav);
+    const valid = funds.filter((f) => {
+      return isReleased(f) && authNumeric(f, field) !== null && authNumeric(f, "ending_nav") !== null;
+    });
     if (valid.length === 0) return "—";
-    const totalNav = valid.reduce((s, f) => s + Number(f.state!.portfolio_nav ?? 0), 0);
+    const totalNav = valid.reduce((s, f) => s + (authNumeric(f, "ending_nav") ?? 0), 0);
     if (totalNav === 0) return "—";
-    const wtd = valid.reduce((s, f) => s + Number(f.state![field]!) * Number(f.state!.portfolio_nav ?? 0), 0) / totalNav;
+    const wtd = valid.reduce((s, f) => s + (authNumeric(f, field) ?? 0) * (authNumeric(f, "ending_nav") ?? 0), 0) / totalNav;
     return fmtPct(wtd);
   }
 
-  // Compute weighted portfolio-level KPIs from fund states
   const computedGrossIrr = useMemo(() => navWeightedAvg("gross_irr"), [funds]);
   const computedNetIrr = useMemo(() => navWeightedAvg("net_irr"), [funds]);
 
-  // Sanity indicators: median gross IRR and per-fund percentile rank
-  const irrSanity = useMemo(() => {
-    const valid = funds
-      .map((f, i) => ({ idx: i, irr: f.state?.gross_irr != null ? Number(f.state.gross_irr) : null }))
-      .filter((x): x is { idx: number; irr: number } => x.irr !== null);
-
-    if (valid.length === 0) return { median: null, ranks: {} as Record<number, string> };
-
-    const sorted = [...valid].sort((a, b) => a.irr - b.irr);
-    const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0
-      ? (sorted[mid - 1].irr + sorted[mid].irr) / 2
-      : sorted[mid].irr;
-
-    // Sanity check: warn if all IRRs are within 0.5% of each other
-    const spread = sorted[sorted.length - 1].irr - sorted[0].irr;
-    if (spread < 0.005 && valid.length > 1) {
-      console.warn("[IRR sanity] All funds have near-identical gross IRR — cash flows may not be differentiated");
-    }
-
-    const ranks: Record<number, string> = {};
-    valid.forEach((x) => {
-      const rank = sorted.findIndex((s) => s.idx === x.idx) + 1;
-      const pct = Math.round((rank / sorted.length) * 100);
-      const delta = x.irr - median;
-      ranks[x.idx] = delta >= 0 ? `+${(delta * 100).toFixed(1)}pp vs median` : `${(delta * 100).toFixed(1)}pp vs median`;
-    });
-
-    return { median, ranks };
-  }, [funds]);
-
   const computedDscr = useMemo(() => {
-    const withDscr = funds.filter((f) => f.state?.weighted_dscr != null && f.state?.portfolio_nav != null);
+    const withDscr = funds.filter((f) => isReleased(f) && authNumeric(f, "weighted_dscr") !== null && authNumeric(f, "ending_nav") !== null);
     if (withDscr.length === 0) return "—";
-    // NAV-weighted portfolio DSCR: weight each fund's DSCR by its NAV
-    const totalNav = withDscr.reduce((s, f) => s + Number(f.state!.portfolio_nav ?? 0), 0);
+    const totalNav = withDscr.reduce((s, f) => s + (authNumeric(f, "ending_nav") ?? 0), 0);
     if (totalNav <= 0) {
-      // Fallback to simple average if all NAVs are zero
-      const avg = withDscr.reduce((s, f) => s + Number(f.state!.weighted_dscr!), 0) / withDscr.length;
+      const avg = withDscr.reduce((s, f) => s + (authNumeric(f, "weighted_dscr") ?? 0), 0) / withDscr.length;
       return `${avg.toFixed(2)}x`;
     }
     const wtd = withDscr.reduce(
-      (s, f) => s + Number(f.state!.weighted_dscr!) * Number(f.state!.portfolio_nav ?? 0), 0
+      (s, f) => s + (authNumeric(f, "weighted_dscr") ?? 0) * (authNumeric(f, "ending_nav") ?? 0), 0
     ) / totalNav;
     return `${wtd.toFixed(2)}x`;
   }, [funds]);
 
-  // Signal bar data
+  // ── Signal bar: only from released authoritative data ─────────────────
   const signals = useMemo(() => {
-    const withState = funds.filter((f) => f.state);
+    const released = funds.filter((f) => isReleased(f));
     const items: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }[] = [];
-    if (withState.length === 0) return items;
+    if (released.length === 0) return items;
 
-    // Top NAV fund
-    const topNav = withState.reduce((best, f) =>
-      Number(f.state!.portfolio_nav ?? 0) > Number(best.state!.portfolio_nav ?? 0) ? f : best
-    );
-    if (topNav.state?.portfolio_nav) {
-      items.push({ label: "Top NAV", value: `${topNav.name}: ${fmtMoney(topNav.state.portfolio_nav)}` });
+    let topNavFund: FundRow | null = null;
+    let topNavVal = 0;
+    for (const f of released) {
+      const v = authNumeric(f, "ending_nav");
+      if (v !== null && v > topNavVal) { topNavFund = f; topNavVal = v; }
+    }
+    if (topNavFund && topNavVal > 0) {
+      items.push({ label: "Top NAV", value: `${topNavFund.name}: ${fmtMoney(topNavVal)}` });
     }
 
-    // DSCR watch count
-    const dscrWatch = withState.filter((f) => f.state!.weighted_dscr != null && Number(f.state!.weighted_dscr) < 1.25);
+    const dscrWatch = released.filter((f) => {
+      const dscr = authNumeric(f, "weighted_dscr");
+      return dscr !== null && dscr < 1.25;
+    });
     if (dscrWatch.length > 0) {
       items.push({
         label: "DSCR Watch",
@@ -249,12 +249,14 @@ export default function ReFundListPage() {
       });
     }
 
-    // DPI leader
-    const topDpi = withState.reduce((best, f) =>
-      Number(f.state!.dpi ?? 0) > Number(best.state!.dpi ?? 0) ? f : best
-    );
-    if (topDpi.state?.dpi && Number(topDpi.state.dpi) > 0) {
-      items.push({ label: "DPI Leader", value: `${topDpi.name}: ${fmtMultiple(topDpi.state.dpi)}`, tone: "positive" });
+    let topDpiFund: FundRow | null = null;
+    let topDpiVal = 0;
+    for (const f of released) {
+      const v = authNumeric(f, "dpi");
+      if (v !== null && v > topDpiVal) { topDpiFund = f; topDpiVal = v; }
+    }
+    if (topDpiFund && topDpiVal > 0) {
+      items.push({ label: "DPI Leader", value: `${topDpiFund.name}: ${fmtMultiple(topDpiVal)}`, tone: "positive" });
     }
 
     return items;
@@ -286,6 +288,18 @@ export default function ReFundListPage() {
       setDeletingFundId(null);
     }
   }, [deleteTarget, push, refreshFunds, refreshPortfolioKpis]);
+
+  // ── Render helpers for table cells ────────────────────────────────────
+  function renderMetricCell(fund: FundRow, field: string, formatter: (v: string | number) => string) {
+    const cell = renderAuthoritativeMetric(
+      fund.auth,
+      field,
+      (v) => formatter(v as string | number),
+      { entityLabel: fund.name },
+    );
+    if (cell.kind === "value") return <span>{cell.value}</span>;
+    return <UnavailableCell nullReason={cell.nullReason} />;
+  }
 
   return (
     <>
@@ -353,7 +367,7 @@ export default function ReFundListPage() {
           </div>
         )}
 
-        {/* ── FUND COMPARISON + MAP (analytics first on mobile, 60/40 on desktop) ── */}
+        {/* ── FUND COMPARISON + MAP ── */}
         {!loading && funds.length > 0 && (
           <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
 
@@ -454,11 +468,10 @@ export default function ReFundListPage() {
                   </tr>
                 </thead>
                 <tbody className={reIndexTableBodyClass}>
-                  {funds.map((fund, fundIdx) => {
-                    const pctInvested = fund.state?.total_committed && fund.state?.total_called
-                      ? Number(fund.state.total_called) / Number(fund.state.total_committed)
-                      : null;
-                    const irrVariance = irrSanity.ranks[fundIdx] ?? null;
+                  {funds.map((fund) => {
+                    const committed = authNumeric(fund, "total_committed");
+                    const called = authNumeric(fund, "total_called");
+                    const pctInvested = committed && called ? called / committed : null;
                     return (
                     <tr key={fund.fund_id} className={reIndexTableRowClass}>
                       <td className="px-3 py-3 align-middle">
@@ -472,37 +485,25 @@ export default function ReFundListPage() {
                       <td className="px-3 py-3 align-middle text-[12px] tracking-[0.04em] text-bm-muted2">
                         {fund.vintage_year}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state == null ? `No quarter state for ${quarter}` : undefined}>
-                        {fmtMoney(fund.state?.total_committed)}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "total_committed", (v) => fmtMoney(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.portfolio_nav == null ? `No NAV data for ${quarter}` : undefined}>
-                        {fmtMoney(fund.state?.portfolio_nav)}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "ending_nav", (v) => fmtMoney(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.gross_irr == null ? `No IRR data for ${quarter} — run quarter close` : (irrVariance ?? undefined)}>
-                        <span>{fmtPct(fund.state?.gross_irr)}</span>
-                        {irrVariance && fund.state?.gross_irr != null && (
-                          <span className="block text-[9px] text-bm-muted2/60 leading-none mt-0.5">
-                            {irrVariance}
-                          </span>
-                        )}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "gross_irr", (v) => fmtPct(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.net_irr == null ? `No net IRR data for ${quarter} — run quarter close` : undefined}>
-                        {fmtPct(fund.state?.net_irr)}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "net_irr", (v) => fmtPct(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.dpi == null ? `No DPI data for ${quarter}` : undefined}>
-                        {fmtMultiple(fund.state?.dpi)}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "dpi", (v) => fmtMultiple(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={fund.state?.tvpi == null ? `No TVPI data for ${quarter}` : undefined}>
-                        {fmtMultiple(fund.state?.tvpi)}
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                        {renderMetricCell(fund, "tvpi", (v) => fmtMultiple(v))}
                       </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}
-                          title={pctInvested == null ? `No capital data for ${quarter}` : undefined}>
+                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                         {pctInvested != null ? `${(pctInvested * 100).toFixed(0)}%` : "—"}
                       </td>
                       <td className="px-3 py-3 align-middle">
