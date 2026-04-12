@@ -435,14 +435,16 @@ export default function PipelineLaneView({
   }, [chartData]);
 
   return (
-    <div style={{ background: CP.surface, flex: 1 }}>
-      <div style={{ overflowX: "auto", overflowY: "visible" }}>
+    <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",
+            flex: 1,
             gap: LANE_GAP,
-            padding: "14px 14px 20px",
+            padding: "14px 14px 14px",
             minWidth: "max-content",
+            alignItems: "stretch",
           }}
         >
           {columns.map((col) => {
@@ -555,6 +557,7 @@ function LaneColumn({
       ref={combinedRef}
       style={{
         width: colW,
+        minWidth: colW,
         flexShrink: 0,
         border,
         borderRadius: 4,
@@ -564,6 +567,7 @@ function LaneColumn({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        // height is intentionally omitted — parent's alignItems:stretch fills it
       }}
     >
       {/* Bar area — present for every lane so heights are uniform */}
@@ -665,15 +669,16 @@ function LaneColumn({
         ) : null}
       </div>
 
-      {/* Card drop zone */}
+      {/* Card drop zone — flex:1 fills remaining column height; overflow-y scrolls tall columns */}
       <div
         style={{
           padding: "5px 5px",
           display: "flex",
           flexDirection: "column",
           gap: 3,
-          minHeight: 56,
           flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
         }}
       >
         {column.cards.length === 0 ? (

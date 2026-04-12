@@ -11,7 +11,9 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isImmersiveRoute = /^\/lab\/env\/[^/]+\/markets(\/|$)/.test(pathname);
+  const isImmersiveRoute = /^\/lab\/env\/[^/]+\/(markets|consulting\/pipeline)(\/|$)/.test(pathname);
+  // Pipeline needs a proper flex column chain so the kanban fills remaining viewport height.
+  const isPipelineRoute = /^\/lab\/env\/[^/]+\/consulting\/pipeline(\/|$)/.test(pathname);
 
   return (
     <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
@@ -20,7 +22,16 @@ export default function AppShell({
           <AccountMenu homePath="/app" />
         </header>
       ) : null}
-      <main className={cn("flex-1", isImmersiveRoute ? "overflow-y-auto" : "p-6 pt-14")}>
+      <main
+        className={cn(
+          "flex-1",
+          isPipelineRoute
+            ? "flex flex-col overflow-hidden"
+            : isImmersiveRoute
+              ? "overflow-y-auto"
+              : "p-6 pt-14",
+        )}
+      >
         {children}
       </main>
     </div>
