@@ -41,7 +41,7 @@ export function PortfolioAssetMap({
   const summary = data?.summary;
 
   return (
-    <div className="rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] overflow-hidden">
+    <div className="h-full min-w-0 rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] overflow-hidden">
       {loading ? (
         <div className="p-4">
           <StateCard state="loading" />

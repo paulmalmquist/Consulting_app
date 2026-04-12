@@ -82,6 +82,53 @@ const FUND_COLORS = [
   "#06b6d4",
 ];
 
+function wrapFundLabel(label: string, maxLineLength = 14): [string, string?] {
+  const cleaned = label.trim();
+  if (cleaned.length <= maxLineLength) return [cleaned];
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return [cleaned.slice(0, maxLineLength), `${cleaned.slice(maxLineLength, maxLineLength * 2 - 1)}…`];
+  }
+
+  let firstLine = "";
+  const remaining: string[] = [];
+  for (const word of words) {
+    const nextLine = firstLine ? `${firstLine} ${word}` : word;
+    if (nextLine.length <= maxLineLength || !firstLine) {
+      firstLine = nextLine;
+    } else {
+      remaining.push(word);
+    }
+  }
+
+  const secondRaw = remaining.length ? remaining.join(" ") : words.slice(-1)[0];
+  const secondLine = secondRaw.length > maxLineLength ? `${secondRaw.slice(0, maxLineLength - 1)}…` : secondRaw;
+  return [firstLine, secondLine];
+}
+
+function FundComparisonTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+}) {
+  const { x = 0, y = 0, payload } = props;
+  const [lineOne, lineTwo] = wrapFundLabel(String(payload?.value ?? ""));
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        fill={AXIS_TICK_STYLE.fill}
+        fontSize={9}
+        textAnchor="middle"
+      >
+        <tspan x={0} dy={12}>{lineOne}</tspan>
+        {lineTwo ? <tspan x={0} dy={10}>{lineTwo}</tspan> : null}
+      </text>
+    </g>
+  );
+}
+
 // ── Authoritative metric helpers ────────────────────────────────────────────
 // Every numeric KPI on this page goes through this path.
 // If the authoritative state is unreleased, period-drifted, or carries a
@@ -369,11 +416,12 @@ export default function ReFundListPage() {
 
         {/* ── FUND COMPARISON + MAP ── */}
         {!loading && funds.length > 0 && (
-          <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
 
-            <div className="order-1 lg:order-2 rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4 space-y-2">
+            <div className="order-1 min-w-0 lg:order-2">
+              <div className="flex h-full min-w-0 flex-col rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4">
               <div className="flex items-center justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 pr-3">
                   <h3 className="text-sm font-semibold tracking-tight text-bm-text">Fund Comparison</h3>
                   <p className="text-[10px] text-bm-muted2 mt-0.5">As of {quarter} · point-in-time</p>
                 </div>
@@ -388,16 +436,16 @@ export default function ReFundListPage() {
                 </select>
               </div>
               {comparisonBarData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={comparisonBarData} margin={{ top: 8, right: 8, left: 4, bottom: 32 }}>
+                <div className="mt-2 h-[280px] sm:h-[320px] lg:h-[380px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={comparisonBarData} margin={{ top: 12, right: 8, left: 4, bottom: 52 }}>
                     <CartesianGrid vertical={false} {...GRID_STYLE} />
                     <XAxis
                       dataKey="name"
-                      tick={{ ...AXIS_TICK_STYLE, fontSize: 10 }}
+                      height={52}
+                      tick={<FundComparisonTick />}
                       axisLine={false}
                       tickLine={false}
-                      angle={-35}
-                      textAnchor="end"
                       interval={0}
                     />
                     <YAxis
@@ -421,15 +469,17 @@ export default function ReFundListPage() {
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="flex items-center justify-center h-[240px] text-sm text-bm-muted2">
+                <div className="mt-2 flex h-[280px] items-center justify-center text-sm text-bm-muted2 sm:h-[320px] lg:h-[380px]">
                   No fund data available
                 </div>
               )}
             </div>
+            </div>
 
-            <div className="order-2 lg:order-1">
+            <div className="order-2 min-w-0 lg:order-1">
               <PortfolioAssetMap data={mapData} loading={mapLoading} />
             </div>
 
