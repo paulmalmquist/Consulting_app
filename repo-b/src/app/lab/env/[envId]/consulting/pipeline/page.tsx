@@ -485,7 +485,7 @@ export default function PipelinePage({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div style={{ background: "#05070B", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {bannerMessage ? (
         <div className="mx-4 mt-3">
           {isSchemaError(bannerMessage) ? (

@@ -7,11 +7,12 @@ import type { StageRow, Insight } from "./pipeline-insight";
 import type { ActiveSlice } from "./PipelineActionPanel";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const LANE_W = 206;      // px — each column width (chart + kanban share this)
+const LANE_W = 206;      // px — active column width (chart + kanban share this)
+const CLOSED_W = 156;    // px — closed-stage columns are narrower / terminal
 const LANE_GAP = 2;      // px — gap between columns
-const BAR_H = 168;       // px — total bar area height per lane
+const BAR_H = 180;       // px — total bar area height per lane
 const BAR_HEADROOM = 28; // px — reserved above bars for health label
-const BAR_BASELINE = 8;  // px — gap from bottom of bar area to base of bars
+const BAR_BASELINE = 10; // px — gap from bottom of bar area to base of bars
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 const CP = {
@@ -137,27 +138,27 @@ export function PipelineCommandBand({
     <div
       style={{
         background: CP.surfaceAlt,
-        borderBottom: `1px solid ${CP.borderDim}`,
-        padding: "12px 16px 10px",
+        borderBottom: `1px solid rgba(245,185,66,0.18)`,
+        padding: "14px 20px 12px",
       }}
     >
       {/* Title + controls row */}
       <div
         style={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "space-between",
-          gap: 8,
-          marginBottom: 10,
+          gap: 12,
+          marginBottom: 12,
         }}
       >
-        <div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
           <p
             style={{
               margin: 0,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.16em",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.18em",
               textTransform: "uppercase",
               color: CP.accent,
             }}
@@ -168,7 +169,7 @@ export function PipelineCommandBand({
             style={{
               margin: 0,
               fontSize: 9,
-              letterSpacing: "0.12em",
+              letterSpacing: "0.14em",
               textTransform: "uppercase",
               color: CP.muted,
             }}
@@ -189,7 +190,7 @@ export function PipelineCommandBand({
               onClick={onClearFilters}
               style={{
                 fontSize: 9,
-                padding: "3px 8px",
+                padding: "4px 10px",
                 borderRadius: 3,
                 border: `1px solid ${CP.borderDim}`,
                 color: CP.muted,
@@ -206,7 +207,7 @@ export function PipelineCommandBand({
             onClick={onToggleMode}
             style={{
               fontSize: 9,
-              padding: "3px 8px",
+              padding: "4px 10px",
               borderRadius: 3,
               border: `1px solid ${CP.border}`,
               color: CP.accent,
@@ -214,7 +215,7 @@ export function PipelineCommandBand({
               cursor: "pointer",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
             {mode === "count" ? "# COUNT" : "$ VALUE"}
@@ -227,8 +228,10 @@ export function PipelineCommandBand({
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: "4px 20px",
-          marginBottom: 10,
+          gap: "4px 28px",
+          marginBottom: 12,
+          paddingBottom: 12,
+          borderBottom: `1px solid ${CP.borderDim}`,
         }}
       >
         <KpiChip label="OPEN" value={openDeals} />
@@ -244,7 +247,7 @@ export function PipelineCommandBand({
           value={noActionCount}
           alert={noActionCount > 0}
         />
-        <KpiChip label="RISK" value={fmtCurrency(revenueAtRisk)} />
+        <KpiChip label="AT RISK" value={fmtCurrency(revenueAtRisk)} />
         <KpiChip label="PIPELINE" value={fmtCurrency(totalPipeline)} />
         <KpiChip label="WEIGHTED" value={fmtCurrency(weightedPipeline)} />
       </div>
@@ -254,14 +257,14 @@ export function PipelineCommandBand({
         style={{
           display: "flex",
           alignItems: "baseline",
-          gap: 6,
+          gap: 8,
           flexWrap: "wrap",
           borderLeft: `3px solid ${sevBorder}`,
-          paddingLeft: 10,
-          marginBottom: industries.length > 1 ? 10 : 0,
+          paddingLeft: 12,
+          marginBottom: industries.length > 1 ? 12 : 0,
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 600, color: CP.text }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: CP.text }}>
           {insight.headline}
         </span>
         <span style={{ fontSize: 11, color: CP.textDim }}>{insight.subline}</span>
@@ -275,6 +278,7 @@ export function PipelineCommandBand({
             border: "none",
             cursor: "pointer",
             padding: 0,
+            letterSpacing: "0.02em",
           }}
         >
           {insight.recommendation.label} →
@@ -283,7 +287,7 @@ export function PipelineCommandBand({
 
       {/* Industry chips */}
       {industries.length > 1 ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
           {industries.map((ind, idx) => {
             const color = indColor(ind, idx);
             const isActive =
@@ -300,20 +304,20 @@ export function PipelineCommandBand({
                   fontWeight: 700,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  padding: "3px 8px",
+                  padding: "4px 9px",
                   borderRadius: 3,
                   border: `1px solid ${isActive ? color : CP.borderDim}`,
                   background: isActive ? `${color}1a` : "transparent",
                   color: isActive ? color : CP.muted,
                   cursor: "pointer",
-                  opacity: isActive ? 1 : 0.5,
+                  opacity: isActive ? 1 : 0.45,
                   transition: "all 0.15s",
                 }}
               >
                 <span
                   style={{
-                    width: 5,
-                    height: 5,
+                    width: 6,
+                    height: 6,
                     borderRadius: "50%",
                     background: color,
                     flexShrink: 0,
@@ -357,9 +361,9 @@ function KpiChip({
       </span>
       <span
         style={{
-          fontSize: 13,
+          fontSize: 16,
           fontWeight: 700,
-          letterSpacing: "0.02em",
+          letterSpacing: "0.01em",
           color: isAlerted
             ? danger
               ? CP.critical
@@ -431,13 +435,13 @@ export default function PipelineLaneView({
   }, [chartData]);
 
   return (
-    <div style={{ background: CP.surface }}>
+    <div style={{ background: CP.surface, flex: 1 }}>
       <div style={{ overflowX: "auto", overflowY: "visible" }}>
         <div
           style={{
             display: "flex",
             gap: LANE_GAP,
-            padding: "12px 12px 16px",
+            padding: "14px 14px 20px",
             minWidth: "max-content",
           }}
         >
@@ -531,12 +535,17 @@ function LaneColumn({
     ? `1px solid ${CP.accent}`
     : isOver
       ? "1px solid rgba(34,211,238,0.35)"
-      : `1px solid ${CP.borderDim}`;
+      : isClosed
+        ? `1px solid rgba(255,255,255,0.04)`
+        : `1px solid ${CP.borderDim}`;
   const bg = isFocused
     ? CP.accentAlpha
     : isOver
       ? "rgba(34,211,238,0.03)"
       : "transparent";
+
+  const colW = isClosed ? CLOSED_W : LANE_W;
+  const colOpacity = isDimmed ? 0.3 : isClosed ? 0.45 : 1;
 
   const focusedInd =
     isFocused && activeSlice?.industry ? activeSlice.industry : null;
@@ -545,12 +554,12 @@ function LaneColumn({
     <div
       ref={combinedRef}
       style={{
-        width: LANE_W,
+        width: colW,
         flexShrink: 0,
         border,
-        borderRadius: 6,
+        borderRadius: 4,
         background: bg,
-        opacity: isDimmed ? 0.38 : 1,
+        opacity: colOpacity,
         transition: "opacity 0.2s, border-color 0.15s, background 0.15s",
         overflow: "hidden",
         display: "flex",
@@ -578,10 +587,10 @@ function LaneColumn({
       {/* Stage header */}
       <div
         style={{
-          padding: "5px 8px 4px",
-          borderTop: `1px solid ${isFocused ? CP.border : CP.borderDim}`,
-          borderBottom: `1px solid ${CP.borderDim}`,
-          background: CP.surfaceAlt,
+          padding: "6px 9px 5px",
+          borderTop: `1px solid ${isFocused ? CP.border : isClosed ? "rgba(255,255,255,0.04)" : CP.borderDim}`,
+          borderBottom: `1px solid ${isClosed ? "rgba(255,255,255,0.04)" : CP.borderDim}`,
+          background: isClosed ? "rgba(255,255,255,0.015)" : CP.surfaceAlt,
           flexShrink: 0,
         }}
       >
@@ -599,7 +608,11 @@ function LaneColumn({
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: isFocused ? CP.accent : CP.textDim,
+              color: isClosed
+                ? CP.muted
+                : isFocused
+                  ? CP.accent
+                  : CP.textDim,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -610,9 +623,13 @@ function LaneColumn({
           </span>
           <span
             style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: isFocused ? CP.accent : CP.text,
+              fontSize: 12,
+              fontWeight: 700,
+              color: isClosed
+                ? CP.muted
+                : isFocused
+                  ? CP.accent
+                  : CP.text,
               flexShrink: 0,
             }}
           >
@@ -736,39 +753,79 @@ function LaneBar({
       ? Math.max(4, (rowTotal / globalMax) * (barAreaH - BAR_BASELINE))
       : 0;
 
-  // Build segments bottom-to-top
+  // Build segments bottom-to-top, 1px inter-segment gap
   let accumH = 0;
+  const SEG_GAP = 1; // px gap between stacked segments
   const segments: Array<{
     ind: string;
     bottom: number;
     h: number;
     color: string;
+    isTop: boolean;
   }> = [];
-  for (const ind of industries) {
+  const activeInds = industries.filter(
+    (ind) => (Number(row[ind]) || 0) > 0 && drawnH > 0,
+  );
+  activeInds.forEach((ind, i) => {
     const val = Number(row[ind]) || 0;
-    if (val <= 0 || drawnH === 0) continue;
     const h = (val / rowTotal) * drawnH;
-    if (h < 0.5) continue;
+    if (h < 1) return;
     segments.push({
       ind,
       bottom: BAR_BASELINE + accumH,
-      h,
+      h: Math.max(2, h - (i > 0 ? SEG_GAP : 0)),
       color: colorMap[ind],
+      isTop: i === activeInds.length - 1,
     });
     accumH += h;
-  }
+  });
+
+  // Grid guide heights (25%, 50%, 75% of drawable area)
+  const maxDrawH = barAreaH - BAR_BASELINE;
+  const gridLines = [0.25, 0.5, 0.75].map((f) => BAR_BASELINE + maxDrawH * f);
 
   return (
     <div
       style={{ height: BAR_H, position: "relative", cursor: "pointer" }}
       onClick={onClickBar}
     >
+      {/* Faint grid guides */}
+      {gridLines.map((gBottom) => (
+        <div
+          key={gBottom}
+          style={{
+            position: "absolute",
+            bottom: gBottom,
+            left: "4%",
+            right: "4%",
+            height: 1,
+            background: "rgba(255,255,255,0.035)",
+            pointerEvents: "none",
+          }}
+        />
+      ))}
+
+      {/* Baseline rule */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: BAR_BASELINE - 1,
+          left: "4%",
+          right: "4%",
+          height: 1,
+          background: row._total > 0
+            ? "rgba(245,185,66,0.25)"
+            : CP.borderDim,
+          pointerEvents: "none",
+        }}
+      />
+
       {/* Health label */}
       {row._healthLabel && row._total > 0 ? (
         <div
           style={{
             position: "absolute",
-            top: 4,
+            top: 5,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -795,16 +852,16 @@ function LaneBar({
           style={{
             position: "absolute",
             bottom: seg.bottom,
-            left: "10%",
-            right: "10%",
-            height: Math.max(2, seg.h),
+            left: "4%",
+            right: "4%",
+            height: seg.h,
             background: seg.color,
-            borderRadius: 2,
+            borderRadius: seg.isTop ? "2px 2px 0 0" : 0,
             opacity: focusedInd
               ? focusedInd === seg.ind
                 ? 1
-                : 0.13
-              : 0.82,
+                : 0.1
+              : 0.88,
             transition: "opacity 0.15s",
           }}
           onClick={(e) => {
@@ -955,68 +1012,42 @@ function LaneCardItem({
           borderBottom: `1px solid ${CP.borderDim}`,
           borderRadius: "0 3px 3px 0",
           background: CP.surfaceAlt,
-          padding: "5px 7px",
+          padding: "6px 8px 5px",
           cursor: "grab",
           userSelect: "none",
         }}
       >
-        <p
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: CP.text,
-            margin: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {card.account_name || "—"}
-        </p>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 1,
-          }}
-        >
+        {/* Row 1: Company + Value */}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
           <p
             style={{
-              fontSize: 9,
-              color: CP.muted,
+              fontSize: 12,
+              fontWeight: 700,
+              color: CP.text,
               margin: 0,
-              flex: 1,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              marginRight: 4,
+              flex: 1,
             }}
           >
-            {card.name}
+            {card.account_name || "—"}
           </p>
           <span
             style={{
-              fontSize: 9,
-              fontWeight: 600,
-              color: CP.text,
+              fontSize: 10,
+              fontWeight: 700,
+              color: CP.accent,
               flexShrink: 0,
+              letterSpacing: "0.01em",
             }}
           >
             {fmtCurrency(card.amount)}
           </span>
         </div>
-        {hasNoAction ? (
-          <p
-            style={{
-              fontSize: 9,
-              color: CP.critical,
-              margin: "1px 0 0",
-              opacity: 0.85,
-            }}
-          >
-            No next action
-          </p>
-        ) : card.next_action_description ? (
+
+        {/* Row 2: Deal type (if different from account) */}
+        {card.name && card.name !== card.account_name ? (
           <p
             style={{
               fontSize: 9,
@@ -1027,13 +1058,46 @@ function LaneCardItem({
               whiteSpace: "nowrap",
             }}
           >
-            {card.next_action_description}
+            {card.name}
           </p>
         ) : null}
+
+        {/* Row 3: Next action */}
+        <div style={{ marginTop: 3 }}>
+          {hasNoAction ? (
+            <p
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: CP.critical,
+                margin: 0,
+                letterSpacing: "0.04em",
+              }}
+            >
+              ! NO ACTION DEFINED
+            </p>
+          ) : card.next_action_description ? (
+            <p
+              style={{
+                fontSize: 9,
+                color: CP.textDim,
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{ color: CP.muted, marginRight: 3 }}>▸</span>
+              {card.next_action_description}
+            </p>
+          ) : null}
+        </div>
+
+        {/* Row 4: Meta */}
         <div
-          style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}
         >
-          <span style={{ fontSize: 8, color: CP.muted }}>
+          <span style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.03em" }}>
             {relativeTime(card.last_activity_at)}
           </span>
           {overdue ? (
@@ -1042,8 +1106,11 @@ function LaneCardItem({
                 fontSize: 8,
                 color: CP.warning,
                 fontWeight: 700,
-                letterSpacing: "0.06em",
+                letterSpacing: "0.08em",
                 textTransform: "uppercase",
+                background: "rgba(245,158,11,0.12)",
+                padding: "1px 4px",
+                borderRadius: 2,
               }}
             >
               OVERDUE
