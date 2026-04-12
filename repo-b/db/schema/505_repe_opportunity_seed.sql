@@ -61,14 +61,14 @@ BEGIN
   SELECT e.env_id INTO v_env_id
   FROM app.environments e
   WHERE e.client_name ILIKE '%%meridian%%'
-    AND e.status = 'active'
+    AND e.is_active = true
   LIMIT 1;
 
   IF v_env_id IS NULL THEN
     -- Try any active environment as fallback
     SELECT e.env_id INTO v_env_id
     FROM app.environments e
-    WHERE e.status = 'active'
+    WHERE e.is_active = true
     ORDER BY e.created_at DESC
     LIMIT 1;
   END IF;
