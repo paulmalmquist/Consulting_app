@@ -145,6 +145,17 @@ ALLOWLIST_FILES = {
     "backend/app/services/re_authoritative_snapshots.py",
     "backend/app/routes/re_authoritative.py",
     "backend/app/schemas/re_authoritative.py",
+    # ── Targeted allowlist: non-display usage of restricted fetchers ──
+    # Fund detail: getReV2FundQuarterState used ONLY for auto-seed existence
+    # check and narrative health summary. All KPI display paths use
+    # authoritativeNumber(). Fallback patterns removed in INV-5 sprint.
+    "repo-b/src/app/lab/env/[envId]/re/funds/[fundId]/page.tsx",
+    # Investment detail: getReV2InvestmentQuarterState reads investment-level
+    # state (not fund state). Investment authoritative contract is separate.
+    "repo-b/src/app/lab/env/[envId]/re/investments/[investmentId]/page.tsx",
+    # Asset detail (app-shell): getReV2AssetQuarterState for asset metrics.
+    # Asset-level authoritative contract is out of scope for fund INV-5 sprint.
+    "repo-b/src/app/app/repe/assets/[assetId]/page.tsx",
 }
 
 
@@ -212,6 +223,9 @@ def _check_ui_files(report: LintReport) -> None:
     for path in _iter_files(REPE_PAGE_ROOTS, require_segments=REPE_PAGE_FILTER_SEGMENTS):
         if _is_allowed(path):
             continue
+        # Skip test files — they mock banned fetchers, not render with them.
+        if path.name.endswith(".test.tsx") or path.name.endswith(".test.ts") or path.name.endswith(".spec.ts"):
+            continue
         try:
             content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -234,15 +248,11 @@ def _check_ui_files(report: LintReport) -> None:
                     )
             for symbol in RESTRICTED_UI_SYMBOLS:
                 if symbol in line:
-                    # Restricted symbols are flagged only if a KPI label
-                    # is present in the same window (loose heuristic for
-                    # KPI rendering vs non-financial display).
-                    window_start = max(0, line_no - 3)
-                    window_end = min(len(content.splitlines()), line_no + 3)
-                    window_text = "\n".join(
-                        content.splitlines()[window_start:window_end]
-                    )
-                    if KPI_LABEL_REGEX.search(window_text):
+                    # Tightened rule: if the file imports a restricted symbol
+                    # AND contains ANY KPI label ANYWHERE in the file, it is
+                    # a violation. The old ±3-line window missed cases where
+                    # the import was hundreds of lines from the rendering site.
+                    if KPI_LABEL_REGEX.search(content):
                         report.add(
                             Violation(
                                 rule="ui_restricted_symbol_used_for_kpi",
