@@ -485,7 +485,7 @@ export default function PipelinePage({
   }
 
   return (
-    <div style={{ background: "#05070B", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ background: "#05070B", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {bannerMessage ? (
         <div className="mx-4 mt-3">
           {isSchemaError(bannerMessage) ? (
