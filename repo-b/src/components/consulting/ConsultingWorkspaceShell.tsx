@@ -75,6 +75,12 @@ export default function ConsultingWorkspaceShell({
 
   const envLabel = environment?.client_name || envId || "Consulting";
 
+  // Pipeline gets an immersive full-screen surface — bypass all shell chrome.
+  // The page component handles its own loading / error states.
+  if (pathname.endsWith("/pipeline")) {
+    return <>{children}</>;
+  }
+
   if (loading) {
     return (
       <div className="rounded-xl border border-bm-border/70 p-5 text-sm text-bm-muted2">

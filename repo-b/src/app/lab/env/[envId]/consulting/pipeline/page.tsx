@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
-import { Card, CardContent } from "@/components/ui/Card";
 import {
   DndContext,
   DragOverlay,
@@ -16,13 +15,11 @@ import {
   fetchExecutionBoard,
   advanceOpportunityStage,
   fetchSchemaHealth,
-  runExecutionCommand,
   type ExecutionBoard,
   type ExecutionBoardColumn,
   type ExecutionCard,
   type SchemaHealth,
 } from "@/lib/cro-api";
-import { TodayPanel } from "@/components/consulting/TodayPanel";
 import { DealSidePanel } from "@/components/consulting/DealSidePanel";
 import PipelineLaneView, {
   PipelineCommandBand,
@@ -169,9 +166,6 @@ export default function PipelinePage({
   const [activeCard, setActiveCard] = useState<ExecutionCard | null>(null);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [command, setCommand] = useState("");
-  const [commandOutput, setCommandOutput] = useState<string | null>(null);
-  const [commandBusy, setCommandBusy] = useState(false);
   const [closeDialog, setCloseDialog] = useState<{
     opportunityId: string;
     stageKey: string;
@@ -220,7 +214,6 @@ export default function PipelinePage({
       .flatMap((c) => c.cards);
   }, [kanban]);
 
-  const todayActions = useMemo(() => kanban?.today_queue ?? [], [kanban]);
   const staleCards = useMemo(
     () => allCards.filter((c) => c.risk_flags.includes("stalled_7d") || c.risk_flags.includes("inactive_3d")),
     [allCards],
@@ -473,35 +466,6 @@ export default function PipelinePage({
     setSelectedDealId(id);
   }
 
-  function handleMarkDone(_cardId: string) {
-    // Reload data to reflect completion
-    loadData();
-  }
-
-  async function handleRunCommand(confirm = false) {
-    if (!businessId || !command.trim()) return;
-    setCommandBusy(true);
-    setAdvanceError(null);
-    try {
-      const result = await runExecutionCommand({
-        env_id: params.envId,
-        business_id: businessId,
-        command,
-        confirm,
-      });
-      if (result.requires_confirmation) {
-        setCommandOutput(`Confirm move: ${JSON.stringify(result.result)}`);
-      } else {
-        setCommandOutput(JSON.stringify(result.result, null, 2));
-        loadData();
-      }
-    } catch (err) {
-      setAdvanceError(err instanceof Error ? err.message : "Command failed");
-    } finally {
-      setCommandBusy(false);
-    }
-  }
-
   const bannerMessage = contextError
     ? contextError === "Environment not bound to a business."
       ? "This environment is not bound to a business, so CRM data cannot be loaded."
@@ -512,92 +476,44 @@ export default function PipelinePage({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 bg-bm-surface/60 rounded animate-pulse" />
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="min-w-[260px] h-64 bg-bm-surface/60 rounded-lg animate-pulse" />
-          ))}
-        </div>
+      <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4">
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div key={i} className="shrink-0 w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col min-h-screen">
       {bannerMessage ? (
-        isSchemaError(bannerMessage) ? (
-          <SchemaErrorBanner envId={params.envId} onRetry={loadData} />
-        ) : (
-          <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
-            {bannerMessage}
-          </div>
-        )
+        <div className="mx-4 mt-3">
+          {isSchemaError(bannerMessage) ? (
+            <SchemaErrorBanner envId={params.envId} onRetry={loadData} />
+          ) : (
+            <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
+              {bannerMessage}
+            </div>
+          )}
+        </div>
       ) : null}
 
       {advanceError ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-400 flex items-center justify-between">
+        <div className="mx-4 mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-400 flex items-center justify-between">
           <span>{advanceError}</span>
           <button onClick={() => setAdvanceError(null)} className="text-red-400/60 hover:text-red-400 ml-2 text-xs">dismiss</button>
         </div>
       ) : null}
 
-      {kanban?.critical_deals.length ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {kanban.critical_deals.length} critical deal{kanban.critical_deals.length !== 1 ? "s" : ""} pinned until cleared.
-        </div>
-      ) : null}
-
-      <div className="rounded-xl border border-bm-border/60 bg-bm-surface/20 px-4 py-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <input
-            value={command}
-            onChange={(e) => setCommand(e.target.value)}
-            placeholder='Try: "move Baptist to engaged" or "what should I do today"'
-            className="flex-1 rounded-lg border border-bm-border bg-bm-bg px-3 py-2 text-sm text-bm-text placeholder:text-bm-muted2"
-          />
-          <div className="flex gap-2">
-            <button onClick={() => void handleRunCommand(false)} disabled={commandBusy} className="rounded-lg border border-bm-border px-3 py-2 text-xs font-medium text-bm-text hover:bg-bm-surface/30 disabled:opacity-50">
-              {commandBusy ? "Running..." : "Run Command"}
-            </button>
-            <button onClick={() => void handleRunCommand(true)} disabled={commandBusy} className="rounded-lg border border-bm-accent/40 px-3 py-2 text-xs font-medium text-bm-accent hover:bg-bm-accent/10 disabled:opacity-50">
-              Confirm
-            </button>
-          </div>
-        </div>
-        {commandOutput ? (
-          <pre className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-bm-bg/70 px-3 py-2 text-[11px] text-bm-muted2">{commandOutput}</pre>
-        ) : null}
-      </div>
-
-      {/* TODAY PANEL — What do I do RIGHT NOW? */}
-      <TodayPanel
-        cards={todayActions}
-        staleCount={staleCards.length}
-        revenueAtRisk={revenueAtRisk}
-        envId={params.envId}
-        businessId={businessId || ""}
-        onSelectCard={handleSelectCard}
-        onMarkDone={handleMarkDone}
-      />
-
       {kanban && openDeals === 0 ? (
-        <Card>
-          <CardContent className="py-5 text-sm text-bm-muted2">
-            No opportunities in the pipeline yet.
-          </CardContent>
-        </Card>
+        <div className="mx-4 mt-3 rounded-lg border border-bm-border/40 bg-bm-surface/20 px-4 py-5 text-sm text-bm-muted2">
+          No opportunities in the pipeline yet.
+        </div>
       ) : null}
 
       {/* UNIFIED LANE VIEW — chart bars aligned above kanban columns */}
       {kanban ? (
-        <div
-          style={{
-            borderRadius: 10,
-            border: "1px solid rgba(245,185,66,0.12)",
-            overflow: "hidden",
-          }}
-        >
+        <>
           <PipelineCommandBand
             insight={insight}
             industries={industries}
@@ -638,7 +554,7 @@ export default function PipelinePage({
               {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
             </DragOverlay>
           </DndContext>
-        </div>
+        </>
       ) : null}
 
       {kanban ? (
