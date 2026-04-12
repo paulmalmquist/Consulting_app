@@ -15,7 +15,6 @@ from decimal import Decimal
 import pytest
 
 from app.finance.waterfall_whole_fund import (
-    ConservationError,
     DatedCashFlow,
     WaterfallInputError,
     WholeFundAssumptions,

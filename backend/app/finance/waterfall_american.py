@@ -17,7 +17,7 @@ Conservation law (per distribution AND cumulative):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -198,7 +198,6 @@ def run_american_waterfall(
 
     sorted_cfs = sorted(cash_flows, key=lambda c: c.dt)
     contribs = [cf for cf in sorted_cfs if cf.amount < ZERO]
-    dists = [cf for cf in sorted_cfs if cf.amount > ZERO]
 
     if not contribs:
         raise WaterfallInputError("no contributions found")
