@@ -45,6 +45,7 @@ const SUPPRESSED_ROUTE_PATTERNS = [
   /^\/upload(?:\/|$)/,
   /^\/psychrag(?:\/|$)/,
   /^\/paul(?:\/|$)/,
+  /^\/richard(?:\/|$)/,
 ];
 
 const MOBILE_NAV_ROUTE_PATTERNS = [

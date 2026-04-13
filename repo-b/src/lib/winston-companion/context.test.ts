@@ -72,6 +72,8 @@ describe("winston companion context", () => {
     expect(shouldShowWinstonCompanion("/")).toBe(false);
     expect(shouldShowWinstonCompanion("/login")).toBe(false);
     expect(shouldShowWinstonCompanion("/public/report")).toBe(false);
+    expect(shouldShowWinstonCompanion("/paul")).toBe(false);
+    expect(shouldShowWinstonCompanion("/richard")).toBe(false);
     expect(shouldShowWinstonCompanion("/lab/env/env_1/re")).toBe(true);
   });
 

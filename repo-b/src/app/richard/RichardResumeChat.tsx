@@ -138,6 +138,7 @@ export default function RichardResumeChat() {
       {!isOpen && (
         <button
           type="button"
+          data-testid="richard-resume-launcher"
           aria-label="Open Richard operator chat"
           onClick={() => setIsOpen(true)}
           style={{
@@ -165,6 +166,7 @@ export default function RichardResumeChat() {
 
       {isOpen && (
         <div
+          data-testid="richard-resume-panel"
           style={{
             position: "fixed",
             bottom: 0,
@@ -319,4 +321,3 @@ export default function RichardResumeChat() {
     </>
   );
 }
-

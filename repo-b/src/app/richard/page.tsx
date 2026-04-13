@@ -18,6 +18,7 @@ export default function RichardPage() {
     () => richardOperatorProfile.systems.find((system) => system.id === selectedSystemId) ?? richardOperatorProfile.systems[0],
     [selectedSystemId],
   );
+  const primaryOutcomes = richardOperatorProfile.heroMetrics.map((metric) => `${metric.value} ${metric.label.toLowerCase()}`);
 
   return (
     <div
@@ -43,17 +44,17 @@ export default function RichardPage() {
         style={{ background: "radial-gradient(ellipse, rgba(168,61,41,0.10) 0%, transparent 72%)" }}
       />
 
-      <div className="relative z-10 mx-auto max-w-6xl space-y-10 md:space-y-14">
-        <header className="space-y-6 border-b pb-8 md:pb-10" style={{ borderColor: "var(--ros-border)" }}>
+      <div className="relative z-10 mx-auto max-w-[104rem] space-y-10 md:space-y-14">
+        <header className="space-y-5 border-b pb-8 md:space-y-7 md:pb-10" style={{ borderColor: "var(--ros-border)" }}>
           <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] uppercase tracking-[0.24em]" style={{ borderColor: "var(--ros-border-light)", color: "var(--ros-text-dim)" }}>
             Operator Profile
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
             {richardOperatorProfile.heroMetrics.map((metric) => (
               <div
                 key={metric.label}
-                className="rounded-[1.35rem] border p-4 shadow-[0_18px_48px_-30px_rgba(10,8,6,0.55)]"
+                className="rounded-[1.45rem] border p-4 shadow-[0_18px_48px_-30px_rgba(10,8,6,0.55)] xl:p-5"
                 style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-card-bg)" }}
               >
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
@@ -69,28 +70,53 @@ export default function RichardPage() {
             ))}
           </div>
 
-          <div className="space-y-3">
-            <h1
-              className="resume-editorial text-[clamp(2.5rem,8vw,5.7rem)] uppercase leading-[1.02]"
-              style={{ color: "var(--ros-text-bright)", letterSpacing: "0.08em", fontWeight: 500 }}
+          <div className="grid gap-6 xl:grid-cols-12 xl:items-end">
+            <div className="space-y-3 xl:col-span-8 2xl:col-span-7">
+              <h1
+                className="resume-editorial text-[clamp(3rem,8vw,6.5rem)] uppercase leading-[0.98]"
+                style={{ color: "var(--ros-text-bright)", letterSpacing: "0.08em", fontWeight: 500 }}
+              >
+                {richardOperatorProfile.name}
+              </h1>
+              <p className="text-[clamp(14px,1.8vw,21px)] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-accent-cool)" }}>
+                {richardOperatorProfile.title}
+              </p>
+              <p className="max-w-4xl text-[15px] leading-7 md:text-[17px]" style={{ color: "var(--ros-text-muted)" }}>
+                {richardOperatorProfile.subtext}
+              </p>
+              <p className="max-w-4xl text-[15px] leading-7 md:text-[17px]" style={{ color: "var(--ros-text)" }}>
+                {richardOperatorProfile.thesis}
+              </p>
+            </div>
+
+            <aside
+              className="rounded-[1.55rem] border p-5 xl:col-span-4 2xl:col-span-5"
+              style={{ borderColor: "var(--ros-border-light)", background: "linear-gradient(180deg, rgba(47,111,133,0.08), rgba(255,255,255,0.02))" }}
             >
-              {richardOperatorProfile.name}
-            </h1>
-            <p className="text-[clamp(14px,2vw,20px)] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-accent-cool)" }}>
-              {richardOperatorProfile.title}
-            </p>
-            <p className="max-w-3xl text-[15px] leading-7 md:text-[16px]" style={{ color: "var(--ros-text-muted)" }}>
-              {richardOperatorProfile.subtext}
-            </p>
-            <p className="max-w-3xl text-[15px] leading-7 md:text-[16px]" style={{ color: "var(--ros-text)" }}>
-              {richardOperatorProfile.thesis}
-            </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
+                Operating Mandate
+              </p>
+              <p className="mt-3 text-sm leading-7 md:text-[15px]" style={{ color: "var(--ros-text)" }}>
+                Control the lending decision layer, instrument the downstream portfolio consequences, and push growth only where the risk-adjusted return stays defensible.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                {primaryOutcomes.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.12em]"
+                    style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-pill-bg)", color: "var(--ros-text)" }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </aside>
           </div>
         </header>
 
         <section className="space-y-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
+          <div className="grid gap-3 xl:grid-cols-12 xl:items-end">
+            <div className="xl:col-span-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
                 Systems First
               </p>
@@ -98,13 +124,13 @@ export default function RichardPage() {
                 What He Built
               </h2>
             </div>
-            <p className="max-w-2xl text-sm leading-6 md:text-right" style={{ color: "var(--ros-text-muted)" }}>
+            <p className="max-w-3xl text-sm leading-6 xl:col-span-7 xl:justify-self-end xl:text-right" style={{ color: "var(--ros-text-muted)" }}>
               Every card below answers the same two questions: what did Richard build, and what improved because it ran.
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_0.95fr]">
-            <div className="grid gap-3">
+          <div className="grid gap-5 xl:grid-cols-12">
+            <div className="grid gap-3 xl:col-span-5 xl:self-start">
               {richardOperatorProfile.systems.map((system) => {
                 const isActive = system.id === selectedSystem.id;
                 return (
@@ -112,10 +138,11 @@ export default function RichardPage() {
                     key={system.id}
                     type="button"
                     onClick={() => setSelectedSystemId(system.id)}
-                    className="rounded-[1.35rem] border p-4 text-left transition-all"
+                    className="rounded-[1.35rem] border p-4 text-left transition-all xl:p-5"
                     style={{
                       borderColor: isActive ? "var(--ros-accent-cool)" : "var(--ros-border-light)",
                       background: isActive ? "rgba(47,111,133,0.08)" : "var(--ros-card-bg)",
+                      boxShadow: isActive ? "0 18px 44px -34px rgba(47,111,133,0.55)" : "none",
                     }}
                   >
                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -150,28 +177,46 @@ export default function RichardPage() {
               })}
             </div>
 
-            <div className="rounded-[1.6rem] border p-5 md:p-6" style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-card-bg)" }}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
-                Selected System
-              </p>
-              <h3 className="mt-2 text-[1.8rem] leading-tight" style={{ color: "var(--ros-text-bright)" }}>
-                {selectedSystem.name}
-              </h3>
-              <p className="mt-2 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
-                {selectedSystem.company} · {selectedSystem.period}
-              </p>
+            <div
+              className="rounded-[1.8rem] border p-5 md:p-6 xl:col-span-7 xl:min-h-[38rem] xl:p-7"
+              style={{ borderColor: "var(--ros-border-light)", background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))" }}
+            >
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)] xl:gap-7">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
+                    Selected System
+                  </p>
+                  <h3 className="mt-2 text-[1.95rem] leading-tight md:text-[2.3rem]" style={{ color: "var(--ros-text-bright)" }}>
+                    {selectedSystem.name}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
+                    {selectedSystem.company} · {selectedSystem.period}
+                  </p>
+                  <p className="mt-5 max-w-2xl text-base leading-7" style={{ color: "var(--ros-text)" }}>
+                    {selectedSystem.strapline}
+                  </p>
 
-              <div className="mt-5 grid gap-4">
-                <DetailBlock title="Inputs" items={selectedSystem.inputs} />
-                <DetailBlock title="Logic" items={selectedSystem.logic} accent />
-                <DetailBlock title="Outputs" items={selectedSystem.outputs} />
-                <DetailBlock title="What Improved" items={selectedSystem.outcomes} />
+                  <div className="mt-6 grid gap-5 xl:grid-cols-2">
+                    <DetailBlock title="Inputs" items={selectedSystem.inputs} />
+                    <DetailBlock title="Logic" items={selectedSystem.logic} accent />
+                  </div>
+                </div>
+
+                <div className="rounded-[1.4rem] border p-4 md:p-5" style={{ borderColor: "var(--ros-border-light)", background: "rgba(255,255,255,0.04)" }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
+                    Inspection Surface
+                  </p>
+                  <div className="mt-4 grid gap-5">
+                    <DetailBlock title="Outputs" items={selectedSystem.outputs} />
+                    <DetailBlock title="What Improved" items={selectedSystem.outcomes} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_0.9fr]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_0.85fr]">
           <div className="space-y-5">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
@@ -286,7 +331,7 @@ export default function RichardPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_0.95fr]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_0.9fr]">
           <div className="rounded-[1.5rem] border p-5 md:p-6" style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-card-bg)" }}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
               Simulated Live Activity
