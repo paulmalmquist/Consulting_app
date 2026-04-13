@@ -1,9 +1,4 @@
-"""Resume LLM service — intent router + streaming Claude responses for /paul.
-
-Loads Paul's resume markdown at import time and uses it as system context
-for LLM-powered responses. Falls back to deterministic knowledge base
-when no API key is configured.
-"""
+"""Resume LLM service for public operator-profile chats."""
 from __future__ import annotations
 
 import logging
@@ -25,20 +20,26 @@ logger = logging.getLogger(__name__)
 # Resume corpus — loaded once at import time
 # ---------------------------------------------------------------------------
 
-_RESUME_PATH = Path(__file__).resolve().parents[3] / "docs" / "resume" / "paul-malmquist-resume-2026.md"
+_RESUME_PATHS = {
+    "paul": Path(__file__).resolve().parents[3] / "docs" / "resume" / "paul-malmquist-resume-2026.md",
+    "richard": Path(__file__).resolve().parents[3] / "docs" / "resume" / "richard-deoliveira-resume-2026.md",
+}
 
-try:
-    _RESUME_CORPUS: str = _RESUME_PATH.read_text(encoding="utf-8")
-except FileNotFoundError:
-    logger.warning("Resume markdown not found at %s — LLM responses will lack context", _RESUME_PATH)
-    _RESUME_CORPUS = ""
+_RESUME_CORPORA: dict[str, str] = {}
+for _scope, _path in _RESUME_PATHS.items():
+    try:
+        _RESUME_CORPORA[_scope] = _path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.warning("Resume markdown not found at %s — LLM responses for %s will lack context", _path, _scope)
+        _RESUME_CORPORA[_scope] = ""
 
 
 # ---------------------------------------------------------------------------
 # System prompt — advocate persona
 # ---------------------------------------------------------------------------
 
-RESUME_SYSTEM_PROMPT = """You are Winston, Paul Malmquist's AI resume agent on his public resume page at paulmalmquist.com.
+RESUME_SYSTEM_PROMPTS = {
+    "paul": """You are Winston, Paul Malmquist's AI resume agent on his public resume page at paulmalmquist.com.
 Your purpose: persuade the reader that Paul is an exceptional hire.
 
 Rules:
@@ -55,7 +56,40 @@ Rules:
 - For timeline questions, provide specific dates, roles, and companies.
 - Write in clean markdown. Use bold for emphasis, headers for structure when needed.
 - Paul has a rich personal background: recruited 400m runner at Brown University (varsity track), track MVP and captain at Chaminade HS, Connie Mack summer travel baseball MVP at 16, played pro-am baseball in Australia (Brisbane Bulldogs), professional music producer (ESPN, MTV, BET, Fashion One placements), founding member of Soul Cypher at Brown. Married to Maria since July 2018. He coaches little league for his 5-year-old son and has twin 3-year-old daughters. Share these enthusiastically when asked about personal details, hobbies, education, family, or "who is Paul".
-"""
+""",
+    "richard": """You are Winston, Richard de Oliveira's AI operator-profile agent on his public page at paulmalmquist.com.
+Your purpose: persuade the reader that Richard is an exceptional credit-risk and lending-systems hire.
+
+Rules:
+- Confident, persuasive, specific. You are Richard's advocate.
+- Frame Richard as an operator of lending decision systems, not a generic risk manager.
+- Lead with execution: what he built, what changed, and what numbers moved.
+- Never say "I don't have context", "I'm not sure", or "I don't know".
+- Never cite sources with [brackets], footnotes, or "according to".
+- Never use generic assistant phrasing like "I'd be happy to help" or "Great question!".
+- If asked about unrelated topics, redirect: "I focus on Richard's lending systems, credit-risk results, and operating fit."
+- Use concrete numbers from the profile when relevant: $1.7B+ monthly originations, 178 dealerships, +14% credit quality improvement, 4.2% to 3.2% expected lifetime loss reduction, +15% automated decisioning, +152% underwriter decision-time improvement, -68% quality risk findings, $200MM+ annual application volume, $150MM+ monthly mortgage portfolio accountability.
+- Emphasize champion/challenger testing, decision logic, scorecard cutoffs, dashboards, portfolio monitoring, and risk-adjusted growth.
+- Keep responses 2-4 paragraphs unless the user explicitly asks for more detail.
+- For comparisons, use a structured side-by-side format.
+- For "should I hire" or fit questions, be unequivocally affirmative with evidence.
+- For timeline questions, provide specific roles, companies, and dates.
+- Write in clean markdown. Use bold for emphasis and headers when needed.
+""",
+}
+
+_RESUME_CONTEXT = {
+    "paul": {
+        "name": "Paul Malmquist",
+        "intro": "Here is Paul Malmquist's full resume for reference:",
+        "ack": "I've reviewed Paul's complete resume. I'm ready to answer questions about his background, systems, and qualifications.",
+    },
+    "richard": {
+        "name": "Richard de Oliveira",
+        "intro": "Here is Richard de Oliveira's full operator profile and resume for reference:",
+        "ack": "I've reviewed Richard's complete lending-operator profile. I'm ready to answer questions about his systems, risk results, and fit.",
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -215,27 +249,30 @@ def classify_resume_intent(query: str) -> ResumeIntent:
 async def stream_resume_response(
     messages: list[dict[str, str]],
     intent: ResumeIntent,
+    scope: str = "paul",
 ) -> AsyncGenerator[str, None]:
     """Stream an LLM response using the resume as context via OpenAI."""
     if not OPENAI_API_KEY:
         raise RuntimeError("No LLM API key configured")
-    async for token in _stream_openai(messages, intent):
+    async for token in _stream_openai(messages, intent, scope):
         yield token
 
 
-def _build_messages(messages: list[dict[str, str]], intent: ResumeIntent) -> list[dict[str, str]]:
+def _build_messages(messages: list[dict[str, str]], intent: ResumeIntent, scope: str) -> list[dict[str, str]]:
     """Build the message array for the LLM call."""
     intent_instruction = intent.to_instruction()
+    context = _RESUME_CONTEXT.get(scope, _RESUME_CONTEXT["paul"])
+    corpus = _RESUME_CORPORA.get(scope, "")
 
     # Start with resume context as first user message + assistant ack
     built: list[dict[str, str]] = [
         {
             "role": "user",
-            "content": f"Here is Paul Malmquist's full resume for reference:\n\n{_RESUME_CORPUS}",
+            "content": f"{context['intro']}\n\n{corpus}",
         },
         {
             "role": "assistant",
-            "content": "I've reviewed Paul's complete resume. I'm ready to answer questions about his background, systems, and qualifications.",
+            "content": context["ack"],
         },
     ]
 
@@ -257,12 +294,13 @@ def _build_messages(messages: list[dict[str, str]], intent: ResumeIntent) -> lis
 async def _stream_openai(
     messages: list[dict[str, str]],
     intent: ResumeIntent,
+    scope: str,
 ) -> AsyncGenerator[str, None]:
     """Stream from OpenAI Chat Completions API (fallback)."""
     import openai
 
-    built = _build_messages(messages, intent)
-    oai_messages = [{"role": "system", "content": RESUME_SYSTEM_PROMPT}] + built
+    built = _build_messages(messages, intent, scope)
+    oai_messages = [{"role": "system", "content": RESUME_SYSTEM_PROMPTS.get(scope, RESUME_SYSTEM_PROMPTS["paul"])}] + built
 
     client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
     stream = await client.chat.completions.create(

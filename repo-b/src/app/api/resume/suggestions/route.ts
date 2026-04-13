@@ -10,9 +10,13 @@ const FASTAPI_BASE = (
   process.env.BOS_API_ORIGIN || "http://localhost:8000"
 ).replace(/\/$/, "");
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const scope = req.nextUrl.searchParams.get("scope");
+  const upstreamUrl = new URL(`${FASTAPI_BASE}/api/resume/v1/chat/suggestions`);
+  if (scope) upstreamUrl.searchParams.set("scope", scope);
+
   const upstream = await fetch(
-    `${FASTAPI_BASE}/api/resume/v1/chat/suggestions`,
+    upstreamUrl,
     {
       cache: "no-store",
       signal: AbortSignal.timeout(5_000),

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Input } from "@/components/ui/Input";
@@ -10,6 +11,21 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 function panelInputClassName() {
   return "h-12 rounded-xl border-white/12 bg-white/[0.08] text-white placeholder:text-white/32 focus-visible:border-white/24 focus-visible:shadow-[0_0_0_1px_rgba(255,255,255,0.14)]";
 }
+
+const resumeLinks = [
+  {
+    href: "/paul",
+    label: "View Paul's Resume",
+    accentClassName:
+      "border-white/18 bg-white/[0.06] text-white/72 hover:border-white/30 hover:bg-white/[0.10] hover:text-white",
+  },
+  {
+    href: "/richard",
+    label: "View Richard's Resume",
+    accentClassName:
+      "border-cyan-300/24 bg-cyan-300/[0.07] text-cyan-50/88 hover:border-cyan-200/38 hover:bg-cyan-300/[0.13] hover:text-white",
+  },
+] as const;
 
 export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
   const router = useRouter();
@@ -132,13 +148,19 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
               </p>
             </div>
 
-            <a
-              href="/paul"
-              className="inline-flex items-center gap-2.5 rounded-full border border-white/18 bg-white/[0.06] px-5 py-2 text-[11px] uppercase tracking-[0.2em] text-white/70 transition-all hover:border-white/30 hover:bg-white/[0.10] hover:text-white"
-            >
-              <span className="h-px w-3.5 bg-current" />
-              View Resume
-            </a>
+            <div className="grid max-w-2xl gap-3 sm:max-w-none sm:grid-cols-2">
+              {resumeLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  prefetch
+                  className={`inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full border px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] transition-all ${link.accentClassName}`}
+                >
+                  <span className="h-px w-3.5 bg-current" />
+                  {link.label}
+                </Link>
+              ))}
+            </div>
 
           </section>
 

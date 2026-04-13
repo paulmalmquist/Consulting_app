@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -73,16 +73,24 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     mode: Literal["public_resume"] = "public_resume"
-    scope: Literal["paul"] = "paul"
+    scope: Literal["paul", "richard"] = "paul"
     user: Literal["public"] = "public"
 
 
-SUGGESTED_QUESTIONS = [
-    "Why is Paul a strong AI/data leader?",
-    "Compare JLL vs Kayne Anderson",
-    "What has Paul built end-to-end?",
-    "Tell me about Paul beyond the resume",
-]
+SUGGESTED_QUESTIONS = {
+    "paul": [
+        "Why is Paul a strong AI/data leader?",
+        "Compare JLL vs Kayne Anderson",
+        "What has Paul built end-to-end?",
+        "Tell me about Paul beyond the resume",
+    ],
+    "richard": [
+        "What systems has Richard actually operated?",
+        "How did Richard improve returns while controlling risk?",
+        "Explain the $1.7B monthly originations scope.",
+        "Why is Richard a strong fit for Head of Credit Risk & Analytics?",
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +129,7 @@ def _format_public_resume_response(text: str) -> str:
 # Pre-built knowledge base (deterministic — no LLM)
 # ---------------------------------------------------------------------------
 
-_KNOWLEDGE: dict[str, str] = {
+_PAUL_KNOWLEDGE: dict[str, str] = {
     "architecture": (
         "## System Architecture\n\n"
         "Paul's systems follow a **5-layer architecture pattern**:\n\n"
@@ -291,32 +299,85 @@ _KNOWLEDGE: dict[str, str] = {
     ),
 }
 
+_RICHARD_KNOWLEDGE: dict[str, str] = {
+    "systems": (
+        "## Richard's Operating Systems\n\n"
+        "Richard's strongest proof is operational, not resume-shaped. He repeatedly turns credit policy, "
+        "underwriting logic, scorecards, and reporting into systems that run.\n\n"
+        "Core systems include:\n\n"
+        "1. **Champion / Challenger Credit Policy Engine** — tested policy variants, modeled impact, and rolled the winners into production\n"
+        "2. **Loan Origination Decision Logic System** — embedded judgmental underwriting logic into a repeatable production workflow\n"
+        "3. **Portfolio Loss Monitoring + Roll Rate Tracker** — connected deployed strategy changes to portfolio behavior and executive oversight\n"
+        "4. **Risk-Based Pricing + Cutoff Optimization Framework** — balanced growth, automation, and loss control across lender programs\n"
+        "5. **Origination Performance Dashboard Stack** — executive and analyst dashboards that made originations risk visible at scale"
+    ),
+    "metrics": (
+        "## Richard's Hero Metrics\n\n"
+        "- **$1.7B+ monthly originations** managed across Southeast Toyota Finance\n"
+        "- **+14% credit quality improvement** quarter over quarter\n"
+        "- **4.2% to 3.2% expected lifetime loss rate** — a full **100 bps reduction**\n"
+        "- **+15% automated decisioning** from policy-rule optimization\n"
+        "- **+152% underwriter decision-time improvement** at Wells Fargo Consumer Lending\n"
+        "- **-68% quality risk findings** year over year\n\n"
+        "That combination is what makes Richard compelling: he improves credit quality, increases automation, and lowers losses at the same time."
+    ),
+    "fit": (
+        "## Why Richard Is a Strong Credit-Risk Operator\n\n"
+        "Richard is not just someone who reviews credit. He builds the operating layer that controls underwriting outcomes.\n\n"
+        "- He has run risk at **production lending scale** — including **$1.7B+ monthly originations** and **178 dealerships**\n"
+        "- He has moved hard metrics in the right direction: **+14% credit quality**, **-100 bps expected loss**, **+15% automation**\n"
+        "- He understands the full control loop: policy design, scorecards, champion/challenger testing, dashboards, deployment, and monitoring\n"
+        "- He is credible with executives and hands-on enough to get strategy into the actual decisioning workflow\n\n"
+        "If you need someone to own credit-risk and analytics infrastructure instead of just reporting on it, Richard is exactly that profile."
+    ),
+    "timeline": (
+        "## Richard's Progression\n\n"
+        "Richard's career compounds toward larger and more systematized control over lending outcomes.\n\n"
+        "- **Wells Fargo Financial / Retail Banking** — frontline lending operations, underwriting, compliance, and sales discipline\n"
+        "- **Wells Fargo Home Mortgage** — high-risk modification underwriting, remediation, and regulated portfolio management\n"
+        "- **Wells Fargo Consumer Lending** — national underwriting operations plus the Decision Logic Tool embedded in production software\n"
+        "- **Southeast Toyota Finance** — production originations risk at **$1.7B+ monthly volume**, scorecard cutoffs, policy rules, dashboards, and model deployment\n"
+        "- **Experian** — broader multi-lender advisory across predictive data, decisioning, reporting, and risk-managed growth"
+    ),
+}
 
-def _match_knowledge(question: str) -> str | None:
+
+def _match_knowledge(question: str, scope: Literal["paul", "richard"]) -> str | None:
     """Match a question to pre-built knowledge. Returns None if no match."""
     q = question.lower()
+    if scope == "richard":
+        if any(w in q for w in ["system", "built", "operat", "decision", "policy", "dashboard"]):
+            return _RICHARD_KNOWLEDGE["systems"]
+        if any(w in q for w in ["metric", "number", "quality", "loss", "automation", "originations"]):
+            return _RICHARD_KNOWLEDGE["metrics"]
+        if any(w in q for w in ["hire", "fit", "head of credit", "dangerous", "why richard", "strong fit"]):
+            return _RICHARD_KNOWLEDGE["fit"]
+        if any(w in q for w in ["timeline", "career", "when", "experian", "wells", "toyota"]):
+            return _RICHARD_KNOWLEDGE["timeline"]
+        return None
+
     if any(w in q for w in ["architecture", "system", "layers", "walk me through"]):
-        return _KNOWLEDGE["architecture"]
+        return _PAUL_KNOWLEDGE["architecture"]
     if any(w in q for w in ["data platform", "databricks", "azure", "deployed", "when did", "start at", "kayne", "career", "timeline"]):
-        return _KNOWLEDGE["data_platform"]
+        return _PAUL_KNOWLEDGE["data_platform"]
     if any(w in q for w in ["compare", "jll", "vs", "versus", "difference"]):
-        return _KNOWLEDGE["comparison"]
+        return _PAUL_KNOWLEDGE["comparison"]
     if any(w in q for w in ["roi", "automation", "hours", "saved", "return", "impact", "results"]):
-        return _KNOWLEDGE["roi"]
+        return _PAUL_KNOWLEDGE["roi"]
     if any(w in q for w in ["winston", "ai layer", "mcp", "rag", "llm", "how does"]):
-        return _KNOWLEDGE["winston"]
+        return _PAUL_KNOWLEDGE["winston"]
     if any(w in q for w in ["should i hire", "hire paul", "why hire", "recommend", "good fit", "right person"]):
-        return _KNOWLEDGE["hire"]
+        return _PAUL_KNOWLEDGE["hire"]
     if any(w in q for w in ["build", "our firm", "would paul", "what would"]):
-        return _KNOWLEDGE["build"]
+        return _PAUL_KNOWLEDGE["build"]
     if any(w in q for w in ["track", "baseball", "athlete", "sport", "chaminade", "brisbane", "bulldogs", "connie mack", "stanner", "400m", "no-hitter", "no hitter", "stolen base"]):
-        return _KNOWLEDGE["athletics"]
+        return _PAUL_KNOWLEDGE["athletics"]
     if any(w in q for w in ["music", "produce", "espn", "mtv", "bet", "fashion one", "soul cypher", "beats"]):
-        return _KNOWLEDGE["music"]
+        return _PAUL_KNOWLEDGE["music"]
     if any(w in q for w in ["brown university", "brown", "education", "school", "college", "degree", "university", "studied"]):
-        return _KNOWLEDGE["education"]
+        return _PAUL_KNOWLEDGE["education"]
     if any(w in q for w in ["personal", "outside work", "hobbies", "interests", "fun fact", "about paul", "who is paul", "tell me about", "what else", "beyond", "family", "kids", "son", "daughter", "coach", "little league", "wife", "married", "maria"]):
-        return _KNOWLEDGE["personal"]
+        return _PAUL_KNOWLEDGE["personal"]
     return None
 
 
@@ -337,7 +398,10 @@ async def _stream_chat(req: ChatRequest):
             break
 
     if not user_message:
-        yield _sse_text("I'm Winston — ask me anything about Paul's background, systems, or hiring fit.")
+        if req.scope == "richard":
+            yield _sse_text("I'm Winston — ask me anything about Richard's lending systems, risk results, or operating fit.")
+        else:
+            yield _sse_text("I'm Winston — ask me anything about Paul's background, systems, or hiring fit.")
         return
 
     # Classify intent (always — used for both LLM and fallback paths)
@@ -347,22 +411,27 @@ async def _stream_chat(req: ChatRequest):
     if RESUME_LLM_ENABLED:
         history = [{"role": m.role, "content": m.content} for m in req.messages]
         try:
-            async for token in stream_resume_response(history, intent):
+            async for token in stream_resume_response(history, intent, scope=req.scope):
                 yield _sse_text(token)
             return
         except Exception:
             logger.exception("LLM streaming failed, falling back to deterministic")
 
     # Deterministic fallback — regex → pre-built knowledge
-    knowledge = _match_knowledge(user_message)
+    knowledge = _match_knowledge(user_message, req.scope)
     if knowledge:
         yield _sse_text(_format_public_resume_response(knowledge))
         return
 
-    yield _sse_text(
-        "I focus on Paul's background and capabilities — try asking about his systems, "
-        "experience, or hiring fit."
-    )
+    if req.scope == "richard":
+        yield _sse_text(
+            "I focus on Richard's lending systems, credit-risk results, and operating fit — try asking what he built, what improved, or why he is strong for a head-of-risk role."
+        )
+    else:
+        yield _sse_text(
+            "I focus on Paul's background and capabilities — try asking about his systems, "
+            "experience, or hiring fit."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +461,6 @@ async def chat(request: Request, req: ChatRequest):
 
 
 @router.get("/suggestions")
-def chat_suggestions():
+def chat_suggestions(scope: Literal["paul", "richard"] = Query(default="paul")):
     """Return suggested starter questions."""
-    return {"suggestions": SUGGESTED_QUESTIONS}
+    return {"suggestions": SUGGESTED_QUESTIONS[scope]}
