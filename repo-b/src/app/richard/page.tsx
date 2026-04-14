@@ -19,6 +19,8 @@ export default function RichardPage() {
     [selectedSystemId],
   );
   const primaryOutcomes = richardOperatorProfile.heroMetrics.map((metric) => `${metric.value} ${metric.label.toLowerCase()}`);
+  const groupedSystems = useMemo(() => groupSystems(richardOperatorProfile.systems), []);
+  const impactSummary = useMemo(() => buildImpactSummary(selectedSystem), [selectedSystem]);
 
   return (
     <div
@@ -114,7 +116,7 @@ export default function RichardPage() {
           </div>
         </header>
 
-        <section className="space-y-5">
+        <section className="space-y-6 pb-6 md:space-y-7 md:pb-10">
           <div className="grid gap-3 xl:grid-cols-12 xl:items-end">
             <div className="xl:col-span-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
@@ -129,86 +131,153 @@ export default function RichardPage() {
             </p>
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-12">
-            <div className="grid gap-3 xl:col-span-5 xl:self-start">
-              {richardOperatorProfile.systems.map((system) => {
-                const isActive = system.id === selectedSystem.id;
-                return (
-                  <button
-                    key={system.id}
-                    type="button"
-                    onClick={() => setSelectedSystemId(system.id)}
-                    className="rounded-[1.35rem] border p-4 text-left transition-all xl:p-5"
-                    style={{
-                      borderColor: isActive ? "var(--ros-accent-cool)" : "var(--ros-border-light)",
-                      background: isActive ? "rgba(47,111,133,0.08)" : "var(--ros-card-bg)",
-                      boxShadow: isActive ? "0 18px 44px -34px rgba(47,111,133,0.55)" : "none",
-                    }}
-                  >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
-                          {system.company} · {system.period}
-                        </p>
-                        <h3 className="mt-1 text-[1.35rem] leading-tight md:text-[1.6rem]" style={{ color: "var(--ros-text-bright)" }}>
-                          {system.name}
-                        </h3>
-                      </div>
-                      <span className="rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.14em]" style={{ borderColor: "var(--ros-border-light)", color: "var(--ros-text-dim)" }}>
-                        Execution Layer
-                      </span>
+          <div className="grid gap-6 xl:grid-cols-12 xl:items-start">
+            <div className="space-y-6 xl:col-span-5 xl:self-start">
+              {groupedSystems.map((group) => (
+                <div key={group.id} className="space-y-3.5">
+                  <div className="flex items-center justify-between gap-4 border-b pb-2" style={{ borderColor: "var(--ros-border-light)" }}>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
+                        {group.label}
+                      </p>
+                      <p className="mt-1 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
+                        {group.description}
+                      </p>
                     </div>
-                    <p className="mt-3 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
-                      {system.strapline}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {system.outcomes.map((outcome) => (
-                        <span
-                          key={outcome}
-                          className="rounded-full border px-3 py-1 text-[11px]"
-                          style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-pill-bg)", color: "var(--ros-text)" }}
+                    <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
+                      {group.systems.length} systems
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {group.systems.map((system, index) => {
+                      const isActive = system.id === selectedSystem.id;
+                      const sizeClassName = isActive
+                        ? "min-h-[16rem] xl:min-h-[18rem]"
+                        : index === 0
+                          ? "min-h-[12rem]"
+                          : index === group.systems.length - 1
+                            ? "min-h-[9.5rem]"
+                            : "min-h-[10.75rem]";
+
+                      return (
+                        <button
+                          key={system.id}
+                          type="button"
+                          onClick={() => setSelectedSystemId(system.id)}
+                          className={`text-left transition-all ${sizeClassName}`}
+                          style={{
+                            background: isActive ? "rgba(47,111,133,0.08)" : "transparent",
+                          }}
                         >
-                          {outcome}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                );
-              })}
+                          <div
+                            className="h-full rounded-[1.4rem] px-0 py-1"
+                            style={{
+                              borderLeft: isActive ? "2px solid var(--ros-accent-cool)" : "2px solid transparent",
+                            }}
+                          >
+                            <div className="flex h-full flex-col justify-between gap-3 rounded-r-[1.35rem] pl-4 pr-2 xl:pl-5">
+                              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
+                                    {system.company} · {system.period}
+                                  </p>
+                                  <h3 className={`mt-1 leading-tight ${isActive ? "text-[1.7rem] xl:text-[1.95rem]" : "text-[1.2rem] xl:text-[1.4rem]"}`} style={{ color: "var(--ros-text-bright)" }}>
+                                    {system.name}
+                                  </h3>
+                                </div>
+                                <span className="rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.14em]" style={{ borderColor: "var(--ros-border-light)", color: "var(--ros-text-dim)" }}>
+                                  {isActive ? "Primary System" : "Execution Layer"}
+                                </span>
+                              </div>
+
+                              <p className="max-w-xl text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
+                                {system.strapline}
+                              </p>
+
+                              <div className="flex flex-wrap gap-2">
+                                {system.outcomes.slice(0, isActive ? system.outcomes.length : 2).map((outcome) => (
+                                  <span
+                                    key={outcome}
+                                    className="rounded-full border px-3 py-1 text-[11px]"
+                                    style={{ borderColor: "var(--ros-border-light)", background: "var(--ros-pill-bg)", color: "var(--ros-text)" }}
+                                  >
+                                    {outcome}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div
-              className="rounded-[1.8rem] border p-5 md:p-6 xl:col-span-7 xl:min-h-[38rem] xl:p-7"
-              style={{ borderColor: "var(--ros-border-light)", background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))" }}
+              className="xl:col-span-7 xl:min-h-[48rem]"
+              style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))" }}
             >
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)] xl:gap-7">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
-                    Selected System
-                  </p>
-                  <h3 className="mt-2 text-[1.95rem] leading-tight md:text-[2.3rem]" style={{ color: "var(--ros-text-bright)" }}>
-                    {selectedSystem.name}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
-                    {selectedSystem.company} · {selectedSystem.period}
-                  </p>
-                  <p className="mt-5 max-w-2xl text-base leading-7" style={{ color: "var(--ros-text)" }}>
-                    {selectedSystem.strapline}
-                  </p>
-
-                  <div className="mt-6 grid gap-5 xl:grid-cols-2">
-                    <DetailBlock title="Inputs" items={selectedSystem.inputs} />
-                    <DetailBlock title="Logic" items={selectedSystem.logic} accent />
+              <div className="flex h-full flex-col overflow-hidden rounded-[2rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.02))]">
+                <div className="border-b px-5 py-5 md:px-6 xl:px-7 xl:py-6" style={{ borderColor: "var(--ros-border-light)" }}>
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
+                        Selected System
+                      </p>
+                      <h3 className="mt-2 max-w-4xl text-[2.1rem] leading-tight md:text-[2.65rem]" style={{ color: "var(--ros-text-bright)" }}>
+                        {selectedSystem.name}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
+                        {selectedSystem.company} · {selectedSystem.period}
+                      </p>
+                    </div>
+                    <div className="max-w-sm xl:text-right">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
+                        Operating Context
+                      </p>
+                      <p className="mt-2 text-sm leading-6" style={{ color: "var(--ros-text)" }}>
+                        {selectedSystem.strapline}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-[1.4rem] border p-4 md:p-5" style={{ borderColor: "var(--ros-border-light)", background: "rgba(255,255,255,0.04)" }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
-                    Inspection Surface
-                  </p>
-                  <div className="mt-4 grid gap-5">
-                    <DetailBlock title="Outputs" items={selectedSystem.outputs} />
-                    <DetailBlock title="What Improved" items={selectedSystem.outcomes} />
+                <div className="flex-1 px-5 py-5 md:px-6 xl:px-7 xl:py-7">
+                  <div className="grid gap-6 xl:grid-cols-3 xl:gap-8">
+                    <WorkspaceBlock title="Inputs" items={selectedSystem.inputs} />
+                    <WorkspaceBlock title="Logic" items={selectedSystem.logic} accent />
+                    <WorkspaceBlock title="Outputs" items={selectedSystem.outputs} />
+                  </div>
+                  <div className="mt-6 border-t pt-5" style={{ borderColor: "var(--ros-border-light)" }}>
+                    <WorkspaceBlock title="What Improved" items={selectedSystem.outcomes} columns={2} />
+                  </div>
+                </div>
+
+                <div className="mt-auto border-t px-5 py-5 md:px-6 xl:px-7 xl:py-6" style={{ borderColor: "var(--ros-border-light)", background: "linear-gradient(90deg, rgba(47,111,133,0.08), rgba(168,61,41,0.04))" }}>
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_0.9fr] xl:items-end">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
+                        Impact Summary
+                      </p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {impactSummary.metrics.map((metric) => (
+                          <div key={metric.value} className="space-y-1">
+                            <p className="text-[clamp(1.7rem,3vw,2.5rem)] leading-none" style={{ color: "var(--ros-text-bright)" }}>
+                              {metric.value}
+                            </p>
+                            <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--ros-text-dim)" }}>
+                              {metric.label}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="max-w-md text-sm leading-7 xl:justify-self-end xl:text-right" style={{ color: "var(--ros-text)" }}>
+                      {impactSummary.summary}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -216,7 +285,7 @@ export default function RichardPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_0.85fr]">
+        <section className="grid gap-6 pt-8 xl:grid-cols-[minmax(0,1.15fr)_0.85fr] xl:pt-14">
           <div className="space-y-5">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ros-text-dim)" }}>
@@ -409,21 +478,23 @@ export default function RichardPage() {
   );
 }
 
-function DetailBlock({
+function WorkspaceBlock({
   title,
   items,
   accent = false,
+  columns = 1,
 }: {
   title: string;
   items: string[];
   accent?: boolean;
+  columns?: 1 | 2;
 }) {
   return (
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent ? "var(--ros-accent-cool)" : "var(--ros-text-dim)" }}>
         {title}
       </p>
-      <ul className="mt-2 space-y-2">
+      <ul className={`mt-3 grid gap-2.5 ${columns === 2 ? "xl:grid-cols-2" : ""}`}>
         {items.map((item) => (
           <li key={item} className="flex gap-3 text-sm leading-6" style={{ color: "var(--ros-text-muted)" }}>
             <span className="mt-[10px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: accent ? "var(--ros-accent-cool)" : "var(--ros-accent-gold)" }} />
@@ -433,4 +504,42 @@ function DetailBlock({
       </ul>
     </div>
   );
+}
+
+function groupSystems(systems: typeof richardOperatorProfile.systems) {
+  return [
+    {
+      id: "southeast-toyota",
+      label: "Southeast Toyota Finance",
+      description: "Primary production systems where Richard controlled origination scale, policy movement, and portfolio consequences.",
+      systems: systems.filter((system) => system.company === "Southeast Toyota Finance"),
+    },
+    {
+      id: "wells-fargo",
+      label: "Wells Fargo Foundation",
+      description: "Operational underwriting infrastructure that turned credit judgment into deployable decision logic.",
+      systems: systems.filter((system) => system.company === "Wells Fargo Consumer Lending"),
+    },
+    {
+      id: "experian",
+      label: "Experian Advisory / Scale",
+      description: "Cross-lender monitoring, pricing, and deployment systems used to improve growth and loss performance at scale.",
+      systems: systems.filter((system) => system.company === "Experian / Client Advisory"),
+    },
+  ].filter((group) => group.systems.length > 0);
+}
+
+function buildImpactSummary(system: (typeof richardOperatorProfile.systems)[number]) {
+  const metrics = system.outcomes.slice(0, 3).map((outcome) => {
+    const [value, ...rest] = outcome.split(" ");
+    return {
+      value,
+      label: rest.join(" "),
+    };
+  });
+
+  return {
+    metrics,
+    summary: system.strapline.endsWith(".") ? system.strapline : `${system.strapline}.`,
+  };
 }

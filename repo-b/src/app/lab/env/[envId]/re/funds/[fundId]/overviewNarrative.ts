@@ -1,5 +1,6 @@
 import type {
   CapitalTimelinePoint,
+  FundValuationRollup,
   IrrContributionItem,
   IrrTimelinePoint,
   ReV2FundInvestmentRollupRow,
@@ -35,6 +36,29 @@ export type PerformanceDriver = {
   navContributionValue: number;
   navContributionPct: number;
   barPct: number;
+};
+
+export type ValueCreationMetrics = {
+  unrealizedPct: number | null;
+  realizedPct: number | null;
+  tvpi: number | null;
+  tvpiBasis: "gross" | "net";
+  pctInvested: number | null;
+};
+
+export type TopContributor = {
+  investmentId: string;
+  investmentName: string;
+  contributionValue: number;
+  irr: number | null;
+};
+
+export type CapitalEfficiency = {
+  avgEntryCap: number | null;
+  entryCapLabel: "entry" | "current";
+  exitCapImplied: number | null;
+  leverageLtv: number | null;
+  debtYield: number | null;
 };
 
 export type FundHealthSummary = {
@@ -304,6 +328,71 @@ export function buildFundHealthSummary(params: {
     label,
     headline: `${label} performance with TVPI of ${formatMultiple(tvpi)} and Net IRR of ${formatPercent(netIrr)} across ${leadingNarrative(params.exposureInsights, params.performanceDrivers)}.`,
     detail: realizedNarrative(distributed, nav, params.exposureInsights, params.performanceDrivers),
+  };
+}
+
+export function buildValueCreationMetrics(
+  fundState: ReV2FundQuarterState | null | undefined,
+  rollup: FundValuationRollup | null | undefined
+): ValueCreationMetrics {
+  const nav = Math.max(0, toNumber(fundState?.portfolio_nav) ?? 0);
+  const distributed = Math.max(0, toNumber(fundState?.total_distributed) ?? 0);
+  const called = Math.max(0, toNumber(fundState?.total_called) ?? 0);
+  const committed = Math.max(0, toNumber(fundState?.total_committed) ?? 0);
+  const totalValue = nav + distributed;
+
+  const tvpi = toNumber(fundState?.tvpi);
+  const tvpiFallback = called > 0 ? totalValue / called : null;
+
+  return {
+    unrealizedPct: totalValue > 0 ? nav / totalValue : null,
+    realizedPct: totalValue > 0 ? distributed / totalValue : null,
+    tvpi: tvpi ?? tvpiFallback,
+    tvpiBasis: "gross",
+    pctInvested: committed > 0 ? called / committed : null,
+  };
+}
+
+export function buildTopContributors(
+  irrContrib: IrrContributionItem[],
+  limit = 5
+): TopContributor[] {
+  return irrContrib
+    .map((item) => ({
+      investmentId: item.investment_id,
+      investmentName: item.investment_name,
+      contributionValue:
+        toNumber(item.fund_nav_contribution) ??
+        toNumber(item.irr_contribution) ??
+        0,
+      irr: toNumber(item.investment_irr),
+    }))
+    .sort((left, right) => right.contributionValue - left.contributionValue)
+    .slice(0, limit);
+}
+
+export function buildCapitalEfficiency(
+  rollup: FundValuationRollup | null | undefined
+): CapitalEfficiency {
+  const summary = rollup?.summary;
+  const totalNoi = toNumber(summary?.total_noi);
+  const totalValue = toNumber(summary?.total_portfolio_value);
+  const totalDebt = toNumber(summary?.total_debt);
+  const weightedCap = toNumber(summary?.weighted_avg_cap_rate);
+  const weightedLtv = toNumber(summary?.weighted_avg_ltv);
+
+  return {
+    avgEntryCap: weightedCap,
+    entryCapLabel: "current",
+    exitCapImplied:
+      totalNoi !== null && totalValue !== null && totalValue > 0
+        ? totalNoi / totalValue
+        : null,
+    leverageLtv: weightedLtv,
+    debtYield:
+      totalNoi !== null && totalDebt !== null && totalDebt > 0
+        ? totalNoi / totalDebt
+        : null,
   };
 }
 

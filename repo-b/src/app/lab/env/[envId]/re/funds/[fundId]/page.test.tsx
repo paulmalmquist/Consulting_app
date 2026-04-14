@@ -362,15 +362,18 @@ describe("fund detail narrative dashboard", () => {
     const orderedSections = [
       await screen.findByTestId("fund-overview-header"),
       await screen.findByTestId("fund-health-summary"),
+      await screen.findByTestId("decision-strip"),
       await screen.findByTestId("kpi-group-capital"),
       await screen.findByTestId("kpi-group-performance"),
       await screen.findByTestId("portfolio-snapshot"),
       await screen.findByTestId("fund-value-creation"),
-      await screen.findByTestId("portfolio-allocation"),
+      await screen.findByTestId("top-value-contributors"),
+      await screen.findByTestId("exposure-risk-panel"),
+      await screen.findByTestId("capital-efficiency"),
       await screen.findByTestId("performance-drivers"),
-      await screen.findByTestId("capital-activity"),
       await screen.findByTestId("exposure-insights"),
       await screen.findByTestId("portfolio-holdings"),
+      await screen.findByTestId("asset-contribution-table"),
     ];
 
     for (let index = 1; index < orderedSections.length; index += 1) {
@@ -399,8 +402,8 @@ describe("fund detail narrative dashboard", () => {
     expect(snapshot).toHaveTextContent("94.4%");
     expect(snapshot).toHaveTextContent("$18.6M");
 
-    const allocation = await screen.findByTestId("portfolio-allocation");
-    expect(allocation).toHaveTextContent("Industrial");
+    const allocation = await screen.findByTestId("exposure-risk-panel");
+    expect(allocation).toHaveTextContent(/industrial/i);
     expect(allocation).toHaveTextContent("100.0%");
   });
 
@@ -465,25 +468,12 @@ describe("fund detail narrative dashboard", () => {
     });
   });
 
-  it("expands an investment row to show asset-level metrics", async () => {
-    const user = userEvent.setup();
-
-    renderPage();
-
-    await screen.findByTestId("portfolio-holdings");
-
-    await user.click(screen.getByTestId("investment-row-inv-1"));
-
-    const assetLink = await screen.findByRole("link", { name: "Harborview Building A" });
-    const assetRow = assetLink.closest("tr");
-    expect(assetRow).not.toBeNull();
-
-    const cells = within(assetRow as HTMLTableRowElement).getAllByRole("cell");
-    expect(cells[4]).toHaveClass("text-right");
-    expect(cells[4]).toHaveTextContent("$185.0M");
-    expect(cells[6]).toHaveTextContent("$8.4M");
-    expect(cells[7]).toHaveTextContent("95.0%");
-  });
+  // REPE UI redesign — Phase 1 replaced the nested expand-row investment
+  // table with AssetContributionTable. Expand-row (Cash Flow / Debt / Exit
+  // sub-tabs per asset) is deferred to Phase 1c per
+  // /Users/paulmalmquist/.claude/plans/whimsical-doodling-pixel.md §3.3.
+  // Re-enable this test alongside that work.
+  it.skip("expands an investment row to show asset-level metrics (deferred with expand-row)", async () => {});
 
   // Authoritative State Lockdown — Phase 3
   // The base-scenario summary card and performance bridge previously

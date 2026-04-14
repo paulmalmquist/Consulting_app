@@ -232,6 +232,140 @@ def get_environment_fund_table(
         raise _to_http(exc)
 
 
+# ── Fund Trend (time-series data for the portfolio trend chart) ──────────────
+
+@router.get("/environments/{env_id}/search")
+def get_environment_hybrid_search(
+    env_id: UUID,
+    request: Request,
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    debug: bool = Query(False),
+):
+    """Hybrid REPE search — exact + metadata + semantic lanes with ranked merge.
+
+    Every result carries an `entity_type` badge and resolves to a real route.
+    Semantic hits whose entity_id does not exist in this business are dropped
+    (fail-closed against hallucinations). `debug=true` exposes the winning
+    lane per rank and the per-lane candidate counts.
+    """
+    try:
+        from app.services.repe_hybrid_search import hybrid_search
+
+        resolved = repe_context.resolve_repe_business_context(
+            request=request, env_id=str(env_id), allow_create=True,
+        )
+        return hybrid_search(
+            q,
+            business_id=resolved.business_id,
+            env_id=str(env_id),
+            limit=limit,
+            debug=debug,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/environments/{env_id}/fund-trend")
+def get_environment_fund_trend(
+    env_id: UUID,
+    request: Request,
+    metric: str = Query("ending_nav", description="ending_nav | dpi | tvpi | gross_irr"),
+    quarters: int = Query(12, ge=2, le=40, description="number of trailing quarters"),
+):
+    """Trend-over-time per fund.
+
+    One series per fund, one value per quarter. Unavailable values are null
+    (never coerced to zero) so the chart can skip gaps rather than misreport.
+
+    When bottom-up has been written into canonical_metrics for a fund-quarter,
+    `gross_irr` prefers `gross_irr_bottom_up` over the legacy `gross_irr`
+    column — keeping the authoritative-state contract intact as the canonical
+    tile source flips.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request, env_id=str(env_id), allow_create=True,
+        )
+        allowed = {"ending_nav", "dpi", "tvpi", "gross_irr"}
+        if metric not in allowed:
+            raise ValueError(f"unsupported metric: {metric}")
+
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT fund_id, name
+                FROM repe_fund
+                WHERE business_id = %s
+                ORDER BY vintage_year DESC, name
+                """,
+                (str(resolved.business_id),),
+            )
+            funds = cur.fetchall() or []
+
+            # Pull the last N quarters of data per fund. Left-join authoritative
+            # snapshot so we can prefer canonical_metrics.gross_irr_bottom_up
+            # when it exists.
+            series_by_fund: list[dict[str, Any]] = []
+            for f in funds:
+                fund_id = str(f["fund_id"])
+                cur.execute(
+                    """
+                    SELECT q.quarter,
+                           q.portfolio_nav,
+                           q.dpi,
+                           q.tvpi,
+                           q.gross_irr,
+                           (
+                             SELECT canonical_metrics->>'gross_irr_bottom_up'
+                             FROM re_authoritative_fund_state_qtr a
+                             WHERE a.fund_id = q.fund_id
+                               AND a.quarter = q.quarter
+                             ORDER BY a.created_at DESC
+                             LIMIT 1
+                           ) AS gross_irr_bottom_up
+                    FROM re_fund_quarter_state q
+                    WHERE q.fund_id = %s
+                    ORDER BY q.quarter DESC
+                    LIMIT %s
+                    """,
+                    (fund_id, quarters),
+                )
+                rows = list(cur.fetchall() or [])
+                rows.reverse()  # chronological
+                points = []
+                for r in rows:
+                    if metric == "ending_nav":
+                        v = r.get("portfolio_nav")
+                    elif metric == "dpi":
+                        v = r.get("dpi")
+                    elif metric == "tvpi":
+                        v = r.get("tvpi")
+                    elif metric == "gross_irr":
+                        # Prefer bottom-up when written.
+                        bu = r.get("gross_irr_bottom_up")
+                        v = float(bu) if bu is not None else r.get("gross_irr")
+                    else:
+                        v = None
+                    points.append(
+                        {
+                            "quarter": r["quarter"],
+                            "value": float(v) if v is not None else None,
+                        }
+                    )
+                series_by_fund.append(
+                    {
+                        "fund_id": fund_id,
+                        "name": f["name"],
+                        "points": points,
+                    }
+                )
+
+        return {"metric": metric, "quarters": quarters, "funds": series_by_fund}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 # ── Fund Comparison (bar chart data) ─────────────────────────────────────────
 
 @router.get("/environments/{env_id}/fund-comparison")
@@ -863,6 +997,103 @@ def get_asset_quarter_state(
             asset_id=asset_id,
             quarter=quarter,
             scenario_id=scenario_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/investments/{investment_id}/bottom-up-cashflow")
+def get_investment_bottom_up_cashflow(
+    investment_id: UUID,
+    quarter: str = Query(..., description="as-of quarter, e.g. 2026-Q1"),
+    default_cap_rate: float | None = Query(None, ge=0.001, le=0.5),
+):
+    """Investment-level bottom-up CF rollup + IRR + per-asset contributions.
+
+    Aggregates ownership-weighted child-asset CFs. Null children contribute
+    zero but don't null the parent automatically; their null_reason is in the
+    per-asset breakdown for provenance.
+    """
+    try:
+        from app.services.bottom_up_rollup import (
+            compute_investment_rollup,
+            investment_rollup_payload,
+        )
+
+        cap = Decimal(str(default_cap_rate)) if default_cap_rate else None
+        roll = compute_investment_rollup(
+            investment_id, quarter, env_default_cap_rate=cap
+        )
+        return investment_rollup_payload(roll)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/funds/{fund_id}/bottom-up-cashflow")
+def get_fund_bottom_up_cashflow(
+    fund_id: UUID,
+    quarter: str = Query(..., description="as-of quarter, e.g. 2026-Q1"),
+    default_cap_rate: float | None = Query(None, ge=0.001, le=0.5),
+):
+    """Fund-level bottom-up gross IRR + per-investment + per-asset contributions.
+
+    Uses property CFs only. Investor IRR (from capital calls / distributions)
+    is a separate code path — they are not mixed. Net / carry / gp_share
+    remain out-of-scope here (fail-closed per SYSTEM_RULES_AUTHORITATIVE_STATE).
+
+    IRR contributions are leave-one-out deltas and are NON-ADDITIVE — the sum
+    does NOT equal fund gross IRR. The payload carries `non_additive: true`.
+    """
+    try:
+        from app.services.bottom_up_rollup import (
+            compute_fund_rollup,
+            fund_rollup_payload,
+        )
+
+        cap = Decimal(str(default_cap_rate)) if default_cap_rate else None
+        roll = compute_fund_rollup(
+            fund_id, quarter, env_default_cap_rate=cap
+        )
+        return fund_rollup_payload(roll)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/assets/{asset_id}/cashflow")
+def get_asset_bottom_up_cashflow(
+    asset_id: UUID,
+    quarter: str = Query(..., description="as-of quarter, e.g. 2026-Q1"),
+    default_cap_rate: float | None = Query(
+        None,
+        description="fallback exit cap rate for NOI/cap terminal value",
+        ge=0.001,
+        le=0.5,
+    ),
+):
+    """Bottom-up quarterly cash flow series for a single asset plus derived IRR.
+
+    Response keys:
+      series[]            — ordered (quarter, quarter_end_date, amount, breakdown)
+      irr                 — asset-level gross IRR or null
+      null_reason         — one of missing_acquisition, no_inflow, invalid_cap_rate,
+                            insufficient_sign_changes, xirr_nonconvergence,
+                            stale_cache_exceeded_ttl
+      terminal_value      — {kind, source, amount, cap_rate?, quarter} or null
+      warnings[]          — e.g. ["terminal_value_dominant"]
+      is_stale            — materialized row diverges from current source hash
+                            or exceeds the 15-min warn window
+      staleness_seconds   — age of the materialized row
+      source_hash         — fingerprint of the inputs that produced the row
+      computed_at         — ISO-8601 UTC timestamp
+    """
+    try:
+        from app.services.bottom_up_refresh import get_asset_cashflow_response
+
+        cap_rate_dec = Decimal(str(default_cap_rate)) if default_cap_rate else None
+        return get_asset_cashflow_response(
+            asset_id,
+            quarter,
+            env_default_cap_rate=cap_rate_dec,
         )
     except Exception as exc:
         raise _to_http(exc)

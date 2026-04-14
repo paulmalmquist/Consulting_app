@@ -41,8 +41,12 @@ import type {
   PdsExecutiveMemory,
   PdsExecutiveNarrativeDraft,
   PdsExecutiveOverview,
+  PdsDataHealthException,
+  PdsDataHealthSummary,
   PdsExecutiveQueueActionResult,
   PdsExecutiveQueueItem,
+  PdsExecutiveQueueItemPatch,
+  PdsExecutiveQueueMetrics,
   PdsPermit,
   PdsPortfolioDashboard,
   PdsPortfolioHealth,
@@ -1444,8 +1448,12 @@ export type {
   PdsExecutiveMemory,
   PdsExecutiveNarrativeDraft,
   PdsExecutiveOverview,
+  PdsDataHealthException,
+  PdsDataHealthSummary,
   PdsExecutiveQueueActionResult,
   PdsExecutiveQueueItem,
+  PdsExecutiveQueueItemPatch,
+  PdsExecutiveQueueMetrics,
   PdsFinancialHealth,
   PdsPermit,
   PdsPortfolioDashboard,
@@ -2049,9 +2057,66 @@ export async function downloadPdsReportExport(params: {
 
 // ── PDS Executive ────────────────────────────────────────────────────
 
-export function getPdsExecutiveOverview(envId: string, businessId?: string): Promise<PdsExecutiveOverview> {
+export function getPdsExecutiveOverview(
+  envId: string,
+  businessId?: string,
+  grain: "portfolio" | "account" | "project" | "issue" = "portfolio",
+): Promise<PdsExecutiveOverview> {
   return bosFetch("/api/pds/v1/executive/overview", {
+    params: { env_id: envId, business_id: businessId, grain },
+  });
+}
+
+export function getPdsDataHealthSummary(
+  envId: string,
+  businessId?: string,
+): Promise<PdsDataHealthSummary> {
+  return bosFetch("/api/pds/v1/executive/data-health/summary", {
     params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getPdsDataHealthExceptions(
+  envId: string,
+  businessId?: string,
+  filters?: {
+    source_table?: string;
+    error_type?: string;
+    run_id?: string;
+    limit?: number;
+  },
+): Promise<PdsDataHealthException[]> {
+  return bosFetch("/api/pds/v1/executive/data-health/exceptions", {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      source_table: filters?.source_table,
+      error_type: filters?.error_type,
+      run_id: filters?.run_id,
+      limit: filters?.limit?.toString(),
+    },
+  });
+}
+
+export function getPdsExecutiveQueueMetrics(
+  envId: string,
+  businessId?: string,
+): Promise<PdsExecutiveQueueMetrics> {
+  return bosFetch("/api/pds/v1/executive/queue/metrics", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function patchPdsExecutiveQueueItem(
+  queueItemId: string,
+  patch: PdsExecutiveQueueItemPatch,
+  envId: string,
+  businessId?: string,
+): Promise<PdsExecutiveQueueItem> {
+  return bosFetch(`/api/pds/v1/executive/queue/${queueItemId}`, {
+    method: "PATCH",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(patch),
   });
 }
 
@@ -4444,6 +4509,43 @@ export function resolveQuery(
   });
 }
 
+// ── Hybrid REPE search (exact + metadata + semantic) ──────────────────────
+
+export interface HybridSearchHit {
+  entity_type: "fund" | "investment" | "asset";
+  entity_id: string;
+  name: string;
+  route: string;
+  lane: "exact" | "prefix" | "metadata" | "semantic";
+  score: number;
+  snippet: string | null;
+  meta: Record<string, unknown>;
+}
+
+export interface HybridSearchResponse {
+  query: string;
+  results: HybridSearchHit[];
+  debug?: {
+    lane_counts: Record<string, number>;
+    ranked_lanes: string[];
+    total_candidates: number;
+  };
+}
+
+export function searchHybrid(
+  envId: string,
+  query: string,
+  opts: { limit?: number; debug?: boolean } = {}
+): Promise<HybridSearchResponse> {
+  return directFetch(`/api/re/v2/environments/${envId}/search`, {
+    params: {
+      q: query,
+      limit: opts.limit !== undefined ? String(opts.limit) : undefined,
+      debug: opts.debug ? "true" : undefined,
+    },
+  });
+}
+
 // ── Portfolio Signals ─────────────────────────────────────────────────────
 
 export interface SignalAttributionItem {
@@ -4646,6 +4748,172 @@ export function getReV2AssetQuarterState(
 ): Promise<ReV2AssetQuarterState> {
   return directFetch(`/api/re/v2/assets/${assetId}/quarter-state/${quarter}`, {
     params: { scenario_id: scenarioId },
+  });
+}
+
+export interface AssetBottomUpCashflowPoint {
+  quarter: string;
+  quarter_end_date: string;
+  amount: number;
+  component_breakdown: Record<string, unknown>;
+  has_actual: boolean;
+  has_projection: boolean;
+  has_exit: boolean;
+  has_terminal_value: boolean;
+  warnings: string[];
+}
+
+export interface AssetBottomUpCashflowResponse {
+  asset_id: string;
+  as_of_quarter: string;
+  series: AssetBottomUpCashflowPoint[];
+  irr: number | null;
+  null_reason:
+    | "missing_acquisition"
+    | "no_inflow"
+    | "invalid_cap_rate"
+    | "insufficient_sign_changes"
+    | "xirr_nonconvergence"
+    | "stale_cache_exceeded_ttl"
+    | null;
+  cashflow_count: number;
+  has_exit: boolean;
+  has_terminal_value: boolean;
+  warnings: string[];
+  terminal_value: {
+    kind: "terminal_value";
+    source: "authoritative_nav" | "quarter_state_nav" | "noi_cap_rate";
+    amount: number;
+    cap_rate?: number;
+    quarter: string;
+    pct_of_inflows?: number;
+  } | null;
+  is_stale: boolean;
+  staleness_seconds: number;
+  source_hash: string | null;
+  computed_at: string | null;
+}
+
+export function getAssetBottomUpCashflow(
+  assetId: string,
+  quarter: string,
+  defaultCapRate?: number
+): Promise<AssetBottomUpCashflowResponse> {
+  return directFetch(`/api/re/v2/assets/${assetId}/cashflow`, {
+    params: {
+      quarter,
+      default_cap_rate:
+        defaultCapRate !== undefined ? String(defaultCapRate) : undefined,
+    },
+  });
+}
+
+export interface BottomUpSeriesPoint {
+  quarter: string;
+  quarter_end_date: string;
+  amount: number;
+  has_actual: boolean;
+  has_projection: boolean;
+  has_exit: boolean;
+  has_terminal_value: boolean;
+  warnings: string[];
+}
+
+export interface InvestmentBottomUpResponse {
+  investment_id: string;
+  as_of_quarter: string;
+  series: BottomUpSeriesPoint[];
+  irr: number | null;
+  null_reason: string | null;
+  warnings: string[];
+  asset_contributions: Array<{
+    asset_id: string;
+    name: string;
+    ownership_pct_as_of: number;
+    asset_irr: number | null;
+    asset_null_reason: string | null;
+  }>;
+}
+
+export function getInvestmentBottomUpCashflow(
+  investmentId: string,
+  quarter: string,
+  defaultCapRate?: number
+): Promise<InvestmentBottomUpResponse> {
+  return directFetch(`/api/re/v2/investments/${investmentId}/bottom-up-cashflow`, {
+    params: {
+      quarter,
+      default_cap_rate:
+        defaultCapRate !== undefined ? String(defaultCapRate) : undefined,
+    },
+  });
+}
+
+export interface FundBottomUpResponse {
+  fund_id: string;
+  as_of_quarter: string;
+  series: BottomUpSeriesPoint[];
+  gross_irr_bottom_up: number | null;
+  null_reason: string | null;
+  warnings: string[];
+  investment_contributions: Array<{
+    investment_id: string;
+    name: string;
+    irr: number | null;
+    null_reason: string | null;
+    value_share: number;
+    asset_count: number;
+    null_asset_count: number;
+  }>;
+  irr_contribution: Array<{
+    asset_id: string;
+    name: string;
+    value_share: number | null;
+    irr_marginal_bps: number | null;
+    irr_weighted_bps: number | null;
+    asset_irr: number | null;
+    asset_null_reason: string | null;
+    ownership_pct_as_of: number;
+  }>;
+  non_additive: boolean;
+  non_additive_note: string;
+}
+
+export interface FundTrendSeries {
+  fund_id: string;
+  name: string;
+  points: Array<{ quarter: string; value: number | null }>;
+}
+
+export interface FundTrendResponse {
+  metric: "ending_nav" | "dpi" | "tvpi" | "gross_irr";
+  quarters: number;
+  funds: FundTrendSeries[];
+}
+
+export function getEnvironmentFundTrend(
+  envId: string,
+  opts: { metric?: "ending_nav" | "dpi" | "tvpi" | "gross_irr"; quarters?: number } = {}
+): Promise<FundTrendResponse> {
+  return directFetch(`/api/re/v2/environments/${envId}/fund-trend`, {
+    params: {
+      metric: opts.metric ?? "ending_nav",
+      quarters: opts.quarters !== undefined ? String(opts.quarters) : undefined,
+    },
+  });
+}
+
+export function getFundBottomUpCashflow(
+  fundId: string,
+  quarter: string,
+  defaultCapRate?: number
+): Promise<FundBottomUpResponse> {
+  return directFetch(`/api/re/v2/funds/${fundId}/bottom-up-cashflow`, {
+    params: {
+      quarter,
+      default_cap_rate:
+        defaultCapRate !== undefined ? String(defaultCapRate) : undefined,
+    },
   });
 }
 

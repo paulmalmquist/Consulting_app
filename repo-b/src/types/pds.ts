@@ -397,9 +397,30 @@ export interface PdsReportPackRun {
   created_at: string;
 }
 
+export interface PdsMetricReceipt {
+  sql: string;
+  params: unknown[];
+  filters: Record<string, unknown>;
+  timestamp: string;
+  grain: string;
+}
+
+export interface PdsMetricResult {
+  metric: string;
+  value: number | string | unknown[];
+  grain: string;
+  receipt: PdsMetricReceipt;
+  suppressed_count: number;
+  suppressed_sample: Record<string, unknown>[];
+  suppression_reasons: string[];
+  breakdown: Record<string, unknown>[];
+  trend: Record<string, unknown> | null;
+}
+
 export interface PdsExecutiveOverview {
   env_id: string;
   business_id: string;
+  grain: string;
   decisions_total: number;
   open_queue: number;
   critical_queue: number;
@@ -407,6 +428,7 @@ export interface PdsExecutiveOverview {
   open_signals: number;
   high_signals: number;
   latest_kpi: Record<string, unknown> | null;
+  metrics: Record<string, PdsMetricResult>;
 }
 
 export interface PdsExecutiveQueueItem {
@@ -422,14 +444,71 @@ export interface PdsExecutiveQueueItem {
   signal_event_id: string | null;
   recommended_action: string | null;
   recommended_owner: string | null;
+  assigned_owner: string | null;
   due_at: string | null;
   risk_score: string | number | null;
+  variance: number | null;
+  starting_variance: number | null;
+  recovery_value: number | null;
+  resolved_at: string | null;
+  priority_score: number | null;
   context_json: Record<string, unknown>;
   ai_analysis_json: Record<string, unknown>;
   input_snapshot_json: Record<string, unknown>;
   outcome_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface PdsExecutiveQueueMetrics {
+  total_recovered_value: number;
+  median_time_to_fix_hours: number | null;
+  open_variance_exposure: number;
+  top_five_actions: PdsExecutiveQueueItem[];
+}
+
+export interface PdsDataHealthPipelineRun {
+  pipeline_name: string;
+  status: string;
+  finished_at: string | null;
+  rows_processed: number;
+  rows_failed: number;
+}
+
+export interface PdsDataHealthErrorBreakdown {
+  source_table: string;
+  error_type: string;
+  count: number;
+}
+
+export interface PdsDataHealthSummary {
+  valid_pct: number;
+  exception_count: number;
+  tables_with_issues: number;
+  failed_pipeline_count: number;
+  pipeline_runs: PdsDataHealthPipelineRun[];
+  by_error_type: PdsDataHealthErrorBreakdown[];
+}
+
+export interface PdsDataHealthException {
+  exception_id: string;
+  env_id: string;
+  business_id: string;
+  run_id: string | null;
+  source_table: string;
+  source_row_id: string | null;
+  error_type: string;
+  sample_row_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface PdsExecutiveQueueItemPatch {
+  assigned_owner?: string | null;
+  status?: string;
+  due_at?: string | null;
+  variance?: number | null;
+  recovery_value?: number | null;
+  actor?: string;
 }
 
 export interface PdsExecutiveQueueActionResult {

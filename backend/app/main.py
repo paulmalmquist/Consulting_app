@@ -55,6 +55,7 @@ from app.routes import (
     pds,
     pds_v2,
     pds_executive,
+    pds_metrics,
     credit,
     credit_v2,
     doc_completion,
@@ -359,6 +360,7 @@ app.include_router(cre_submission.router)
 app.include_router(pds.router)
 app.include_router(pds_v2.router)
 app.include_router(pds_executive.router)
+app.include_router(pds_metrics.router)
 app.include_router(pds_revenue.router)
 app.include_router(pds_utilization.router)
 app.include_router(pds_satisfaction.router)

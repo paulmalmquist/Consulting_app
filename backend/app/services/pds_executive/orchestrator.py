@@ -6,6 +6,8 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.services.pds_executive import connectors, decision_engine
+from app.services.pds_executive import metric_registry
+from app.services.pds_executive.filter_normalizer import normalize_filters
 
 
 def _upsert_kpi_daily(*, env_id: UUID, business_id: UUID) -> dict:
@@ -152,7 +154,9 @@ def run_full_cycle(
     }
 
 
-def get_overview(*, env_id: UUID, business_id: UUID) -> dict:
+def get_overview(*, env_id: UUID, business_id: UUID, grain: str = "portfolio") -> dict:
+    nf = normalize_filters(env_id=env_id, business_id=business_id, grain=grain)
+
     with get_cursor() as cur:
         cur.execute(
             """
@@ -183,20 +187,42 @@ def get_overview(*, env_id: UUID, business_id: UUID) -> dict:
 
         cur.execute(
             """
-            SELECT *
-            FROM pds_exec_kpi_daily
-            WHERE env_id = %s::uuid
-              AND business_id = %s::uuid
-            ORDER BY kpi_date DESC
-            LIMIT 1
+            SELECT kpi_date, decision_latency_hours, risk_detection_lead_hours,
+                   delivery_reliability_delta, pipeline_visibility_delta,
+                   admin_workload_delta, queue_sla_compliance, recommendation_alignment
+              FROM pds_exec_kpi_daily
+             WHERE env_id = %s::uuid
+               AND business_id = %s::uuid
+             ORDER BY kpi_date DESC
+             LIMIT 1
             """,
             (str(env_id), str(business_id)),
         )
         latest_kpi = cur.fetchone()
 
+        # Canonical metrics — every hero tile flows through the registry.
+        metrics: dict[str, dict] = {}
+        for metric_name in (
+            "total_managed",
+            "net_variance",
+            "directional_delta",
+            "accounts_at_risk",
+            "posture",
+        ):
+            definition = metric_registry.get_metric(metric_name)
+            # posture only supports portfolio grain; fall back for that metric only.
+            metric_nf = nf
+            if nf.grain not in definition.supported_grains:
+                metric_nf = normalize_filters(
+                    env_id=env_id, business_id=business_id, grain="portfolio"
+                )
+            result = definition.compute(cur, metric_nf)
+            metrics[metric_name] = result.to_dict()
+
     return {
         "env_id": str(env_id),
         "business_id": str(business_id),
+        "grain": nf.grain,
         "decisions_total": 20,
         "open_queue": int(queue_counts.get("open_queue") or 0),
         "critical_queue": int(queue_counts.get("critical_queue") or 0),
@@ -204,4 +230,5 @@ def get_overview(*, env_id: UUID, business_id: UUID) -> dict:
         "open_signals": int(signal_counts.get("open_signals") or 0),
         "high_signals": int(signal_counts.get("high_signals") or 0),
         "latest_kpi": latest_kpi,
+        "metrics": metrics,
     }

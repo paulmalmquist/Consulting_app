@@ -40,10 +40,11 @@ import DebtSection from "@/components/repe/asset-cockpit/DebtSection";
 import ValuationSection from "@/components/repe/asset-cockpit/ValuationSection";
 import DocumentsSection from "@/components/repe/asset-cockpit/DocumentsSection";
 import AuditSection from "@/components/repe/asset-cockpit/AuditSection";
+import CashFlowSection from "@/components/repe/asset-cockpit/CashFlowSection";
 import { fmtMoney } from "@/components/repe/asset-cockpit/format-utils";
 import { resolveAssetMetrics } from "@/lib/resolve-exit-metrics";
 
-const SECTIONS = ["Home", "Leasing", "Financials", "Debt", "Valuation", "Documents", "Audit"] as const;
+const SECTIONS = ["Home", "Leasing", "Financials", "Cash Flow", "Debt", "Valuation", "Documents", "Audit"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 
 function pickQuarter(): string {
@@ -369,6 +370,15 @@ export default function ReAssetDetailPage({ params }: { params: { assetId: strin
           quarter={quarter}
           financialState={financialState}
           periods={periods}
+        />
+      )}
+
+      {/* ── CASH FLOW ── */}
+      {section === "Cash Flow" && (
+        <CashFlowSection
+          assetId={asset.asset_id}
+          quarter={quarter}
+          auditMode={auditMode}
         />
       )}
 

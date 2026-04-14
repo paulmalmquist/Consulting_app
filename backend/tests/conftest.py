@@ -99,6 +99,9 @@ _GET_CURSOR_TARGETS = [
     "app.services.repe_context.get_cursor",
     "app.services.env_context.get_cursor",
     "app.services.pds.get_cursor",
+    "app.services.pds_executive.orchestrator.get_cursor",
+    "app.services.pds_executive.queue.get_cursor",
+    "app.services.pds_executive.data_health.get_cursor",
     "app.services.credit.get_cursor",
     "app.services.legal_ops.get_cursor",
     "app.services.medoffice.get_cursor",
@@ -169,6 +172,10 @@ _GET_CURSOR_TARGETS = [
     "app.services.research_state_service.get_cursor",
     "app.services.nv_app_intel.get_cursor",
     "app.services.nv_app_intel_memo.get_cursor",
+    "app.services.bottom_up_cashflow.get_cursor",
+    "app.services.bottom_up_refresh.get_cursor",
+    "app.services.bottom_up_rollup.get_cursor",
+    "app.services.repe_hybrid_search.get_cursor",
 ]
 
 

@@ -740,9 +740,34 @@ export default function RepeWorkspaceShell({
         base={base}
       />
       <div className="flex flex-col min-h-0">
-        {/* Section links strip + command bar — desktop only */}
-        <div className="hidden xl:flex items-center h-10
-                        border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0">
+        {/* ── 4-zone command strip (desktop only)
+             left:   workspace brand / env identity
+             center: command/search bar — the visual anchor
+             right:  page nav cluster (Overview / Funds / Investments / Assets)
+             far-right: utility slot (create button lives in sidebar for now)
+           ──────────────────────────────────────────────────────────────── */}
+        <div
+          className="hidden xl:grid items-center h-12 gap-4
+                     grid-cols-[minmax(140px,1fr)_minmax(0,2.2fr)_auto_auto]
+                     border-b border-bm-border/[0.06] px-6 2xl:px-8 shrink-0"
+          data-testid="repe-command-strip"
+        >
+          {/* Left: brand / environment identity */}
+          <div className="flex items-center gap-2 min-w-0" data-testid="repe-command-strip-brand">
+            <Link
+              href={homeHref}
+              className="text-[11px] uppercase tracking-[0.14em] text-bm-muted2 hover:text-bm-text truncate"
+            >
+              {envLabel}
+            </Link>
+          </div>
+
+          {/* Center: search / command bar */}
+          <div className="flex justify-center" data-testid="repe-command-strip-search">
+            <RepeCommandBar base={base} />
+          </div>
+
+          {/* Right-of-center: page nav cluster */}
           <TopUtilityNav
             pathname={pathname}
             base={base}
@@ -750,9 +775,13 @@ export default function RepeWorkspaceShell({
             className="flex items-center gap-6"
             testId="repe-utility-nav"
           />
-          <div className="flex-1 flex justify-center px-4">
-            <RepeCommandBar base={base} />
-          </div>
+
+          {/* Far-right: utility actions (placeholder — create button lives in
+             sidebar/sheet today; this slot reserves space for profile/+) */}
+          <div
+            className="flex items-center gap-2 shrink-0"
+            data-testid="repe-command-strip-utility"
+          />
         </div>
         <div className="flex-1 min-h-0">
           {children}

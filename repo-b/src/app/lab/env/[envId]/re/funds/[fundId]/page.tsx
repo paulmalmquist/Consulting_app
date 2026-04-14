@@ -8,12 +8,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Legend,
   Line,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -102,17 +99,28 @@ import { FundFootprintMap } from "@/components/repe/fund/FundFootprintMap";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 import { WaterfallReceiptPanel } from "@/components/re/WaterfallReceiptPanel";
+import FundBottomUpSection from "@/components/repe/bottom-up/FundBottomUpSection";
+import DecisionStrip from "@/components/repe/workspace/DecisionStrip";
+import { buildDecisionStrip } from "@/components/repe/workspace/buildDecisionStrip";
+import ExposureRiskPanel from "@/components/repe/portfolio/ExposureRiskPanel";
+import AssetContributionTable from "@/components/repe/portfolio/AssetContributionTable";
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
+  buildCapitalEfficiency,
   buildExposureInsights,
   buildFundHealthSummary,
   buildPerformanceDrivers,
   buildPortfolioTableRows,
+  buildTopContributors,
+  buildValueCreationMetrics,
   mergeValueCreationSeries,
+  type CapitalEfficiency,
   type ExposureDatum,
   type FundHealthSummary,
   type PerformanceDriver,
   type PortfolioTableRow,
+  type TopContributor,
+  type ValueCreationMetrics,
   type ValueCreationPoint,
 } from "./overviewNarrative";
 
@@ -487,103 +495,202 @@ function PortfolioSnapshotRow({
   );
 }
 
+type ValueCreationView = "value" | "irr" | "multiple";
+
 function FundValueCreationCard({
   data,
+  irrTimeline,
+  metrics,
+  view,
+  onViewChange,
   loading,
   isMobile,
 }: {
   data: ValueCreationPoint[];
+  irrTimeline: IrrTimelinePoint[];
+  metrics: ValueCreationMetrics;
+  view: ValueCreationView;
+  onViewChange: (v: ValueCreationView) => void;
   loading: boolean;
   isMobile: boolean;
 }) {
+  const irrData = useMemo(
+    () =>
+      irrTimeline.map((p) => ({
+        quarter: p.quarter,
+        gross_irr: p.gross_irr != null ? Number(p.gross_irr) : null,
+        net_irr: p.net_irr != null ? Number(p.net_irr) : null,
+      })),
+    [irrTimeline]
+  );
+  const multipleData = useMemo(
+    () =>
+      data.map((p) => ({
+        quarter: p.quarter,
+        multiple: p.calledCapital > 0 ? (p.nav + p.distributions) / p.calledCapital : null,
+      })),
+    [data]
+  );
+
+  const hasData =
+    view === "irr" ? irrData.length > 0 : view === "multiple" ? multipleData.length > 0 : data.length > 0;
+
+  const toggles: { key: ValueCreationView; label: string }[] = [
+    { key: "value", label: "Value" },
+    { key: "irr", label: "IRR" },
+    { key: "multiple", label: "Multiple" },
+  ];
+
+  const formatPct01 = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
+  const formatMult = (v: number | null) => (v == null ? "—" : `${v.toFixed(2)}x`);
+
   return (
-    <div className={`${FUND_PANEL_CLASS} p-3 sm:p-5`} data-testid="fund-value-creation">
-      <NarrativeSectionHeading
-        eyebrow="Value Creation"
-        title="Fund Value Creation"
-        description="Tracks deployed capital against realized and unrealized value so the fund's progress reads at a glance."
-      />
-      <div className="mt-4">
+    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-4`} data-testid="fund-value-creation">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Value Creation</p>
+          <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#0F172A]">Fund Value Creation</h2>
+        </div>
+        <div className="inline-flex rounded-full bg-[#F1F5F9] p-0.5" role="tablist" aria-label="Value creation view">
+          {toggles.map((t) => {
+            const selected = view === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => onViewChange(t.key)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  selected ? "bg-white text-[#0F172A] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#64748B] hover:text-[#0F172A]"
+                }`}
+                data-testid={`value-creation-toggle-${t.key}`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-3 flex-1 min-h-[260px]">
         {loading ? (
-          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
+          <div className="h-full min-h-[260px]">
             <OverviewChartSkeleton />
           </div>
-        ) : data.length > 0 ? (
-          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
-            <ResponsiveContainer width="100%" height="100%">
+        ) : hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            {view === "value" ? (
               <ComposedChart
                 data={data}
-                margin={{ top: 8, right: isMobile ? 4 : 12, left: isMobile ? -20 : -12, bottom: isMobile ? 4 : 0 }}
+                margin={{ top: 8, right: isMobile ? 4 : 12, left: isMobile ? -20 : -12, bottom: 0 }}
                 barCategoryGap={isMobile ? 12 : 28}
               >
                 <CartesianGrid vertical={false} stroke={FUND_DASHBOARD_COLORS.grid} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="quarter"
-                  tick={{ fontSize: isMobile ? 10 : 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  tick={{ fontSize: isMobile ? 10 : 11, fill: FUND_DASHBOARD_COLORS.axis }}
                   axisLine={false}
                   tickLine={false}
                   interval={isMobile ? "preserveStartEnd" : 0}
                 />
                 <YAxis
-                  tick={{ fontSize: isMobile ? 9 : 12, fill: FUND_DASHBOARD_COLORS.axis }}
+                  tick={{ fontSize: isMobile ? 9 : 11, fill: FUND_DASHBOARD_COLORS.axis }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value: number) => fmtCompact(value)}
-                  width={isMobile ? 45 : 70}
+                  width={isMobile ? 44 : 62}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#FFFFFF",
                     border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
                     color: FUND_DASHBOARD_COLORS.text,
-                    maxWidth: isMobile ? 240 : undefined,
                   }}
                   formatter={(value: number, name: string) => [fmtMoney(value), name]}
                   labelFormatter={(label: string | number) => `Quarter ${label}`}
-                  labelStyle={{ color: FUND_DASHBOARD_COLORS.text, fontWeight: 600 }}
                 />
                 <Legend
-                  align={isMobile ? "center" : "right"}
-                  verticalAlign={isMobile ? "bottom" : "top"}
-                  height={isMobile ? 36 : 28}
-                  wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: isMobile ? 0 : 8 }}
+                  align="right"
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ fontSize: 10, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: 4 }}
                 />
-                <Bar
-                  dataKey="distributions"
-                  name="Realized Value"
-                  stackId="value"
-                  fill={FUND_DASHBOARD_COLORS.realized}
-                  radius={[6, 6, 0, 0]}
-                  barSize={isMobile ? 16 : 32}
-                />
-                <Bar
-                  dataKey="nav"
-                  name="Unrealized Value"
-                  stackId="value"
-                  fill={FUND_DASHBOARD_COLORS.unrealized}
-                  radius={[6, 6, 0, 0]}
-                  barSize={isMobile ? 16 : 32}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="calledCapital"
-                  name="Called Capital"
-                  stroke={FUND_DASHBOARD_COLORS.primary}
-                  strokeWidth={isMobile ? 2 : 2.5}
-                  dot={{ r: isMobile ? 2 : 2.5, fill: FUND_DASHBOARD_COLORS.primary }}
-                  activeDot={{ r: isMobile ? 3 : 4 }}
-                />
+                <Bar dataKey="distributions" name="Realized" stackId="value" fill={FUND_DASHBOARD_COLORS.realized} radius={[4, 4, 0, 0]} barSize={isMobile ? 14 : 28} />
+                <Bar dataKey="nav" name="Unrealized" stackId="value" fill={FUND_DASHBOARD_COLORS.unrealized} radius={[4, 4, 0, 0]} barSize={isMobile ? 14 : 28} />
+                <Line type="monotone" dataKey="calledCapital" name="Called Capital" stroke={FUND_DASHBOARD_COLORS.primary} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 3.5 }} />
               </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+            ) : view === "irr" ? (
+              <ComposedChart
+                data={irrData}
+                margin={{ top: 8, right: isMobile ? 4 : 12, left: isMobile ? -20 : -12, bottom: 0 }}
+              >
+                <CartesianGrid vertical={false} stroke={FUND_DASHBOARD_COLORS.grid} strokeDasharray="3 3" />
+                <XAxis dataKey="quarter" tick={{ fontSize: isMobile ? 10 : 11, fill: FUND_DASHBOARD_COLORS.axis }} axisLine={false} tickLine={false} interval={isMobile ? "preserveStartEnd" : 0} />
+                <YAxis
+                  tick={{ fontSize: isMobile ? 9 : 11, fill: FUND_DASHBOARD_COLORS.axis }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                  width={isMobile ? 44 : 52}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#FFFFFF", border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`, borderRadius: 12, boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)", color: FUND_DASHBOARD_COLORS.text }}
+                  formatter={(value: number, name: string) => [value == null ? "—" : `${(value * 100).toFixed(2)}%`, name]}
+                  labelFormatter={(label: string | number) => `Quarter ${label}`}
+                />
+                <Legend align="right" verticalAlign="top" height={24} wrapperStyle={{ fontSize: 10, color: FUND_DASHBOARD_COLORS.axis, paddingBottom: 4 }} />
+                <Line type="monotone" dataKey="gross_irr" name="Gross IRR" stroke={FUND_DASHBOARD_COLORS.primary} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                <Line type="monotone" dataKey="net_irr" name="Net IRR" stroke={FUND_DASHBOARD_COLORS.realized} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              </ComposedChart>
+            ) : (
+              <ComposedChart
+                data={multipleData}
+                margin={{ top: 8, right: isMobile ? 4 : 12, left: isMobile ? -20 : -12, bottom: 0 }}
+              >
+                <CartesianGrid vertical={false} stroke={FUND_DASHBOARD_COLORS.grid} strokeDasharray="3 3" />
+                <XAxis dataKey="quarter" tick={{ fontSize: isMobile ? 10 : 11, fill: FUND_DASHBOARD_COLORS.axis }} axisLine={false} tickLine={false} interval={isMobile ? "preserveStartEnd" : 0} />
+                <YAxis
+                  tick={{ fontSize: isMobile ? 9 : 11, fill: FUND_DASHBOARD_COLORS.axis }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${v.toFixed(2)}x`}
+                  width={isMobile ? 44 : 52}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#FFFFFF", border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`, borderRadius: 12, boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)", color: FUND_DASHBOARD_COLORS.text }}
+                  formatter={(value: number, name: string) => [value == null ? "—" : `${value.toFixed(2)}x`, name]}
+                  labelFormatter={(label: string | number) => `Quarter ${label}`}
+                />
+                <Line type="monotone" dataKey="multiple" name="TVPI (Gross)" stroke={FUND_DASHBOARD_COLORS.primary} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              </ComposedChart>
+            )}
+          </ResponsiveContainer>
         ) : (
           <NarrativeEmptyState
             title="Financial engine has not been run for this fund."
             detail="No quarter-close snapshots found. Run Quarter Close from the Actions menu to compute NAV, IRR, and capital metrics."
           />
         )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 divide-y divide-[#E5E7EB] lg:divide-y-0 lg:divide-x lg:divide-[#E5E7EB] border-t border-[#E5E7EB]">
+        {[
+          { label: "Unrealized %", value: formatPct01(metrics.unrealizedPct) },
+          { label: "Realized %", value: formatPct01(metrics.realizedPct) },
+          { label: `Net TVPI`, value: formatMult(metrics.tvpi), sub: metrics.tvpi != null ? "Gross basis • requires waterfall for net" : "Requires waterfall" },
+          { label: "% Invested", value: formatPct01(metrics.pctInvested) },
+        ].map((m) => (
+          <div key={m.label} className="px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748B] leading-none">{m.label}</p>
+            <p className="mt-1.5 text-[18px] font-semibold tabular-nums text-[#0F172A] leading-none">{m.value}</p>
+            {"sub" in m && m.sub && (
+              <p className="mt-1 text-[10px] text-[#94A3B8] leading-tight">{m.sub}</p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -613,107 +720,222 @@ function HorizontalInsightBar({
   );
 }
 
+const ALLOCATION_PALETTE = [
+  FUND_DASHBOARD_COLORS.primary,
+  FUND_DASHBOARD_COLORS.realized,
+  "#0EA5E9",
+  "#F59E0B",
+  "#8B5CF6",
+  "#14B8A6",
+];
+
 function PortfolioAllocationCard({
   rows,
   loading,
-  isMobile,
 }: {
   rows: ExposureDatum[];
   loading: boolean;
-  isMobile: boolean;
 }) {
-  const donutColors = [
-    FUND_DASHBOARD_COLORS.primary,
-    FUND_DASHBOARD_COLORS.realized,
-    "#0EA5E9",
-    "#F59E0B",
-    "#8B5CF6",
-    "#14B8A6",
-  ];
   const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
+  const topLabel = rows[0]?.label ?? null;
+  const topPct = rows[0]?.pct ?? null;
 
   return (
-    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-3 sm:p-5`} data-testid="portfolio-allocation">
-      <NarrativeSectionHeading
-        eyebrow="Allocation"
-        title="Portfolio Allocation"
-        description="Sector weights provide context for where current value creation is concentrated."
-      />
-      <div className="mt-4 flex-1">
-        {loading ? (
-          <div className="h-[220px] md:h-[260px] lg:h-[300px] xl:h-[340px]">
-            <OverviewChartSkeleton />
-          </div>
-        ) : rows.length > 0 ? (
-          <div className="grid gap-4 xl:grid-rows-[minmax(0,1fr)_auto]">
-            <div className="relative h-[220px] md:h-[260px] lg:h-[300px] xl:h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#FFFFFF",
-                      border: `1px solid ${FUND_DASHBOARD_COLORS.grid}`,
-                      borderRadius: 14,
-                      boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
-                      color: FUND_DASHBOARD_COLORS.text,
-                      maxWidth: isMobile ? 240 : undefined,
-                    }}
-                    formatter={(value: number, _name: string, item: { payload?: ExposureDatum }) => [
-                      `${fmtMoney(value)} • ${item.payload?.pct.toFixed(1) ?? "0.0"}%`,
-                      item.payload?.label ?? "Allocation",
-                    ]}
-                  />
-                  <Pie
-                    data={rows}
-                    dataKey="value"
-                    nameKey="label"
-                    innerRadius={isMobile ? 40 : 58}
-                    outerRadius={isMobile ? 64 : 88}
-                    paddingAngle={2}
-                    stroke="#FFFFFF"
-                    strokeWidth={3}
-                  >
-                    {rows.map((row, index) => (
-                      <Cell key={`${row.label}-${index}`} fill={donutColors[index % donutColors.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">Total Value</span>
-                <span className="mt-1 text-[20px] sm:text-[26px] font-semibold tracking-[-0.03em] text-[#0F172A] tabular-nums">
-                  {fmtMoney(totalValue)}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {rows.map((row, index) => (
+    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-4`} data-testid="portfolio-allocation">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Allocation</p>
+          <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#0F172A]">Portfolio Allocation</h2>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748B] leading-none">Total</p>
+          <p className="mt-1 text-[16px] font-semibold tabular-nums text-[#0F172A] leading-none">{fmtMoney(totalValue)}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="mt-4 flex-1 min-h-[200px]">
+          <OverviewChartSkeleton />
+        </div>
+      ) : rows.length > 0 ? (
+        <>
+          {topLabel && topPct != null && (
+            <p className="mt-2 text-[12px] text-[#64748B]">
+              Concentrated in <span className="font-medium text-[#0F172A]">{topLabel}</span> at {topPct.toFixed(1)}% of portfolio value.
+            </p>
+          )}
+          <div className="mt-3">
+            <div className="flex h-6 w-full overflow-hidden rounded-md border border-[#E5E7EB] bg-white">
+              {rows.map((row, i) => (
                 <div
-                  key={row.label}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[#E5E7EB] bg-white px-4 py-3 transition-[background-color,border-color] duration-200 hover:border-[#DBEAFE] hover:bg-[#EFF6FF]"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: donutColors[index % donutColors.length] }}
-                    />
-                    <span className="truncate text-sm text-[#0F172A]">{row.label}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-[#0F172A] tabular-nums">{row.pct.toFixed(1)}%</p>
-                    <p className="text-xs text-[#64748B] tabular-nums">{fmtMoney(row.value)}</p>
-                  </div>
-                </div>
+                  key={`${row.label}-bar`}
+                  title={`${row.label} — ${row.pct.toFixed(1)}% • ${fmtMoney(row.value)}`}
+                  className="h-full transition-[filter] hover:brightness-110"
+                  style={{
+                    width: `${Math.max(0.5, row.pct)}%`,
+                    backgroundColor: ALLOCATION_PALETTE[i % ALLOCATION_PALETTE.length],
+                  }}
+                />
               ))}
             </div>
           </div>
-        ) : (
+          <div className="mt-3 flex-1 overflow-hidden rounded-md border border-[#E5E7EB] bg-white">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {rows.map((row, i) => (
+                  <tr key={row.label} className="hover:bg-[#F8FAFC]">
+                    <td className="px-3 py-1.5 w-6">
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-sm"
+                        style={{ backgroundColor: ALLOCATION_PALETTE[i % ALLOCATION_PALETTE.length] }}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-[13px] text-[#0F172A] truncate">{row.label}</td>
+                    <td className="px-2 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#0F172A]">
+                      {row.pct.toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-[12px] tabular-nums text-[#64748B]">
+                      {fmtMoney(row.value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="mt-4 flex-1">
           <NarrativeEmptyState
             title="No sector allocation data available."
             detail="Sector exposure requires property type to be set on each asset and at least one quarter-close snapshot."
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopValueContributorsCard({
+  contributors,
+  selectedId,
+  onSelect,
+  loading,
+}: {
+  contributors: TopContributor[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  loading: boolean;
+}) {
+  return (
+    <div className={`${FUND_PANEL_CLASS} p-4`} data-testid="top-value-contributors">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Drivers</p>
+          <h2 className="mt-1 text-[16px] font-semibold tracking-[-0.02em] text-[#0F172A]">Top Value Contributors</h2>
+        </div>
+        {selectedId && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="text-[11px] font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+          >
+            Clear filter
+          </button>
         )}
       </div>
+      {loading ? (
+        <div className="mt-3 space-y-1.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-8 w-full animate-pulse rounded bg-slate-100" />
+          ))}
+        </div>
+      ) : contributors.length > 0 ? (
+        <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB] bg-white">
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-[#F1F5F9]">
+              {contributors.map((c) => {
+                const active = selectedId === c.investmentId;
+                return (
+                  <tr
+                    key={c.investmentId}
+                    onClick={() => onSelect(active ? null : c.investmentId)}
+                    className={`cursor-pointer transition-colors ${active ? "bg-[#EFF6FF]" : "hover:bg-[#F8FAFC]"}`}
+                  >
+                    <td className="px-3 py-1.5 text-[13px] text-[#0F172A] truncate">{c.investmentName}</td>
+                    <td className="px-2 py-1.5 text-right text-[12px] tabular-nums text-[#64748B]">
+                      {c.irr != null ? `${(c.irr * 100).toFixed(1)}%` : "—"} IRR
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#0F172A]">
+                      {fmtMoney(c.contributionValue)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mt-3 text-[12px] text-[#64748B]">No contributor data for this quarter.</p>
+      )}
+    </div>
+  );
+}
+
+function CapitalEfficiencyCard({
+  efficiency,
+  loading,
+}: {
+  efficiency: CapitalEfficiency;
+  loading: boolean;
+}) {
+  const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(2)}%`);
+
+  const metrics = [
+    {
+      label: efficiency.entryCapLabel === "entry" ? "Avg Entry Cap" : "Weighted Cap Rate",
+      value: pct(efficiency.avgEntryCap),
+      sub: efficiency.entryCapLabel === "entry" ? "Acquisition cap, weighted" : "Current cap — entry cap pending acquisition data",
+    },
+    {
+      label: "Exit Cap (Implied)",
+      value: pct(efficiency.exitCapImplied),
+      sub: "NOI ÷ Portfolio Value",
+    },
+    {
+      label: "Leverage (LTV)",
+      value: pct(efficiency.leverageLtv),
+      sub: "Weighted across assets",
+    },
+    {
+      label: "Debt Yield",
+      value: pct(efficiency.debtYield),
+      sub: "NOI ÷ Total Debt",
+    },
+  ];
+
+  return (
+    <div className={`${FUND_PANEL_CLASS} flex h-full flex-col p-4`} data-testid="capital-efficiency">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Efficiency</p>
+        <h2 className="mt-1 text-[16px] font-semibold tracking-[-0.02em] text-[#0F172A]">Capital Efficiency</h2>
+      </div>
+      {loading ? (
+        <div className="mt-3 grid grid-cols-2 gap-px flex-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse bg-slate-100" />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 flex-1 grid grid-cols-2 gap-px bg-[#E5E7EB] rounded-md overflow-hidden border border-[#E5E7EB]">
+          {metrics.map((m) => (
+            <div key={m.label} className="bg-white px-3 py-3 flex flex-col justify-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748B] leading-none">{m.label}</p>
+              <p className="mt-1.5 text-[20px] font-semibold tabular-nums text-[#0F172A] leading-none">{m.value}</p>
+              <p className="mt-1.5 text-[10px] text-[#94A3B8] leading-tight">{m.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1492,6 +1714,15 @@ export default function FundDetailPage({
       }),
     [fundState, investmentRollup, overviewData.rollup]
   );
+  const decisionStripData = useMemo(
+    () =>
+      buildDecisionStrip({
+        fundState,
+        investmentRollup,
+        snapshotVersion: authoritativeState?.snapshot_version ?? null,
+      }),
+    [fundState, investmentRollup, authoritativeState?.snapshot_version]
+  );
   // Authoritative State Lockdown — Phase 3 (INV-5 enforced)
   // KPI cards use authoritative snapshot values ONLY. No legacy fallback.
   // When no released snapshot exists, values render as "—" (null),
@@ -1851,6 +2082,12 @@ export default function FundDetailPage({
         </div>
       </div>
 
+      <DecisionStrip
+        data={decisionStripData}
+        variant="fund"
+        snapshotVersion={authoritativeState?.snapshot_version ?? null}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <KpiGroupCard title="Capital" metrics={capitalMetrics} testId="kpi-group-capital" />
         {/* Authoritative State Lockdown — Phase 3
@@ -1893,6 +2130,16 @@ export default function FundDetailPage({
           requestedQuarter={quarter}
         />
       )}
+
+      {/* Bottom-up fund IRR (Step 2+ of engine) — derived, not assigned. */}
+      <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-bm-surface/[0.85]">
+        <FundBottomUpSection
+          fundId={params.fundId}
+          quarter={quarter}
+          envId={params.envId}
+          auditMode={auditMode}
+        />
+      </div>
 
       <PortfolioSnapshotRow metrics={portfolioSnapshotMetrics} loading={overviewData.loading} />
 
@@ -1949,6 +2196,9 @@ export default function FundDetailPage({
           onRunQuarterClose={handleRunQuarterClose}
           runningClose={runningClose}
           isMobile={isMobile}
+          snapshotVersion={authoritativeState?.snapshot_version ?? null}
+          auditMode={auditMode}
+          totalFundNav={authoritativeNumber("ending_nav") ?? authoritativeNumber("portfolio_nav") ?? null}
         />
       )}
       {tab === "Asset Variance" && envId && businessId && (
@@ -2360,7 +2610,7 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose, isMobile }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose, isMobile, snapshotVersion, auditMode, totalFundNav }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
@@ -2373,6 +2623,9 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   onRunQuarterClose?: () => void;
   runningClose?: boolean;
   isMobile: boolean;
+  snapshotVersion?: string | null;
+  auditMode?: boolean;
+  totalFundNav?: number | null;
 }) {
   const isDebtFund = fund?.strategy === "debt";
 
@@ -2442,6 +2695,32 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   );
   const allocationRows = sectorExposureRows.length > 0 ? sectorExposureRows : geographicExposureRows;
 
+  const valueCreationMetrics = useMemo(
+    () => buildValueCreationMetrics(fundState, overviewData.rollup),
+    [fundState, overviewData.rollup]
+  );
+  const topContributors = useMemo(
+    () => buildTopContributors(overviewData.irrContrib, 5),
+    [overviewData.irrContrib]
+  );
+  const capitalEfficiency = useMemo(
+    () => buildCapitalEfficiency(overviewData.rollup),
+    [overviewData.rollup]
+  );
+  const [valueCreationView, setValueCreationView] = useState<ValueCreationView>("value");
+  const [contributorFilter, setContributorFilter] = useState<string | null>(null);
+  const filteredPortfolioRows = useMemo(
+    () =>
+      contributorFilter
+        ? portfolioRows.filter((r) => r.investment.investment_id === contributorFilter)
+        : portfolioRows,
+    [contributorFilter, portfolioRows]
+  );
+  const contributorFilterName = useMemo(
+    () => topContributors.find((c) => c.investmentId === contributorFilter)?.investmentName ?? null,
+    [contributorFilter, topContributors]
+  );
+
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || overviewData.loading) return;
     if (sectorExposureRows.length > 0 || geographicExposureRows.length > 0) return;
@@ -2492,17 +2771,36 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
 
       <BaseScenarioSummaryCard baseScenario={baseScenario} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
-        <FundValueCreationCard data={valueCreationSeries} loading={overviewData.loading} isMobile={isMobile} />
-        <PortfolioAllocationCard rows={allocationRows} loading={overviewData.loading} isMobile={isMobile} />
+      <div className="grid gap-3 xl:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <FundValueCreationCard
+            data={valueCreationSeries}
+            irrTimeline={overviewData.irrTimeline}
+            metrics={valueCreationMetrics}
+            view={valueCreationView}
+            onViewChange={setValueCreationView}
+            loading={overviewData.loading}
+            isMobile={isMobile}
+          />
+          <TopValueContributorsCard
+            contributors={topContributors}
+            selectedId={contributorFilter}
+            onSelect={setContributorFilter}
+            loading={overviewData.loading}
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <ExposureRiskPanel
+            rollup={investmentRollup}
+            snapshotVersion={snapshotVersion ?? null}
+          />
+          <CapitalEfficiencyCard efficiency={capitalEfficiency} loading={overviewData.loading} />
+        </div>
       </div>
+
+      <PerformanceDriversCard drivers={performanceDrivers} loading={overviewData.loading} />
 
       <FundFootprintMap envId={envId} businessId={businessId} fundId={fund?.fund_id ?? ""} />
-
-      <div className="grid items-start gap-3 xl:grid-cols-2">
-        <PerformanceDriversCard drivers={performanceDrivers} loading={overviewData.loading} />
-        <CapitalActivityCard capitalTimeline={overviewData.capitalTimeline} loading={overviewData.loading} />
-      </div>
 
       <ExposureInsightsCard
         sectorRows={sectorExposureRows}
@@ -2513,53 +2811,30 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
         weightingBasisLabel={weightingBasisLabel}
       />
 
-      <div
-        className={`${FUND_PANEL_CLASS} overflow-hidden`}
-        data-testid="portfolio-holdings"
-      >
-        <div className="border-b border-[#E5E7EB] px-5 py-4">
-          <NarrativeSectionHeading
-            eyebrow="Portfolio Assets"
-            title="Portfolio Assets"
-            description="The main grid stays investment-level for return accuracy while expanded rows reveal the underlying asset detail."
-          />
-        </div>
-        {portfolioRows.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#E5E7EB] bg-white text-left text-xs uppercase tracking-[0.12em] text-[#64748B]">
-                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium">Investment</th>
-                  <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium">Property Type</th>
-                  <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium">Market</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Equity Invested</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Current Value</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">IRR</th>
-                  <th className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">NOI</th>
-                  <th className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">Occupancy</th>
-                  <th className="hidden lg:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">LTV</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E7EB]">
-                {portfolioRows.map((row) => (
-                  <InvestmentRow
-                    key={row.investment.investment_id}
-                    row={row}
-                    envId={envId}
-                    quarter={quarter}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-5">
-            <NarrativeEmptyState
-              title="No assets linked to this fund."
-              detail="Link investments under the Investments tab. Each investment must contain at least one asset for portfolio metrics to populate."
-            />
+      <div data-testid="portfolio-holdings" className="space-y-2">
+        {contributorFilterName && (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setContributorFilter(null)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-1 text-[11px] font-medium text-[#2563EB] hover:bg-[#DBEAFE]"
+            >
+              Filtered by: {contributorFilterName} ×
+            </button>
           </div>
         )}
+        <AssetContributionTable
+          rollup={
+            contributorFilter
+              ? investmentRollup.filter((row) => row.investment_id === contributorFilter)
+              : investmentRollup
+          }
+          totalFundNav={totalFundNav ?? null}
+          envId={envId}
+          auditMode={Boolean(auditMode)}
+          snapshotVersion={snapshotVersion ?? null}
+          onRowSelect={(id) => setContributorFilter(id)}
+        />
       </div>
     </div>
   );

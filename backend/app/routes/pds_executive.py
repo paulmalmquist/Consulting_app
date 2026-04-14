@@ -6,6 +6,8 @@ from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.pds_executive import (
+    PdsDataHealthExceptionOut,
+    PdsDataHealthSummaryOut,
     PdsExecutiveBriefingGenerateRequest,
     PdsExecutiveConnectorRunRequest,
     PdsExecutiveDecisionRunRequest,
@@ -17,10 +19,13 @@ from app.schemas.pds_executive import (
     PdsExecutiveQueueActionOut,
     PdsExecutiveQueueActionRequest,
     PdsExecutiveQueueItemOut,
+    PdsExecutiveQueueItemPatchRequest,
+    PdsExecutiveQueueMetricsOut,
 )
 from app.services import env_context
 from app.services.pds_executive import briefing as briefing_svc
 from app.services.pds_executive import connectors as connectors_svc
+from app.services.pds_executive import data_health as data_health_svc
 from app.services.pds_executive import memory as memory_svc
 from app.services.pds_executive import narrative as narrative_svc
 from app.services.pds_executive import orchestrator as orchestrator_svc
@@ -41,10 +46,17 @@ def _resolve_context(request: Request, env_id: str | None, business_id: UUID | N
 
 
 @router.get("/overview", response_model=PdsExecutiveOverviewOut)
-def get_overview(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+def get_overview(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    grain: str = Query(default="portfolio"),
+):
     try:
         resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
-        return orchestrator_svc.get_overview(env_id=resolved_env_id, business_id=resolved_business_id)
+        return orchestrator_svc.get_overview(
+            env_id=resolved_env_id, business_id=resolved_business_id, grain=grain
+        )
     except Exception as exc:  # noqa: BLE001
         status, code = classify_domain_error(exc)
         return domain_error_response(
@@ -83,6 +95,114 @@ def get_queue(
             detail=str(exc),
             action="pds.executive.queue_failed",
             context={"env_id": env_id},
+        )
+
+
+@router.get("/data-health/summary", response_model=PdsDataHealthSummaryOut)
+def get_data_health_summary(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return data_health_svc.get_health_summary(
+            env_id=resolved_env_id, business_id=resolved_business_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        status_code, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status_code,
+            code=code,
+            detail=str(exc),
+            action="pds.executive.data_health_summary_failed",
+            context={"env_id": env_id},
+        )
+
+
+@router.get("/data-health/exceptions", response_model=list[PdsDataHealthExceptionOut])
+def get_data_health_exceptions(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    source_table: str | None = Query(default=None),
+    run_id: UUID | None = Query(default=None),
+    error_type: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        rows = data_health_svc.list_exceptions(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            source_table=source_table,
+            run_id=run_id,
+            error_type=error_type,
+            limit=limit,
+        )
+        return [PdsDataHealthExceptionOut(**row) for row in rows]
+    except Exception as exc:  # noqa: BLE001
+        status_code, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status_code,
+            code=code,
+            detail=str(exc),
+            action="pds.executive.data_health_exceptions_failed",
+            context={"env_id": env_id},
+        )
+
+
+@router.get("/queue/metrics", response_model=PdsExecutiveQueueMetricsOut)
+def get_queue_metrics(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return queue_svc.get_queue_metrics(env_id=resolved_env_id, business_id=resolved_business_id)
+    except Exception as exc:  # noqa: BLE001
+        status_code, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status_code,
+            code=code,
+            detail=str(exc),
+            action="pds.executive.queue_metrics_failed",
+            context={"env_id": env_id},
+        )
+
+
+@router.patch("/queue/{queue_item_id}", response_model=PdsExecutiveQueueItemOut)
+def patch_queue_item(
+    queue_item_id: UUID,
+    body: PdsExecutiveQueueItemPatchRequest,
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        patch = body.model_dump(exclude_unset=True, exclude={"actor"})
+        updated = queue_svc.update_queue_item(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            queue_item_id=queue_item_id,
+            patch=patch,
+            actor=body.actor,
+        )
+        return PdsExecutiveQueueItemOut(**updated)
+    except Exception as exc:  # noqa: BLE001
+        status_code, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status_code,
+            code=code,
+            detail=str(exc),
+            action="pds.executive.queue_patch_failed",
+            context={"queue_item_id": str(queue_item_id), "env_id": env_id},
         )
 
 

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { fmtMoney, fmtMultiple, fmtPct } from '@/lib/format-utils';
 import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
+import FundTrendPanel from "@/components/repe/portfolio/FundTrendPanel";
 import { UnavailableCell } from "@/components/re/UnavailableTile";
 import { renderAuthoritativeMetric, type MetricCell } from "@/lib/re/assertAuthoritativeMetric";
 import {
@@ -390,7 +391,12 @@ export default function ReFundListPage() {
                   ? fmtPct(parseFloat(portfolioKpis.net_irr))
                   : computedNetIrr,
               },
-              { label: "Wtd DSCR", value: computedDscr },
+              // DSCR KPI: compact single-line render. When DSCR is unavailable
+              // (or not modeled for this portfolio) render "Unavailable" instead
+              // of reserving full visual weight for an invalid value.
+              ...(computedDscr !== "—"
+                ? [{ label: "Wtd DSCR", value: computedDscr }]
+                : [{ label: "DSCR", value: "Unavailable" }]),
             ]}
           />
         }
@@ -419,64 +425,10 @@ export default function ReFundListPage() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
 
             <div className="order-1 min-w-0 lg:order-2">
-              <div className="flex h-full min-w-0 flex-col rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 pr-3">
-                  <h3 className="text-sm font-semibold tracking-tight text-bm-text">Fund Comparison</h3>
-                  <p className="text-[10px] text-bm-muted2 mt-0.5">As of {quarter} · point-in-time</p>
-                </div>
-                <select
-                  value={timeMetric}
-                  onChange={(e) => setTimeMetric(e.target.value as TimeMetric)}
-                  className="rounded border border-bm-border bg-bm-surface px-2 py-0.5 text-[11px] text-bm-text focus:border-bm-accent focus:outline-none"
-                >
-                  {TIME_METRIC_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-              {comparisonBarData.length > 0 ? (
-                <div className="mt-2 h-[280px] sm:h-[320px] lg:h-[380px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={comparisonBarData} margin={{ top: 12, right: 8, left: 4, bottom: 52 }}>
-                    <CartesianGrid vertical={false} {...GRID_STYLE} />
-                    <XAxis
-                      dataKey="name"
-                      height={52}
-                      tick={<FundComparisonTick />}
-                      axisLine={false}
-                      tickLine={false}
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={AXIS_TICK_STYLE}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v: number) => isMultiplier ? fmtMultiple(v) : fmtCompact(v)}
-                      width={56}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(value: number) => [
-                        isMultiplier ? fmtMultiple(value) : fmtCompact(value),
-                        TIME_METRIC_OPTIONS.find((o) => o.value === timeMetric)?.label ?? timeMetric,
-                      ]}
-                      labelStyle={{ color: "hsl(210, 24%, 94%)", fontWeight: 600 }}
-                    />
-                    <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={48}>
-                      {comparisonBarData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="mt-2 flex h-[280px] items-center justify-center text-sm text-bm-muted2 sm:h-[320px] lg:h-[380px]">
-                  No fund data available
-                </div>
-              )}
-            </div>
+              {/* Trend-over-time replaces the old point-in-time bar chart.
+                  Answers: how each fund is evolving, which funds are ramping
+                  vs harvesting, whether performance is realized or unrealized. */}
+              <FundTrendPanel envId={envId} quarters={12} />
             </div>
 
             <div className="order-2 min-w-0 lg:order-1">

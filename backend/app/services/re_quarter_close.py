@@ -218,6 +218,41 @@ def _execute_quarter_close(
         as_of_date=as_of,
     )
 
+    # 8a. Refresh bottom-up CF materialization for every asset in the fund,
+    # then re-derive investment rollups. Only runs for the canonical (no
+    # scenario) path — scenario branches do not own the materialized cache.
+    if scenario_id is None:
+        try:
+            from app.services.bottom_up_refresh import (
+                refresh_asset_cf_series_materialized,
+            )
+
+            with get_cursor() as _cur:
+                _cur.execute(
+                    """
+                    SELECT a.asset_id
+                    FROM repe_asset a
+                    JOIN repe_deal d ON d.deal_id = a.deal_id
+                    WHERE d.fund_id = %s
+                    """,
+                    (str(fund_id),),
+                )
+                for row in _cur.fetchall() or []:
+                    try:
+                        refresh_asset_cf_series_materialized(
+                            UUID(str(row["asset_id"])),
+                            quarter,
+                            force=True,
+                        )
+                    except Exception as exc:  # best-effort refresh
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "bottom_up_refresh_error asset=%s quarter=%s error=%s",
+                            row["asset_id"], quarter, exc,
+                        )
+        except ImportError:
+            pass
+
     # 9. Compute partner-level metrics
     with get_cursor() as cur:
         cur.execute(

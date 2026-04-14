@@ -239,7 +239,7 @@ class _QueueCursor:
 
     def execute(self, sql: str, params=None):
         self.calls.append((sql, params))
-        if "SELECT *" in sql and "FROM pds_exec_queue_item" in sql:
+        if "FROM pds_exec_queue_item" in sql and sql.strip().lower().startswith("select"):
             self._mode = "select_existing"
         elif "UPDATE pds_exec_queue_item" in sql:
             self._mode = "update_existing"

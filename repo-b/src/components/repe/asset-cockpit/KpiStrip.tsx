@@ -58,11 +58,11 @@ export function KpiStrip({
               kpi.className
             )}
           >
-            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-bm-muted2">
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-bm-muted2 whitespace-nowrap truncate">
               {kpi.label}
             </p>
-            <div className="flex items-baseline gap-2">
-              <p className="font-display text-[26px] font-semibold leading-none text-bm-text tabular-nums">
+            <div className="flex items-baseline gap-2 whitespace-nowrap">
+              <p className="font-display text-[26px] font-semibold leading-none text-bm-text tabular-nums truncate">
                 {kpi.value}
               </p>
               {kpi.delta ? (
