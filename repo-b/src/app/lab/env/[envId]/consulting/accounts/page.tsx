@@ -135,10 +135,10 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
             Manage accounts and track qualification pipeline.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
           <button
             onClick={() => setFilter("all")}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex-shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
               filter === "all"
                 ? "bg-bm-accent text-white"
                 : "border border-bm-border hover:bg-bm-surface/30"
@@ -148,7 +148,7 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
           </button>
           <button
             onClick={() => setFilter("qualified")}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex-shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
               filter === "qualified"
                 ? "bg-bm-accent text-white"
                 : "border border-bm-border hover:bg-bm-surface/30"
@@ -158,18 +158,18 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
           </button>
           <button
             onClick={() => setFilter("high_score")}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex-shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
               filter === "high_score"
                 ? "bg-bm-accent text-white"
                 : "border border-bm-border hover:bg-bm-surface/30"
             }`}
           >
-            High Score (&gt;= 70)
+            High Score
           </button>
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            className="rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
+            className="flex-shrink-0 rounded-lg border border-bm-border bg-bm-surface/20 px-3 py-2 text-sm text-bm-text"
           >
             <option value="">All Stages</option>
             {Object.entries(STAGE_LABELS).map(([key, label]) => (
@@ -230,41 +230,44 @@ export default function AccountsPage({ params }: { params: { envId: string } }) 
                 href={`/lab/env/${params.envId}/consulting/accounts/${account.crm_account_id}`}
               >
                 <Card className="hover:bg-bm-surface/30 transition">
-                  <CardContent className="py-3 flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{account.company_name}</p>
-                        <span className={`text-xs font-semibold ${
-                          account.lead_score >= 70
-                            ? "text-bm-success"
-                            : account.lead_score >= 40
-                              ? "text-bm-warning"
-                              : "text-bm-muted2"
-                        }`}>
-                          {account.lead_score}
-                        </span>
-                        {account.qualified_at ? (
-                          <span className="text-xs bg-bm-success/10 text-bm-success px-1.5 py-0.5 rounded">
-                            Qualified
+                  <CardContent className="py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium truncate">{account.company_name}</p>
+                          <span className={`text-xs font-semibold flex-shrink-0 ${
+                            account.lead_score >= 70
+                              ? "text-bm-success"
+                              : account.lead_score >= 40
+                                ? "text-bm-warning"
+                                : "text-bm-muted2"
+                          }`}>
+                            {account.lead_score}
                           </span>
-                        ) : null}
-                        {account.disqualified_at ? (
-                          <span className="text-xs bg-bm-danger/10 text-bm-danger px-1.5 py-0.5 rounded">
-                            Disqualified
+                          {account.qualified_at ? (
+                            <span className="text-xs bg-bm-success/10 text-bm-success px-1.5 py-0.5 rounded flex-shrink-0">
+                              Qualified
+                            </span>
+                          ) : null}
+                          {account.disqualified_at ? (
+                            <span className="text-xs bg-bm-danger/10 text-bm-danger px-1.5 py-0.5 rounded flex-shrink-0">
+                              DQ
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 flex-shrink-0 ${STAGE_COLORS[account.stage_key || "research"] || "bg-bm-surface/40 text-bm-muted2"}`}>
+                            {STAGE_LABELS[account.stage_key || "research"] || "Research"}
                           </span>
-                        ) : null}
+                          <span className="text-xs text-bm-muted2 truncate">
+                            {account.industry || "—"}
+                            <span className="hidden sm:inline"> · {account.company_size || "—"}</span>
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 ${STAGE_COLORS[account.stage_key || "research"] || "bg-bm-surface/40 text-bm-muted2"}`}>
-                          {STAGE_LABELS[account.stage_key || "research"] || "Research"}
-                        </span>
-                        <span className="text-xs text-bm-muted2">
-                          {account.industry || "—"} · {account.company_size || "—"} · {fmtCurrency(account.estimated_budget)}
-                        </span>
+                      <div className="flex-shrink-0 text-right text-xs text-bm-muted2">
+                        {account.ai_maturity || "—"}
                       </div>
-                    </div>
-                    <div className="text-right text-xs text-bm-muted2">
-                      {account.ai_maturity || "—"}
                     </div>
                   </CardContent>
                 </Card>

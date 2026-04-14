@@ -163,7 +163,7 @@ export function DealSidePanel({
               <>
                 <h2 className="truncate text-sm font-semibold text-bm-text">{deal.account_name || "—"}</h2>
                 <p className="truncate text-xs text-bm-muted2">
-                  {deal.name} · {fmtCurrency(deal.amount)} · {execution?.card.execution_pressure || "medium"} pressure
+                  {deal.name} · {execution?.card.execution_pressure || "medium"} pressure
                 </p>
               </>
             ) : null}
@@ -173,12 +173,12 @@ export function DealSidePanel({
           </button>
         </div>
 
-        <div className="flex border-b border-bm-border/30 px-4">
+        <div className="flex border-b border-bm-border/30 px-4 overflow-x-auto scrollbar-none">
           {tabs.map((item) => (
             <button
               key={item.key}
               onClick={() => setTab(item.key)}
-              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 border-b-2 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
                 tab === item.key ? "border-bm-accent text-bm-text" : "border-transparent text-bm-muted2 hover:text-bm-text"
               }`}
             >

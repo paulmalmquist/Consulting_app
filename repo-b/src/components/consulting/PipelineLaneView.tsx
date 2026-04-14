@@ -152,7 +152,7 @@ export function PipelineCommandBand({
       style={{
         background: CP.surfaceAlt,
         borderBottom: `1px solid rgba(245,185,66,0.18)`,
-        padding: "14px 20px 12px",
+        padding: "10px 16px 10px",
       }}
     >
       {/* Title + controls row */}
@@ -161,31 +161,35 @@ export function PipelineCommandBand({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 12,
-          marginBottom: 12,
+          gap: 8,
+          marginBottom: 8,
+          flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
           <p
             style={{
               margin: 0,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 800,
-              letterSpacing: "0.18em",
+              letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: CP.accent,
+              whiteSpace: "nowrap",
             }}
           >
-            NOVENDOR PIPELINE
+            PIPELINE
           </p>
           <p
             style={{
               margin: 0,
               fontSize: 9,
-              letterSpacing: "0.14em",
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
               color: CP.muted,
+              display: "none",
             }}
+            className="sm:block"
           >
             Consulting Revenue Engine
           </p>
@@ -258,9 +262,9 @@ export function PipelineCommandBand({
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: "4px 28px",
-          marginBottom: 12,
-          paddingBottom: 12,
+          gap: "4px 14px",
+          marginBottom: 8,
+          paddingBottom: 8,
           borderBottom: `1px solid ${CP.borderDim}`,
         }}
       >

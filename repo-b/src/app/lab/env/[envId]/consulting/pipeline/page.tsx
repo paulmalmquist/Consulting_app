@@ -576,7 +576,7 @@ export default function PipelinePage({
     return (
       <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4">
         {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="shrink-0 w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
+          <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
         ))}
       </div>
     );
