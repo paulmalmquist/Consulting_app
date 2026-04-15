@@ -111,6 +111,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
+| create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
 | portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.MD` as reference |
@@ -301,3 +302,9 @@ This is not optional busywork — these files contain real production data (test
 - `/propose a scope for this client` -> `agents/operations.md`
 - `open the latency optimization prompt` -> `skills/winston-performance-architecture/SKILL.md` with `docs/WINSTON_LATENCY_OPTIMIZATION_PROMPT.md` as reference
 - `help me improve the frontend and backend together` -> stay in `CLAUDE.md` and ask one clarifying question
+- `create a new REPE environment for [client]` -> `skills/winston-create-environment/SKILL.md`
+- `provision a client delivery workspace` -> `skills/winston-create-environment/SKILL.md`
+- `spin up an internal ops environment` -> `skills/winston-create-environment/SKILL.md`
+- `dry-run a new trading research lab` -> `skills/winston-create-environment/SKILL.md`
+- `what templates are available for new environments` -> `skills/winston-create-environment/SKILL.md`
+- `scaffold a new environment for [client name]` -> `skills/winston-create-environment/SKILL.md`
