@@ -17,7 +17,6 @@ import pytest
 
 from app.services.bottom_up_cashflow import (
     CFPoint,
-    IrrResult,
     build_asset_cf_series,
     compute_asset_irr,
     date_to_quarter,

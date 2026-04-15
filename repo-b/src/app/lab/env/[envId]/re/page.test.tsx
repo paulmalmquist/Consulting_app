@@ -7,6 +7,7 @@ const mockPushToast = vi.fn();
 const mockListReV1Funds = vi.fn();
 const mockGetReV2AuthoritativeState = vi.fn();
 const mockGetReV2EnvironmentPortfolioKpis = vi.fn();
+const mockGetEnvironmentFundTrend = vi.fn();
 const mockDeleteRepeFund = vi.fn();
 
 vi.mock("@/components/repe/workspace/ReEnvProvider", () => ({
@@ -22,6 +23,8 @@ vi.mock("@/lib/bos-api", () => ({
   getReV2AuthoritativeState: (...args: unknown[]) => mockGetReV2AuthoritativeState(...args),
   getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
     mockGetReV2EnvironmentPortfolioKpis(...args),
+  getEnvironmentFundTrend: (...args: unknown[]) =>
+    mockGetEnvironmentFundTrend(...args),
   deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
   getAssetMapPoints: vi.fn().mockResolvedValue([]),
 }));
@@ -48,6 +51,12 @@ describe("RE environment portfolio page", () => {
       portfolio_nav: null,
       active_assets: 12,
       warnings: ["No fund quarter state rows found."],
+    });
+    mockGetEnvironmentFundTrend.mockResolvedValue({
+      env_id: "env-1",
+      metric: "ending_nav",
+      quarters: 12,
+      funds: [],
     });
   });
 

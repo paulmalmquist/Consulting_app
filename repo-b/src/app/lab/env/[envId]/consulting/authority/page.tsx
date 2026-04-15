@@ -2,6 +2,7 @@
 
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { Card, CardContent } from "@/components/ui/Card";
+import CapabilityUnavailable from "@/components/common/CapabilityUnavailable";
 
 const CONTENT_TYPES = [
   {
@@ -58,14 +59,12 @@ export default function AuthorityPage({
         ))}
       </div>
 
-      <Card>
-        <CardContent className="py-6 text-center">
-          <p className="text-sm text-bm-muted2">
-            Content pipeline coming soon. This module will repurpose consulting engagement
-            results into case studies, LinkedIn posts, and lead magnets with attribution tracking.
-          </p>
-        </CardContent>
-      </Card>
+      <CapabilityUnavailable
+        capabilityKey="consulting.authority_engine"
+        title="Authority Engine"
+        moduleLabel="Consulting · Revenue OS"
+        note="This module will repurpose consulting engagement results into case studies, LinkedIn posts, and lead magnets with attribution tracking."
+      />
     </div>
   );
 }

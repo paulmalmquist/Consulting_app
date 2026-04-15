@@ -79,7 +79,6 @@ def test_no_metric_sql_outside_canonical_file():
 def test_exempt_files_exist_in_services_dir():
     """Guardrail: if someone deletes/renames a file, the exempt list stays honest."""
     present = {p.name for p in SERVICES_DIR.glob("*.py")}
-    stale = EXEMPT_FILES - present - CANONICAL_FILES
     # Allow extra names in EXEMPT_FILES only if they haven't been introduced yet.
     # Fail hard only if CANONICAL_FILES are missing.
     missing_canonical = CANONICAL_FILES - present
@@ -132,7 +131,7 @@ def test_overview_metrics_trace_to_registry(fake_cursor, monkeypatch):
     overview returns those stub values. If orchestrator reimplemented metric SQL,
     the stubbed compute would not be reflected.
     """
-    from app.services.pds_executive import orchestrator, metric_functions
+    from app.services.pds_executive import orchestrator
 
     # Queue count + signal count + KPI lookup — push three empty result sets.
     fake_cursor.push_result([{"open_queue": 0, "critical_queue": 0, "high_queue": 0}])

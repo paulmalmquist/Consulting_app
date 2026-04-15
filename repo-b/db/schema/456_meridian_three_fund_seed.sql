@@ -235,7 +235,36 @@ BEGIN
   LIMIT 1;
 
   IF v_business_id IS NULL THEN
-    RAISE NOTICE '456: No business binding for env %, skipping', v_env_id;
+    -- Clean installs may rebuild the Meridian environment with a fresh env_id
+    -- before the later RE seeds run. Fall back to the canonical Meridian env.
+    SELECT ebb.business_id INTO v_business_id
+    FROM app.env_business_bindings ebb
+    JOIN app.environments e ON e.env_id = ebb.env_id
+    WHERE lower(e.slug) = 'meridian'
+    ORDER BY e.created_at ASC
+    LIMIT 1;
+  END IF;
+
+  IF v_business_id IS NULL THEN
+    -- Fresh schema-gate installs can still have the business registry row
+    -- even if no legacy env binding or fund rows exist yet.
+    SELECT business_id INTO v_business_id
+    FROM business
+    WHERE lower(slug) = 'meridian-capital'
+    ORDER BY created_at ASC
+    LIMIT 1;
+  END IF;
+
+  IF v_business_id IS NULL THEN
+    -- Last-resort fallback when this seed is rerun against an already-seeded DB.
+    SELECT business_id INTO v_business_id
+    FROM repe_fund
+    WHERE fund_id = v_fund_igf
+    LIMIT 1;
+  END IF;
+
+  IF v_business_id IS NULL THEN
+    RAISE NOTICE '456: No Meridian business context found for env %, skipping', v_env_id;
     RETURN;
   END IF;
 
@@ -253,23 +282,38 @@ BEGIN
   -- SECTION 2: Fund records
   -- ════════════════════════════════════════════════════════════════════════
 
-  -- Fund 1: UPDATE existing IGF-VII to match $850M value-add spec
-  UPDATE repe_fund SET
-    vintage_year = 2021,
-    target_size  = 850000000,
-    fund_type    = 'closed_end',
-    strategy     = 'equity',
-    sub_strategy = 'value_add',
-    status       = 'investing',
-    term_years   = 7,
-    inception_date        = '2021-03-01',
-    target_leverage_min   = 0.50,
-    target_leverage_max   = 0.60,
-    target_hold_period_min_years = 5,
-    target_hold_period_max_years = 7,
-    target_sectors_json   = '["multifamily","industrial","mixed_use"]'::jsonb,
-    target_geographies_json = '["Austin","Phoenix","Charlotte","Tampa","Raleigh","Dallas","Atlanta","Portland"]'::jsonb
-  WHERE fund_id = v_fund_igf;
+  -- Fund 1: upsert IGF-VII so later deal/asset seeds work on clean installs.
+  INSERT INTO repe_fund (
+    fund_id, business_id, name, vintage_year, fund_type, strategy, sub_strategy,
+    target_size, term_years, status, base_currency, inception_date,
+    target_leverage_min, target_leverage_max, target_hold_period_min_years,
+    target_hold_period_max_years, target_sectors_json, target_geographies_json
+  )
+  VALUES (
+    v_fund_igf, v_business_id, 'Institutional Growth Fund VII', 2021, 'closed_end', 'equity', 'value_add',
+    850000000, 7, 'investing', 'USD', '2021-03-01',
+    0.50, 0.60, 5, 7,
+    '["multifamily","industrial","mixed_use"]'::jsonb,
+    '["Austin","Phoenix","Charlotte","Tampa","Raleigh","Dallas","Atlanta","Portland"]'::jsonb
+  )
+  ON CONFLICT (fund_id) DO UPDATE SET
+    business_id = EXCLUDED.business_id,
+    name = EXCLUDED.name,
+    vintage_year = EXCLUDED.vintage_year,
+    fund_type = EXCLUDED.fund_type,
+    strategy = EXCLUDED.strategy,
+    sub_strategy = EXCLUDED.sub_strategy,
+    target_size = EXCLUDED.target_size,
+    term_years = EXCLUDED.term_years,
+    status = EXCLUDED.status,
+    base_currency = EXCLUDED.base_currency,
+    inception_date = EXCLUDED.inception_date,
+    target_leverage_min = EXCLUDED.target_leverage_min,
+    target_leverage_max = EXCLUDED.target_leverage_max,
+    target_hold_period_min_years = EXCLUDED.target_hold_period_min_years,
+    target_hold_period_max_years = EXCLUDED.target_hold_period_max_years,
+    target_sectors_json = EXCLUDED.target_sectors_json,
+    target_geographies_json = EXCLUDED.target_geographies_json;
 
   IF v_has_target_irr THEN
     EXECUTE format('UPDATE repe_fund SET target_irr = 0.16 WHERE fund_id = %L', v_fund_igf);
@@ -318,6 +362,24 @@ BEGIN
   -- ════════════════════════════════════════════════════════════════════════
   -- SECTION 4: Partner commitments
   -- ════════════════════════════════════════════════════════════════════════
+
+  -- Clean installs may reach this file before the legacy partner seed has
+  -- populated Meridian's GP / LP universe. Upsert the canonical partners so
+  -- the commitment inserts below do not depend on preexisting local state.
+  INSERT INTO re_partner (partner_id, business_id, name, partner_type)
+  VALUES
+    (v_p_gp,        v_business_id, 'Meridian Capital Management GP',      'gp'),
+    (v_p_calpers,   v_business_id, 'CalPERS Real Estate',                 'lp'),
+    (v_p_hartford,  v_business_id, 'Hartford Insurance Group',            'lp'),
+    (v_p_duke,      v_business_id, 'Duke University Endowment',           'lp'),
+    (v_p_blackrock, v_business_id, 'BlackRock Real Estate Fund of Funds', 'lp'),
+    (v_p_whitfield, v_business_id, 'Whitfield Family Office',             'lp'),
+    (v_p_texteach,  v_business_id, 'Texas Teachers Retirement System',    'lp'),
+    (v_p_evergreen, v_business_id, 'Evergreen Realty Co-Invest',          'co_invest')
+  ON CONFLICT (partner_id) DO UPDATE SET
+    business_id = EXCLUDED.business_id,
+    name = EXCLUDED.name,
+    partner_type = EXCLUDED.partner_type;
 
   -- Fund 1 ($850M): GP 5%, CalPERS 25%, TexTeach 20%, Blackrock 20%, Hartford 15%, Duke 10%, Whitfield 5%
   INSERT INTO re_partner_commitment (commitment_id, partner_id, fund_id, committed_amount, commitment_date, status)

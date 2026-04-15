@@ -178,6 +178,10 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     );
   }
 
+  // Workspace identity is now rendered by <WorkspaceIdentityBar> at the
+  // layout boundary (src/app/lab/env/[envId]/layout.tsx) so it shows on
+  // every route, including vertical shells that bypass this component.
+
   return (
     <div className="space-y-4">
       {/* ── Department icon tab bar ──────────────────────── */}

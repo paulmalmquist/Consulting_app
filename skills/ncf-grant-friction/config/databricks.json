@@ -1,0 +1,33 @@
+{
+  "workspace_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com",
+  "auth_env_var": "DATABRICKS_PAT",
+  "catalog": "novendor_1",
+  "schema": "ncf_ml",
+  "sql_warehouse_id": "0e56420fb707d861",
+  "mlflow_experiment_path": "/Users/paulmalmquist@gmail.com/NCFGrantFriction",
+  "model_registry_name": "ncf_grant_friction",
+  "api_versions": {
+    "workspace": "2.0",
+    "mlflow": "2.0",
+    "unity_catalog": "2.1",
+    "sql": "2.0",
+    "jobs": "2.1"
+  },
+  "cost_controls": {
+    "auto_stop_warehouse_after_min": 15,
+    "max_concurrent_jobs": 2,
+    "warehouse_size": "Small"
+  },
+  "tables": {
+    "bronze_grants": "novendor_1.ncf_ml.bronze_grants",
+    "bronze_contributions": "novendor_1.ncf_ml.bronze_contributions",
+    "bronze_offices": "novendor_1.ncf_ml.bronze_offices",
+    "bronze_donors": "novendor_1.ncf_ml.bronze_donors",
+    "bronze_funds": "novendor_1.ncf_ml.bronze_funds",
+    "silver_grant_labeled": "novendor_1.ncf_ml.silver_grant_labeled",
+    "silver_feature_store": "novendor_1.ncf_ml.silver_feature_store",
+    "gold_train": "novendor_1.ncf_ml.gold_grant_friction_train",
+    "gold_preds": "novendor_1.ncf_ml.gold_grant_friction_preds",
+    "model_metadata": "novendor_1.ncf_ml.model_metadata"
+  }
+}

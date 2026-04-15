@@ -2,6 +2,7 @@
 import React from "react";
 
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
+import CapabilityUnavailable from "@/components/common/CapabilityUnavailable";
 
 const REPORTS = [
   {
@@ -52,11 +53,21 @@ export default function LegalReportsPage() {
             <button
               disabled
               className="mt-2 w-full rounded-lg border border-bm-border/50 px-3 py-2 text-xs text-bm-muted2 cursor-not-allowed"
+              aria-describedby="legal-reports-unavailable"
             >
-              Coming soon
+              Not available in current environment
             </button>
           </div>
         ))}
+      </div>
+
+      <div id="legal-reports-unavailable">
+        <CapabilityUnavailable
+          capabilityKey="legal.reports"
+          title="Legal Reports"
+          moduleLabel="Legal Ops Command"
+          note="The report catalog above shows what this module will produce once the Legal Ops Command capability is enabled for this environment."
+        />
       </div>
     </section>
   );

@@ -37,8 +37,6 @@ def test_exact_match_outranks_semantic(fake_cursor):
 
     # Semantic lane — mock to return a different fund.
     def fake_semantic(query, **kwargs):
-        from app.services.rag_indexer import RetrievedChunk
-
         class _Hit:
             entity_type = "fund"
             entity_id = rival_id

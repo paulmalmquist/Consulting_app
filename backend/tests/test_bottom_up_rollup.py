@@ -14,8 +14,6 @@ from decimal import Decimal
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
-import pytest
-
 from app.services.bottom_up_cashflow import (
     CFPoint,
     IrrResult,
@@ -25,7 +23,6 @@ from app.services.bottom_up_rollup import (
     compute_fund_rollup,
     compute_investment_rollup,
     fund_rollup_payload,
-    investment_rollup_payload,
 )
 
 

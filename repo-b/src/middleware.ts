@@ -39,6 +39,7 @@ function isPublicEnvironmentPath(pathname: string, slug: EnvironmentSlug) {
   if (pathname === `/${slug}/unauthorized`) return true;
   if (pathname === `/${slug}/logout`) return true;
   if (pathname === `/${slug}/auth/callback`) return true;
+  if (pathname === `/${slug}/about`) return true;
   return false;
 }
 

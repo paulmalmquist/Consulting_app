@@ -15,12 +15,10 @@ from pathlib import Path
 
 from app.tooling.repe_calibration import (
     calibrate_asset,
-    classify_irr,
     distribution_summary,
     fund_reconciliation,
 )
 from app.tooling.repe_portfolio_profiles import (
-    ALL_PROFILES,
     GRANITE_PROFILES,
     IGF_VII_PROFILES,
     MREF_III_PROFILES,

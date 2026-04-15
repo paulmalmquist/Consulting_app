@@ -583,7 +583,11 @@ def list_waterfall_templates(
         from app.mcp.schemas.repe_finance_tools import ListScenarioTemplatesInput
         from app.mcp.tools.repe_finance_tools import _list_scenario_templates
 
-        ctx = McpContext(user="api", resolved_scope={}, env_id=env_id, business_id=str(business_id))
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": env_id, "business_id": str(business_id)},
+        )
         return _list_scenario_templates(
             ctx,
             ListScenarioTemplatesInput(env_id=env_id, business_id=str(business_id)),
@@ -608,7 +612,11 @@ def run_monte_carlo_waterfall(fund_id: UUID, body: dict):
             env_id=body["env_id"],
             business_id=str(body["business_id"]),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _monte_carlo_waterfall(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -627,7 +635,11 @@ def run_portfolio_waterfall(body: dict):
             env_id=body["env_id"],
             business_id=str(body["business_id"]),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _portfolio_waterfall(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -647,7 +659,11 @@ def run_capital_call_impact(fund_id: UUID, body: dict):
             env_id=body["env_id"],
             business_id=str(body["business_id"]),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _capital_call_impact(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -673,7 +689,11 @@ def get_clawback_risk(
             env_id=env_id,
             business_id=str(business_id),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _clawback_risk(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -695,7 +715,11 @@ def run_waterfall_sensitivity_matrix(fund_id: UUID, body: dict):
             env_id=body["env_id"],
             business_id=str(body["business_id"]),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _sensitivity_matrix(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -721,7 +745,11 @@ def get_uw_vs_actual_waterfall(
             env_id=env_id,
             business_id=str(business_id),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _uw_vs_actual_waterfall(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)
@@ -747,7 +775,11 @@ def get_construction_waterfall(
             env_id=env_id,
             business_id=str(business_id),
         )
-        ctx = McpContext(user="api", resolved_scope={}, env_id=payload.env_id, business_id=payload.business_id)
+        ctx = McpContext(
+            actor="api",
+            token_valid=True,
+            resolved_scope={"env_id": payload.env_id, "business_id": payload.business_id},
+        )
         return _construction_waterfall(ctx, payload)
     except Exception as exc:
         raise _to_http(exc)

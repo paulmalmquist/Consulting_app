@@ -19,16 +19,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 from app.tooling.repe_calibration import CalibratedCashflow, calibrate_asset
 from app.tooling.repe_portfolio_profiles import (
     ALL_PROFILES,
     GRANITE_FUND_ID,
     GRANITE_PROFILES,
-    IGF_VII_FUND_ID,
     IGF_VII_PROFILES,
-    MREF_III_FUND_ID,
     MREF_III_PROFILES,
 )
 

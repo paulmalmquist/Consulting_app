@@ -19,7 +19,6 @@ import pytest
 
 from app.tooling.repe_calibration import (
     calibrate_asset,
-    classify_irr,
     distribution_summary,
     fund_reconciliation,
 )
@@ -139,9 +138,6 @@ def test_terminal_value_dominance_is_flagged_not_silent(calibrated_portfolio):
     for c in calibrated_portfolio:
         # Dominance check is the ratio of (gross_sale_price - loan_balance) to
         # total positive equity CF. When it exceeds 80%, the flag must be set.
-        equity_check = Decimal(c.profile.cost_basis) * (
-            Decimal("1") - Decimal(c.profile.ltv)
-        )
         gross = Decimal(c.exit_event["gross_sale_price"])
         loan = Decimal(c.exit_event["debt_payoff"])
         exit_equity = gross - loan
@@ -197,7 +193,6 @@ def test_fund_irr_reconciles_with_asset_aggregation(calibrated_by_fund):
         assert recon["gross_irr"] is not None
         # Re-aggregate independently to confirm.
         from decimal import Decimal as D
-        from datetime import date as _date
         from app.finance.irr_engine import xirr as _xirr
         from app.tooling.repe_calibration import _quarter_end_date, _quarter_of
         merged: dict = {}

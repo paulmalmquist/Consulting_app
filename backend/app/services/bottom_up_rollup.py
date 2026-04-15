@@ -15,9 +15,7 @@ The response carries a `non_additive: true` flag and tests enforce it.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -26,11 +24,8 @@ from app.db import get_cursor
 from app.finance.irr_engine import xirr
 from app.services.bottom_up_cashflow import (
     CFPoint,
-    IrrResult,
-    _to_decimal,
     build_asset_cf_series,
     compute_asset_irr,
-    ownership_schedule,
     quarter_end_date,
     resolve_ownership_pct,
 )
