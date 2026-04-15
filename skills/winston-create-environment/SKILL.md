@@ -109,8 +109,8 @@ Claude will ask for any missing required fields (client_name, template_key), run
 | `client_delivery` | PDS / delivery engagements, exec summaries, data health | `client_delivery_starter` |
 | `internal_ops` | Consulting revenue OS, CRM pipeline, operators | `internal_ops_minimal` |
 | `trading_research` | Research → backtest → paper pipeline, History Rhymes | `trading_research_starter` |
-| `public_profile` | Hybrid-auth public profiles, narrative-first | `public_profile_starter` |
-| `public_content` | Fully public marketing sites, SEO-first | `public_content_starter` |
+| `public_profile` | Hybrid-auth public profiles, narrative-first | `empty` |
+| `public_content` | Fully public marketing sites, SEO-first | `empty` |
 | `empty_lab` | Schema-only shell, no seed rows | `empty` |
 
 See all templates live:
@@ -118,6 +118,104 @@ See all templates live:
 ```bash
 curl $BACKEND_URL/v2/environments/templates
 ```
+
+---
+
+## Seed Packs — What Actually Gets Created
+
+All packs are **idempotent** (`ON CONFLICT DO NOTHING`) and **deterministic** — no random data, same slug always produces the same rows.
+
+> **Phase A scope:** Every pack currently seeds `v1.pipeline_stages` only — the structural pipeline lanes that the workspace UI requires on first load. Richer entity data (funds, assets, projects, strategies) is explicitly deferred and called out per-pack below.
+
+### `repe_starter` (default for `repe`)
+
+Mined from the meridian environment. Seeds 5 deal-pipeline stages:
+
+| key | label | sort | color |
+|---|---|---|---|
+| `sourcing` | Sourcing | 0 | slate |
+| `screening` | Screening | 1 | blue |
+| `underwriting` | Underwriting | 2 | amber |
+| `ic_approved` | IC Approved | 3 | purple |
+| `closed` | Closed | 4 | green |
+
+**Intentionally NOT seeded:** funds, assets, investors, waterfalls, NOI, IRR, `re_authoritative_snapshots`. The snapshot service owns authoritative state — the pipeline never writes it. When you need a populated REPE demo workspace, layer a richer pack or run `seed_repe_workspace()` separately after create.
+
+File: [backend/app/services/environment_seed_packs_v2/repe_starter.py](../../backend/app/services/environment_seed_packs_v2/repe_starter.py)
+
+---
+
+### `client_delivery_starter` (default for `client_delivery`)
+
+Mined from stone-pds. Seeds 4 delivery-oriented pipeline stages:
+
+| key | label | sort | color |
+|---|---|---|---|
+| `discovery` | Discovery | 0 | slate |
+| `in_flight` | In Flight | 1 | blue |
+| `review` | Review | 2 | amber |
+| `delivered` | Delivered | 3 | green |
+
+**Not seeded:** projects, budgets, milestones, data health records, exec queue entries. Layer a project/budget pack when the workspace needs pre-populated delivery data.
+
+File: [backend/app/services/environment_seed_packs_v2/client_delivery_starter.py](../../backend/app/services/environment_seed_packs_v2/client_delivery_starter.py)
+
+---
+
+### `internal_ops_minimal` (default for `internal_ops`)
+
+Mined from novendor. Seeds 5 consulting CRM pipeline stages:
+
+| key | label | sort | color |
+|---|---|---|---|
+| `lead` | Lead | 0 | slate |
+| `qualified` | Qualified | 1 | blue |
+| `proposal` | Proposal | 2 | amber |
+| `negotiation` | Negotiation | 3 | purple |
+| `closed_won` | Closed Won | 4 | green |
+
+**Not seeded:** contacts, deals, tasks, email connections, operators. Kept minimal by design — operators configure CRM defaults themselves during onboarding.
+
+File: [backend/app/services/environment_seed_packs_v2/internal_ops_minimal.py](../../backend/app/services/environment_seed_packs_v2/internal_ops_minimal.py)
+
+---
+
+### `trading_research_starter` (default for `trading_research`)
+
+Mined from the trading environment + History Rhymes workflows. Seeds 5 research pipeline stages:
+
+| key | label | sort | color |
+|---|---|---|---|
+| `hypothesis` | Hypothesis | 0 | slate |
+| `research` | Research | 1 | blue |
+| `backtest` | Backtest | 2 | amber |
+| `paper_trade` | Paper Trade | 3 | purple |
+| `live` | Live | 4 | green |
+
+**Not seeded:** strategies, backtest results, signals, History Rhymes fixtures. Those live in the Databricks/MLflow layer, not the app DB — wire them via `skills/historyrhymes/SKILL.md` after provisioning.
+
+File: [backend/app/services/environment_seed_packs_v2/trading_research_starter.py](../../backend/app/services/environment_seed_packs_v2/trading_research_starter.py)
+
+---
+
+### `empty` (used by `public_profile`, `public_content`, `empty_lab`)
+
+Creates no rows. Returns immediately with `rows_created: {}`. Use when the environment needs no starter data, or when you'll populate it entirely from an external source.
+
+File: [backend/app/services/environment_seed_packs_v2/empty.py](../../backend/app/services/environment_seed_packs_v2/empty.py)
+
+---
+
+### Adding a New Seed Pack
+
+1. Create `backend/app/services/environment_seed_packs_v2/<pack_name>.py` with:
+   - Module-level `NAME: str` and `VERSION: int`
+   - `apply(cur, env_id, business_id, *, actor) -> SeedResult`
+   - All inserts use `ON CONFLICT DO NOTHING` or `DO UPDATE` — never plain `INSERT`
+   - Never call `random` — derive deterministic UUIDs from `uuid5(NAMESPACE_DNS, f"{slug}:{pack_name}:{row_index}")`
+   - Never write `re_authoritative_snapshots`
+2. Register in `SEED_PACKS` dict in [backend/app/services/environment_seed_packs_v2/__init__.py](../../backend/app/services/environment_seed_packs_v2/__init__.py)
+3. Optionally add `pack_name` to a template's `available_seed_packs` in [repo-b/db/schema/516_environment_templates_seed.sql](../../repo-b/db/schema/516_environment_templates_seed.sql)
 
 ---
 
@@ -201,22 +299,22 @@ Idempotency: re-running the same manifest with the same slug returns `"status": 
 
 | File | Role |
 |---|---|
-| [backend/app/schemas/lab_v2.py](backend/app/schemas/lab_v2.py) | Pydantic manifest + response schemas |
-| [backend/app/services/environment_pipeline_v2.py](backend/app/services/environment_pipeline_v2.py) | Staged create pipeline |
-| [backend/app/services/environment_templates_v2.py](backend/app/services/environment_templates_v2.py) | Template registry reader (5-min TTL cache) |
-| [backend/app/services/environment_seed_packs_v2/](backend/app/services/environment_seed_packs_v2/) | Seed pack registry + implementations |
-| [backend/app/routes/lab_v2.py](backend/app/routes/lab_v2.py) | FastAPI router (`/v2/environments/...`) |
-| [repo-b/db/schema/514_environment_templates.sql](repo-b/db/schema/514_environment_templates.sql) | `app.environment_templates` table |
-| [repo-b/db/schema/515_environments_v2_columns.sql](repo-b/db/schema/515_environments_v2_columns.sql) | Additive columns on `app.environments` |
-| [repo-b/db/schema/516_environment_templates_seed.sql](repo-b/db/schema/516_environment_templates_seed.sql) | Template seed data (7 templates) |
-| [docs/ENVIRONMENT_BLUEPRINT.md](docs/ENVIRONMENT_BLUEPRINT.md) | Architecture reference + deferred items |
-| [docs/examples/environment-manifests/](docs/examples/environment-manifests/) | 4 example manifests (all `dry_run: true`) |
+| [backend/app/schemas/lab_v2.py](../../backend/app/schemas/lab_v2.py) | Pydantic manifest + response schemas |
+| [backend/app/services/environment_pipeline_v2.py](../../backend/app/services/environment_pipeline_v2.py) | Staged create pipeline |
+| [backend/app/services/environment_templates_v2.py](../../backend/app/services/environment_templates_v2.py) | Template registry reader (5-min TTL cache) |
+| [backend/app/services/environment_seed_packs_v2/](../../backend/app/services/environment_seed_packs_v2/) | Seed pack registry + implementations |
+| [backend/app/routes/lab_v2.py](../../backend/app/routes/lab_v2.py) | FastAPI router (`/v2/environments/...`) |
+| [repo-b/db/schema/514_environment_templates.sql](../../repo-b/db/schema/514_environment_templates.sql) | `app.environment_templates` table |
+| [repo-b/db/schema/515_environments_v2_columns.sql](../../repo-b/db/schema/515_environments_v2_columns.sql) | Additive columns on `app.environments` |
+| [repo-b/db/schema/516_environment_templates_seed.sql](../../repo-b/db/schema/516_environment_templates_seed.sql) | Template seed data (7 templates) |
+| [docs/ENVIRONMENT_BLUEPRINT.md](../../docs/ENVIRONMENT_BLUEPRINT.md) | Architecture reference + deferred items |
+| [docs/examples/environment-manifests/](../../docs/examples/environment-manifests/) | 4 example manifests (all `dry_run: true`) |
 
 ---
 
 ## Example Manifests
 
-Pre-built examples in [docs/examples/environment-manifests/](docs/examples/environment-manifests/):
+Pre-built examples in [docs/examples/environment-manifests/](../../docs/examples/environment-manifests/):
 
 - `repe-client.json` — REPE fund portal with Yardi integration handle
 - `client-pds-delivery.json` — PDS delivery engagement with exec queue enabled
@@ -237,4 +335,4 @@ All have `"dry_run": true`. Copy, edit `client_name` + `slug`, flip `dry_run` to
 - Clone / retire / rollback
 - Migration of legacy canonical envs onto v2
 
-Reference: [docs/ENVIRONMENT_BLUEPRINT.md](docs/ENVIRONMENT_BLUEPRINT.md) — "What's deferred" section.
+Reference: [docs/ENVIRONMENT_BLUEPRINT.md](../../docs/ENVIRONMENT_BLUEPRINT.md) — "What's deferred" section.
