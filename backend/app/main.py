@@ -34,6 +34,7 @@ from app.routes import (
     work,
     audit,
     lab,
+    lab_v2,
     extraction,
     compliance,
     admin_tools,
@@ -325,6 +326,7 @@ app.include_router(crm.router)
 app.include_router(work.router)
 app.include_router(audit.router)
 app.include_router(lab.router)
+app.include_router(lab_v2.router)
 app.include_router(ai_router)
 app.include_router(ai_gateway_router)
 app.include_router(ai_audit_router)

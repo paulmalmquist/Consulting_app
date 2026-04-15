@@ -1,0 +1,20 @@
+{
+  "_comment": "REPE reference pattern mined from meridian. NOTE: authoritative state rules apply — releases must flow through re_authoritative_snapshots.",
+  "client_name": "Example REPE Fund",
+  "template_key": "repe",
+  "env_kind": "client",
+  "seed_pack": "repe_starter",
+  "theme_tokens": {
+    "accent": "271 62% 63%"
+  },
+  "manifest_overflow": {
+    "custom_copy": {
+      "loginTitle": "Sign in to Example Capital",
+      "unauthorizedTitle": "Investor access only"
+    },
+    "integration_handles": {
+      "accounting_system": "example_yardi_tenant_42"
+    }
+  },
+  "dry_run": true
+}

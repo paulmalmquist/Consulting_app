@@ -1,0 +1,17 @@
+{
+  "_comment": "Trading / research reference pattern mined from the trading environment + History Rhymes workflows.",
+  "client_name": "Example Research Lab",
+  "template_key": "trading_research",
+  "env_kind": "internal",
+  "seed_pack": "trading_research_starter",
+  "theme_tokens": {
+    "accent": "142 71% 45%"
+  },
+  "manifest_overflow": {
+    "feature_flags": {
+      "history_rhymes_enabled": true,
+      "paper_trading_only": true
+    }
+  },
+  "dry_run": true
+}

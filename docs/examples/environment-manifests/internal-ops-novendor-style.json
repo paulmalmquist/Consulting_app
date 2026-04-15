@@ -1,0 +1,18 @@
+{
+  "_comment": "Internal-ops reference pattern mined from novendor. Use for internal consulting revenue OS workspaces.",
+  "client_name": "Example Internal Ops",
+  "template_key": "internal_ops",
+  "env_kind": "internal",
+  "seed_pack": "internal_ops_minimal",
+  "theme_tokens": {
+    "accent": "217 91% 60%"
+  },
+  "manifest_overflow": {
+    "onboarding_checklist": [
+      "Invite operators",
+      "Connect email",
+      "Configure CRM pipeline defaults"
+    ]
+  },
+  "dry_run": true
+}

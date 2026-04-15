@@ -1,0 +1,18 @@
+{
+  "_comment": "Client delivery / PDS reference pattern mined from stone-pds. Use for engagement-scoped client workspaces.",
+  "client_name": "Example Delivery Engagement",
+  "template_key": "client_delivery",
+  "env_kind": "client",
+  "seed_pack": "client_delivery_starter",
+  "manifest_overflow": {
+    "custom_copy": {
+      "loginTitle": "Sign in to the Example engagement",
+      "loginSubtitle": "Delivery updates, exec summaries, and documents."
+    },
+    "feature_flags": {
+      "executive_queue_enabled": true,
+      "data_health_dashboard": true
+    }
+  },
+  "dry_run": true
+}

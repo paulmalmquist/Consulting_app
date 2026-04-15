@@ -176,6 +176,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.bottom_up_refresh.get_cursor",
     "app.services.bottom_up_rollup.get_cursor",
     "app.services.repe_hybrid_search.get_cursor",
+    "app.services.environment_pipeline_v2.get_cursor",
+    "app.services.environment_templates_v2.get_cursor",
 ]
 
 
