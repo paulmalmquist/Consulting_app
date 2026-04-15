@@ -4,6 +4,7 @@ export const SUPPORTED_ENVIRONMENT_SLUGS = [
   "stone-pds",
   "meridian",
   "trading",
+  "ncf",
 ] as const;
 
 export type EnvironmentSlug = (typeof SUPPORTED_ENVIRONMENT_SLUGS)[number];
@@ -104,6 +105,21 @@ export const environmentCatalog: Record<EnvironmentSlug, EnvironmentBranding> = 
     panelGradient: "linear-gradient(180deg, rgba(21, 12, 10, 0.9), rgba(12, 8, 7, 0.95))",
     buttonText: "24 100% 7%",
   },
+  ncf: {
+    slug: "ncf",
+    label: "National Christian Foundation",
+    familyLabel: "NCF Reporting & Stewardship Model",
+    loginTitle: "Sign in to NCF Reporting & Stewardship",
+    loginSubtitle: "Governed reporting environment for giving, grants, complex gifts, and leadership trust.",
+    unauthorizedTitle: "NCF access required",
+    unauthorizedBody: "Your identity is valid, but this account is not currently a member of the NCF environment.",
+    accent: "198 78% 48%",
+    accentSoft: "195 60% 42%",
+    glow: "27, 166, 217",
+    shellGradient: "radial-gradient(circle at top left, rgba(27, 166, 217, 0.2), transparent 36%), radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.14), transparent 34%)",
+    panelGradient: "linear-gradient(180deg, rgba(10, 18, 24, 0.9), rgba(8, 12, 16, 0.95))",
+    buttonText: "210 40% 98%",
+  },
 };
 
 export function isEnvironmentSlug(value: string | null | undefined): value is EnvironmentSlug {
@@ -142,6 +158,8 @@ export function environmentHomePath(args: {
       return `/lab/env/${args.envId}/re`;
     case "trading":
       return `/lab/env/${args.envId}/markets`;
+    case "ncf":
+      return `/lab/env/${args.envId}/ncf`;
     default:
       return `/lab/env/${args.envId}`;
   }

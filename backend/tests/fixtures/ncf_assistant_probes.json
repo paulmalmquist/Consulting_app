@@ -1,0 +1,41 @@
+{
+  "env_slug": "ncf",
+  "description": "Canonical assistant probes the NCF Reporting & Stewardship Model must be able to answer. These are scope-grounded, lens-aware, and lifecycle-aware. Replayable as an assistant regression fixture once the gateway has an NCF env_profile hook.",
+  "reporting_lenses": ["financial_reporting", "operational_reporting", "impact_reporting"],
+  "probes": [
+    {
+      "id": "grants_down_this_quarter",
+      "prompt": "Why are grants down this quarter?",
+      "expected_intent_family": "operational_drilldown",
+      "expected_reporting_lens": "operational_reporting",
+      "expected_entities": ["ncf_grant"],
+      "expected_answer_shape": "Lifecycle-stage breakdown (recommended / qualified / approved / paid) over the current vs prior quarter, naming which stage is the friction source rather than reporting a single scalar decline.",
+      "must_not": [
+        "Report a single aggregate delta without naming the stage causing it.",
+        "Mix financial-reporting paid totals with operational-reporting recommendation counts."
+      ]
+    },
+    {
+      "id": "lens_disambiguation",
+      "prompt": "Is this financial reporting or impact reporting?",
+      "expected_intent_family": "lens_disambiguation",
+      "expected_reporting_lens": null,
+      "expected_entities": ["ncf_metric"],
+      "expected_answer_shape": "Declares which lens the metric in context is governed under, and names the alternative lens answers for the same underlying activity if they exist.",
+      "must_not": [
+        "Guess. If lens is unknown for the current scope, say so."
+      ]
+    },
+    {
+      "id": "lifecycle_friction_locator",
+      "prompt": "What stage of the lifecycle is causing friction?",
+      "expected_intent_family": "lifecycle_diagnostic",
+      "expected_reporting_lens": "operational_reporting",
+      "expected_entities": ["ncf_grant", "ncf_contribution"],
+      "expected_answer_shape": "Narrative answer mapped to the 5 lifecycle stages on the homepage (giving signals / meaning rebuilt / reconciliation late / governance / leadership inheritance), citing which stage the current environment's data/absence-of-data suggests.",
+      "must_not": [
+        "Pretend to diagnose in scopes where data has not been wired. Return a null_reason path instead."
+      ]
+    }
+  ]
+}

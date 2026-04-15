@@ -14,7 +14,7 @@ import {
   verifyPlatformSession,
 } from "@/lib/server/sessionAuth";
 
-const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|trading)(?:\/|$)/;
+const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|trading|ncf)(?:\/|$)/;
 const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
 function buildLoginRedirect(request: NextRequest, pathname: string) {
@@ -220,6 +220,7 @@ export const config = {
     "/stone-pds/:path*",
     "/meridian/:path*",
     "/trading/:path*",
+    "/ncf/:path*",
     "/public/:path*",
   ],
 };

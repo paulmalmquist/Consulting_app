@@ -354,7 +354,7 @@ async function bootstrapOwnerMemberships(
         status = 'active',
         updated_at = now()
     `,
-    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading", "hall-boys"]],
+    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading", "hall-boys", "ncf"]],
   );
 
   // Promote hall-boys to default only when the user has no default yet.
