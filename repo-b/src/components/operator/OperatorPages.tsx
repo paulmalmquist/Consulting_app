@@ -1414,9 +1414,9 @@ export function OperatorSiteDetailPage({ siteId }: { siteId: string }) {
       visible_data: {
         metrics: {
           predev_cost: detail.predev_cost_to_date,
-          predev_budget: detail.predev_budget,
+          predev_budget: detail.predev_budget ?? null,
           risk_score: detail.risk_score,
-          timeline_days: detail.estimated_timeline_days,
+          timeline_days: detail.estimated_timeline_days ?? null,
         },
         notes: [...detail.blockers, ...detail.recommended_actions],
         site_detail: detail,
