@@ -59,6 +59,20 @@ function anchorSections(pathname: string): AnchorItem[] {
       { id: "upload", label: "Upload + Extract" },
     ];
   }
+  if (pathname.includes("/operator/pipeline/")) {
+    return [
+      { id: "zoning-details", label: "Zoning" },
+      { id: "approvals", label: "Approvals" },
+      { id: "documents", label: "Documents" },
+      { id: "actions", label: "Actions" },
+    ];
+  }
+  if (pathname.includes("/operator/pipeline")) {
+    return [
+      { id: "pipeline-tracker", label: "Tracker" },
+      { id: "high-risk-sites", label: "High Risk" },
+    ];
+  }
   if (pathname.includes("/operator/vendors")) {
     return [
       { id: "spend-aggregation", label: "Spend Aggregation" },
@@ -76,6 +90,7 @@ function anchorSections(pathname: string): AnchorItem[] {
     { id: "overview", label: "Overview" },
     { id: "entity-performance", label: "Entity Performance" },
     { id: "project-risk", label: "Project Risk" },
+    { id: "site-risk", label: "Site Risk" },
     { id: "winston", label: "Winston" },
   ];
 }
@@ -92,6 +107,7 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       { href: `${base}/finance`, label: "Finance" },
       { href: `${base}/projects`, label: "Projects" },
       { href: `${base}/documents`, label: "Documents" },
+      { href: `${base}/pipeline`, label: "Pipeline" },
       { href: `${base}/vendors`, label: "Vendors" },
       { href: `${base}/close`, label: "Close" },
     ],

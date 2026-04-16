@@ -79,6 +79,11 @@ def _vendor_map() -> dict[str, dict[str, Any]]:
     return {vendor["id"]: vendor for vendor in fixture["vendors"]}
 
 
+def _site_map() -> dict[str, dict[str, Any]]:
+    fixture = _load_fixture()
+    return {site["id"]: site for site in fixture.get("development_sites", [])}
+
+
 def _document_map() -> dict[str, dict[str, Any]]:
     fixture = _load_fixture()
     return {document["id"]: document for document in fixture["documents"]}
@@ -322,6 +327,7 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     at_risk_projects = [row for row in _build_project_rows(env_id=env_id) if row["risk_level"] == "high"]
     close_rows = _build_close_rows(env_id=env_id)
     vendor_rows = _build_vendor_rows()
+    site_rows = _build_site_rows(env_id=env_id)
     ai_grounding = fixture.get("ai_grounding", {})
     return {
         "env_id": str(env_id),
@@ -384,6 +390,7 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
         "close_tasks": close_rows,
         "top_documents": [_document_summary(document) for document in fixture["documents"]],
         "vendor_alerts": [row for row in vendor_rows if row["duplication_flag"] or (row["overspend_amount"] or 0) > 0],
+        "development_sites": [row for row in site_rows if row["risk_level"] in ("high", "medium")],
         "assistant_focus": {
             "headline": "Control the overrun, unblock close, then consolidate duplicated vendor spend.",
             "summary_lines": ai_grounding.get("what_is_going_wrong", []),
@@ -397,7 +404,9 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
             "prompt_suggestions": [
                 "What’s going wrong this month?",
                 "Where are we losing money?",
-                "Which projects are off track?",
+                "Which projects are at risk?",
+                "Should we pursue the Main St site?",
+                "What approvals are slowing us down?",
                 "What should I focus on today?",
             ],
         },
@@ -450,3 +459,71 @@ def list_vendors(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
 def list_close_tasks(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
     _ = business_id
     return _build_close_rows(env_id=env_id)
+
+
+# ---------------------------------------------------------------------------
+# Development Sites
+# ---------------------------------------------------------------------------
+
+
+def _site_row(site: dict[str, Any], *, env_id: UUID) -> dict[str, Any]:
+    entities = _entity_map()
+    entity = entities.get(site["entity_id"], {})
+    return {
+        "site_id": site["id"],
+        "name": site["name"],
+        "address": site.get("address"),
+        "city": site.get("city"),
+        "entity_id": site["entity_id"],
+        "entity_name": entity.get("name", site["entity_id"]),
+        "zoning_type": site.get("zoning_type"),
+        "status": site.get("status", "scouting"),
+        "predev_cost_to_date": float(site.get("predev_cost_to_date", 0)),
+        "predev_budget": site.get("predev_budget"),
+        "risk_score": float(site.get("risk_score", 0)),
+        "risk_level": site.get("risk_level", "low"),
+        "estimated_timeline_days": site.get("estimated_timeline_days"),
+        "owner": site.get("owner"),
+        "summary": site.get("summary"),
+        "href": f"/lab/env/{env_id}/operator/pipeline/{site['id']}",
+    }
+
+
+def _build_site_rows(*, env_id: UUID) -> list[dict[str, Any]]:
+    fixture = _load_fixture()
+    rows = [_site_row(site, env_id=env_id) for site in fixture.get("development_sites", [])]
+    return sorted(rows, key=lambda row: (-float(row["risk_score"]), row["name"]))
+
+
+def list_sites(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
+    _ = business_id
+    return _build_site_rows(env_id=env_id)
+
+
+def get_site_detail(*, env_id: UUID, business_id: UUID, site_id: str) -> dict[str, Any]:
+    _ = business_id
+    sites = _site_map()
+    documents = _document_map()
+    projects = _project_map()
+    site = sites.get(site_id)
+    if not site:
+        raise LookupError("Site not found")
+    row = _site_row(site, env_id=env_id)
+    linked_project = projects.get(site.get("linked_project_id") or "", {})
+    row.update(
+        {
+            "allowed_uses": site.get("allowed_uses", []),
+            "restrictions": site.get("restrictions", {}),
+            "approvals_required": site.get("approvals_required", []),
+            "blockers": site.get("blockers", []),
+            "linked_project_id": site.get("linked_project_id"),
+            "linked_project_name": linked_project.get("name"),
+            "documents": [
+                _document_summary(documents[doc_id])
+                for doc_id in site.get("linked_document_ids", [])
+                if doc_id in documents
+            ],
+            "recommended_actions": site.get("recommended_actions", []),
+        }
+    )
+    return row

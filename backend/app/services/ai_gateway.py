@@ -416,6 +416,47 @@ def _is_credit_environment(*, environment_name: str | None, environment_id: str 
     return any("credit" in value.lower() for value in haystacks)
 
 
+def _is_operator_environment(*, environment_name: str | None, environment_id: str | None, industry: str | None = None) -> bool:
+    if industry and industry.lower() in ("multi_entity_operator", "operator"):
+        return True
+    haystacks = [environment_name or "", environment_id or ""]
+    return any(kw in value.lower() for value in haystacks for kw in ("operator", "hall-boys", "hall_boys"))
+
+
+_OPERATOR_DOMAIN_BLOCK = """
+## Multi-Entity Operator Domain
+
+You are operating inside a multi-entity operating system for a holding company with multiple operating entities.
+The assistant has access to operator-specific MCP tools for querying real data.
+
+### Grounding Rules
+- ALWAYS reference specific entities, projects, development sites, vendors, and dollar amounts.
+- NEVER give generic business advice. Every answer must cite specific numbers from the operator data.
+- When discussing financials, reference the current period unless the user specifies otherwise.
+- When discussing projects, always include budget, actual, variance, and risk score.
+- When discussing development sites, include zoning type, approval status, predevelopment cost, and risk level.
+- When discussing vendors, call out cross-entity duplication and contract overspend amounts.
+- Quantify impact where possible. Prioritize actions. Avoid vague language.
+
+### Tool Routing
+- Executive / command center / "what's going wrong" questions -> operator.get_command_center
+- Project questions -> operator.list_projects or operator.get_project_detail
+- Development pipeline / site / zoning questions -> operator.list_sites or operator.get_site_detail
+- Vendor / duplication / spend questions -> operator.list_vendors
+- Close / workflow / blocker questions -> operator.list_close_tasks
+- "What should I focus on?" -> operator.get_command_center (use assistant_focus data)
+- "Should we pursue [site]?" -> operator.get_site_detail (cite zoning, approvals, cost, risk)
+- "What approvals are slowing us down?" -> operator.list_sites + operator.list_close_tasks
+- "Where are we wasting pre-development money?" -> operator.list_sites (compare predev_cost vs status)
+
+### Response Format
+- Lead with the most actionable insight.
+- Use specific entity names, project names, site names, vendor names.
+- Include dollar amounts and percentages.
+- End with 1-3 prioritized recommended actions.
+"""
+
+
 def _build_unified_metrics_block() -> str:
     """Build a system prompt block listing available metrics from the unified registry."""
     try:
@@ -446,6 +487,8 @@ def _build_system_prompt_for_context(*, environment_name: str | None, environmen
         base += "\n\n" + _CREDIT_DOMAIN_BLOCK
     if _is_resume_environment(environment_name=environment_name, environment_id=environment_id, industry=industry):
         base += "\n\n" + _RESUME_DOMAIN_BLOCK
+    if _is_operator_environment(environment_name=environment_name, environment_id=environment_id, industry=industry):
+        base += "\n\n" + _OPERATOR_DOMAIN_BLOCK
     # Inject unified metric registry context for all REPE environments
     metrics_block = _build_unified_metrics_block()
     if metrics_block:
@@ -3327,6 +3370,13 @@ async def _legacy_run_gateway_stream(
         _domain_blocks.append(("credit", _CREDIT_DOMAIN_BLOCK))
     if _is_resume:
         _domain_blocks.append(("resume", _RESUME_DOMAIN_BLOCK))
+    _is_operator = _is_operator_environment(
+        environment_name=normalized_envelope.ui.active_environment_name,
+        environment_id=normalized_envelope.ui.active_environment_id,
+        industry=getattr(normalized_envelope.ui, "industry", None),
+    )
+    if _is_operator:
+        _domain_blocks.append(("operator", _OPERATOR_DOMAIN_BLOCK))
 
     # ── Conversation history (token-budgeted per lane) ────────────
     _history_start = time.time()

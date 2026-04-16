@@ -52,6 +52,7 @@ def _register_all_tools():
     from app.mcp.tools.sql_agent_tools import register_sql_agent_tools
     from app.mcp.tools.novendor_tools import register_novendor_tools
     from app.mcp.tools.repe_write_tools import register_repe_write_tools
+    from app.mcp.tools.operator_tools import register_operator_tools
 
     register_meta_tools()
     register_business_tools()
@@ -89,6 +90,7 @@ def _register_all_tools():
     register_sql_agent_tools()
     register_novendor_tools()
     register_repe_write_tools()
+    register_operator_tools()
 
 
 def _make_response(req_id, result=None, error=None):

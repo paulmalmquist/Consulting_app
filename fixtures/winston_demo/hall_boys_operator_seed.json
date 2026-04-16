@@ -764,6 +764,195 @@
         "revenue_recognition_hold": true,
         "notice_period_days": 15
       }
+    },
+    {
+      "id": "doc-zoning-main-st",
+      "title": "City of Springfield Zoning Ordinance — C-2 Commercial District",
+      "type": "zoning_ordinance",
+      "entity_id": "hb-development",
+      "project_id": null,
+      "vendor_id": null,
+      "site_id": "main-st-parcel",
+      "status": "extracted",
+      "created_at": "2026-03-25T09:30:00Z",
+      "risk_flags": [
+        "historic overlay",
+        "environmental review required",
+        "height restriction"
+      ],
+      "key_terms": [
+        "Maximum building height: 45 feet",
+        "Floor-area ratio: 2.5",
+        "Historic overlay zone requires HRB approval",
+        "Environmental impact review required for parcels over 0.5 acres"
+      ],
+      "extracted_json": {
+        "zoning_type": "C-2 Commercial",
+        "height_limit_ft": 45,
+        "FAR": 2.5,
+        "parking_requirements": "1 space per 500 SF of gross floor area",
+        "approvals_required": ["Planning Commission", "Historic Review Board", "Environmental Impact Review", "City Council"],
+        "risk_flags": ["historic overlay", "environmental review required", "height restriction"]
+      }
+    },
+    {
+      "id": "doc-zoning-airport",
+      "title": "County Airport District Zoning — I-1 Industrial/Aviation",
+      "type": "zoning_ordinance",
+      "entity_id": "hb-construction",
+      "project_id": "airport-expansion",
+      "vendor_id": null,
+      "site_id": "airport-expansion-site",
+      "status": "extracted",
+      "created_at": "2026-03-18T14:15:00Z",
+      "risk_flags": [
+        "FAA height limit",
+        "noise abatement zone"
+      ],
+      "key_terms": [
+        "FAA Part 77 height restrictions apply within 2-mile radius",
+        "Noise abatement overlay limits operating hours 10PM-6AM",
+        "Environmental assessment waived for existing footprint expansion"
+      ],
+      "extracted_json": {
+        "zoning_type": "I-1 Industrial/Aviation",
+        "height_limit_ft": 65,
+        "FAR": 3.0,
+        "parking_requirements": "1 space per 1000 SF for industrial use",
+        "approvals_required": ["Planning Commission", "FAA Review"],
+        "risk_flags": ["FAA height limit", "noise abatement zone"]
+      }
+    },
+    {
+      "id": "doc-zoning-industrial",
+      "title": "Riverside Industrial Park Development Standards — M-1 Light Manufacturing",
+      "type": "zoning_ordinance",
+      "entity_id": "hb-development",
+      "project_id": null,
+      "vendor_id": null,
+      "site_id": "industrial-park-lot",
+      "status": "extracted",
+      "created_at": "2026-03-10T11:00:00Z",
+      "risk_flags": [],
+      "key_terms": [
+        "By-right development permitted for light manufacturing",
+        "No special use permit required",
+        "Standard site plan review only"
+      ],
+      "extracted_json": {
+        "zoning_type": "M-1 Light Manufacturing",
+        "height_limit_ft": 55,
+        "FAR": 2.0,
+        "parking_requirements": "1 space per 800 SF",
+        "approvals_required": ["Planning Commission"],
+        "risk_flags": []
+      }
+    }
+  ],
+  "development_sites": [
+    {
+      "id": "main-st-parcel",
+      "name": "Main St Parcel",
+      "address": "1420 Main Street",
+      "city": "Springfield",
+      "entity_id": "hb-development",
+      "zoning_type": "C-2 Commercial",
+      "allowed_uses": ["retail", "office", "mixed-use residential"],
+      "restrictions": {
+        "height_limit_ft": 45,
+        "FAR": 2.5,
+        "setback_front_ft": 15,
+        "setback_side_ft": 10,
+        "parking_ratio": "1 per 500 SF",
+        "historic_overlay": true,
+        "environmental_review_required": true
+      },
+      "approvals_required": ["Planning Commission", "Historic Review Board", "Environmental Impact Review", "City Council"],
+      "estimated_timeline_days": 270,
+      "predev_cost_to_date": 120000,
+      "predev_budget": 180000,
+      "risk_score": 85,
+      "risk_level": "high",
+      "status": "review",
+      "owner": "Elena Brooks",
+      "summary": "Zoning constraints and historic overlay require extended review. Environmental impact study adds 3-4 months to the entitlement timeline.",
+      "blockers": ["Historic Review Board hearing not yet scheduled", "Environmental impact study incomplete"],
+      "linked_project_id": null,
+      "linked_document_ids": ["doc-zoning-main-st"],
+      "recommended_actions": [
+        "Schedule Historic Review Board hearing before May.",
+        "Expedite Phase 1 environmental review to unlock entitlement timeline.",
+        "Confirm parking variance strategy with zoning counsel."
+      ]
+    },
+    {
+      "id": "airport-expansion-site",
+      "name": "Airport Expansion Site",
+      "address": "8200 Aviation Boulevard",
+      "city": "Springfield",
+      "entity_id": "hb-construction",
+      "zoning_type": "I-1 Industrial/Aviation",
+      "allowed_uses": ["industrial", "aviation support", "logistics"],
+      "restrictions": {
+        "height_limit_ft": 65,
+        "FAR": 3.0,
+        "setback_front_ft": 25,
+        "setback_side_ft": 20,
+        "parking_ratio": "1 per 1000 SF",
+        "historic_overlay": false,
+        "environmental_review_required": false
+      },
+      "approvals_required": ["Planning Commission", "FAA Review"],
+      "estimated_timeline_days": 180,
+      "predev_cost_to_date": 400000,
+      "predev_budget": 500000,
+      "risk_score": 52,
+      "risk_level": "medium",
+      "status": "entitlement",
+      "owner": "Dana Holt",
+      "summary": "FAA Part 77 review is pending and adding 30-60 days to permitting timeline. Environmental assessment waived for existing footprint.",
+      "blockers": ["FAA Part 77 height review response pending"],
+      "linked_project_id": "airport-expansion",
+      "linked_document_ids": ["doc-zoning-airport"],
+      "recommended_actions": [
+        "Follow up on FAA Part 77 review response — expected within 30 days.",
+        "Coordinate noise abatement overlay requirements with airport authority.",
+        "Align entitlement timeline with Airport Expansion project schedule."
+      ]
+    },
+    {
+      "id": "industrial-park-lot",
+      "name": "Industrial Park Lot",
+      "address": "340 Riverside Commerce Drive",
+      "city": "Riverside",
+      "entity_id": "hb-development",
+      "zoning_type": "M-1 Light Manufacturing",
+      "allowed_uses": ["light manufacturing", "warehouse", "distribution"],
+      "restrictions": {
+        "height_limit_ft": 55,
+        "FAR": 2.0,
+        "setback_front_ft": 20,
+        "setback_side_ft": 15,
+        "parking_ratio": "1 per 800 SF",
+        "historic_overlay": false,
+        "environmental_review_required": false
+      },
+      "approvals_required": ["Planning Commission"],
+      "estimated_timeline_days": 90,
+      "predev_cost_to_date": 80000,
+      "predev_budget": 100000,
+      "risk_score": 18,
+      "risk_level": "low",
+      "status": "approved",
+      "owner": "Elena Brooks",
+      "summary": "By-right development with standard site plan review. Clean approvals with no special permits required.",
+      "blockers": [],
+      "linked_project_id": null,
+      "linked_document_ids": ["doc-zoning-industrial"],
+      "recommended_actions": [
+        "Finalize site plan and submit for administrative review.",
+        "Begin grading and utility coordination."
+      ]
     }
   ],
   "close_tasks": [
@@ -833,33 +1022,56 @@
       "HB Logistics margin fell to 4.8% in March from 8.3% in February because temporary labor and fuel costs ran above plan.",
       "Airport Expansion is $400K over budget, with electrical and materials spend driving the overrun.",
       "New Development Site A is $400K over budget and is blocking revenue recognition.",
-      "Month-end close is blocked by missing Logistics invoices and a late Development revenue recognition task."
+      "Month-end close is blocked by missing Logistics invoices and a late Development revenue recognition task.",
+      "Main St Parcel is stuck in review — historic overlay and environmental constraints are adding 3-4 months to the entitlement timeline.",
+      "Total predevelopment spend across the pipeline is $600K with only Industrial Park Lot fully approved."
     ],
     "where_money_is_lost": [
       "Airport Expansion overrun: $400K.",
       "New Development Site A overrun: $400K.",
       "Apex Electrical spend above contract: $150K.",
-      "Prime Staffing spend above contract: $80K."
+      "Prime Staffing spend above contract: $80K.",
+      "Main St Parcel predevelopment spend: $120K with no entitlement date in sight.",
+      "Airport Expansion Site predevelopment: $400K with FAA review still pending."
     ],
     "what_to_focus_on": [
       "Unblock Logistics invoice upload.",
       "Get the signed Site A change order into the close packet.",
       "Contain Airport Expansion electrical and materials overrun.",
-      "Consolidate duplicated vendor contracts across entities."
+      "Consolidate duplicated vendor contracts across entities.",
+      "Schedule the Historic Review Board hearing for Main St Parcel before May.",
+      "Confirm Airport Expansion Site FAA Part 77 review timeline."
+    ],
+    "development_pipeline_risks": [
+      "Main St Parcel: HIGH risk — historic overlay + environmental review. $120K of $180K budget spent. No entitlement date.",
+      "Airport Expansion Site: MEDIUM risk — FAA review pending. $400K of $500K budget spent. Linked to Airport Expansion project.",
+      "Industrial Park Lot: LOW risk — approved, by-right development. $80K of $100K budget spent."
+    ],
+    "site_approval_bottlenecks": [
+      "Historic Review Board hearing for Main St Parcel has not been scheduled.",
+      "Environmental impact study for Main St Parcel is incomplete.",
+      "FAA Part 77 height review for Airport Expansion Site is pending response.",
+      "Industrial Park Lot has no outstanding approvals — ready for site plan submission."
     ]
   },
   "demo_script": [
     "Open Hall Boys Operating System from the environment list and land on Executive.",
     "Call out consolidated March revenue of $12.5M, weighted margin of 12.0%, and two at-risk projects.",
+    "Point out the Development Site Risk panel showing Main St Parcel (HIGH) and Airport Expansion Site (MEDIUM).",
     "Click Airport Expansion to show budget vs actual, vendor overrun, linked contract, and close task.",
+    "Navigate to Pipeline to show all three development sites with risk scores, stages, and predevelopment costs.",
+    "Click Main St Parcel to show zoning restrictions, approvals required, and environmental review blocker.",
     "Jump to Vendors and show Apex Electrical and Prime Staffing duplicated across entities with overspend vs contract.",
     "Go to Documents, open the Apex contract, and point out the $250K due in 30 days plus the auto-renewal clause.",
-    "Ask Winston: What should I focus on today? and confirm the answer mentions Logistics close blockers, Site A revenue recognition, and the two red projects."
+    "Ask Winston: Should we pursue the Main St site? and confirm the answer references historic overlay, $120K spent, and environmental review timeline.",
+    "Ask Winston: What should I focus on today? and confirm the answer mentions Logistics close blockers, Site A revenue recognition, Main St approvals, and the two red projects."
   ],
   "improvements": [
     "Swap the seeded fixture for live finance, task, and vendor joins once the operator entities are modeled in canonical tables.",
     "Add owner-level drilldowns for project and close accountability.",
     "Persist uploaded operator documents back into project and vendor drilldowns automatically.",
-    "Add contract-versus-actual variance alerts that publish directly into the close surface."
+    "Add contract-versus-actual variance alerts that publish directly into the close surface.",
+    "Add GIS map integration for development sites with zoning overlay visualization.",
+    "Connect document extraction pipeline to auto-populate site restrictions from uploaded ordinance PDFs."
   ]
 }
