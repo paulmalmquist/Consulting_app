@@ -158,6 +158,46 @@ class OperatorVendorRowOut(BaseModel):
     linked_projects: list[str] = Field(default_factory=list)
 
 
+class OperatorSiteRestrictions(BaseModel):
+    height_limit_ft: float | None = None
+    FAR: float | None = None
+    setback_front_ft: float | None = None
+    setback_side_ft: float | None = None
+    parking_ratio: str | None = None
+    historic_overlay: bool = False
+    environmental_review_required: bool = False
+
+
+class OperatorSiteRowOut(BaseModel):
+    site_id: str
+    name: str
+    address: str | None = None
+    city: str | None = None
+    entity_id: str
+    entity_name: str
+    zoning_type: str | None = None
+    status: str = "scouting"
+    predev_cost_to_date: float = 0
+    predev_budget: float | None = None
+    risk_score: float = 0
+    risk_level: str = "low"
+    estimated_timeline_days: int | None = None
+    owner: str | None = None
+    summary: str | None = None
+    href: str | None = None
+
+
+class OperatorSiteDetailOut(OperatorSiteRowOut):
+    allowed_uses: list[str] = Field(default_factory=list)
+    restrictions: OperatorSiteRestrictions = Field(default_factory=OperatorSiteRestrictions)
+    approvals_required: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    linked_project_id: str | None = None
+    linked_project_name: str | None = None
+    documents: list[OperatorDocumentSummaryOut] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
+
+
 class OperatorAssistantFocusOut(BaseModel):
     headline: str
     summary_lines: list[str] = Field(default_factory=list)
@@ -179,6 +219,7 @@ class OperatorCommandCenterOut(BaseModel):
     close_tasks: list[OperatorCloseTaskRowOut] = Field(default_factory=list)
     top_documents: list[OperatorDocumentSummaryOut] = Field(default_factory=list)
     vendor_alerts: list[OperatorVendorRowOut] = Field(default_factory=list)
+    development_sites: list[OperatorSiteRowOut] = Field(default_factory=list)
     assistant_focus: OperatorAssistantFocusOut
     demo_script: list[str] = Field(default_factory=list)
     improvements: list[str] = Field(default_factory=list)

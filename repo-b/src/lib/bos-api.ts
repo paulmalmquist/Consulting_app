@@ -805,6 +805,46 @@ export interface OperatorAssistantFocus {
   prompt_suggestions: string[];
 }
 
+export interface OperatorSiteRestrictions {
+  height_limit_ft?: number | null;
+  FAR?: number | null;
+  setback_front_ft?: number | null;
+  setback_side_ft?: number | null;
+  parking_ratio?: string | null;
+  historic_overlay?: boolean;
+  environmental_review_required?: boolean;
+}
+
+export interface OperatorSiteRow {
+  site_id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  entity_id: string;
+  entity_name: string;
+  zoning_type?: string | null;
+  status: string;
+  predev_cost_to_date: number;
+  predev_budget?: number | null;
+  risk_score: number;
+  risk_level: string;
+  estimated_timeline_days?: number | null;
+  owner?: string | null;
+  summary?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorSiteDetail extends OperatorSiteRow {
+  allowed_uses: string[];
+  restrictions: OperatorSiteRestrictions;
+  approvals_required: string[];
+  blockers: string[];
+  linked_project_id?: string | null;
+  linked_project_name?: string | null;
+  documents: OperatorDocumentSummary[];
+  recommended_actions: string[];
+}
+
 export interface OperatorCommandCenter {
   env_id: string;
   business_id: string;
@@ -817,6 +857,7 @@ export interface OperatorCommandCenter {
   close_tasks: OperatorCloseTaskRow[];
   top_documents: OperatorDocumentSummary[];
   vendor_alerts: OperatorVendorRow[];
+  development_sites: OperatorSiteRow[];
   assistant_focus: OperatorAssistantFocus;
   demo_script: string[];
   improvements: string[];
@@ -8679,6 +8720,18 @@ export function listOperatorVendors(envId: string, businessId?: string): Promise
 
 export function listOperatorCloseTasks(envId: string, businessId?: string): Promise<OperatorCloseTaskRow[]> {
   return bosFetch("/api/operator/v1/close", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listOperatorSites(envId: string, businessId?: string): Promise<OperatorSiteRow[]> {
+  return bosFetch("/api/operator/v1/sites", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorSiteDetail(siteId: string, envId: string, businessId?: string): Promise<OperatorSiteDetail> {
+  return bosFetch(`/api/operator/v1/sites/${siteId}`, {
     params: { env_id: envId, business_id: businessId },
   });
 }

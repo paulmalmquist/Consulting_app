@@ -19,11 +19,13 @@ import {
   computeSha256,
   getOperatorCommandCenter,
   getOperatorProjectDetail,
+  getOperatorSiteDetail,
   initExtraction,
   initUpload,
   listDocuments,
   listOperatorCloseTasks,
   listOperatorProjects,
+  listOperatorSites,
   listOperatorVendors,
   runExtraction,
   type DocumentItem,
@@ -32,6 +34,8 @@ import {
   type OperatorCommandCenter,
   type OperatorProjectDetail,
   type OperatorProjectRow,
+  type OperatorSiteDetail,
+  type OperatorSiteRow,
   type OperatorVendorRow,
 } from "@/lib/bos-api";
 import { fmtDate, fmtMoney, fmtNumber, fmtPctDirect, fmtText } from "@/lib/format-utils";
@@ -382,6 +386,35 @@ export function OperatorExecutivePage() {
               ))}
             </div>
           </SectionCard>
+
+          {data.development_sites.length > 0 ? (
+            <SectionCard id="site-risk" title="Development Site Risk" eyebrow="Pipeline Watch">
+              <div className="space-y-3">
+                {data.development_sites.map((site) => (
+                  <Link
+                    key={site.site_id}
+                    href={site.href || "#"}
+                    className="block rounded-2xl border border-bm-border/70 bg-black/20 p-4 transition hover:bg-black/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-bm-text">{site.name}</p>
+                        <p className="mt-1 text-sm text-bm-muted2">{site.entity_name}</p>
+                      </div>
+                      <span className={`rounded-full border px-2 py-1 text-[11px] ${toneClasses(site.risk_level)}`}>
+                        {site.risk_level}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-bm-muted2">{site.summary}</p>
+                    <div className="mt-3 flex items-center justify-between text-sm text-bm-text">
+                      <span>Predev {fmtMoney(site.predev_cost_to_date)}</span>
+                      <span>Risk {fmtNumber(site.risk_score)}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </SectionCard>
+          ) : null}
 
           <OperatorWinstonPanel
             headline={data.assistant_focus.headline}
@@ -1198,6 +1231,358 @@ export function OperatorClosePage() {
                 </span>
               </div>
               {task.blocker_reason ? <p className="mt-3 text-sm text-bm-muted2">{task.blocker_reason}</p> : null}
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+export function OperatorPipelinePage() {
+  const pathname = usePathname();
+  const { envId, businessId } = useDomainEnv();
+  const [sites, setSites] = useState<OperatorSiteRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setSites(await listOperatorSites(envId, businessId || undefined));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load development sites.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [envId, businessId]);
+
+  useEffect(() => {
+    if (!sites.length) return;
+    publishAssistantPageContext({
+      route: pathname,
+      surface: "operator_pipeline",
+      active_module: "operator",
+      page_entity_type: "pipeline",
+      visible_data: {
+        development_sites: sites,
+      },
+    });
+  }, [sites, pathname]);
+
+  const highRiskSites = useMemo(() => sites.filter((site) => site.risk_level === "high"), [sites]);
+
+  if (loading) return <WorkspaceContextLoader label="Loading development pipeline" />;
+  if (error) return <OperatorErrorState title="Pipeline unavailable" detail={error} onRetry={() => void load()} />;
+
+  return (
+    <div className="space-y-4">
+      <SectionCard id="pipeline-tracker" title="Development Pipeline" eyebrow="Site Scouting + Entitlement">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-bm-border/50 text-left text-[11px] uppercase tracking-[0.16em] text-bm-muted2">
+                <th className="px-3 py-2 font-medium">Site</th>
+                <th className="px-3 py-2 font-medium">Stage</th>
+                <th className="px-3 py-2 font-medium">Cost</th>
+                <th className="px-3 py-2 font-medium">Risk</th>
+                <th className="px-3 py-2 font-medium">Timeline</th>
+                <th className="px-3 py-2 font-medium">Entity</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bm-border/40">
+              {sites.map((site) => (
+                <tr key={site.site_id}>
+                  <td className="px-3 py-3">
+                    <Link href={site.href || "#"} className="font-medium text-bm-text hover:underline">
+                      {site.name}
+                    </Link>
+                    <p className="mt-1 text-xs text-bm-muted2">{site.address}{site.city ? `, ${site.city}` : ""}</p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`rounded-full border px-2 py-1 text-[11px] ${toneClasses(site.status)}`}>
+                      {site.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-bm-text">{fmtMoney(site.predev_cost_to_date)}</td>
+                  <td className="px-3 py-3">
+                    <span className={`rounded-full border px-2 py-1 text-[11px] ${toneClasses(site.risk_level)}`}>
+                      {site.risk_level} · {fmtNumber(site.risk_score)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-bm-text">
+                    {site.estimated_timeline_days ? `${site.estimated_timeline_days} days` : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-bm-muted2">{site.entity_name}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+
+      <SectionCard id="high-risk-sites" title="High Risk Sites" eyebrow="Requires Attention">
+        <div className="grid gap-3 lg:grid-cols-2">
+          {highRiskSites.length ? (
+            highRiskSites.map((site) => (
+              <Link
+                key={`${site.site_id}-risk`}
+                href={site.href || "#"}
+                className="rounded-2xl border border-bm-border/60 bg-black/20 p-4 transition hover:bg-black/30"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-bm-text">{site.name}</p>
+                  <span className={`rounded-full border px-2 py-1 text-[11px] ${toneClasses(site.risk_level)}`}>
+                    {site.risk_level}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-bm-muted2">{site.entity_name} · {site.zoning_type}</p>
+                <p className="mt-3 text-sm text-bm-muted2">{site.summary}</p>
+                <div className="mt-3 flex items-center justify-between text-sm text-bm-text">
+                  <span>Predev {fmtMoney(site.predev_cost_to_date)}</span>
+                  <span>Risk {fmtNumber(site.risk_score)}</span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p className="text-sm text-bm-muted2">No high-risk sites in the pipeline.</p>
+          )}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+export function OperatorSiteDetailPage({ siteId }: { siteId: string }) {
+  const pathname = usePathname();
+  const { envId, businessId } = useDomainEnv();
+  const [detail, setDetail] = useState<OperatorSiteDetail | null>(null);
+  const [commandCenter, setCommandCenter] = useState<OperatorCommandCenter | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [siteDetail, center] = await Promise.all([
+        getOperatorSiteDetail(siteId, envId, businessId || undefined),
+        getOperatorCommandCenter(envId, businessId || undefined),
+      ]);
+      setDetail(siteDetail);
+      setCommandCenter(center);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load site detail.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [siteId, envId, businessId]);
+
+  useEffect(() => {
+    if (!detail || !commandCenter) return;
+    publishAssistantPageContext({
+      route: pathname,
+      surface: "operator_site_detail",
+      active_module: "operator",
+      page_entity_type: "development_site",
+      page_entity_id: detail.site_id,
+      page_entity_name: detail.name,
+      selected_entities: [
+        {
+          entity_type: "business",
+          entity_id: commandCenter.business_id,
+          name: commandCenter.business_name,
+          source: "page",
+        },
+        {
+          entity_type: "development_site",
+          entity_id: detail.site_id,
+          name: detail.name,
+          source: "page",
+          metadata: { risk_level: detail.risk_level, zoning_type: detail.zoning_type, status: detail.status },
+        },
+      ],
+      visible_data: {
+        metrics: {
+          predev_cost: detail.predev_cost_to_date,
+          predev_budget: detail.predev_budget,
+          risk_score: detail.risk_score,
+          timeline_days: detail.estimated_timeline_days,
+        },
+        notes: [...detail.blockers, ...detail.recommended_actions],
+        site_detail: detail,
+        operator_command_center: commandCenter,
+      },
+    });
+  }, [detail, commandCenter, pathname]);
+
+  if (loading) return <WorkspaceContextLoader label="Loading site intelligence" />;
+  if (error || !detail || !commandCenter) {
+    return <OperatorErrorState title="Site detail unavailable" detail={error || "No data returned."} onRetry={() => void load()} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <SectionCard title={detail.name} eyebrow={`${detail.entity_name} · ${detail.city || ""}`}>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+          <div className="space-y-4">
+            <p className="max-w-3xl text-sm text-bm-muted2">{detail.summary}</p>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Predev Cost</p>
+                <p className="mt-2 text-xl font-semibold text-bm-text">{fmtMoney(detail.predev_cost_to_date)}</p>
+              </div>
+              <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Budget</p>
+                <p className="mt-2 text-xl font-semibold text-bm-text">{fmtMoney(detail.predev_budget)}</p>
+              </div>
+              <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Risk</p>
+                <div className="mt-2 inline-flex rounded-full border px-2 py-1 text-[11px] font-medium text-bm-text">
+                  {detail.risk_score} · {detail.risk_level}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Timeline</p>
+                <p className="mt-2 text-xl font-semibold text-bm-text">
+                  {detail.estimated_timeline_days ? `${detail.estimated_timeline_days}d` : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <OperatorWinstonPanel
+            headline={`${detail.name} — ${detail.risk_level} risk`}
+            lines={[detail.summary || "", ...detail.blockers].filter(Boolean)}
+            prompts={[
+              `What is the risk on ${detail.name}?`,
+              `What approvals are needed for ${detail.name}?`,
+              `Should we continue investing in ${detail.name}?`,
+            ]}
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard id="zoning-details" title="Zoning Details" eyebrow={detail.zoning_type || "Zoning"}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Zoning Type</p>
+            <p className="mt-1 text-sm text-bm-text">{detail.zoning_type || "—"}</p>
+          </div>
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Height Limit</p>
+            <p className="mt-1 text-sm text-bm-text">
+              {detail.restrictions.height_limit_ft ? `${detail.restrictions.height_limit_ft} ft` : "—"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">FAR</p>
+            <p className="mt-1 text-sm text-bm-text">{detail.restrictions.FAR ?? "—"}</p>
+          </div>
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Parking</p>
+            <p className="mt-1 text-sm text-bm-text">{detail.restrictions.parking_ratio || "—"}</p>
+          </div>
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Historic Overlay</p>
+            <p className="mt-1 text-sm text-bm-text">{detail.restrictions.historic_overlay ? "Yes" : "No"}</p>
+          </div>
+          <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Env Review</p>
+            <p className="mt-1 text-sm text-bm-text">{detail.restrictions.environmental_review_required ? "Required" : "Not required"}</p>
+          </div>
+        </div>
+        {detail.allowed_uses.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-bm-muted2">Allowed Uses</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {detail.allowed_uses.map((use) => (
+                <span key={use} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-bm-text">
+                  {use}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard id="approvals" title="Approvals Required" eyebrow="Entitlement Path">
+        <div className="space-y-3">
+          {detail.approvals_required.map((approval) => {
+            const isBlocker = detail.blockers.some((b) => b.toLowerCase().includes(approval.toLowerCase()));
+            return (
+              <div key={approval} className={`rounded-2xl border p-4 ${isBlocker ? "border-red-500/30 bg-red-500/10" : "border-bm-border/60 bg-black/20"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-bm-text">{approval}</p>
+                  <span className={`rounded-full border px-2 py-1 text-[11px] ${isBlocker ? toneClasses("blocked") : toneClasses("on_track")}`}>
+                    {isBlocker ? "blocked" : "pending"}
+                  </span>
+                </div>
+                {isBlocker ? (
+                  <p className="mt-2 text-sm text-bm-muted2">
+                    {detail.blockers.find((b) => b.toLowerCase().includes(approval.toLowerCase()))}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
+
+      {detail.documents.length > 0 ? (
+        <SectionCard id="documents" title="Zoning Documents" eyebrow="Extracted Intelligence">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {detail.documents.map((document) => (
+              <div key={document.document_id} className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-bm-text">{document.title}</p>
+                    <p className="mt-1 text-sm text-bm-muted2">
+                      {document.type} · {fmtDate(document.created_at)}
+                    </p>
+                  </div>
+                  <FileText size={18} className="text-bm-muted2" />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {document.risk_flags.map((flag) => (
+                    <span key={`${document.document_id}-${flag}`} className={`rounded-full border px-2 py-1 text-[11px] ${toneClasses(flag)}`}>
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-4">{renderExtractedJson(document.extracted_json)}</div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {detail.linked_project_name ? (
+        <SectionCard id="linked-project" title="Linked Project" eyebrow="Execution">
+          <Link
+            href={`/lab/env/${envId}/operator/projects/${detail.linked_project_id}`}
+            className="block rounded-2xl border border-bm-border/60 bg-black/20 p-4 transition hover:bg-black/30"
+          >
+            <p className="font-medium text-bm-text">{detail.linked_project_name}</p>
+            <p className="mt-1 text-sm text-bm-muted2">View project details, budget, timeline, and vendor breakdown.</p>
+          </Link>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard id="actions" title="Recommended Actions" eyebrow="Next Steps">
+        <div className="space-y-3">
+          {detail.recommended_actions.map((action) => (
+            <div key={action} className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
+              <p className="text-sm text-bm-text">{action}</p>
             </div>
           ))}
         </div>

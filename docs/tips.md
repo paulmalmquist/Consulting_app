@@ -2300,3 +2300,12 @@ These are the questions to ask before any ML surface lands in front of executive
 - **Sign direction in explanation strips is harder to get right than it looks.** Under correlated features, sign can flip across near-identical inputs. Magnitude is usually safer; sign requires stability tests before it reaches non-technical audiences.
 - **Class-imbalance fixes (scale_pos_weight, SMOTE) make raw probabilities uncalibrated by construction.** You must calibrate afterwards. And you must calibrate on data not used for early stopping. Track both the raw AUC and the calibration Brier — AUC can hold steady while Brier rots.
 - **Threshold selection should fail loud.** If no PR-curve point meets the precision/recall floor and the code silently falls back to F1-optimal, you just deployed a different operating point than the team signed off on. Emit a warning metric when the fallback fires; consider making it a training-job failure.
+
+## Hall Boys Operating System — Environment Build Lessons
+
+- **Fixture-driven prototyping** is faster than database-first. Define the data model as JSON in `fixtures/winston_demo/`, build services that read from it, and iterate. Swap to DB reads later without changing the API contract.
+- **Domain block injection** (`_OPERATOR_DOMAIN_BLOCK` in `ai_gateway.py`) is the key to non-generic AI responses. Tell the assistant what tools to call, what grounding rules to follow, and what response format to use.
+- **MCP tool registration** follows a simple 3-file pattern: schemas in `mcp/schemas/`, handlers in `mcp/tools/`, and registration in `mcp/server.py`. Tag tools with the domain name for lane filtering.
+- **Context publishing** via `publishAssistantPageContext()` must include `visible_data` with the actual on-screen data. This prevents the AI from contradicting what the user sees.
+- **Seed data realism**: margin compression, budget overruns, vendor duplication, blocked workflows, and multi-stage pipeline sites produce better demos than happy-path data.
+- **Shell + anchor navigation** (tabs for pages, sidebar anchors for sections) scales cleanly for multi-page environments without custom routing complexity.

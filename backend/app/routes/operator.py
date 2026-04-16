@@ -11,6 +11,8 @@ from app.schemas.operator import (
     OperatorContextOut,
     OperatorProjectDetailOut,
     OperatorProjectRowOut,
+    OperatorSiteDetailOut,
+    OperatorSiteRowOut,
     OperatorVendorRowOut,
 )
 from app.services import env_context
@@ -180,4 +182,56 @@ def list_close_tasks(
             detail=str(exc),
             action="operator.close.failed",
             context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/sites", response_model=list[OperatorSiteRowOut])
+def list_sites(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [
+            OperatorSiteRowOut(**row)
+            for row in operator_svc.list_sites(env_id=resolved_env_id, business_id=resolved_business_id)
+        ]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.sites.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/sites/{site_id}", response_model=OperatorSiteDetailOut)
+def get_site_detail(
+    request: Request,
+    site_id: str,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return OperatorSiteDetailOut(
+            **operator_svc.get_site_detail(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                site_id=site_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.site_detail.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
         )
