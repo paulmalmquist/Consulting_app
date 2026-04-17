@@ -805,7 +805,7 @@ export interface OperatorAssistantFocus {
   prompt_suggestions: string[];
 }
 
-export interface OperatorSiteRestrictions {
+export interface OperatorLegacySiteRestrictions {
   height_limit_ft?: number | null;
   FAR?: number | null;
   setback_front_ft?: number | null;
@@ -815,7 +815,7 @@ export interface OperatorSiteRestrictions {
   environmental_review_required?: boolean;
 }
 
-export interface OperatorSiteRow {
+export interface OperatorLegacySiteRow {
   site_id: string;
   name: string;
   address?: string | null;
@@ -834,9 +834,9 @@ export interface OperatorSiteRow {
   href?: string | null;
 }
 
-export interface OperatorSiteDetail extends OperatorSiteRow {
+export interface OperatorLegacySiteDetail extends OperatorLegacySiteRow {
   allowed_uses: string[];
-  restrictions: OperatorSiteRestrictions;
+  restrictions: OperatorLegacySiteRestrictions;
   approvals_required: string[];
   blockers: string[];
   linked_project_id?: string | null;
@@ -9165,13 +9165,13 @@ export function listOperatorCloseTasks(envId: string, businessId?: string): Prom
   });
 }
 
-export function listOperatorSites(envId: string, businessId?: string): Promise<OperatorSiteRow[]> {
+export function listOperatorSites(envId: string, businessId?: string): Promise<OperatorLegacySiteRow[]> {
   return bosFetch("/api/operator/v1/sites", {
     params: { env_id: envId, business_id: businessId },
   });
 }
 
-export function getOperatorSiteDetail(siteId: string, envId: string, businessId?: string): Promise<OperatorSiteDetail> {
+export function getOperatorSiteDetail(siteId: string, envId: string, businessId?: string): Promise<OperatorLegacySiteDetail> {
   return bosFetch(`/api/operator/v1/sites/${siteId}`, {
     params: { env_id: envId, business_id: businessId },
   });
@@ -9179,7 +9179,7 @@ export function getOperatorSiteDetail(siteId: string, envId: string, businessId?
 
 export function listOperatorOrdinanceChanges(envId: string, businessId?: string, windowDays?: number): Promise<OperatorOrdinanceChangeRow[]> {
   return bosFetch("/api/operator/v1/site-risk/ordinance-changes", {
-    params: { env_id: envId, business_id: businessId, window_days: windowDays },
+    params: { env_id: envId, business_id: businessId, window_days: windowDays?.toString() },
   });
 }
 

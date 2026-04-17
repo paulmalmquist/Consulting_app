@@ -2351,3 +2351,19 @@ Approved plans can drift from the actual code by the time execution starts. A 60
 - **Common drift:** plan references line numbers for error banners but those lines hold helpers; the banner is 90 lines below. Fix the plan reference first, then patch.
 - **Report drift in §2 of the audit.** Makes the trail visible to reviewers: the plan predicted X, reality was Y, here's the corrected location. Don't silently re-route the fix and hope no one notices.
 - **Also catches orphaned code.** A plan target that's imported nowhere reveals the real render path. In this session: `HistoryRhymesTab` was orphaned, the real path was `CommandCenterLayout` using `useDecisionEngine` + `useAssetScopedData` fallback. The banner had to mount in both places to actually reach users.
+
+## Seed migration FK ordering: conditional parents must match conditional children (2026-04-17)
+
+`re_asset_operating_qtr` has a `NOT NULL REFERENCES repe_asset(asset_id)` FK. A seed file that inserts child rows unconditionally will violate that FK on any fresh DB where the parent seed ran conditionally (e.g., guarded by a fund-existence check).
+
+**Root cause pattern:** File 508 (`granite_peak_bottom_up_seed.sql`) inserts `repe_asset` rows only inside a `FOR v_fund_row IN SELECT ... FROM repe_fund WHERE name = '...' LOOP` block. File 511 (`repe_calibrated_asset_seed.sql`) originally inserted `re_asset_operating_qtr` rows for the same asset UUIDs as bare unconditional statements — violating the FK when the fund didn't exist yet.
+
+**Fix:** Move all child inserts that depend on conditionally-created parents into the same `DO $$` guard block. The guard checks for the fund, inserts parent rows if the fund is present, then inserts children inside the same branch. If the fund is absent the `DO $$` block exits early and no child rows are written.
+
+**Rules to follow:**
+
+- If a parent row is inserted conditionally (inside a loop or IF block), every child row for that parent must also be conditional.
+- Do not use a two-block pattern (DO block for parents, bare INSERTs for children) — the guard exits the DO block but doesn't suppress the bare statements below it.
+- Add a guardrail test (`test_seed_fk_integrity.py`) that asserts zero orphan rows in every REPE child table: `re_asset_operating_qtr`, `re_asset_exit_event`, `re_authoritative_asset_state_qtr`.
+- When diagnosing a "duplicate identifier" TS error after a rebase: check if the conflict resolver kept both an old interface and a new one with the same name. Rename the old one to `Legacy*` and use import type aliases (`import { type X as Y }`) in files that still need the old shape.
+- psycopg3 `%` in SQL strings: any literal `%` character (e.g. `LIKE '%broker%'`) must be escaped as `%%` — psycopg3 treats `%b` as a binary placeholder and raises `ProgrammingError`.

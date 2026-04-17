@@ -38,8 +38,8 @@ import {
   type OperatorCommandCenter,
   type OperatorProjectDetail,
   type OperatorProjectRow,
-  type OperatorSiteDetail,
-  type OperatorSiteRow,
+  type OperatorLegacySiteDetail as OperatorSiteDetail,
+  type OperatorLegacySiteRow as OperatorSiteRow,
   type OperatorVendorRow,
 } from "@/lib/bos-api";
 import { fmtDate, fmtMoney, fmtNumber, fmtPctDirect, fmtText } from "@/lib/format-utils";

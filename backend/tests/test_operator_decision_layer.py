@@ -6,7 +6,6 @@ signal filter, connectivity (no isolated objects), and weekly-summary shape.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
