@@ -376,6 +376,7 @@ SNAPSHOT_BUILDER_ALLOWLIST = {
     "backend/app/services/winston_demo_docs.py",          # reads re_fund_quarter_state for demo docs
     "backend/app/routes/re_financial_intelligence.py",    # reads re_fund_metrics_qtr for summary response
     "backend/app/routes/re_v2.py",                        # reads re_fund_quarter_state for fund state route
+    "backend/app/services/repe_hybrid_search.py",         # reads re_fund_quarter_state for sort-by-metric search (non-KPI display path)
     "repo-b/src/app/lab/env/[envId]/re/page.tsx",         # reads re_fund_metrics_qtr for summary tile
 }
 

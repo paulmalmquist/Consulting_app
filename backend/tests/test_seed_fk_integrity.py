@@ -32,10 +32,7 @@ def _orphan_count(cursor: FakeCursor, child_table: str) -> int:
 class TestSeedFkIntegrity:
     """These tests require a real DB connection; skip cleanly when unavailable."""
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("psycopg", reason="psycopg not available"),
-        reason="requires real DB",
-    )
+    @pytest.mark.skip(reason="requires real DB connection — not available in CI")
     def test_operating_qtr_no_orphans(self, db_cursor):
         count = _orphan_count(db_cursor, "re_asset_operating_qtr")
         assert count == 0, (
@@ -43,10 +40,7 @@ class TestSeedFkIntegrity:
             "not present in repe_asset — FK violation in seed data"
         )
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("psycopg", reason="psycopg not available"),
-        reason="requires real DB",
-    )
+    @pytest.mark.skip(reason="requires real DB connection — not available in CI")
     def test_exit_event_no_orphans(self, db_cursor):
         count = _orphan_count(db_cursor, "re_asset_exit_event")
         assert count == 0, (
