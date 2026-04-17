@@ -56,10 +56,10 @@ function priorityTone(score: number): string {
 const STAGE_ORDER = [
   "Identified",
   "Hypothesis Built",
-  "Outreach Drafted",
-  "Sent",
+  "Outreach",
   "Engaged",
   "Diagnostic Scheduled",
+  "Proposal",
   "Deliverable Sent",
   "Closed",
 ] as const;

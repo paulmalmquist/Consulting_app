@@ -692,7 +692,7 @@ class StrategicLeadUpsertRequest(BaseModel):
     reporting_complexity_score: int = Field(ge=1, le=5)
     governance_risk_score: int = Field(ge=1, le=5)
     vendor_fragmentation_score: int = Field(ge=1, le=5)
-    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach Drafted|Sent|Engaged|Diagnostic Scheduled|Deliverable Sent|Closed)$")
+    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach|Engaged|Diagnostic Scheduled|Proposal|Deliverable Sent|Closed)$")
 
 
 class StrategicLeadOut(BaseModel):
@@ -703,7 +703,7 @@ class StrategicLeadOut(BaseModel):
 
 
 class StrategicLeadAdvanceRequest(BaseModel):
-    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach Drafted|Sent|Engaged|Diagnostic Scheduled|Deliverable Sent|Closed)$")
+    status: str = Field(pattern=r"^(Identified|Hypothesis Built|Outreach|Engaged|Diagnostic Scheduled|Proposal|Deliverable Sent|Closed)$")
 
 
 class LeadHypothesisUpsertRequest(BaseModel):

@@ -21,10 +21,10 @@ from app.services import cro_metrics_engine, cro_objections, cro_proof_assets
 ACTIVE_STATUSES = (
     "Identified",
     "Hypothesis Built",
-    "Outreach Drafted",
-    "Sent",
+    "Outreach",
     "Engaged",
     "Diagnostic Scheduled",
+    "Proposal",
     "Deliverable Sent",
 )
 

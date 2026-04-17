@@ -634,14 +634,14 @@ def _promote_to_outreach_ready(ctx: McpContext, inp: PromoteToOutreachReadyInput
             }
 
         cur.execute(
-            "UPDATE cro_strategic_lead SET status = 'Outreach Drafted', updated_at = now() "
+            "UPDATE cro_strategic_lead SET status = 'Outreach', updated_at = now() "
             "WHERE id = %s",
             (str(inp.strategic_lead_id),),
         )
 
     return {
         "promoted": True,
-        "new_status": "Outreach Drafted",
+        "new_status": "Outreach",
         "readiness_score": readiness["score"],
         "blocker": None,
     }
@@ -1110,7 +1110,7 @@ def register_novendor_tools() -> None:
                 tags=frozenset({"novendor", "outreach", "write"})),
 
         ToolDef(name="novendor.outreach.promote_account_to_outreach_ready",
-                description="Advance a Novendor strategic lead to 'Outreach Drafted' status. Validates readiness score >= 5 — returns blocker if not met. Requires confirm=true.",
+                description="Advance a Novendor strategic lead to 'Outreach' status. Validates readiness score >= 5 — returns blocker if not met. Requires confirm=true.",
                 module="novendor", permission="write",
                 input_model=PromoteToOutreachReadyInput, handler=_promote_to_outreach_ready,
                 tags=frozenset({"novendor", "outreach", "write"})),

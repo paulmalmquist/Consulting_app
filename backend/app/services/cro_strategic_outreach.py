@@ -16,10 +16,10 @@ from app.services import cro_leads
 ACTIVE_STATUSES = (
     "Identified",
     "Hypothesis Built",
-    "Outreach Drafted",
-    "Sent",
+    "Outreach",
     "Engaged",
     "Diagnostic Scheduled",
+    "Proposal",
     "Deliverable Sent",
 )
 
@@ -67,7 +67,7 @@ LEGACY_SEED_COMPANIES = [
         "reporting": 5,    # pain: 100K units, fragmented PM tools
         "governance": 5,   # fit: PM is sweet spot
         "fragmentation": 2,  # deal size: PM firms tend toward implementation
-        "seed_status": "Sent",  # outreach already delivered
+        "seed_status": "Outreach",  # outreach already delivered
         "wedge": "Institutional reporting pipeline and centralized operations visibility at 100K+ units",
         "capabilities": ["investor_reporting", "maintenance_automation"],
         "hypothesis": "100K units managed — massive scale running on spreadsheets and fragmented PM tools. Quarterly investor reporting pulls from a dozen systems.",
@@ -143,7 +143,7 @@ LEGACY_SEED_COMPANIES = [
         "reporting": 4,    # pain: multi-asset class $2B+
         "governance": 4,   # fit: South Florida RE PE, right size
         "fragmentation": 3,  # deal size: $25K-$75K to start
-        "seed_status": "Sent",  # initial outreach delivered
+        "seed_status": "Outreach",  # initial outreach delivered
         "wedge": "Multi-strategy investor reporting and cross-strategy portfolio visibility",
         "capabilities": ["portfolio_dashboard", "investor_reporting"],
         "hypothesis": "Each strategy (student housing, retail, lending, hospitality) has different metrics, reporting cadences, and investor groups. Consolidating into a unified view is a major manual effort.",
@@ -1350,7 +1350,7 @@ def seed_novendor_strategic_outreach(*, env_id: str, business_id: UUID) -> dict:
         if explicit_status:
             status = explicit_status
         elif has_sequences:
-            status = "Outreach Drafted"
+            status = "Outreach"
         else:
             status = "Hypothesis Built"
 
