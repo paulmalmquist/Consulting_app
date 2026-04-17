@@ -13,8 +13,8 @@ import {
   listOperatorSites,
   type OperatorMunicipalityRow,
   type OperatorOrdinanceChangeRow,
-  type OperatorSiteDetail,
-  type OperatorSiteRow,
+  type OperatorLegacySiteDetail,
+  type OperatorLegacySiteRow,
 } from "@/lib/bos-api";
 import { fmtMoney } from "@/lib/format-utils";
 
@@ -63,7 +63,7 @@ function SectionShell({
 
 export function SiteRiskLandingPage() {
   const { envId, businessId } = useDomainEnv();
-  const [sites, setSites] = useState<OperatorSiteRow[]>([]);
+  const [sites, setSites] = useState<OperatorLegacySiteRow[]>([]);
   const [events, setEvents] = useState<OperatorOrdinanceChangeRow[]>([]);
   const [munis, setMunis] = useState<OperatorMunicipalityRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -277,7 +277,7 @@ export function SiteRiskLandingPage() {
 
 export function SiteRiskDetailPage({ siteId }: { siteId: string }) {
   const { envId, businessId } = useDomainEnv();
-  const [detail, setDetail] = useState<OperatorSiteDetail | null>(null);
+  const [detail, setDetail] = useState<OperatorLegacySiteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -380,11 +380,11 @@ export function SiteRiskDetailPage({ siteId }: { siteId: string }) {
       </SectionShell>
 
       <SectionShell title="Constraint breakdown" eyebrow="Linked Ordinance Rules">
-        {detail.constraints.length === 0 ? (
+        {(detail.constraints ?? []).length === 0 ? (
           <p className="text-sm text-bm-muted2">No active constraints. Site is clean.</p>
         ) : (
           <div className="space-y-3">
-            {detail.constraints.map((constraint) => (
+            {(detail.constraints ?? []).map((constraint) => (
               <div
                 key={constraint.rule_id ?? constraint.rule_title}
                 className="rounded-2xl border border-bm-border/60 bg-black/25 p-3"
@@ -419,11 +419,11 @@ export function SiteRiskDetailPage({ siteId }: { siteId: string }) {
       </SectionShell>
 
       <SectionShell title="Comparable projects" eyebrow="Pattern Matching">
-        {detail.comparable_projects.length === 0 ? (
+        {(detail.comparable_projects ?? []).length === 0 ? (
           <p className="text-sm text-bm-muted2">No comparable projects matched.</p>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
-            {detail.comparable_projects.map((comp) => (
+            {(detail.comparable_projects ?? []).map((comp) => (
               <div
                 key={comp.id}
                 className="rounded-2xl border border-bm-border/60 bg-black/25 p-3"

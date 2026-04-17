@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
-const usePathnameMock = vi.fn<[], string>();
+const usePathnameMock = vi.fn<() => string>();
 const routerPushMock = vi.fn();
 const switchPlatformEnvironmentMock = vi.fn();
 

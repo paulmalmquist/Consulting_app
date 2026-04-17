@@ -823,6 +823,7 @@ export interface OperatorLegacySiteRow {
   entity_id: string;
   entity_name: string;
   zoning_type?: string | null;
+  zoning?: string | null;
   status: string;
   predev_cost_to_date: number;
   predev_budget?: number | null;
@@ -832,6 +833,18 @@ export interface OperatorLegacySiteRow {
   owner?: string | null;
   summary?: string | null;
   href?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  state?: string | null;
+  acreage?: number | null;
+  buildable_units_low?: number | null;
+  buildable_units_high?: number | null;
+  feasibility_score?: number | null;
+  confidence?: string | null;
+  approval_timeline_days_low?: number | null;
+  approval_timeline_days_high?: number | null;
+  known_blocker_count?: number | null;
+  target_project_type?: string | null;
 }
 
 export interface OperatorLegacySiteDetail extends OperatorLegacySiteRow {
@@ -841,8 +854,16 @@ export interface OperatorLegacySiteDetail extends OperatorLegacySiteRow {
   blockers: string[];
   linked_project_id?: string | null;
   linked_project_name?: string | null;
+  linked_project?: OperatorSiteLinkedProject | null;
   documents: OperatorDocumentSummary[];
   recommended_actions: string[];
+  municipality_friction_score?: number | null;
+  municipality_href?: string | null;
+  constraints?: OperatorSiteConstraint[] | null;
+  comparable_projects?: OperatorSiteComparable[] | null;
+  parcel_id?: string | null;
+  height_limit_ft?: number | null;
+  density_cap_du_per_acre?: number | null;
 }
 
 export interface OperatorIfIgnoredIn30 {
@@ -974,7 +995,7 @@ export interface OperatorCommandCenter {
   close_tasks: OperatorCloseTaskRow[];
   top_documents: OperatorDocumentSummary[];
   vendor_alerts: OperatorVendorRow[];
-  development_sites: OperatorSiteRow[];
+  development_sites: OperatorLegacySiteRow[];
   assistant_focus: OperatorAssistantFocus;
   weekly_summary?: OperatorWeeklySummary | null;
   action_queue: OperatorActionQueueItem[];

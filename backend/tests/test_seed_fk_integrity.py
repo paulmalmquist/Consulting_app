@@ -59,8 +59,6 @@ class TestSeedFkIntegrity:
 
 def test_orphan_detection_sql_is_correct():
     """Smoke: the query shape is valid SQL (parsed, not executed)."""
-    import re
-
     sql = """
         SELECT COUNT(*)
         FROM re_asset_operating_qtr c
