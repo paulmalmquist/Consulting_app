@@ -32,8 +32,12 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def _app_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
 def fixture_path() -> Path:
-    return _repo_root() / "fixtures" / "winston_demo" / "meridian_demo_seed.json"
+    return _app_root() / "fixtures" / "winston_demo" / "meridian_demo_seed.json"
 
 
 def load_demo_fixture() -> dict:

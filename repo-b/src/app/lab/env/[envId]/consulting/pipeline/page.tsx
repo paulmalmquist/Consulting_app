@@ -57,13 +57,11 @@ function formatError(err: unknown): string {
 function mapExecutionColumnToStage(columnKey: string): string {
   const mapping: Record<string, string> = {
     target_identified: "identified",
-    outreach_drafted: "identified",
-    outreach_sent: "contacted",
+    outreach: "contacted",
     engaged: "engaged",
     discovery_scheduled: "meeting",
     demo_completed: "qualified",
-    proposal_sent: "proposal",
-    negotiation: "proposal",
+    proposal: "proposal",
     closed_won: "closed_won",
     closed_lost: "closed_lost",
   };
@@ -513,14 +511,6 @@ export default function PipelinePage({
       col.cards.some((c) => c.crm_opportunity_id === oppId),
     );
     if (!currentColumn || currentColumn.execution_column_key === targetStageKey) return;
-
-    // Block stage movement if card has no next action — open side panel instead
-    const draggedCard = currentColumn.cards.find((c) => c.crm_opportunity_id === oppId);
-    if (draggedCard && !draggedCard.next_action_description) {
-      setSelectedDealId(oppId);
-      setAdvanceError("Define a next action before moving this deal.");
-      return;
-    }
 
     if (targetStageKey === "closed_won" || targetStageKey === "closed_lost") {
       setCloseDialog({ opportunityId: oppId, stageKey: targetStageKey });

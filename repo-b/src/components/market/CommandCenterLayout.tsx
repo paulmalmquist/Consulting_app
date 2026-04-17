@@ -5,6 +5,10 @@ import type { AssetScope } from "@/lib/trading-lab/decision-engine-types";
 import type { DecisionEngineResult } from "@/components/market/hooks/useDecisionEngine";
 import { useAssetScopedData } from "@/components/market/hooks/useAssetScopedData";
 import { SignalStack } from "@/components/market/HistoryRhymesTab";
+import {
+  HistoryRhymesDataStateBanner,
+  type HistoryRhymesDataState,
+} from "@/components/market/HistoryRhymesDataStateBanner";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -54,8 +58,20 @@ export function CommandCenterLayout({
     .sort((a, b) => Math.abs(b.accel) - Math.abs(a.accel))
     .slice(0, 3);
 
+  const rawResponse = decisionEngine?.raw;
+  const hasRealEpisodes = (rawResponse?.analogs.episodeLibrary?.length ?? 0) > 0;
+  const bannerState: HistoryRhymesDataState = hasRealEpisodes ? "seeded" : "preview";
+  const episodeCount = rawResponse?.analogs.episodeLibrary?.length;
+  const errorNote = decisionEngine?.error ?? null;
+
   return (
     <div className="space-y-4" data-testid="command-center">
+      <HistoryRhymesDataStateBanner
+        state={bannerState}
+        episodeCount={episodeCount}
+        errorNote={errorNote}
+      />
+
       {/* TOP: Decision Narrative (full width) */}
       <DecisionNarrativeCard
         agentData={data.agentData}

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.operator import (
+    CloseoutBoardOut,
     OperatorCloseTaskRowOut,
     OperatorCommandCenterOut,
     OperatorContextOut,
@@ -14,6 +15,7 @@ from app.schemas.operator import (
     OperatorSiteDetailOut,
     OperatorSiteRowOut,
     OperatorVendorRowOut,
+    PermitBoardOut,
 )
 from app.services import env_context
 from app.services import operator as operator_svc
@@ -234,4 +236,54 @@ def get_site_detail(
             detail=str(exc),
             action="operator.site_detail.failed",
             context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
+        )
+
+
+@router.get("/permits", response_model=PermitBoardOut)
+def list_permits(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return PermitBoardOut(
+            **operator_svc.list_permits(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.permits.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/closeout", response_model=CloseoutBoardOut)
+def get_closeout_board(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return CloseoutBoardOut(
+            **operator_svc.list_closeout_packages(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.closeout.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
         )

@@ -104,9 +104,9 @@ export function computeInsight(cols: ExecutionBoardColumn[]): Insight {
     return worstKey;
   }
 
-  const early = (by.target_identified ?? 0) + (by.outreach_drafted ?? 0);
-  const sent = by.outreach_sent ?? 0;
-  const contacted = sent + (by.engaged ?? 0);
+  const early = by.target_identified ?? 0;
+  const outreach = by.outreach ?? 0;
+  const contacted = outreach + (by.engaged ?? 0);
   const stalePct = totalCards > 0 ? totalStalled / totalCards : 0;
 
   // 1. No outreach happening
@@ -118,19 +118,6 @@ export function computeInsight(cols: ExecutionBoardColumn[]): Insight {
       recommendation: {
         label: `Send ${Math.min(5, early)} outreach messages now`,
         focusStage: "target_identified",
-      },
-    };
-  }
-
-  // 2. Drafts piling up
-  if ((by.outreach_drafted ?? 0) >= 3 && sent === 0) {
-    return {
-      severity: "warning",
-      headline: `${by.outreach_drafted} drafts ready · 0 sent`,
-      subline: "Drafts are stacking up.",
-      recommendation: {
-        label: "Send drafted outreach",
-        focusStage: "outreach_drafted",
       },
     };
   }

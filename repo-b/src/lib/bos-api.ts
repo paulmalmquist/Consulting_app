@@ -845,6 +845,123 @@ export interface OperatorSiteDetail extends OperatorSiteRow {
   recommended_actions: string[];
 }
 
+export interface OperatorIfIgnoredIn30 {
+  estimated_cost_usd: number;
+  estimated_delay_days: number;
+  secondary_effects: string[];
+}
+
+export interface OperatorIfIgnored {
+  in_30_days?: OperatorIfIgnoredIn30 | null;
+}
+
+export interface OperatorImpact {
+  type: "delay" | "cost" | "revenue" | "risk";
+  estimated_cost_usd: number;
+  estimated_delay_days: number;
+  estimated_revenue_at_risk_usd: number;
+  confidence: "high" | "medium" | "low";
+  time_to_failure_days?: number | null;
+  if_ignored?: OperatorIfIgnored | null;
+}
+
+export interface OperatorActionQueueItem {
+  id: string;
+  rank: number;
+  priority: "critical" | "high" | "medium" | "low";
+  category: string;
+  title: string;
+  summary?: string | null;
+  entity_id?: string | null;
+  project_id?: string | null;
+  site_id?: string | null;
+  municipality_id?: string | null;
+  triggered_by?: { type: string; [key: string]: unknown } | null;
+  impact: OperatorImpact;
+  escalation_level: number;
+  owner?: string | null;
+  blocking: boolean;
+  due_window?: string | null;
+  href?: string | null;
+  action_label?: string | null;
+}
+
+export interface OperatorWeeklyTopRisk {
+  label: string;
+  impact_usd?: number | null;
+  impact_days?: number | null;
+  time_to_failure_days?: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface OperatorWeeklySummary {
+  week_of: string;
+  operating_posture: "defensive" | "stable" | "aggressive";
+  critical_path: string;
+  headline: string;
+  key_shifts: string[];
+  top_risks: OperatorWeeklyTopRisk[];
+  recommended_actions: string[];
+}
+
+export interface OperatorSiteOrdinanceChangeSummary {
+  id: string;
+  summary?: string | null;
+  severity?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  effective_date?: string | null;
+  impact?: OperatorImpact | null;
+  affected_site_count: number;
+  affected_project_count: number;
+  href?: string | null;
+}
+
+export interface OperatorSiteStripSummary {
+  id: string;
+  name?: string | null;
+  municipality_name?: string | null;
+  risk_level?: string | null;
+  feasibility_score?: number | null;
+  confidence?: string | null;
+  buildable_units_low?: number | null;
+  buildable_units_high?: number | null;
+  href?: string | null;
+}
+
+export interface OperatorMunicipalityStripSummary {
+  id: string;
+  name?: string | null;
+  state?: string | null;
+  friction_score?: number | null;
+  median_approval_days?: number | null;
+  active_project_count?: number | null;
+  recent_changes_30d?: number | null;
+  href?: string | null;
+}
+
+export interface OperatorSiteOrdinanceStrip {
+  ordinance_changes: OperatorSiteOrdinanceChangeSummary[];
+  sites: OperatorSiteStripSummary[];
+  municipalities: OperatorMunicipalityStripSummary[];
+}
+
+export interface OperatorBillingReadinessRow {
+  project_id: string;
+  amount_at_risk: number;
+  missing_artifact?: string | null;
+  responsible_party?: string | null;
+  days_delayed: number;
+  retention_at_risk: number;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface OperatorCashAtRisk {
+  total_amount_usd: number;
+  project_count: number;
+  rows: OperatorBillingReadinessRow[];
+}
+
 export interface OperatorCommandCenter {
   env_id: string;
   business_id: string;
@@ -859,8 +976,332 @@ export interface OperatorCommandCenter {
   vendor_alerts: OperatorVendorRow[];
   development_sites: OperatorSiteRow[];
   assistant_focus: OperatorAssistantFocus;
+  weekly_summary?: OperatorWeeklySummary | null;
+  action_queue: OperatorActionQueueItem[];
+  action_queue_collapsed_count: number;
+  site_ordinance_strip?: OperatorSiteOrdinanceStrip | null;
+  cash_at_risk?: OperatorCashAtRisk | null;
   demo_script: string[];
   improvements: string[];
+}
+
+export interface OperatorSiteRow {
+  site_id: string;
+  name?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  state?: string | null;
+  zoning?: string | null;
+  status?: string | null;
+  acreage?: number | null;
+  buildable_units_low?: number | null;
+  buildable_units_high?: number | null;
+  feasibility_score?: number | null;
+  confidence?: string | null;
+  risk_level?: string | null;
+  approval_timeline_days_low?: number | null;
+  approval_timeline_days_high?: number | null;
+  known_blocker_count: number;
+  target_project_type?: string | null;
+  linked_project_id?: string | null;
+  summary?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorSiteLinkedProject {
+  project_id: string;
+  name?: string | null;
+  status?: string | null;
+  risk_level?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorSiteConstraint {
+  rule_id?: string | null;
+  rule_title?: string | null;
+  rule_summary?: string | null;
+  severity?: string | null;
+  effective_date?: string | null;
+  impact?: string | null;
+  note?: string | null;
+  confidence?: string | null;
+}
+
+export interface OperatorSiteComparable {
+  id: string;
+  name?: string | null;
+  municipality_name?: string | null;
+  outcome?: string | null;
+  cycle_days?: number | null;
+  matched_on: string[];
+  notes?: string | null;
+}
+
+export interface OperatorSiteDetail {
+  site_id: string;
+  name?: string | null;
+  address?: string | null;
+  parcel_id?: string | null;
+  zoning?: string | null;
+  acreage?: number | null;
+  status?: string | null;
+  target_project_type?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  municipality_friction_score?: number | null;
+  municipality_href?: string | null;
+  buildable_units_low?: number | null;
+  buildable_units_high?: number | null;
+  height_limit_ft?: number | null;
+  density_cap_du_per_acre?: number | null;
+  feasibility_score?: number | null;
+  confidence?: string | null;
+  risk_level?: string | null;
+  approval_timeline_days_low?: number | null;
+  approval_timeline_days_high?: number | null;
+  linked_project?: OperatorSiteLinkedProject | null;
+  summary?: string | null;
+  constraints: OperatorSiteConstraint[];
+  comparable_projects: OperatorSiteComparable[];
+  recommended_actions: string[];
+  risk_score?: number | null;
+}
+
+export interface OperatorOrdinanceAffectedSite {
+  site_id: string;
+  name?: string | null;
+  risk_level?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorOrdinanceAffectedProject {
+  project_id: string;
+  name?: string | null;
+  risk_level?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorOrdinanceChangeRow {
+  id: string;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  rule_id?: string | null;
+  rule_title?: string | null;
+  change_type?: string | null;
+  effective_date?: string | null;
+  summary?: string | null;
+  severity?: string | null;
+  confidence?: string | null;
+  impact?: OperatorImpact | null;
+  affected_sites: OperatorOrdinanceAffectedSite[];
+  affected_projects: OperatorOrdinanceAffectedProject[];
+  municipality_href?: string | null;
+}
+
+export interface OperatorMunicipalityRow {
+  id: string;
+  name?: string | null;
+  state?: string | null;
+  median_approval_days?: number | null;
+  variance_required_rate?: number | null;
+  inspection_fail_rate?: number | null;
+  ordinance_volatility_score?: number | null;
+  comment_loop_frequency?: number | null;
+  rework_rate?: number | null;
+  overall_friction_score?: number | null;
+  active_project_count?: number | null;
+  active_site_count?: number | null;
+  active_ordinance_count?: number | null;
+  recent_changes_30d?: number | null;
+  risk_level?: string | null;
+  confidence?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorMunicipalityDetail extends OperatorMunicipalityRow {
+  sites: OperatorSiteLinkedProject[];
+  linked_projects: OperatorSiteLinkedProject[];
+  recent_changes: OperatorOrdinanceChangeRow[];
+}
+
+export interface OperatorReadinessGate {
+  key: string;
+  label?: string | null;
+  status: "complete" | "at_risk" | "incomplete" | "unknown";
+  blocker_reason?: string | null;
+  owner?: string | null;
+  next_action?: string | null;
+}
+
+export interface OperatorPrematureProjectRow {
+  anomaly_class: "premature_project";
+  site_id: string;
+  site_name?: string | null;
+  project_id: string;
+  project_name?: string | null;
+  feasibility_score?: number | null;
+  risk_level?: string | null;
+  summary?: string | null;
+  recommended_action?: string | null;
+  href?: string | null;
+  project_href?: string | null;
+}
+
+export interface OperatorActiveBeforeReadyRow {
+  anomaly_class: "active_before_ready";
+  project_id: string;
+  project_name?: string | null;
+  entity_id?: string | null;
+  overall_pct: number;
+  blocking_gate?: string | null;
+  incomplete_gate_count: number;
+  at_risk_gate_count: number;
+  gates: OperatorReadinessGate[];
+  next_action?: string | null;
+  owner?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorHandoffVarianceItem {
+  key: string;
+  label?: string | null;
+  pursuit?: unknown;
+  current?: unknown;
+  diff?: unknown;
+  severity?: string | null;
+  note?: string | null;
+  impact?: OperatorImpact | null;
+}
+
+export interface OperatorAssumptionDriftRow {
+  anomaly_class: "assumption_drift";
+  project_id: string;
+  project_name?: string | null;
+  site_id?: string | null;
+  site_name?: string | null;
+  captured_at_pursuit?: string | null;
+  top_variance_label?: string | null;
+  top_variance_note?: string | null;
+  top_variance_impact?: OperatorImpact | null;
+  variance_count: number;
+  total_impact_usd: number;
+  variance_items: OperatorHandoffVarianceItem[];
+  href?: string | null;
+}
+
+export interface OperatorPipelineIntegrityTotals {
+  premature_count: number;
+  active_before_ready_count: number;
+  drift_count: number;
+  total_drift_impact_usd: number;
+}
+
+export interface OperatorPipelineIntegrity {
+  premature_projects: OperatorPrematureProjectRow[];
+  active_before_ready: OperatorActiveBeforeReadyRow[];
+  assumption_drift: OperatorAssumptionDriftRow[];
+  totals: OperatorPipelineIntegrityTotals;
+}
+
+export interface OperatorCloseoutMissingItem {
+  id: string;
+  type: string;
+  title?: string | null;
+  owner?: string | null;
+  blocking: boolean;
+  due_date?: string | null;
+  note?: string | null;
+  impact?: OperatorImpact | null;
+}
+
+export interface OperatorCloseoutMissingTypeCount {
+  type: string;
+  count: number;
+}
+
+export interface OperatorCloseoutPackageRow {
+  project_id: string;
+  project_name?: string | null;
+  entity_id?: string | null;
+  entity_name?: string | null;
+  target_close_date?: string | null;
+  days_to_close?: number | null;
+  completion_pct: number;
+  missing_count: number;
+  blocking_count: number;
+  impact_total_usd: number;
+  earliest_due_date?: string | null;
+  missing_by_type: OperatorCloseoutMissingTypeCount[];
+  missing_items: OperatorCloseoutMissingItem[];
+  href?: string | null;
+}
+
+export interface OperatorCloseoutTotals {
+  package_count: number;
+  missing_item_count: number;
+  blocking_missing_count: number;
+  impact_total_usd: number;
+  earliest_due_date?: string | null;
+  cash_at_risk_usd: number;
+  cash_at_risk_project_count: number;
+}
+
+export interface OperatorCloseoutBoard {
+  packages: OperatorCloseoutPackageRow[];
+  totals: OperatorCloseoutTotals;
+  cash_at_risk?: OperatorCashAtRisk | null;
+}
+
+export interface OperatorPermitHistoryEntry {
+  stage: string;
+  entered_at?: string | null;
+  exited_at?: string | null;
+}
+
+export interface OperatorPermitRow {
+  permit_id: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  entity_id?: string | null;
+  entity_name?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  municipality_friction_score?: number | null;
+  permit_type?: string | null;
+  title?: string | null;
+  applicant?: string | null;
+  current_stage?: string | null;
+  stage_index: number;
+  stage_count: number;
+  stage_entered_at?: string | null;
+  median_stage_days: number;
+  days_in_stage: number;
+  days_over_median: number;
+  over_median_pct: number;
+  delay_flag: boolean;
+  expected_completion?: string | null;
+  impact?: OperatorImpact | null;
+  history: OperatorPermitHistoryEntry[];
+  href_project?: string | null;
+  href_municipality?: string | null;
+}
+
+export interface OperatorPermitFunnelRow {
+  stage: string;
+  count: number;
+}
+
+export interface OperatorPermitTotals {
+  permit_count: number;
+  delayed_count: number;
+  total_days_over_median: number;
+  delayed_impact_usd: number;
+}
+
+export interface OperatorPermitBoard {
+  permits: OperatorPermitRow[];
+  funnel: OperatorPermitFunnelRow[];
+  totals: OperatorPermitTotals;
 }
 
 export interface OpportunityModelRun {
@@ -8732,6 +9173,42 @@ export function listOperatorSites(envId: string, businessId?: string): Promise<O
 
 export function getOperatorSiteDetail(siteId: string, envId: string, businessId?: string): Promise<OperatorSiteDetail> {
   return bosFetch(`/api/operator/v1/sites/${siteId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function listOperatorOrdinanceChanges(envId: string, businessId?: string, windowDays?: number): Promise<OperatorOrdinanceChangeRow[]> {
+  return bosFetch("/api/operator/v1/site-risk/ordinance-changes", {
+    params: { env_id: envId, business_id: businessId, window_days: windowDays },
+  });
+}
+
+export function listOperatorMunicipalities(envId: string, businessId?: string): Promise<OperatorMunicipalityRow[]> {
+  return bosFetch("/api/operator/v1/site-risk/municipalities", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorMunicipalityDetail(municipalityId: string, envId: string, businessId?: string): Promise<OperatorMunicipalityDetail> {
+  return bosFetch(`/api/operator/v1/site-risk/municipalities/${municipalityId}`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPipelineIntegrity(envId: string, businessId?: string): Promise<OperatorPipelineIntegrity> {
+  return bosFetch("/api/operator/v1/pipeline-integrity", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorCloseoutBoard(envId: string, businessId?: string): Promise<OperatorCloseoutBoard> {
+  return bosFetch("/api/operator/v1/closeout", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPermitBoard(envId: string, businessId?: string): Promise<OperatorPermitBoard> {
+  return bosFetch("/api/operator/v1/permits", {
     params: { env_id: envId, business_id: businessId },
   });
 }

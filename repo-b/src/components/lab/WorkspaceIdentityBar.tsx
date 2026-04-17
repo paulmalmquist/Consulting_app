@@ -13,8 +13,6 @@
  * distinct without breaking the cohesive chrome.
  */
 
-import Link from "next/link";
-
 import { useEnv } from "@/components/EnvProvider";
 import {
   environmentCatalog,
@@ -23,6 +21,7 @@ import {
   type EnvironmentSlug,
 } from "@/lib/environmentAuth";
 import { humanIndustry } from "@/components/lab/environments/constants";
+import WorkspaceSwitcher from "@/components/lab/WorkspaceSwitcher";
 
 function pickSlug(input: string | null | undefined): EnvironmentSlug | null {
   if (!input) return null;
@@ -35,7 +34,7 @@ function pickBranding(slug: EnvironmentSlug | null): EnvironmentBranding | null 
 }
 
 export default function WorkspaceIdentityBar({ envId }: { envId: string }) {
-  const { selectedEnv } = useEnv();
+  const { selectedEnv, environments } = useEnv();
   const matches = selectedEnv?.env_id === envId ? selectedEnv : null;
   const slug = pickSlug(matches?.slug);
   const branding = pickBranding(slug);
@@ -49,6 +48,7 @@ export default function WorkspaceIdentityBar({ envId }: { envId: string }) {
 
   const glow = branding ? `rgb(${branding.glow})` : "rgb(148, 163, 184)";
   const glowSoft = branding ? `rgba(${branding.glow}, 0.12)` : "rgba(148, 163, 184, 0.12)";
+  const otherEnvs = environments.filter((e) => e.env_id !== envId);
 
   return (
     <div
@@ -77,14 +77,7 @@ export default function WorkspaceIdentityBar({ envId }: { envId: string }) {
       >
         <span aria-hidden="true">●</span> workspace
       </span>
-      <Link
-        href="/app"
-        className="rounded border border-bm-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted hover:border-bm-border hover:bg-bm-surface/40 hover:text-bm-text"
-        data-testid="workspace-exit"
-        aria-label="Back to Winston environment selector"
-      >
-        ← Winston
-      </Link>
+      <WorkspaceSwitcher currentEnv={matches} otherEnvs={otherEnvs} />
     </div>
   );
 }

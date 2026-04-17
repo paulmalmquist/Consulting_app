@@ -58,8 +58,15 @@ def test_operator_command_center_reconciles_seed(client, monkeypatch):
         "Airport Expansion",
         "New Development Site A",
     }
-    assert any("HB Logistics margin fell" in line for line in body["assistant_focus"]["summary_lines"])
+    # summary_lines now carry the weekly narrative key_shifts
+    assert any("parking" in line.lower() for line in body["assistant_focus"]["summary_lines"])
     assert any("New Development Site A overrun: $400K." == line for line in body["assistant_focus"]["money_leakage"])
+    assert body["weekly_summary"] is not None
+    assert body["weekly_summary"]["operating_posture"] == "defensive"
+    assert len(body["action_queue"]) == 8
+    for item in body["action_queue"]:
+        assert item["impact"] is not None
+        assert "confidence" in item["impact"]
 
 
 def test_operator_project_detail_contains_docs_tasks_and_vendors(client, monkeypatch):

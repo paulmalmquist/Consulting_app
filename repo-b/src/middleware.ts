@@ -40,6 +40,10 @@ function isPublicEnvironmentPath(pathname: string, slug: EnvironmentSlug) {
   if (pathname === `/${slug}/logout`) return true;
   if (pathname === `/${slug}/auth/callback`) return true;
   if (pathname === `/${slug}/about`) return true;
+  // Public marketing surfaces. Articles are indexable and sharable; the
+  // LP-facing posts on LinkedIn link directly into /novendor/articles/[slug].
+  if (pathname === `/${slug}/articles`) return true;
+  if (pathname.startsWith(`/${slug}/articles/`)) return true;
   return false;
 }
 

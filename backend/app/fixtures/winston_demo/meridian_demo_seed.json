@@ -1,0 +1,150 @@
+{
+  "environment": {
+    "env_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f101",
+    "client_name": "Meridian Capital Management \u2013 Institutional Demo",
+    "industry": "repe",
+    "industry_type": "repe",
+    "schema_name": "env_meridian_capital_management_institutional_demo"
+  },
+  "business": {
+    "slug": "meridian-capital-management-institutional-demo",
+    "region": "us"
+  },
+  "fund": {
+    "fund_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f201",
+    "deal_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f202",
+    "base_scenario_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f203",
+    "downside_scenario_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f204",
+    "assumption_set_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f205",
+    "waterfall_definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f206",
+    "name": "Institutional Growth Fund VII",
+    "quarter": "2026Q1",
+    "total_noi": 5820000,
+    "portfolio_nav": 132700000,
+    "total_called": 101500000,
+    "total_distributed": 12180000,
+    "dpi": 0.12,
+    "rvpi": 1.19,
+    "tvpi": 1.31,
+    "gross_irr": 0.142,
+    "net_irr": 0.118
+  },
+  "downside": {
+    "cap_rate_bps": 75,
+    "portfolio_nav_delta": -14600000,
+    "tvpi_delta": -0.09,
+    "net_irr_delta": -0.009
+  },
+  "assets": [
+    {
+      "asset_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f301",
+      "name": "Aurora Residences",
+      "property_type": "multifamily",
+      "market": "Denver, CO",
+      "units": 214,
+      "noi": 1180000,
+      "asset_value": 27500000,
+      "debt_balance": 16750000,
+      "dscr": 1.58,
+      "walt": 0.9
+    },
+    {
+      "asset_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f302",
+      "name": "Cedar Grove Senior Living",
+      "property_type": "senior_housing",
+      "market": "Phoenix, AZ",
+      "units": 162,
+      "noi": 980000,
+      "asset_value": 21800000,
+      "debt_balance": 13400000,
+      "dscr": 1.44,
+      "walt": 1.3
+    },
+    {
+      "asset_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f303",
+      "name": "Northgate Student Commons",
+      "property_type": "student_housing",
+      "market": "Austin, TX",
+      "units": 311,
+      "noi": 1060000,
+      "asset_value": 24100000,
+      "debt_balance": 15200000,
+      "dscr": 1.51,
+      "walt": 0.8
+    },
+    {
+      "asset_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f304",
+      "name": "Meridian Medical Pavilion",
+      "property_type": "mob",
+      "market": "Nashville, TN",
+      "units": 1,
+      "noi": 1340000,
+      "asset_value": 30900000,
+      "debt_balance": 17900000,
+      "dscr": 1.92,
+      "walt": 6.2
+    },
+    {
+      "asset_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f305",
+      "name": "Foundry Logistics Center",
+      "property_type": "industrial",
+      "market": "Columbus, OH",
+      "units": 1,
+      "noi": 1260000,
+      "asset_value": 28400000,
+      "debt_balance": 16100000,
+      "dscr": 1.86,
+      "walt": 5.6
+    }
+  ],
+  "definitions": [
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f401",
+      "term": "NOI",
+      "structured_metric_key": "noi",
+      "owner": "Portfolio Analytics",
+      "definition_text": "Net Operating Income represents recurring property-level operating income after vacancy and operating expenses, before debt service, capital expenditures, and fund-level fees.",
+      "formula_text": "NOI = Rental Revenue + Other Income - Vacancy Loss - Operating Expenses"
+    },
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f402",
+      "term": "RevPOR",
+      "structured_metric_key": "revpor",
+      "owner": "Portfolio Analytics",
+      "definition_text": "Revenue Per Occupied Room represents total room revenue divided by occupied room nights.",
+      "formula_text": "RevPOR = Room Revenue / Occupied Room Nights"
+    },
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f403",
+      "term": "DSCR",
+      "structured_metric_key": "dscr",
+      "owner": "Capital Markets",
+      "definition_text": "Debt Service Coverage Ratio measures property NOI relative to required debt service for the same period.",
+      "formula_text": "DSCR = NOI / Debt Service"
+    },
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f404",
+      "term": "WALT",
+      "structured_metric_key": "walt",
+      "owner": "Asset Management",
+      "definition_text": "Weighted Average Lease Term is the rent-weighted average remaining lease term across occupied space.",
+      "formula_text": "WALT = Sum(Remaining Lease Term * Rent Weight)"
+    },
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f405",
+      "term": "TVPI",
+      "structured_metric_key": "tvpi",
+      "owner": "Investor Relations",
+      "definition_text": "Total Value to Paid-In Capital measures realized distributions plus remaining NAV relative to called capital.",
+      "formula_text": "TVPI = (Distributed Capital + Residual NAV) / Paid-In Capital"
+    },
+    {
+      "definition_id": "9b4d7c63-3f7a-4dc8-8c95-7db5c4e1f406",
+      "term": "IRR",
+      "structured_metric_key": "irr",
+      "owner": "Investor Relations",
+      "definition_text": "Internal Rate of Return is the discount rate that sets net present value of fund cash flows and residual value to zero.",
+      "formula_text": "IRR = discount rate where NPV(cash flows) = 0"
+    }
+  ]
+}

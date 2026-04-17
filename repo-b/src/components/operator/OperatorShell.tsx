@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Building2, Menu, X } from "lucide-react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import { WorkspaceContextLoader } from "@/components/ui/WinstonLoader";
+import { OperatorUnavailableState } from "@/components/operator/OperatorUnavailableState";
 
 type OperatorShellProps = {
   envId: string;
@@ -38,7 +39,29 @@ function anchorSections(pathname: string): AnchorItem[] {
       { id: "close-tracker", label: "Close Tracker" },
     ];
   }
-  if (pathname.includes("/operator/projects/")) {
+  if (pathname.includes("/operator/site-risk")) {
+    return [
+      { id: "ordinance-changes", label: "Ordinance changes" },
+      { id: "sites", label: "Sites" },
+      { id: "municipalities", label: "Municipalities" },
+    ];
+  }
+  if (pathname.includes("/operator/municipalities")) {
+    return [
+      { id: "scorecard", label: "Scorecard" },
+      { id: "linked-sites", label: "Sites" },
+      { id: "linked-projects", label: "Projects" },
+      { id: "recent-changes", label: "Recent changes" },
+    ];
+  }
+  if (pathname.includes("/operator/pipeline-integrity")) {
+    return [
+      { id: "premature-projects", label: "Premature projects" },
+      { id: "active-before-ready", label: "Active before ready" },
+      { id: "assumption-drift", label: "Assumption drift" },
+    ];
+  }
+  if (pathname.includes("/operator/projects/") || pathname.includes("/operator/delivery/")) {
     return [
       { id: "budget-vs-actual", label: "Budget vs Actual" },
       { id: "documents", label: "Documents" },
@@ -46,8 +69,9 @@ function anchorSections(pathname: string): AnchorItem[] {
       { id: "vendors", label: "Vendors" },
     ];
   }
-  if (pathname.includes("/operator/projects")) {
+  if (pathname.includes("/operator/projects") || pathname.includes("/operator/delivery")) {
     return [
+      { id: "permit-tracker", label: "Permits" },
       { id: "project-tracker", label: "Tracker" },
       { id: "red-projects", label: "Red Projects" },
     ];
@@ -80,7 +104,7 @@ function anchorSections(pathname: string): AnchorItem[] {
       { id: "consolidation", label: "Consolidation" },
     ];
   }
-  if (pathname.includes("/operator/close")) {
+  if (pathname.includes("/operator/close") || pathname.includes("/operator/closeout")) {
     return [
       { id: "close-tasks", label: "Close Tasks" },
       { id: "blockers", label: "Blockers" },
@@ -95,6 +119,10 @@ function anchorSections(pathname: string): AnchorItem[] {
   ];
 }
 
+function isExecutivePath(pathname: string, base: string): boolean {
+  return pathname === base;
+}
+
 export default function OperatorShell({ envId, children }: OperatorShellProps) {
   const pathname = usePathname();
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
@@ -104,16 +132,20 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
   const tabs = useMemo<NavItem[]>(
     () => [
       { href: base, label: "Executive", exact: true },
-      { href: `${base}/finance`, label: "Finance" },
-      { href: `${base}/projects`, label: "Projects" },
+      { href: `${base}/site-risk`, label: "Site Risk" },
+      { href: `${base}/municipalities`, label: "Municipalities" },
+      { href: `${base}/pipeline-integrity`, label: "Pipeline Integrity" },
+      { href: `${base}/projects`, label: "Delivery" },
       { href: `${base}/documents`, label: "Documents" },
       { href: `${base}/pipeline`, label: "Pipeline" },
       { href: `${base}/vendors`, label: "Vendors" },
-      { href: `${base}/close`, label: "Close" },
+      { href: `${base}/close`, label: "Closeout" },
+      { href: `${base}/finance`, label: "Finance" },
     ],
     [base]
   );
   const sections = useMemo(() => anchorSections(pathname), [pathname]);
+  const showAnchorAside = sections.length > 0 && !isExecutivePath(pathname, base);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -137,58 +169,60 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-6 space-y-3" data-testid="operator-context-error">
-        <h2 className="text-lg font-semibold">Unable to load Hall Boys operator workspace</h2>
-        <p className="text-sm text-red-300">{error}</p>
-        {requestId ? <p className="text-xs text-bm-muted2">Request ID: {requestId}</p> : null}
-        <button
-          type="button"
-          onClick={() => void retry()}
-          className="rounded-full border border-bm-border px-4 py-2 text-sm hover:bg-bm-surface/40"
-        >
-          Retry
-        </button>
+      <div data-testid="operator-context-error">
+        <OperatorUnavailableState
+          title="Unable to load Hall Boys operator workspace"
+          detail={error}
+          onRetry={() => void retry()}
+          requestId={requestId}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <header className="rounded-[28px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,rgba(181,161,99,0.18),transparent_38%),linear-gradient(180deg,rgba(17,24,39,0.94),rgba(12,18,28,0.92))] p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-bm-muted2">
-              <Building2 size={14} />
+      <header className="rounded-[22px] border border-bm-border/70 bg-[radial-gradient(circle_at_top_left,rgba(181,161,99,0.14),transparent_38%),linear-gradient(180deg,rgba(17,24,39,0.94),rgba(12,18,28,0.92))] px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-bm-muted2"
+              title={`Business ID: ${businessId || "—"} · Industry: ${environment?.industry_type || environment?.industry || "multi_entity_operator"}`}
+            >
+              <Building2 size={12} />
               Hall Boys Operating System
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-bm-text sm:text-3xl">
-                {environment?.client_name || "Hall Boys Operating System"}
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm text-bm-muted2 sm:text-[15px]">
-                See across all companies, understand what is happening operationally, and act on it in one place.
-              </p>
-            </div>
+            </span>
+            <h1 className="truncate text-lg font-semibold text-bm-text sm:text-xl">
+              {environment?.client_name || "Hall Boys Holdings"}
+            </h1>
           </div>
-
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-bm-border/70 bg-black/20 text-bm-text lg:hidden"
-            aria-label="Open operator navigation"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <Menu size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-[11px] uppercase tracking-[0.18em] text-bm-muted2 sm:inline">
+              As of 2026-03-31
+            </span>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-bm-border/70 bg-black/20 text-bm-text lg:hidden"
+              aria-label="Open operator navigation"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu size={16} />
+            </button>
+          </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <p className="mt-1.5 max-w-3xl text-[13px] text-bm-muted2">
+          Land → permits → build → close → cash. One surface, every entity.
+        </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {tabs.map((tab) => {
             const active = isActive(pathname, tab.href, tab.exact);
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`rounded-full px-4 py-2 text-sm transition ${
+                className={`rounded-full px-3 py-1 text-[13px] transition ${
                   active
                     ? "bg-white text-slate-950"
                     : "border border-white/10 bg-white/5 text-bm-muted2 hover:bg-white/10 hover:text-bm-text"
@@ -198,11 +232,6 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
               </Link>
             );
           })}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3 text-xs text-bm-muted2">
-          <span>Business ID: {businessId || "—"}</span>
-          <span>Industry: {environment?.industry_type || environment?.industry || "multi_entity_operator"}</span>
         </div>
       </header>
 
@@ -251,26 +280,29 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">On This Page</p>
-            <nav className="mt-3 space-y-1.5">
-              {sections.map((section) => (
-                <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  className="block rounded-xl px-3 py-2 text-sm text-bm-muted2 transition hover:bg-bm-surface/40 hover:text-bm-text"
-                >
-                  {section.label}
-                </a>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
+      {showAnchorAside ? (
+        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 rounded-3xl border border-bm-border/70 bg-bm-surface/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">On This Page</p>
+              <nav className="mt-3 space-y-1.5">
+                {sections.map((section) => (
+                  <a
+                    key={section.id}
+                    href={`#${section.id}`}
+                    className="block rounded-xl px-3 py-2 text-sm text-bm-muted2 transition hover:bg-bm-surface/40 hover:text-bm-text"
+                  >
+                    {section.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </aside>
+          <main className="min-w-0">{children}</main>
+        </div>
+      ) : (
         <main className="min-w-0">{children}</main>
-      </div>
+      )}
     </div>
   );
 }

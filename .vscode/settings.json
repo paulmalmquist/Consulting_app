@@ -2,12 +2,9 @@
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
   "python.terminal.activateEnvironment": true,
   "python.terminal.activateEnvInCurrentTerminal": true,
-  "jupyter.kernels.filter": [
-    {
-      "type": "pythonEnvironment",
-      "path": "${workspaceFolder}/backend/.venv/bin/python"
-    }
-  ],
   "jupyter.notebookFileRoot": "${workspaceFolder}",
-  "notebook.defaultKernel": "${workspaceFolder}/backend/.venv/bin/python"
+  "notebook.defaultKernel": "${workspaceFolder}/backend/.venv/bin/python",
+  "jupyter.kernels.excludePythonEnvironments": [
+    "${workspaceFolder}/backend/.venv/bin/python"
+  ]
 }

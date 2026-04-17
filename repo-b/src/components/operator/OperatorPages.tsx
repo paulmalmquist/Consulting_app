@@ -17,6 +17,7 @@ import { publishAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import {
   completeUpload,
   computeSha256,
+  getOperatorCloseoutBoard,
   getOperatorCommandCenter,
   getOperatorProjectDetail,
   getOperatorSiteDetail,
@@ -30,6 +31,9 @@ import {
   runExtraction,
   type DocumentItem,
   type ExtractionDetail,
+  type OperatorCloseoutBoard,
+  type OperatorCloseoutMissingItem,
+  type OperatorCloseoutPackageRow,
   type OperatorCloseTaskRow,
   type OperatorCommandCenter,
   type OperatorProjectDetail,
@@ -39,6 +43,12 @@ import {
   type OperatorVendorRow,
 } from "@/lib/bos-api";
 import { fmtDate, fmtMoney, fmtNumber, fmtPctDirect, fmtText } from "@/lib/format-utils";
+import { OperatorUnavailableState } from "@/components/operator/OperatorUnavailableState";
+import { WeeklyNarrativeCard } from "@/components/operator/WeeklyNarrativeCard";
+import { ActionQueueSection } from "@/components/operator/ActionQueueSection";
+import { SiteOrdinanceStrip } from "@/components/operator/SiteOrdinanceStrip";
+import { CashAtRiskStrip } from "@/components/operator/CashAtRiskStrip";
+import { PermitTracker } from "@/components/operator/PermitTracker";
 
 function toneClasses(value: string) {
   const key = value.toLowerCase();
@@ -63,19 +73,7 @@ function OperatorErrorState({
   detail: string;
   onRetry: () => void;
 }) {
-  return (
-    <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
-      <h2 className="text-lg font-semibold text-bm-text">{title}</h2>
-      <p className="mt-2 text-sm text-red-200">{detail}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-4 rounded-full border border-red-400/30 px-4 py-2 text-sm text-red-100 hover:bg-red-500/10"
-      >
-        Retry
-      </button>
-    </div>
-  );
+  return <OperatorUnavailableState title={title} detail={detail} onRetry={onRetry} />;
 }
 
 function SectionCard({
@@ -345,22 +343,39 @@ export function OperatorExecutivePage() {
 
   if (loading) return <WorkspaceContextLoader label="Loading executive operator view" />;
   if (error || !data) {
-    return <OperatorErrorState title="Executive view unavailable" detail={error || "No data returned."} onRetry={() => void reload()} />;
+    return (
+      <OperatorUnavailableState
+        title="Executive surface unavailable"
+        detail={error || "No data returned."}
+        onRetry={() => void reload()}
+      />
+    );
   }
 
   return (
     <div className="space-y-4">
-      <section id="overview" className="space-y-4">
+      {data.weekly_summary ? <WeeklyNarrativeCard summary={data.weekly_summary} /> : null}
+
+      <section id="kpi-strip">
         <MetricStrip metrics={data.metrics_strip} />
       </section>
 
+      <ActionQueueSection
+        items={data.action_queue}
+        collapsedCount={data.action_queue_collapsed_count}
+      />
+
+      {data.site_ordinance_strip ? (
+        <SiteOrdinanceStrip data={data.site_ordinance_strip} />
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <SectionCard id="entity-performance" title="Entity Performance" eyebrow="Cross-Entity View">
+        <SectionCard id="entity-performance" title="Portfolio Performance" eyebrow="Cross-Entity View">
           <EntityPerformanceTable rows={data.entity_performance} />
         </SectionCard>
 
         <div className="space-y-4">
-          <SectionCard id="project-risk" title="Project Risk" eyebrow="Red Panel">
+          <SectionCard id="project-risk" title="Delivery Risk" eyebrow="At-Risk Projects">
             <div className="space-y-3">
               {data.at_risk_projects.map((project) => (
                 <Link
@@ -423,6 +438,12 @@ export function OperatorExecutivePage() {
           />
         </div>
       </div>
+
+      {data.cash_at_risk ? <CashAtRiskStrip data={data.cash_at_risk} /> : null}
+
+      <p className="mt-2 text-center text-[11px] uppercase tracking-[0.22em] text-bm-muted2/70">
+        This is not a dashboard. This is a system that shows where money is being lost and what to do about it.
+      </p>
     </div>
   );
 }
@@ -560,6 +581,8 @@ export function OperatorProjectsPage() {
 
   return (
     <div className="space-y-4">
+      <PermitTracker />
+
       <SectionCard id="project-tracker" title="Cross-Entity Project Tracker" eyebrow="Execution Surface">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -1152,8 +1175,152 @@ export function OperatorVendorsPage() {
   );
 }
 
+const CLOSEOUT_TYPE_LABEL: Record<string, string> = {
+  lien_waiver: "Lien waiver",
+  inspection: "Inspection",
+  final_invoice: "Final invoice",
+  warranty: "Warranty",
+  as_built: "As-built",
+  punchlist: "Punchlist",
+  other: "Other",
+};
+
+function closeoutTypeLabel(type: string): string {
+  return CLOSEOUT_TYPE_LABEL[type] ?? type.replace(/_/g, " ");
+}
+
+function CloseoutMissingItemRow({ item }: { item: OperatorCloseoutMissingItem }) {
+  const impact = item.impact;
+  const ignored = impact?.if_ignored?.in_30_days;
+  const ttf = impact?.time_to_failure_days ?? null;
+  const isUrgent = ttf != null && ttf <= 14;
+  return (
+    <div className="rounded-2xl border border-bm-border/50 bg-black/20 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-bm-text">{item.title}</p>
+            <span className="rounded-full border border-bm-border/50 bg-bm-surface/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+              {closeoutTypeLabel(item.type)}
+            </span>
+            {item.blocking ? (
+              <span className="rounded-full border border-red-400/40 bg-red-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-red-100">
+                Blocking
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-bm-muted2">
+            {item.owner} · due {fmtDate(item.due_date || undefined)}
+          </p>
+          {item.note ? <p className="mt-1 text-xs text-bm-muted2">{item.note}</p> : null}
+        </div>
+        <div className="flex flex-col items-end gap-1 text-[11px]">
+          {impact?.estimated_cost_usd ? (
+            <span className="rounded-full border border-red-400/30 bg-red-500/10 px-2 py-0.5 text-red-100">
+              {fmtMoney(impact.estimated_cost_usd)}
+            </span>
+          ) : null}
+          {isUrgent ? (
+            <span className="rounded-full border border-red-500/50 bg-red-500/20 px-2 py-0.5 font-medium text-red-100">
+              {ttf}d to failure
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {ignored ? (
+        <p data-testid="closeout-if-ignored" className="mt-2 text-xs text-red-200/80">
+          If ignored in 30d: +{fmtMoney(ignored.estimated_cost_usd)}
+          {ignored.estimated_delay_days ? ` · +${ignored.estimated_delay_days}d` : ""}
+          {ignored.secondary_effects?.length ? ` · ${ignored.secondary_effects[0]}` : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CloseoutPackageCard({ pkg }: { pkg: OperatorCloseoutPackageRow }) {
+  const pct = Math.round((pkg.completion_pct || 0) * 100);
+  const blocking = pkg.missing_items.filter((m) => m.blocking);
+  const nonBlocking = pkg.missing_items.filter((m) => !m.blocking);
+  const daysToClose = pkg.days_to_close ?? null;
+  const isAtRisk = daysToClose != null && daysToClose <= 30;
+  return (
+    <div className="rounded-3xl border border-bm-border/60 bg-bm-surface/25 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Link
+            href={pkg.href ?? "#"}
+            className="text-base font-medium text-bm-text hover:underline"
+          >
+            {pkg.project_name}
+          </Link>
+          <p className="mt-1 text-xs text-bm-muted2">
+            {pkg.entity_name} · target close {fmtDate(pkg.target_close_date || undefined)}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[11px] ${
+              isAtRisk
+                ? "border-red-400/40 bg-red-500/10 text-red-200"
+                : "border-bm-border/50 bg-bm-surface/30 text-bm-muted2"
+            }`}
+          >
+            {daysToClose != null ? `${daysToClose} days to close` : "—"}
+          </span>
+          {pkg.impact_total_usd ? (
+            <span className="rounded-full border border-red-400/30 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-100">
+              {fmtMoney(pkg.impact_total_usd)} at risk
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <div className="flex-1 h-2 overflow-hidden rounded-full bg-bm-border/40">
+          <div
+            className={`h-full rounded-full ${pct >= 75 ? "bg-emerald-400/80" : pct >= 50 ? "bg-amber-400/80" : "bg-red-400/80"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-xs text-bm-muted2">{pct}% complete</span>
+        <span className="text-xs text-bm-muted2">
+          · {pkg.blocking_count} blocking / {pkg.missing_count} missing
+        </span>
+      </div>
+
+      {blocking.length ? (
+        <div className="mt-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-red-200">
+            Blocking
+          </p>
+          <div className="mt-2 space-y-2">
+            {blocking.map((item) => (
+              <CloseoutMissingItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {nonBlocking.length ? (
+        <details className="mt-4 text-sm text-bm-muted2">
+          <summary className="cursor-pointer">
+            {nonBlocking.length} non-blocking item{nonBlocking.length === 1 ? "" : "s"}
+          </summary>
+          <div className="mt-2 space-y-2">
+            {nonBlocking.map((item) => (
+              <CloseoutMissingItemRow key={item.id} item={item} />
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 export function OperatorClosePage() {
   const { envId, businessId } = useDomainEnv();
+  const [board, setBoard] = useState<OperatorCloseoutBoard | null>(null);
   const [tasks, setTasks] = useState<OperatorCloseTaskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1162,9 +1329,14 @@ export function OperatorClosePage() {
     setLoading(true);
     setError(null);
     try {
-      setTasks(await listOperatorCloseTasks(envId, businessId || undefined));
+      const [b, t] = await Promise.all([
+        getOperatorCloseoutBoard(envId, businessId || undefined),
+        listOperatorCloseTasks(envId, businessId || undefined),
+      ]);
+      setBoard(b);
+      setTasks(t);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load close tasks.");
+      setError(err instanceof Error ? err.message : "Failed to load closeout board.");
     } finally {
       setLoading(false);
     }
@@ -1174,14 +1346,97 @@ export function OperatorClosePage() {
     void load();
   }, [envId, businessId]);
 
-  const blockers = useMemo(() => tasks.filter((task) => task.status === "blocked" || task.status === "late"), [tasks]);
+  const blockers = useMemo(
+    () => tasks.filter((task) => task.status === "blocked" || task.status === "late"),
+    [tasks]
+  );
 
-  if (loading) return <WorkspaceContextLoader label="Loading close tracker" />;
-  if (error) return <OperatorErrorState title="Close tracker unavailable" detail={error} onRetry={() => void load()} />;
+  if (loading) return <WorkspaceContextLoader label="Loading closeout board" />;
+  if (error || !board) {
+    return (
+      <OperatorUnavailableState
+        title="Closeout board unavailable"
+        detail={error || "No data returned."}
+        onRetry={() => void load()}
+      />
+    );
+  }
+
+  const { packages, totals } = board;
 
   return (
     <div className="space-y-4">
-      <SectionCard id="close-tasks" title="Close Tasks Across Entities" eyebrow="Workflow Management">
+      <section
+        data-testid="closeout-summary"
+        className="grid gap-3 sm:grid-cols-4"
+      >
+        <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/25 p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">
+            Cash stuck
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-red-200">
+            {fmtMoney(totals.cash_at_risk_usd)}
+          </p>
+          <p className="mt-1 text-xs text-bm-muted2">
+            Across {totals.cash_at_risk_project_count} projects.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/25 p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">
+            Blocking items
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-bm-text">
+            {totals.blocking_missing_count}
+          </p>
+          <p className="mt-1 text-xs text-bm-muted2">
+            Of {totals.missing_item_count} total missing.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/25 p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">
+            Closeout exposure
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-bm-text">
+            {fmtMoney(totals.impact_total_usd)}
+          </p>
+          <p className="mt-1 text-xs text-bm-muted2">
+            Sum of impact blocks on missing items.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-bm-border/70 bg-bm-surface/25 p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-bm-muted2">
+            Next due
+          </p>
+          <p className="mt-2 text-xl font-semibold text-bm-text">
+            {fmtDate(totals.earliest_due_date || undefined)}
+          </p>
+          <p className="mt-1 text-xs text-bm-muted2">
+            Earliest blocking deadline across all packages.
+          </p>
+        </div>
+      </section>
+
+      <SectionCard
+        id="closeout-packages"
+        title="Readiness board"
+        eyebrow="Projects sorted by days to close"
+      >
+        <div className="space-y-4">
+          {packages.length === 0 ? (
+            <p className="text-sm text-bm-muted2">
+              No closeout packages in flight.
+            </p>
+          ) : (
+            packages.map((pkg) => (
+              <CloseoutPackageCard key={pkg.project_id} pkg={pkg} />
+            ))
+          )}
+        </div>
+      </SectionCard>
+
+      {board.cash_at_risk ? <CashAtRiskStrip data={board.cash_at_risk} /> : null}
+
+      <SectionCard id="close-tasks" title="Close tasks" eyebrow="Cross-Entity Workflow">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -1215,7 +1470,7 @@ export function OperatorClosePage() {
         </div>
       </SectionCard>
 
-      <SectionCard id="blockers" title="Blockers + Late Flags" eyebrow="What Is Holding Close">
+      <SectionCard id="blockers" title="Blocked / late tasks" eyebrow="What Is Holding Close">
         <div className="space-y-3">
           {blockers.map((task) => (
             <div key={`${task.task_id}-blocker`} className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import CapabilityUnavailable from "@/components/common/CapabilityUnavailable";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
   fetchProofAssets,
@@ -121,11 +122,17 @@ export default function ProofAssetsPage({ params }: { params: { envId: string } 
   }
 
   if (contextError) {
+    // Plan Loop 3: route through the unified taxonomy so the "environment
+    // unavailable" copy shares the same visual language as every other
+    // not-yet-loadable capability across the app.
     return (
-      <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-5 py-4 text-sm text-bm-text">
-        <p className="font-semibold">Environment unavailable</p>
-        <p className="mt-1 text-bm-muted2">{contextError}</p>
-      </div>
+      <CapabilityUnavailable
+        state="temporary_error"
+        capabilityKey="consulting.proof_assets"
+        title="Proof Assets"
+        moduleLabel="Consulting · Revenue OS"
+        note={contextError}
+      />
     );
   }
 

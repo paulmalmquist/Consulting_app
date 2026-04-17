@@ -2309,3 +2309,45 @@ These are the questions to ask before any ML surface lands in front of executive
 - **Context publishing** via `publishAssistantPageContext()` must include `visible_data` with the actual on-screen data. This prevents the AI from contradicting what the user sees.
 - **Seed data realism**: margin compression, budget overruns, vendor duplication, blocked workflows, and multi-stage pipeline sites produce better demos than happy-path data.
 - **Shell + anchor navigation** (tabs for pages, sidebar anchors for sections) scales cleanly for multi-page environments without custom routing complexity.
+
+## Data-state honesty banner for AI/ML surfaces (Winston audit 2026-04-17)
+
+AI/ML UI often ships with hardcoded mock arrays while the pipeline is scaffolded. Users then see polished-looking intelligence with fake numbers and don't realize it. The fix is a three-state, painfully-honest banner at the top of every such surface.
+
+- **States (locked by `HistoryRhymesDataStateBanner`):** `preview` → synthetic fixture data, none of the numbers are real. `seeded` → backend-connected to a static historical library but not a live current-market match. `live` → current-market output computed from live inputs. `live` is reserved — the component accepts it but the fetcher must never produce it until every numeric surface is backend-sourced.
+- **Promotion rule:** mixed-mode pages (real episodes + fake forecaster) stay `preview`. The banner promotes only when every rendered numeric surface is backend-sourced. This prevents silent drift where "we wired one panel" gets labeled `seeded` and the audience assumes everything is real.
+- **Scope-guard for a single loop:** hardcode the banner state when the loop only wires one surface. A `bannerState = "preview"` line with a comment explaining why is safer than exposing a prop that will get called with wrong values during subsequent partial wiring.
+- **Location:** [repo-b/src/components/market/HistoryRhymesDataStateBanner.tsx](../repo-b/src/components/market/HistoryRhymesDataStateBanner.tsx). Copy lives in the component itself (not i18n yet) so the honesty text is obvious to future reviewers.
+- **Cost of not having this:** a serious prospect notices mock data in a demo, cites it every time AI comes up, and the product loses the room. Same pattern as the NCF Grant Friction proxy-target trap in the hostile ML audit checklist above.
+
+## Context-preserving route resolution for cross-tenant navigation (Winston audit 2026-04-17)
+
+Multi-tenant apps need an in-env workspace switcher. The naive implementation (preserve the full path) generates 404s and wrong-tenant errors because entity ids don't cross env boundaries. The safe implementation is a pure helper that returns `{ path, preservesModule, reason }`.
+
+- **Never carry deep entity sub-paths across envs.** Fund ids, asset ids, deal ids are env-scoped. `/re/funds/fund-123` in Meridian → `/re/funds/fund-123` in Novendor will fail; at best 404, at worst renders a wrong-tenant error.
+- **Preservation policy (three levels):** (1) module matches target's primary landing → preserve at module root (`/lab/env/{target}/{module}`); (2) module is in a known shared allowlist (`documents`, `executive`, `analytics`, `admin`, `audit`) → preserve at module root; (3) otherwise → fall back to target env's home path via `environmentHomePath`.
+- **Always strip deep path even when preserving.** The module's own landing page handles further navigation. Don't try to guess "the same sub-path exists in the target" — if you're wrong, you broke nav; if you're right, the module was going to navigate there anyway.
+- **Tell the user with a tooltip, never silently.** `"Opens the same module in X"` vs `"Switches to X's home workspace"` — the tooltip is how the switcher stays trustworthy. No silent redirects.
+- **Keep the resolver pure + unit-testable.** `resolveSwitchTarget(currentPath, targetEnv)` at [repo-b/src/lib/lab/resolveSwitchTarget.ts](../repo-b/src/lib/lab/resolveSwitchTarget.ts) has zero React deps and 10 unit tests. The React component just consumes it.
+- **Useful data attributes for QA:** `data-preserves-module="true|false"` and `data-target-path="/lab/env/.../..."` on every menu item. Makes both automated UX audits and manual QA trivial.
+
+## Single-source state taxonomy for capability + environment lifecycle (Winston audit 2026-04-17)
+
+When "not fully working" is expressed in four different UI patterns (polished component, experimental eyebrow, ad-hoc error banner, silent empty state), users can't tell "not enabled for this env" from "preview" from "service down" from "experimental." Collapse them all into one taxonomy.
+
+- **Five states, locked:** `not_enabled`, `preview`, `temporary_error`, `experimental_partial`, `archived`. Same words everywhere. Add states only via the registry file, never improvise.
+- **Single source of truth:** [repo-b/src/lib/lab/capability-state-taxonomy.ts](../repo-b/src/lib/lab/capability-state-taxonomy.ts) — `CAPABILITY_STATES` const, `CAPABILITY_STATE_META` (pill label, tone, default headline, default detail), `CAPABILITY_STATE_TONE_CLASSES` (Tailwind classes per tone). Consumed by both `CapabilityUnavailable` and `EnvLifecyclePill`.
+- **One component per scope, shared vocabulary:** `CapabilityUnavailable` for per-capability states (renders full card). `EnvLifecyclePill` for per-environment lifecycle (renders small pill). They *look* different — but they *speak* the same taxonomy.
+- **Every surface must emit `data-state="..."` attr** for automated telemetry + QA. A single `document.querySelectorAll("[data-state='temporary_error']").length` sweep audits the whole app in one query.
+- **Default-but-override contract for backwards compatibility:** `CapabilityUnavailable` accepts an optional `state` prop defaulting to `not_enabled`. Existing 3 callers didn't need to change; new callers opt into explicit states for clarity.
+- **Fallback rule when consolidation gets invasive:** if aligning a parallel component (e.g. `DomainPreviewState` — 9 call sites) turns into a multi-hour refactor, stop at taxonomy-aligned copy/pill parity in the current session and file full wrapper consolidation as follow-up. Goal is unified *language*, not unified *component tree*.
+- **Lifecycle not = capability:** `not_enabled` and `temporary_error` don't apply at env level (those are per-capability). `preview` / `experimental_partial` / `archived` can apply to either. Keep the distinction in type signatures (see `EnvLifecycleState` narrow type).
+
+## Plan mode discipline: repo inventory confirmation before patching (Winston audit 2026-04-17)
+
+Approved plans can drift from the actual code by the time execution starts. A 60-second read-pass across every assumption saves an hour of patching the wrong file.
+
+- **Loop 0.5 pattern:** before any code changes, read each file the plan references and either `confirmed:` it in the report or note `drift:` with the corrected location.
+- **Common drift:** plan references line numbers for error banners but those lines hold helpers; the banner is 90 lines below. Fix the plan reference first, then patch.
+- **Report drift in §2 of the audit.** Makes the trail visible to reviewers: the plan predicted X, reality was Y, here's the corrected location. Don't silently re-route the fix and hope no one notices.
+- **Also catches orphaned code.** A plan target that's imported nowhere reveals the real render path. In this session: `HistoryRhymesTab` was orphaned, the real path was `CommandCenterLayout` using `useDecisionEngine` + `useAssetScopedData` fallback. The banner had to mount in both places to actually reach users.

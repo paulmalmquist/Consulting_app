@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area, RadarChart, Radar,
@@ -13,6 +13,11 @@ import {
   CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE,
 } from "@/components/charts/chart-theme";
 import type { RealitySignal, DataSignal, NarrativeItem } from "@/lib/trading-lab/decision-engine-types";
+import {
+  HistoryRhymesDataStateBanner,
+  type HistoryRhymesDataState,
+} from "@/components/market/HistoryRhymesDataStateBanner";
+import { fetchRhymesEpisodes, RhymesClientError } from "@/lib/trading-lab/rhymes-client";
 
 /* ── Chart hex helper (reads CSS vars at render time for theme-awareness) ── */
 
@@ -874,8 +879,44 @@ export function SupportingDetail({ mismatchData: propMismatch, silenceEvents: pr
 /* ── Main Export ───────────────────────────────────────────── */
 
 export function HistoryRhymesTab() {
+  const [episodeCount, setEpisodeCount] = useState<number | null>(null);
+  const [errorNote, setErrorNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRhymesEpisodes({ limit: 20 })
+      .then((result) => {
+        if (cancelled) return;
+        setEpisodeCount(result.count);
+        setErrorNote(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setEpisodeCount(null);
+        const message =
+          err instanceof RhymesClientError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Unable to reach the rhymes backend.";
+        setErrorNote(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Subcomponents still read fixture data, so banner stays "preview" until
+  // they're wired to real backend responses.
+  const bannerState: HistoryRhymesDataState = "preview";
+
   return (
     <div className="space-y-6 text-bm-text" data-testid="command-center">
+      <HistoryRhymesDataStateBanner
+        state={bannerState}
+        episodeCount={episodeCount ?? undefined}
+        errorNote={errorNote}
+      />
       <MarketStateStrip />
       <DecisionLayer />
       <AnalogForecast />

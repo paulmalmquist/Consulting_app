@@ -12,13 +12,11 @@ from app.services.reporting_common import resolve_tenant_id
 
 EXECUTION_COLUMNS = [
     ("target_identified", "Target Identified"),
-    ("outreach_drafted", "Outreach Drafted"),
-    ("outreach_sent", "Outreach Sent"),
+    ("outreach", "Outreach"),
     ("engaged", "Engaged"),
     ("discovery_scheduled", "Discovery Scheduled"),
     ("demo_completed", "Demo Completed"),
-    ("proposal_sent", "Proposal Sent"),
-    ("negotiation", "Negotiation"),
+    ("proposal", "Proposal"),
     ("closed_won", "Closed Won"),
     ("closed_lost", "Closed Lost"),
 ]
@@ -66,19 +64,15 @@ def _execution_column(row: dict) -> tuple[str, str]:
     if stage_key == "closed_lost":
         return ("closed_lost", "Closed Lost")
     if stage_key == "proposal":
-        if state.get("negotiation_started_at"):
-            return ("negotiation", "Negotiation")
-        return ("proposal_sent", "Proposal Sent")
+        return ("proposal", "Proposal")
     if stage_key == "qualified":
         return ("demo_completed", "Demo Completed")
     if stage_key == "meeting":
         return ("discovery_scheduled", "Discovery Scheduled")
     if stage_key == "engaged":
         return ("engaged", "Engaged")
-    if stage_key == "contacted":
-        return ("outreach_sent", "Outreach Sent")
-    if state.get("draft_approved_at") and not state.get("latest_outreach_sent_at"):
-        return ("outreach_drafted", "Outreach Drafted")
+    if stage_key == "contacted" or state.get("draft_approved_at"):
+        return ("outreach", "Outreach")
     return ("target_identified", "Target Identified")
 
 
@@ -206,7 +200,7 @@ def _build_stage_suggestions(row: dict) -> list[dict]:
         })
     if _safe_json_dict(row.get("execution_state")).get("demo_completed_at"):
         suggestions.append({
-            "suggested_execution_column": "proposal_sent",
+            "suggested_execution_column": "proposal",
             "underlying_stage_key": "proposal",
             "reasoning": "Demo completion is recorded, so the next operator move is proposal packaging.",
             "confidence": 0.78,
@@ -683,13 +677,11 @@ def _map_column_to_stage(column: str) -> str:
     normalized = column.strip().lower().replace(" ", "_")
     mapping = {
         "target_identified": "identified",
-        "outreach_drafted": "identified",
-        "outreach_sent": "contacted",
+        "outreach": "contacted",
         "engaged": "engaged",
         "discovery_scheduled": "meeting",
         "demo_completed": "qualified",
-        "proposal_sent": "proposal",
-        "negotiation": "proposal",
+        "proposal": "proposal",
         "closed_won": "closed_won",
         "closed_lost": "closed_lost",
     }

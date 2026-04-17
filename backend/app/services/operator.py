@@ -17,15 +17,59 @@ _TASK_STATUS_ORDER = {
     "completed": 4,
 }
 
+_PRIORITY_WEIGHT = {"critical": 4.0, "high": 3.0, "medium": 2.0, "low": 1.0}
+_ACTION_QUEUE_LIMIT = 8
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+
+_FIXTURE_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "fixtures"
+    / "winston_demo"
+    / "hall_boys_operator_seed.json"
+)
+
+
+class OperatorFixtureMissing(RuntimeError):
+    """Raised when the Hall Boys demo fixture is not deployed with the backend."""
+
+
+def _impact_score(item: dict[str, Any]) -> float:
+    priority = _PRIORITY_WEIGHT.get(str(item.get("priority", "medium")).lower(), 2.0)
+    impact = item.get("impact") or {}
+    cost = float(impact.get("estimated_cost_usd") or 0)
+    ttf = impact.get("time_to_failure_days")
+    ttf_weight = 1.0 / max(float(ttf), 1.0) if ttf is not None else 0.05
+    return priority * max(cost, 1.0) * ttf_weight
+
+
+def rank_and_trim_action_queue(
+    items: list[dict[str, Any]], *, limit: int = _ACTION_QUEUE_LIMIT
+) -> tuple[list[dict[str, Any]], int]:
+    visible = [item for item in items if item.get("impact")]
+    visible.sort(key=_impact_score, reverse=True)
+    collapsed_count = max(0, len(visible) - limit)
+    return visible[:limit], collapsed_count
+
+
+def propagate_all(raw: dict[str, Any]) -> dict[str, Any]:
+    state = dict(raw)
+    items = list(state.get("action_queue", []))
+    visible, collapsed = rank_and_trim_action_queue(items)
+    state["_visible_action_queue"] = visible
+    state["_action_queue_collapsed_count"] = collapsed
+    state["_raw_action_queue"] = items
+    return state
 
 
 @lru_cache(maxsize=1)
 def _load_fixture() -> dict[str, Any]:
-    path = _repo_root() / "fixtures" / "winston_demo" / "hall_boys_operator_seed.json"
-    return json.loads(path.read_text())
+    try:
+        raw = json.loads(_FIXTURE_PATH.read_text())
+    except FileNotFoundError as exc:
+        raise OperatorFixtureMissing(
+            "Hall Boys operator demo data is not available in this environment."
+        ) from exc
+    return propagate_all(raw)
 
 
 def _default_period() -> str:
@@ -311,6 +355,318 @@ def get_context(
     }
 
 
+def _rewrite_href(href: str | None, env_id: UUID) -> str | None:
+    if not href:
+        return href
+    return href.replace("{env_id}", str(env_id))
+
+
+def _prepare_action_queue(env_id: UUID) -> tuple[list[dict[str, Any]], int]:
+    fixture = _load_fixture()
+    items = list(fixture.get("_visible_action_queue", []))
+    rewritten: list[dict[str, Any]] = []
+    for item in items:
+        copy = dict(item)
+        copy["href"] = _rewrite_href(item.get("href"), env_id)
+        rewritten.append(copy)
+    return rewritten, int(fixture.get("_action_queue_collapsed_count", 0))
+
+
+def _prepare_weekly_summary() -> dict[str, Any] | None:
+    fixture = _load_fixture()
+    summary = fixture.get("weekly_summary")
+    if not summary:
+        return None
+    return dict(summary)
+
+
+def _prepare_site_ordinance_strip(env_id: UUID) -> dict[str, Any]:
+    fixture = _load_fixture()
+    muni_index = {m["id"]: m for m in fixture.get("municipalities", [])}
+    site_index = {s["id"]: s for s in fixture.get("sites", [])}
+
+    changes = list(fixture.get("rule_change_events", []))
+    changes.sort(key=lambda e: e.get("effective_date", ""), reverse=True)
+    top_changes: list[dict[str, Any]] = []
+    for event in changes[:3]:
+        muni = muni_index.get(event.get("municipality_id"), {})
+        top_changes.append(
+            {
+                "id": event["id"],
+                "summary": event.get("summary"),
+                "severity": event.get("severity"),
+                "municipality_id": event.get("municipality_id"),
+                "municipality_name": muni.get("name"),
+                "effective_date": event.get("effective_date"),
+                "impact": event.get("impact"),
+                "affected_site_count": len(event.get("affected_site_ids") or []),
+                "affected_project_count": len(event.get("affected_project_ids") or []),
+                "href": f"/lab/env/{env_id}/operator/site-risk",
+            }
+        )
+
+    sites = list(fixture.get("sites", []))
+    sites.sort(
+        key=lambda s: (
+            0 if s.get("risk_level") == "high_risk" else 1 if s.get("risk_level") == "borderline" else 2,
+            -float(s.get("feasibility_score") or 0),
+        )
+    )
+    top_sites: list[dict[str, Any]] = []
+    for site in sites[:3]:
+        muni = muni_index.get(site.get("municipality_id"), {})
+        top_sites.append(
+            {
+                "id": site["id"],
+                "name": site.get("name"),
+                "municipality_name": muni.get("name"),
+                "risk_level": site.get("risk_level"),
+                "feasibility_score": site.get("feasibility_score"),
+                "confidence": site.get("confidence"),
+                "buildable_units_low": site.get("buildable_units_low"),
+                "buildable_units_high": site.get("buildable_units_high"),
+                "href": f"/lab/env/{env_id}/operator/site-risk/{site['id']}",
+            }
+        )
+
+    munis = sorted(
+        fixture.get("municipalities", []),
+        key=lambda m: -(m.get("overall_friction_score") or 0),
+    )
+    top_munis: list[dict[str, Any]] = []
+    for muni in munis[:3]:
+        top_munis.append(
+            {
+                "id": muni["id"],
+                "name": muni.get("name"),
+                "state": muni.get("state"),
+                "friction_score": muni.get("overall_friction_score"),
+                "median_approval_days": muni.get("median_approval_days"),
+                "active_project_count": muni.get("active_project_count"),
+                "recent_changes_30d": muni.get("recent_changes_30d"),
+                "href": f"/lab/env/{env_id}/operator/municipalities/{muni['id']}",
+            }
+        )
+
+    _ = site_index  # kept for future inline expansion
+    return {
+        "ordinance_changes": top_changes,
+        "sites": top_sites,
+        "municipalities": top_munis,
+    }
+
+
+def _cash_at_risk_totals() -> dict[str, Any]:
+    fixture = _load_fixture()
+    packages = fixture.get("billing_readiness") or []
+    total = sum(float(row.get("amount_at_risk") or 0) for row in packages)
+    project_ids = {row.get("project_id") for row in packages if row.get("amount_at_risk")}
+    return {
+        "total_amount_usd": total,
+        "project_count": len(project_ids),
+        "rows": [dict(row) for row in packages],
+    }
+
+
+def _permit_row(pkg: dict[str, Any], *, env_id: UUID) -> dict[str, Any]:
+    fixture = _load_fixture()
+    projects = _project_map()
+    entities = _entity_map()
+    munis = {m["id"]: m for m in fixture.get("municipalities", [])}
+    project = projects.get(pkg.get("project_id") or "") or {}
+    entity = entities.get(project.get("entity_id") or "") or {}
+    muni = munis.get(pkg.get("municipality_id") or "") or {}
+
+    days_in_stage = int(pkg.get("days_in_stage") or 0)
+    median = int(pkg.get("median_stage_days") or 0)
+    over_median = max(0, days_in_stage - median) if median else 0
+    over_median_pct = (
+        round((days_in_stage / median - 1.0) * 100)
+        if median and days_in_stage > median
+        else 0
+    )
+
+    stage_order = fixture.get("_permit_stage_order", [])
+    stage_index = (
+        stage_order.index(pkg.get("current_stage"))
+        if pkg.get("current_stage") in stage_order
+        else -1
+    )
+
+    return {
+        "permit_id": pkg.get("permit_id"),
+        "project_id": pkg.get("project_id"),
+        "project_name": project.get("name"),
+        "entity_id": project.get("entity_id"),
+        "entity_name": entity.get("name"),
+        "municipality_id": pkg.get("municipality_id"),
+        "municipality_name": muni.get("name"),
+        "municipality_friction_score": muni.get("overall_friction_score"),
+        "permit_type": pkg.get("permit_type"),
+        "title": pkg.get("title"),
+        "applicant": pkg.get("applicant"),
+        "current_stage": pkg.get("current_stage"),
+        "stage_index": stage_index,
+        "stage_count": len(stage_order),
+        "stage_entered_at": pkg.get("stage_entered_at"),
+        "median_stage_days": median,
+        "days_in_stage": days_in_stage,
+        "days_over_median": over_median,
+        "over_median_pct": over_median_pct,
+        "delay_flag": bool(pkg.get("delay_flag")),
+        "expected_completion": pkg.get("expected_completion"),
+        "impact": pkg.get("impact"),
+        "history": [
+            {
+                "stage": h.get("stage"),
+                "entered_at": h.get("entered_at"),
+                "exited_at": h.get("exited_at"),
+            }
+            for h in pkg.get("history") or []
+        ],
+        "href_project": f"/lab/env/{env_id}/operator/projects/{pkg.get('project_id')}"
+        if pkg.get("project_id")
+        else None,
+        "href_municipality": f"/lab/env/{env_id}/operator/municipalities/{pkg.get('municipality_id')}"
+        if pkg.get("municipality_id")
+        else None,
+    }
+
+
+def list_permits(
+    *, env_id: UUID, business_id: UUID | None = None
+) -> dict[str, Any]:
+    _ = business_id
+    fixture = _load_fixture()
+    rows = [_permit_row(p, env_id=env_id) for p in fixture.get("permits") or []]
+    # Delayed first, then by days over median desc, then alpha
+    rows.sort(
+        key=lambda r: (
+            0 if r.get("delay_flag") else 1,
+            -int(r.get("days_over_median") or 0),
+            r.get("title") or "",
+        )
+    )
+    stage_order = list(fixture.get("_permit_stage_order", []))
+
+    # Funnel: count of permits in each stage
+    funnel: dict[str, int] = {s: 0 for s in stage_order}
+    for r in rows:
+        s = r.get("current_stage") or ""
+        if s in funnel:
+            funnel[s] += 1
+    funnel_rows = [
+        {"stage": s, "count": funnel[s]} for s in stage_order
+    ]
+
+    delayed = [r for r in rows if r.get("delay_flag")]
+    total_impact = sum(
+        float((r.get("impact") or {}).get("estimated_cost_usd") or 0)
+        for r in delayed
+    )
+
+    return {
+        "permits": rows,
+        "funnel": funnel_rows,
+        "totals": {
+            "permit_count": len(rows),
+            "delayed_count": len(delayed),
+            "total_days_over_median": sum(
+                int(r.get("days_over_median") or 0) for r in delayed
+            ),
+            "delayed_impact_usd": total_impact,
+        },
+    }
+
+
+def _closeout_package_row(
+    pkg: dict[str, Any], *, env_id: UUID
+) -> dict[str, Any]:
+    projects = _project_map()
+    entities = _entity_map()
+    project = projects.get(pkg.get("project_id") or "") or {}
+    entity = entities.get(project.get("entity_id") or "") or {}
+    missing_items = list(pkg.get("missing_items") or [])
+    blocking = [m for m in missing_items if m.get("blocking")]
+    impact_total = sum(
+        float((m.get("impact") or {}).get("estimated_cost_usd") or 0)
+        for m in missing_items
+    )
+    by_type: dict[str, int] = {}
+    for m in missing_items:
+        key = str(m.get("type") or "other")
+        by_type[key] = by_type.get(key, 0) + 1
+    earliest_due = None
+    for m in missing_items:
+        due = m.get("due_date")
+        if due and (earliest_due is None or due < earliest_due):
+            earliest_due = due
+    return {
+        "project_id": pkg.get("project_id"),
+        "project_name": project.get("name"),
+        "entity_id": project.get("entity_id"),
+        "entity_name": entity.get("name"),
+        "target_close_date": pkg.get("target_close_date"),
+        "days_to_close": pkg.get("days_to_close"),
+        "completion_pct": pkg.get("completion_pct") or 0,
+        "missing_count": len(missing_items),
+        "blocking_count": len(blocking),
+        "impact_total_usd": impact_total,
+        "earliest_due_date": earliest_due,
+        "missing_by_type": [
+            {"type": key, "count": count} for key, count in sorted(by_type.items())
+        ],
+        "missing_items": [
+            {
+                "id": m.get("id"),
+                "type": m.get("type"),
+                "title": m.get("title"),
+                "owner": m.get("owner"),
+                "blocking": bool(m.get("blocking")),
+                "due_date": m.get("due_date"),
+                "note": m.get("note"),
+                "impact": m.get("impact"),
+            }
+            for m in missing_items
+        ],
+        "href": f"/lab/env/{env_id}/operator/projects/{pkg.get('project_id')}"
+        if pkg.get("project_id")
+        else None,
+    }
+
+
+def list_closeout_packages(
+    *, env_id: UUID, business_id: UUID | None = None
+) -> dict[str, Any]:
+    _ = business_id
+    fixture = _load_fixture()
+    packages = fixture.get("closeout_packages") or []
+    rows = [_closeout_package_row(pkg, env_id=env_id) for pkg in packages]
+    rows.sort(key=lambda r: (r.get("days_to_close") or 9999, -r.get("impact_total_usd") or 0))
+    total_impact = sum(float(r.get("impact_total_usd") or 0) for r in rows)
+    total_missing = sum(int(r.get("missing_count") or 0) for r in rows)
+    total_blocking = sum(int(r.get("blocking_count") or 0) for r in rows)
+    earliest_due = None
+    for r in rows:
+        due = r.get("earliest_due_date")
+        if due and (earliest_due is None or due < earliest_due):
+            earliest_due = due
+    cash = _cash_at_risk_totals()
+    return {
+        "packages": rows,
+        "totals": {
+            "package_count": len(rows),
+            "missing_item_count": total_missing,
+            "blocking_missing_count": total_blocking,
+            "impact_total_usd": total_impact,
+            "earliest_due_date": earliest_due,
+            "cash_at_risk_usd": float(cash.get("total_amount_usd") or 0),
+            "cash_at_risk_project_count": int(cash.get("project_count") or 0),
+        },
+        "cash_at_risk": cash,
+    }
+
+
 def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     fixture = _load_fixture()
     period = _default_period()
@@ -329,6 +685,10 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
     vendor_rows = _build_vendor_rows()
     site_rows = _build_site_rows(env_id=env_id)
     ai_grounding = fixture.get("ai_grounding", {})
+    action_queue, action_queue_collapsed = _prepare_action_queue(env_id)
+    weekly_summary = _prepare_weekly_summary()
+    site_ordinance_strip = _prepare_site_ordinance_strip(env_id)
+    cash_at_risk = _cash_at_risk_totals()
     return {
         "env_id": str(env_id),
         "business_id": business_id,
@@ -392,9 +752,12 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
         "vendor_alerts": [row for row in vendor_rows if row["duplication_flag"] or (row["overspend_amount"] or 0) > 0],
         "development_sites": [row for row in site_rows if row["risk_level"] in ("high", "medium")],
         "assistant_focus": {
-            "headline": "Control the overrun, unblock close, then consolidate duplicated vendor spend.",
-            "summary_lines": ai_grounding.get("what_is_going_wrong", []),
-            "priorities": ai_grounding.get("what_to_focus_on", []),
+            "headline": (weekly_summary or {}).get("headline")
+            or "Control the overrun, unblock close, then consolidate duplicated vendor spend.",
+            "summary_lines": (weekly_summary or {}).get("key_shifts")
+            or ai_grounding.get("what_is_going_wrong", []),
+            "priorities": (weekly_summary or {}).get("recommended_actions")
+            or ai_grounding.get("what_to_focus_on", []),
             "money_leakage": ai_grounding.get("where_money_is_lost", []),
             "close_blockers": [
                 row["blocker_reason"]
@@ -407,9 +770,17 @@ def get_command_center(*, env_id: UUID, business_id: UUID) -> dict[str, Any]:
                 "Which projects are at risk?",
                 "Should we pursue the Main St site?",
                 "What approvals are slowing us down?",
+                "What ordinance changes affect our active sites?",
+                "Which municipalities are slowing us down most?",
+                "What’s the IRR hit from the Miami parking rule?",
                 "What should I focus on today?",
             ],
         },
+        "weekly_summary": weekly_summary,
+        "action_queue": action_queue,
+        "action_queue_collapsed_count": action_queue_collapsed,
+        "site_ordinance_strip": site_ordinance_strip,
+        "cash_at_risk": cash_at_risk,
         "demo_script": fixture.get("demo_script", []),
         "improvements": fixture.get("improvements", []),
     }

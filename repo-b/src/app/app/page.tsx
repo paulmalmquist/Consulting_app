@@ -6,6 +6,9 @@ import { useSearchParams } from "next/navigation";
 
 import AccountMenu from "@/components/AccountMenu";
 import { useEnv } from "@/components/EnvProvider";
+import EnvLifecyclePill, {
+  deriveEnvLifecycleState,
+} from "@/components/lab/EnvLifecyclePill";
 import { humanIndustry } from "@/components/lab/environments/constants";
 import { cn } from "@/lib/cn";
 import {
@@ -189,6 +192,7 @@ function AppIndexPageInner() {
                 environments.map((environment) => {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
+                  const lifecycle = deriveEnvLifecycleState(environment);
                   return (
                     <button
                       key={`mobile-${environment.env_id}`}
@@ -208,8 +212,11 @@ function AppIndexPageInner() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-sm font-semibold text-white">
-                            {environment.client_name}
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-semibold text-white">
+                              {environment.client_name}
+                            </div>
+                            <EnvLifecyclePill state={lifecycle} />
                           </div>
                           <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-white/42">
                             {humanIndustry(environment.industry_type || environment.industry)}
@@ -274,6 +281,7 @@ function AppIndexPageInner() {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
                   const tone = environmentTone(environment);
+                  const lifecycle = deriveEnvLifecycleState(environment);
                   return (
                     <button
                       key={environment.env_id}
@@ -294,8 +302,11 @@ function AppIndexPageInner() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="text-sm font-semibold text-white">
-                            {environment.client_name}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-sm font-semibold text-white">
+                              {environment.client_name}
+                            </div>
+                            <EnvLifecyclePill state={lifecycle} />
                           </div>
                           <p className="mt-1 text-xs leading-5 text-white/46">
                             {humanIndustry(environment.industry_type || environment.industry)}

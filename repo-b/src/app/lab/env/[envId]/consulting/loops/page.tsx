@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import CapabilityUnavailable from "@/components/common/CapabilityUnavailable";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import {
   fetchClients,
@@ -113,13 +114,26 @@ export default function ConsultingLoopsPage({
     );
   }
 
+  if (bannerMessage) {
+    // Route both the context/config error (bannerMessage from contextError)
+    // and transient backend errors through the unified taxonomy surface.
+    // Plan Loop 3: use state="temporary_error" so users see one vocabulary
+    // across every "can't reach this capability right now" case.
+    return (
+      <div className="space-y-6" data-testid="loop-index-page">
+        <CapabilityUnavailable
+          state="temporary_error"
+          capabilityKey="consulting.loops"
+          title="Loop Intelligence"
+          moduleLabel="Consulting · Revenue OS"
+          note={bannerMessage}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6" data-testid="loop-index-page">
-      {bannerMessage ? (
-        <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
-          {bannerMessage}
-        </div>
-      ) : null}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>

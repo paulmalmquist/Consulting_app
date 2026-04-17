@@ -104,6 +104,8 @@ from app.routes import sql_agent as sql_agent_routes
 from app.routes import capability as capability_routes
 from app.routes import unified_metrics
 from app.routes import operator
+from app.routes import site_risk
+from app.routes import pipeline_integrity
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -385,6 +387,8 @@ app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
 app.include_router(trades.router)
 app.include_router(operator.router)
+app.include_router(site_risk.router)
+app.include_router(pipeline_integrity.router)
 app.include_router(credit.router)
 app.include_router(credit_v2.router)
 app.include_router(doc_completion.router)
