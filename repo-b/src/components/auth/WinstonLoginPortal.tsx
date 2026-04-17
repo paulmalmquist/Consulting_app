@@ -211,9 +211,6 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
               </button>
             </form>
 
-            <div className="mt-5 border-t border-white/10 pt-4 text-sm leading-6 text-white/54">
-              Control Tower is available only to authorized platform administrators.
-            </div>
           </section>
         </div>
       </div>
