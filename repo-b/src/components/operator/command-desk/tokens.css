@@ -1,0 +1,159 @@
+/* ============================================================
+   NOVENDOR COMMAND DESK — design tokens (scoped)
+   Ported from design_handoff_accounting_command_desk/colors_and_type.css
+   Scoped to [data-command-desk] to avoid polluting the rest of the app.
+   Fonts are loaded by the accounting layout via next/font/google.
+   ============================================================ */
+
+[data-command-desk] {
+  /* Base surfaces */
+  --bg-void:        #05070A;
+  --bg-base:        #0A0E14;
+  --bg-panel:       #0E141C;
+  --bg-panel-2:     #131A24;
+  --bg-row-hover:   #1A2230;
+  --bg-row-active:  #1F2A3C;
+  --bg-inset:       #060A10;
+
+  /* Lines */
+  --line-1:         #1A2230;
+  --line-2:         #263243;
+  --line-3:         #38475E;
+
+  /* Text */
+  --fg-1:           #E6EDF7;
+  --fg-2:           #A9B4C4;
+  --fg-3:           #6B7891;
+  --fg-4:           #475367;
+  --fg-dim:         #2E3749;
+  --fg-inverse:     #05070A;
+
+  /* Neon */
+  --neon-cyan:      #00E5FF;
+  --neon-cyan-dim:  #00A9BF;
+  --neon-magenta:   #FF2E9A;
+  --neon-magenta-dim:#B31F6E;
+  --neon-amber:     #FFB020;
+  --neon-amber-dim: #B87A12;
+  --neon-lime:      #9EFF00;
+  --neon-violet:    #B07CFF;
+
+  /* Semantic */
+  --sem-up:         #00E5A0;
+  --sem-down:       #FF3B5C;
+  --sem-error:      #FF1F3D;
+  --sem-warn:       #FFB020;
+  --sem-ok:         #00E5A0;
+  --sem-info:       #00E5FF;
+  --sem-stale:      #6B7891;
+
+  /* Glows */
+  --glow-cyan:      0 0 12px rgba(0, 229, 255, .45), 0 0 2px rgba(0, 229, 255, .9);
+  --glow-magenta:   0 0 12px rgba(255, 46, 154, .45), 0 0 2px rgba(255, 46, 154, .9);
+  --glow-amber:     0 0 10px rgba(255, 176, 32, .45);
+  --glow-error:     0 0 10px rgba(255, 31, 61, .55);
+
+  /* Selection */
+  --selection-bg:   rgba(0, 229, 255, .25);
+  --selection-fg:   #E6EDF7;
+
+  /* Font families — next/font/google wires CSS vars in the layout.
+     Fallbacks here so style isolation works even if fonts don't load. */
+  --font-mono:      var(--font-jetbrains-mono), 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace;
+  --font-sans:      var(--font-plex-sans), 'IBM Plex Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display:   var(--font-orbitron), 'Orbitron', 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Size scale */
+  --fs-10:  10px;
+  --fs-11:  11px;
+  --fs-12:  12px;
+  --fs-13:  13px;
+  --fs-14:  14px;
+  --fs-16:  16px;
+  --fs-18:  18px;
+  --fs-22:  22px;
+  --fs-28:  28px;
+  --fs-40:  40px;
+  --fs-56:  56px;
+  --fs-80:  80px;
+
+  /* Weights */
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-black:    800;
+
+  /* Line heights */
+  --lh-tight:  1.0;
+  --lh-snug:   1.15;
+  --lh-body:   1.45;
+  --lh-prose:  1.55;
+
+  /* Tracking */
+  --ls-tight:   -0.02em;
+  --ls-normal:  0;
+  --ls-wide:    0.04em;
+  --ls-caps:    0.12em;
+
+  /* Spacing */
+  --s-0:  0;
+  --s-1:  2px;
+  --s-2:  4px;
+  --s-3:  6px;
+  --s-4:  8px;
+  --s-5:  12px;
+  --s-6:  16px;
+  --s-7:  20px;
+  --s-8:  24px;
+  --s-9:  32px;
+  --s-10: 48px;
+  --s-11: 64px;
+
+  /* Radii */
+  --r-0:  0;
+  --r-1:  1px;
+  --r-2:  2px;
+  --r-3:  4px;
+  --r-4:  6px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-inset:   inset 0 0 0 1px var(--line-2);
+  --shadow-raised:  0 0 0 1px var(--line-2), 0 6px 24px rgba(0,0,0,.55);
+  --shadow-overlay: 0 0 0 1px var(--line-3), 0 24px 60px rgba(0,0,0,.7), 0 2px 0 rgba(0,229,255,.08) inset;
+  --shadow-scan:    inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.5);
+
+  /* Motion */
+  --ease-out:  cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in:   cubic-bezier(0.4, 0, 1, 1);
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --dur-1: 80ms;
+  --dur-2: 140ms;
+  --dur-3: 220ms;
+
+  /* Base */
+  background: var(--bg-base);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-command-desk] ::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+[data-command-desk] *::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-command-desk] *::-webkit-scrollbar-track { background: var(--bg-inset); }
+[data-command-desk] *::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--bg-inset); }
+[data-command-desk] *::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
+
+@keyframes command-desk-slide-left {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}

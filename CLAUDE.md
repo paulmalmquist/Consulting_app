@@ -94,6 +94,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | latency, reranking, model dispatch, prompt budget, performance architecture | `skills/winston-performance-architecture/SKILL.md` |
 | shared Next.js UI, app shell, component fixes, proxy routes, client integration glue | `agents/frontend.md` |
 | Business OS FastAPI routes, schemas, services, and non-AI domain logic | `agents/bos-domain.md` |
+| accounting, receipt intake, subscription ledger, expense draft, apple subscription, software spend, novendor accounting command desk | `agents/bos-domain.md` with `design_handoff_accounting_command_desk/` as reference |
 | Demo Lab environments, industry templates, repo-c APIs, lab pages, uploads, pipeline, Excel touchpoints | `agents/lab-environment.md` |
 | AI gateway, prompt policy, RAG, assistant behavior, model routing, response rendering | `agents/ai-copilot.md` |
 | MCP registry, tool schemas, permissions, audit policy, planner and tool-context contracts | `agents/mcp.md` |
@@ -107,6 +108,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | QA, regression, smoke test, validation | `agents/qa.md` |
 | site audit, design review, tour paulmalmquist.com, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
 | post-deploy verification, smoke test production, verify deploy, check if fix worked, log in and check environments | `skills/winston-post-deploy-verify/SKILL.md` |
+| read Rich's texts, what did Rich say, Rich work, check Rich's messages, Rich iMessage thread | `skills/rich-texts/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |

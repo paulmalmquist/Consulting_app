@@ -1,0 +1,56 @@
+/* ============================================================
+   NOVENDOR COMMAND DESK — light theme overrides (scoped)
+   Ported from design_handoff_accounting_command_desk/light_mode.css
+   Applied when [data-command-desk][data-theme="light"].
+   ============================================================ */
+
+[data-command-desk][data-theme="light"] {
+  --bg-void:        #E8E4DB;
+  --bg-base:        #F4F1E8;
+  --bg-panel:       #FBF9F2;
+  --bg-panel-2:     #F1EDE0;
+  --bg-row-hover:   #E9E3D0;
+  --bg-row-active:  #DDD4BA;
+  --bg-inset:       #FDFBF4;
+
+  --line-1:         #D8D0BC;
+  --line-2:         #B8AE93;
+  --line-3:         #8A7F62;
+
+  --fg-1:           #0B0E14;
+  --fg-2:           #2F3642;
+  --fg-3:           #5B6476;
+  --fg-4:           #8A93A5;
+  --fg-dim:         #B3B5B8;
+  --fg-inverse:     #FBF9F2;
+
+  --neon-cyan:      #0088A8;
+  --neon-cyan-dim:  #006680;
+  --neon-magenta:   #C41780;
+  --neon-magenta-dim:#8F0F5C;
+  --neon-amber:     #B87300;
+  --neon-amber-dim: #8A5500;
+  --neon-lime:      #4A8000;
+  --neon-violet:    #6E3FD6;
+
+  --sem-up:         #007A4D;
+  --sem-down:       #C91030;
+  --sem-error:      #B8001C;
+  --sem-warn:       #B87300;
+  --sem-ok:         #007A4D;
+  --sem-info:       #0088A8;
+  --sem-stale:      #5B6476;
+
+  --glow-cyan:      0 0 0 1px rgba(0,136,168,.25), 0 2px 10px rgba(0,136,168,.15);
+  --glow-magenta:   0 0 0 1px rgba(196,23,128,.25), 0 2px 10px rgba(196,23,128,.15);
+  --glow-amber:     0 0 0 1px rgba(184,115,0,.3), 0 2px 8px rgba(184,115,0,.15);
+  --glow-error:     0 0 0 1px rgba(184,0,28,.3), 0 2px 10px rgba(184,0,28,.18);
+
+  --selection-bg:   rgba(0,136,168,.22);
+  --selection-fg:   #0B0E14;
+
+  --shadow-inset:   inset 0 0 0 1px var(--line-2);
+  --shadow-raised:  0 0 0 1px var(--line-2), 0 4px 14px rgba(60,50,20,.10);
+  --shadow-overlay: 0 0 0 1px var(--line-3), 0 16px 40px rgba(60,50,20,.18), 0 2px 0 rgba(0,136,168,.08) inset;
+  --shadow-scan:    inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(0,0,0,.04);
+}

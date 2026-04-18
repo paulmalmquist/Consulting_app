@@ -1,0 +1,51 @@
+[
+  {
+    "key": "apple_one_mar",
+    "filename": "apple_one_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple Services\nApple.com/bill\n\nApple One · Individual\nMonthly subscription\n\nOrder ID: MPK21AMR\nDate: 03/15/2026\n\nSubtotal: $16.95\nTax:      $0.00\nTotal:    $16.95 USD\n\nAuto-renews on 04/15/2026\n"
+  },
+  {
+    "key": "apple_one_feb",
+    "filename": "apple_one_feb_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple Services\nApple.com/bill\n\nApple One · Individual\nOrder ID: MPK21AFB\nDate: 02/15/2026\nTotal: $16.95 USD\nAuto-renews on 03/15/2026\n"
+  },
+  {
+    "key": "icloud_mar",
+    "filename": "icloud_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "APPLE.COM/BILL\n\niCloud+ · 200GB\nOrder ID: IC200MAR\nDate: 03/10/2026\nTotal: $2.99 USD\nAuto-renews monthly\n"
+  },
+  {
+    "key": "chatgpt_via_apple",
+    "filename": "chatgpt_via_apple_march.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple Services\nApp Store\n\nChatGPT Plus\nOrder ID: CGPT22MR\nDate: 03/20/2026\n\nSubtotal: $19.99\nTax:      $1.76\nTotal:    $21.75 USD\n\nRenews on 04/20/2026\n"
+  },
+  {
+    "key": "openai_direct",
+    "filename": "openai_direct_march.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "OpenAI\nReceipt\n\nChatGPT Plus\nBilling period: 03/01/2026 - 04/01/2026\nTotal: $20.00 USD\n"
+  },
+  {
+    "key": "apple_ambiguous",
+    "filename": "apple_mystery.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple.com/bill\n\nYour receipt from Apple\nOrder ID: UNKN00\nDate: 03/22/2026\nTotal: $4.99\n"
+  },
+  {
+    "key": "apple_one_price_change",
+    "filename": "apple_one_april_increase.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple Services\nApple.com/bill\n\nApple One · Individual\nOrder ID: MPK21AAP\nDate: 04/15/2026\nTotal: $19.95 USD\nAuto-renews on 05/15/2026\n"
+  }
+]

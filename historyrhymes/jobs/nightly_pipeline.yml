@@ -1,0 +1,137 @@
+# Databricks Workflow: History Rhymes Nightly Pipeline
+#
+# Deploy with:
+#   databricks jobs create --json @historyrhymes/jobs/nightly_pipeline.json
+# Or via Databricks UI: Workflows → Create Job → paste JSON version
+#
+# Converts to JSON for the API:
+#   python3 historyrhymes/jobs/deploy_workflow.py
+#
+# Task DAG:
+#   data_feeds ──┬──► technical_features ──► supabase_backfill ──► agent_context_builders ──► nightly_agent_runner
+#                │
+#                └──► (writes market_context_log directly — no dependency needed)
+#
+# Timeline (UTC):
+#   17:30  data_feeds              (Finnhub, FRED, VIX, Fear&Greed)
+#   17:45  technical_features      (yfinance OHLCV + indicators)
+#   18:30  supabase_backfill       (MLflow → Supabase sync, if needed)
+#   19:00  agent_context_builders  (assemble 5 ContextPackages from Supabase)
+#   19:30  nightly_agent_runner    (LLM calls → DisagreementScorer → write results)
+#
+# Actual scheduling: single job triggered at 17:30, tasks chain via depends_on.
+
+name: historyrhymes-nightly
+
+schedule:
+  quartz_cron_expression: "0 30 17 * * ?"   # 17:30 UTC daily
+  timezone_id: "UTC"
+  pause_status: UNPAUSED
+
+email_notifications:
+  on_failure:
+    - paulmalmquist@gmail.com
+  on_duration_warning_threshold_exceeded:
+    - paulmalmquist@gmail.com
+  no_alert_for_skipped_runs: true
+
+health:
+  rules:
+    - metric: RUN_DURATION_SECONDS
+      op: GREATER_THAN
+      value: 7200   # alert if total pipeline exceeds 2 hours
+
+max_concurrent_runs: 1
+
+# ── Shared cluster config ──────────────────────────────────────────────────────
+# All tasks share this cluster spec. Single-node is sufficient for data pulls
+# and scoring. Upgrade to multi-node when training ML models.
+_cluster: &cluster
+  new_cluster:
+    spark_version: "14.3.x-scala2.12"
+    node_type_id: "Standard_DS3_v2"   # Azure — change to m5.xlarge for AWS
+    num_workers: 0                      # single-node mode (driver only)
+    spark_conf:
+      spark.databricks.cluster.profile: singleNode
+      master: local[*, 4]
+    spark_env_vars:
+      PYSPARK_PYTHON: /databricks/python3/bin/python3
+    autotermination_minutes: 30
+    data_security_mode: SINGLE_USER
+
+tasks:
+  # ── Task 1: data_feeds ───────────────────────────────────────────────────
+  - task_key: data_feeds
+    description: "Pull Finnhub, FRED, VIX term structure, Fear&Greed, put/call"
+    <<: *cluster
+    notebook_task:
+      notebook_path: /historyrhymes/pipelines/05_data_feeds
+      base_parameters:
+        run_env: production
+    timeout_seconds: 1800      # 30 min max
+    retry_on_timeout: true
+    max_retries: 2
+    min_retry_interval_millis: 300000   # wait 5 min between retries
+    email_notifications:
+      on_failure:
+        - paulmalmquist@gmail.com
+
+  # ── Task 2: technical_features ───────────────────────────────────────────
+  - task_key: technical_features
+    description: "yfinance OHLCV + RSI/MACD/ADX/HV indicators for all 7 assets"
+    depends_on:
+      - task_key: data_feeds
+    <<: *cluster
+    notebook_task:
+      notebook_path: /historyrhymes/pipelines/06_technical_features
+      base_parameters:
+        run_env: production
+    timeout_seconds: 1800
+    retry_on_timeout: true
+    max_retries: 2
+    min_retry_interval_millis: 300000
+
+  # ── Task 3: supabase_backfill ─────────────────────────────────────────────
+  - task_key: supabase_backfill
+    description: "Sync any MLflow artifacts not yet in Supabase (idempotent)"
+    depends_on:
+      - task_key: technical_features
+    <<: *cluster
+    notebook_task:
+      notebook_path: /historyrhymes/pipelines/07_supabase_backfill
+      base_parameters:
+        run_env: production
+    timeout_seconds: 900
+    max_retries: 1
+
+  # ── Task 4: agent_context_builders ───────────────────────────────────────
+  - task_key: agent_context_builders
+    description: "Assemble 5 ContextPackages from Supabase for LLM agents"
+    depends_on:
+      - task_key: supabase_backfill
+    <<: *cluster
+    notebook_task:
+      notebook_path: /historyrhymes/pipelines/08_agent_context_builders
+      base_parameters:
+        run_env: production
+    timeout_seconds: 600
+    max_retries: 1
+
+  # ── Task 5: nightly_agent_runner ─────────────────────────────────────────
+  - task_key: nightly_agent_runner
+    description: "Call 5 LLM agents, score dissensus, write to Supabase"
+    depends_on:
+      - task_key: agent_context_builders
+    <<: *cluster
+    notebook_task:
+      notebook_path: /historyrhymes/pipelines/09_nightly_agent_runner
+      base_parameters:
+        run_env: production
+    timeout_seconds: 3600      # agents can be slow — 1hr ceiling
+    retry_on_timeout: false    # don't retry LLM calls automatically
+    max_retries: 0
+    email_notifications:
+      on_failure:
+        - paulmalmquist@gmail.com
+      on_success:
+        - paulmalmquist@gmail.com   # notify on success — first few weeks

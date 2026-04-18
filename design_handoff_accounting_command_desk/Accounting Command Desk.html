@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Novendor · Accounting Command Desk</title>
+<link rel="stylesheet" href="colors_and_type.css" />
+<style>
+  html, body { margin: 0; background: var(--bg-void); color: var(--fg-1); overflow: hidden; height: 100%; }
+  #app { height: 100vh; display: flex; flex-direction: column; min-height: 0; }
+  .rail-panel { background: var(--bg-panel); border: 1px solid var(--line-2); position: relative; display: flex; flex-direction: column; min-height: 0; }
+  .rail-header { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--line-2); background: var(--bg-panel-2); }
+  .accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .scroll-y { overflow-y: auto; min-height: 0; }
+  .status-bar {
+    height: 22px; display: flex; align-items: center; padding: 0 14px; gap: 14px;
+    background: var(--bg-void); border-top: 1px solid var(--line-2);
+    font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); letter-spacing: .08em;
+  }
+  .status-bar .hot { color: var(--fg-1); }
+  @keyframes toastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="app" data-screen-label="Accounting · Command Desk"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="src/Atoms.jsx"></script>
+<script type="text/babel" src="src/TopBar.jsx"></script>
+<script type="text/babel" src="src/KPIs.jsx"></script>
+<script type="text/babel" src="src/Queue.jsx"></script>
+<script type="text/babel" src="src/Drawer.jsx"></script>
+<script type="text/babel" src="src/Rail.jsx"></script>
+<script type="text/babel" src="src/Trends.jsx"></script>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+function App() {
+  const [view, setView] = useState('needs');
+  const [selected, setSelected] = useState('Q-4818');
+  const [unresolvedOnly, setUnresolvedOnly] = useState(true);
+  const [kpiFilter, setKpiFilter] = useState(null);
+  const [query, setQuery] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const filteredQueue = useMemo(() => {
+    let rows = QUEUE;
+    if (kpiFilter === 'receipts') rows = rows.filter(r => r.type === 'review-receipt');
+    else if (kpiFilter === 'unrecon') rows = rows.filter(r => r.type === 'match-receipt');
+    else if (kpiFilter === 'unpaid') rows = rows.filter(r => r.type === 'overdue-invoice');
+    else if (kpiFilter === 'reimburse') rows = rows.filter(r => r.type === 'reimbursable');
+    else if (kpiFilter === 'cash-out') rows = rows.filter(r => r.type === 'categorize');
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      rows = rows.filter(r => (r.party + r.client + r.action + r.id).toLowerCase().includes(q));
+    }
+    return rows;
+  }, [kpiFilter, query]);
+
+  const counts = { needs: filteredQueue.length, txns: 10, recs: 9, invs: 8 };
+  const selectedItem = QUEUE.find(q => q.id === selected);
+
+  function handleAction(kind) {
+    const msg = {
+      upload: 'Receipt uploader opened · drag a file or browse',
+      expense: 'Add expense — form stub',
+      invoice: 'Add invoice — form stub',
+      import: 'Import connector — plaid · ramp · stripe',
+    }[kind];
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bg-base)' }}>
+      <div style={{ flex: 'none' }}><TopControlBar onAction={handleAction} /></div>
+      <div style={{ flex: 'none' }}><FilterStrip unresolvedOnly={unresolvedOnly} onToggleUnresolved={() => setUnresolvedOnly(v => !v)} query={query} onQuery={setQuery} /></div>
+      <div style={{ flex: 'none' }}><KPIStrip active={kpiFilter} onSelect={(k) => setKpiFilter(kpiFilter === k ? null : k)} /></div>
+
+      {/* Main split */}
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px' }}>
+        {/* LEFT */}
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: '1px solid var(--line-2)', position: 'relative' }}>
+          <ViewSwitcher view={view} onView={(v) => setView(v)} counts={counts} />
+          <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
+            {view === 'needs' && <NeedsAttentionTable rows={filteredQueue} selectedId={selected} onSelect={setSelected} />}
+            {view === 'txns'  && <TransactionsTable selectedId={selected} onSelect={setSelected} />}
+            {view === 'recs'  && <ReceiptsTable selectedId={selected} onSelect={setSelected} />}
+            {view === 'invs'  && <InvoicesTable selectedId={selected} onSelect={setSelected} />}
+          </div>
+          {view === 'needs' && selectedItem && (
+            <DetailDrawer item={selectedItem} onClose={() => setSelected(null)} />
+          )}
+        </div>
+
+        {/* RIGHT RAIL */}
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--bg-void)' }}>
+          <div className="scroll-y" style={{ flex: 1, minHeight: 0, padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Receipt intake */}
+            <div className="rail-panel">
+              <div className="accent-bar" style={{ background: 'linear-gradient(90deg, var(--neon-cyan), transparent)' }} />
+              <div className="rail-header">
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <Caps color="var(--neon-cyan)">RECEIPT INTAKE</Caps>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)' }}>7 new · 23 pending</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--fg-4)', letterSpacing: '.08em' }}>LIVE</span>
+              </div>
+              <ReceiptIntake />
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--line-1)', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>receipts@novendor.io · drag-drop</span>
+                <span style={{ color: 'var(--neon-cyan)', cursor: 'pointer' }}>view all ›</span>
+              </div>
+            </div>
+
+            {/* Reconciliation */}
+            <div className="rail-panel">
+              <div className="accent-bar" style={{ background: 'linear-gradient(90deg, var(--neon-amber), transparent)' }} />
+              <div className="rail-header">
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <Caps color="var(--neon-amber)">RECONCILIATION</Caps>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)' }}>4 to match</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', letterSpacing: '.08em' }}>REVIEW</span>
+              </div>
+              <ReconcilePanel />
+            </div>
+
+            {/* Revenue watch */}
+            <div className="rail-panel">
+              <div className="accent-bar" style={{ background: 'linear-gradient(90deg, var(--sem-error), transparent)' }} />
+              <div className="rail-header">
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <Caps color="var(--sem-error)">REVENUE WATCH</Caps>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)' }}>ar aging · risk</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--sem-down)', letterSpacing: '.08em', textShadow: '0 0 6px rgba(255,31,61,.5)' }}>3 OVERDUE</span>
+              </div>
+              <RevenueWatch />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom trends band */}
+      <div style={{ flex: 'none', height: 220 }}><TrendsBand /></div>
+
+      {/* Status bar footer */}
+      <div className="status-bar">
+        <span>v3.42.0</span>
+        <span className="hot">●</span>
+        <span>plaid · ramp · stripe · gusto synced</span>
+        <span style={{ color: 'var(--line-3)' }}>│</span>
+        <span><span className="hot">⌘K</span> command</span>
+        <span><span className="hot">U</span> upload</span>
+        <span><span className="hot">E</span> + expense</span>
+        <span><span className="hot">I</span> + invoice</span>
+        <span><span className="hot">/</span> search</span>
+        <div style={{ flex: 1 }} />
+        <span>last close · Q1 2026 · locked by j.park</span>
+        <span style={{ color: 'var(--line-3)' }}>│</span>
+        <span>cells rendered 47ms</span>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
+          padding: '8px 14px',
+          background: 'var(--bg-panel-2)', border: '1px solid var(--neon-cyan)',
+          boxShadow: '0 0 0 1px rgba(0,229,255,.3),0 0 24px rgba(0,229,255,.35)',
+          fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-1)',
+          borderRadius: 3, zIndex: 100,
+          animation: 'toastIn 140ms cubic-bezier(0.2,0.8,0.2,1)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Dot color="#00E5FF" />
+          <span>{toast}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+</script>
+</body>
+</html>

@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-import pytest
-
-from app.services import operator as operator_svc
 from app.services.operator import _load_fixture
 from app.services.site_feasibility import get_site_detail
 

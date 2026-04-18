@@ -986,11 +986,11 @@ def list_lessons(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, 
     active_munis = {s.get("municipality_id") for s in sites}
 
     rows = []
-    for l in lessons:
-        applies = l["theme"] in active_lesson_themes
-        muni_active = l.get("municipality_id") in active_munis
+    for lesson in lessons:
+        applies = lesson["theme"] in active_lesson_themes
+        muni_active = lesson.get("municipality_id") in active_munis
         rows.append({
-            **l,
+            **lesson,
             "applies_to_active_work": applies,
             "municipality_is_active": muni_active,
             "relevance_score": (2 if applies else 0) + (1 if muni_active else 0),
@@ -1022,20 +1022,20 @@ def list_staffing_load(*, env_id: UUID, business_id: UUID | None = None) -> dict
     staff_rows = []
     for s in staff:
         lines = load_by_staff.get(s["id"], [])
-        allocation_total = sum(int(l.get("allocation_pct") or 0) for l in lines)
-        hours_total = sum(int(l.get("hours_per_week") or 0) for l in lines)
-        project_count = len({l["project_id"] for l in lines})
+        allocation_total = sum(int(line.get("allocation_pct") or 0) for line in lines)
+        hours_total = sum(int(line.get("hours_per_week") or 0) for line in lines)
+        project_count = len({line["project_id"] for line in lines})
         project_summaries = []
-        for l in lines:
-            pid = l["project_id"]
+        for line in lines:
+            pid = line["project_id"]
             project_summaries.append({
                 "project_id": pid,
                 "project_name": projects.get(pid, {}).get("name"),
-                "allocation_pct": l.get("allocation_pct"),
-                "role_on_project": l.get("role_on_project"),
-                "hours_per_week": l.get("hours_per_week"),
-                "stretch": bool(l.get("stretch")),
-                "notes": l.get("notes"),
+                "allocation_pct": line.get("allocation_pct"),
+                "role_on_project": line.get("role_on_project"),
+                "hours_per_week": line.get("hours_per_week"),
+                "stretch": bool(line.get("stretch")),
+                "notes": line.get("notes"),
                 "href": f"/lab/env/{env_id}/operator/projects/{pid}",
             })
         entity = entities.get(s.get("entity_id", ""), {})

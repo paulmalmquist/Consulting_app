@@ -1,0 +1,306 @@
+/* ============================================================
+   NOVENDOR DESIGN SYSTEM — colors + type tokens
+   Cyberpunk meets Bloomberg. Miami Vice touches.
+   ============================================================ */
+
+/* ---------- Fonts (Google Fonts — noted substitutions) ---------- */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+/* Mandalore — Iconian Fonts (donationware · free for personal use · commercial license at iconian.com/commercial.html) */
+@font-face {
+  font-family: 'Mandalore';
+  src: url('./fonts/mandalore.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mandalore';
+  src: url('./fonts/mandalore-italic.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mandalore Title';
+  src: url('./fonts/mandalore-title.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mandalore Condensed';
+  src: url('./fonts/mandalore-condensed.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mandalore Expanded';
+  src: url('./fonts/mandalore-expanded.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ============================================================
+     COLORS — the split: dark base, neon accents, neutral stables
+     ============================================================ */
+
+  /* Base surfaces (the terminal) */
+  --bg-void:        #05070A;   /* deepest — outside chrome, nav rails */
+  --bg-base:        #0A0E14;   /* primary canvas */
+  --bg-panel:       #0E141C;   /* raised data panel */
+  --bg-panel-2:     #131A24;   /* nested surface */
+  --bg-row-hover:   #1A2230;   /* row hover / selected inactive */
+  --bg-row-active:  #1F2A3C;   /* row active */
+  --bg-inset:       #060A10;   /* inputs, wells, terminal inset */
+
+  /* Gridlines / structure */
+  --line-1:         #1A2230;   /* faint rule */
+  --line-2:         #263243;   /* standard rule */
+  --line-3:         #38475E;   /* stronger rule / focus outline base */
+
+  /* Text — neutral scale (stable states) */
+  --fg-1:           #E6EDF7;   /* primary text */
+  --fg-2:           #A9B4C4;   /* secondary */
+  --fg-3:           #6B7891;   /* tertiary / labels */
+  --fg-4:           #475367;   /* disabled / placeholder */
+  --fg-dim:         #2E3749;   /* gridline-on-dark text */
+  --fg-inverse:     #05070A;   /* on neon */
+
+  /* Neon accents — change, risk, anomaly (Miami Vice split) */
+  --neon-cyan:      #00E5FF;   /* primary accent — live, positive delta */
+  --neon-cyan-dim:  #00A9BF;
+  --neon-magenta:   #FF2E9A;   /* secondary accent — attention, route */
+  --neon-magenta-dim:#B31F6E;
+  --neon-amber:     #FFB020;   /* warning, manual override, patched */
+  --neon-amber-dim: #B87A12;
+  --neon-lime:      #9EFF00;   /* fresh / just-arrived signal */
+  --neon-violet:    #B07CFF;   /* tertiary tag / syntax */
+
+  /* Semantic — red means actually wrong */
+  --sem-up:         #00E5A0;   /* numeric up (slightly greener than cyan) */
+  --sem-down:       #FF3B5C;   /* numeric down / error */
+  --sem-error:      #FF1F3D;   /* hard error — loud */
+  --sem-warn:       #FFB020;   /* warn */
+  --sem-ok:         #00E5A0;   /* ok / nominal */
+  --sem-info:       #00E5FF;   /* info */
+  --sem-stale:      #6B7891;   /* stale data — neutral */
+
+  /* Special glows for anomaly emphasis (keep sparse) */
+  --glow-cyan:      0 0 12px rgba(0, 229, 255, .45), 0 0 2px rgba(0, 229, 255, .9);
+  --glow-magenta:   0 0 12px rgba(255, 46, 154, .45), 0 0 2px rgba(255, 46, 154, .9);
+  --glow-amber:     0 0 10px rgba(255, 176, 32, .45);
+  --glow-error:     0 0 10px rgba(255, 31, 61, .55);
+
+  /* Selection */
+  --selection-bg:   rgba(0, 229, 255, .25);
+  --selection-fg:   #E6EDF7;
+
+  /* ============================================================
+     TYPOGRAPHY
+     ============================================================ */
+
+  /* Families */
+  --font-mono:      'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace;
+  --font-sans:      'IBM Plex Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display:   'Mandalore', 'Orbitron', 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Size scale — tight, functional */
+  --fs-10:  10px;   /* micro label, tag */
+  --fs-11:  11px;   /* table data / chip */
+  --fs-12:  12px;   /* body small / default table */
+  --fs-13:  13px;   /* body */
+  --fs-14:  14px;   /* body large */
+  --fs-16:  16px;   /* card title */
+  --fs-18:  18px;   /* section title */
+  --fs-22:  22px;   /* H3 */
+  --fs-28:  28px;   /* H2 */
+  --fs-40:  40px;   /* H1 / KPI */
+  --fs-56:  56px;   /* display */
+  --fs-80:  80px;   /* hero ticker */
+
+  /* Weights */
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-black:    800;
+
+  /* Line heights — tight, data-forward */
+  --lh-tight:  1.0;
+  --lh-snug:   1.15;
+  --lh-body:   1.45;
+  --lh-prose:  1.55;
+
+  /* Tracking */
+  --ls-tight:   -0.02em;
+  --ls-normal:  0;
+  --ls-wide:    0.04em;
+  --ls-caps:    0.12em;   /* ALL CAPS LABELS */
+
+  /* ============================================================
+     SPACING + RADII + SHADOWS
+     ============================================================ */
+  --s-0:  0;
+  --s-1:  2px;
+  --s-2:  4px;
+  --s-3:  6px;
+  --s-4:  8px;
+  --s-5:  12px;
+  --s-6:  16px;
+  --s-7:  20px;
+  --s-8:  24px;
+  --s-9:  32px;
+  --s-10: 48px;
+  --s-11: 64px;
+
+  /* Radii — small, precise. The system prefers hard corners. */
+  --r-0:  0;
+  --r-1:  1px;
+  --r-2:  2px;
+  --r-3:  4px;
+  --r-4:  6px;          /* max for most components */
+  --r-pill: 999px;
+
+  /* Shadows — mostly inner glows + hairline borders, not soft drop shadows */
+  --shadow-inset:   inset 0 0 0 1px var(--line-2);
+  --shadow-raised:  0 0 0 1px var(--line-2), 0 6px 24px rgba(0,0,0,.55);
+  --shadow-overlay: 0 0 0 1px var(--line-3), 0 24px 60px rgba(0,0,0,.7), 0 2px 0 rgba(0,229,255,.08) inset;
+  --shadow-scan:    inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.5);
+
+  /* Motion — fast feedback, no wasted motion */
+  --ease-out:  cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in:   cubic-bezier(0.4, 0, 1, 1);
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --dur-1: 80ms;    /* instant feedback — clicks, hovers */
+  --dur-2: 140ms;   /* state transition */
+  --dur-3: 220ms;   /* panel reveal */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   ============================================================ */
+
+html, body {
+  background: var(--bg-base);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection { background: var(--selection-bg); color: var(--selection-fg); }
+
+/* Headings — display face, tight tracking */
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-1);
+  margin: 0;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-28);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-1);
+  margin: 0;
+}
+h3, .h3 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+  margin: 0;
+}
+h4, .h4 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+  margin: 0;
+}
+
+/* Body */
+p, .p {
+  font-family: var(--font-sans);
+  font-size: var(--fs-13);
+  line-height: var(--lh-prose);
+  color: var(--fg-2);
+  margin: 0;
+}
+
+/* Labels — the Bloomberg all-caps micro label */
+.label, label.caps {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Numeric / data — tabular figures */
+.num, code, kbd, samp, pre, .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1, "ss01" 1;
+}
+
+.num-kpi {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-40);
+  letter-spacing: var(--ls-tight);
+  color: var(--fg-1);
+}
+
+.num-delta-up   { color: var(--sem-up);   font-variant-numeric: tabular-nums; }
+.num-delta-down { color: var(--sem-down); font-variant-numeric: tabular-nums; }
+.num-stale      { color: var(--sem-stale); font-variant-numeric: tabular-nums; }
+
+/* Code */
+code {
+  background: var(--bg-inset);
+  border: 1px solid var(--line-1);
+  color: var(--neon-cyan);
+  padding: 1px 5px;
+  border-radius: var(--r-2);
+  font-size: 0.92em;
+}
+
+/* Links */
+a {
+  color: var(--neon-cyan);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0,229,255,.35);
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+a:hover { color: #7CF2FF; border-bottom-color: var(--neon-cyan); }
+
+/* Horizontal rules — structural */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-2);
+  margin: var(--s-7) 0;
+}
+
+/* Scrollbar (webkit) — thin and flat */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--bg-inset); }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--bg-inset); }
+*::-webkit-scrollbar-thumb:hover { background: var(--line-3); }

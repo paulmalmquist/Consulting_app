@@ -18,6 +18,7 @@ import {
   type HistoryRhymesDataState,
 } from "@/components/market/HistoryRhymesDataStateBanner";
 import { fetchRhymesEpisodes, RhymesClientError } from "@/lib/trading-lab/rhymes-client";
+import { DissensusPanel } from "@/components/history-rhymes/DissensusPanel";
 
 /* ── Chart hex helper (reads CSS vars at render time for theme-awareness) ── */
 
@@ -910,6 +911,13 @@ export function HistoryRhymesTab() {
   // they're wired to real backend responses.
   const bannerState: HistoryRhymesDataState = "preview";
 
+  // Dissensus is per-asset + per-horizon. No selector exists in this tab yet,
+  // so v1 mounts the panel only when dev defaults are explicitly enabled.
+  // Follow-up plan wires a real selector; see /Users/paulmalmquist/.claude/plans/build-a-dissensus-panel-scalable-fox.md.
+  const devDefaults = process.env.NEXT_PUBLIC_DISSENSUS_DEV_DEFAULTS === "1";
+  const dissensusSymbol = devDefaults ? "SPX" : null;
+  const dissensusHorizon = devDefaults ? "1m" : null;
+
   return (
     <div className="space-y-6 text-bm-text" data-testid="command-center">
       <HistoryRhymesDataStateBanner
@@ -919,6 +927,9 @@ export function HistoryRhymesTab() {
       />
       <MarketStateStrip />
       <DecisionLayer />
+      {dissensusSymbol && dissensusHorizon && (
+        <DissensusPanel symbol={dissensusSymbol} horizon={dissensusHorizon} />
+      )}
       <AnalogForecast />
       <PositioningSection />
       <SignalStack />

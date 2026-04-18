@@ -178,6 +178,12 @@ _GET_CURSOR_TARGETS = [
     "app.services.repe_hybrid_search.get_cursor",
     "app.services.environment_pipeline_v2.get_cursor",
     "app.services.environment_templates_v2.get_cursor",
+    "app.services.receipt_intake.get_cursor",
+    "app.services.receipt_classification.get_cursor",
+    "app.services.receipt_matching.get_cursor",
+    "app.services.receipt_review_queue.get_cursor",
+    "app.services.receipt_reports.get_cursor",
+    "app.services.subscription_ledger.get_cursor",
 ]
 
 
