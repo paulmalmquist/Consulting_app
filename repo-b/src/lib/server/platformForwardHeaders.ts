@@ -1,9 +1,9 @@
 import {
-  getActiveMembership,
   getSessionActor,
   isPlatformAdminSession,
   parseSessionFromRequest,
 } from "@/lib/server/sessionAuth";
+import { getActiveRichMembership } from "@/lib/server/platformMembershipRehydrate";
 
 export async function buildPlatformSessionHeaders(request: Request) {
   const headers: Record<string, string> = {
@@ -11,7 +11,7 @@ export async function buildPlatformSessionHeaders(request: Request) {
   };
 
   const session = await parseSessionFromRequest(request);
-  const activeMembership = getActiveMembership(session);
+  const activeMembership = await getActiveRichMembership(session);
   if (session?.platform_user_id) {
     headers["x-bm-auth-provider"] = "platform-session";
     headers["x-bm-user-id"] = session.platform_user_id;

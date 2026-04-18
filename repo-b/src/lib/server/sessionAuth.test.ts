@@ -26,30 +26,16 @@ function buildClaims(): PlatformSessionClaims {
       {
         env_id: "env-novendor",
         env_slug: "novendor",
-        client_name: "Novendor",
         role: "owner",
         status: "active",
-        auth_mode: "private",
         is_default: true,
-        business_id: "biz-novendor",
-        tenant_id: "tenant-novendor",
-        industry: "consulting",
-        industry_type: "consulting",
-        workspace_template_key: "consulting_revenue_os",
       },
       {
         env_id: "env-trading",
         env_slug: "trading",
-        client_name: "Trading Platform",
         role: "member",
         status: "active",
-        auth_mode: "private",
         is_default: false,
-        business_id: "biz-trading",
-        tenant_id: "tenant-trading",
-        industry: "trading_platform",
-        industry_type: "trading_platform",
-        workspace_template_key: "trading_platform",
       },
     ],
   };
@@ -77,7 +63,7 @@ describe("sessionAuth", () => {
 
     expect(sessionHasEnvironmentAccess(session, { slug: "novendor" })).toBe(true);
     expect(sessionHasEnvironmentAccess(session, { slug: "floyorker" })).toBe(false);
-    expect(findMembershipBySlug(session, "trading")?.tenant_id).toBe("tenant-trading");
+    expect(findMembershipBySlug(session, "trading")?.env_id).toBe("env-trading");
   });
 
   it("uses the canonical root login route for signed-out sessions", async () => {

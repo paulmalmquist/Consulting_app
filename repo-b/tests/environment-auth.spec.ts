@@ -22,49 +22,38 @@ function buildClaims(overrides?: Partial<PlatformSessionClaims>): PlatformSessio
       {
         env_id: "env-novendor",
         env_slug: "novendor",
-        client_name: "Novendor",
         role: "member",
         status: "active",
-        auth_mode: "private",
         is_default: true,
-        business_id: "biz-novendor",
-        tenant_id: "tenant-novendor",
-        industry: "consulting",
-        industry_type: "consulting",
-        workspace_template_key: "consulting_revenue_os",
       },
       {
         env_id: "env-floyorker",
         env_slug: "floyorker",
-        client_name: "Floyorker",
         role: "member",
         status: "active",
-        auth_mode: "private",
         is_default: false,
-        business_id: "biz-floyorker",
-        tenant_id: "tenant-floyorker",
-        industry: "media",
-        industry_type: "media",
-        workspace_template_key: "content_platform",
       },
       {
         env_id: "env-trading",
         env_slug: "trading",
-        client_name: "Trading Platform",
         role: "member",
         status: "active",
-        auth_mode: "private",
         is_default: false,
-        business_id: "biz-trading",
-        tenant_id: "tenant-trading",
-        industry: "trading_platform",
-        industry_type: "trading_platform",
-        workspace_template_key: "trading_platform",
       },
     ],
     ...overrides,
   };
 }
+
+// Mock /api/auth/me returns rich rows. Tests fabricate them here because
+// the JWT only carries slim fields (env_id, env_slug, role, status, is_default);
+// rich fields (client_name, business_id, industry, etc.) are normally
+// rehydrated from the DB but tests don't exercise the real DB.
+const RICH_OVERLAYS: Record<string, { client_name: string; auth_mode: "private"; business_id: string; industry: string; industry_type: string; workspace_template_key: string }> = {
+  novendor: { client_name: "Novendor", auth_mode: "private", business_id: "biz-novendor", industry: "consulting", industry_type: "consulting", workspace_template_key: "consulting_revenue_os" },
+  floyorker: { client_name: "Floyorker", auth_mode: "private", business_id: "biz-floyorker", industry: "media", industry_type: "media", workspace_template_key: "content_platform" },
+  trading: { client_name: "Trading Platform", auth_mode: "private", business_id: "biz-trading", industry: "trading_platform", industry_type: "trading_platform", workspace_template_key: "trading_platform" },
+};
 
 async function installPlatformSession(
   context: BrowserContext,
@@ -114,14 +103,10 @@ async function mockSessionApis(page: Page, claims: PlatformSessionClaims) {
           memberships: claims.memberships.map((membership) => ({
             env_id: membership.env_id,
             env_slug: membership.env_slug,
-            client_name: membership.client_name,
             role: membership.role,
             status: membership.status,
-            auth_mode: membership.auth_mode,
-            business_id: membership.business_id,
-            industry: membership.industry,
-            industry_type: membership.industry_type,
-            workspace_template_key: membership.workspace_template_key,
+            is_default: membership.is_default,
+            ...(RICH_OVERLAYS[membership.env_slug] || {}),
           })),
         },
       },

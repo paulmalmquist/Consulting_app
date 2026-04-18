@@ -7,6 +7,7 @@ import {
 } from "@/lib/environmentAuth";
 import { applyPlatformSessionCookies } from "@/lib/server/platformSessionCookies";
 import {
+  type PlatformMembershipSlim,
   isPlatformAdminSession,
   parseSessionFromNextRequest,
   PLATFORM_SESSION_COOKIE,
@@ -48,17 +49,17 @@ function isPublicEnvironmentPath(pathname: string, slug: EnvironmentSlug) {
 }
 
 function membershipForSlug(
-  memberships: Array<{ env_id: string; env_slug: string; role: string; status: string }>,
+  memberships: PlatformMembershipSlim[] | undefined,
   slug: EnvironmentSlug,
-) {
-  return memberships.find((membership) => membership.env_slug === slug && membership.status === "active") || null;
+): PlatformMembershipSlim | null {
+  return (memberships || []).find((membership) => membership.env_slug === slug && membership.status === "active") || null;
 }
 
 function membershipForEnvId(
-  memberships: Array<{ env_id: string; env_slug: string; role: string; status: string }>,
+  memberships: PlatformMembershipSlim[] | undefined,
   envId: string,
-) {
-  return memberships.find((membership) => membership.env_id === envId && membership.status === "active") || null;
+): PlatformMembershipSlim | null {
+  return (memberships || []).find((membership) => membership.env_id === envId && membership.status === "active") || null;
 }
 
 async function maybeRotateSessionByMembership(
@@ -91,7 +92,7 @@ async function maybeRotateSessionByMembership(
   applyPlatformSessionCookies(response, {
     token,
     claims: rotatedClaims,
-    activeMembership: membership as typeof claims.memberships[number],
+    activeMembership: membership,
   });
   return response;
 }

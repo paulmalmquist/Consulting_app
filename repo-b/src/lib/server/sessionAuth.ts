@@ -38,6 +38,29 @@ export type PlatformMembershipSummary = {
   workspace_template_key: string | null;
 };
 
+// Slim membership row stored in the JWT cookie. Keep fields minimal so the
+// cookie stays under the browser's 4096-byte per-cookie limit even when a
+// platform admin has memberships across dozens of environments. Rich fields
+// (client_name, business_id, tenant_id, industry, etc.) are refetched from
+// the DB by /api/auth/me and by server-side helpers that need them.
+export type PlatformMembershipSlim = {
+  env_id: string;
+  env_slug: EnvironmentSlug;
+  role: EnvironmentMembershipRole;
+  status: EnvironmentMembershipStatus;
+  is_default: boolean;
+};
+
+export function toSlimMembership(row: PlatformMembershipSummary): PlatformMembershipSlim {
+  return {
+    env_id: row.env_id,
+    env_slug: row.env_slug,
+    role: row.role,
+    status: row.status,
+    is_default: row.is_default,
+  };
+}
+
 export type PlatformSessionClaims = {
   v: number;
   session_id: string;
@@ -51,7 +74,7 @@ export type PlatformSessionClaims = {
   active_env_id: string | null;
   active_env_slug: EnvironmentSlug | null;
   active_role: EnvironmentMembershipRole | null;
-  memberships: PlatformMembershipSummary[];
+  memberships: PlatformMembershipSlim[];
 };
 
 export type SessionPayload = {
@@ -66,10 +89,10 @@ export type SessionPayload = {
   active_env_id?: string | null;
   active_env_slug?: EnvironmentSlug | null;
   active_role?: EnvironmentMembershipRole | null;
-  memberships?: PlatformMembershipSummary[];
+  memberships?: PlatformMembershipSlim[];
   issued_at?: number;
   expires_at?: number;
-  active_membership?: PlatformMembershipSummary | null;
+  active_membership?: PlatformMembershipSlim | null;
   legacy?: boolean;
 };
 
@@ -139,7 +162,7 @@ function parseCookieHeader(cookieHeader: string) {
 }
 
 function selectActiveMembership(
-  memberships: PlatformMembershipSummary[],
+  memberships: PlatformMembershipSlim[],
   activeEnvId: string | null | undefined,
   activeSlug: EnvironmentSlug | null | undefined,
 ) {
@@ -171,16 +194,9 @@ function legacyFromBosCookie(raw: string): SessionPayload | null {
           {
             env_id: parsed.env_id,
             env_slug: "novendor",
-            client_name: "Legacy Environment",
             role: parsed.role === "admin" ? "owner" : "member",
             status: "active",
-            auth_mode: "private",
             is_default: true,
-            business_id: null,
-            tenant_id: null,
-            industry: null,
-            industry_type: null,
-            workspace_template_key: null,
           },
         ]
       : [],

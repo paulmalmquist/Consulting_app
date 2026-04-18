@@ -6,6 +6,7 @@ import {
   parseSessionFromRequest,
   type PlatformMembershipSummary,
 } from "@/lib/server/sessionAuth";
+import { loadRichMembershipByEnvId } from "@/lib/server/platformMembershipRehydrate";
 
 export async function requireTradingMembership(
   request: Request,
@@ -16,11 +17,20 @@ export async function requireTradingMembership(
     return { error: NextResponse.json({ error: "Authentication required" }, { status: 401 }) };
   }
 
-  const membership = requestedEnvId
+  const slim = requestedEnvId
     ? findMembershipByEnvId(session, requestedEnvId)
     : getActiveMembership(session);
 
-  if (!membership || membership.env_slug !== "trading" || membership.status !== "active") {
+  if (!slim || slim.env_slug !== "trading" || slim.status !== "active") {
+    return { error: NextResponse.json({ error: "Trading environment access required" }, { status: 403 }) };
+  }
+
+  if (!session.platform_user_id) {
+    return { error: NextResponse.json({ error: "Authentication required" }, { status: 401 }) };
+  }
+
+  const membership = await loadRichMembershipByEnvId(session.platform_user_id, slim.env_id);
+  if (!membership) {
     return { error: NextResponse.json({ error: "Trading environment access required" }, { status: 403 }) };
   }
 

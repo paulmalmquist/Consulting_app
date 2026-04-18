@@ -7,11 +7,11 @@
  */
 import { NextRequest } from "next/server";
 import {
-  getActiveMembership,
   getSessionActor,
   isPlatformAdminSession,
   parseSessionFromRequest,
 } from "@/lib/server/sessionAuth";
+import { getActiveRichMembership } from "@/lib/server/platformMembershipRehydrate";
 
 export const runtime = "nodejs";
 
@@ -64,7 +64,7 @@ async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string
   headers.set("X-Request-Id", requestId);
 
   const session = await parseSessionFromRequest(request);
-  const activeMembership = getActiveMembership(session);
+  const activeMembership = await getActiveRichMembership(session);
   if (session?.platform_user_id) {
     headers.set("x-bm-auth-provider", "platform-session");
     headers.set("x-bm-user-id", session.platform_user_id);

@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
 
 import {
-  getActiveMembership,
   getSessionActor,
   isPlatformAdminSession,
   parseSessionFromRequest,
 } from "@/lib/server/sessionAuth";
+import { getActiveRichMembership } from "@/lib/server/platformMembershipRehydrate";
 
 function inferBosOrigin(request: NextRequest | Request): string {
   // Single canonical env var for the backend origin (server-side only).
@@ -46,7 +46,7 @@ async function buildForwardHeaders(request: NextRequest | Request, requestId: st
   headers.set("X-Request-Id", requestId);
 
   const session = await parseSessionFromRequest(request);
-  const activeMembership = getActiveMembership(session);
+  const activeMembership = await getActiveRichMembership(session);
   if (session?.platform_user_id) {
     headers.set("x-bm-auth-provider", "platform-session");
     headers.set("x-bm-user-id", session.platform_user_id);

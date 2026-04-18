@@ -10,13 +10,16 @@ import {
   sanitizeReturnTo,
 } from "@/lib/environmentAuth";
 import {
+  type PlatformMembershipSlim,
   type PlatformMembershipSummary,
   type PlatformSessionClaims,
   buildSessionExpiryTimestampSeconds,
   getSessionTtlSeconds,
   signPlatformSession,
+  toSlimMembership,
 } from "@/lib/server/sessionAuth";
 import { withClient, withTransaction } from "@/lib/server/db";
+import { loadRichMembershipByEnvId } from "@/lib/server/platformMembershipRehydrate";
 
 type SupabaseIdentity = {
   userId: string;
@@ -347,14 +350,14 @@ async function bootstrapOwnerMemberships(
         'active',
         false
       FROM app.environments e
-      WHERE e.slug = ANY($2::text[])
+      WHERE e.lifecycle_state IS DISTINCT FROM 'retired'
       ON CONFLICT (platform_user_id, env_id)
       DO UPDATE SET
         role = 'owner',
         status = 'active',
         updated_at = now()
     `,
-    [platformUserId, ["novendor", "floyorker", "stone-pds", "meridian", "trading", "ncf"]],
+    [platformUserId],
   );
 
   if (splitResumeHiddenDomains().has(emailDomain)) {
@@ -468,7 +471,7 @@ function buildClaims(args: {
     active_env_id: args.activeMembership.env_id,
     active_env_slug: args.activeMembership.env_slug,
     active_role: args.activeMembership.role,
-    memberships: args.memberships,
+    memberships: args.memberships.map(toSlimMembership),
   } satisfies PlatformSessionClaims;
 }
 
@@ -548,13 +551,24 @@ export async function rotatePlatformSessionEnvironment(args: {
   session: PlatformSessionClaims;
   target: { envId?: string | null; slug?: EnvironmentSlug | null };
 }) {
-  const membership = args.target.envId
+  const slimMembership = args.target.envId
     ? args.session.memberships.find((item) => item.env_id === args.target.envId && item.status === "active")
     : args.target.slug
       ? args.session.memberships.find((item) => item.env_slug === args.target.slug && item.status === "active")
       : null;
 
-  if (!membership) {
+  if (!slimMembership) {
+    throw new Error("You do not have access to that environment");
+  }
+
+  // Rehydrate the rich membership row so the JSON response body can carry
+  // business_id and other fields that clients set in localStorage / forward
+  // headers. The JWT cookie itself continues to carry only slim rows.
+  const richMembership = await loadRichMembershipByEnvId(
+    args.session.platform_user_id,
+    slimMembership.env_id,
+  );
+  if (!richMembership) {
     throw new Error("You do not have access to that environment");
   }
 
@@ -568,7 +582,7 @@ export async function rotatePlatformSessionEnvironment(args: {
           last_seen_at = now()
         WHERE session_id = $1::uuid
       `,
-      [args.session.session_id, membership.env_id, membership.env_slug],
+      [args.session.session_id, richMembership.env_id, richMembership.env_slug],
     );
 
     await client.query(
@@ -580,15 +594,15 @@ export async function rotatePlatformSessionEnvironment(args: {
         WHERE platform_user_id = $1::uuid
           AND env_id = $2::uuid
       `,
-      [args.session.platform_user_id, membership.env_id],
+      [args.session.platform_user_id, richMembership.env_id],
     );
   });
 
   const nextClaims: PlatformSessionClaims = {
     ...args.session,
-    active_env_id: membership.env_id,
-    active_env_slug: membership.env_slug,
-    active_role: membership.role,
+    active_env_id: richMembership.env_id,
+    active_env_slug: richMembership.env_slug,
+    active_role: richMembership.role,
     issued_at: Math.floor(Date.now() / 1000),
     expires_at: buildSessionExpiryTimestampSeconds(),
   };
@@ -597,11 +611,11 @@ export async function rotatePlatformSessionEnvironment(args: {
   return {
     token,
     claims: nextClaims,
-    membership,
+    membership: richMembership,
     redirectTo: environmentHomePath({
-      envId: membership.env_id,
-      slug: membership.env_slug,
-      role: membership.role,
+      envId: richMembership.env_id,
+      slug: richMembership.env_slug,
+      role: richMembership.role,
     }),
   };
 }

@@ -1,6 +1,6 @@
 import type { NextResponse } from "next/server";
 
-import type { PlatformMembershipSummary, PlatformSessionClaims } from "@/lib/server/sessionAuth";
+import type { PlatformMembershipSlim, PlatformMembershipSummary, PlatformSessionClaims } from "@/lib/server/sessionAuth";
 import {
   ACTIVE_ENV_COOKIE,
   ACTIVE_ENV_SLUG_COOKIE,
@@ -18,7 +18,7 @@ export function applyPlatformSessionCookies(
   args: {
     token: string;
     claims: PlatformSessionClaims;
-    activeMembership: PlatformMembershipSummary;
+    activeMembership: PlatformMembershipSlim | PlatformMembershipSummary;
   },
 ) {
   response.cookies.set({
