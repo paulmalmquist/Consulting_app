@@ -334,6 +334,25 @@ async function bootstrapOwnerMemberships(
 
   if (!shouldBootstrap) return;
 
+  // Schema-agnostic: prod may not yet have the v2 lifecycle_state column
+  // (migration repo-b/db/schema/515_environments_v2_columns.sql). Detect it
+  // and only filter out retired envs when the column exists.
+  const lifecycleColCheck = await client.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'app'
+          AND table_name = 'environments'
+          AND column_name = 'lifecycle_state'
+      ) AS exists
+    `,
+  );
+  const hasLifecycleState = Boolean(lifecycleColCheck.rows[0]?.exists);
+  const retiredFilter = hasLifecycleState
+    ? "WHERE e.lifecycle_state IS DISTINCT FROM 'retired'"
+    : "";
+
   await client.query(
     `
       INSERT INTO app.environment_memberships (
@@ -350,7 +369,7 @@ async function bootstrapOwnerMemberships(
         'active',
         false
       FROM app.environments e
-      WHERE e.lifecycle_state IS DISTINCT FROM 'retired'
+      ${retiredFilter}
       ON CONFLICT (platform_user_id, env_id)
       DO UPDATE SET
         role = 'owner',
