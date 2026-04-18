@@ -72,6 +72,12 @@ function anchorSections(pathname: string): AnchorItem[] {
   if (pathname.includes("/operator/projects") || pathname.includes("/operator/delivery")) {
     return [
       { id: "permit-tracker", label: "Permits" },
+      { id: "drift-watchlist", label: "Drift Watchlist" },
+      { id: "review-churn", label: "Review Churn" },
+      { id: "inspection-rework", label: "Inspections" },
+      { id: "team-capacity", label: "Team Capacity" },
+      { id: "lessons", label: "Lessons" },
+      { id: "accountability", label: "Accountability" },
       { id: "project-tracker", label: "Tracker" },
       { id: "red-projects", label: "Red Projects" },
     ];
@@ -99,6 +105,7 @@ function anchorSections(pathname: string): AnchorItem[] {
   }
   if (pathname.includes("/operator/vendors")) {
     return [
+      { id: "concentration", label: "Concentration" },
       { id: "spend-aggregation", label: "Spend Aggregation" },
       { id: "duplication", label: "Duplication" },
       { id: "consolidation", label: "Consolidation" },

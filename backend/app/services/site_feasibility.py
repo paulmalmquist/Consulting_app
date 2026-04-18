@@ -33,6 +33,17 @@ def _comparable_index() -> dict[str, dict[str, Any]]:
     return {c["id"]: c for c in _load_fixture().get("comparable_projects", [])}
 
 
+def _scenario_by_site() -> dict[str, dict[str, Any]]:
+    return {
+        s["site_id"]: s
+        for s in _load_fixture().get("development_scenarios", [])
+    }
+
+
+def _rule_change_event_index() -> dict[str, dict[str, Any]]:
+    return {e["id"]: e for e in _load_fixture().get("rule_change_events", [])}
+
+
 def _site_href(env_id: UUID, site_id: str) -> str:
     return f"/lab/env/{env_id}/operator/site-risk/{site_id}"
 
@@ -81,6 +92,25 @@ def list_sites(*, env_id: UUID, business_id: UUID | None = None) -> list[dict[st
         )
     )
     return [_row_for_site(site, env_id) for site in sites]
+
+
+def _build_scenario_block(raw: dict[str, Any]) -> dict[str, Any]:
+    """Hydrate a development_scenarios fixture entry into the API shape."""
+    events = _rule_change_event_index()
+    ordinance_impact = raw.get("active_ordinance_impact")
+    enriched_impact = None
+    if ordinance_impact and ordinance_impact.get("ordinance_event_id"):
+        event = events.get(ordinance_impact["ordinance_event_id"], {})
+        enriched_impact = {
+            **ordinance_impact,
+            "event_effective_date": event.get("effective_date"),
+            "event_change_type": event.get("change_type"),
+        }
+    return {
+        "site_id": raw["site_id"],
+        "presets": raw.get("presets", []),
+        "active_ordinance_impact": enriched_impact,
+    }
 
 
 def get_site_detail(*, env_id: UUID, business_id: UUID | None, site_id: str) -> dict[str, Any]:
@@ -142,6 +172,9 @@ def get_site_detail(*, env_id: UUID, business_id: UUID | None, site_id: str) -> 
                 }
             )
 
+    scenario_data = _scenario_by_site().get(site_id)
+    development_scenarios = _build_scenario_block(scenario_data) if scenario_data else None
+
     return {
         "site_id": site["id"],
         "name": site.get("name"),
@@ -172,6 +205,7 @@ def get_site_detail(*, env_id: UUID, business_id: UUID | None, site_id: str) -> 
         "comparable_projects": comparable_rows,
         "recommended_actions": assessment.get("recommended_actions", []),
         "risk_score": assessment.get("risk_score"),
+        "development_scenarios": development_scenarios,
     }
 
 

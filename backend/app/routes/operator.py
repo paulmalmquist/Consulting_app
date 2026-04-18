@@ -16,6 +16,13 @@ from app.schemas.operator import (
     OperatorSiteRowOut,
     OperatorVendorRowOut,
     PermitBoardOut,
+    VendorConcentrationBoardOut,
+    BudgetDriftBoardOut,
+    ReviewCycleBoardOut,
+    InspectionReworkBoardOut,
+    StaffingLoadBoardOut,
+    LessonsBoardOut,
+    AccountabilityBoardOut,
 )
 from app.services import env_context
 from app.services import operator as operator_svc
@@ -260,6 +267,166 @@ def list_permits(
             code=code,
             detail=str(exc),
             action="operator.permits.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/accountability", response_model=AccountabilityBoardOut)
+def get_accountability(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return AccountabilityBoardOut(
+            **operator_svc.list_accountability(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="operator.accountability.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/lessons", response_model=LessonsBoardOut)
+def get_lessons(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return LessonsBoardOut(
+            **operator_svc.list_lessons(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="operator.lessons.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/staffing-load", response_model=StaffingLoadBoardOut)
+def get_staffing_load(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return StaffingLoadBoardOut(
+            **operator_svc.list_staffing_load(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="operator.staffing_load.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/inspection-rework", response_model=InspectionReworkBoardOut)
+def get_inspection_rework(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return InspectionReworkBoardOut(
+            **operator_svc.list_inspection_rework(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="operator.inspection_rework.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/review-cycles", response_model=ReviewCycleBoardOut)
+def get_review_cycles(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return ReviewCycleBoardOut(
+            **operator_svc.list_review_cycle_analysis(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="operator.review_cycles.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/budget-drift", response_model=BudgetDriftBoardOut)
+def get_budget_drift(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return BudgetDriftBoardOut(
+            **operator_svc.list_budget_drift(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.budget_drift.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/vendors/concentration", response_model=VendorConcentrationBoardOut)
+def get_vendor_concentration(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return VendorConcentrationBoardOut(
+            **operator_svc.list_vendor_concentration(
+                env_id=resolved_env_id, business_id=resolved_business_id
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.vendor_concentration.failed",
             context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
         )
 

@@ -49,6 +49,13 @@ import { ActionQueueSection } from "@/components/operator/ActionQueueSection";
 import { SiteOrdinanceStrip } from "@/components/operator/SiteOrdinanceStrip";
 import { CashAtRiskStrip } from "@/components/operator/CashAtRiskStrip";
 import { PermitTracker } from "@/components/operator/PermitTracker";
+import VendorConcentration from "@/components/operator/VendorConcentration";
+import { BudgetDriftWatch } from "@/components/operator/BudgetDriftWatch";
+import { ReviewCycleAnalyzer } from "@/components/operator/ReviewCycleAnalyzer";
+import { InspectionRework } from "@/components/operator/InspectionRework";
+import { StaffingLoad } from "@/components/operator/StaffingLoad";
+import { LessonsEngine } from "@/components/operator/LessonsEngine";
+import { AccountabilityLayer } from "@/components/operator/AccountabilityLayer";
 
 function toneClasses(value: string) {
   const key = value.toLowerCase();
@@ -583,6 +590,30 @@ export function OperatorProjectsPage() {
     <div className="space-y-4">
       <PermitTracker />
 
+      <SectionCard id="drift-watchlist" title="Budget Drift Watchlist" eyebrow="Leading Indicators">
+        <BudgetDriftWatch />
+      </SectionCard>
+
+      <SectionCard id="review-churn" title="Review Churn" eyebrow="Permit Friction Themes">
+        <ReviewCycleAnalyzer />
+      </SectionCard>
+
+      <SectionCard id="inspection-rework" title="Inspection Failure + Rework" eyebrow="Execution Quality">
+        <InspectionRework />
+      </SectionCard>
+
+      <SectionCard id="team-capacity" title="Team Capacity" eyebrow="Staffing Load">
+        <StaffingLoad />
+      </SectionCard>
+
+      <SectionCard id="lessons" title="Lessons Engine" eyebrow="Preemptive Action From Past Projects">
+        <LessonsEngine />
+      </SectionCard>
+
+      <SectionCard id="accountability" title="Accountability" eyebrow="Unowned + Stalled + Overdue">
+        <AccountabilityLayer />
+      </SectionCard>
+
       <SectionCard id="project-tracker" title="Cross-Entity Project Tracker" eyebrow="Execution Surface">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -1099,6 +1130,10 @@ export function OperatorVendorsPage() {
 
   return (
     <div className="space-y-4">
+      <SectionCard id="concentration" title="Vendor Concentration + Performance" eyebrow="Single-Point-of-Failure Risk">
+        <VendorConcentration />
+      </SectionCard>
+
       <SectionCard id="spend-aggregation" title="Spend Aggregation" eyebrow="Cross-Entity Control">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">

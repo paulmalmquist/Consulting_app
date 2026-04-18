@@ -827,6 +827,557 @@ def list_vendors(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
     return _build_vendor_rows()
 
 
+_VENDOR_CONCENTRATION_HIGH_THRESHOLD = 40.0
+_VENDOR_ON_TIME_WARN_THRESHOLD = 0.75
+
+
+def _vendor_index() -> dict[str, dict[str, Any]]:
+    return {v["id"]: v for v in _load_fixture().get("vendors", [])}
+
+
+def _vendor_project_map() -> dict[str, list[dict[str, Any]]]:
+    """Walk active projects' vendor_breakdown to map vendor_id -> [project rows]."""
+    mapping: dict[str, list[dict[str, Any]]] = {}
+    for project in _load_fixture().get("projects", []):
+        for line in project.get("vendor_breakdown", []) or []:
+            vid = line.get("vendor_id")
+            if not vid:
+                continue
+            mapping.setdefault(vid, []).append(
+                {
+                    "project_id": project["id"],
+                    "project_name": project.get("name"),
+                    "risk_level": project.get("risk_level"),
+                    "status": project.get("status"),
+                    "share_pct": line.get("share_pct"),
+                    "amount": line.get("amount"),
+                    "line_status": line.get("status"),
+                }
+            )
+    return mapping
+
+
+def _concentration_row(perf: dict[str, Any], env_id: UUID) -> dict[str, Any]:
+    vendor = _vendor_index().get(perf["vendor_id"], {})
+    linked = _vendor_project_map().get(perf["vendor_id"], [])
+    concentration = perf.get("concentration_pct")
+    return {
+        "vendor_id": perf["vendor_id"],
+        "vendor_name": vendor.get("name", perf["vendor_id"]),
+        "category": vendor.get("category"),
+        "concentration_pct": concentration,
+        "concentration_severity": (
+            "high" if concentration is not None and concentration >= _VENDOR_CONCENTRATION_HIGH_THRESHOLD
+            else "medium" if concentration is not None and concentration >= 25.0
+            else "low"
+        ),
+        "active_project_count": perf.get("active_project_count"),
+        "total_active_jobs_denominator": perf.get("total_active_jobs_denominator"),
+        "on_time_rate": perf.get("on_time_rate"),
+        "on_time_warn": (
+            perf.get("on_time_rate") is not None
+            and perf["on_time_rate"] < _VENDOR_ON_TIME_WARN_THRESHOLD
+        ),
+        "budget_adherence_pct": perf.get("budget_adherence_pct"),
+        "avg_delay_days": perf.get("avg_delay_days"),
+        "rework_rate": perf.get("rework_rate"),
+        "at_risk_project_count": perf.get("at_risk_project_count"),
+        "trend": perf.get("trend"),
+        "confidence": perf.get("confidence"),
+        "flag": perf.get("flag"),
+        "spend_share_of_active_pct": perf.get("spend_share_of_active_pct"),
+        "delay_correlation": perf.get("delay_correlation"),
+        "notes": perf.get("notes"),
+        "impact": perf.get("impact"),
+        "linked_projects": [
+            {**row, "href": f"/lab/env/{env_id}/operator/projects/{row['project_id']}"}
+            for row in linked
+        ],
+    }
+
+
+_STALE_UPDATE_DAYS = 5
+
+
+def list_accountability(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    """Internal accountability layer: stalled, unowned, overdue items with escalation levels."""
+    _ = business_id
+    items = list(_load_fixture().get("ownership_items", []))
+    projects = _project_index()
+
+    rows = []
+    for i in items:
+        pid = i["project_id"]
+        rows.append({
+            **i,
+            "project_name": projects.get(pid, {}).get("name"),
+            "stalled_no_owner": not i.get("owner"),
+            "stale_update": int(i.get("last_update_days") or 0) >= _STALE_UPDATE_DAYS,
+            "href": f"/lab/env/{env_id}/operator/projects/{pid}",
+        })
+    # Sort: unassigned → overdue → highest escalation → most days overdue
+    rows.sort(
+        key=lambda r: (
+            0 if r["stalled_no_owner"] else 1,
+            0 if r.get("status") == "overdue" else 1,
+            -int(r.get("escalation_level") or 0),
+            -int(r.get("days_overdue") or 0),
+        )
+    )
+
+    # By-owner rollup
+    owner_map: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        owner = r.get("owner") or "Unassigned"
+        row = owner_map.setdefault(owner, {
+            "owner": owner,
+            "owner_id": r.get("owner_id"),
+            "open_count": 0,
+            "overdue_count": 0,
+            "max_escalation_level": 0,
+            "stale_count": 0,
+        })
+        row["open_count"] += 1
+        if r.get("status") == "overdue":
+            row["overdue_count"] += 1
+        row["max_escalation_level"] = max(
+            row["max_escalation_level"], int(r.get("escalation_level") or 0)
+        )
+        if r.get("stale_update"):
+            row["stale_count"] += 1
+    by_owner = list(owner_map.values())
+    by_owner.sort(key=lambda r: (-r["overdue_count"], -r["max_escalation_level"], -r["open_count"]))
+
+    totals = {
+        "total_items": len(rows),
+        "unassigned_count": sum(1 for r in rows if r["stalled_no_owner"]),
+        "overdue_count": sum(1 for r in rows if r.get("status") == "overdue"),
+        "stale_count": sum(1 for r in rows if r["stale_update"]),
+        "max_escalation_level": max((int(r.get("escalation_level") or 0) for r in rows), default=0),
+    }
+    return {"items": rows, "by_owner": by_owner, "totals": totals}
+
+
+_THEME_ALIASES = {
+    # Maps review comment themes to lesson themes so lessons apply to active issues.
+    "panel_sizing": {"electrical_panel_sizing"},
+    "grounding": {"electrical_panel_sizing"},
+    "compatibility_setback": {"compatibility_setback"},
+    "utility_capacity": {"utility_capacity"},
+    "parking_count": {"parking_variance"},
+    "ada_clearance": {"ada_clearance"},
+}
+
+
+def list_lessons(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    """Lessons engine: surfaces historical lessons keyed by active themes and municipalities."""
+    _ = env_id, business_id
+    lessons = list(_load_fixture().get("project_lessons", []))
+    review = _load_fixture().get("review_comments", [])
+    sites = _load_fixture().get("sites", [])
+
+    # Active themes from open review comments
+    active_review_themes = {c["theme"] for c in review if not c.get("resolved")}
+    active_lesson_themes: set[str] = set()
+    for t in active_review_themes:
+        active_lesson_themes.update(_THEME_ALIASES.get(t, {t}))
+
+    # Active municipalities (where we have active sites)
+    active_munis = {s.get("municipality_id") for s in sites}
+
+    rows = []
+    for l in lessons:
+        applies = l["theme"] in active_lesson_themes
+        muni_active = l.get("municipality_id") in active_munis
+        rows.append({
+            **l,
+            "applies_to_active_work": applies,
+            "municipality_is_active": muni_active,
+            "relevance_score": (2 if applies else 0) + (1 if muni_active else 0),
+        })
+    rows.sort(key=lambda r: (-r["relevance_score"], r["severity"] != "high"))
+
+    totals = {
+        "lesson_count": len(rows),
+        "applies_count": sum(1 for r in rows if r["applies_to_active_work"]),
+        "active_theme_count": len(active_lesson_themes),
+    }
+    return {"rows": rows, "totals": totals}
+
+
+_STAFF_OVERLOAD_THRESHOLD = 110  # combined allocation_pct across projects
+
+
+def list_staffing_load(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    _ = business_id
+    staff = list(_load_fixture().get("staff", []))
+    loads = list(_load_fixture().get("staff_load", []))
+    projects = _project_index()
+    entities = _entity_map()
+
+    load_by_staff: dict[str, list[dict[str, Any]]] = {}
+    for line in loads:
+        load_by_staff.setdefault(line["staff_id"], []).append(line)
+
+    staff_rows = []
+    for s in staff:
+        lines = load_by_staff.get(s["id"], [])
+        allocation_total = sum(int(l.get("allocation_pct") or 0) for l in lines)
+        hours_total = sum(int(l.get("hours_per_week") or 0) for l in lines)
+        project_count = len({l["project_id"] for l in lines})
+        project_summaries = []
+        for l in lines:
+            pid = l["project_id"]
+            project_summaries.append({
+                "project_id": pid,
+                "project_name": projects.get(pid, {}).get("name"),
+                "allocation_pct": l.get("allocation_pct"),
+                "role_on_project": l.get("role_on_project"),
+                "hours_per_week": l.get("hours_per_week"),
+                "stretch": bool(l.get("stretch")),
+                "notes": l.get("notes"),
+                "href": f"/lab/env/{env_id}/operator/projects/{pid}",
+            })
+        entity = entities.get(s.get("entity_id", ""), {})
+        staff_rows.append({
+            "staff_id": s["id"],
+            "name": s.get("name"),
+            "role": s.get("role"),
+            "entity_id": s.get("entity_id"),
+            "entity_name": entity.get("name"),
+            "seniority": s.get("seniority"),
+            "cost_loaded_per_hour": s.get("cost_loaded_per_hour"),
+            "allocation_total_pct": allocation_total,
+            "hours_per_week_total": hours_total,
+            "project_count": project_count,
+            "overloaded": allocation_total >= _STAFF_OVERLOAD_THRESHOLD,
+            "projects": project_summaries,
+        })
+    staff_rows.sort(key=lambda r: (-(r["allocation_total_pct"] or 0), r["name"] or ""))
+
+    # Project-side: where is coverage thin?
+    project_cov: dict[str, dict[str, Any]] = {}
+    for line in loads:
+        pid = line["project_id"]
+        row = project_cov.setdefault(pid, {
+            "project_id": pid,
+            "project_name": projects.get(pid, {}).get("name"),
+            "total_allocation_pct": 0,
+            "staff_count": 0,
+            "stretch_count": 0,
+            "href": f"/lab/env/{env_id}/operator/projects/{pid}",
+        })
+        row["total_allocation_pct"] += int(line.get("allocation_pct") or 0)
+        row["staff_count"] += 1
+        if line.get("stretch"):
+            row["stretch_count"] += 1
+
+    coverage_rows = list(project_cov.values())
+    coverage_rows.sort(key=lambda r: (r["total_allocation_pct"] or 0))
+
+    totals = {
+        "staff_count": len(staff_rows),
+        "overloaded_count": sum(1 for s in staff_rows if s["overloaded"]),
+        "avg_allocation_pct": (
+            sum(s["allocation_total_pct"] or 0 for s in staff_rows) / len(staff_rows)
+            if staff_rows else 0
+        ),
+        "projects_covered": len(project_cov),
+    }
+    return {"staff": staff_rows, "project_coverage": coverage_rows, "totals": totals}
+
+
+def list_inspection_rework(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    _ = business_id
+    events = list(_load_fixture().get("inspection_events", []))
+    projects = _project_index()
+    vendors = _vendor_index()
+
+    # Failure rate by inspection_type
+    type_map: dict[str, dict[str, Any]] = {}
+    for e in events:
+        t = e.get("inspection_type", "unknown")
+        row = type_map.setdefault(t, {"inspection_type": t, "total": 0, "failed": 0, "rework_hours": 0, "rework_cost_usd": 0})
+        row["total"] += 1
+        if e.get("result") == "fail":
+            row["failed"] += 1
+        row["rework_hours"] += int(e.get("rework_hours") or 0)
+        row["rework_cost_usd"] += float(e.get("rework_cost_usd") or 0)
+
+    by_type = []
+    for row in type_map.values():
+        fail_rate = row["failed"] / row["total"] if row["total"] else 0
+        by_type.append({
+            "inspection_type": row["inspection_type"],
+            "total": row["total"],
+            "failed": row["failed"],
+            "fail_rate": round(fail_rate, 3),
+            "rework_hours": row["rework_hours"],
+            "rework_cost_usd": row["rework_cost_usd"],
+        })
+    by_type.sort(key=lambda r: (r["fail_rate"], r["failed"]), reverse=True)
+
+    # Vendor rework ranking
+    vendor_map: dict[str, dict[str, Any]] = {}
+    for e in events:
+        vid = e.get("vendor_id")
+        if not vid:
+            continue
+        row = vendor_map.setdefault(vid, {
+            "vendor_id": vid,
+            "vendor_name": vendors.get(vid, {}).get("name", vid),
+            "total": 0,
+            "failed": 0,
+            "rework_hours": 0,
+            "rework_cost_usd": 0,
+        })
+        row["total"] += 1
+        if e.get("result") == "fail":
+            row["failed"] += 1
+        row["rework_hours"] += int(e.get("rework_hours") or 0)
+        row["rework_cost_usd"] += float(e.get("rework_cost_usd") or 0)
+
+    by_vendor = []
+    for row in vendor_map.values():
+        fail_rate = row["failed"] / row["total"] if row["total"] else 0
+        by_vendor.append({**row, "fail_rate": round(fail_rate, 3)})
+    by_vendor.sort(key=lambda r: (r["rework_cost_usd"], r["failed"]), reverse=True)
+
+    # Recent failures list
+    recent_failures = sorted(
+        [e for e in events if e.get("result") == "fail"],
+        key=lambda e: e.get("inspection_date") or "",
+        reverse=True,
+    )
+    recent_rows = []
+    for e in recent_failures[:8]:
+        vid = e.get("vendor_id")
+        recent_rows.append({
+            "id": e["id"],
+            "project_id": e["project_id"],
+            "project_name": projects.get(e["project_id"], {}).get("name"),
+            "inspection_type": e.get("inspection_type"),
+            "inspection_date": e.get("inspection_date"),
+            "vendor_id": vid,
+            "vendor_name": vendors.get(vid, {}).get("name") if vid else None,
+            "issue_summary": e.get("issue_summary"),
+            "rework_hours": e.get("rework_hours") or 0,
+            "rework_cost_usd": e.get("rework_cost_usd") or 0,
+            "href": f"/lab/env/{env_id}/operator/projects/{e['project_id']}",
+        })
+
+    totals = {
+        "event_count": len(events),
+        "fail_count": sum(1 for e in events if e.get("result") == "fail"),
+        "overall_fail_rate": round(
+            sum(1 for e in events if e.get("result") == "fail") / len(events) if events else 0, 3
+        ),
+        "total_rework_hours": sum(int(e.get("rework_hours") or 0) for e in events),
+        "total_rework_cost_usd": sum(float(e.get("rework_cost_usd") or 0) for e in events),
+    }
+    return {
+        "by_inspection_type": by_type,
+        "by_vendor": by_vendor,
+        "recent_failures": recent_rows,
+        "totals": totals,
+    }
+
+
+_REVIEW_SEVERITY_WEIGHT = {"blocking": 3, "delaying": 2, "minor": 1}
+
+
+def list_review_cycle_analysis(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    _ = business_id
+    comments = list(_load_fixture().get("review_comments", []))
+    projects = _project_index()
+
+    # Theme clustering
+    theme_map: dict[str, dict[str, Any]] = {}
+    for c in comments:
+        t = c.get("theme", "uncategorized")
+        row = theme_map.setdefault(t, {
+            "theme": t,
+            "total_comments": 0,
+            "blocking_count": 0,
+            "unresolved_count": 0,
+            "project_ids": set(),
+            "avg_resolution_days": [],
+        })
+        row["total_comments"] += 1
+        if c.get("severity") == "blocking":
+            row["blocking_count"] += 1
+        if not c.get("resolved"):
+            row["unresolved_count"] += 1
+        row["project_ids"].add(c["project_id"])
+        if c.get("resolution_days") is not None:
+            row["avg_resolution_days"].append(c["resolution_days"])
+
+    themes = []
+    for row in theme_map.values():
+        days = row["avg_resolution_days"]
+        themes.append({
+            "theme": row["theme"],
+            "total_comments": row["total_comments"],
+            "blocking_count": row["blocking_count"],
+            "unresolved_count": row["unresolved_count"],
+            "affected_project_count": len(row["project_ids"]),
+            "avg_resolution_days": round(sum(days) / len(days), 1) if days else None,
+        })
+    themes.sort(key=lambda r: (r["unresolved_count"], r["blocking_count"], r["total_comments"]), reverse=True)
+
+    # Repeat-offender reviewers: same reviewer + same theme across ≥2 cycles
+    repeat_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for c in comments:
+        key = (c.get("reviewer_name", "unknown"), c.get("theme", "uncategorized"))
+        row = repeat_map.setdefault(key, {
+            "reviewer_name": c.get("reviewer_name"),
+            "reviewer_role": c.get("reviewer_role"),
+            "theme": c.get("theme"),
+            "cycle_count": 0,
+            "project_ids": set(),
+            "unresolved": 0,
+        })
+        row["cycle_count"] += 1
+        row["project_ids"].add(c["project_id"])
+        if not c.get("resolved"):
+            row["unresolved"] += 1
+
+    repeat_offenders = []
+    for row in repeat_map.values():
+        if row["cycle_count"] >= 2:
+            repeat_offenders.append({
+                "reviewer_name": row["reviewer_name"],
+                "reviewer_role": row["reviewer_role"],
+                "theme": row["theme"],
+                "cycle_count": row["cycle_count"],
+                "affected_project_count": len(row["project_ids"]),
+                "unresolved": row["unresolved"],
+            })
+    repeat_offenders.sort(key=lambda r: (r["unresolved"], r["cycle_count"]), reverse=True)
+
+    # Cycle churn per project
+    cycle_map: dict[str, dict[str, Any]] = {}
+    for c in comments:
+        pid = c["project_id"]
+        row = cycle_map.setdefault(pid, {
+            "project_id": pid,
+            "project_name": projects.get(pid, {}).get("name"),
+            "max_cycle": 0,
+            "total_comments": 0,
+            "unresolved_count": 0,
+            "blocking_count": 0,
+            "href": f"/lab/env/{env_id}/operator/projects/{pid}",
+        })
+        row["max_cycle"] = max(row["max_cycle"], int(c.get("review_cycle") or 1))
+        row["total_comments"] += 1
+        if not c.get("resolved"):
+            row["unresolved_count"] += 1
+        if c.get("severity") == "blocking":
+            row["blocking_count"] += 1
+
+    cycle_churn = list(cycle_map.values())
+    cycle_churn.sort(key=lambda r: (r["max_cycle"], r["unresolved_count"]), reverse=True)
+
+    totals = {
+        "comment_count": len(comments),
+        "unresolved_count": sum(1 for c in comments if not c.get("resolved")),
+        "blocking_count": sum(1 for c in comments if c.get("severity") == "blocking"),
+        "theme_count": len(themes),
+        "repeat_offender_count": len(repeat_offenders),
+        "max_cycle_observed": max((int(c.get("review_cycle") or 1) for c in comments), default=0),
+    }
+    return {
+        "themes": themes,
+        "repeat_offenders": repeat_offenders,
+        "cycle_churn": cycle_churn,
+        "totals": totals,
+    }
+
+
+_DRIFT_SEVERITY_ORDER = {"critical": 0, "elevated": 1, "stable": 2}
+
+
+def _drift_row(raw: dict[str, Any], env_id: UUID) -> dict[str, Any]:
+    projects = _project_index()
+    project = projects.get(raw["project_id"], {})
+    entities = _entity_map()
+    entity = entities.get(project.get("entity_id", ""), {})
+    return {
+        "project_id": raw["project_id"],
+        "project_name": project.get("name"),
+        "entity_id": project.get("entity_id"),
+        "entity_name": entity.get("name"),
+        "project_status": project.get("status"),
+        "project_risk_level": project.get("risk_level"),
+        "current_budget_usd": raw.get("current_budget_usd"),
+        "actual_cost_usd": raw.get("actual_cost_usd"),
+        "current_drift_pct": raw.get("current_drift_pct"),
+        "drift_trend_30d_pct": raw.get("drift_trend_30d_pct"),
+        "drift_trend_60d_pct": raw.get("drift_trend_60d_pct"),
+        "drift_risk_score": raw.get("drift_risk_score"),
+        "drift_severity": raw.get("drift_severity"),
+        "key_driver": raw.get("key_driver"),
+        "trend_points_pct": raw.get("trend_points_pct", []),
+        "forecast_final_drift_pct": raw.get("forecast_final_drift_pct"),
+        "forecast_cost_overrun_usd": raw.get("forecast_cost_overrun_usd"),
+        "days_to_next_threshold": raw.get("days_to_next_threshold"),
+        "next_threshold_label": raw.get("next_threshold_label"),
+        "confidence": raw.get("confidence"),
+        "owner": raw.get("owner"),
+        "notes": raw.get("notes"),
+        "impact": raw.get("impact"),
+        "href": f"/lab/env/{env_id}/operator/projects/{raw['project_id']}",
+    }
+
+
+def _project_index() -> dict[str, dict[str, Any]]:
+    return {p["id"]: p for p in _load_fixture().get("projects", [])}
+
+
+def list_budget_drift(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    _ = business_id
+    raw_rows = list(_load_fixture().get("budget_drift", []))
+    rows = [_drift_row(r, env_id) for r in raw_rows]
+    rows.sort(
+        key=lambda r: (
+            _DRIFT_SEVERITY_ORDER.get(r.get("drift_severity") or "stable", 3),
+            -(r.get("drift_risk_score") or 0),
+        )
+    )
+    critical = [r for r in rows if r.get("drift_severity") == "critical"]
+    watchlist = [r for r in rows if r.get("drift_severity") in {"critical", "elevated"}]
+    totals = {
+        "project_count": len(rows),
+        "critical_count": len(critical),
+        "watchlist_count": len(watchlist),
+        "total_forecast_overrun_usd": sum(
+            (r.get("forecast_cost_overrun_usd") or 0) for r in rows
+        ),
+        "max_current_drift_pct": max(
+            (abs(r.get("current_drift_pct") or 0) for r in rows), default=0.0
+        ),
+    }
+    return {"rows": rows, "totals": totals}
+
+
+def list_vendor_concentration(*, env_id: UUID, business_id: UUID | None = None) -> dict[str, Any]:
+    _ = business_id
+    perf_rows = list(_load_fixture().get("vendor_performance", []))
+    rows = [_concentration_row(perf, env_id) for perf in perf_rows]
+    rows.sort(key=lambda r: (r.get("concentration_pct") or 0), reverse=True)
+
+    flagged = [r for r in rows if (r.get("concentration_pct") or 0) >= _VENDOR_CONCENTRATION_HIGH_THRESHOLD]
+    totals = {
+        "vendor_count": len(rows),
+        "flagged_count": len(flagged),
+        "max_concentration_pct": max((r.get("concentration_pct") or 0 for r in rows), default=0.0),
+        "portfolio_on_time_rate": (
+            sum((r.get("on_time_rate") or 0) for r in rows) / len(rows) if rows else None
+        ),
+    }
+    return {"vendors": rows, "totals": totals}
+
+
 def list_close_tasks(*, env_id: UUID, business_id: UUID) -> list[dict[str, Any]]:
     _ = business_id
     return _build_close_rows(env_id=env_id)

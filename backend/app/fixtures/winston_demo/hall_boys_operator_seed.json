@@ -3033,5 +3033,1057 @@
     "second_review",
     "approval",
     "issued"
+  ],
+  "development_scenarios": [
+    {
+      "site_id": "site-brickell-18",
+      "presets": [
+        {
+          "id": "conservative",
+          "label": "Conservative",
+          "assumptions": {
+            "density_units": 85,
+            "approval_delay_days": 45,
+            "cost_inflation_pct": 8.0
+          },
+          "outputs": {
+            "irr_pct": 11.2,
+            "profit_margin_pct": 16.8,
+            "timeline_days": 570,
+            "total_dev_cost_usd": 23400000
+          }
+        },
+        {
+          "id": "base",
+          "label": "Base Case",
+          "assumptions": {
+            "density_units": 110,
+            "approval_delay_days": 20,
+            "cost_inflation_pct": 3.5
+          },
+          "outputs": {
+            "irr_pct": 17.8,
+            "profit_margin_pct": 23.5,
+            "timeline_days": 450,
+            "total_dev_cost_usd": 21000000
+          }
+        },
+        {
+          "id": "aggressive",
+          "label": "Aggressive",
+          "assumptions": {
+            "density_units": 130,
+            "approval_delay_days": 0,
+            "cost_inflation_pct": 0.0
+          },
+          "outputs": {
+            "irr_pct": 23.4,
+            "profit_margin_pct": 28.7,
+            "timeline_days": 380,
+            "total_dev_cost_usd": 20100000
+          }
+        }
+      ],
+      "active_ordinance_impact": {
+        "ordinance_event_id": "evt-mia-parking-2026-04-01",
+        "description": "Miami-Dade T6 parking minimum increase forces variance request \u2014 adds review cycle and reduces density",
+        "delta_vs_base": {
+          "approval_delay_days": 30,
+          "irr_pct": -4.1,
+          "profit_margin_pct": -5.3,
+          "timeline_days": 30,
+          "total_dev_cost_usd": 180000,
+          "confidence": "medium"
+        }
+      }
+    },
+    {
+      "site_id": "site-wynwood-42",
+      "presets": [
+        {
+          "id": "conservative",
+          "label": "Conservative",
+          "assumptions": {
+            "density_units": 48,
+            "approval_delay_days": 50,
+            "cost_inflation_pct": 9.0
+          },
+          "outputs": {
+            "irr_pct": 9.8,
+            "profit_margin_pct": 14.1,
+            "timeline_days": 520,
+            "total_dev_cost_usd": 14600000
+          }
+        },
+        {
+          "id": "base",
+          "label": "Base Case",
+          "assumptions": {
+            "density_units": 65,
+            "approval_delay_days": 25,
+            "cost_inflation_pct": 4.0
+          },
+          "outputs": {
+            "irr_pct": 15.3,
+            "profit_margin_pct": 20.4,
+            "timeline_days": 420,
+            "total_dev_cost_usd": 13200000
+          }
+        },
+        {
+          "id": "aggressive",
+          "label": "Aggressive",
+          "assumptions": {
+            "density_units": 78,
+            "approval_delay_days": 0,
+            "cost_inflation_pct": 0.0
+          },
+          "outputs": {
+            "irr_pct": 20.1,
+            "profit_margin_pct": 25.6,
+            "timeline_days": 355,
+            "total_dev_cost_usd": 12400000
+          }
+        }
+      ],
+      "active_ordinance_impact": {
+        "ordinance_event_id": "evt-mia-parking-2026-04-01",
+        "description": "Miami-Dade T6 parking minimum increase forces variance request \u2014 smaller site hit proportionally harder",
+        "delta_vs_base": {
+          "approval_delay_days": 30,
+          "irr_pct": -3.6,
+          "profit_margin_pct": -4.8,
+          "timeline_days": 30,
+          "total_dev_cost_usd": 145000,
+          "confidence": "medium"
+        }
+      }
+    },
+    {
+      "site_id": "site-austin-riverside",
+      "presets": [
+        {
+          "id": "conservative",
+          "label": "Conservative",
+          "assumptions": {
+            "density_units": 55,
+            "approval_delay_days": 60,
+            "cost_inflation_pct": 10.0
+          },
+          "outputs": {
+            "irr_pct": 8.9,
+            "profit_margin_pct": 12.6,
+            "timeline_days": 600,
+            "total_dev_cost_usd": 17800000
+          }
+        },
+        {
+          "id": "base",
+          "label": "Base Case",
+          "assumptions": {
+            "density_units": 72,
+            "approval_delay_days": 30,
+            "cost_inflation_pct": 5.0
+          },
+          "outputs": {
+            "irr_pct": 14.1,
+            "profit_margin_pct": 19.3,
+            "timeline_days": 490,
+            "total_dev_cost_usd": 16200000
+          }
+        },
+        {
+          "id": "aggressive",
+          "label": "Aggressive",
+          "assumptions": {
+            "density_units": 88,
+            "approval_delay_days": 0,
+            "cost_inflation_pct": 0.0
+          },
+          "outputs": {
+            "irr_pct": 18.7,
+            "profit_margin_pct": 24.2,
+            "timeline_days": 400,
+            "total_dev_cost_usd": 15400000
+          }
+        }
+      ],
+      "active_ordinance_impact": {
+        "ordinance_event_id": "evt-aus-compat-2026-03-14",
+        "description": "Austin compatibility standards require additional setback study \u2014 delays entitlement by one review cycle",
+        "delta_vs_base": {
+          "approval_delay_days": 45,
+          "irr_pct": -3.2,
+          "profit_margin_pct": -4.1,
+          "timeline_days": 45,
+          "total_dev_cost_usd": 225000,
+          "confidence": "medium"
+        }
+      }
+    },
+    {
+      "site_id": "site-airport-expansion",
+      "presets": [
+        {
+          "id": "conservative",
+          "label": "Conservative",
+          "assumptions": {
+            "density_units": 200000,
+            "approval_delay_days": 30,
+            "cost_inflation_pct": 6.0
+          },
+          "outputs": {
+            "irr_pct": 14.5,
+            "profit_margin_pct": 19.8,
+            "timeline_days": 540,
+            "total_dev_cost_usd": 38500000
+          }
+        },
+        {
+          "id": "base",
+          "label": "Base Case",
+          "assumptions": {
+            "density_units": 200000,
+            "approval_delay_days": 12,
+            "cost_inflation_pct": 3.0
+          },
+          "outputs": {
+            "irr_pct": 18.3,
+            "profit_margin_pct": 24.6,
+            "timeline_days": 480,
+            "total_dev_cost_usd": 36800000
+          }
+        },
+        {
+          "id": "aggressive",
+          "label": "Aggressive",
+          "assumptions": {
+            "density_units": 200000,
+            "approval_delay_days": 0,
+            "cost_inflation_pct": 0.0
+          },
+          "outputs": {
+            "irr_pct": 21.9,
+            "profit_margin_pct": 28.3,
+            "timeline_days": 420,
+            "total_dev_cost_usd": 35600000
+          }
+        }
+      ],
+      "active_ordinance_impact": null
+    }
+  ],
+  "vendor_performance": [
+    {
+      "vendor_id": "apex-electrical",
+      "concentration_pct": 42.0,
+      "active_project_count": 5,
+      "total_active_jobs_denominator": 12,
+      "on_time_rate": 0.68,
+      "budget_adherence_pct": 89.4,
+      "avg_delay_days": 9,
+      "rework_rate": 0.14,
+      "at_risk_project_count": 2,
+      "trend": "declining",
+      "confidence": "high",
+      "flag": "concentration",
+      "spend_share_of_active_pct": 38.6,
+      "delay_correlation": "60% of recent electrical delays associated with this vendor",
+      "notes": "Single-point-of-failure risk \u2014 evaluate alternate electrical supply before next master agreement",
+      "impact": {
+        "type": "delay",
+        "estimated_cost_usd": 180000,
+        "estimated_delay_days": 14,
+        "confidence": "medium",
+        "time_to_failure_days": 21,
+        "if_ignored": {
+          "in_30_days": {
+            "estimated_cost_usd": 420000,
+            "estimated_delay_days": 45,
+            "secondary_effects": [
+              "Extended single-source dependency across 5 entities",
+              "Limits negotiation leverage on next master agreement"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "vendor_id": "prime-staffing",
+      "concentration_pct": 25.0,
+      "active_project_count": 3,
+      "total_active_jobs_denominator": 12,
+      "on_time_rate": 0.81,
+      "budget_adherence_pct": 76.2,
+      "avg_delay_days": 4,
+      "rework_rate": 0.06,
+      "at_risk_project_count": 1,
+      "trend": "stable",
+      "confidence": "medium",
+      "flag": "budget_overrun",
+      "spend_share_of_active_pct": 18.9,
+      "delay_correlation": "Emergency labor premium triggered on Fleet Optimization",
+      "notes": "Emergency labor is driving 23% overrun on Fleet Optimization",
+      "impact": null
+    },
+    {
+      "vendor_id": "northwind-controls",
+      "concentration_pct": 16.7,
+      "active_project_count": 2,
+      "total_active_jobs_denominator": 12,
+      "on_time_rate": 0.92,
+      "budget_adherence_pct": 94.1,
+      "avg_delay_days": 1,
+      "rework_rate": 0.03,
+      "at_risk_project_count": 1,
+      "trend": "improving",
+      "confidence": "high",
+      "flag": null,
+      "spend_share_of_active_pct": 11.2,
+      "delay_correlation": "No significant delay association",
+      "notes": "Reliable performer \u2014 scope expansion on Site A is manageable",
+      "impact": null
+    },
+    {
+      "vendor_id": "delta-materials",
+      "concentration_pct": 16.7,
+      "active_project_count": 2,
+      "total_active_jobs_denominator": 12,
+      "on_time_rate": 0.74,
+      "budget_adherence_pct": 82.1,
+      "avg_delay_days": 6,
+      "rework_rate": 0.08,
+      "at_risk_project_count": 1,
+      "trend": "declining",
+      "confidence": "medium",
+      "flag": "budget_overrun",
+      "spend_share_of_active_pct": 22.4,
+      "delay_correlation": "Steel package running 18% over February run-rate",
+      "notes": "Material cost escalation flagged on Airport Expansion",
+      "impact": null
+    }
+  ],
+  "budget_drift": [
+    {
+      "project_id": "airport-expansion",
+      "current_budget_usd": 2500000,
+      "actual_cost_usd": 2900000,
+      "current_drift_pct": 16.0,
+      "drift_trend_30d_pct": 4.8,
+      "drift_trend_60d_pct": 7.2,
+      "drift_risk_score": 82,
+      "drift_severity": "critical",
+      "key_driver": "Steel package running 18% above February run-rate + Apex electrical change orders",
+      "trend_points_pct": [
+        2.1,
+        5.3,
+        8.4,
+        11.2,
+        16.0
+      ],
+      "forecast_final_drift_pct": 22.5,
+      "forecast_cost_overrun_usd": 560000,
+      "days_to_next_threshold": 14,
+      "next_threshold_label": "20% overrun triggers lender review",
+      "confidence": "high",
+      "owner": "PM \u2014 Dallas (K. Patel)",
+      "notes": "Drift accelerating \u2014 two consecutive 4+ point monthly jumps. Steel lock-in next week is the last off-ramp.",
+      "impact": {
+        "type": "cost",
+        "estimated_cost_usd": 560000,
+        "estimated_delay_days": 0,
+        "confidence": "high",
+        "time_to_failure_days": 14,
+        "if_ignored": {
+          "in_30_days": {
+            "estimated_cost_usd": 825000,
+            "estimated_delay_days": 7,
+            "secondary_effects": [
+              "Triggers lender covenant review at 20% overrun",
+              "Compresses Airport Expansion margin below 8%"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "project_id": "new-development-site-a",
+      "current_budget_usd": 3000000,
+      "actual_cost_usd": 3400000,
+      "current_drift_pct": 13.3,
+      "drift_trend_30d_pct": 3.1,
+      "drift_trend_60d_pct": 5.8,
+      "drift_risk_score": 71,
+      "drift_severity": "critical",
+      "key_driver": "Controls scope expanded across two phases \u2014 Northwind contract at 12.9% above plan",
+      "trend_points_pct": [
+        1.5,
+        4.2,
+        7.5,
+        10.2,
+        13.3
+      ],
+      "forecast_final_drift_pct": 18.1,
+      "forecast_cost_overrun_usd": 395000,
+      "days_to_next_threshold": 22,
+      "next_threshold_label": "15% overrun triggers entity-level review",
+      "confidence": "high",
+      "owner": "PM \u2014 Development (J. Ortiz)",
+      "notes": "Scope creep on controls \u2014 need a change-order discipline review before next milestone release.",
+      "impact": {
+        "type": "cost",
+        "estimated_cost_usd": 395000,
+        "estimated_delay_days": 0,
+        "confidence": "medium",
+        "time_to_failure_days": 22,
+        "if_ignored": {
+          "in_30_days": {
+            "estimated_cost_usd": 610000,
+            "estimated_delay_days": 0,
+            "secondary_effects": [
+              "Blocks construction loan draw at next milestone",
+              "Forces entity-level cash reallocation"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "project_id": "fleet-optimization",
+      "current_budget_usd": 800000,
+      "actual_cost_usd": 820000,
+      "current_drift_pct": 2.5,
+      "drift_trend_30d_pct": 1.8,
+      "drift_trend_60d_pct": 2.1,
+      "drift_risk_score": 38,
+      "drift_severity": "elevated",
+      "key_driver": "Emergency labor premium on Prime Staffing \u2014 running hot but contained",
+      "trend_points_pct": [
+        0.2,
+        0.7,
+        1.4,
+        1.9,
+        2.5
+      ],
+      "forecast_final_drift_pct": 4.2,
+      "forecast_cost_overrun_usd": 14000,
+      "days_to_next_threshold": null,
+      "next_threshold_label": null,
+      "confidence": "medium",
+      "owner": "PM \u2014 Logistics (R. Singh)",
+      "notes": "Watch-level drift. Close monitoring, no intervention yet.",
+      "impact": null
+    },
+    {
+      "project_id": "office-retrofit-program",
+      "current_budget_usd": 1200000,
+      "actual_cost_usd": 1000000,
+      "current_drift_pct": -16.7,
+      "drift_trend_30d_pct": -1.2,
+      "drift_trend_60d_pct": -0.8,
+      "drift_risk_score": 22,
+      "drift_severity": "stable",
+      "key_driver": "Under-spend vs plan \u2014 scope may be under-delivering on retrofit depth",
+      "trend_points_pct": [
+        -14.8,
+        -15.2,
+        -15.7,
+        -15.9,
+        -16.7
+      ],
+      "forecast_final_drift_pct": -14.2,
+      "forecast_cost_overrun_usd": 0,
+      "days_to_next_threshold": null,
+      "next_threshold_label": null,
+      "confidence": "low",
+      "owner": "PM \u2014 Office (A. Nguyen)",
+      "notes": "Under-spend could signal scope gaps \u2014 validate retrofit depth against original spec before declaring savings.",
+      "impact": null
+    }
+  ],
+  "review_comments": [
+    {
+      "id": "rc-001",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "review_cycle": 3,
+      "issue_date": "2026-04-02",
+      "reviewer_role": "Electrical Plans Examiner",
+      "reviewer_name": "Dallas \u2014 J. Herrera",
+      "theme": "panel_sizing",
+      "severity": "blocking",
+      "comment_text": "Service panel sizing inconsistent with load calcs on sheet E-201.",
+      "resolved": false,
+      "resolution_days": null
+    },
+    {
+      "id": "rc-002",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "review_cycle": 3,
+      "issue_date": "2026-04-02",
+      "reviewer_role": "Electrical Plans Examiner",
+      "reviewer_name": "Dallas \u2014 J. Herrera",
+      "theme": "grounding",
+      "severity": "blocking",
+      "comment_text": "Grounding detail missing for transformer vault.",
+      "resolved": false,
+      "resolution_days": null
+    },
+    {
+      "id": "rc-003",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-building",
+      "review_cycle": 2,
+      "issue_date": "2026-03-18",
+      "reviewer_role": "Fire Marshal",
+      "reviewer_name": "Dallas \u2014 L. Park",
+      "theme": "egress",
+      "severity": "blocking",
+      "comment_text": "Secondary egress width below minimum at mezzanine.",
+      "resolved": true,
+      "resolution_days": 11
+    },
+    {
+      "id": "rc-004",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-building",
+      "review_cycle": 2,
+      "issue_date": "2026-03-24",
+      "reviewer_role": "Planning",
+      "reviewer_name": "Austin \u2014 M. Reyes",
+      "theme": "compatibility_setback",
+      "severity": "delaying",
+      "comment_text": "Compatibility setback from adjacent SF-3 parcel requires study update.",
+      "resolved": false,
+      "resolution_days": null
+    },
+    {
+      "id": "rc-005",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-utility",
+      "review_cycle": 1,
+      "issue_date": "2026-03-12",
+      "reviewer_role": "Water Utility",
+      "reviewer_name": "Austin \u2014 D. Ruiz",
+      "theme": "utility_capacity",
+      "severity": "delaying",
+      "comment_text": "Water service capacity study required before approval.",
+      "resolved": true,
+      "resolution_days": 9
+    },
+    {
+      "id": "rc-006",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-utility",
+      "review_cycle": 2,
+      "issue_date": "2026-04-01",
+      "reviewer_role": "Water Utility",
+      "reviewer_name": "Austin \u2014 D. Ruiz",
+      "theme": "utility_capacity",
+      "severity": "delaying",
+      "comment_text": "Re-submit water capacity calcs \u2014 original analysis used stale demand factor.",
+      "resolved": false,
+      "resolution_days": null
+    },
+    {
+      "id": "rc-007",
+      "project_id": "fleet-optimization",
+      "permit_id": "prm-fleet-cert",
+      "review_cycle": 1,
+      "issue_date": "2026-02-20",
+      "reviewer_role": "Zoning",
+      "reviewer_name": "Dallas \u2014 L. Park",
+      "theme": "parking_count",
+      "severity": "minor",
+      "comment_text": "Parking count off by 2 vs approved plan.",
+      "resolved": true,
+      "resolution_days": 3
+    },
+    {
+      "id": "rc-008",
+      "project_id": "office-retrofit-program",
+      "permit_id": "prm-retrofit-ti",
+      "review_cycle": 1,
+      "issue_date": "2026-03-05",
+      "reviewer_role": "Accessibility",
+      "reviewer_name": "Denver \u2014 K. Bennett",
+      "theme": "ada_clearance",
+      "severity": "delaying",
+      "comment_text": "Door clearance at suite 3-A below 32\" minimum.",
+      "resolved": true,
+      "resolution_days": 5
+    },
+    {
+      "id": "rc-009",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "review_cycle": 2,
+      "issue_date": "2026-02-14",
+      "reviewer_role": "Electrical Plans Examiner",
+      "reviewer_name": "Dallas \u2014 J. Herrera",
+      "theme": "panel_sizing",
+      "severity": "blocking",
+      "comment_text": "Previous cycle: panel sizing missing for tower C.",
+      "resolved": true,
+      "resolution_days": 18
+    },
+    {
+      "id": "rc-010",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "review_cycle": 1,
+      "issue_date": "2026-01-22",
+      "reviewer_role": "Electrical Plans Examiner",
+      "reviewer_name": "Dallas \u2014 J. Herrera",
+      "theme": "panel_sizing",
+      "severity": "blocking",
+      "comment_text": "Initial submission: load calc narrative incomplete.",
+      "resolved": true,
+      "resolution_days": 21
+    },
+    {
+      "id": "rc-011",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-building",
+      "review_cycle": 1,
+      "issue_date": "2026-02-08",
+      "reviewer_role": "Planning",
+      "reviewer_name": "Austin \u2014 M. Reyes",
+      "theme": "compatibility_setback",
+      "severity": "delaying",
+      "comment_text": "Initial compat-setback flag \u2014 need exposure study.",
+      "resolved": true,
+      "resolution_days": 14
+    },
+    {
+      "id": "rc-012",
+      "project_id": "fleet-optimization",
+      "permit_id": "prm-fleet-cert",
+      "review_cycle": 1,
+      "issue_date": "2026-02-20",
+      "reviewer_role": "Zoning",
+      "reviewer_name": "Dallas \u2014 L. Park",
+      "theme": "signage",
+      "severity": "minor",
+      "comment_text": "Pylon signage elevation missing.",
+      "resolved": true,
+      "resolution_days": 2
+    }
+  ],
+  "inspection_events": [
+    {
+      "id": "ie-001",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-building",
+      "inspection_type": "structural",
+      "inspection_date": "2026-03-15",
+      "result": "fail",
+      "vendor_id": "delta-materials",
+      "issue_summary": "Rebar spacing non-compliant in Bay 3",
+      "rework_hours": 42,
+      "rework_cost_usd": 8400
+    },
+    {
+      "id": "ie-002",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "inspection_type": "electrical_rough",
+      "inspection_date": "2026-03-28",
+      "result": "fail",
+      "vendor_id": "apex-electrical",
+      "issue_summary": "Grounding detail missing at transformer vault",
+      "rework_hours": 28,
+      "rework_cost_usd": 6200
+    },
+    {
+      "id": "ie-003",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-elec-rev3",
+      "inspection_type": "electrical_rough",
+      "inspection_date": "2026-04-08",
+      "result": "fail",
+      "vendor_id": "apex-electrical",
+      "issue_summary": "Panel schedule mismatch \u2014 second fail on same scope",
+      "rework_hours": 35,
+      "rework_cost_usd": 7500
+    },
+    {
+      "id": "ie-004",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-building",
+      "inspection_type": "mechanical",
+      "inspection_date": "2026-03-22",
+      "result": "pass",
+      "vendor_id": "northwind-controls",
+      "issue_summary": null,
+      "rework_hours": 0,
+      "rework_cost_usd": 0
+    },
+    {
+      "id": "ie-005",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-utility",
+      "inspection_type": "utility_tap",
+      "inspection_date": "2026-03-18",
+      "result": "fail",
+      "vendor_id": "northwind-controls",
+      "issue_summary": "Tap pressure test below spec",
+      "rework_hours": 14,
+      "rework_cost_usd": 3100
+    },
+    {
+      "id": "ie-006",
+      "project_id": "new-development-site-a",
+      "permit_id": "prm-site-a-building",
+      "inspection_type": "framing",
+      "inspection_date": "2026-04-05",
+      "result": "pass",
+      "vendor_id": null,
+      "issue_summary": null,
+      "rework_hours": 0,
+      "rework_cost_usd": 0
+    },
+    {
+      "id": "ie-007",
+      "project_id": "fleet-optimization",
+      "permit_id": "prm-fleet-cert",
+      "inspection_type": "fire_suppression",
+      "inspection_date": "2026-02-28",
+      "result": "fail",
+      "vendor_id": "apex-electrical",
+      "issue_summary": "Alarm circuit continuity",
+      "rework_hours": 9,
+      "rework_cost_usd": 1600
+    },
+    {
+      "id": "ie-008",
+      "project_id": "fleet-optimization",
+      "permit_id": "prm-fleet-cert",
+      "inspection_type": "fire_suppression",
+      "inspection_date": "2026-03-10",
+      "result": "pass",
+      "vendor_id": "apex-electrical",
+      "issue_summary": null,
+      "rework_hours": 0,
+      "rework_cost_usd": 0
+    },
+    {
+      "id": "ie-009",
+      "project_id": "office-retrofit-program",
+      "permit_id": "prm-retrofit-ti",
+      "inspection_type": "accessibility",
+      "inspection_date": "2026-03-15",
+      "result": "pass",
+      "vendor_id": null,
+      "issue_summary": null,
+      "rework_hours": 0,
+      "rework_cost_usd": 0
+    },
+    {
+      "id": "ie-010",
+      "project_id": "airport-expansion",
+      "permit_id": "prm-airport-building",
+      "inspection_type": "structural",
+      "inspection_date": "2026-04-10",
+      "result": "fail",
+      "vendor_id": "delta-materials",
+      "issue_summary": "Concrete cover below minimum",
+      "rework_hours": 16,
+      "rework_cost_usd": 4200
+    }
+  ],
+  "staff": [
+    {
+      "id": "stf-kpatel",
+      "name": "K. Patel",
+      "role": "Project Manager",
+      "entity_id": "hb-construction",
+      "seniority": "senior",
+      "cost_loaded_per_hour": 185
+    },
+    {
+      "id": "stf-jortiz",
+      "name": "J. Ortiz",
+      "role": "Project Manager",
+      "entity_id": "hb-development",
+      "seniority": "senior",
+      "cost_loaded_per_hour": 195
+    },
+    {
+      "id": "stf-rsingh",
+      "name": "R. Singh",
+      "role": "Project Manager",
+      "entity_id": "hb-logistics",
+      "seniority": "mid",
+      "cost_loaded_per_hour": 145
+    },
+    {
+      "id": "stf-anguyen",
+      "name": "A. Nguyen",
+      "role": "Project Manager",
+      "entity_id": "hb-office",
+      "seniority": "mid",
+      "cost_loaded_per_hour": 150
+    },
+    {
+      "id": "stf-mchen",
+      "name": "M. Chen",
+      "role": "Superintendent",
+      "entity_id": "hb-construction",
+      "seniority": "senior",
+      "cost_loaded_per_hour": 160
+    },
+    {
+      "id": "stf-twilson",
+      "name": "T. Wilson",
+      "role": "Superintendent",
+      "entity_id": "hb-development",
+      "seniority": "mid",
+      "cost_loaded_per_hour": 140
+    }
+  ],
+  "staff_load": [
+    {
+      "staff_id": "stf-kpatel",
+      "project_id": "airport-expansion",
+      "allocation_pct": 85,
+      "role_on_project": "PM",
+      "hours_per_week": 34,
+      "stretch": true,
+      "notes": "Over-allocated; carrying permit remediation and vendor escalations"
+    },
+    {
+      "staff_id": "stf-kpatel",
+      "project_id": "fleet-optimization",
+      "allocation_pct": 35,
+      "role_on_project": "Advisor",
+      "hours_per_week": 14,
+      "stretch": true,
+      "notes": "Backup PM for fleet cert"
+    },
+    {
+      "staff_id": "stf-jortiz",
+      "project_id": "new-development-site-a",
+      "allocation_pct": 100,
+      "role_on_project": "PM",
+      "hours_per_week": 40,
+      "stretch": false,
+      "notes": "Full load on Site A"
+    },
+    {
+      "staff_id": "stf-rsingh",
+      "project_id": "fleet-optimization",
+      "allocation_pct": 100,
+      "role_on_project": "PM",
+      "hours_per_week": 40,
+      "stretch": false,
+      "notes": null
+    },
+    {
+      "staff_id": "stf-anguyen",
+      "project_id": "office-retrofit-program",
+      "allocation_pct": 75,
+      "role_on_project": "PM",
+      "hours_per_week": 30,
+      "stretch": false,
+      "notes": null
+    },
+    {
+      "staff_id": "stf-mchen",
+      "project_id": "airport-expansion",
+      "allocation_pct": 90,
+      "role_on_project": "Superintendent",
+      "hours_per_week": 36,
+      "stretch": false,
+      "notes": null
+    },
+    {
+      "staff_id": "stf-mchen",
+      "project_id": "new-development-site-a",
+      "allocation_pct": 40,
+      "role_on_project": "Super (backup)",
+      "hours_per_week": 16,
+      "stretch": true,
+      "notes": "Secondary coverage"
+    },
+    {
+      "staff_id": "stf-twilson",
+      "project_id": "new-development-site-a",
+      "allocation_pct": 80,
+      "role_on_project": "Superintendent",
+      "hours_per_week": 32,
+      "stretch": false,
+      "notes": null
+    }
+  ],
+  "project_lessons": [
+    {
+      "id": "ls-001",
+      "project_id": "hist-tower-b",
+      "project_name": "Tower B \u2014 2025",
+      "municipality_id": "muni-dallas",
+      "theme": "electrical_panel_sizing",
+      "severity": "high",
+      "lesson": "Panel sizing narrative must include full load calc with design margin \u2014 two cycles of rejections on Tower B.",
+      "preemptive_action": "Submit signed load-calc narrative with first submission; pre-meet with plan examiner."
+    },
+    {
+      "id": "ls-002",
+      "project_id": "hist-riverside-a",
+      "project_name": "Riverside A \u2014 2024",
+      "municipality_id": "muni-austin",
+      "theme": "compatibility_setback",
+      "severity": "high",
+      "lesson": "Compatibility setback from SF-3 adjacency requires exposure study before Planning review.",
+      "preemptive_action": "Commission exposure study with site diligence, not after planning flags it."
+    },
+    {
+      "id": "ls-003",
+      "project_id": "hist-brickell-6",
+      "project_name": "Brickell 6 \u2014 2023",
+      "municipality_id": "muni-miami",
+      "theme": "parking_variance",
+      "severity": "high",
+      "lesson": "Parking variance in T6 costs ~30-45 days and adds ~$150K per unit lost. Underwrite this case before committing scope.",
+      "preemptive_action": "Model ordinance-adjusted scenario before entering LOI. Build variance cost into pro forma explicitly."
+    },
+    {
+      "id": "ls-004",
+      "project_id": "hist-fleet-warehouse",
+      "project_name": "Fleet Warehouse \u2014 2024",
+      "municipality_id": "muni-dallas",
+      "theme": "fire_suppression",
+      "severity": "medium",
+      "lesson": "Fire alarm circuit continuity is the #1 first-fail on fleet cert inspections.",
+      "preemptive_action": "Pre-test alarm circuit continuity with vendor before requesting inspection."
+    },
+    {
+      "id": "ls-005",
+      "project_id": "hist-tower-b",
+      "project_name": "Tower B \u2014 2025",
+      "municipality_id": "muni-dallas",
+      "theme": "electrical_panel_sizing",
+      "severity": "high",
+      "lesson": "Single electrical vendor across 50%+ of jobs produces correlated delays \u2014 always qualify a second vendor during diligence.",
+      "preemptive_action": "Maintain qualified alternate electrical supplier roster. Test alternate on \u22651 active project annually."
+    },
+    {
+      "id": "ls-006",
+      "project_id": "hist-denver-hub",
+      "project_name": "Denver Hub \u2014 2024",
+      "municipality_id": "muni-denver",
+      "theme": "ada_clearance",
+      "severity": "medium",
+      "lesson": "ADA door clearance at tenant-improvement reveals is the most common first-cycle comment.",
+      "preemptive_action": "Include door-clearance sheet in TI submission as a standard item."
+    }
+  ],
+  "ownership_items": [
+    {
+      "id": "own-001",
+      "project_id": "airport-expansion",
+      "title": "Call Dallas permit office on Airport Expansion Monday",
+      "category": "permit",
+      "owner": "K. Patel (PM)",
+      "owner_id": "stf-kpatel",
+      "status": "overdue",
+      "opened_date": "2026-04-08",
+      "due_date": "2026-04-14",
+      "days_overdue": 4,
+      "escalation_level": 2,
+      "last_update_days": 3,
+      "blocker_reason": "Owner traveling; no coverage"
+    },
+    {
+      "id": "own-002",
+      "project_id": "new-development-site-a",
+      "title": "Update water capacity calcs for Austin utility review",
+      "category": "permit",
+      "owner": "J. Ortiz (PM)",
+      "owner_id": "stf-jortiz",
+      "status": "open",
+      "opened_date": "2026-04-12",
+      "due_date": "2026-04-22",
+      "days_overdue": 0,
+      "escalation_level": 1,
+      "last_update_days": 1,
+      "blocker_reason": null
+    },
+    {
+      "id": "own-003",
+      "project_id": "airport-expansion",
+      "title": "Resolve Apex Electrical grounding remediation plan",
+      "category": "vendor",
+      "owner": null,
+      "owner_id": null,
+      "status": "unassigned",
+      "opened_date": "2026-04-10",
+      "due_date": "2026-04-18",
+      "days_overdue": 0,
+      "escalation_level": 3,
+      "last_update_days": 8,
+      "blocker_reason": "No owner assigned"
+    },
+    {
+      "id": "own-004",
+      "project_id": "new-development-site-a",
+      "title": "Close out milestone draw \u2014 lien waivers pending",
+      "category": "closeout",
+      "owner": "J. Ortiz (PM)",
+      "owner_id": "stf-jortiz",
+      "status": "overdue",
+      "opened_date": "2026-03-28",
+      "due_date": "2026-04-10",
+      "days_overdue": 8,
+      "escalation_level": 2,
+      "last_update_days": 6,
+      "blocker_reason": "Two subs haven't submitted waivers"
+    },
+    {
+      "id": "own-005",
+      "project_id": "office-retrofit-program",
+      "title": "Verify retrofit scope depth against spec",
+      "category": "budget",
+      "owner": "A. Nguyen (PM)",
+      "owner_id": "stf-anguyen",
+      "status": "open",
+      "opened_date": "2026-04-14",
+      "due_date": "2026-04-28",
+      "days_overdue": 0,
+      "escalation_level": 0,
+      "last_update_days": 0,
+      "blocker_reason": null
+    },
+    {
+      "id": "own-006",
+      "project_id": "fleet-optimization",
+      "title": "Pre-test alarm circuit continuity with vendor",
+      "category": "inspection",
+      "owner": "R. Singh (PM)",
+      "owner_id": "stf-rsingh",
+      "status": "open",
+      "opened_date": "2026-04-15",
+      "due_date": "2026-04-25",
+      "days_overdue": 0,
+      "escalation_level": 0,
+      "last_update_days": 0,
+      "blocker_reason": null
+    },
+    {
+      "id": "own-007",
+      "project_id": "airport-expansion",
+      "title": "Lock in steel contract before Friday",
+      "category": "budget",
+      "owner": "K. Patel (PM)",
+      "owner_id": "stf-kpatel",
+      "status": "open",
+      "opened_date": "2026-04-15",
+      "due_date": "2026-04-18",
+      "days_overdue": 0,
+      "escalation_level": 2,
+      "last_update_days": 2,
+      "blocker_reason": null
+    }
   ]
 }

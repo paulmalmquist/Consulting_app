@@ -864,6 +864,7 @@ export interface OperatorLegacySiteDetail extends OperatorLegacySiteRow {
   parcel_id?: string | null;
   height_limit_ft?: number | null;
   density_cap_du_per_acre?: number | null;
+  development_scenarios?: OperatorDevelopmentScenarios | null;
 }
 
 export interface OperatorIfIgnoredIn30 {
@@ -1086,6 +1087,50 @@ export interface OperatorSiteDetail {
   comparable_projects: OperatorSiteComparable[];
   recommended_actions: string[];
   risk_score?: number | null;
+  development_scenarios?: OperatorDevelopmentScenarios | null;
+}
+
+export interface OperatorScenarioAssumptions {
+  density_units?: number | null;
+  approval_delay_days?: number | null;
+  cost_inflation_pct?: number | null;
+}
+
+export interface OperatorScenarioOutputs {
+  irr_pct?: number | null;
+  profit_margin_pct?: number | null;
+  timeline_days?: number | null;
+  total_dev_cost_usd?: number | null;
+}
+
+export interface OperatorScenarioPreset {
+  id: string;
+  label: string;
+  assumptions: OperatorScenarioAssumptions;
+  outputs: OperatorScenarioOutputs;
+}
+
+export interface OperatorScenarioOrdinanceImpactDelta {
+  approval_delay_days?: number | null;
+  irr_pct?: number | null;
+  profit_margin_pct?: number | null;
+  timeline_days?: number | null;
+  total_dev_cost_usd?: number | null;
+  confidence?: string | null;
+}
+
+export interface OperatorScenarioOrdinanceImpact {
+  ordinance_event_id: string;
+  description?: string | null;
+  event_effective_date?: string | null;
+  event_change_type?: string | null;
+  delta_vs_base: OperatorScenarioOrdinanceImpactDelta;
+}
+
+export interface OperatorDevelopmentScenarios {
+  site_id: string;
+  presets: OperatorScenarioPreset[];
+  active_ordinance_impact?: OperatorScenarioOrdinanceImpact | null;
 }
 
 export interface OperatorOrdinanceAffectedSite {
@@ -1271,6 +1316,301 @@ export interface OperatorCloseoutBoard {
   packages: OperatorCloseoutPackageRow[];
   totals: OperatorCloseoutTotals;
   cash_at_risk?: OperatorCashAtRisk | null;
+}
+
+export interface OperatorVendorConcentrationLinkedProject {
+  project_id: string;
+  project_name?: string | null;
+  risk_level?: string | null;
+  status?: string | null;
+  share_pct?: number | null;
+  amount?: number | null;
+  line_status?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorVendorConcentrationRow {
+  vendor_id: string;
+  vendor_name?: string | null;
+  category?: string | null;
+  concentration_pct?: number | null;
+  concentration_severity?: "high" | "medium" | "low" | null;
+  active_project_count?: number | null;
+  total_active_jobs_denominator?: number | null;
+  on_time_rate?: number | null;
+  on_time_warn: boolean;
+  budget_adherence_pct?: number | null;
+  avg_delay_days?: number | null;
+  rework_rate?: number | null;
+  at_risk_project_count?: number | null;
+  trend?: "improving" | "stable" | "declining" | null;
+  confidence?: string | null;
+  flag?: string | null;
+  spend_share_of_active_pct?: number | null;
+  delay_correlation?: string | null;
+  notes?: string | null;
+  impact?: OperatorImpact | null;
+  linked_projects: OperatorVendorConcentrationLinkedProject[];
+}
+
+export interface OperatorVendorConcentrationTotals {
+  vendor_count: number;
+  flagged_count: number;
+  max_concentration_pct: number;
+  portfolio_on_time_rate?: number | null;
+}
+
+export interface OperatorVendorConcentrationBoard {
+  vendors: OperatorVendorConcentrationRow[];
+  totals: OperatorVendorConcentrationTotals;
+}
+
+export interface OperatorBudgetDriftRow {
+  project_id: string;
+  project_name?: string | null;
+  entity_id?: string | null;
+  entity_name?: string | null;
+  project_status?: string | null;
+  project_risk_level?: string | null;
+  current_budget_usd?: number | null;
+  actual_cost_usd?: number | null;
+  current_drift_pct?: number | null;
+  drift_trend_30d_pct?: number | null;
+  drift_trend_60d_pct?: number | null;
+  drift_risk_score?: number | null;
+  drift_severity?: "critical" | "elevated" | "stable" | null;
+  key_driver?: string | null;
+  trend_points_pct: number[];
+  forecast_final_drift_pct?: number | null;
+  forecast_cost_overrun_usd?: number | null;
+  days_to_next_threshold?: number | null;
+  next_threshold_label?: string | null;
+  confidence?: string | null;
+  owner?: string | null;
+  notes?: string | null;
+  impact?: OperatorImpact | null;
+  href?: string | null;
+}
+
+export interface OperatorBudgetDriftTotals {
+  project_count: number;
+  critical_count: number;
+  watchlist_count: number;
+  total_forecast_overrun_usd: number;
+  max_current_drift_pct: number;
+}
+
+export interface OperatorBudgetDriftBoard {
+  rows: OperatorBudgetDriftRow[];
+  totals: OperatorBudgetDriftTotals;
+}
+
+export interface OperatorReviewTheme {
+  theme: string;
+  total_comments: number;
+  blocking_count: number;
+  unresolved_count: number;
+  affected_project_count: number;
+  avg_resolution_days?: number | null;
+}
+
+export interface OperatorReviewRepeatOffender {
+  reviewer_name?: string | null;
+  reviewer_role?: string | null;
+  theme?: string | null;
+  cycle_count: number;
+  affected_project_count: number;
+  unresolved: number;
+}
+
+export interface OperatorReviewCycleChurnRow {
+  project_id: string;
+  project_name?: string | null;
+  max_cycle: number;
+  total_comments: number;
+  unresolved_count: number;
+  blocking_count: number;
+  href?: string | null;
+}
+
+export interface OperatorReviewCycleTotals {
+  comment_count: number;
+  unresolved_count: number;
+  blocking_count: number;
+  theme_count: number;
+  repeat_offender_count: number;
+  max_cycle_observed: number;
+}
+
+export interface OperatorReviewCycleBoard {
+  themes: OperatorReviewTheme[];
+  repeat_offenders: OperatorReviewRepeatOffender[];
+  cycle_churn: OperatorReviewCycleChurnRow[];
+  totals: OperatorReviewCycleTotals;
+}
+
+export interface OperatorInspectionTypeRow {
+  inspection_type: string;
+  total: number;
+  failed: number;
+  fail_rate: number;
+  rework_hours: number;
+  rework_cost_usd: number;
+}
+
+export interface OperatorInspectionVendorRow {
+  vendor_id: string;
+  vendor_name?: string | null;
+  total: number;
+  failed: number;
+  fail_rate: number;
+  rework_hours: number;
+  rework_cost_usd: number;
+}
+
+export interface OperatorInspectionFailureEvent {
+  id: string;
+  project_id: string;
+  project_name?: string | null;
+  inspection_type?: string | null;
+  inspection_date?: string | null;
+  vendor_id?: string | null;
+  vendor_name?: string | null;
+  issue_summary?: string | null;
+  rework_hours: number;
+  rework_cost_usd: number;
+  href?: string | null;
+}
+
+export interface OperatorInspectionTotals {
+  event_count: number;
+  fail_count: number;
+  overall_fail_rate: number;
+  total_rework_hours: number;
+  total_rework_cost_usd: number;
+}
+
+export interface OperatorInspectionReworkBoard {
+  by_inspection_type: OperatorInspectionTypeRow[];
+  by_vendor: OperatorInspectionVendorRow[];
+  recent_failures: OperatorInspectionFailureEvent[];
+  totals: OperatorInspectionTotals;
+}
+
+export interface OperatorStaffProjectLoad {
+  project_id: string;
+  project_name?: string | null;
+  allocation_pct?: number | null;
+  role_on_project?: string | null;
+  hours_per_week?: number | null;
+  stretch: boolean;
+  notes?: string | null;
+  href?: string | null;
+}
+
+export interface OperatorStaffRow {
+  staff_id: string;
+  name?: string | null;
+  role?: string | null;
+  entity_id?: string | null;
+  entity_name?: string | null;
+  seniority?: string | null;
+  cost_loaded_per_hour?: number | null;
+  allocation_total_pct: number;
+  hours_per_week_total: number;
+  project_count: number;
+  overloaded: boolean;
+  projects: OperatorStaffProjectLoad[];
+}
+
+export interface OperatorProjectCoverageRow {
+  project_id: string;
+  project_name?: string | null;
+  total_allocation_pct: number;
+  staff_count: number;
+  stretch_count: number;
+  href?: string | null;
+}
+
+export interface OperatorStaffingTotals {
+  staff_count: number;
+  overloaded_count: number;
+  avg_allocation_pct: number;
+  projects_covered: number;
+}
+
+export interface OperatorStaffingLoadBoard {
+  staff: OperatorStaffRow[];
+  project_coverage: OperatorProjectCoverageRow[];
+  totals: OperatorStaffingTotals;
+}
+
+export interface OperatorLessonRow {
+  id: string;
+  project_id: string;
+  project_name?: string | null;
+  municipality_id?: string | null;
+  theme: string;
+  severity: "high" | "medium" | "low";
+  lesson: string;
+  preemptive_action: string;
+  applies_to_active_work: boolean;
+  municipality_is_active: boolean;
+  relevance_score: number;
+}
+
+export interface OperatorLessonsTotals {
+  lesson_count: number;
+  applies_count: number;
+  active_theme_count: number;
+}
+
+export interface OperatorLessonsBoard {
+  rows: OperatorLessonRow[];
+  totals: OperatorLessonsTotals;
+}
+
+export interface OperatorAccountabilityItem {
+  id: string;
+  project_id: string;
+  project_name?: string | null;
+  title: string;
+  category?: string | null;
+  owner?: string | null;
+  owner_id?: string | null;
+  status: "open" | "overdue" | "unassigned" | "resolved";
+  opened_date?: string | null;
+  due_date?: string | null;
+  days_overdue: number;
+  escalation_level: number;
+  last_update_days: number;
+  blocker_reason?: string | null;
+  stalled_no_owner: boolean;
+  stale_update: boolean;
+  href?: string | null;
+}
+
+export interface OperatorAccountabilityOwnerRow {
+  owner: string;
+  owner_id?: string | null;
+  open_count: number;
+  overdue_count: number;
+  max_escalation_level: number;
+  stale_count: number;
+}
+
+export interface OperatorAccountabilityTotals {
+  total_items: number;
+  unassigned_count: number;
+  overdue_count: number;
+  stale_count: number;
+  max_escalation_level: number;
+}
+
+export interface OperatorAccountabilityBoard {
+  items: OperatorAccountabilityItem[];
+  by_owner: OperatorAccountabilityOwnerRow[];
+  totals: OperatorAccountabilityTotals;
 }
 
 export interface OperatorPermitHistoryEntry {
@@ -9230,6 +9570,69 @@ export function getOperatorCloseoutBoard(envId: string, businessId?: string): Pr
 
 export function getOperatorPermitBoard(envId: string, businessId?: string): Promise<OperatorPermitBoard> {
   return bosFetch("/api/operator/v1/permits", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorVendorConcentration(
+  envId: string,
+  businessId?: string
+): Promise<OperatorVendorConcentrationBoard> {
+  return bosFetch("/api/operator/v1/vendors/concentration", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorBudgetDrift(
+  envId: string,
+  businessId?: string
+): Promise<OperatorBudgetDriftBoard> {
+  return bosFetch("/api/operator/v1/budget-drift", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorReviewCycles(
+  envId: string,
+  businessId?: string
+): Promise<OperatorReviewCycleBoard> {
+  return bosFetch("/api/operator/v1/review-cycles", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorInspectionRework(
+  envId: string,
+  businessId?: string
+): Promise<OperatorInspectionReworkBoard> {
+  return bosFetch("/api/operator/v1/inspection-rework", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorStaffingLoad(
+  envId: string,
+  businessId?: string
+): Promise<OperatorStaffingLoadBoard> {
+  return bosFetch("/api/operator/v1/staffing-load", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorLessons(
+  envId: string,
+  businessId?: string
+): Promise<OperatorLessonsBoard> {
+  return bosFetch("/api/operator/v1/lessons", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorAccountability(
+  envId: string,
+  businessId?: string
+): Promise<OperatorAccountabilityBoard> {
+  return bosFetch("/api/operator/v1/accountability", {
     params: { env_id: envId, business_id: businessId },
   });
 }

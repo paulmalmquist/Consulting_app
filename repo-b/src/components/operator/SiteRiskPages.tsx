@@ -17,6 +17,7 @@ import {
   type OperatorLegacySiteRow,
 } from "@/lib/bos-api";
 import { fmtMoney } from "@/lib/format-utils";
+import ScenarioPanel from "@/components/operator/ScenarioPanel";
 
 const RISK_TONE: Record<string, string> = {
   high_risk: "border-red-400/40 bg-red-500/10 text-red-200",
@@ -367,16 +368,14 @@ export function SiteRiskDetailPage({ siteId }: { siteId: string }) {
       </SectionShell>
 
       <SectionShell title="Financial impact of today's decisions" eyebrow="REPE Crossover">
-        <div className="rounded-2xl border border-bm-border/60 bg-black/25 p-4">
-          <p className="text-sm text-bm-text">
-            Zoning variance adds ~30 days → reduces IRR from 18% → ~14% on base-case density.
-            Scenario panel wires into the REPE model in the next build.
-          </p>
-          <p className="mt-2 text-xs text-bm-muted2">
-            Confidence: {detail.confidence ?? "medium"}. Scenario deltas are pre-computed from site
-            assumptions and the current active constraints.
-          </p>
-        </div>
+        {detail.development_scenarios ? (
+          <ScenarioPanel
+            scenarios={detail.development_scenarios}
+            siteConfidence={detail.confidence}
+          />
+        ) : (
+          <p className="text-sm text-bm-muted2">Scenario data not available for this site.</p>
+        )}
       </SectionShell>
 
       <SectionShell title="Constraint breakdown" eyebrow="Linked Ordinance Rules">

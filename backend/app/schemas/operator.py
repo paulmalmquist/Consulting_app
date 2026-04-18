@@ -515,6 +515,301 @@ class CloseoutBoardOut(BaseModel):
     cash_at_risk: CashAtRiskOut | None = None
 
 
+class VendorConcentrationLinkedProjectOut(BaseModel):
+    project_id: str
+    project_name: str | None = None
+    risk_level: str | None = None
+    status: str | None = None
+    share_pct: float | None = None
+    amount: float | None = None
+    line_status: str | None = None
+    href: str | None = None
+
+
+class VendorConcentrationRowOut(BaseModel):
+    vendor_id: str
+    vendor_name: str | None = None
+    category: str | None = None
+    concentration_pct: float | None = None
+    concentration_severity: Literal["high", "medium", "low"] | None = None
+    active_project_count: int | None = None
+    total_active_jobs_denominator: int | None = None
+    on_time_rate: float | None = None
+    on_time_warn: bool = False
+    budget_adherence_pct: float | None = None
+    avg_delay_days: int | None = None
+    rework_rate: float | None = None
+    at_risk_project_count: int | None = None
+    trend: Literal["improving", "stable", "declining"] | None = None
+    confidence: str | None = None
+    flag: str | None = None
+    spend_share_of_active_pct: float | None = None
+    delay_correlation: str | None = None
+    notes: str | None = None
+    impact: ImpactOut | None = None
+    linked_projects: list[VendorConcentrationLinkedProjectOut] = Field(default_factory=list)
+
+
+class VendorConcentrationTotalsOut(BaseModel):
+    vendor_count: int = 0
+    flagged_count: int = 0
+    max_concentration_pct: float = 0.0
+    portfolio_on_time_rate: float | None = None
+
+
+class VendorConcentrationBoardOut(BaseModel):
+    vendors: list[VendorConcentrationRowOut] = Field(default_factory=list)
+    totals: VendorConcentrationTotalsOut = Field(default_factory=VendorConcentrationTotalsOut)
+
+
+class BudgetDriftRowOut(BaseModel):
+    project_id: str
+    project_name: str | None = None
+    entity_id: str | None = None
+    entity_name: str | None = None
+    project_status: str | None = None
+    project_risk_level: str | None = None
+    current_budget_usd: float | None = None
+    actual_cost_usd: float | None = None
+    current_drift_pct: float | None = None
+    drift_trend_30d_pct: float | None = None
+    drift_trend_60d_pct: float | None = None
+    drift_risk_score: float | None = None
+    drift_severity: Literal["critical", "elevated", "stable"] | None = None
+    key_driver: str | None = None
+    trend_points_pct: list[float] = Field(default_factory=list)
+    forecast_final_drift_pct: float | None = None
+    forecast_cost_overrun_usd: float | None = None
+    days_to_next_threshold: int | None = None
+    next_threshold_label: str | None = None
+    confidence: str | None = None
+    owner: str | None = None
+    notes: str | None = None
+    impact: ImpactOut | None = None
+    href: str | None = None
+
+
+class BudgetDriftTotalsOut(BaseModel):
+    project_count: int = 0
+    critical_count: int = 0
+    watchlist_count: int = 0
+    total_forecast_overrun_usd: float = 0
+    max_current_drift_pct: float = 0.0
+
+
+class BudgetDriftBoardOut(BaseModel):
+    rows: list[BudgetDriftRowOut] = Field(default_factory=list)
+    totals: BudgetDriftTotalsOut = Field(default_factory=BudgetDriftTotalsOut)
+
+
+class ReviewThemeOut(BaseModel):
+    theme: str
+    total_comments: int
+    blocking_count: int
+    unresolved_count: int
+    affected_project_count: int
+    avg_resolution_days: float | None = None
+
+
+class ReviewRepeatOffenderOut(BaseModel):
+    reviewer_name: str | None = None
+    reviewer_role: str | None = None
+    theme: str | None = None
+    cycle_count: int
+    affected_project_count: int
+    unresolved: int
+
+
+class ReviewCycleChurnRowOut(BaseModel):
+    project_id: str
+    project_name: str | None = None
+    max_cycle: int
+    total_comments: int
+    unresolved_count: int
+    blocking_count: int
+    href: str | None = None
+
+
+class ReviewCycleTotalsOut(BaseModel):
+    comment_count: int = 0
+    unresolved_count: int = 0
+    blocking_count: int = 0
+    theme_count: int = 0
+    repeat_offender_count: int = 0
+    max_cycle_observed: int = 0
+
+
+class ReviewCycleBoardOut(BaseModel):
+    themes: list[ReviewThemeOut] = Field(default_factory=list)
+    repeat_offenders: list[ReviewRepeatOffenderOut] = Field(default_factory=list)
+    cycle_churn: list[ReviewCycleChurnRowOut] = Field(default_factory=list)
+    totals: ReviewCycleTotalsOut = Field(default_factory=ReviewCycleTotalsOut)
+
+
+class InspectionTypeRowOut(BaseModel):
+    inspection_type: str
+    total: int
+    failed: int
+    fail_rate: float
+    rework_hours: int
+    rework_cost_usd: float
+
+
+class InspectionVendorRowOut(BaseModel):
+    vendor_id: str
+    vendor_name: str | None = None
+    total: int
+    failed: int
+    fail_rate: float
+    rework_hours: int
+    rework_cost_usd: float
+
+
+class InspectionFailureEventOut(BaseModel):
+    id: str
+    project_id: str
+    project_name: str | None = None
+    inspection_type: str | None = None
+    inspection_date: date_type | None = None
+    vendor_id: str | None = None
+    vendor_name: str | None = None
+    issue_summary: str | None = None
+    rework_hours: int
+    rework_cost_usd: float
+    href: str | None = None
+
+
+class InspectionTotalsOut(BaseModel):
+    event_count: int = 0
+    fail_count: int = 0
+    overall_fail_rate: float = 0.0
+    total_rework_hours: int = 0
+    total_rework_cost_usd: float = 0.0
+
+
+class InspectionReworkBoardOut(BaseModel):
+    by_inspection_type: list[InspectionTypeRowOut] = Field(default_factory=list)
+    by_vendor: list[InspectionVendorRowOut] = Field(default_factory=list)
+    recent_failures: list[InspectionFailureEventOut] = Field(default_factory=list)
+    totals: InspectionTotalsOut = Field(default_factory=InspectionTotalsOut)
+
+
+class StaffProjectLoadOut(BaseModel):
+    project_id: str
+    project_name: str | None = None
+    allocation_pct: int | None = None
+    role_on_project: str | None = None
+    hours_per_week: int | None = None
+    stretch: bool = False
+    notes: str | None = None
+    href: str | None = None
+
+
+class StaffRowOut(BaseModel):
+    staff_id: str
+    name: str | None = None
+    role: str | None = None
+    entity_id: str | None = None
+    entity_name: str | None = None
+    seniority: str | None = None
+    cost_loaded_per_hour: float | None = None
+    allocation_total_pct: int = 0
+    hours_per_week_total: int = 0
+    project_count: int = 0
+    overloaded: bool = False
+    projects: list[StaffProjectLoadOut] = Field(default_factory=list)
+
+
+class ProjectCoverageRowOut(BaseModel):
+    project_id: str
+    project_name: str | None = None
+    total_allocation_pct: int = 0
+    staff_count: int = 0
+    stretch_count: int = 0
+    href: str | None = None
+
+
+class StaffingTotalsOut(BaseModel):
+    staff_count: int = 0
+    overloaded_count: int = 0
+    avg_allocation_pct: float = 0
+    projects_covered: int = 0
+
+
+class StaffingLoadBoardOut(BaseModel):
+    staff: list[StaffRowOut] = Field(default_factory=list)
+    project_coverage: list[ProjectCoverageRowOut] = Field(default_factory=list)
+    totals: StaffingTotalsOut = Field(default_factory=StaffingTotalsOut)
+
+
+class LessonRowOut(BaseModel):
+    id: str
+    project_id: str
+    project_name: str | None = None
+    municipality_id: str | None = None
+    theme: str
+    severity: Literal["high", "medium", "low"]
+    lesson: str
+    preemptive_action: str
+    applies_to_active_work: bool = False
+    municipality_is_active: bool = False
+    relevance_score: int = 0
+
+
+class LessonsTotalsOut(BaseModel):
+    lesson_count: int = 0
+    applies_count: int = 0
+    active_theme_count: int = 0
+
+
+class LessonsBoardOut(BaseModel):
+    rows: list[LessonRowOut] = Field(default_factory=list)
+    totals: LessonsTotalsOut = Field(default_factory=LessonsTotalsOut)
+
+
+class AccountabilityItemOut(BaseModel):
+    id: str
+    project_id: str
+    project_name: str | None = None
+    title: str
+    category: str | None = None
+    owner: str | None = None
+    owner_id: str | None = None
+    status: Literal["open", "overdue", "unassigned", "resolved"]
+    opened_date: date_type | None = None
+    due_date: date_type | None = None
+    days_overdue: int = 0
+    escalation_level: int = 0
+    last_update_days: int = 0
+    blocker_reason: str | None = None
+    stalled_no_owner: bool = False
+    stale_update: bool = False
+    href: str | None = None
+
+
+class AccountabilityOwnerRowOut(BaseModel):
+    owner: str
+    owner_id: str | None = None
+    open_count: int
+    overdue_count: int
+    max_escalation_level: int
+    stale_count: int
+
+
+class AccountabilityTotalsOut(BaseModel):
+    total_items: int = 0
+    unassigned_count: int = 0
+    overdue_count: int = 0
+    stale_count: int = 0
+    max_escalation_level: int = 0
+
+
+class AccountabilityBoardOut(BaseModel):
+    items: list[AccountabilityItemOut] = Field(default_factory=list)
+    by_owner: list[AccountabilityOwnerRowOut] = Field(default_factory=list)
+    totals: AccountabilityTotalsOut = Field(default_factory=AccountabilityTotalsOut)
+
+
 class SiteRowOut(BaseModel):
     site_id: str
     name: str | None = None
@@ -595,6 +890,50 @@ class SiteDetailOut(BaseModel):
     comparable_projects: list[SiteComparableOut] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
     risk_score: float | None = None
+    development_scenarios: "DevelopmentScenariosOut | None" = None
+
+
+class ScenarioAssumptionsOut(BaseModel):
+    density_units: int | None = None
+    approval_delay_days: int | None = None
+    cost_inflation_pct: float | None = None
+
+
+class ScenarioOutputsOut(BaseModel):
+    irr_pct: float | None = None
+    profit_margin_pct: float | None = None
+    timeline_days: int | None = None
+    total_dev_cost_usd: int | None = None
+
+
+class ScenarioPresetOut(BaseModel):
+    id: str
+    label: str
+    assumptions: ScenarioAssumptionsOut
+    outputs: ScenarioOutputsOut
+
+
+class ScenarioOrdinanceImpactDeltaOut(BaseModel):
+    approval_delay_days: int | None = None
+    irr_pct: float | None = None
+    profit_margin_pct: float | None = None
+    timeline_days: int | None = None
+    total_dev_cost_usd: int | None = None
+    confidence: str | None = None
+
+
+class ScenarioOrdinanceImpactOut(BaseModel):
+    ordinance_event_id: str
+    description: str | None = None
+    event_effective_date: date_type | None = None
+    event_change_type: str | None = None
+    delta_vs_base: ScenarioOrdinanceImpactDeltaOut
+
+
+class DevelopmentScenariosOut(BaseModel):
+    site_id: str
+    presets: list[ScenarioPresetOut] = Field(default_factory=list)
+    active_ordinance_impact: ScenarioOrdinanceImpactOut | None = None
 
 
 class OrdinanceAffectedSiteOut(BaseModel):
