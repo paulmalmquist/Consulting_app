@@ -9,7 +9,7 @@ Each tile carries a 14-day sparkline + label/value/delta/source. Sources:
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from typing import Any
 
 from app.db import get_cursor

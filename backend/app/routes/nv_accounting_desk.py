@@ -10,7 +10,7 @@ nv_invoices, nv_bank_transactions, nv_expense_draft).
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request

@@ -7,7 +7,7 @@ parent via parent_txn_id.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from app.db import get_cursor

@@ -161,7 +161,6 @@ def test_ensure_vault_reuses_matching_resource(tmp_path):
 
 
 def test_existing_credential_is_rotated_for_same_mcp_url(tmp_path):
-    profile = _profile(tmp_path)
     credentials = _FakeCredentials(
         [
             SimpleNamespace(
