@@ -135,6 +135,10 @@ function FundComparisonTick(props: {
 // If the authoritative state is unreleased, period-drifted, or carries a
 // null_reason, the metric is rendered as <UnavailableCell> instead of a number.
 
+function isReleased(fund: FundRow): boolean {
+  return fund.auth?.promotion_state === "released" && fund.auth?.state_origin === "authoritative";
+}
+
 function authMetric(fund: FundRow, field: string): MetricCell<string> {
   return renderAuthoritativeMetric(fund.auth, field, (v) => String(v), {
     entityLabel: fund.name,
@@ -142,14 +146,12 @@ function authMetric(fund: FundRow, field: string): MetricCell<string> {
 }
 
 function authNumeric(fund: FundRow, field: string): number | null {
+  // Gate: avoid dev-mode throws for unreleased/fallback state.
+  if (!isReleased(fund)) return null;
   const cell = authMetric(fund, field);
   if (cell.kind !== "value") return null;
   const n = Number(cell.value);
   return isNaN(n) ? null : n;
-}
-
-function isReleased(fund: FundRow): boolean {
-  return fund.auth?.promotion_state === "released" && fund.auth?.state_origin === "authoritative";
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -276,8 +278,8 @@ export default function ReFundListPage() {
   const signals = useMemo(() => {
     const released = funds.filter((f) => isReleased(f));
     const items: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }[] = [];
-    if (released.length === 0) return items;
 
+    // Signal 1: Top NAV Driver (released funds only)
     let topNavFund: FundRow | null = null;
     let topNavVal = 0;
     for (const f of released) {
@@ -288,26 +290,40 @@ export default function ReFundListPage() {
       items.push({ label: "Top NAV", value: `${topNavFund.name}: ${fmtMoney(topNavVal)}` });
     }
 
-    const dscrWatch = released.filter((f) => {
-      const dscr = authNumeric(f, "weighted_dscr");
-      return dscr !== null && dscr < 1.25;
-    });
-    if (dscrWatch.length > 0) {
+    // Signal 2: IRR Range (gross_irr min–max across released trusted funds, ≥2 required)
+    const irrValues = released
+      .map((f) => authNumeric(f, "gross_irr"))
+      .filter((v): v is number => v !== null);
+    if (irrValues.length >= 2) {
+      const irrMin = Math.min(...irrValues);
+      const irrMax = Math.max(...irrValues);
       items.push({
-        label: "DSCR Watch",
-        value: `${dscrWatch.length} fund${dscrWatch.length > 1 ? "s" : ""} below 1.25x`,
+        label: "IRR Range",
+        value: `${fmtPct(irrMin)} – ${fmtPct(irrMax)}`,
+      });
+    }
+
+    // Signal 3: Data Integrity Alerts — funds with no released snapshot
+    const noSnapshot = funds.filter((f) => !isReleased(f));
+    if (noSnapshot.length > 0) {
+      items.push({
+        label: "Data Alerts",
+        value: `${noSnapshot.length} fund${noSnapshot.length > 1 ? "s" : ""} without released snapshot`,
         tone: "negative",
       });
     }
 
-    let topDpiFund: FundRow | null = null;
-    let topDpiVal = 0;
-    for (const f of released) {
-      const v = authNumeric(f, "dpi");
-      if (v !== null && v > topDpiVal) { topDpiFund = f; topDpiVal = v; }
-    }
-    if (topDpiFund && topDpiVal > 0) {
-      items.push({ label: "DPI Leader", value: `${topDpiFund.name}: ${fmtMultiple(topDpiVal)}`, tone: "positive" });
+    // Signal 4: Funds Requiring Attention — below hurdle or trust issues
+    const needsReview = released.filter((f) => {
+      const hurdleStatus = f.auth?.state?.canonical_metrics?.["hurdle_status"] as string | undefined;
+      return hurdleStatus === "below_hurdle" || f.auth?.trust_status !== "trusted";
+    });
+    if (needsReview.length > 0) {
+      items.push({
+        label: "Attention",
+        value: `${needsReview.length} fund${needsReview.length > 1 ? "s" : ""} require review`,
+        tone: "negative",
+      });
     }
 
     return items;
@@ -342,6 +358,8 @@ export default function ReFundListPage() {
 
   // ── Render helpers for table cells ────────────────────────────────────
   function renderMetricCell(fund: FundRow, field: string, formatter: (v: string | number) => string) {
+    // Gate: avoid dev-mode throws for unreleased/fallback state.
+    if (!isReleased(fund)) return <UnavailableCell nullReason="authoritative_state_not_released" />;
     const cell = renderAuthoritativeMetric(
       fund.auth,
       field,
@@ -394,12 +412,7 @@ export default function ReFundListPage() {
                   ? fmtPct(parseFloat(portfolioKpis.net_irr))
                   : computedNetIrr,
               },
-              // DSCR KPI: compact single-line render. When DSCR is unavailable
-              // (or not modeled for this portfolio) render "Unavailable" instead
-              // of reserving full visual weight for an invalid value.
-              ...(computedDscr !== "—"
-                ? [{ label: "Wtd DSCR", value: computedDscr }]
-                : [{ label: "DSCR", value: "Unavailable" }]),
+              { label: "Wtd DSCR", value: computedDscr !== "—" ? computedDscr : "Unavailable" },
             ]}
           />
         }

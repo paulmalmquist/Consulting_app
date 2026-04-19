@@ -150,7 +150,8 @@ export async function GET(
           COALESCE(NULLIF(canonical_metrics->>'total_committed', '')::numeric, 0) AS total_committed,
           COALESCE(NULLIF(canonical_metrics->>'asset_count', '')::int, 0) AS asset_count,
           NULLIF(canonical_metrics->>'gross_irr', '')::numeric AS gross_irr,
-          NULLIF(canonical_metrics->>'net_irr', '')::numeric AS net_irr
+          NULLIF(canonical_metrics->>'net_irr', '')::numeric AS net_irr,
+          NULLIF(canonical_metrics->>'weighted_dscr', '')::numeric AS weighted_dscr
         FROM latest_state
       )
       SELECT
@@ -174,6 +175,14 @@ export async function GET(
           )::text
           ELSE NULL
         END AS net_irr,
+        CASE
+          WHEN SUM(CASE WHEN weighted_dscr IS NOT NULL AND portfolio_nav > 0 THEN portfolio_nav ELSE 0 END) > 0
+          THEN (
+            SUM(CASE WHEN weighted_dscr IS NOT NULL AND portfolio_nav > 0 THEN weighted_dscr * portfolio_nav ELSE 0 END)
+            / SUM(CASE WHEN weighted_dscr IS NOT NULL AND portfolio_nav > 0 THEN portfolio_nav ELSE 0 END)
+          )::text
+          ELSE NULL
+        END AS weighted_dscr,
         COALESCE(
           json_agg(
             json_build_object(
@@ -210,7 +219,7 @@ export async function GET(
       portfolio_nav: metricsRes.rows[0]?.portfolio_nav || null,
       gross_irr: metricsRes.rows[0]?.gross_irr ?? null,
       net_irr: metricsRes.rows[0]?.net_irr ?? null,
-      weighted_dscr: null,
+      weighted_dscr: metricsRes.rows[0]?.weighted_dscr ?? null,
       weighted_ltv: null,
       pct_invested: null,
       active_assets: metricsRes.rows[0]?.active_assets || 0,

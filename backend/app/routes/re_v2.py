@@ -292,75 +292,71 @@ def get_environment_fund_trend(
         if metric not in allowed:
             raise ValueError(f"unsupported metric: {metric}")
 
+        # Metric key → canonical_metrics JSONB field.
+        metric_key = {
+            "ending_nav": "ending_nav",
+            "dpi": "dpi",
+            "tvpi": "tvpi",
+            "gross_irr": "gross_irr",
+        }[metric]
+
         with get_cursor() as cur:
+            # Single authoritative query: released snapshots only, no quarantined
+            # funds, no legacy re_fund_quarter_state fallback. Quarters with no
+            # released snapshot produce null gaps in the chart (never coerced).
             cur.execute(
                 """
-                SELECT fund_id, name
-                FROM repe_fund
-                WHERE business_id = %s
-                ORDER BY vintage_year DESC, name
+                SELECT
+                    f.fund_id::text AS fund_id,
+                    f.name,
+                    a.quarter,
+                    NULLIF(a.canonical_metrics->>%s, '')::numeric AS metric_value
+                FROM repe_fund f
+                JOIN re_authoritative_fund_state_qtr a
+                  ON a.fund_id = f.fund_id
+                 AND a.env_id = %s
+                 AND a.business_id = %s::uuid
+                 AND a.promotion_state = 'released'
+                WHERE f.business_id = %s
+                  AND f.name NOT ILIKE '%%[QUARANTINED]%%'
+                ORDER BY f.fund_id, a.quarter DESC
                 """,
-                (str(resolved.business_id),),
+                (metric_key, str(env_id), str(resolved.business_id), str(resolved.business_id)),
             )
-            funds = cur.fetchall() or []
+            rows = cur.fetchall() or []
 
-            # Pull the last N quarters of data per fund. Left-join authoritative
-            # snapshot so we can prefer canonical_metrics.gross_irr_bottom_up
-            # when it exists.
-            series_by_fund: list[dict[str, Any]] = []
-            for f in funds:
-                fund_id = str(f["fund_id"])
-                cur.execute(
-                    """
-                    SELECT q.quarter,
-                           q.portfolio_nav,
-                           q.dpi,
-                           q.tvpi,
-                           q.gross_irr,
-                           (
-                             SELECT canonical_metrics->>'gross_irr_bottom_up'
-                             FROM re_authoritative_fund_state_qtr a
-                             WHERE a.fund_id = q.fund_id
-                               AND a.quarter = q.quarter
-                             ORDER BY a.created_at DESC
-                             LIMIT 1
-                           ) AS gross_irr_bottom_up
-                    FROM re_fund_quarter_state q
-                    WHERE q.fund_id = %s
-                    ORDER BY q.quarter DESC
-                    LIMIT %s
-                    """,
-                    (fund_id, quarters),
-                )
-                rows = list(cur.fetchall() or [])
-                rows.reverse()  # chronological
-                points = []
-                for r in rows:
-                    if metric == "ending_nav":
-                        v = r.get("portfolio_nav")
-                    elif metric == "dpi":
-                        v = r.get("dpi")
-                    elif metric == "tvpi":
-                        v = r.get("tvpi")
-                    elif metric == "gross_irr":
-                        # Prefer bottom-up when written.
-                        bu = r.get("gross_irr_bottom_up")
-                        v = float(bu) if bu is not None else r.get("gross_irr")
-                    else:
-                        v = None
-                    points.append(
-                        {
-                            "quarter": r["quarter"],
-                            "value": float(v) if v is not None else None,
-                        }
-                    )
-                series_by_fund.append(
-                    {
-                        "fund_id": fund_id,
-                        "name": f["name"],
-                        "points": points,
-                    }
-                )
+        # Group into per-fund series, honouring the `quarters` limit.
+        from collections import defaultdict
+        by_fund: dict[str, dict[str, Any]] = {}
+        fund_quarters: dict[str, list[str]] = defaultdict(list)
+        for r in rows:
+            fid = r["fund_id"]
+            if fid not in by_fund:
+                by_fund[fid] = {"fund_id": fid, "name": r["name"], "points": []}
+            fund_quarters[fid].append(r["quarter"])
+
+        # Determine the N most-recent quarters seen across all funds so that
+        # every series covers the same time window (enabling aligned chart).
+        all_quarters = sorted({r["quarter"] for r in rows}, reverse=True)[:quarters]
+        all_quarters.sort()  # chronological
+
+        # Build a value map per fund then emit aligned series.
+        fund_values: dict[str, dict[str, float | None]] = defaultdict(dict)
+        for r in rows:
+            fund_values[r["fund_id"]][r["quarter"]] = (
+                float(r["metric_value"]) if r["metric_value"] is not None else None
+            )
+
+        series_by_fund: list[dict[str, Any]] = []
+        for fid, meta in by_fund.items():
+            points = [
+                {"quarter": q, "value": fund_values[fid].get(q)}
+                for q in all_quarters
+            ]
+            series_by_fund.append({"fund_id": fid, "name": meta["name"], "points": points})
+
+        # Stable order: by fund name.
+        series_by_fund.sort(key=lambda s: s["name"])
 
         return {"metric": metric, "quarters": quarters, "funds": series_by_fund}
     except Exception as exc:

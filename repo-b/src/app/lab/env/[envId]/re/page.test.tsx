@@ -86,6 +86,92 @@ describe("RE environment portfolio page", () => {
     expect(navCard?.textContent).toContain("—");
   });
 
+  test("DSCR KPI always renders — shows 'Unavailable' when no DSCR data", async () => {
+    render(<ReFundListPage />);
+
+    await waitFor(() =>
+      expect(mockGetReV2EnvironmentPortfolioKpis).toHaveBeenCalled()
+    );
+
+    // The KPI strip must always include the DSCR tile, even when no funds have DSCR data.
+    expect(await screen.findByText("Wtd DSCR")).toBeInTheDocument();
+    const dscrLabel = screen.getByText("Wtd DSCR");
+    const dscrCard = dscrLabel.closest("div");
+    expect(dscrCard?.textContent).toContain("Unavailable");
+  });
+
+  test("IRR Range signal renders when ≥2 released funds have trusted gross_irr", async () => {
+    mockListReV1Funds.mockResolvedValue([
+      { fund_id: "fund-1", business_id: "biz-1", name: "Alpha Fund", vintage_year: 2022, fund_type: "closed_end", strategy: "equity", status: "investing", created_at: "2026-01-01T00:00:00Z" },
+      { fund_id: "fund-2", business_id: "biz-1", name: "Beta Fund", vintage_year: 2023, fund_type: "closed_end", strategy: "equity", status: "investing", created_at: "2026-01-01T00:00:00Z" },
+    ]);
+    mockGetPortfolioAuthoritativeStates.mockResolvedValue({
+      env_id: "env-1",
+      business_id: "biz-1",
+      quarter: "2026Q2",
+      count: 2,
+      states: [
+        {
+          entity_type: "fund", entity_id: "fund-1", quarter: "2026Q2",
+          requested_quarter: "2026Q2", period_exact: true,
+          state_origin: "authoritative", audit_run_id: null,
+          snapshot_version: "v1", promotion_state: "released",
+          trust_status: "trusted", breakpoint_layer: null, null_reason: null,
+          state: {
+            period_start: "2026-04-01", period_end: "2026-06-30",
+            canonical_metrics: { ending_nav: "100000000", gross_irr: "0.15", irr_trust_state: "trusted" },
+            display_metrics: {},
+          },
+          null_reasons: { gross_irr: null }, formulas: {}, provenance: [], artifact_paths: {},
+        },
+        {
+          entity_type: "fund", entity_id: "fund-2", quarter: "2026Q2",
+          requested_quarter: "2026Q2", period_exact: true,
+          state_origin: "authoritative", audit_run_id: null,
+          snapshot_version: "v1", promotion_state: "released",
+          trust_status: "trusted", breakpoint_layer: null, null_reason: null,
+          state: {
+            period_start: "2026-04-01", period_end: "2026-06-30",
+            canonical_metrics: { ending_nav: "200000000", gross_irr: "0.22", irr_trust_state: "trusted" },
+            display_metrics: {},
+          },
+          null_reasons: { gross_irr: null }, formulas: {}, provenance: [], artifact_paths: {},
+        },
+      ],
+    });
+
+    render(<ReFundListPage />);
+
+    await waitFor(() => expect(mockGetPortfolioAuthoritativeStates).toHaveBeenCalled());
+    expect(await screen.findByText(/IRR Range/i)).toBeInTheDocument();
+  });
+
+  test("Data Alerts signal shows count when funds lack released snapshots", async () => {
+    mockListReV1Funds.mockResolvedValue([
+      { fund_id: "fund-1", business_id: "biz-1", name: "Unreleased Fund", vintage_year: 2022, fund_type: "closed_end", strategy: "equity", status: "investing", created_at: "2026-01-01T00:00:00Z" },
+    ]);
+    // Portfolio states returns no released state for fund-1
+    mockGetPortfolioAuthoritativeStates.mockResolvedValue({
+      env_id: "env-1", business_id: "biz-1", quarter: "2026Q2", count: 1,
+      states: [
+        {
+          entity_type: "fund", entity_id: "fund-1", quarter: "2026Q2",
+          requested_quarter: "2026Q2", period_exact: false,
+          state_origin: "fallback", audit_run_id: null,
+          snapshot_version: null, promotion_state: null,
+          trust_status: "missing_source", breakpoint_layer: null, null_reason: "authoritative_state_not_released",
+          state: null,
+          null_reasons: {}, formulas: {}, provenance: [], artifact_paths: {},
+        },
+      ],
+    });
+
+    render(<ReFundListPage />);
+
+    await waitFor(() => expect(mockGetPortfolioAuthoritativeStates).toHaveBeenCalled());
+    expect(await screen.findByText(/Data Alerts/i)).toBeInTheDocument();
+  });
+
   test("renders delete action for each fund row", async () => {
     mockListReV1Funds.mockResolvedValue([
       {
