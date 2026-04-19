@@ -1,0 +1,519 @@
+{
+  "audit_run_id": "c62c58c7-282c-4a20-ab5c-38a403ba1bec",
+  "snapshot_version": "meridian-20260419T170258Z-eb7e1153",
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "entities": [
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "a1b2c3d4-0002-0020-0003-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "asset",
+      "entity_id": "a1b2c3d4-0002-0020-0003-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0006-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0006-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0007-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0007-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0008-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0008-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0002-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0002-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0004-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0004-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0003-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0003-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "594a1367-8109-49db-a353-44685fe6578e",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "594a1367-8109-49db-a353-44685fe6578e",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0005-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "d4560000-0456-0101-0005-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0001-0010-0002-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0002-0020-0002-000000000002",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "investment",
+      "entity_id": "a1b2c3d4-0002-0020-0002-000000000002",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "untrusted",
+      "breakpoint_layer": "fees",
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "quarter": "2025Q4",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    },
+    {
+      "entity_type": "fund",
+      "entity_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "quarter": "2026Q2",
+      "pass_fail": "PASS",
+      "trust_status": "trusted",
+      "breakpoint_layer": null,
+      "snapshot_version": "meridian-20260419T170258Z-eb7e1153"
+    }
+  ],
+  "findings_summary": {
+    "audit_run_id": "c62c58c7-282c-4a20-ab5c-38a403ba1bec",
+    "snapshot_version": "meridian-20260419T170258Z-eb7e1153",
+    "exception_count": 13,
+    "reconciliation_failures": 0,
+    "untrusted_entities": 1
+  }
+}

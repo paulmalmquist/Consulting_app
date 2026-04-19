@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supervised Build Loop"
+  short_description: "ChatGPT review, Claude build, deploy, verify."
+  default_prompt: "Use $supervised-build-review-loop to pressure-test a plan in ChatGPT, implement in Claude Code, then deploy, live-test, and iterate until the result is acceptable or blocked."

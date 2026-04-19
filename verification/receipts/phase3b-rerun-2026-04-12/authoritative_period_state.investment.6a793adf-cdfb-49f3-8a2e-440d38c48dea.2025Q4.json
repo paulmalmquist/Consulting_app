@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+  "investment_name": "Ironworks Mixed-Use",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "14882561.260000000000",
+    "ending_nav_full": "18916527.630000000000",
+    "beginning_nav_attributable": "11906049.008000000000",
+    "ending_nav_attributable": "15133222.104000000000",
+    "gross_operating_cash_flow_full": "-362882.02",
+    "fund_attributable_operating_cash_flow": "-290305.616000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "4033966.370000000000",
+    "fund_attributable_valuation_movement": "3227173.096000000000",
+    "gross_return_amount": "2936867.48000000000000000000000000000000000",
+    "gross_return_rate": "0.197336159327",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "19.733615932700"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "7211955f-874f-4fd8-a977-30bffd96b8d1"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "73969ed9-9a9c-4cd1-b976-49077146aba9"
+    }
+  ]
+}

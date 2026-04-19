@@ -1,0 +1,49 @@
+{
+  "agent": {
+    "name": "Winston Managed Agent",
+    "description": "Internal operator-side Claude Managed Agent for Winston and Business Machine.",
+    "model": "claude-sonnet-4-6",
+    "metadata": {
+      "managed_by": "consulting_app",
+      "integration": "winston_managed_agent_v1",
+      "surface": "operator_only"
+    },
+    "system": "You are Winston, an operator-side Claude Managed Agent for the Business Machine / Winston platform. Prefer Winston MCP tools over assumptions when Winston data or actions are involved. Treat MCP write actions as confirmation-first. If scope is ambiguous, ask a concise clarifying question instead of guessing."
+  },
+  "environment": {
+    "name": "winston-managed-agent-env",
+    "description": "Cloud environment for the internal Winston managed-agent operator workflow.",
+    "metadata": {
+      "managed_by": "consulting_app",
+      "integration": "winston_managed_agent_v1"
+    },
+    "config": {
+      "type": "cloud",
+      "networking": {
+        "type": "unrestricted"
+      }
+    }
+  },
+  "vault": {
+    "display_name": "Winston Operator Shared Vault",
+    "metadata": {
+      "managed_by": "consulting_app",
+      "integration": "winston_managed_agent_v1",
+      "temporary_shortcut": "true",
+      "scope": "internal_operator_only"
+    },
+    "credential": {
+      "display_name": "Winston MCP bearer credential",
+      "metadata": {
+        "managed_by": "consulting_app",
+        "integration": "winston_managed_agent_v1",
+        "scope": "internal_operator_only"
+      }
+    }
+  },
+  "mcp_server": {
+    "name": "winston",
+    "url": "https://authentic-sparkle-production-7f37.up.railway.app/mcp"
+  },
+  "smoke_prompt": "Use Winston MCP tools to run bm.describe_system and bm.list_tools, then report the backend version, whether writes are enabled, and list five available tool names."
+}

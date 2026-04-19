@@ -1,14 +1,14 @@
-"""Category suggestions for a given vendor/amount/memo.
+"""Category suggestions for the drawer's "AI Suggested" panel.
 
-Exact vendor map → fuzzy prefix → token heuristic. Returns top 3 sorted desc.
-Interface-compatible with future LLM replacement.
+Delegates to receipt_classification for rule-based category inference, then
+adds a heuristic fallback so an unknown vendor still gets top-3 candidates.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-from app.services.accounting_fixture_loader import AccountingRepo
+from app.services import receipt_classification
 
 
 @dataclass
@@ -25,15 +25,16 @@ _HEURISTICS: list[tuple[str, str]] = [
     ("UNITED", "Travel"),
     ("DELTA", "Travel"),
     ("AMERICAN AIRLINES", "Travel"),
-    ("AWS", "Software & SaaS"),
-    ("AZURE", "Software & SaaS"),
-    ("GCP", "Software & SaaS"),
-    ("FIGMA", "Software & SaaS"),
-    ("NOTION", "Software & SaaS"),
-    ("DATADOG", "Software & SaaS"),
-    ("OPENAI", "Software & SaaS"),
-    ("ANTHROPIC", "Software & SaaS"),
-    ("RAMP", "Software & SaaS"),
+    ("AWS", "Cloud / Storage"),
+    ("AZURE", "Cloud / Storage"),
+    ("GCP", "Cloud / Storage"),
+    ("FIGMA", "Productivity"),
+    ("NOTION", "Productivity"),
+    ("DATADOG", "Developer tools"),
+    ("OPENAI", "AI tools"),
+    ("ANTHROPIC", "AI tools"),
+    ("CLAUDE", "AI tools"),
+    ("RAMP", "Developer tools"),
     ("GUSTO", "Payroll"),
     ("WEWORK", "Rent"),
     ("LEGALZOOM", "Legal & Professional"),
@@ -41,38 +42,51 @@ _HEURISTICS: list[tuple[str, str]] = [
 ]
 
 
-def suggest_categories(vendor: str, amount: float, memo: str | None, repo: AccountingRepo) -> list[CategorySuggestion]:
-    vendor_upper = vendor.upper()
-    memo_upper = (memo or "").upper()
-    cat_map = repo.vendor_category_map()
+def suggest_categories(
+    *,
+    env_id: str,
+    business_id: str,
+    vendor: str,
+    amount: float,
+    memo: str | None = None,
+) -> list[CategorySuggestion]:
     suggestions: list[CategorySuggestion] = []
     seen: set[str] = set()
 
-    # 1. exact match
-    for key, category in cat_map.items():
-        if key.upper() == vendor_upper:
-            suggestions.append(CategorySuggestion(category=category, confidence=94, reason="exact vendor match"))
-            seen.add(category)
-            break
+    # 1. Delegate to the receipt_classification pipeline (rules + carry-forward + defaults)
+    try:
+        hit = receipt_classification.classify(
+            env_id=env_id,
+            business_id=business_id,
+            billing_platform=None,
+            service_name_guess=memo,
+            vendor_normalized=vendor,
+        )
+    except Exception:
+        hit = None
+    if hit and hit.get("category"):
+        suggestions.append(
+            CategorySuggestion(
+                category=hit["category"],
+                confidence=90 if hit.get("rule_id") else 74,
+                reason="rules" if hit.get("rule_id") else "carry-forward or default",
+            )
+        )
+        seen.add(hit["category"])
 
-    # 2. prefix/contains match
-    for key, category in cat_map.items():
-        if category in seen:
-            continue
-        k = key.upper()
-        if k and (vendor_upper.startswith(k) or k in vendor_upper or k in memo_upper):
-            suggestions.append(CategorySuggestion(category=category, confidence=74, reason=f"vendor contains '{key}'"))
-            seen.add(category)
-
-    # 3. heuristics
+    # 2. Heuristic fallback on raw vendor/memo tokens
+    vendor_upper = (vendor or "").upper()
+    memo_upper = (memo or "").upper()
     for token, category in _HEURISTICS:
         if category in seen:
             continue
         if token in vendor_upper or token in memo_upper:
-            suggestions.append(CategorySuggestion(category=category, confidence=58, reason=f"heuristic '{token}'"))
+            suggestions.append(
+                CategorySuggestion(category=category, confidence=58, reason=f"heuristic '{token}'")
+            )
             seen.add(category)
 
-    # 4. generic fallback by amount
+    # 3. Generic amount-based fallback
     if not suggestions:
         if amount < 50:
             suggestions.append(CategorySuggestion(category="Meals", confidence=30, reason="amount<50 fallback"))
@@ -86,4 +100,7 @@ def suggest_categories(vendor: str, amount: float, memo: str | None, repo: Accou
 
 
 def to_dict(suggestions: list[CategorySuggestion]) -> list[dict[str, Any]]:
-    return [{"category": s.category, "confidence": s.confidence, "reason": s.reason} for s in suggestions]
+    return [
+        {"category": s.category, "confidence": s.confidence, "reason": s.reason}
+        for s in suggestions
+    ]

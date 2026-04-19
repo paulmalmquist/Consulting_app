@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+  "investment_name": "Lakeside Senior Living",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "39554417.920000000000",
+    "ending_nav_full": "38809602.670000000000",
+    "beginning_nav_attributable": "31643534.336000000000",
+    "ending_nav_attributable": "31047682.136000000000",
+    "gross_operating_cash_flow_full": "426576.94",
+    "fund_attributable_operating_cash_flow": "341261.552000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-744815.250000000000",
+    "fund_attributable_valuation_movement": "-595852.200000000000",
+    "gross_return_amount": "-254590.648000000000000000000000000000000000",
+    "gross_return_rate": "-0.006436465543",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-0.643646554300"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "4cdf7ce3-a316-4993-961f-09817bc121a2"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "20dea24b-ea69-4770-81a8-1027a0d247e9"
+    }
+  ]
+}

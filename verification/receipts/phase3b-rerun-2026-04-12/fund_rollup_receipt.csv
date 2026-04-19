@@ -1,0 +1,37 @@
+quarter,fund_id,fund_name,component,amount,formula
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,beginning_nav,1360061576.371733333334,sum(investment beginning attributable NAV)
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,ending_nav,1385136750.382266666666,sum(investment ending attributable NAV)
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,gross_operating_cash_flow,-8986518.739800000000,sum(investment attributable operating cash flow before fund-level fees)
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,management_fees,1875000.000000000000,latest quarter fee accrual row
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,fund_expenses,0,sum(latest quarter expense rows by expense type)
+2025Q4,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,net_operating_cash_flow,-10861518.739800000000,gross operating cash flow - management fees - fund expenses
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,beginning_nav,1404774237.911600000000,sum(investment beginning attributable NAV)
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,ending_nav,1239546916.915800000000,sum(investment ending attributable NAV)
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,gross_operating_cash_flow,-8829504.768200000000,sum(investment attributable operating cash flow before fund-level fees)
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,management_fees,1875000.000000000000,latest quarter fee accrual row
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,fund_expenses,52000.000000000000,sum(latest quarter expense rows by expense type)
+2026Q2,a1b2c3d4-0003-0030-0001-000000000001,Institutional Growth Fund VII,net_operating_cash_flow,-10756504.768200000000,gross operating cash flow - management fees - fund expenses
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,beginning_nav,48559285.640000000000,sum(investment beginning attributable NAV)
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,ending_nav,48263405.208000000000,sum(investment ending attributable NAV)
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,gross_operating_cash_flow,-37148.336000000000,sum(investment attributable operating cash flow before fund-level fees)
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,management_fees,3375000.000000000000,latest quarter fee accrual row
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,fund_expenses,0,sum(latest quarter expense rows by expense type)
+2025Q4,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,net_operating_cash_flow,-3412148.336000000000,gross operating cash flow - management fees - fund expenses
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,beginning_nav,33541741.592000000000,sum(investment beginning attributable NAV)
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,ending_nav,34281738.800000000000,sum(investment ending attributable NAV)
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,gross_operating_cash_flow,-18166.496000000000,sum(investment attributable operating cash flow before fund-level fees)
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,management_fees,3375000.000000000000,latest quarter fee accrual row
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,fund_expenses,0,sum(latest quarter expense rows by expense type)
+2026Q2,a1b2c3d4-0001-0010-0001-000000000001,Meridian Real Estate Fund III,net_operating_cash_flow,-3393166.496000000000,gross operating cash flow - management fees - fund expenses
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,beginning_nav,82128750.000000000000,sum(investment beginning attributable NAV)
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,ending_nav,82211250.000000000000,sum(investment ending attributable NAV)
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,gross_operating_cash_flow,-732902.100000000000,sum(investment attributable operating cash flow before fund-level fees)
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,management_fees,1500000.000000000000,latest quarter fee accrual row
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,fund_expenses,0,sum(latest quarter expense rows by expense type)
+2025Q4,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,net_operating_cash_flow,-2232902.100000000000,gross operating cash flow - management fees - fund expenses
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,beginning_nav,82293750.000000000000,sum(investment beginning attributable NAV)
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,ending_nav,28600000.000000000000,sum(investment ending attributable NAV)
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,gross_operating_cash_flow,-728746.420000000000,sum(investment attributable operating cash flow before fund-level fees)
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,management_fees,1500000.000000000000,latest quarter fee accrual row
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,fund_expenses,0,sum(latest quarter expense rows by expense type)
+2026Q2,a1b2c3d4-0002-0020-0001-000000000001,Meridian Credit Opportunities Fund I,net_operating_cash_flow,-2228746.420000000000,gross operating cash flow - management fees - fund expenses

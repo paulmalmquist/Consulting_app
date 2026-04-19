@@ -11880,3 +11880,253 @@ export function getReOpportunityPromotion(opportunityId: string): Promise<ReProm
 export function getReOpportunityReceipts(opportunityId: string): Promise<Record<string, unknown>> {
   return bosFetch(`${_OPP_BASE}/${opportunityId}/receipts`);
 }
+
+// =============================================================================
+// Novendor Accounting Command Desk — /api/nv/accounting
+// =============================================================================
+
+import type {
+  NvQueue,
+  NvTransactionRow,
+  NvInvoiceRow,
+  NvKPIBar,
+  NvARAging,
+  NvExpenseCategoryTrend,
+  NvCashMovementTrend,
+  NvReceiptIntakeList,
+  NvSubscriptionLedgerList,
+  NvReviewQueueList,
+  NvAISoftwareSummary,
+} from "@/types/nv-accounting";
+
+const _NV_BASE = "/api/nv/accounting";
+
+export type NvQueueFilters = {
+  unresolved?: boolean;
+  kpi_filter?: string | null;
+  q?: string | null;
+};
+
+export function getNvAccountingQueue(
+  envId: string,
+  businessId?: string,
+  filters: NvQueueFilters = {},
+): Promise<NvQueue> {
+  const params: Record<string, string | undefined> = {
+    env_id: envId,
+    business_id: businessId,
+    unresolved: filters.unresolved === false ? "false" : "true",
+  };
+  if (filters.kpi_filter) params.kpi_filter = filters.kpi_filter;
+  if (filters.q) params.q = filters.q;
+  return bosFetch(`${_NV_BASE}/queue`, { params });
+}
+
+export function getNvTransactions(
+  envId: string,
+  businessId?: string,
+  opts: { state?: string; q?: string } = {},
+): Promise<NvTransactionRow[]> {
+  return bosFetch(`${_NV_BASE}/transactions`, {
+    params: { env_id: envId, business_id: businessId, state: opts.state, q: opts.q },
+  });
+}
+
+export function getNvInvoices(
+  envId: string,
+  businessId?: string,
+  opts: { state?: string; q?: string } = {},
+): Promise<NvInvoiceRow[]> {
+  return bosFetch(`${_NV_BASE}/invoices`, {
+    params: { env_id: envId, business_id: businessId, state: opts.state, q: opts.q },
+  });
+}
+
+export function getNvKpis(envId: string, businessId?: string): Promise<NvKPIBar> {
+  return bosFetch(`${_NV_BASE}/kpis`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvArAging(envId: string, businessId?: string): Promise<NvARAging> {
+  return bosFetch(`${_NV_BASE}/ar-aging`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvExpenseCategoryTrend(
+  envId: string,
+  businessId?: string,
+): Promise<NvExpenseCategoryTrend> {
+  return bosFetch(`${_NV_BASE}/trends/expense-category`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvCashMovementTrend(
+  envId: string,
+  businessId?: string,
+): Promise<NvCashMovementTrend> {
+  return bosFetch(`${_NV_BASE}/trends/cash-movement`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Existing receipt-intake endpoints (reused for rail modules)
+export function getNvReceiptIntake(
+  envId: string,
+  businessId?: string,
+  limit = 12,
+): Promise<NvReceiptIntakeList> {
+  return bosFetch(`${_NV_BASE}/receipts/intake`, {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      limit: String(limit),
+    },
+  });
+}
+
+export function getNvSubscriptionLedger(
+  envId: string,
+  businessId?: string,
+  opts: { activeOnly?: boolean; spendType?: string } = {},
+): Promise<NvSubscriptionLedgerList> {
+  return bosFetch(`${_NV_BASE}/subscriptions/ledger`, {
+    params: {
+      env_id: envId,
+      business_id: businessId,
+      active_only: opts.activeOnly === false ? "false" : "true",
+      spend_type: opts.spendType,
+    },
+  });
+}
+
+export function getNvReviewQueue(
+  envId: string,
+  businessId?: string,
+  status = "open",
+): Promise<NvReviewQueueList> {
+  return bosFetch(`${_NV_BASE}/review-queue`, {
+    params: { env_id: envId, business_id: businessId, status },
+  });
+}
+
+export function getNvAiSoftwareSummary(
+  envId: string,
+  businessId?: string,
+): Promise<NvAISoftwareSummary> {
+  return bosFetch(`${_NV_BASE}/reports/ai-software-summary`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+// Write endpoints
+
+export type NvQueueActionResult = {
+  id: string;
+  removed: boolean;
+  new_state: string | null;
+};
+
+export function nvQueueAction(
+  action: "accept" | "defer" | "reject",
+  itemId: string,
+  envId: string,
+  businessId?: string,
+  body: { variant?: string; note?: string } = {},
+): Promise<NvQueueActionResult> {
+  return bosFetch(`${_NV_BASE}/queue/${encodeURIComponent(itemId)}/${action}`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function nvMatchTransaction(
+  txnId: string,
+  envId: string,
+  businessId: string | undefined,
+  body: { receipt_id?: string; invoice_id?: string; confidence_threshold?: number },
+): Promise<NvTransactionRow> {
+  return bosFetch(`${_NV_BASE}/transactions/${encodeURIComponent(txnId)}/match`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export type NvSplitResult = { original_id: string; new_txn_ids: string[] };
+
+export function nvSplitTransaction(
+  txnId: string,
+  envId: string,
+  businessId: string | undefined,
+  parts: { amount: number; category?: string; memo?: string }[],
+): Promise<NvSplitResult> {
+  return bosFetch(`${_NV_BASE}/transactions/${encodeURIComponent(txnId)}/split`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify({ parts }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function nvCreateInvoice(
+  envId: string,
+  businessId: string | undefined,
+  body: {
+    client: string;
+    issued: string;
+    due: string;
+    amount: number;
+    engagement_id?: string;
+  },
+): Promise<NvInvoiceRow> {
+  return bosFetch(`${_NV_BASE}/invoices`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export type NvRemindResult = {
+  invoice_id: string;
+  channel: string;
+  sent_at: string;
+};
+
+export function nvRemindInvoice(
+  invoiceId: string,
+  envId: string,
+  businessId: string | undefined,
+  channel: "email" | "sms" = "email",
+): Promise<NvRemindResult> {
+  return bosFetch(`${_NV_BASE}/invoices/${encodeURIComponent(invoiceId)}/remind`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify({ channel }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function nvUploadReceipt(
+  envId: string,
+  businessId: string | undefined,
+  file: File,
+  extras: { sourceType?: string; uploadedBy?: string } = {},
+): Promise<{ intake_id: string; ingest_status: string; parse_result_id?: string; duplicate: boolean }> {
+  const form = new FormData();
+  form.append("env_id", envId);
+  if (businessId) form.append("business_id", businessId);
+  form.append("source_type", extras.sourceType ?? "upload");
+  if (extras.uploadedBy) form.append("uploaded_by", extras.uploadedBy);
+  form.append("file", file);
+  return bosFetch(`${_NV_BASE}/receipts/upload`, {
+    method: "POST",
+    body: form,
+  });
+}

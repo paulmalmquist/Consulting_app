@@ -1,0 +1,108 @@
+{
+  "entity_type": "fund",
+  "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+  "fund_name": "Meridian Credit Opportunities Fund I",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav": "82128750.000000000000",
+    "ending_nav": "82211250.000000000000",
+    "gross_operating_cash_flow": "-732902.100000000000",
+    "contributions": "0",
+    "distributions": "0",
+    "management_fees": "1500000.000000000000",
+    "fund_expenses": 0,
+    "net_operating_cash_flow": "-2232902.100000000000",
+    "gross_irr": "-0.19496251967203038",
+    "net_irr": "-0.2320852598776296",
+    "dpi": "0.070833333333",
+    "rvpi": "0.685093750000",
+    "tvpi": "0.755927083333",
+    "net_tvpi": "0.705927083333",
+    "gross_net_spread": "0.03712274020559922",
+    "asset_count": 8,
+    "total_committed": "0",
+    "total_called": "120000000.000000000000",
+    "total_distributed": "8500000.000000000000",
+    "irr_trust_state": "trusted",
+    "irr_reason": null,
+    "net_irr_trust_state": "trusted",
+    "net_irr_reason": null,
+    "dscr_trust_state": "unavailable",
+    "dscr_reason": "dscr_not_computed_at_fund_level"
+  },
+  "display_metrics": {
+    "gross_irr_pct": "-19.49625196720303800",
+    "net_irr_pct": "-23.2085259877629600"
+  },
+  "null_reasons": {},
+  "formulas": {
+    "gross_operating_cash_flow": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees",
+    "net_operating_cash_flow": "net operating cash flow = gross operating cash flow - management fees - fund expenses",
+    "gross_irr": "gross IRR = XIRR(capital calls, distributions, terminal ending NAV)",
+    "net_irr": "net IRR = XIRR(capital calls, distributions, fee and expense deductions, terminal ending NAV)"
+  },
+  "provenance": [
+    {
+      "table": "re_authoritative_investment_state_qtr",
+      "notes": "Aggregated operating cash flow and attributable NAV"
+    },
+    {
+      "table": "re_cash_event",
+      "notes": "Dated call/distribution/fee/expense series for IRR"
+    },
+    {
+      "table": "re_fee_accrual_qtr",
+      "notes": "Management fee accrual"
+    },
+    {
+      "table": "re_fund_expense_qtr",
+      "notes": "Fund expense detail"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "5b497523-3e62-40a6-9a81-d7381dd116e5"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "64e40ec0-571e-49f4-a98a-ab9b3217222e"
+    }
+  ],
+  "gross_to_net_bridge": {
+    "gross_return_amount": "-732902.100000000000",
+    "management_fees": "1500000.000000000000",
+    "fund_expenses": 0,
+    "net_return_amount": "-2232902.100000000000",
+    "bridge_items": [
+      {
+        "code": "gross_operating_cash_flow",
+        "label": "Gross operating cash flow",
+        "amount": "-732902.100000000000",
+        "formula": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees"
+      },
+      {
+        "code": "management_fees",
+        "label": "Management fees",
+        "amount": "1500000.000000000000",
+        "formula": "management fees = latest released fee accrual row for the quarter"
+      },
+      {
+        "code": "fund_expenses",
+        "label": "Fund expenses",
+        "amount": 0,
+        "formula": "fund expenses = sum of latest expense rows per expense_type for the quarter"
+      },
+      {
+        "code": "net_operating_cash_flow",
+        "label": "Net operating cash flow",
+        "amount": "-2232902.100000000000",
+        "formula": "net operating cash flow = gross operating cash flow - management fees - fund expenses"
+      }
+    ]
+  }
+}

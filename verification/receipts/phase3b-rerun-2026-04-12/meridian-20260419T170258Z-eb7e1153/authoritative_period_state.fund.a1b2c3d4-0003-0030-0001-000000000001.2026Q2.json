@@ -1,0 +1,340 @@
+{
+  "entity_type": "fund",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav": "1404774237.911600000000",
+    "ending_nav": "1239546916.915800000000",
+    "gross_operating_cash_flow": "-8829504.768200000000",
+    "contributions": "10000000.000000000000",
+    "distributions": "21850756.090000000000",
+    "management_fees": "1875000.000000000000",
+    "fund_expenses": "52000.000000000000",
+    "net_operating_cash_flow": "-10756504.768200000000",
+    "gross_irr": "0.5340307732730141",
+    "net_irr": "0.5099281186290308",
+    "dpi": "0.194975188619",
+    "rvpi": "1.783520743764",
+    "tvpi": "1.978495932383",
+    "net_tvpi": "1.945345572670",
+    "gross_net_spread": "0.0241026546439833",
+    "asset_count": 30,
+    "total_committed": "1000000000.000000000000",
+    "total_called": "695000000.000000000000",
+    "total_distributed": "135507756.090000000000",
+    "irr_trust_state": "trusted",
+    "irr_reason": null,
+    "net_irr_trust_state": "trusted",
+    "net_irr_reason": null,
+    "dscr_trust_state": "unavailable",
+    "dscr_reason": "dscr_not_computed_at_fund_level"
+  },
+  "display_metrics": {
+    "gross_irr_pct": "53.4030773273014100",
+    "net_irr_pct": "50.9928118629030800"
+  },
+  "null_reasons": {},
+  "formulas": {
+    "gross_operating_cash_flow": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees",
+    "net_operating_cash_flow": "net operating cash flow = gross operating cash flow - management fees - fund expenses",
+    "gross_irr": "gross IRR = XIRR(capital calls, distributions, terminal ending NAV)",
+    "net_irr": "net IRR = XIRR(capital calls, distributions, fee and expense deductions, terminal ending NAV)"
+  },
+  "provenance": [
+    {
+      "table": "re_authoritative_investment_state_qtr",
+      "notes": "Aggregated operating cash flow and attributable NAV"
+    },
+    {
+      "table": "re_cash_event",
+      "notes": "Dated call/distribution/fee/expense series for IRR"
+    },
+    {
+      "table": "re_fee_accrual_qtr",
+      "notes": "Management fee accrual"
+    },
+    {
+      "table": "re_fund_expense_qtr",
+      "notes": "Fund expense detail"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "4b4352e2-fe74-4ac1-b859-a818d4fa3196"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e1bddebf-48b8-43e7-9784-805dcc915161"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "890aa35a-fa25-4eb8-b734-ee6d54f57bfb"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "8f8ab779-6f6a-414b-9e60-2500cdd91964"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "63c4d1ca-582e-4e0e-a5b3-78994a0944c6"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "f8dfd699-a9f6-416d-9c50-0fc7dd846463"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "85a68355-cdb8-4964-9f53-3b43edfaab13"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "781abd97-728a-458e-8fb2-6477cddd6e1f"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "a99464ea-7a79-47ab-91d6-567eb272d709"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "09c5f998-1b34-4bf2-b079-ee3635eebf2b"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "fb430668-253a-4cf7-9d89-a5606a8ecfcb"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "7d5c6828-2b51-4a0b-b8f3-e4ffd5725513"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "e18b88b6-6ca9-4ccc-9511-097ed24762e7"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "13920937-947b-4bae-8deb-6d8c63b17dc9"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "9985bbfa-56a2-4d34-bbca-67f692c3a251"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "8bb8bb4c-a7fa-4a35-ae1c-4ace41326316"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "13f37ce5-ac92-403f-8619-7be217f84555"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "7a2b4b60-c9c9-4179-8f1d-d557077e15c3"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "284f8dec-cef2-4a80-9f22-f50bf3d6102d"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "531486b3-11ea-4379-9762-2aff9e007124"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "a24518bd-bed5-4d7c-ae2e-3e04879fa3ba"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "f1728cea-1fd3-4685-9ad1-5a564d955834"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "1db88733-703f-4613-acbc-8b9463c81ab2"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "f3ecf872-1846-4917-9182-5f42c4855ab6"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "a2815964-863d-4961-bbd0-9dab1627dc76"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "07db9682-c4ff-4044-9430-04fdc7c1ad34"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "de993a25-36f4-4cff-97cc-78c694e8a7da"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "93966fa3-ffcc-4e25-b451-ef5031b5b210"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "30a2da5e-cf8d-4a67-b0db-5f55426b06b9"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "8e815d27-d97a-44c1-a957-f10452d2f407"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "4b318303-498a-496a-ae0d-2028bb757a2b"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "9d19b34e-e324-4173-ac57-43cd1eba9254"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "7234a122-d747-4ee3-8701-189239f3013c"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "13ce05bf-3e02-47ff-9ba1-5e2d77498b6b"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "3ed2f712-ff9e-43a2-95a1-cb04f2b7dd8f"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "aeebae76-e3fc-4c7d-9cf9-5bc227530c38"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "c7d5d4d1-7520-4871-a9e7-1c5e9b991134"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "1c4fa0f2-a043-4140-88dd-9c17bfd4bd79"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "efe41eb5-76ef-4425-9cfc-406b99f26416"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "ee184951-ecab-429d-976a-2d5b561aa401"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "65573e0f-29dc-45fa-bf23-b1a3b9d90d6a"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e1db5bcb-3494-4b12-afc3-85bbccf0bd50"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "754f363f-e9f3-4fbf-956e-6cda4761f275"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "45f26c9e-d0ea-43b6-bec2-a9d8014fd801"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "679afa9e-425f-4358-97b3-b2853c020ff5"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "7d8cbd3e-28d7-4929-a4dc-f29f84f7f03a"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "cad37d37-4c35-43a4-8108-266d14958a51"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "4dfa11ae-ad3f-4619-9e11-d406a731f5e9"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "24bde3aa-428e-41e8-b3f4-ab5ee998fc57"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "6b46af21-840a-41f5-bb8e-33aa7db0a0af"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "48a94f8e-05ca-47c5-876e-3ec4edd89936"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e7c935e4-6627-4ecb-aa92-96a8e3207a40"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "144cd48c-b59c-403c-aa87-0248c812af3b"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "9f7f8461-3577-43da-b614-3ccce0ab9fde"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "d3254e79-7a2f-40a6-9a8e-6a2f1239cddd"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "dbb26881-d245-4f67-b498-e5a849e41167"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "b8aeae77-443a-482b-8623-900f1e360176"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "3a61685d-930d-4cad-8331-22afc7956bd3"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "477e0162-2faf-438b-b19d-da7f85f75ea4"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "bbeb6215-ac36-42bf-b62f-39dc1695071f"
+    }
+  ],
+  "gross_to_net_bridge": {
+    "gross_return_amount": "-8829504.768200000000",
+    "management_fees": "1875000.000000000000",
+    "fund_expenses": "52000.000000000000",
+    "net_return_amount": "-10756504.768200000000",
+    "bridge_items": [
+      {
+        "code": "gross_operating_cash_flow",
+        "label": "Gross operating cash flow",
+        "amount": "-8829504.768200000000",
+        "formula": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees"
+      },
+      {
+        "code": "management_fees",
+        "label": "Management fees",
+        "amount": "1875000.000000000000",
+        "formula": "management fees = latest released fee accrual row for the quarter"
+      },
+      {
+        "code": "fund_expenses",
+        "label": "Fund expenses",
+        "amount": "52000.000000000000",
+        "formula": "fund expenses = sum of latest expense rows per expense_type for the quarter"
+      },
+      {
+        "code": "net_operating_cash_flow",
+        "label": "Net operating cash flow",
+        "amount": "-10756504.768200000000",
+        "formula": "net operating cash flow = gross operating cash flow - management fees - fund expenses"
+      }
+    ]
+  }
+}

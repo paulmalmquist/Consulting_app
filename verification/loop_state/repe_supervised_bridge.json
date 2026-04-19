@@ -1,0 +1,21 @@
+{
+  "run_id": "",
+  "version": 0,
+  "signal": "idle",
+  "phase": "",
+  "requested_actor": "",
+  "updated_by": "",
+  "updated_at": "",
+  "summary": "",
+  "details": {
+    "chatgpt_project": "",
+    "chatgpt_chat": "",
+    "claude_conversation": "",
+    "files_touched": [],
+    "tests_run": [],
+    "deploy_status": "",
+    "live_verification_status": "",
+    "blocking_issue": "",
+    "next_action": ""
+  }
+}

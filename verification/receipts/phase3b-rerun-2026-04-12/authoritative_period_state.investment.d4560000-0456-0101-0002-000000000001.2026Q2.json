@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "d4560000-0456-0101-0002-000000000001",
+  "investment_name": "Sunbelt Crossing Acquisition",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "113734433.040000000000",
+    "ending_nav_full": "116269777.390000000000",
+    "beginning_nav_attributable": "102360989.736000000000",
+    "ending_nav_attributable": "104642799.651000000000",
+    "gross_operating_cash_flow_full": "-717244.38",
+    "fund_attributable_operating_cash_flow": "-645519.942000000000",
+    "effective_fund_ownership_percent": "0.900000000000000000000000",
+    "valuation_movement_full": "2535344.350000000000",
+    "fund_attributable_valuation_movement": "2281809.915000000000",
+    "gross_return_amount": "1636289.97300000000000000000000000000000000",
+    "gross_return_rate": "0.014386935682",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "1.438693568200"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "d3254e79-7a2f-40a6-9a8e-6a2f1239cddd"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "dbb26881-d245-4f67-b498-e5a849e41167"
+    }
+  ]
+}

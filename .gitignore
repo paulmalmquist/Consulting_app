@@ -40,6 +40,8 @@ verceltoken.txt
 openaikey.txt
 *token*.txt
 *pat*.txt
+*key*.txt
+trainingkey.txt
 
 # Python virtualenvs and local env files (all subdirectories)
 **/.venv/
@@ -80,6 +82,7 @@ hf_toke.txt
 artifacts/
 repo-b/.next.bak*/
 .openclaw/
+scripts/.winston_managed_agent_state.json
 
 # Binary files and outputs
 *.pdf

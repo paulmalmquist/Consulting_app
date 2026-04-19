@@ -184,6 +184,13 @@ _GET_CURSOR_TARGETS = [
     "app.services.receipt_review_queue.get_cursor",
     "app.services.receipt_reports.get_cursor",
     "app.services.subscription_ledger.get_cursor",
+    "app.services.nv_invoices.get_cursor",
+    "app.services.nv_bank_transactions.get_cursor",
+    "app.services.nv_ar_aging.get_cursor",
+    "app.services.nv_accounting_queue.get_cursor",
+    "app.services.nv_accounting_kpis.get_cursor",
+    "app.services.nv_accounting_trends.get_cursor",
+    "app.services.nv_transaction_matcher.get_cursor",
 ]
 
 

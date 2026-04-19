@@ -1,135 +1,147 @@
-"""Fixture-pure matching between transactions and receipts/invoices.
+"""Match-candidate surface for the Accounting Command Desk drawer.
 
-Not a replacement for `invoice_matcher.py` (SQL-bound, REPE draws) — that
-remains canonical for invoice↔draw workflows. This module powers the
-reconciliation panel in the Accounting Command Desk.
+Reuses receipt_matching.py's scoring weights (0.55 amount / 0.25 date / 0.20
+merchant) but exposes the **reverse** direction: given a transaction, find
+likely receipts. Used by the drawer's "AI Suggested" panel for match-receipt
+queue items.
+
+The intake → receipt direction remains owned by receipt_matching.py.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
-
-AUTO_MATCH_THRESHOLD = 90
-HIGH_MATCH_THRESHOLD = 75
+from app.db import get_cursor
 
 
-def _parse(iso: str) -> datetime | None:
-    try:
-        if " " in iso:
-            return datetime.fromisoformat(iso.replace(" ", "T"))
-        return datetime.fromisoformat(iso)
-    except (TypeError, ValueError):
-        return None
+@dataclass(frozen=True)
+class ReceiptCandidate:
+    intake_id: str
+    parse_id: str | None
+    vendor: str | None
+    amount: Decimal | None
+    received_at: date | None
 
 
-def _vendor_tokens(s: str) -> set[str]:
-    return {tok.lower().strip(".,#") for tok in s.replace("/", " ").split() if len(tok) > 2}
-
-
-def _jaccard(a: set[str], b: set[str]) -> float:
-    if not a or not b:
-        return 0.0
-    return len(a & b) / len(a | b)
-
-
-def _amount_score(a: float, b: float) -> float:
-    if a == 0 or b == 0:
-        return 0.0
-    delta = abs(abs(a) - abs(b)) / max(abs(a), abs(b))
-    if delta < 0.001:
-        return 1.0
-    if delta < 0.01:
-        return 0.9
-    if delta < 0.05:
-        return 0.7
-    if delta < 0.15:
-        return 0.4
-    return 0.0
-
-
-def _date_score(a: str, b: str) -> float:
-    da = _parse(a)
-    db = _parse(b)
-    if not da or not db:
-        return 0.0
-    days = abs((da - db).days)
-    if days == 0:
-        return 1.0
-    if days <= 2:
-        return 0.8
-    if days <= 7:
-        return 0.5
-    if days <= 30:
-        return 0.2
-    return 0.0
-
-
-def _combine(amount: float, vendor: float, date: float) -> int:
-    return int(round((0.55 * amount + 0.30 * vendor + 0.15 * date) * 100))
-
-
-def match_receipt_to_transactions(
-    receipt: dict[str, Any], transactions: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    r_tokens = _vendor_tokens(receipt.get("vendor", ""))
-    r_amt = float(receipt.get("amount") or 0)
-    r_date = receipt.get("received_at", "")
-    scored: list[dict[str, Any]] = []
-    for t in transactions:
-        t_amt = float(t.get("amount") or 0)
-        if (t_amt < 0 and r_amt <= 0) or (t_amt > 0 and r_amt > 0):
-            # receipt amounts are positive; match against outflow txns
-            continue
-        vendor_score = _jaccard(r_tokens, _vendor_tokens(t.get("desc", "")))
-        score = _combine(
-            _amount_score(r_amt, t_amt),
-            vendor_score,
-            _date_score(r_date, t.get("date", "")),
+def _load_receipt_candidates(
+    cur, env_id: str, business_id: str, parsed_date: date | None
+) -> list[ReceiptCandidate]:
+    if not parsed_date:
+        return []
+    lo = parsed_date - timedelta(days=7)
+    hi = parsed_date + timedelta(days=7)
+    cur.execute(
+        """
+        SELECT i.id AS intake_id, p.id AS parse_id, p.total, p.vendor_normalized,
+               p.merchant_raw, p.transaction_date
+          FROM nv_receipt_intake i
+     LEFT JOIN LATERAL (
+               SELECT id, total, vendor_normalized, merchant_raw, transaction_date
+                 FROM nv_receipt_parse_result
+                WHERE intake_id = i.id
+                ORDER BY created_at DESC LIMIT 1
+            ) p ON true
+         WHERE i.env_id = %s AND i.business_id = %s::uuid
+           AND p.transaction_date BETWEEN %s AND %s
+         LIMIT 50
+        """,
+        (env_id, business_id, lo, hi),
+    )
+    out: list[ReceiptCandidate] = []
+    for r in cur.fetchall():
+        total = r.get("total")
+        vendor = r.get("vendor_normalized") or r.get("merchant_raw")
+        out.append(
+            ReceiptCandidate(
+                intake_id=str(r["intake_id"]),
+                parse_id=str(r["parse_id"]) if r.get("parse_id") else None,
+                vendor=vendor,
+                amount=Decimal(str(total)) if total is not None else None,
+                received_at=r.get("transaction_date"),
+            )
         )
+    return out
+
+
+def _score(
+    candidate: ReceiptCandidate,
+    *,
+    txn_amount_abs: Decimal,
+    txn_date: date,
+    txn_desc: str,
+) -> tuple[int, dict[str, Any]]:
+    reason: dict[str, Any] = {}
+    amount_score = 0.0
+    if candidate.amount is not None:
+        delta = abs(candidate.amount - txn_amount_abs)
+        denom = max(txn_amount_abs, Decimal("0.01"))
+        pct = float(delta / denom)
+        amount_score = max(0.0, 1.0 - min(pct, 1.0))
+        reason["amount_delta"] = float(delta)
+    date_score = 0.0
+    if candidate.received_at:
+        days = abs((candidate.received_at - txn_date).days)
+        date_score = max(0.0, 1.0 - days / 7.0)
+        reason["date_delta_days"] = days
+    merchant_score = 0.0
+    if candidate.vendor and txn_desc:
+        a = candidate.vendor.lower()
+        b = txn_desc.lower()
+        if a == b or a in b or b in a:
+            merchant_score = 1.0
+            reason["merchant_match"] = "substring"
+        else:
+            a_tokens = set(a.split())
+            b_tokens = set(b.split())
+            overlap = len(a_tokens & b_tokens)
+            if overlap:
+                merchant_score = min(1.0, overlap / max(len(a_tokens), 1))
+                reason["merchant_match"] = "token-overlap"
+    score = int(round((amount_score * 0.55 + date_score * 0.25 + merchant_score * 0.20) * 100))
+    return score, reason
+
+
+def candidates_for_transaction(
+    *, env_id: str, business_id: str, txn_id: str
+) -> list[dict[str, Any]]:
+    """Return up to 5 ranked receipt candidates for a given transaction."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, posted_at, amount_cents, description
+              FROM nv_bank_transaction
+             WHERE env_id = %s AND business_id = %s::uuid AND id = %s::uuid
+            """,
+            (env_id, business_id, txn_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return []
+        txn_date = row["posted_at"].date() if row.get("posted_at") else None
+        txn_amount_abs = (Decimal(row["amount_cents"]) / Decimal(100)).copy_abs()
+        txn_desc = row.get("description") or ""
+        if not txn_date:
+            return []
+        receipts = _load_receipt_candidates(cur, env_id, business_id, txn_date)
+
+    ranked: list[dict[str, Any]] = []
+    for c in receipts:
+        score, reason = _score(c, txn_amount_abs=txn_amount_abs, txn_date=txn_date, txn_desc=txn_desc)
         if score <= 0:
             continue
-        scored.append(
+        ranked.append(
             {
-                "txn_id": t["id"],
-                "receipt_id": receipt["id"],
-                "label": t["desc"],
-                "amount": abs(t_amt),
-                "date": t.get("date", ""),
+                "intake_id": c.intake_id,
+                "parse_id": c.parse_id,
+                "label": c.vendor or "Receipt",
+                "amount": float(c.amount) if c.amount is not None else None,
+                "date": c.received_at.isoformat() if c.received_at else None,
                 "confidence": score,
-                "reason": "amount+vendor+date",
+                "reason": reason,
             }
         )
-    scored.sort(key=lambda c: c["confidence"], reverse=True)
-    return scored[:5]
-
-
-def match_transaction_to_receipts(
-    txn: dict[str, Any], receipts: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    t_tokens = _vendor_tokens(txn.get("desc", ""))
-    t_amt = float(txn.get("amount") or 0)
-    t_date = txn.get("date", "")
-    scored: list[dict[str, Any]] = []
-    for r in receipts:
-        r_amt = float(r.get("amount") or 0)
-        score = _combine(
-            _amount_score(t_amt, r_amt),
-            _jaccard(t_tokens, _vendor_tokens(r.get("vendor", ""))),
-            _date_score(t_date, r.get("received_at", "")),
-        )
-        if score <= 0:
-            continue
-        scored.append(
-            {
-                "txn_id": txn["id"],
-                "receipt_id": r["id"],
-                "label": f"{r['vendor']} receipt",
-                "amount": r_amt,
-                "date": r.get("received_at", ""),
-                "confidence": score,
-                "reason": "amount+vendor+date",
-            }
-        )
-    scored.sort(key=lambda c: c["confidence"], reverse=True)
-    return scored[:5]
+    ranked.sort(key=lambda x: x["confidence"], reverse=True)
+    return ranked[:5]

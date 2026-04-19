@@ -30,6 +30,10 @@ function isActive(pathname: string, href: string, exact = false) {
 }
 
 function anchorSections(pathname: string): AnchorItem[] {
+  // Accounting Command Desk renders full-bleed; no anchor aside.
+  if (pathname.includes("/operator/accounting")) {
+    return [];
+  }
   if (pathname.includes("/operator/finance")) {
     return [
       { id: "overview", label: "Overview" },
@@ -148,6 +152,7 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       { href: `${base}/vendors`, label: "Vendors" },
       { href: `${base}/close`, label: "Closeout" },
       { href: `${base}/finance`, label: "Finance" },
+      { href: `${base}/accounting`, label: "Accounting" },
     ],
     [base]
   );

@@ -1,0 +1,1350 @@
+{
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "funds": [
+    {
+      "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "fund_name": "Institutional Growth Fund VII",
+      "investments": [
+        {
+          "investment_id": "d4560000-0456-0101-0004-000000000001",
+          "investment_name": "Bayshore Flats Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0004-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.100000000000",
+            "lp_percent": "0.900000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0004-000000000001",
+              "asset_name": "Bayshore Flats",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+          "investment_name": "Cascade Multifamily",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "532500a6-fd20-41b2-8536-bfbcb7f7cab8",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "11689c58-7993-400e-89c9-b3f33e431553",
+              "asset_name": "Cascade Multifamily",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "c2519360-50de-54e6-81f2-b5c7893fa49d",
+              "asset_name": "Cascade Village Phase II",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+          "investment_name": "Downtown Mixed-Use",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "e39fab4e-4c52-4142-ad6d-2c8f983b5c47",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "8499ca3b-4656-46e4-b185-15ba1a7ef217",
+              "asset_name": "Downtown Mixed-Use",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+          "investment_name": "Harbor Industrial Portfolio",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "b4693357-57ef-4594-a508-d71087c69232",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "959ddf56-5656-464f-982e-51b2fa345af7",
+              "asset_name": "Harbor Industrial Portfolio",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "1fe857e9-bac7-5e97-9c2b-cfa0f2232a41",
+              "asset_name": "Harbor Warehouse Complex",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+          "investment_name": "Harborview Logistics Park",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "e3fc2bdc-806c-4841-ae0f-0a7307ff6963",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "f35abd01-af82-5910-9c30-eb34dc07820a",
+              "asset_name": "Harborview Distribution Center",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "39935075-9eb2-48a9-9d39-c47b94b22484",
+              "asset_name": "Harborview Logistics Park",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+          "investment_name": "Ironworks Mixed-Use",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "bdb18e50-822d-41fb-a8fc-f37442ddf803",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "b9a2dd86-861e-4597-b3f1-f5fd01a8010d",
+              "asset_name": "Ironworks Mixed-Use",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+          "investment_name": "Lakeside Senior Living",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "ad40c60a-dcf2-4cce-b353-dc4c839326c6",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "df7cc5de-22f4-4fb0-955e-8863eb9de54b",
+              "asset_name": "Lakeside Senior Living",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0006-000000000001",
+          "investment_name": "Lone Star Distribution Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0006-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.120000000000",
+            "lp_percent": "0.880000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0006-000000000001",
+              "asset_name": "Lone Star Distribution",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0001-000000000001",
+          "investment_name": "Meadowview Apartments Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0001-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.100000000000",
+            "lp_percent": "0.900000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0001-000000000001",
+              "asset_name": "Meadowview Apartments",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+          "investment_name": "Meridian Office Tower",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "7751bf7b-7b4c-4cb4-bccf-b35aa2564588",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d56cb1fa-718e-4417-8160-83b553d2eb24",
+              "asset_name": "Meridian Office Tower",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0008-000000000001",
+          "investment_name": "Northwest Commerce Center Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0008-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.150000000000",
+            "lp_percent": "0.850000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0008-000000000001",
+              "asset_name": "Northwest Commerce Center",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0005-000000000001",
+          "investment_name": "Oakridge Residences Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0005-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.100000000000",
+            "lp_percent": "0.900000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0005-000000000001",
+              "asset_name": "Oakridge Residences",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+          "investment_name": "Pacific Gateway Hotel",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "90d50f32-7a31-40c2-9eeb-0316748f3688",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "07bff434-dd6b-4695-a077-7338d1f47dc5",
+              "asset_name": "Pacific Gateway Hotel",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0007-000000000001",
+          "investment_name": "Peachtree Logistics Park Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0007-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.120000000000",
+            "lp_percent": "0.880000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0007-000000000001",
+              "asset_name": "Peachtree Logistics Park",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0003-000000000001",
+          "investment_name": "Pinehurst Residences Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0003-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.100000000000",
+            "lp_percent": "0.900000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0003-000000000001",
+              "asset_name": "Pinehurst Residences",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+          "investment_name": "Riverfront Apartments",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "c91e166d-a9eb-42af-a3a0-f96e0f22162e",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "cf7ff6e9-4784-45ca-80a8-7c427268d532",
+              "asset_name": "Riverfront Apartments",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "investment_name": "Suburban Office Park",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d8b8bf8f-bcbe-4bba-a6b3-5312ac3c4473",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0003-000000000001",
+              "asset_name": "Campus Edge Apartments",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0005-000000000001",
+              "asset_name": "Gateway Distribution Center",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0002-000000000001",
+              "asset_name": "Heritage Senior Living",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0004-000000000001",
+              "asset_name": "Meridian Medical Plaza",
+              "asset_type": "property",
+              "asset_status": "lease_up"
+            },
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0006-000000000001",
+              "asset_name": "Meridian Office Tower",
+              "asset_type": "property",
+              "asset_status": "held"
+            },
+            {
+              "asset_id": "a1b2c3d4-9001-0001-0001-000000000001",
+              "asset_name": "Parkview Residences",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "7e835ccc-dec6-4693-b06b-8b7a2100b2ca",
+              "asset_name": "Suburban Office Park",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+          "investment_name": "Summit Retail Center",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "490d5a33-159a-47dc-b0f9-b11ecf224e89",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "7703644b-e5cc-4cbe-94f2-f9f144a9d468",
+              "asset_name": "Summit Retail Center",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0002-000000000001",
+          "investment_name": "Sunbelt Crossing Acquisition",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "d4560000-0456-0301-0002-000000000001",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.100000000000",
+            "lp_percent": "0.900000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "d4560000-0456-0201-0002-000000000001",
+              "asset_name": "Sunbelt Crossing",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+          "investment_name": "Tech Campus North",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "756b57ce-4214-4d3b-9951-a0bb363d0a37",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+              "asset_name": "Tech Campus North",
+              "asset_type": "property",
+              "asset_status": "exited"
+            },
+            {
+              "asset_id": "097f19ec-1f5f-5e9b-92bb-29c7ceb86682",
+              "asset_name": "Tech Campus South Building",
+              "asset_type": "property",
+              "asset_status": "exited"
+            }
+          ]
+        }
+      ],
+      "fee_entities": [
+        {
+          "source": "re_fee_policy",
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "fee_basis": "COMMITTED",
+          "annual_rate": "0.015000000000",
+          "start_date": "2024-01-15",
+          "stepdown_date": "2028-01-15",
+          "stepdown_rate": "0.012500000000"
+        },
+        {
+          "source": "re_fee_policy",
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "fee_basis": "COMMITTED",
+          "annual_rate": "0.015000000000",
+          "start_date": "2026-01-01",
+          "stepdown_date": "2029-01-01",
+          "stepdown_rate": "0.012500000000"
+        },
+        {
+          "source": "re_fee_policy",
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "fee_basis": "COMMITTED",
+          "annual_rate": "0.015000000000",
+          "start_date": "2026-01-01",
+          "stepdown_date": "2029-01-01",
+          "stepdown_rate": "0.012500000000"
+        },
+        {
+          "source": "re_fee_policy",
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "fee_basis": "COMMITTED",
+          "annual_rate": "0.015000000000",
+          "start_date": "2026-01-01",
+          "stepdown_date": "2029-01-01",
+          "stepdown_rate": "0.012500000000"
+        },
+        {
+          "source": "repe_fund_term",
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "management_fee_rate": "0.015000000000",
+          "management_fee_basis": "committed",
+          "preferred_return_rate": "0.080000000000",
+          "carry_rate": "0.200000000000"
+        }
+      ],
+      "loans": [
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+          "asset_id": "097f19ec-1f5f-5e9b-92bb-29c7ceb86682",
+          "loan_id": "c9f9e0f4-06a9-55fd-9fb9-509b16d1748e",
+          "loan_name": "Construction Facility - Tech Campus South Buildin",
+          "upb": "24500000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+          "asset_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+          "loan_id": "154c339e-1465-58ed-9625-2c25f73b6e2e",
+          "loan_name": "Senior IO Note - Tech Campus North",
+          "upb": "35750000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "7e835ccc-dec6-4693-b06b-8b7a2100b2ca",
+          "loan_id": "a5153b9b-0b84-5a06-afd1-cbfdd12cc73e",
+          "loan_name": "Senior Note - Suburban Office Park",
+          "upb": "15600000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0001-000000000001",
+          "loan_id": "7df68e30-d17a-5252-838b-bbde9892a115",
+          "loan_name": "Senior Note - Parkview Residences",
+          "upb": "33000000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0002-000000000001",
+          "loan_id": "c4092863-e54f-53c8-8cbc-3325138a0f4a",
+          "loan_name": "Mezz Note - Heritage Senior Living",
+          "upb": "8100000.000000000000",
+          "maturity": "2030-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0002-000000000001",
+          "loan_id": "38924d34-4385-595b-ab5f-af4d5ce0c48e",
+          "loan_name": "Senior Note - Heritage Senior Living",
+          "upb": "29700000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0003-000000000001",
+          "loan_id": "8ccff046-295d-565a-89ca-308efea7252d",
+          "loan_name": "Senior Note - Campus Edge Apartments",
+          "upb": "23400000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0004-000000000001",
+          "loan_id": "d52e5c68-58ff-54e7-8493-3f20e19b89be",
+          "loan_name": "Senior Note - Meridian Medical Plaza",
+          "upb": "33600000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0005-000000000001",
+          "loan_id": "f92109fb-f299-55a7-88f6-e1de23edd8ea",
+          "loan_name": "Mezz Note - Gateway Distribution Center",
+          "upb": "15750000.000000000000",
+          "maturity": "2030-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0005-000000000001",
+          "loan_id": "26fb4766-7ca6-558e-9cd7-0826529f477a",
+          "loan_name": "Senior Note - Gateway Distribution Center",
+          "upb": "57750000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "asset_id": "a1b2c3d4-9001-0001-0006-000000000001",
+          "loan_id": "d1d2d3d4-0001-0001-0001-000000000001",
+          "loan_name": "Senior Mortgage - office",
+          "upb": "110669535.000000000000",
+          "maturity": "2029-02-01"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+          "asset_id": "df7cc5de-22f4-4fb0-955e-8863eb9de54b",
+          "loan_id": "fb480b4c-e530-545f-aa9a-6455005628e5",
+          "loan_name": "Mezz Note - Lakeside Senior Living",
+          "upb": "4950000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+          "asset_id": "df7cc5de-22f4-4fb0-955e-8863eb9de54b",
+          "loan_id": "79f5d854-9b8b-5cfa-8396-6bb9bee08485",
+          "loan_name": "Senior Note - Lakeside Senior Living",
+          "upb": "18150000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+          "asset_id": "b9a2dd86-861e-4597-b3f1-f5fd01a8010d",
+          "loan_id": "9c5168a5-d919-5b2b-a1a3-352701eba61c",
+          "loan_name": "Construction Facility - Ironworks Mixed-Use",
+          "upb": "28700000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+          "asset_id": "8499ca3b-4656-46e4-b185-15ba1a7ef217",
+          "loan_id": "b1ab61ca-1790-5d2b-821d-22155faffd38",
+          "loan_name": "Senior Note - Downtown Mixed-Use",
+          "upb": "18600000.000000000000",
+          "maturity": "2032-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+          "asset_id": "7703644b-e5cc-4cbe-94f2-f9f144a9d468",
+          "loan_id": "5826ebf0-7b29-511e-b8a6-d050a7588106",
+          "loan_name": "Senior Note - Summit Retail Center",
+          "upb": "16800000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+          "asset_id": "39935075-9eb2-48a9-9d39-c47b94b22484",
+          "loan_id": "30699d39-995c-5168-83f8-bba2ca097d55",
+          "loan_name": "Mezz Note - Harborview Logistics Park",
+          "upb": "5700000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+          "asset_id": "39935075-9eb2-48a9-9d39-c47b94b22484",
+          "loan_id": "aefcabb0-94f4-5fa4-a21a-836ffd03e157",
+          "loan_name": "Senior Note - Harborview Logistics Park",
+          "upb": "20900000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+          "asset_id": "f35abd01-af82-5910-9c30-eb34dc07820a",
+          "loan_id": "921f68c8-841b-5553-848e-d14dc2758d87",
+          "loan_name": "Senior Note - Harborview Distribution Center",
+          "upb": "13200000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+          "asset_id": "cf7ff6e9-4784-45ca-80a8-7c427268d532",
+          "loan_id": "03e7f966-0c82-572a-b3df-0e7c1b8b6007",
+          "loan_name": "Senior Note - Riverfront Apartments",
+          "upb": "28800000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+          "asset_id": "11689c58-7993-400e-89c9-b3f33e431553",
+          "loan_id": "67a09358-9430-5ba3-9328-46c9614c97a2",
+          "loan_name": "Senior Note - Cascade Multifamily",
+          "upb": "31200000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+          "asset_id": "c2519360-50de-54e6-81f2-b5c7893fa49d",
+          "loan_id": "4085ed2e-8e0c-5ebb-a886-7d386ff4eb9a",
+          "loan_name": "Construction Facility - Cascade Village Phase II",
+          "upb": "23800000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+          "asset_id": "d56cb1fa-718e-4417-8160-83b553d2eb24",
+          "loan_id": "fcc00c43-bf40-5b18-a1bf-5fd9847841d6",
+          "loan_name": "Senior Note - Meridian Office Tower",
+          "upb": "27000000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+          "asset_id": "07bff434-dd6b-4695-a077-7338d1f47dc5",
+          "loan_id": "c832d5f4-bfb4-5ec7-ab77-8e4955381873",
+          "loan_name": "Senior IO Note - Pacific Gateway Hotel",
+          "upb": "23400000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+          "asset_id": "1fe857e9-bac7-5e97-9c2b-cfa0f2232a41",
+          "loan_id": "e48ede82-3121-53d0-a58a-9623add7c16b",
+          "loan_name": "Senior IO Note - Harbor Warehouse Complex",
+          "upb": "16900000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+          "asset_id": "959ddf56-5656-464f-982e-51b2fa345af7",
+          "loan_id": "bd11f723-0d7b-5bcb-b98e-44cc54c16bab",
+          "loan_name": "Mezz Note - Harbor Industrial Portfolio",
+          "upb": "6300000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+          "asset_id": "959ddf56-5656-464f-982e-51b2fa345af7",
+          "loan_id": "0a73683b-4df2-50bd-977b-03a3d0b9b2f7",
+          "loan_name": "Senior Note - Harbor Industrial Portfolio",
+          "upb": "23100000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0001-000000000001",
+          "loan_id": "d4560000-0456-0401-0001-000000000001",
+          "loan_name": "Meadowview Apartments Senior Loan",
+          "upb": "135000000.000000000000",
+          "maturity": "2028-09-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0002-000000000001",
+          "loan_id": "d4560000-0456-0401-0002-000000000001",
+          "loan_name": "Sunbelt Crossing Senior Loan",
+          "upb": "121000000.000000000000",
+          "maturity": "2029-03-01"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0003-000000000001",
+          "loan_id": "d4560000-0456-0401-0003-000000000001",
+          "loan_name": "Pinehurst Residences Senior Loan",
+          "upb": "102000000.000000000000",
+          "maturity": "2029-06-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0004-000000000001",
+          "loan_id": "d4560000-0456-0401-0004-000000000001",
+          "loan_name": "Bayshore Flats Senior Loan",
+          "upb": "113000000.000000000000",
+          "maturity": "2029-11-01"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0005-000000000001",
+          "loan_id": "d4560000-0456-0401-0005-000000000001",
+          "loan_name": "Oakridge Residences Senior Loan",
+          "upb": "88000000.000000000000",
+          "maturity": "2030-02-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0006-000000000001",
+          "loan_id": "d4560000-0456-0401-0006-000000000001",
+          "loan_name": "Lone Star Distribution Senior Loan",
+          "upb": "157000000.000000000000",
+          "maturity": "2028-12-01"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0007-000000000001",
+          "loan_id": "d4560000-0456-0401-0007-000000000001",
+          "loan_name": "Peachtree Logistics Park Senior Loan",
+          "upb": "143000000.000000000000",
+          "maturity": "2029-08-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": "d4560000-0456-0201-0008-000000000001",
+          "loan_id": "d4560000-0456-0401-0008-000000000001",
+          "loan_name": "Northwest Commerce Center Senior Loan",
+          "upb": "131000000.000000000000",
+          "maturity": "2030-05-01"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": null,
+          "loan_id": "228e57ce-6612-425f-91b2-466641df111c",
+          "loan_name": "Construction Facility",
+          "upb": "22000000.000000000000",
+          "maturity": "2031-06-30"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": null,
+          "loan_id": "39da303b-aadb-4d0a-b61d-aefdf7e399c3",
+          "loan_name": "Mezzanine Note",
+          "upb": "8000000.000000000000",
+          "maturity": "2029-12-31"
+        },
+        {
+          "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+          "investment_id": null,
+          "asset_id": null,
+          "loan_id": "910670e7-120c-489a-bad3-6b45e6c2893f",
+          "loan_name": "Senior Secured Note A",
+          "upb": "15000000.000000000000",
+          "maturity": "2031-03-15"
+        }
+      ]
+    },
+    {
+      "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "fund_name": "Meridian Credit Opportunities Fund I",
+      "investments": [
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000004",
+          "investment_name": "Bellmont Residential \u2013 Charlotte NC",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "4241d67a-ccbd-4b51-99f4-2dd4b841643b",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000004",
+              "asset_name": "Bellmont Residential \u2013 Charlotte NC",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000002",
+          "investment_name": "Midtown Towers \u2013 Atlanta GA",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "bc1ff0b4-911f-43f0-b3c1-3dc2573f1fb6",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000002",
+              "asset_name": "Midtown Towers \u2013 Atlanta GA",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000001",
+          "investment_name": "Riverdale Multifamily \u2013 Dallas TX",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "b181e0c4-7b85-44fa-870d-985d4fe40731",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000001",
+              "asset_name": "Riverdale Multifamily \u2013 Dallas TX",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000007",
+          "investment_name": "Riverside Park \u2013 Miami FL",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "fb4527b3-efd2-40c3-9e91-0b23932cf6a4",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000007",
+              "asset_name": "Riverside Park \u2013 Miami FL",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000008",
+          "investment_name": "Stratford Village \u2013 Denver CO",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "12723651-3efc-4900-8ef2-64e1fca1176f",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000008",
+              "asset_name": "Stratford Village \u2013 Denver CO",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000005",
+          "investment_name": "Summit Heights \u2013 Nashville TN",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "b77240d6-7f05-40a4-936f-da86a1e567e1",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000005",
+              "asset_name": "Summit Heights \u2013 Nashville TN",
+              "asset_type": "cmbs",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000003",
+          "investment_name": "Vertex Multifamily \u2013 Tampa FL",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "40554fd8-2be1-42f2-afd5-7292d823eae0",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000003",
+              "asset_name": "Vertex Multifamily \u2013 Tampa FL",
+              "asset_type": "cmbs",
+              "asset_status": "exited"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000006",
+          "investment_name": "Westridge Commons \u2013 Austin TX",
+          "deal_type": "debt",
+          "jv": {
+            "jv_id": "649b64fe-157f-49f1-9efe-032e01fa5c17",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0002-0020-0003-000000000006",
+              "asset_name": "Westridge Commons \u2013 Austin TX",
+              "asset_type": "cmbs",
+              "asset_status": "exited"
+            }
+          ]
+        }
+      ],
+      "fee_entities": [
+        {
+          "source": "repe_fund_term",
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "effective_from": "2024-03-15",
+          "effective_to": null,
+          "management_fee_rate": "0.010000000000",
+          "management_fee_basis": "invested",
+          "preferred_return_rate": "0.050000000000",
+          "carry_rate": "0.100000000000"
+        }
+      ],
+      "loans": [
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000001",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000001",
+          "loan_id": "56bc0d9a-6fe8-5b0a-ba61-2aebe83142d7",
+          "loan_name": "Held Note - Riverdale Multifamily \u2013 Dallas TX",
+          "upb": "58000000.000000000000",
+          "maturity": "2029-03-20"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000002",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000002",
+          "loan_id": "9d7274df-51ab-546c-b7ae-c536dfd6b358",
+          "loan_name": "Held Note - Midtown Towers \u2013 Atlanta GA",
+          "upb": "82500000.000000000000",
+          "maturity": "2031-06-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000003",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000003",
+          "loan_id": "fae9d039-267e-5726-a089-c07577957bbb",
+          "loan_name": "Held Note - Vertex Multifamily \u2013 Tampa FL",
+          "upb": "49000000.000000000000",
+          "maturity": "2029-08-20"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000004",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000004",
+          "loan_id": "1ca0c045-df24-5668-b481-dc8d226bb117",
+          "loan_name": "Held Note - Bellmont Residential \u2013 Charlotte NC",
+          "upb": "65000000.000000000000",
+          "maturity": "2029-10-10"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000005",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000005",
+          "loan_id": "f3425878-6464-54d7-8bec-360d3e4fc1ec",
+          "loan_name": "Held Note - Summit Heights \u2013 Nashville TN",
+          "upb": "52500000.000000000000",
+          "maturity": "2030-01-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000006",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000006",
+          "loan_id": "99e3ccd6-fcd7-582f-aa38-6eff0f030ffd",
+          "loan_name": "Held Note - Westridge Commons \u2013 Austin TX",
+          "upb": "74000000.000000000000",
+          "maturity": "2030-03-20"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000007",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000007",
+          "loan_id": "a227521e-1597-5faf-bed9-6d2b4e368997",
+          "loan_name": "Held Note - Riverside Park \u2013 Miami FL",
+          "upb": "92000000.000000000000",
+          "maturity": "2030-05-10"
+        },
+        {
+          "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+          "investment_id": "a1b2c3d4-0002-0020-0002-000000000008",
+          "asset_id": "a1b2c3d4-0002-0020-0003-000000000008",
+          "loan_id": "4fa30b51-0b92-568a-8686-020e882f9d13",
+          "loan_name": "Held Note - Stratford Village \u2013 Denver CO",
+          "upb": "61000000.000000000000",
+          "maturity": "2030-07-18"
+        }
+      ]
+    },
+    {
+      "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "fund_name": "Meridian Real Estate Fund III",
+      "investments": [
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000006",
+          "investment_name": "MRF III \u2013 Austin Midrise Multifamily",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": null,
+            "ownership_percent": null,
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": null
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000009",
+              "asset_name": "South Lamar Residences",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000007",
+          "investment_name": "MRF III \u2013 Charlotte Suburban Office",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": null,
+            "ownership_percent": null,
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": null
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000010",
+              "asset_name": "Ballantyne Corporate Center",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000001",
+          "investment_name": "MRF III \u2013 Dallas Multifamily Cluster",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "afd0a6e8-24c6-4acd-8c6b-d63387007609",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000002",
+              "asset_name": "Ellipse Senior Living \u2013 Dallas",
+              "asset_type": "property",
+              "asset_status": "active"
+            },
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000001",
+              "asset_name": "Meridian Park Multifamily \u2013 Dallas",
+              "asset_type": "property",
+              "asset_status": "active"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000004",
+          "investment_name": "MRF III \u2013 Denver Garden Apartments",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": null,
+            "ownership_percent": null,
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": null
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000007",
+              "asset_name": "Highline at Cherry Creek",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000005",
+          "investment_name": "MRF III \u2013 Nashville Mixed-Use",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": null,
+            "ownership_percent": null,
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": null
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000008",
+              "asset_name": "Gulch District Mixed-Use",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000002",
+          "investment_name": "MRF III \u2013 Phoenix Value-Add Portfolio",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": "acba6a3b-35f9-4232-94aa-c2557976da9e",
+            "ownership_percent": "1.000000000000",
+            "gp_percent": "0.200000000000",
+            "lp_percent": "0.800000000000",
+            "status": "active"
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000003",
+              "asset_name": "Phoenix Gateway Medical Office",
+              "asset_type": "property",
+              "asset_status": "exited"
+            },
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000004",
+              "asset_name": "Westgate Student Housing \u2013 Tempe",
+              "asset_type": "property",
+              "asset_status": "exited"
+            }
+          ]
+        },
+        {
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000003",
+          "investment_name": "MRF III \u2013 Southeast Industrial Portfolio",
+          "deal_type": "equity",
+          "jv": {
+            "jv_id": null,
+            "ownership_percent": null,
+            "gp_percent": null,
+            "lp_percent": null,
+            "status": null
+          },
+          "assets": [
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000006",
+              "asset_name": "Fulton Industrial Warehouse",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            },
+            {
+              "asset_id": "a1b2c3d4-0001-0010-0003-000000000005",
+              "asset_name": "Peachtree Distribution Center",
+              "asset_type": "property",
+              "asset_status": "disposed"
+            }
+          ]
+        }
+      ],
+      "fee_entities": [
+        {
+          "source": "repe_fund_term",
+          "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+          "effective_from": "2026-01-15",
+          "effective_to": null,
+          "management_fee_rate": "0.015000000000",
+          "management_fee_basis": "committed",
+          "preferred_return_rate": "0.080000000000",
+          "carry_rate": "0.200000000000"
+        }
+      ],
+      "loans": [
+        {
+          "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000001",
+          "asset_id": "a1b2c3d4-0001-0010-0003-000000000001",
+          "loan_id": "f9da2f45-b0c9-4245-adb0-a28be298ce1f",
+          "loan_name": "Freddie Mac SBL - Meridian Park",
+          "upb": "40212512.180000000000",
+          "maturity": "2030-01-15"
+        },
+        {
+          "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+          "investment_id": "a1b2c3d4-0001-0010-0002-000000000001",
+          "asset_id": "a1b2c3d4-0001-0010-0003-000000000002",
+          "loan_id": "f2194c53-1318-4424-bdce-7fcf309c093f",
+          "loan_name": "HUD 232 - Ellipse Senior",
+          "upb": "10359961.200000000000",
+          "maturity": "2032-02-01"
+        }
+      ]
+    }
+  ],
+  "ownership_edges": [
+    {
+      "ownership_edge_id": "b3df43ab-e726-4845-83f4-67b2b72b8944",
+      "from_entity_id": "a1b2c3d4-0001-0010-0004-000000000002",
+      "to_entity_id": "a1b2c3d4-0001-0010-0004-000000000001",
+      "percent": "0.800000000000",
+      "effective_from": "2026-01-15",
+      "effective_to": null,
+      "created_at": "2026-02-26T02:03:12.803698+00:00"
+    },
+    {
+      "ownership_edge_id": "b48bd91c-c40a-4bd4-a78e-123e0120fd83",
+      "from_entity_id": "a1b2c3d4-0001-0010-0004-000000000003",
+      "to_entity_id": "a1b2c3d4-0001-0010-0004-000000000001",
+      "percent": "0.200000000000",
+      "effective_from": "2026-01-15",
+      "effective_to": null,
+      "created_at": "2026-02-26T02:03:12.803698+00:00"
+    },
+    {
+      "ownership_edge_id": "5b42055b-f6e1-4e09-9e4a-50ca27962a78",
+      "from_entity_id": "a1b2c3d4-0001-0010-0004-000000000001",
+      "to_entity_id": "a1b2c3d4-0001-0010-0004-000000000004",
+      "percent": "1.000000000000",
+      "effective_from": "2026-01-15",
+      "effective_to": null,
+      "created_at": "2026-02-26T02:03:12.803698+00:00"
+    },
+    {
+      "ownership_edge_id": "b3015a8d-aede-4652-80cc-36f4c6bd1456",
+      "from_entity_id": "a1b2c3d4-0001-0010-0004-000000000001",
+      "to_entity_id": "a1b2c3d4-0001-0010-0004-000000000005",
+      "percent": "1.000000000000",
+      "effective_from": "2026-01-15",
+      "effective_to": null,
+      "created_at": "2026-02-26T02:03:12.803698+00:00"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+  "investment_name": "Meridian Office Tower",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "49114053.450000000000",
+    "ending_nav_full": "49348012.850000000000",
+    "beginning_nav_attributable": "39291242.760000000000",
+    "ending_nav_attributable": "39478410.280000000000",
+    "gross_operating_cash_flow_full": "-169789.67",
+    "fund_attributable_operating_cash_flow": "-135831.736000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "233959.400000000000",
+    "fund_attributable_valuation_movement": "187167.520000000000",
+    "gross_return_amount": "51335.784000000000000000000000000000000000",
+    "gross_return_rate": "0.001045236147",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "0.104523614700"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "c1faf63d-66bd-4745-8d63-ab635f7bd72f"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "47622800-e24b-4fe1-ae4e-65c76588e9cb"
+    }
+  ]
+}

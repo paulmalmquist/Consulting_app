@@ -80,7 +80,7 @@ from app.routes import (
     nv_discovery, nv_data_studio, nv_workflow_intel, nv_vendor_intel,
     nv_metric_dict, nv_data_chaos, nv_exec_blueprint, nv_pilot_builder,
     nv_impact_estimator, nv_case_factory, nv_ai_copilot, nv_engagement_output,
-    nv_receipt_intake,
+    nv_receipt_intake, nv_accounting_desk,
 )
 from app.routes import epi as epi_routes
 from app.routes import re_query
@@ -417,6 +417,7 @@ app.include_router(nv_case_factory.router)
 app.include_router(nv_ai_copilot.router)
 app.include_router(nv_engagement_output.router)
 app.include_router(nv_receipt_intake.router)
+app.include_router(nv_accounting_desk.router)
 app.include_router(epi_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(unified_metrics.router)

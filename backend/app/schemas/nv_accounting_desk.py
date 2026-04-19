@@ -1,13 +1,12 @@
-"""Pydantic schemas for the Novendor Accounting Command Desk.
+"""Pydantic schemas for the Novendor Accounting Command Desk frontend.
 
-Shapes are designed against the design handoff in
-`design_handoff_accounting_command_desk/` — data contracts match what the
-frontend work-table, rail modules, bottom band, and drawer consume.
+These are **view-layer DTOs** shaped for the frontend work-table, rail modules,
+bottom band, and drawer. The underlying storage shapes live in
+`nv_receipt_intake.py` (receipts/parse/subscriptions/review/expense-drafts)
+and `603_nv_accounting_core.sql` (invoices, bank transactions).
 
-Track A models the core accounting queue/transactions/receipts/invoices.
-Track B extends with subscription intake + evidence normalization so that
-recurring software spend (Apple-billed Claude/OpenAI, direct API billing,
-generic SaaS) is first-class rather than "yet another receipt."
+Never duplicate types that already exist in `nv_receipt_intake.py` — import
+from there if you need the raw shapes. This file is deliberately thin.
 """
 from __future__ import annotations
 
@@ -17,7 +16,7 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Queue (Needs Attention)
+# Queue (Needs Attention) — unified across review items + txns + invoices + drafts
 # ---------------------------------------------------------------------------
 
 QueueItemType = Literal[
@@ -46,6 +45,12 @@ class QueueItemOut(BaseModel):
     action: str
     priority: int
     glow: bool = False
+    # Cross-ref into the underlying stack for the drawer to load detail.
+    source_intake_id: str | None = None
+    source_review_item_id: str | None = None
+    source_txn_id: str | None = None
+    source_invoice_id: str | None = None
+    source_expense_draft_id: str | None = None
 
 
 class QueueCountsOut(BaseModel):
@@ -53,6 +58,7 @@ class QueueCountsOut(BaseModel):
     txns: int
     recs: int
     invs: int
+    subs: int
 
 
 class QueueOut(BaseModel):
@@ -61,7 +67,7 @@ class QueueOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Transactions, receipts, invoices
+# Transactions + invoices (from nv_bank_transaction / nv_invoice)
 # ---------------------------------------------------------------------------
 
 
@@ -71,29 +77,19 @@ class TransactionRowOut(BaseModel):
     account: str
     desc: str
     amount: float
-    category: str | None
-    match: str
-    state: Literal["reconciled", "categorized", "unreviewed"]
-
-
-class ReceiptRowOut(BaseModel):
-    id: str
-    received_at: str  # "Apr 17 · 14:12"
-    vendor: str
-    amount: float
-    source: str
-    ocr_confidence: int
-    state: Literal["review", "matched", "auto-matched"]
+    category: str | None = None
+    match: str  # "receipt ✓" | "unmatched" | "3 likely" | "split?"
+    state: Literal["reconciled", "categorized", "unreviewed", "split"]
 
 
 class InvoiceRowOut(BaseModel):
     id: str
     client: str
-    issued: str  # "Apr 05"
-    due: str  # "May 05"
+    issued: str
+    due: str
     amount: float
     paid: float
-    state: Literal["paid", "overdue", "sent", "draft"]
+    state: Literal["paid", "overdue", "sent", "draft", "void"]
     age_label: str
     glow: bool = False
 
@@ -123,55 +119,8 @@ class KPIBarOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Reconciliation / intake / AR
+# AR aging (Revenue Watch rail)
 # ---------------------------------------------------------------------------
-
-
-class MatchCandidateOut(BaseModel):
-    txn_id: str | None = None
-    receipt_id: str | None = None
-    invoice_id: str | None = None
-    label: str
-    amount: float
-    date: str
-    confidence: int
-    reason: str | None = None
-
-
-class UnmatchedTxnOut(BaseModel):
-    txn_id: str
-    desc: str
-    amount: float
-    date: str
-    candidates: list[MatchCandidateOut] = Field(default_factory=list)
-
-
-class SplitNeededTxnOut(BaseModel):
-    txn_id: str
-    desc: str
-    amount: float
-    note: str
-
-
-class ReconciliationOut(BaseModel):
-    unmatched: list[UnmatchedTxnOut]
-    splits: list[SplitNeededTxnOut]
-    unmatched_total: float
-    splits_count: int
-
-
-class ReceiptIntakeItemOut(BaseModel):
-    id: str
-    vendor: str
-    amount: float
-    received_rel: str  # "12m"
-    source: str
-    confidence: int
-    flag: bool = False
-
-
-class ReceiptIntakeOut(BaseModel):
-    items: list[ReceiptIntakeItemOut]
 
 
 class AROverdueRowOut(BaseModel):
@@ -224,17 +173,6 @@ class TrendExpenseCategoryOut(BaseModel):
     total_30d: float
 
 
-class ToolingMonthOut(BaseModel):
-    label: str
-    amount: float
-
-
-class TrendToolingSpendOut(BaseModel):
-    months: list[ToolingMonthOut]
-    mom_pct: float
-    summary: str
-
-
 class TrendCashMovementOut(BaseModel):
     inflow: list[float]
     outflow: list[float]
@@ -277,7 +215,7 @@ class SplitTransactionRequest(BaseModel):
 
 
 class SplitTransactionResult(BaseModel):
-    originals: list[str]
+    original_id: str
     new_txn_ids: list[str]
 
 
@@ -291,191 +229,9 @@ class RemindInvoiceResult(BaseModel):
     sent_at: str
 
 
-class ExpenseCreateRequest(BaseModel):
-    employee: str
-    vendor: str
-    amount: float
-    reimbursable: bool = True
-    engagement_id: str | None = None
-    memo: str | None = None
-
-
-class ExpenseRowOut(BaseModel):
-    id: str
-    employee: str
-    vendor: str
-    date: str
-    amount: float
-    status: str
-    reimbursable: bool
-    engagement_id: str | None = None
-
-
 class InvoiceCreateRequest(BaseModel):
     client: str
     issued: str
     due: str
     amount: float
     engagement_id: str | None = None
-
-
-class ReceiptUploadJSONRequest(BaseModel):
-    """JSON-first alternative to multipart — used by MCP ingestion."""
-
-    filename: str
-    bytes_b64: str | None = None
-    vendor_hint: str | None = None
-    amount_hint: float | None = None
-    engagement_id: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Track B — subscription intake + evidence normalization
-# ---------------------------------------------------------------------------
-
-EvidenceSource = Literal["receipt", "api_invoice", "apple_iap", "provider_webhook", "card_charge"]
-BillingPlatform = Literal["apple", "stripe", "direct", "ramp", "amex", "chase", "none"]
-SubscriptionCadence = Literal["monthly", "annual", "usage", "unknown"]
-
-
-class SubscriptionEvidenceOut(BaseModel):
-    id: str
-    source: EvidenceSource
-    received_at: str
-    raw_vendor_string: str
-    amount: float
-    currency: str
-    billing_date: str
-    provenance: str | None = None
-    note: str | None = None
-
-
-class VendorCandidate(BaseModel):
-    name: str
-    confidence: int
-
-
-class ProductCandidate(BaseModel):
-    name: str
-    confidence: int
-
-
-class SubscriptionParseResultOut(BaseModel):
-    evidence_id: str
-    billing_platform: BillingPlatform
-    vendor_normalized: str | None
-    product: str | None
-    vendor_confidence: int
-    product_confidence: int
-    ambiguity_notes: str = ""
-    requires_review: bool = False
-
-
-class SubscriptionOccurrenceOut(BaseModel):
-    id: str
-    ledger_id: str
-    evidence_id: str
-    billing_date: str
-    amount: float
-    price_delta_pct: float | None = None
-    status: Literal["confirmed", "projected", "missing"]
-
-
-class SubscriptionLedgerRowOut(BaseModel):
-    id: str
-    vendor_normalized: str
-    product: str
-    billing_platform: BillingPlatform
-    cadence: SubscriptionCadence
-    typical_amount: float
-    currency: str
-    active: bool
-    first_seen: str
-    last_seen: str
-    linked_evidence_ids: list[str]
-    next_projected: str | None = None
-    last_amount: float | None = None
-
-
-class SubscriptionReviewItemOut(BaseModel):
-    evidence_id: str
-    reason: Literal[
-        "unknown_vendor",
-        "apple_opaque",
-        "amount_shift",
-        "new_product",
-        "missing_support_doc",
-    ]
-    candidate_vendors: list[VendorCandidate]
-    candidate_products: list[ProductCandidate]
-    proposed_ledger_id: str | None = None
-
-
-class SubscriptionReviewQueueOut(BaseModel):
-    items: list[SubscriptionReviewItemOut]
-
-
-class SubscriptionIngestRequest(BaseModel):
-    source: EvidenceSource
-    raw_vendor_string: str
-    amount: float
-    currency: str = "USD"
-    billing_date: str
-    provenance: str | None = None
-    raw_payload: dict | None = None
-
-
-class SubscriptionIngestResult(BaseModel):
-    evidence: SubscriptionEvidenceOut
-    parse_result: SubscriptionParseResultOut
-    ledger_id: str | None
-    review_item: SubscriptionReviewItemOut | None = None
-
-
-class SubscriptionBulkIngestRequest(BaseModel):
-    payloads: list[SubscriptionIngestRequest]
-
-
-class SubscriptionBulkIngestResult(BaseModel):
-    results: list[SubscriptionIngestResult]
-
-
-class SubscriptionNormalizeRequest(BaseModel):
-    evidence_id: str
-
-
-class SubscriptionDetectRecurringRequest(BaseModel):
-    window_days: int = 90
-
-
-class SoftwareSpendSliceOut(BaseModel):
-    key: str
-    label: str
-    amount: float
-    pct: float
-
-
-class SoftwareSpendOut(BaseModel):
-    total: float
-    by_vendor: list[SoftwareSpendSliceOut]
-    by_platform: list[SoftwareSpendSliceOut]
-    by_product: list[SoftwareSpendSliceOut]
-    claude_total: float
-    openai_total: float
-    apple_billed_total: float
-
-
-class SubscriptionLedgerListOut(BaseModel):
-    items: list[SubscriptionLedgerRowOut]
-
-
-class SubscriptionReviewResolveRequest(BaseModel):
-    chosen_vendor: str
-    chosen_product: str
-    create_ledger: bool = True
-
-
-class SubscriptionReviewResolveResult(BaseModel):
-    evidence_id: str
-    ledger_id: str
-    resolved: bool

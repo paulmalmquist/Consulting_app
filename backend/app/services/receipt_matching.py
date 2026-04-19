@@ -44,10 +44,11 @@ def _load_candidates(cur, env_id: str, business_id: str, parsed_date: date | Non
     hi = parsed_date + timedelta(days=7)
     cur.execute(
         """
-        SELECT id, amount, transaction_date, merchant
+        SELECT id, amount_cents, posted_at, description
           FROM nv_bank_transaction
          WHERE env_id = %s AND business_id = %s::uuid
-           AND transaction_date BETWEEN %s AND %s
+           AND parent_txn_id IS NULL
+           AND posted_at::date BETWEEN %s AND %s
          LIMIT 50
         """,
         (env_id, business_id, lo, hi),
@@ -55,9 +56,9 @@ def _load_candidates(cur, env_id: str, business_id: str, parsed_date: date | Non
     return [
         Candidate(
             transaction_id=str(r["id"]),
-            amount=Decimal(str(r["amount"])),
-            transaction_date=r["transaction_date"],
-            merchant=r.get("merchant"),
+            amount=(Decimal(r["amount_cents"]) / Decimal(100)).copy_abs(),
+            transaction_date=r["posted_at"].date() if r.get("posted_at") else None,
+            merchant=r.get("description"),
         )
         for r in cur.fetchall()
     ]

@@ -1,0 +1,132 @@
+{
+  "env_id": "a1b2c3d4-0001-0001-0003-000000000001",
+  "business_id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "quarters": [
+    "2025Q4",
+    "2026Q2"
+  ],
+  "funds": [
+    {
+      "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+      "fund_name": "Institutional Growth Fund VII"
+    },
+    {
+      "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "fund_name": "Meridian Real Estate Fund III"
+    },
+    {
+      "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+      "fund_name": "Meridian Credit Opportunities Fund I"
+    }
+  ],
+  "investments": [
+    {
+      "investment_id": "d4560000-0456-0101-0006-000000000001",
+      "investment_name": "Lone Star Distribution Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0007-000000000001",
+      "investment_name": "Peachtree Logistics Park Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0001-000000000001",
+      "investment_name": "Meadowview Apartments Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0008-000000000001",
+      "investment_name": "Northwest Commerce Center Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0002-000000000001",
+      "investment_name": "Sunbelt Crossing Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0004-000000000001",
+      "investment_name": "Bayshore Flats Acquisition"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0003-000000000001",
+      "investment_name": "Pinehurst Residences Acquisition"
+    },
+    {
+      "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+      "investment_name": "Suburban Office Park"
+    },
+    {
+      "investment_id": "d4560000-0456-0101-0005-000000000001",
+      "investment_name": "Oakridge Residences Acquisition"
+    },
+    {
+      "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+      "investment_name": "Lakeside Senior Living"
+    },
+    {
+      "investment_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+      "investment_name": "Cascade Multifamily"
+    },
+    {
+      "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+      "investment_name": "Harborview Logistics Park"
+    },
+    {
+      "investment_id": "2d54b971-21ac-41b8-a548-a506fe516c6c",
+      "investment_name": "Tech Campus North"
+    },
+    {
+      "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+      "investment_name": "Harbor Industrial Portfolio"
+    },
+    {
+      "investment_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+      "investment_name": "Riverfront Apartments"
+    },
+    {
+      "investment_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+      "investment_name": "Pacific Gateway Hotel"
+    },
+    {
+      "investment_id": "9689adf7-6e9f-43d4-a4db-e0c3b6a979a3",
+      "investment_name": "Meridian Office Tower"
+    },
+    {
+      "investment_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+      "investment_name": "Summit Retail Center"
+    },
+    {
+      "investment_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+      "investment_name": "Downtown Mixed-Use"
+    },
+    {
+      "investment_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+      "investment_name": "Ironworks Mixed-Use"
+    },
+    {
+      "investment_id": "a1b2c3d4-0001-0010-0002-000000000001",
+      "investment_name": "MRF III \u2013 Dallas Multifamily Cluster"
+    },
+    {
+      "investment_id": "a1b2c3d4-0001-0010-0002-000000000002",
+      "investment_name": "MRF III \u2013 Phoenix Value-Add Portfolio"
+    },
+    {
+      "investment_id": "a1b2c3d4-0002-0020-0002-000000000002",
+      "investment_name": "Midtown Towers \u2013 Atlanta GA"
+    }
+  ],
+  "highlight_assets": [
+    {
+      "asset_id": "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",
+      "asset_name": "Tech Campus North"
+    },
+    {
+      "asset_id": "a1b2c3d4-0002-0020-0003-000000000002",
+      "asset_name": "Midtown Towers \u2013 Atlanta GA"
+    }
+  ],
+  "sampling_notes": [
+    "Institutional Growth Fund VII is the primary positive chain sample.",
+    "Tech Campus North is the primary multi-asset 80/20 JV sample.",
+    "Meridian Real Estate Fund III is the primary fee-bearing equity sample.",
+    "Meridian Credit Opportunities Fund I / Midtown Towers is the debt and negative-cash-flow sample."
+  ]
+}

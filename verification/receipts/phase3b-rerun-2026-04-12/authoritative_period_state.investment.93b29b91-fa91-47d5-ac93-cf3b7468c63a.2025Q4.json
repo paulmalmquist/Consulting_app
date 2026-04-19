@@ -1,0 +1,75 @@
+{
+  "entity_type": "investment",
+  "investment_id": "93b29b91-fa91-47d5-ac93-cf3b7468c63a",
+  "investment_name": "Cascade Multifamily",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "118867848.370000000000",
+    "ending_nav_full": "119772337.020000000000",
+    "beginning_nav_attributable": "95094278.696000000000",
+    "ending_nav_attributable": "95817869.616000000000",
+    "gross_operating_cash_flow_full": "-67513.76",
+    "fund_attributable_operating_cash_flow": "-54011.008000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "904488.650000000000",
+    "fund_attributable_valuation_movement": "723590.920000000000",
+    "gross_return_amount": "669579.912000000000000000000000000000000000",
+    "gross_return_rate": "0.005632977472",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "0.563297747200"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "9ac2281b-df8b-4979-888e-759ef1db4521"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "62ba6e33-e560-4419-86bb-7dc079f12ebb"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "bd418c34-50fc-4163-9562-1708e896dc13"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "f2960fad-6f11-404d-b472-9d7bee666612"
+    }
+  ]
+}
