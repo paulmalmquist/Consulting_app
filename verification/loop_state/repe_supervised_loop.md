@@ -83,3 +83,10 @@ Baton-pass log for the supervised loop. Entries are chronological; most recent a
 - Risks: applied only to `TrendLineChart`; other chart components (if any) need the same pass.
 - Next: watch CI on HEAD `db855908`; live-verify paulmalmquist.com once Vercel deploy completes.
 - Commit: `db855908` pushed to main.
+
+### 2026-04-19T17:59Z — codex · phase 6 live verification + baton repair
+- `run_id`: repe-integrity-recovery-2026-04-12
+- Change: verified the live site in a fresh incognito session and found a real surface mismatch: the portfolio view is fail-closed, but the fund detail page still renders concrete IRR values. User also requested removal of the top REPE header strip on the detail-page family while preserving the account icon and left sidebar. Added the strict bridge-driven heartbeat contract to the app automation and re-aligned the baton artifacts so the overnight loop wakes up against the bridge file first instead of stale `complete` state.
+- Proof: login succeeded on `https://paulmalmquist.com`; portfolio surface showed `Unavailable` and chart gaps; IGF VII detail page still showed `Gross IRR 66.4%` / `Net IRR 52.4%`. Heartbeat automation `claude-repe-watch` now runs every 5 minutes and reads `verification/loop_state/repe_supervised_bridge.json` first.
+- Risks: bridge is now deterministic, but Claude still needs to update the bridge on chunk completion for fully clean handoff. Live UI remediation remains in progress.
+- Next: Claude fixes the fund detail trust-gating path and removes the top header strip, then marks the bridge for Codex deploy/live verification.

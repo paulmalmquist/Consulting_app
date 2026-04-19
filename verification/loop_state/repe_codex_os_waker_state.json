@@ -1,0 +1,10 @@
+{
+  "last_observed_version": 1,
+  "last_triggered_version": -1,
+  "last_bridge_signal": "awaiting_claude",
+  "last_requested_actor": "claude",
+  "last_thread_id": "",
+  "last_triggered_at": "",
+  "last_result": "",
+  "last_summary": "Codex handed the live remediation pass to Claude for implementation."
+}

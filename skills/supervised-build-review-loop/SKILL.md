@@ -21,6 +21,7 @@ The job is not complete until the live site is checked or a hard blocker is full
 - Keep a running record of prompts, plans, diffs, commands, deploy output, test results, and live-site findings.
 - If a tool hangs, recover and continue.
 - Escalate reasoning depth when the task is ambiguous, architectural, repeatedly failing, or production-facing.
+- For unattended runs, prefer the strict bridge plus the OS-level Codex wake watcher over heartbeat polling alone.
 
 ## Required Artifacts
 
@@ -49,6 +50,8 @@ For unattended or overnight runs, also maintain the repo baton-pass artifacts:
 
 - machine-readable state: `verification/loop_state/repe_supervised_loop.json`
 - human-readable log: `verification/loop_state/repe_supervised_loop.md`
+- strict baton-pass signal: `verification/loop_state/repe_supervised_bridge.json`
+- OS-level dedupe state when installed: `verification/loop_state/repe_codex_os_waker_state.json`
 
 These artifacts are the canonical handoff surface between ChatGPT review, Claude Code execution, and any heartbeat automation that resumes the loop later.
 
@@ -88,6 +91,33 @@ The markdown log should append one short entry per pass with:
 - next step
 
 When resuming a loop, read the state file first, then the markdown log, then inspect the live app surfaces. Do not rely on conversational memory alone if these baton-pass artifacts exist.
+
+For unattended runs, the strict bridge file is the actual wake-up signal. The broader state file is context; the bridge file is the event.
+
+Use `python scripts/repe_loop_bridge.py` to initialize, mark, and watch the bridge signal.
+
+If installed, also use the OS-level wake bridge:
+
+- watcher: `python scripts/repe_codex_os_waker.py`
+- installer: `python scripts/install_repe_codex_launch_agent.py`
+- launch agent plist: `ops/launchd/com.openai.codex.repe-bridge.plist`
+
+Rules:
+
+- Every meaningful Claude completion must write a new bridge version.
+- Every meaningful Codex completion must write a new bridge version.
+- Incrementing the bridge version is mandatory for any handoff that should wake the other side.
+- The bridge `signal` must be one of:
+  - `idle`
+  - `awaiting_claude`
+  - `awaiting_codex`
+  - `awaiting_deploy`
+  - `awaiting_live_verify`
+  - `blocked`
+  - `complete`
+- The bridge `requested_actor` should name who is supposed to act next.
+- The bridge `summary` and `details.next_action` should be short and deterministic, not conversational.
+- Any Claude -> Codex handoff that should wake Codex immediately must increment the bridge version and set `requested_actor: codex` with a Codex-requesting signal.
 
 ## Phase 0: Orient
 

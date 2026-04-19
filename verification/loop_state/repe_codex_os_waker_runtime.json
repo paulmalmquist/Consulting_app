@@ -1,0 +1,7 @@
+{
+  "mode": "exec_session",
+  "session_id": 36069,
+  "started_at": "2026-04-19T19:10:00Z",
+  "script": "/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/scripts/repe_codex_os_waker.py",
+  "notes": "Active watcher was started in a long-lived exec session because detached child processes are reaped in this environment. Reuse this session id with write_stdin if it remains alive."
+}
