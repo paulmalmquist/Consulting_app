@@ -86,6 +86,7 @@ import {
   isLockStateRenderable,
   useAuthoritativeState,
 } from "@/hooks/useAuthoritativeState";
+import { assertAuthoritativeMetric } from "@/lib/re/assertAuthoritativeMetric";
 import { AuditDrawer } from "@/components/re/AuditDrawer";
 import { TrustChip } from "@/components/re/TrustChip";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
@@ -1576,8 +1577,16 @@ export default function FundDetailPage({
   const authoritativeMetrics = (authoritativeState?.state?.canonical_metrics ?? {}) as Record<string, unknown>;
   const authoritativeIsRenderable = isLockStateRenderable(authoritativeLockState);
   const authoritativeNumber = (key: string): number | null => {
+    // Gate 1: lock state (promotion_state = released). Cheap check; avoids
+    // dev-mode throws from assertAuthoritativeMetric when the state is absent
+    // or not yet released (the common case before a snapshot is promoted).
     if (!authoritativeIsRenderable) return null;
-    const raw = authoritativeMetrics[key];
+    // Gate 2: full trust chain including per-metric trust_state (Phase 3e).
+    // Ensures irr_trust_state / net_irr_trust_state are honored the same way
+    // the portfolio surface does via assertAuthoritativeMetric.
+    const guard = assertAuthoritativeMetric(authoritativeState, { field: key });
+    if (guard.kind === "unavailable") return null;
+    const raw = guard.value;
     if (raw == null) return null;
     const n = typeof raw === "number" ? raw : Number(raw);
     return Number.isFinite(n) ? n : null;

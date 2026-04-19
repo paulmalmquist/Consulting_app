@@ -487,6 +487,58 @@ describe("fund detail narrative dashboard", () => {
     // This test is intentionally skipped — see comment above.
   });
 
+  it("trust gate: shows dash for gross_irr when irr_trust_state is not trusted", async () => {
+    // Simulate a released snapshot where irr_trust_state is explicitly "unavailable".
+    // authoritativeNumber("gross_irr") must return null → fmtPercent renders "—".
+    mockGetReV2AuthoritativeState.mockResolvedValue({
+      entity_type: "fund",
+      entity_id: "fund-1",
+      quarter: "2026Q1",
+      requested_quarter: "2026Q1",
+      period_exact: true,
+      state_origin: "authoritative",
+      audit_run_id: "run-1",
+      snapshot_version: "test-snap",
+      promotion_state: "released",
+      trust_status: "untrusted",
+      breakpoint_layer: null,
+      null_reason: null,
+      null_reasons: null,
+      state: {
+        canonical_metrics: {
+          gross_irr: 0.664,
+          irr_trust_state: "unavailable",
+          irr_reason: "metric_not_computed",
+          net_irr: 0.524,
+          net_irr_trust_state: "unavailable",
+          net_irr_reason: "metric_not_computed",
+          ending_nav: 1_446_000_000,
+          dpi: 1.0,
+          tvpi: 1.5,
+        },
+      },
+      formulas: {},
+      provenance: [],
+      artifact_paths: {},
+    });
+
+    renderPage();
+
+    const kpiGroup = await screen.findByTestId("kpi-group-performance");
+    // Gross IRR and Net IRR must show dash, not a numeric percent.
+    // KpiGroupCard renders <dl> with <div key={label}> children containing
+    // <dt> (label) and <dd> (value). We look at the full text of the group.
+    const text = kpiGroup.textContent ?? "";
+    // If trust gate works correctly, the numeric value (e.g. "66.4%") must NOT appear.
+    expect(text).not.toMatch(/66\.4%/);
+    expect(text).not.toMatch(/52\.4%/);
+    // The dash sentinel must appear for each blocked metric.
+    const grossIrrEl = within(kpiGroup).getByText("Gross IRR");
+    const netIrrEl = within(kpiGroup).getByText("Net IRR");
+    expect(grossIrrEl.closest("div")?.textContent).toContain("—");
+    expect(netIrrEl.closest("div")?.textContent).toContain("—");
+  });
+
   it("publishes fund assistant context once the route resolves", async () => {
     renderPage();
 
