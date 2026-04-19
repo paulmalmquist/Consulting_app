@@ -339,15 +339,109 @@ def persist_fund_gross_to_net_bridge(
         return cur.fetchone()["id"]
 
 
+class PromotionGateError(ValueError):
+    """Raised when promote_snapshot_version rejects a release because of
+    a gross_irr trust failure on one or more funds in the snapshot."""
+
+    def __init__(self, snapshot_version: str, violations: list[dict[str, Any]]):
+        self.snapshot_version = snapshot_version
+        self.violations = violations
+        detail = "; ".join(
+            f"fund={v['fund_id']} reason={v['reason']}" for v in violations
+        )
+        super().__init__(
+            f"Promotion gate rejected {snapshot_version}: {detail}"
+        )
+
+
+def validate_snapshot_for_release(
+    *,
+    snapshot_version: str,
+) -> dict[str, Any]:
+    """Gate promotion to 'released' on IRR correctness per the revised plan.
+
+    Rules (hard failures — block promotion):
+      - fund row missing gross_irr
+      - gross_irr present but irr_trust_state != "trusted"
+      - top-level null_reason present on the fund row
+
+    Rules (informational — do NOT block):
+      - net_irr_trust_state == "unavailable" (expected for below-hurdle funds)
+      - dscr_trust_state == anything (dscr is informational per plan)
+
+    Returns { ok: bool, violations: [{fund_id, reason, ...}] }
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              fund_id::text AS fund_id,
+              canonical_metrics,
+              null_reason
+            FROM re_authoritative_fund_state_qtr
+            WHERE snapshot_version = %s
+            """,
+            (snapshot_version,),
+        )
+        rows = cur.fetchall() or []
+
+    violations: list[dict[str, Any]] = []
+    for row in rows:
+        fund_id = row["fund_id"]
+        cm = row.get("canonical_metrics") or {}
+        top_reason = row.get("null_reason")
+
+        if top_reason:
+            violations.append(
+                {"fund_id": fund_id, "reason": f"top_null_reason:{top_reason}"}
+            )
+            continue
+
+        gross_irr = cm.get("gross_irr")
+        if gross_irr is None:
+            violations.append(
+                {"fund_id": fund_id, "reason": "missing_gross_irr"}
+            )
+            continue
+
+        irr_trust = cm.get("irr_trust_state")
+        # If the field is present (post-3a snapshots), enforce "trusted".
+        # Pre-3a rows without the field fall through (backward compatible).
+        if irr_trust is not None and irr_trust != "trusted":
+            explicit_reason = cm.get("irr_reason")
+            reason = (
+                f"irr_untrusted:{explicit_reason}"
+                if isinstance(explicit_reason, str) and explicit_reason
+                else f"irr_untrusted:{irr_trust}"
+            )
+            violations.append({"fund_id": fund_id, "reason": reason})
+
+    return {
+        "ok": len(violations) == 0,
+        "violations": violations,
+        "fund_count_scanned": len(rows),
+    }
+
+
 def promote_snapshot_version(
     *,
     snapshot_version: str,
     target_state: str,
     actor: str,
     findings_summary: dict[str, Any] | None = None,
+    skip_gate: bool = False,
 ) -> None:
     if target_state not in ("verified", "released"):
         raise ValueError(f"Unsupported target_state: {target_state}")
+
+    # Phase 4: IRR-correctness gate for release promotion.
+    # Only runs on target="released" so verification (draft → verified)
+    # is unaffected. Operators can override with skip_gate=True for
+    # documented manual escapes, but the default path enforces the gate.
+    if target_state == "released" and not skip_gate:
+        gate_result = validate_snapshot_for_release(snapshot_version=snapshot_version)
+        if not gate_result["ok"]:
+            raise PromotionGateError(snapshot_version, gate_result["violations"])
 
     with get_cursor() as cur:
         cur.execute(

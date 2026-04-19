@@ -515,3 +515,186 @@ def test_get_portfolio_authoritative_states_empty_env_returns_empty_list():
         )
 
     assert out == []
+
+
+# ── Phase 4: Promotion gate ────────────────────────────────────────────
+
+
+def test_validate_snapshot_for_release_all_funds_trusted_passes():
+    """Gate allows promotion when every fund has gross_irr + trusted state."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {
+                    "gross_irr": "0.14",
+                    "irr_trust_state": "trusted",
+                    "net_irr_trust_state": "trusted",
+                },
+                "null_reason": None,
+            },
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {
+                    "gross_irr": "0.05",
+                    "irr_trust_state": "trusted",
+                    "net_irr_trust_state": "unavailable",  # below-hurdle — does NOT block
+                    "net_irr_reason": "metric_not_computed",
+                },
+                "null_reason": None,
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.validate_snapshot_for_release(
+            snapshot_version="test-v1",
+        )
+    assert out["ok"] is True
+    assert out["violations"] == []
+    assert out["fund_count_scanned"] == 2
+
+
+def test_validate_snapshot_for_release_missing_gross_irr_blocks():
+    """Gate blocks when a fund has no gross_irr at all."""
+    from app.services import re_authoritative_snapshots
+
+    bad_fund = str(uuid4())
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": bad_fund,
+                "canonical_metrics": {"irr_trust_state": "trusted"},  # no gross_irr
+                "null_reason": None,
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.validate_snapshot_for_release(
+            snapshot_version="test-v2",
+        )
+    assert out["ok"] is False
+    assert len(out["violations"]) == 1
+    assert out["violations"][0]["fund_id"] == bad_fund
+    assert out["violations"][0]["reason"] == "missing_gross_irr"
+
+
+def test_validate_snapshot_for_release_untrusted_irr_blocks_with_reason():
+    """Gate blocks when irr_trust_state is not 'trusted' and surfaces irr_reason."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {
+                    "gross_irr": "0.14",
+                    "irr_trust_state": "suspect",
+                    "irr_reason": "cash_events_under_review",
+                },
+                "null_reason": None,
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.validate_snapshot_for_release(
+            snapshot_version="test-v3",
+        )
+    assert out["ok"] is False
+    assert out["violations"][0]["reason"] == "irr_untrusted:cash_events_under_review"
+
+
+def test_validate_snapshot_for_release_top_null_reason_blocks():
+    """Gate blocks when the fund row carries a top-level null_reason."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {"gross_irr": "0.14", "irr_trust_state": "trusted"},
+                "null_reason": "investigation_pending",
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.validate_snapshot_for_release(
+            snapshot_version="test-v4",
+        )
+    assert out["ok"] is False
+    assert out["violations"][0]["reason"] == "top_null_reason:investigation_pending"
+
+
+def test_validate_snapshot_for_release_pre_3a_rows_pass_backward_compat():
+    """Pre-Phase-3a rows don't carry irr_trust_state; gate should still pass
+    as long as gross_irr is present and no top null_reason."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {"gross_irr": "0.14"},  # no trust fields
+                "null_reason": None,
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.validate_snapshot_for_release(
+            snapshot_version="test-v5",
+        )
+    assert out["ok"] is True
+
+
+def test_promote_snapshot_version_released_invokes_gate_and_raises_on_failure():
+    """promote_snapshot_version(target='released') raises PromotionGateError
+    before touching any table when the gate rejects the snapshot."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    # Only one SELECT needed — the gate short-circuits before any UPDATE.
+    cur.push_result(
+        [
+            {
+                "fund_id": str(uuid4()),
+                "canonical_metrics": {},  # no gross_irr
+                "null_reason": None,
+            },
+        ]
+    )
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        import pytest as _pytest
+        with _pytest.raises(re_authoritative_snapshots.PromotionGateError) as exc_info:
+            re_authoritative_snapshots.promote_snapshot_version(
+                snapshot_version="test-v6",
+                target_state="released",
+                actor="test-actor",
+            )
+    assert "missing_gross_irr" in str(exc_info.value)
+
+
+def test_promote_snapshot_version_verified_target_bypasses_gate():
+    """Promotion to 'verified' never invokes the gate — only release enforces it."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    # Mimic the run row lookup + 4 table updates (5 results total).
+    cur.push_result(
+        [{"audit_run_id": str(uuid4()), "run_status": "draft_audit"}],
+    )
+    for _ in range(5):  # UPDATE run + 4 table updates
+        cur.push_result([])
+
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        # Should not raise even though canonical_metrics is not validated.
+        re_authoritative_snapshots.promote_snapshot_version(
+            snapshot_version="test-v7",
+            target_state="verified",
+            actor="test-actor",
+        )
