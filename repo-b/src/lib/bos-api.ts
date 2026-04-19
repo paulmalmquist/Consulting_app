@@ -5196,6 +5196,30 @@ export function getReV2AuthoritativeState(args: {
   );
 }
 
+export interface ReV2PortfolioAuthoritativeStates {
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  count: number;
+  states: ReV2AuthoritativeState[];
+}
+
+/**
+ * Batched fetch: one authoritative-state payload per released fund in the
+ * environment, in a single round trip. Replaces the N+1 pattern on the
+ * portfolio list page. Returned states match the per-fund
+ * getReV2AuthoritativeState shape.
+ */
+export function getPortfolioAuthoritativeStates(
+  envId: string,
+  quarter: string,
+): Promise<ReV2PortfolioAuthoritativeStates> {
+  return directFetch(
+    `/api/re/v2/environments/${envId}/portfolio-states`,
+    { params: { quarter } },
+  );
+}
+
 // Investments
 export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
   return directFetch(`/api/re/v2/funds/${fundId}/investments`);

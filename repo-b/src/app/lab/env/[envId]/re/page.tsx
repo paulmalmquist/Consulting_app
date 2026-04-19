@@ -7,7 +7,7 @@ import { Minus, Plus } from "lucide-react";
 import {
   deleteRepeFund,
   getReV2EnvironmentPortfolioKpis,
-  getReV2AuthoritativeState,
+  getPortfolioAuthoritativeStates,
   getAssetMapPoints,
   RepeFund,
   ReV2EnvironmentPortfolioKpis,
@@ -170,26 +170,29 @@ export default function ReFundListPage() {
 
   const quarter = pickCurrentQuarter();
 
-  // ── Data fetch: authoritative state per fund ──────────────────────────
+  // ── Data fetch: batched authoritative state for all funds ─────────────
+  // Single round-trip to GET /api/re/v2/environments/{envId}/portfolio-states
+  // replaces the prior per-fund N+1. Funds with no released snapshot are
+  // still shown (auth=null) so the page's existing fail-closed rendering
+  // (assertAuthoritativeMetric / UnavailableCell) handles them unchanged.
   const refreshFunds = useCallback(async () => {
     if (!businessId && !envId) return;
     setLoading(true);
     try {
       const rows = await listReV1Funds({ env_id: envId || undefined, business_id: businessId || undefined });
-      const enriched: FundRow[] = await Promise.all(
-        rows.map(async (f) => {
-          try {
-            const auth = await getReV2AuthoritativeState({
-              entityType: "fund",
-              entityId: f.fund_id,
-              quarter,
-            });
-            return { ...f, auth };
-          } catch {
-            return { ...f, auth: null };
-          }
-        })
-      );
+      let authByFund = new Map<string, ReV2AuthoritativeState>();
+      if (envId) {
+        try {
+          const batched = await getPortfolioAuthoritativeStates(envId, quarter);
+          authByFund = new Map(batched.states.map((s) => [s.entity_id, s]));
+        } catch {
+          authByFund = new Map();
+        }
+      }
+      const enriched: FundRow[] = rows.map((f) => ({
+        ...f,
+        auth: authByFund.get(f.fund_id) ?? null,
+      }));
       setFunds(enriched);
     } catch {
       setFunds([]);

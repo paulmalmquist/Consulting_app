@@ -5,7 +5,7 @@ import ReFundListPage from "@/app/lab/env/[envId]/re/page";
 const mockUseReEnv = vi.fn();
 const mockPushToast = vi.fn();
 const mockListReV1Funds = vi.fn();
-const mockGetReV2AuthoritativeState = vi.fn();
+const mockGetPortfolioAuthoritativeStates = vi.fn();
 const mockGetReV2EnvironmentPortfolioKpis = vi.fn();
 const mockGetEnvironmentFundTrend = vi.fn();
 const mockDeleteRepeFund = vi.fn();
@@ -20,7 +20,8 @@ vi.mock("@/components/ui/Toast", () => ({
 
 vi.mock("@/lib/bos-api", () => ({
   listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
-  getReV2AuthoritativeState: (...args: unknown[]) => mockGetReV2AuthoritativeState(...args),
+  getPortfolioAuthoritativeStates: (...args: unknown[]) =>
+    mockGetPortfolioAuthoritativeStates(...args),
   getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
     mockGetReV2EnvironmentPortfolioKpis(...args),
   getEnvironmentFundTrend: (...args: unknown[]) =>
@@ -58,6 +59,13 @@ describe("RE environment portfolio page", () => {
       quarters: 12,
       funds: [],
     });
+    mockGetPortfolioAuthoritativeStates.mockResolvedValue({
+      env_id: "env-1",
+      business_id: "biz-1",
+      quarter: "2026Q2",
+      count: 0,
+      states: [],
+    });
   });
 
   test("renders portfolio NAV as dash when quarter state is missing", async () => {
@@ -91,34 +99,42 @@ describe("RE environment portfolio page", () => {
         created_at: "2026-01-01T00:00:00Z",
       },
     ]);
-    mockGetReV2AuthoritativeState.mockResolvedValue({
-      entity_type: "fund",
-      entity_id: "fund-1",
+    mockGetPortfolioAuthoritativeStates.mockResolvedValue({
+      env_id: "env-1",
+      business_id: "biz-1",
       quarter: "2026Q2",
-      requested_quarter: "2026Q2",
-      period_exact: true,
-      state_origin: "authoritative",
-      audit_run_id: null,
-      snapshot_version: "test-snapshot-v1",
-      promotion_state: "released",
-      trust_status: "trusted",
-      breakpoint_layer: null,
-      null_reason: null,
-      state: {
-        period_start: "2026-04-01",
-        period_end: "2026-06-30",
-        canonical_metrics: {
-          total_committed: "500000000",
-          ending_nav: "425000000",
-          dpi: "0.21",
-          tvpi: "1.33",
+      count: 1,
+      states: [
+        {
+          entity_type: "fund",
+          entity_id: "fund-1",
+          quarter: "2026Q2",
+          requested_quarter: "2026Q2",
+          period_exact: true,
+          state_origin: "authoritative",
+          audit_run_id: null,
+          snapshot_version: "test-snapshot-v1",
+          promotion_state: "released",
+          trust_status: "trusted",
+          breakpoint_layer: null,
+          null_reason: null,
+          state: {
+            period_start: "2026-04-01",
+            period_end: "2026-06-30",
+            canonical_metrics: {
+              total_committed: "500000000",
+              ending_nav: "425000000",
+              dpi: "0.21",
+              tvpi: "1.33",
+            },
+            display_metrics: {},
+          },
+          null_reasons: {},
+          formulas: {},
+          provenance: [],
+          artifact_paths: {},
         },
-        display_metrics: {},
-      },
-      null_reasons: {},
-      formulas: {},
-      provenance: [],
-      artifact_paths: {},
+      ],
     });
 
     render(<ReFundListPage />);
