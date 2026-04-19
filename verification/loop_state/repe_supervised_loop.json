@@ -1,0 +1,56 @@
+{
+  "run_id": "repe-integrity-recovery-2026-04-12",
+  "objective": "REPE Financial Integrity Recovery — phases 0-5 execution per revised plan",
+  "status": "in_progress",
+  "current_phase": "5_live_verify",
+  "current_owner": "claude",
+  "chatgpt_project": "",
+  "chatgpt_chat": "",
+  "claude_conversation": "continuous_supervised_loop",
+  "github_context_enabled": true,
+  "last_completed_step": "Phase 5 — fail-closed chart null gaps. HEAD db855908 stacks phases 3d/3e/4/5 onto main. All local tests green (112 files, 527 tests, 0 TS errors).",
+  "next_expected_action": "Wait for CI green on HEAD, then live-verify on paulmalmquist.com: (1) fund portfolio page renders with trust fields honored, (2) trend chart shows null gaps at missing points, (3) promotion gate visible in logs if invoked.",
+  "blocking_issue": "",
+  "files_touched": [
+    "verification/runners/meridian_authoritative_snapshot.py",
+    "backend/tests/test_re_authoritative_snapshots.py",
+    "backend/app/services/re_authoritative_snapshots.py",
+    "backend/app/routes/re_authoritative.py",
+    "verification/receipts/phase0-forensic-2026-04-12/README.md",
+    "repo-b/src/app/api/re/v2/environments/[envId]/fund-trend/route.ts",
+    "repo-b/src/app/api/re/v2/environments/[envId]/portfolio-states/route.ts",
+    "repo-b/src/lib/bos-api.ts",
+    "repo-b/src/app/lab/env/[envId]/re/page.tsx",
+    "repo-b/src/app/lab/env/[envId]/re/page.test.tsx",
+    "repo-b/src/lib/re/assertAuthoritativeMetric.ts",
+    "repo-b/src/lib/re/assertAuthoritativeMetric.test.ts",
+    "repo-b/src/components/charts/TrendLineChart.tsx",
+    "repo-b/src/components/charts/TrendLineChart.test.tsx",
+    "verification/loop_state/repe_supervised_loop.json",
+    "verification/loop_state/repe_supervised_loop.md"
+  ],
+  "tests_run": [
+    "pytest backend/tests/test_re_authoritative_snapshots.py → 21 passed",
+    "vitest full suite → 112 files / 527 passed / 2 skipped",
+    "tsc --noEmit → 0 errors"
+  ],
+  "commits_this_sprint": [
+    {"sha": "801dc92a", "summary": "phase 0 forensic receipt"},
+    {"sha": "e45a6ef2", "summary": "phase 2 fund-trend proxy"},
+    {"sha": "bbdceb39", "summary": "phase 3a engine trust emission + tests"},
+    {"sha": "981b8e81", "summary": "phase 3c batched portfolio-states endpoint"},
+    {"sha": "250caaf0", "summary": "phase 3d migrate re/page.tsx off per-fund N+1"},
+    {"sha": "540f3bf1", "summary": "phase 3e per-metric trust gate in assertAuthoritativeMetric"},
+    {"sha": "50e6942e", "summary": "phase 4 promotion gate on release"},
+    {"sha": "db855908", "summary": "phase 5 fail-closed null gaps in TrendLineChart"}
+  ],
+  "deploy_status": "db855908 pushed to main; Railway auto-deploys backend, Vercel auto-deploys frontend. CI run in flight.",
+  "live_verification_status": "pending_ci_green",
+  "open_risks": [
+    "Runner re-run produced a new verified snapshot (meridian-20260419T170258Z-eb7e1153) with slightly different IRR values than the hand-calibrated released snapshot. Divergence source not investigated; do not promote without audit.",
+    "Investment/asset snapshot emitters not yet updated with trust fields (fund-level only).",
+    "Promotion gate currently only checks fund-level IRR trust; does not check investment/asset levels.",
+    "Phase 5 null-gap fix applies to TrendLineChart; if any other chart component also renders time series, it may still interpolate. Spot-checked FundTrendPanel which goes through TrendLineChart — safe."
+  ],
+  "last_updated_at": "2026-04-19T17:25:00Z"
+}
