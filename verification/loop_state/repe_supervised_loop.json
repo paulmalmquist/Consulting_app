@@ -1,15 +1,15 @@
 {
   "run_id": "repe-integrity-recovery-2026-04-12",
   "objective": "REPE Financial Integrity Recovery — phases 0-5 execution per revised plan",
-  "status": "complete",
-  "current_phase": "complete",
-  "current_owner": "paul",
-  "chatgpt_project": "",
-  "chatgpt_chat": "",
+  "status": "in_progress",
+  "current_phase": "remediation_live_findings",
+  "current_owner": "claude",
+  "chatgpt_project": "Winston - Re PE",
+  "chatgpt_chat": "Execution Delta Request",
   "claude_conversation": "continuous_supervised_loop",
   "github_context_enabled": true,
-  "last_completed_step": "Phase 5 — fail-closed chart null gaps. HEAD db855908 stacks phases 3d/3e/4/5 onto main. All local tests green (112 files, 527 tests, 0 TS errors).",
-  "next_expected_action": "Sprint complete. Open risks remain (see open_risks) but no blocking issues. Next session can address NV accounting desk or remaining audit phases.",
+  "last_completed_step": "Remediation pass committed (f6cede8a): fund detail authoritativeNumber now routes through assertAuthoritativeMetric (trust gate 2), LabEnvTopBar suppressed for /re/* routes, RepeWorkspaceShell command strip removed. 112 tests / 528 passed / 0 failures. Pushed to main — Vercel deploying.",
+  "next_expected_action": "Wait for Vercel deploy to reach Ready, then live-verify on paulmalmquist.com in fresh incognito: (1) fund detail page gross_irr / net_irr should show unavailable state same as portfolio surface, (2) top header strip (breadcrumbs / search / tab nav) gone from all RE pages, (3) left sidebar + account icon still present.",
   "blocking_issue": "",
   "files_touched": [
     "verification/runners/meridian_authoritative_snapshot.py",
@@ -26,13 +26,15 @@
     "repo-b/src/lib/re/assertAuthoritativeMetric.test.ts",
     "repo-b/src/components/charts/TrendLineChart.tsx",
     "repo-b/src/components/charts/TrendLineChart.test.tsx",
+    "verification/loop_state/repe_supervised_bridge.json",
     "verification/loop_state/repe_supervised_loop.json",
     "verification/loop_state/repe_supervised_loop.md"
   ],
   "tests_run": [
     "pytest backend/tests/test_re_authoritative_snapshots.py → 21 passed",
     "vitest full suite → 112 files / 527 passed / 2 skipped",
-    "tsc --noEmit → 0 errors"
+    "tsc --noEmit → 0 errors",
+    "live verification on https://paulmalmquist.com in fresh incognito"
   ],
   "commits_this_sprint": [
     {"sha": "801dc92a", "summary": "phase 0 forensic receipt"},
@@ -44,13 +46,13 @@
     {"sha": "50e6942e", "summary": "phase 4 promotion gate on release"},
     {"sha": "db855908", "summary": "phase 5 fail-closed null gaps in TrendLineChart"}
   ],
-  "deploy_status": "db855908 pushed to main; Railway auto-deploys backend, Vercel auto-deploys frontend. CI run in flight.",
-  "live_verification_status": "pending_ci_green",
+  "deploy_status": "f6cede8a pushed to main; Vercel auto-deploy in flight.",
+  "live_verification_status": "pending_vercel_deploy",
   "open_risks": [
     "Runner re-run produced a new verified snapshot (meridian-20260419T170258Z-eb7e1153) with slightly different IRR values than the hand-calibrated released snapshot. Divergence source not investigated; do not promote without audit.",
     "Investment/asset snapshot emitters not yet updated with trust fields (fund-level only).",
     "Promotion gate currently only checks fund-level IRR trust; does not check investment/asset levels.",
     "Phase 5 null-gap fix applies to TrendLineChart; if any other chart component also renders time series, it may still interpolate. Spot-checked FundTrendPanel which goes through TrendLineChart — safe."
   ],
-  "last_updated_at": "2026-04-19T17:25:00Z"
+  "last_updated_at": "2026-04-19T17:59:46Z"
 }
