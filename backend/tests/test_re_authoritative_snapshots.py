@@ -279,3 +279,128 @@ def test_get_released_portfolio_kpis_includes_snapshot_metadata():
     assert payload["fund_count"] == 2
     assert payload["portfolio_nav"] == "2000"
     assert len(payload["source_snapshots"]) == 2
+
+
+# ── Phase 3a: Trust-field contract ──────────────────────────────────────
+# Runner emits irr_trust_state / net_irr_trust_state / dscr_trust_state +
+# their reasons on every fund snapshot. These tests pin the contract:
+#   1. The pure derivation helper produces the right shape and values.
+#   2. The fields round-trip unmodified through the read path.
+
+
+def test_derive_fund_trust_fields_all_present():
+    """Both IRR values present → both trusted, DSCR always unavailable."""
+    import sys
+    from decimal import Decimal
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(repo_root))
+    from verification.runners.meridian_authoritative_snapshot import (
+        derive_fund_trust_fields,
+    )
+
+    fields = derive_fund_trust_fields(
+        gross_irr=Decimal("0.15"),
+        net_irr=Decimal("0.12"),
+    )
+    assert fields == {
+        "irr_trust_state": "trusted",
+        "irr_reason": None,
+        "net_irr_trust_state": "trusted",
+        "net_irr_reason": None,
+        "dscr_trust_state": "unavailable",
+        "dscr_reason": "dscr_not_computed_at_fund_level",
+    }
+
+
+def test_derive_fund_trust_fields_net_irr_missing():
+    """Below-hurdle funds / missing waterfall → net trust = unavailable."""
+    import sys
+    from decimal import Decimal
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(repo_root))
+    from verification.runners.meridian_authoritative_snapshot import (
+        derive_fund_trust_fields,
+    )
+
+    fields = derive_fund_trust_fields(
+        gross_irr=Decimal("0.05"),
+        net_irr=None,
+    )
+    assert fields["irr_trust_state"] == "trusted"
+    assert fields["irr_reason"] is None
+    assert fields["net_irr_trust_state"] == "unavailable"
+    assert fields["net_irr_reason"] == "metric_not_computed"
+
+
+def test_derive_fund_trust_fields_both_missing():
+    """Gross IRR uncomputable (e.g. no cash events) → both unavailable."""
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(repo_root))
+    from verification.runners.meridian_authoritative_snapshot import (
+        derive_fund_trust_fields,
+    )
+
+    fields = derive_fund_trust_fields(gross_irr=None, net_irr=None)
+    assert fields["irr_trust_state"] == "unavailable"
+    assert fields["irr_reason"] == "metric_not_computed"
+    assert fields["net_irr_trust_state"] == "unavailable"
+    assert fields["net_irr_reason"] == "metric_not_computed"
+
+
+def test_trust_fields_round_trip_through_read_path():
+    """A snapshot row with all 6 trust fields must come back unmodified."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "audit_run_id": uuid4(),
+                "snapshot_version": "meridian-test-trust",
+                "quarter": "2026Q2",
+                "promotion_state": "released",
+                "trust_status": "trusted",
+                "breakpoint_layer": None,
+                "period_start": date(2026, 4, 1),
+                "period_end": date(2026, 6, 30),
+                "canonical_metrics": {
+                    "gross_irr": "0.14",
+                    "net_irr": "0.11",
+                    "ending_nav": "1000000",
+                    "irr_trust_state": "trusted",
+                    "irr_reason": None,
+                    "net_irr_trust_state": "trusted",
+                    "net_irr_reason": None,
+                    "dscr_trust_state": "unavailable",
+                    "dscr_reason": "dscr_not_computed_at_fund_level",
+                },
+                "display_metrics": {},
+                "null_reasons": {},
+                "formulas": {},
+                "provenance": [],
+                "artifact_paths": {},
+            }
+        ]
+    )
+    # Investment entity type skips the bridge fetch (only one cur.push_result needed).
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        payload = re_authoritative_snapshots.get_authoritative_state(
+            entity_type="investment",
+            entity_id=uuid4(),
+            quarter="2026Q2",
+        )
+
+    cm = payload["state"]["canonical_metrics"]
+    assert cm["irr_trust_state"] == "trusted"
+    assert cm["irr_reason"] is None
+    assert cm["net_irr_trust_state"] == "trusted"
+    assert cm["net_irr_reason"] is None
+    assert cm["dscr_trust_state"] == "unavailable"
+    assert cm["dscr_reason"] == "dscr_not_computed_at_fund_level"

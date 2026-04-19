@@ -81,6 +81,40 @@ class DecimalEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+def derive_fund_trust_fields(
+    *,
+    gross_irr: Decimal | None,
+    net_irr: Decimal | None,
+) -> dict[str, str | None]:
+    """Derive the per-metric trust state for a fund snapshot.
+
+    Precedence (documented in docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md):
+      - IRR present (not None) → trusted, reason None
+      - IRR None → unavailable, reason 'metric_not_computed'
+
+    DSCR is never computed at fund-level in this runner; emit 'unavailable'
+    with an explicit reason so the UI contract can fail-closed without
+    guessing. This keeps the snapshot self-describing.
+
+    The runner emits these fields on every fund write so consumers can
+    rely on the keys being present. Release-state gating (not_released)
+    lives in the API layer; at write time the snapshot is by definition
+    a fresh record and its own release state is not yet known.
+    """
+    irr_trust = "trusted" if gross_irr is not None else "unavailable"
+    irr_reason = None if gross_irr is not None else "metric_not_computed"
+    net_irr_trust = "trusted" if net_irr is not None else "unavailable"
+    net_irr_reason = None if net_irr is not None else "metric_not_computed"
+    return {
+        "irr_trust_state": irr_trust,
+        "irr_reason": irr_reason,
+        "net_irr_trust_state": net_irr_trust,
+        "net_irr_reason": net_irr_reason,
+        "dscr_trust_state": "unavailable",
+        "dscr_reason": "dscr_not_computed_at_fund_level",
+    }
+
+
 def q_start_end(quarter: str) -> tuple[date, date]:
     year = int(quarter[:4])
     q_num = int(quarter[-1])
@@ -1231,6 +1265,7 @@ def build_fund_receipts(
                     "total_committed": total_committed,
                     "total_called": total_calls,
                     "total_distributed": total_distributions,
+                    **derive_fund_trust_fields(gross_irr=gross_irr, net_irr=net_irr),
                 },
                 "display_metrics": {
                     "gross_irr_pct": gross_irr * Decimal("100") if gross_irr is not None else None,
