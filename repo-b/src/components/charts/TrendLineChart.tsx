@@ -58,6 +58,25 @@ interface Props {
   showLegend?: boolean;
   /** Recharts syncId for crosshair syncing across charts. */
   syncId?: string;
+  /**
+   * Render gaps at null data points instead of interpolating across them.
+   * Default: true (fail-closed — matches INV-5 Phase 5 contract).
+   * Set to false only when interpolation is the intended analytical
+   * behavior (e.g. a known-complete series where nulls are impossible).
+   */
+  showNullGaps?: boolean;
+}
+
+/**
+ * Compute the `connectNulls` prop from the public `showNullGaps` option.
+ * Exported for tests so the Phase 5 fail-closed contract is pinned as a
+ * pure boolean relationship rather than depending on Recharts' DOM output.
+ *
+ *   showNullGaps=true  → connectNulls=false (default, fail-closed)
+ *   showNullGaps=false → connectNulls=true  (opt-in interpolation)
+ */
+export function connectNullsFromShowNullGaps(showNullGaps: boolean): boolean {
+  return !showNullGaps;
 }
 
 function tickFmt(format: Props["format"]) {
@@ -91,6 +110,7 @@ export default function TrendLineChart({
   format = "dollar",
   showLegend = true,
   syncId,
+  showNullGaps = true,
 }: Props) {
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -173,7 +193,7 @@ export default function TrendLineChart({
             }
             strokeWidth={2}
             strokeDasharray={l.dashed ? "6 3" : undefined}
-            connectNulls
+            connectNulls={connectNullsFromShowNullGaps(showNullGaps)}
             dot={false}
             activeDot={{ r: 4 }}
           />
