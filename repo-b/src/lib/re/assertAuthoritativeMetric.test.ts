@@ -124,3 +124,123 @@ describe("renderAuthoritativeMetric", () => {
     ).toThrow(AuthoritativeMetricContractError);
   });
 });
+
+
+// ── Phase 3e: Per-metric trust-state gate ────────────────────────────────
+// Snapshots carry irr_trust_state / net_irr_trust_state / dscr_trust_state
+// per the contract emitted by derive_fund_trust_fields() in the runner.
+// If a metric is present but its trust state is not "trusted", the helper
+// must return unavailable even though the value exists.
+
+const TRUSTED_STATE: AuthoritativeStateLike = {
+  state_origin: "authoritative",
+  promotion_state: "released",
+  period_exact: true,
+  null_reason: null,
+  null_reasons: {},
+  state: {
+    canonical_metrics: {
+      gross_irr: "0.1348",
+      net_irr: "0.0950",
+      irr_trust_state: "trusted",
+      irr_reason: null,
+      net_irr_trust_state: "trusted",
+      net_irr_reason: null,
+      dscr_trust_state: "unavailable",
+      dscr_reason: "dscr_not_computed_at_fund_level",
+    },
+  },
+};
+
+describe("assertAuthoritativeMetric — per-metric trust gate (Phase 3e)", () => {
+  it("allows gross_irr when irr_trust_state is trusted", () => {
+    const result = assertAuthoritativeMetric(TRUSTED_STATE, { field: "gross_irr" });
+    expect(result.kind).toBe("allowed");
+  });
+
+  it("allows net_irr when net_irr_trust_state is trusted", () => {
+    const result = assertAuthoritativeMetric(TRUSTED_STATE, { field: "net_irr" });
+    expect(result.kind).toBe("allowed");
+  });
+
+  it("blocks net_irr when net_irr_trust_state is unavailable and surfaces the reason", () => {
+    const below_hurdle: AuthoritativeStateLike = {
+      ...TRUSTED_STATE,
+      state: {
+        canonical_metrics: {
+          ...TRUSTED_STATE.state!.canonical_metrics!,
+          net_irr: "0.02",
+          net_irr_trust_state: "unavailable",
+          net_irr_reason: "metric_not_computed",
+        },
+      },
+    };
+    const result = assertAuthoritativeMetric(below_hurdle, { field: "net_irr" });
+    expect(result).toEqual({
+      kind: "unavailable",
+      nullReason: "metric_not_computed",
+    });
+  });
+
+  it("falls back to generic reason when trust_state is unavailable but no reason string", () => {
+    const bad: AuthoritativeStateLike = {
+      ...TRUSTED_STATE,
+      state: {
+        canonical_metrics: {
+          ...TRUSTED_STATE.state!.canonical_metrics!,
+          net_irr: "0.02",
+          net_irr_trust_state: "suspect",
+          // net_irr_reason deliberately omitted
+        },
+      },
+    };
+    const result = assertAuthoritativeMetric(bad, { field: "net_irr" });
+    expect(result).toEqual({
+      kind: "unavailable",
+      nullReason: "metric_not_trusted:net_irr",
+    });
+  });
+
+  it("blocks dscr when dscr_trust_state is unavailable", () => {
+    const result = assertAuthoritativeMetric(TRUSTED_STATE, { field: "dscr" });
+    expect(result).toEqual({
+      kind: "unavailable",
+      nullReason: "dscr_not_computed_at_fund_level",
+    });
+  });
+
+  it("leaves non-IRR/DSCR fields on the old gate chain (no regression)", () => {
+    // ending_nav has no trust field in the model; should still work.
+    const state_with_nav: AuthoritativeStateLike = {
+      ...TRUSTED_STATE,
+      state: {
+        canonical_metrics: {
+          ...TRUSTED_STATE.state!.canonical_metrics!,
+          ending_nav: "1000000",
+        },
+      },
+    };
+    const result = assertAuthoritativeMetric(state_with_nav, { field: "ending_nav" });
+    expect(result.kind).toBe("allowed");
+  });
+
+  it("treats missing trust_state as 'no opinion — allow' (backward compatible with pre-3a snapshots)", () => {
+    // Pre-Phase-3a snapshots don't carry trust fields. They should still render.
+    const pre_3a: AuthoritativeStateLike = {
+      state_origin: "authoritative",
+      promotion_state: "released",
+      period_exact: true,
+      null_reason: null,
+      null_reasons: {},
+      state: {
+        canonical_metrics: {
+          gross_irr: "0.15",
+          net_irr: "0.11",
+          // no *_trust_state keys at all
+        },
+      },
+    };
+    expect(assertAuthoritativeMetric(pre_3a, { field: "gross_irr" }).kind).toBe("allowed");
+    expect(assertAuthoritativeMetric(pre_3a, { field: "net_irr" }).kind).toBe("allowed");
+  });
+});

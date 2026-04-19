@@ -172,13 +172,50 @@ export function assertAuthoritativeMetric(
     );
   }
 
-  // 7. Extract the value. A missing/null value is "unavailable by design".
+  // 7. Per-metric trust gate (Phase 3e).
+  // Snapshots emitted by derive_fund_trust_fields() carry an explicit
+  // trust state per metric. If the writer flagged this metric as anything
+  // other than "trusted", refuse to render regardless of value presence.
+  // Precedence: release_state → top null_reason → field null_reason →
+  //             per-metric trust_state → value presence.
+  const trustField = _trustFieldFor(field);
+  if (trustField) {
+    const trust = canonical[trustField];
+    if (trust !== undefined && trust !== null && trust !== "trusted") {
+      // trust key shape: <prefix>_trust_state → reason key <prefix>_reason
+      // e.g. irr_trust_state → irr_reason, net_irr_trust_state → net_irr_reason
+      const reasonKey = trustField.replace(/_trust_state$/, "_reason");
+      const explicitReason = canonical[reasonKey];
+      const nullReason =
+        typeof explicitReason === "string" && explicitReason.length > 0
+          ? explicitReason
+          : `metric_not_trusted:${field}`;
+      return { kind: "unavailable", nullReason };
+    }
+  }
+
+  // 8. Extract the value. A missing/null value is "unavailable by design".
   const raw = canonical[field];
   if (raw === null || raw === undefined) {
     return { kind: "unavailable", nullReason: `missing:${field}` };
   }
 
   return { kind: "allowed", value: raw };
+}
+
+/**
+ * Map a metric field name to the canonical_metrics key that holds its
+ * trust state, per the snapshot contract emitted by
+ * derive_fund_trust_fields() in verification/runners/.
+ *
+ * Returns null for fields not covered by the trust model — those stay
+ * on the old gate chain (release + null_reason + value presence).
+ */
+function _trustFieldFor(field: string): string | null {
+  if (field === "gross_irr" || field === "irr") return "irr_trust_state";
+  if (field === "net_irr") return "net_irr_trust_state";
+  if (field === "dscr" || field === "weighted_dscr") return "dscr_trust_state";
+  return null;
 }
 
 // ── Render helper: guard + formatter in one call ────────────────────────────
