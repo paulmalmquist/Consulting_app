@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.schemas.re_authoritative import (
     ReAuthoritativeGrossToNetOut,
     ReAuthoritativeSnapshotRunOut,
     ReAuthoritativeStateOut,
 )
-from app.services import re_authoritative_snapshots
+from app.services import re_authoritative_snapshots, repe_context
 
 router = APIRouter(prefix="/api/re/v2", tags=["re-v2-authoritative"])
 
@@ -94,5 +94,40 @@ def get_authoritative_snapshot_run(audit_run_id: UUID):
 def get_authoritative_snapshot_run_by_version(snapshot_version: str):
     try:
         return re_authoritative_snapshots.get_snapshot_run(snapshot_version=snapshot_version)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/environments/{env_id}/portfolio-states")
+def get_portfolio_authoritative_states(
+    env_id: UUID,
+    request: Request,
+    quarter: str = Query(..., description="quarter label e.g. 2026Q2"),
+):
+    """Batched authoritative-state payload for every released fund in an env.
+
+    Returns a list of per-fund authoritative states in one DB query.
+    Replaces N per-fund calls from the portfolio list page.
+
+    Shape per entry matches get_authoritative_state(entity_type='fund', ...)
+    so frontend gating helpers work unchanged. gross-to-net bridges are NOT
+    attached to avoid N+1 — detail views fetch them separately.
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request, env_id=str(env_id), allow_create=True,
+        )
+        states = re_authoritative_snapshots.get_portfolio_authoritative_states(
+            env_id=env_id,
+            business_id=resolved.business_id,
+            quarter=quarter,
+        )
+        return {
+            "env_id": str(env_id),
+            "business_id": resolved.business_id,
+            "quarter": quarter,
+            "count": len(states),
+            "states": states,
+        }
     except Exception as exc:
         raise _to_http(exc)

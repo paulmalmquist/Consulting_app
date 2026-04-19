@@ -404,3 +404,114 @@ def test_trust_fields_round_trip_through_read_path():
     assert cm["net_irr_reason"] is None
     assert cm["dscr_trust_state"] == "unavailable"
     assert cm["dscr_reason"] == "dscr_not_computed_at_fund_level"
+
+
+# ── Phase 3c: Batched portfolio authoritative-states contract ──────────
+
+
+def test_get_portfolio_authoritative_states_returns_per_fund_payload():
+    """Batched fetch returns one authoritative-state dict per fund, trust
+    fields preserved, shape matches per-fund get_authoritative_state."""
+    from app.services import re_authoritative_snapshots
+
+    fund_a = uuid4()
+    fund_b = uuid4()
+    cur = FakeCursor()
+    cur.push_result(
+        [
+            {
+                "fund_id": str(fund_a),
+                "audit_run_id": str(uuid4()),
+                "snapshot_version": "meridian-test-a",
+                "promotion_state": "released",
+                "trust_status": "trusted",
+                "breakpoint_layer": None,
+                "quarter": "2026Q2",
+                "period_start": date(2026, 4, 1),
+                "period_end": date(2026, 6, 30),
+                "canonical_metrics": {
+                    "gross_irr": "0.12",
+                    "irr_trust_state": "trusted",
+                    "irr_reason": None,
+                    "net_irr_trust_state": "trusted",
+                    "net_irr_reason": None,
+                    "dscr_trust_state": "unavailable",
+                    "dscr_reason": "dscr_not_computed_at_fund_level",
+                },
+                "display_metrics": {},
+                "null_reasons": {},
+                "formulas": {},
+                "provenance": [],
+                "artifact_paths": {},
+            },
+            {
+                "fund_id": str(fund_b),
+                "audit_run_id": str(uuid4()),
+                "snapshot_version": "meridian-test-b",
+                "promotion_state": "released",
+                "trust_status": "trusted",
+                "breakpoint_layer": None,
+                "quarter": "2026Q2",
+                "period_start": date(2026, 4, 1),
+                "period_end": date(2026, 6, 30),
+                "canonical_metrics": {
+                    "gross_irr": "0.05",
+                    "net_irr": None,
+                    "irr_trust_state": "trusted",
+                    "irr_reason": None,
+                    "net_irr_trust_state": "unavailable",
+                    "net_irr_reason": "metric_not_computed",
+                    "dscr_trust_state": "unavailable",
+                    "dscr_reason": "dscr_not_computed_at_fund_level",
+                },
+                "display_metrics": {},
+                "null_reasons": {},
+                "formulas": {},
+                "provenance": [],
+                "artifact_paths": {},
+            },
+        ]
+    )
+
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.get_portfolio_authoritative_states(
+            env_id=uuid4(),
+            business_id=uuid4(),
+            quarter="2026Q2",
+        )
+
+    assert isinstance(out, list)
+    assert len(out) == 2
+    # Shape matches per-fund get_authoritative_state
+    for entry in out:
+        assert entry["entity_type"] == "fund"
+        assert entry["promotion_state"] == "released"
+        assert entry["period_exact"] is True
+        assert entry["state_origin"] == "authoritative"
+        assert "state" in entry
+        assert "canonical_metrics" in entry["state"]
+        # Trust fields survived the round-trip
+        cm = entry["state"]["canonical_metrics"]
+        assert "irr_trust_state" in cm
+        assert "dscr_trust_state" in cm
+
+    # Per-fund differences preserved
+    assert out[0]["state"]["canonical_metrics"]["net_irr_trust_state"] == "trusted"
+    assert out[1]["state"]["canonical_metrics"]["net_irr_trust_state"] == "unavailable"
+
+
+def test_get_portfolio_authoritative_states_empty_env_returns_empty_list():
+    """Env with no released snapshots → empty list, no exception."""
+    from app.services import re_authoritative_snapshots
+
+    cur = FakeCursor()
+    cur.push_result([])
+
+    with patch("app.services.re_authoritative_snapshots.get_cursor", _make_fake_cursor(cur)):
+        out = re_authoritative_snapshots.get_portfolio_authoritative_states(
+            env_id=uuid4(),
+            business_id=uuid4(),
+            quarter="2026Q2",
+        )
+
+    assert out == []

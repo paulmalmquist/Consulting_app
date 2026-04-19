@@ -763,3 +763,84 @@ def get_released_portfolio_kpis(
         "source_snapshots": source_snapshots,
         "trust_status": "trusted",
     }
+
+
+def get_portfolio_authoritative_states(
+    *,
+    env_id: UUID | str,
+    business_id: UUID | str,
+    quarter: str,
+) -> list[dict[str, Any]]:
+    """Return one authoritative-state payload per fund in a single DB round-trip.
+
+    This eliminates the per-fund N+1 pattern in the portfolio list page.
+    Each entry in the returned list matches the shape of
+    get_authoritative_state(entity_type='fund', ...) so the frontend helper
+    can iterate unchanged.
+
+    Only released rows are returned. If no released rows exist for a fund,
+    that fund is not in the result — the caller decides how to render
+    unavailable. The gross-to-net bridge is NOT attached here (adds a
+    second query per fund); the per-fund detail view can still fetch it.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT DISTINCT ON (fund_id)
+              fund_id::text AS fund_id,
+              audit_run_id::text AS audit_run_id,
+              snapshot_version,
+              promotion_state,
+              trust_status,
+              breakpoint_layer,
+              quarter,
+              period_start,
+              period_end,
+              canonical_metrics,
+              display_metrics,
+              null_reasons,
+              formulas,
+              provenance,
+              artifact_paths
+            FROM re_authoritative_fund_state_qtr
+            WHERE env_id = %s
+              AND business_id = %s::uuid
+              AND quarter = %s
+              AND promotion_state = 'released'
+            ORDER BY fund_id, released_at DESC NULLS LAST, created_at DESC
+            """,
+            (str(env_id), str(business_id), quarter),
+        )
+        rows = cur.fetchall() or []
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        returned_quarter = str(row["quarter"])
+        state = {
+            "period_start": _normalize(row.get("period_start")),
+            "period_end": _normalize(row.get("period_end")),
+            "canonical_metrics": _normalize(row.get("canonical_metrics") or {}),
+            "display_metrics": _normalize(row.get("display_metrics") or {}),
+        }
+        results.append(
+            {
+                "entity_type": "fund",
+                "entity_id": row["fund_id"],
+                "quarter": returned_quarter,
+                "requested_quarter": quarter,
+                "period_exact": returned_quarter == quarter,
+                "state_origin": "authoritative",
+                "audit_run_id": row["audit_run_id"],
+                "snapshot_version": row["snapshot_version"],
+                "promotion_state": row["promotion_state"],
+                "trust_status": row["trust_status"],
+                "breakpoint_layer": row.get("breakpoint_layer"),
+                "null_reason": None,
+                "state": state,
+                "null_reasons": _normalize(row.get("null_reasons") or {}),
+                "formulas": _normalize(row.get("formulas") or {}),
+                "provenance": _normalize(row.get("provenance") or []),
+                "artifact_paths": _normalize(row.get("artifact_paths") or {}),
+            }
+        )
+    return results
