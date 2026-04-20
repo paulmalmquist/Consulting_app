@@ -1014,3 +1014,125 @@ class OperatorCommandCenterOut(BaseModel):
     cash_at_risk: CashAtRiskOut | None = None
     demo_script: list[str] = Field(default_factory=list)
     improvements: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Site Decision Surface (Hall Boys operator underwriting)
+# ---------------------------------------------------------------------------
+
+
+class OperatorSiteDecisionKpiOut(BaseModel):
+    model_config = {"extra": "allow"}
+    key: str
+    label: str
+    tone: Literal["green", "amber", "red", "gray"] = "gray"
+    null_reason: str | None = None
+
+
+class OperatorSiteDecisionRiskOut(BaseModel):
+    risk_id: str
+    label: str
+    severity: Literal["red", "amber"] = "amber"
+    irr_impact_bps: int | None = None
+    null_reason: str | None = None
+    confidence: str = "medium"
+    owner: str | None = None
+    due_date: str | None = None
+    required_action: str
+    context_task_id: str | None = None
+
+
+class OperatorSiteDecisionEventOut(BaseModel):
+    event_id: str | None = None
+    ts: str | None = None
+    source: Literal["ordinance", "comp", "approval", "assumption", "document"] = "assumption"
+    change: str | None = None
+    magnitude: str | None = None
+    changes_recommendation: bool = False
+
+
+class OperatorSiteDecisionPortfolioRankOut(BaseModel):
+    rank: int
+    of: int
+
+
+class OperatorSiteDecisionPortfolioPeerOut(BaseModel):
+    model_config = {"extra": "allow"}
+    site_id: str | None = None
+    name: str | None = None
+    irr: float = 0.0
+    timeline: float = 0.0
+    friction: float = 0.0
+
+
+class OperatorSiteDecisionPortfolioFitOut(BaseModel):
+    rank_by_irr: OperatorSiteDecisionPortfolioRankOut
+    rank_by_timeline: OperatorSiteDecisionPortfolioRankOut
+    rank_by_friction: OperatorSiteDecisionPortfolioRankOut
+    headline: str
+    peers: list[OperatorSiteDecisionPortfolioPeerOut] = Field(default_factory=list)
+
+
+class OperatorSiteDecisionWorkstreamOut(BaseModel):
+    name: str
+    owner: str
+    status: Literal["on_track", "at_risk", "blocked"] = "on_track"
+    next_milestone: str
+    next_milestone_due: str | None = None
+    last_completed_step: str | None = None
+    blockers: list[str] = Field(default_factory=list)
+    task_ids: list[str] = Field(default_factory=list)
+
+
+class OperatorSiteDecisionSiteOut(BaseModel):
+    model_config = {"extra": "allow"}
+    site_id: str
+    name: str | None = None
+
+
+class OperatorSiteDecisionEvidenceOut(BaseModel):
+    model_config = {"extra": "allow"}
+
+
+class OperatorSiteDecisionOut(BaseModel):
+    site_id: str
+    site: OperatorSiteDecisionSiteOut
+    recommendation: Literal["proceed", "proceed_with_conditions", "hold", "reject"] = "hold"
+    conviction: int = 0
+    recommendation_owner: str
+    recommendation_updated_at: str
+    decision_summary: str
+    fail_condition: str | None = None
+    fail_condition_null_reason: str | None = None
+    kpis: list[OperatorSiteDecisionKpiOut] = Field(default_factory=list)
+    scenarios: dict[str, Any] | None = None
+    risks: list[OperatorSiteDecisionRiskOut] = Field(default_factory=list)
+    event_log: list[OperatorSiteDecisionEventOut] = Field(default_factory=list)
+    portfolio_fit: OperatorSiteDecisionPortfolioFitOut
+    workstreams: list[OperatorSiteDecisionWorkstreamOut] = Field(default_factory=list)
+    evidence: OperatorSiteDecisionEvidenceOut = Field(default_factory=OperatorSiteDecisionEvidenceOut)
+
+
+class OperatorSiteDecisionMemoOut(BaseModel):
+    memo_markdown: str
+    sections: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+class OperatorSiteDecisionAssignDiligenceIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    title: str
+    owner: str
+    description: str | None = None
+    due_date: str | None = None
+    risk_id: str | None = None
+    priority: Literal["low", "medium", "high", "critical"] = "high"
+
+
+class OperatorSiteDecisionAssignDiligenceOut(BaseModel):
+    task_id: str
+    risk_id: str | None = None
+    title: str
+    owner: str
+    status: str = "created"
+    created_at: str

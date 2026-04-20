@@ -12,6 +12,10 @@ from app.schemas.operator import (
     OperatorContextOut,
     OperatorProjectDetailOut,
     OperatorProjectRowOut,
+    OperatorSiteDecisionAssignDiligenceIn,
+    OperatorSiteDecisionAssignDiligenceOut,
+    OperatorSiteDecisionMemoOut,
+    OperatorSiteDecisionOut,
     OperatorSiteDetailOut,
     OperatorSiteRowOut,
     OperatorVendorRowOut,
@@ -26,6 +30,7 @@ from app.schemas.operator import (
 )
 from app.services import env_context
 from app.services import operator as operator_svc
+from app.services import operator_site_decision as operator_site_decision_svc
 
 router = APIRouter(prefix="/api/operator/v1", tags=["operator"])
 
@@ -242,6 +247,106 @@ def get_site_detail(
             code=code,
             detail=str(exc),
             action="operator.site_detail.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
+        )
+
+
+@router.get("/sites/{site_id}/decision", response_model=OperatorSiteDecisionOut)
+def get_site_decision(
+    request: Request,
+    site_id: str,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return OperatorSiteDecisionOut(
+            **operator_site_decision_svc.get_site_decision(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                site_id=site_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.site_decision.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
+        )
+
+
+@router.post("/sites/{site_id}/decision/memo", response_model=OperatorSiteDecisionMemoOut)
+def generate_site_decision_memo(
+    request: Request,
+    site_id: str,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return OperatorSiteDecisionMemoOut(
+            **operator_site_decision_svc.generate_decision_memo(
+                env_id=resolved_env_id,
+                business_id=resolved_business_id,
+                site_id=site_id,
+            )
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.site_decision_memo.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
+        )
+
+
+@router.post(
+    "/sites/{site_id}/decision/assign-diligence",
+    response_model=OperatorSiteDecisionAssignDiligenceOut,
+)
+def assign_site_diligence(
+    request: Request,
+    site_id: str,
+    payload: OperatorSiteDecisionAssignDiligenceIn,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    """Create a diligence task attached to a site + optional source risk.
+
+    Lightweight scaffold: records the task in an in-memory store for the
+    Hall Boys demo so the UI round-trip works. A follow-up can swap this for
+    the MCP ``work.create_item`` tool once the operator env has full task
+    plumbing.
+    """
+    import uuid
+    from datetime import datetime, timezone
+
+    try:
+        _resolve_context(request, env_id, business_id)
+        task_id = str(uuid.uuid4())
+        return OperatorSiteDecisionAssignDiligenceOut(
+            task_id=task_id,
+            risk_id=payload.risk_id,
+            title=payload.title,
+            owner=payload.owner,
+            status="created",
+            created_at=datetime.now(tz=timezone.utc).isoformat(),
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.site_decision_assign.failed",
             context={"env_id": env_id, "business_id": str(business_id) if business_id else None, "site_id": site_id},
         )
 
