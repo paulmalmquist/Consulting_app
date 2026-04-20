@@ -1,0 +1,70 @@
+{
+  "_documentation": "Golden asset fixture — one asset with known NOI timeline, exit cap, debt, and ownership. All expected values precomputed by hand for audit. If the engine produces different numbers, either the engine has drifted or this fixture has drifted — either way investigate before promoting any snapshot that depends on asset rollup math.",
+
+  "asset": {
+    "asset_id": "00000000-0000-0000-0000-0000000a55e7",
+    "name": "Golden Plaza Office Tower",
+    "property_type": "office",
+    "acquisition_date": "2023-01-01",
+    "acquisition_price": "50000000.00",
+    "valuation_date": "2026-06-30"
+  },
+
+  "noi_timeline_annualized": {
+    "_note": "NOI is net operating income per year. H1 2026 annualized to 3472500 for simplicity; H1 actual = 1736250 (exactly half).",
+    "2023": "3000000.00",
+    "2024": "3150000.00",
+    "2025": "3307500.00",
+    "2026_H1_actual": "1736250.00",
+    "2026_annualized_at_terminal": "3472500.00"
+  },
+
+  "exit_assumptions": {
+    "exit_cap_rate": "0.055",
+    "_formula": "exit_value = 2026_annualized_NOI / exit_cap_rate",
+    "terminal_period": "2026Q2",
+    "expected_gross_value_2026Q2": "63136363.64"
+  },
+
+  "debt_schedule": {
+    "_note": "Simple IO loan at acquisition; principal unchanged through the hold.",
+    "original_principal": "30000000.00",
+    "rate_annual": "0.055",
+    "amortization_type": "interest_only",
+    "balance_at_2026Q2": "30000000.00",
+    "interest_expense_annualized": "1650000.00"
+  },
+
+  "ownership": {
+    "_note": "Asset is held in a JV where the fund owns 85%.",
+    "effective_fund_ownership": "0.85"
+  },
+
+  "expected_nav": {
+    "_precomputed_by_hand": true,
+    "gross_value_2026Q2": "63136363.64",
+    "debt_balance_2026Q2": "30000000.00",
+    "raw_nav_2026Q2": "33136363.64",
+    "_raw_nav_formula": "gross_value - debt_balance = 63136363.64 - 30000000.00",
+    "effective_owned_nav_2026Q2": "28165909.09",
+    "_effective_formula": "raw_nav * 0.85 = 33136363.64 * 0.85 = 28165909.094 → rounded 28165909.09"
+  },
+
+  "expected_cash_flows_for_asset_irr": {
+    "_note": "Equity perspective: investor puts in $20M at acquisition, receives net NOI after debt service each year, and receives exit proceeds net of debt at the end.",
+    "flows": [
+      {"date": "2023-01-01", "amount": "-20000000.00", "comment": "equity outlay (50M price - 30M debt)"},
+      {"date": "2023-12-31", "amount": "1350000.00", "comment": "NOI after debt = 3000000 - 1650000"},
+      {"date": "2024-12-31", "amount": "1500000.00", "comment": "3150000 - 1650000"},
+      {"date": "2025-12-31", "amount": "1657500.00", "comment": "3307500 - 1650000"},
+      {"date": "2026-06-30", "amount": "34047613.64", "comment": "H1 net CF (1736250 - 825000 = 911250) + exit proceeds net of debt (63136363.64 - 30000000 = 33136363.64) = 34047613.64"}
+    ],
+    "_note_irr": "Engine-verified date-weighted XIRR on these flows is 22.0324% (2026-04-19, bisection solver irr_engine.xirr). Independent Newton-step solver must agree within 1bp. If either solver drifts from this value, investigate before promoting snapshots that depend on asset IRR.",
+    "engine_verified_irr": "0.220324"
+  },
+
+  "tolerances": {
+    "nav_usd": "0.01",
+    "irr_bps": "1"
+  }
+}
