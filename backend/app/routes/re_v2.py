@@ -84,6 +84,7 @@ from app.services import (
     re_env_portfolio,
     re_portfolio_signals,
     re_query_resolver,
+    re_reconciliation,
     re_scenario,
     re_model,
     re_model_scenario,
@@ -263,6 +264,48 @@ def get_environment_hybrid_search(
             limit=limit,
             debug=debug,
         )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/environments/{env_id}/reconciliation/{quarter}")
+def get_environment_reconciliation(
+    env_id: UUID,
+    quarter: str,
+    request: Request,
+):
+    """Hierarchical reconciliation surface: asset → investment → fund → portfolio.
+
+    Diagnostic endpoint surfacing deltas between rollup-computed values
+    (ownership-weighted per Patch A) and released authoritative snapshot
+    claims. Used to:
+      - validate re-promoted snapshots before/after invalidate → rebuild → promote
+      - detect stale snapshots (state_origin != authoritative)
+      - detect ownership mismatches at fund aggregation
+      - detect period mismatches (effective quarter != requested)
+
+    Response: { env_id, quarter, rows: [ReconciliationRow, ...] } where each
+    row follows the plan §A6 contract (parent_expected defined per level,
+    snapshot_version + source_origin on fund/portfolio rows).
+    """
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        rows = re_reconciliation.build_environment_reconciliation(
+            env_id=env_id,
+            business_id=resolved.business_id,
+            quarter=quarter,
+        )
+        return {
+            "env_id": str(env_id),
+            "business_id": str(resolved.business_id),
+            "quarter": quarter,
+            "rows": rows,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
     except Exception as exc:
         raise _to_http(exc)
 

@@ -481,3 +481,252 @@ def _record_result(
                 json.dumps(details, default=str) if details else None,
             ),
         )
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Hierarchical environment reconciliation (asset → investment → fund → portfolio)
+#
+# Per plan §A6. Diagnostic surface comparing rollup-computed values against
+# the released authoritative snapshot's claim. Surfaces:
+#   - ownership mismatches (rollup vs. snapshot disagreement at investment → fund)
+#   - stale snapshots (state_origin != authoritative OR promotion_state != released)
+#   - null-by-design metrics (fail-closed waterfall propagation)
+#   - period mismatches (effective quarter != requested quarter)
+#
+# Parent-expected semantics (per plan):
+#   asset-level        → parent = investment rollup NAV
+#   investment-level   → parent = fund authoritative snapshot ending_nav
+#   fund-level         → parent = portfolio aggregation (sum of released fund NAV)
+#   portfolio-level    → parent = None (top of chain)
+# ───────────────────────────────────────────────────────────────────────────
+
+NAV_TOLERANCE_USD = Decimal("1")        # absolute tolerance for within_tolerance flag
+NAV_TOLERANCE_PCT = Decimal("0.001")    # 0.1% relative tolerance
+
+
+def _flag_delta(delta: Decimal | None, base: Decimal | None) -> str:
+    """Classify a delta against tolerance thresholds."""
+    if delta is None or base is None:
+        return "null_by_design"
+    if abs(delta) <= NAV_TOLERANCE_USD:
+        return "within_tolerance"
+    if base != 0 and abs(delta / base) <= NAV_TOLERANCE_PCT:
+        return "within_tolerance"
+    return "delta_gt_1usd"
+
+
+def _to_decimal_or_none(v: object | None) -> Decimal | None:
+    if v is None:
+        return None
+    try:
+        return Decimal(str(v))
+    except Exception:
+        return None
+
+
+def build_environment_reconciliation(
+    *,
+    env_id: UUID | str,
+    business_id: UUID | str,
+    quarter: str,
+) -> list[dict]:
+    """Build hierarchical reconciliation rows for an environment at a quarter.
+
+    Returns a flat list of rows, each with:
+      level, entity_id, entity_name, raw_value, effective_owned_value,
+      parent_contribution, parent_expected, delta, delta_pct, flag.
+
+    Fund-level and portfolio-level rows additionally carry:
+      source_origin, snapshot_version, promotion_state.
+
+    Reuses rollup_investment (Patch A ownership-at-edge) and
+    get_authoritative_state (INV-1 source of truth). No direct reads of
+    legacy re_fund_quarter_state or re_fund_metrics_qtr.
+    """
+    from app.services.re_authoritative_snapshots import get_authoritative_state
+    from app.services.re_rollup import rollup_investment
+
+    env_id_s = str(env_id)
+    business_id_s = str(business_id)
+    rows: list[dict] = []
+
+    # ── 1. Load fund + investment topology (non-quarantined funds only) ──
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT fund_id::text AS fund_id, name
+            FROM repe_fund
+            WHERE business_id = %s::uuid
+              AND name NOT ILIKE '%%[QUARANTINED]%%'
+            ORDER BY name
+            """,
+            (business_id_s,),
+        )
+        funds = cur.fetchall() or []
+
+        fund_investments: dict[str, list[dict]] = {}
+        for fund in funds:
+            cur.execute(
+                """
+                SELECT investment_id::text AS investment_id, name
+                FROM repe_investment
+                WHERE fund_id = %s::uuid
+                ORDER BY name
+                """,
+                (fund["fund_id"],),
+            )
+            fund_investments[fund["fund_id"]] = cur.fetchall() or []
+
+    # ── 2. Portfolio-level expected = sum of released fund ending_nav ──
+    portfolio_expected = Decimal("0")
+    fund_auth_by_id: dict[str, dict] = {}
+    for fund in funds:
+        try:
+            auth = get_authoritative_state(
+                entity_type="fund",
+                entity_id=fund["fund_id"],
+                quarter=quarter,
+            )
+        except Exception:
+            auth = {
+                "state_origin": "fallback",
+                "promotion_state": None,
+                "trust_status": "missing_source",
+                "snapshot_version": None,
+                "state": None,
+            }
+        fund_auth_by_id[fund["fund_id"]] = auth
+        if (
+            auth.get("state_origin") == "authoritative"
+            and auth.get("promotion_state") == "released"
+            and auth.get("state")
+        ):
+            nav = _to_decimal_or_none(
+                (auth["state"].get("canonical_metrics") or {}).get("ending_nav")
+            )
+            if nav is not None:
+                portfolio_expected += nav
+
+    # ── 3. Per-fund rollup: sum investment rollups → fund rollup value ──
+    fund_rollup_value: dict[str, Decimal] = {}
+    investment_rollup_value: dict[str, Decimal] = {}
+    for fund in funds:
+        fund_id = fund["fund_id"]
+        fund_total = Decimal("0")
+        for inv in fund_investments.get(fund_id, []):
+            try:
+                rollup = rollup_investment(investment_id=inv["investment_id"], quarter=quarter)
+                inv_nav = _to_decimal_or_none(rollup.get("agg_nav")) or Decimal("0")
+            except Exception:
+                inv_nav = Decimal("0")
+            investment_rollup_value[inv["investment_id"]] = inv_nav
+            fund_total += inv_nav
+        fund_rollup_value[fund_id] = fund_total
+
+    # ── 4. Emit rows in hierarchical order ──────────────────────────────
+    # Investment rows (parent_expected = fund snapshot ending_nav)
+    for fund in funds:
+        fund_id = fund["fund_id"]
+        auth = fund_auth_by_id[fund_id]
+        canonical = (auth.get("state") or {}).get("canonical_metrics", {}) if auth.get("state") else {}
+        fund_snapshot_nav = _to_decimal_or_none(canonical.get("ending_nav")) if canonical else None
+        is_released = (
+            auth.get("state_origin") == "authoritative"
+            and auth.get("promotion_state") == "released"
+        )
+
+        for inv in fund_investments.get(fund_id, []):
+            inv_nav = investment_rollup_value.get(inv["investment_id"], Decimal("0"))
+            # Investment's parent_expected = fund snapshot ending_nav (from auth).
+            # Investment's parent_contribution = its own rollup NAV (this row's effective_owned_value).
+            parent_expected = fund_snapshot_nav if is_released else None
+            if not is_released:
+                flag = "stale_snapshot"
+                delta = None
+                delta_pct = None
+            else:
+                # Per-investment delta is diagnostic: does this investment's
+                # contribution match the portion the fund snapshot attributes
+                # to it? Without a per-investment snapshot breakdown, we can
+                # only compare sum(investment rollup) vs fund snapshot at the
+                # fund level. At the investment level we surface the rollup
+                # value and flag within_tolerance if the fund-level sum ties.
+                fund_sum = fund_rollup_value[fund_id]
+                delta = inv_nav - (parent_expected * (inv_nav / fund_sum) if fund_sum else Decimal("0"))
+                delta_pct = float(delta / parent_expected) if parent_expected else None
+                flag = _flag_delta(delta, parent_expected)
+
+            rows.append({
+                "level": "investment",
+                "entity_id": inv["investment_id"],
+                "entity_name": inv["name"],
+                "raw_value": str(inv_nav),
+                "effective_owned_value": str(inv_nav),  # already ownership-normalized by rollup_investment
+                "parent_contribution": str(inv_nav),
+                "parent_expected": str(parent_expected) if parent_expected is not None else None,
+                "delta": str(delta) if delta is not None else None,
+                "delta_pct": delta_pct,
+                "flag": flag,
+            })
+
+    # Fund rows (parent_expected = portfolio aggregation)
+    for fund in funds:
+        fund_id = fund["fund_id"]
+        auth = fund_auth_by_id[fund_id]
+        canonical = (auth.get("state") or {}).get("canonical_metrics", {}) if auth.get("state") else {}
+        fund_snapshot_nav = _to_decimal_or_none(canonical.get("ending_nav")) if canonical else None
+        fund_rollup_nav = fund_rollup_value.get(fund_id, Decimal("0"))
+        is_released = (
+            auth.get("state_origin") == "authoritative"
+            and auth.get("promotion_state") == "released"
+        )
+
+        # Fund-level delta: rollup (sum of investments) vs snapshot claim.
+        # This is the headline reconciliation — if this is out of tolerance,
+        # either ownership is misapplied, scope is wrong, or the snapshot is stale.
+        if is_released and fund_snapshot_nav is not None:
+            delta = fund_rollup_nav - fund_snapshot_nav
+            delta_pct = float(delta / fund_snapshot_nav) if fund_snapshot_nav else None
+            flag = _flag_delta(delta, fund_snapshot_nav)
+        else:
+            delta = None
+            delta_pct = None
+            flag = "stale_snapshot"
+
+        rows.append({
+            "level": "fund",
+            "entity_id": fund_id,
+            "entity_name": fund["name"],
+            "raw_value": str(fund_rollup_nav),
+            "effective_owned_value": str(fund_rollup_nav),
+            "parent_contribution": str(fund_snapshot_nav) if fund_snapshot_nav is not None else None,
+            "parent_expected": str(portfolio_expected),
+            "delta": str(delta) if delta is not None else None,
+            "delta_pct": delta_pct,
+            "flag": flag,
+            # Fund-level audit trail (plan §A6)
+            "source_origin": auth.get("state_origin"),
+            "snapshot_version": auth.get("snapshot_version"),
+            "promotion_state": auth.get("promotion_state"),
+        })
+
+    # Portfolio row (top of chain; no parent)
+    portfolio_rollup = sum(fund_rollup_value.values(), Decimal("0"))
+    portfolio_delta = portfolio_rollup - portfolio_expected
+    rows.append({
+        "level": "portfolio",
+        "entity_id": env_id_s,
+        "entity_name": "Environment Portfolio",
+        "raw_value": str(portfolio_rollup),
+        "effective_owned_value": str(portfolio_rollup),
+        "parent_contribution": str(portfolio_expected),
+        "parent_expected": None,
+        "delta": str(portfolio_delta),
+        "delta_pct": float(portfolio_delta / portfolio_expected) if portfolio_expected else None,
+        "flag": _flag_delta(portfolio_delta, portfolio_expected),
+        "source_origin": "derived",
+        "snapshot_version": None,
+        "promotion_state": None,
+    })
+
+    return rows
