@@ -9562,6 +9562,257 @@ export function getOperatorSiteDetail(siteId: string, envId: string, businessId?
   });
 }
 
+// ---------------------------------------------------------------------------
+// Hall Boys site decision surface
+// ---------------------------------------------------------------------------
+
+export type OperatorSiteDecisionRecommendation =
+  | "proceed"
+  | "proceed_with_conditions"
+  | "hold"
+  | "reject";
+
+export interface OperatorSiteDecisionKpi {
+  key: string;
+  label: string;
+  tone: "green" | "amber" | "red" | "gray";
+  null_reason?: string | null;
+  value_pct?: number | null;
+  hurdle_pct?: number | null;
+  value_usd?: number | null;
+  comp_cycle_days_median?: number | null;
+  assumed_debt_ratio?: number | null;
+  risk_label?: string | null;
+  irr_impact_bps?: number | null;
+}
+
+export interface OperatorSiteDecisionRisk {
+  risk_id: string;
+  label: string;
+  severity: "red" | "amber";
+  irr_impact_bps: number | null;
+  null_reason?: string | null;
+  confidence: string;
+  owner: string | null;
+  due_date: string | null;
+  required_action: string;
+  context_task_id?: string | null;
+}
+
+export interface OperatorSiteDecisionEvent {
+  event_id: string | null;
+  ts: string | null;
+  source: "ordinance" | "comp" | "approval" | "assumption" | "document";
+  change: string | null;
+  magnitude: string | null;
+  changes_recommendation: boolean;
+}
+
+export interface OperatorSiteDecisionPortfolioRank {
+  rank: number;
+  of: number;
+}
+
+export interface OperatorSiteDecisionPortfolioPeer {
+  site_id: string | null;
+  name: string | null;
+  irr: number;
+  timeline: number;
+  friction: number;
+}
+
+export interface OperatorSiteDecisionPortfolioFit {
+  rank_by_irr: OperatorSiteDecisionPortfolioRank;
+  rank_by_timeline: OperatorSiteDecisionPortfolioRank;
+  rank_by_friction: OperatorSiteDecisionPortfolioRank;
+  headline: string;
+  peers: OperatorSiteDecisionPortfolioPeer[];
+}
+
+export interface OperatorSiteDecisionWorkstream {
+  name: string;
+  owner: string;
+  status: "on_track" | "at_risk" | "blocked";
+  next_milestone: string;
+  next_milestone_due: string | null;
+  last_completed_step: string | null;
+  blockers: string[];
+  task_ids: string[];
+}
+
+export interface OperatorSiteDecisionSite {
+  site_id: string;
+  name?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  municipality_friction_score?: number | null;
+  address?: string | null;
+  parcel_id?: string | null;
+  zoning?: string | null;
+  acreage?: number | null;
+  status?: string | null;
+  buildable_units_low?: number | null;
+  buildable_units_high?: number | null;
+  height_limit_ft?: number | null;
+  density_cap_du_per_acre?: number | null;
+  feasibility_score?: number | null;
+  confidence?: string | null;
+  risk_level?: string | null;
+  approval_timeline_days_low?: number | null;
+  approval_timeline_days_high?: number | null;
+  target_project_type?: string | null;
+  owner?: string | null;
+}
+
+export interface OperatorSiteDecisionScenarioPreset {
+  id: string;
+  label: string;
+  assumptions?: {
+    density_units?: number | null;
+    approval_delay_days?: number | null;
+    cost_inflation_pct?: number | null;
+  };
+  outputs?: {
+    irr_pct?: number | null;
+    profit_margin_pct?: number | null;
+    timeline_days?: number | null;
+    total_dev_cost_usd?: number | null;
+  };
+}
+
+export interface OperatorSiteDecisionScenarios {
+  site_id?: string;
+  presets?: OperatorSiteDecisionScenarioPreset[];
+  active_ordinance_impact?: {
+    ordinance_event_id?: string;
+    description?: string;
+    event_effective_date?: string;
+    event_change_type?: string;
+    delta_vs_base?: {
+      approval_delay_days?: number | null;
+      irr_pct?: number | null;
+      profit_margin_pct?: number | null;
+      timeline_days?: number | null;
+      total_dev_cost_usd?: number | null;
+      confidence?: string;
+    };
+  } | null;
+}
+
+export interface OperatorSiteDecisionEvidence {
+  comparable_projects?: Array<{
+    id?: string;
+    name?: string;
+    outcome?: string;
+    cycle_days?: number;
+    matched_on?: string[];
+    notes?: string;
+  }>;
+  feasibility?: {
+    id?: string;
+    generated_at?: string;
+    summary?: string;
+    constraints?: Array<{
+      rule_id?: string;
+      impact?: string;
+      note?: string;
+      confidence?: string;
+    }>;
+    recommended_actions?: string[];
+  } | null;
+  municipality?: {
+    id?: string;
+    name?: string;
+    state?: string;
+    overall_friction_score?: number;
+    median_approval_days?: number;
+    variance_required_rate?: number;
+    risk_level?: string;
+  } | null;
+  ordinance_rules?: Array<{
+    id?: string;
+    title?: string;
+    summary?: string;
+    effective_date?: string;
+    severity?: string;
+  }>;
+}
+
+export interface OperatorSiteDecision {
+  site_id: string;
+  site: OperatorSiteDecisionSite;
+  recommendation: OperatorSiteDecisionRecommendation;
+  conviction: number;
+  recommendation_owner: string;
+  recommendation_updated_at: string;
+  decision_summary: string;
+  fail_condition: string | null;
+  fail_condition_null_reason: string | null;
+  kpis: OperatorSiteDecisionKpi[];
+  scenarios: OperatorSiteDecisionScenarios | null;
+  risks: OperatorSiteDecisionRisk[];
+  event_log: OperatorSiteDecisionEvent[];
+  portfolio_fit: OperatorSiteDecisionPortfolioFit;
+  workstreams: OperatorSiteDecisionWorkstream[];
+  evidence: OperatorSiteDecisionEvidence;
+}
+
+export interface OperatorSiteDecisionMemo {
+  memo_markdown: string;
+  sections: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+export interface OperatorSiteDecisionAssignDiligenceResult {
+  task_id: string;
+  risk_id: string | null;
+  title: string;
+  owner: string;
+  status: string;
+  created_at: string;
+}
+
+export function getOperatorSiteDecision(
+  siteId: string,
+  envId: string,
+  businessId?: string,
+): Promise<OperatorSiteDecision> {
+  return bosFetch(`/api/operator/v1/sites/${siteId}/decision`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function postOperatorSiteDecisionMemo(
+  siteId: string,
+  envId: string,
+  businessId?: string,
+): Promise<OperatorSiteDecisionMemo> {
+  return bosFetch(`/api/operator/v1/sites/${siteId}/decision/memo`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function postOperatorSiteAssignDiligence(
+  siteId: string,
+  payload: {
+    title: string;
+    owner: string;
+    description?: string | null;
+    due_date?: string | null;
+    risk_id?: string | null;
+    priority?: "low" | "medium" | "high" | "critical";
+  },
+  envId: string,
+  businessId?: string,
+): Promise<OperatorSiteDecisionAssignDiligenceResult> {
+  return bosFetch(`/api/operator/v1/sites/${siteId}/decision/assign-diligence`, {
+    method: "POST",
+    params: { env_id: envId, business_id: businessId },
+    body: JSON.stringify(payload),
+  });
+}
+
 export function listOperatorOrdinanceChanges(envId: string, businessId?: string, windowDays?: number): Promise<OperatorOrdinanceChangeRow[]> {
   return bosFetch("/api/operator/v1/site-risk/ordinance-changes", {
     params: { env_id: envId, business_id: businessId, window_days: windowDays?.toString() },
