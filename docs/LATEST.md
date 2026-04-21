@@ -99,6 +99,7 @@
 | 6:10 AM | novendor-market-scanner | |
 | 7:00 AM | morning-business-intel-brief | `docs/daily-intel/` |
 | 7:00 AM | novendor-competitor-deconstruction | |
+| 7:00 AM (wkdy ET) | hr-daily-decision | `scripts/hr_daily_decision.py` → writes to `hr_predictions` + `hr_paper_trading_ledger` (see `skills/historyrhymes-execution-layer/SKILL.md`) |
 | 7:30 AM | morning-ops-digest | `docs/ops-reports/digests/` + updates THIS FILE |
 | 8:00 AM | competitor-reverse-engineering | `docs/competitor-research/` |
 | 8:00 AM | novendor-deal-opportunity-miner | |

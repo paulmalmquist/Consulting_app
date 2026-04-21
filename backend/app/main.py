@@ -67,7 +67,7 @@ from app.routes import (
     opportunity_engine,
     psychrag,
 )
-from app.routes import re_authoritative
+from app.routes import re_authoritative, re_operator_diagnostics
 from app.routes.ai import router as ai_router
 from app.routes.ai_gateway import router as ai_gateway_router
 from app.routes.ai_audit import router as ai_audit_router
@@ -98,6 +98,7 @@ from app.routes import market_regime
 from app.routes import market_correlation
 from app.routes import market_research_state
 from app.routes import rhymes
+from app.routes import hr as hr_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
 from app.routes import trades
@@ -352,6 +353,7 @@ app.include_router(re_v1_context.router)
 app.include_router(re_v1_funds.router)
 app.include_router(re_v2.router)
 app.include_router(re_authoritative.router)
+app.include_router(re_operator_diagnostics.router)
 app.include_router(re_query.router)
 app.include_router(re_financial_intelligence.router)
 app.include_router(re_sustainability.router)
@@ -384,6 +386,7 @@ app.include_router(market_regime.router)
 app.include_router(market_correlation.router)
 app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
+app.include_router(hr_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
 app.include_router(trades.router)

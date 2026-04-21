@@ -1,0 +1,13 @@
+Morning briefing
+
+Unread messages that look human and important:
+{important_lines}
+
+Draft replies suggested:
+{draft_lines}
+
+Messages that look safe to archive or move:
+{low_value_lines}
+
+Pending actions already staged:
+{pending_lines}

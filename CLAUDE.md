@@ -116,6 +116,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
+| trade decision, position sizing, allocation, execution layer, regime call, daily decision build, paper trading ledger, trading routine, morning book | `skills/historyrhymes-execution-layer/SKILL.md` with `skills/historyrhymes/SKILL.md` as support |
 | portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.MD` as reference |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
@@ -138,6 +139,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | `repo-b/db/schema/`, `supabase/` | SQL-first schema and data contracts | `data-winston`, `feature-dev` |
 | `orchestration/`, `scripts/` | operational tooling and agent workflows | `commander-winston`, `sync-winston`, `deploy-winston`, `feature-dev` |
 | `skills/historyrhymes/`, Databricks notebooks, `novendor_1.historyrhymes.*` | Financial ML, feature engineering, model training, backtesting | `historyrhymes`, `market-rotation-engine` |
+| `skills/historyrhymes-execution-layer/`, `backend/app/services/hr_decision_runner.py`, `backend/app/routes/hr.py`, `scripts/hr_daily_decision.py`, `scripts/hr_weekly_brief.py`, `repo-b/src/app/lab/env/[envId]/historyrhymes/`, `repo-b/src/components/historyrhymes/`, `repo-b/src/lib/historyrhymes/` | History Rhymes execution loop (research → decision → display) | `historyrhymes-execution-layer`, `historyrhymes` |
 | `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
@@ -284,6 +286,10 @@ This is not optional busywork — these files contain real production data (test
 - `build features for the directional predictor` -> `skills/historyrhymes/SKILL.md`
 - `check MLflow experiment results` -> `skills/historyrhymes/SKILL.md`
 - `bootstrap the historyrhymes schema on Databricks` -> `skills/historyrhymes/SKILL.md`
+- `give me today's history rhymes decision call` -> `skills/historyrhymes-execution-layer/SKILL.md`
+- `run the daily decision build` -> `skills/historyrhymes-execution-layer/SKILL.md`
+- `open the trading routine page` -> `skills/historyrhymes-execution-layer/SKILL.md`
+- `append to the paper trading ledger` -> `skills/historyrhymes-execution-layer/SKILL.md`
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support

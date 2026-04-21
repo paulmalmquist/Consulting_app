@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://winston/hr/execution-layer/output",
+  "title": "HistoryRhymes Execution Layer Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["regime", "confidence", "positions", "risk", "alerts", "execution_tasks"],
+  "properties": {
+    "regime": {
+      "type": "string",
+      "enum": ["expansion", "late_cycle", "stagflation", "crisis", "recovery", "unknown"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "positions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset",
+          "direction",
+          "size",
+          "time_horizon_days",
+          "entry_type",
+          "key_drivers",
+          "top_analog",
+          "rhyme_score",
+          "invalidation",
+          "next_check"
+        ],
+        "properties": {
+          "asset": { "type": "string", "minLength": 1 },
+          "direction": { "type": "string", "enum": ["long", "short", "neutral"] },
+          "size": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "time_horizon_days": { "type": "integer", "enum": [7, 30, 90] },
+          "entry_type": { "type": "string", "enum": ["immediate", "staggered", "conditional"] },
+          "key_drivers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "top_analog": { "type": "string" },
+          "rhyme_score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "invalidation": { "type": "string", "minLength": 1 },
+          "next_check": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gross_exposure",
+        "net_exposure",
+        "max_position_size",
+        "stop_loss_logic",
+        "volatility_adjustment"
+      ],
+      "properties": {
+        "gross_exposure": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "net_exposure": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+        "max_position_size": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "stop_loss_logic": { "type": "string" },
+        "volatility_adjustment": { "type": "string" }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "message", "action"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["honeypot", "crowding", "divergence", "data_quality"]
+          },
+          "message": { "type": "string", "minLength": 1 },
+          "action": {
+            "type": "string",
+            "enum": ["reduce", "hedge", "pause", "reverse"]
+          }
+        }
+      }
+    },
+    "execution_tasks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

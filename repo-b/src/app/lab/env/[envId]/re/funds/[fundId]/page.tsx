@@ -2809,7 +2809,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
 
       <PerformanceDriversCard drivers={performanceDrivers} loading={overviewData.loading} />
 
-      <FundFootprintMap envId={envId} businessId={businessId} fundId={fund?.fund_id ?? ""} />
+      <FundFootprintMap envId={envId} businessId={businessId} fundId={fund?.fund_id ?? ""} quarter={quarter} />
 
       <ExposureInsightsCard
         sectorRows={sectorExposureRows}

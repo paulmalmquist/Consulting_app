@@ -1,0 +1,13 @@
+Inbox summary
+
+Scanned {message_count} messages.
+Important human: {important_count}
+Newsletter: {newsletter_count}
+Automated alert: {automated_count}
+Other: {other_count}
+
+Likely important:
+{important_lines}
+
+Low-value candidates:
+{low_value_lines}

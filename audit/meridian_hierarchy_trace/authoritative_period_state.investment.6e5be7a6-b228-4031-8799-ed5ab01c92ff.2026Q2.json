@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "6e5be7a6-b228-4031-8799-ed5ab01c92ff",
+  "investment_name": "Summit Retail Center",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "25760325.540000000000",
+    "ending_nav_full": "6996336.000000000000",
+    "beginning_nav_attributable": "20608260.432000000000",
+    "ending_nav_attributable": "5597068.800000000000",
+    "gross_operating_cash_flow_full": "-139529.44",
+    "fund_attributable_operating_cash_flow": "-111623.552000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-18763989.540000000000",
+    "fund_attributable_valuation_movement": "-15011191.632000000000",
+    "gross_return_amount": "-15122815.1840000000000000000000000000000000",
+    "gross_return_rate": "-0.587058387927",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-58.705838792700"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "144cd48c-b59c-403c-aa87-0248c812af3b"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "9f7f8461-3577-43da-b614-3ccce0ab9fde"
+    }
+  ]
+}

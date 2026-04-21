@@ -25,6 +25,7 @@ Approved durable prefixes for new public tables:
 - `dim_`
 - `fact_`
 - `stg_`
+- `hr_` — History Rhymes analytics module. **Exempt from `env_id`/RLS requirements**: single-tenant by construction (analytics/research data, not per-client business data). Existing tables (`hr_predictions`, `hr_pending_predictions`, `hr_agent_calibration`, `hr_episode_balance`, `hr_latest_agents`) established this convention; new `hr_*` tables should match.
 
 Experimental or frozen prefixes. Do not expand these without an explicit architecture review:
 

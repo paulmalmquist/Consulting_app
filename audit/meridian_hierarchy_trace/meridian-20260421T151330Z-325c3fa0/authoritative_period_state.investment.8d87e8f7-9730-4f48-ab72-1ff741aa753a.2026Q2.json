@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "8d87e8f7-9730-4f48-ab72-1ff741aa753a",
+  "investment_name": "Riverfront Apartments",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "80928497.760000000000",
+    "ending_nav_full": "44680034.910000000000",
+    "beginning_nav_attributable": "64742798.208000000000",
+    "ending_nav_attributable": "35744027.928000000000",
+    "gross_operating_cash_flow_full": "208576.49",
+    "fund_attributable_operating_cash_flow": "166861.192000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-36248462.850000000000",
+    "fund_attributable_valuation_movement": "-28998770.280000000000",
+    "gross_return_amount": "-28831909.0880000000000000000000000000000000",
+    "gross_return_rate": "-0.356263984703",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-35.626398470300"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "c7d5d4d1-7520-4871-a9e7-1c5e9b991134"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "1c4fa0f2-a043-4140-88dd-9c17bfd4bd79"
+    }
+  ]
+}

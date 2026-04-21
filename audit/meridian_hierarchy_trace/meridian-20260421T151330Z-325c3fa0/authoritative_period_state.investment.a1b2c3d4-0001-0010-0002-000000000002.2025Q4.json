@@ -1,0 +1,75 @@
+{
+  "entity_type": "investment",
+  "investment_id": "a1b2c3d4-0001-0010-0002-000000000002",
+  "investment_name": "MRF III \u2013 Phoenix Value-Add Portfolio",
+  "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+  "fund_name": "Meridian Real Estate Fund III",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "24158501.760000000000",
+    "ending_nav_full": "23730597.200000000000",
+    "beginning_nav_attributable": "19326801.408000000000",
+    "ending_nav_attributable": "18984477.760000000000",
+    "gross_operating_cash_flow_full": "-343184.58",
+    "fund_attributable_operating_cash_flow": "-274547.664000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-427904.560000000000",
+    "fund_attributable_valuation_movement": "-342323.648000000000",
+    "gross_return_amount": "-616871.312000000000000000000000000000000000",
+    "gross_return_rate": "-0.025534336447",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-2.553433644700"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "1d2fa52e-6c5f-4092-8c2e-5e9c867f3989"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "bba3b84e-be1e-48aa-8d77-79dafc3d843b"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "1c6b0b8c-238f-4641-9a1f-5d66e62f771e"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "9b908310-77aa-48ed-b425-f841c8d203fb"
+    }
+  ]
+}

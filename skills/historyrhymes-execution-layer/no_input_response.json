@@ -1,0 +1,22 @@
+{
+  "regime": "unknown",
+  "confidence": 0.0,
+  "positions": [],
+  "risk": {
+    "gross_exposure": 0.0,
+    "net_exposure": 0.0,
+    "max_position_size": 0.0,
+    "stop_loss_logic": "no positions taken; inputs missing",
+    "volatility_adjustment": "n/a"
+  },
+  "alerts": [
+    {
+      "type": "data_quality",
+      "message": "Required inputs missing: weekly brief, signal snapshot, or freshness verdict. Cannot allocate.",
+      "action": "pause"
+    }
+  ],
+  "execution_tasks": [
+    "Supply weekly brief (hr_weekly_briefs) and signal snapshot (hr_signal_snapshots) before re-invoking."
+  ]
+}

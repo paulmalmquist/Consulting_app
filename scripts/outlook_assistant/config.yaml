@@ -1,0 +1,29 @@
+{
+  "default_account": "Work",
+  "approval_mode": true,
+  "default_archive_folder": "Low Value",
+  "summary_folders": ["Inbox", "Important"],
+  "newsletter_senders": ["news@", "updates@"],
+  "automated_subject_keywords": ["alert", "notification", "digest"],
+  "important_sender_allowlist": [],
+  "attachment_save_dir": "~/Downloads/outlook_attachments",
+  "log_file": "scripts/outlook_assistant/logs/actions.jsonl",
+  "pending_actions_file": "scripts/outlook_assistant/runtime/pending_actions.json",
+  "reply_signature": "Best,\nPaul",
+  "lead_groups": {
+    "crm_existing_leads": {
+      "folders": ["Inbox"],
+      "sender_domains": [],
+      "contacts": [
+        {"name": "James Reddington", "email": "jreddington@branfordcastle.com", "company": "Branford Castle Partners", "title": "Managing Director"},
+        {"name": "Sarah Chen", "email": "schen@branfordcastle.com", "company": "Branford Castle Partners", "title": "VP Data & Analytics"},
+        {"name": "Michael Torres", "email": "mtorres@redstonecap.com", "company": "Redstone Capital Advisors", "title": "CFO"},
+        {"name": "Emily Park", "email": "epark@redstonecap.com", "company": "Redstone Capital Advisors", "title": "Director of Operations"},
+        {"name": "Robert Kim", "email": "rkim@pinnacleregroup.com", "company": "Pinnacle RE Group", "title": "VP Portfolio Analytics"},
+        {"name": "Lisa Montgomery", "email": "lmontgomery@pinnacleregroup.com", "company": "Pinnacle RE Group", "title": "COO"},
+        {"name": "David Nakamura", "email": "dnakamura@oakhilladvisory.com", "company": "Oak Hill Advisory", "title": "Head of Technology"},
+        {"name": "Anna Petrova", "email": "apetrova@greenfieldvc.com", "company": "Greenfield Ventures", "title": "Partner"}
+      ]
+    }
+  }
+}

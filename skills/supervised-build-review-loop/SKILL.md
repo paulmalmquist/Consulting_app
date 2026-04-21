@@ -118,6 +118,10 @@ Rules:
 - The bridge `requested_actor` should name who is supposed to act next.
 - The bridge `summary` and `details.next_action` should be short and deterministic, not conversational.
 - Any Claude -> Codex handoff that should wake Codex immediately must increment the bridge version and set `requested_actor: codex` with a Codex-requesting signal.
+- "The ball is in Codex's court" means the changed website feature or user flow has already been verified working end-to-end on the intended site surface.
+- In practice: if Claude is done and Codex is not actively doing more remediation work, that should imply Codex already went to the site, checked the real feature, and confirmed it is working.
+- Do not treat local tests, terminal success, code completion, or deploy success alone as enough to hand the ball back to Codex in a completed state.
+- If the change is deployed but the website behavior itself is still unverified, use an explicit verification-state baton such as `awaiting_live_verify` rather than implying the work is finished.
 
 ## Phase 0: Orient
 
@@ -316,6 +320,7 @@ Then update both baton-pass artifacts:
 
 - overwrite the JSON state with the current phase, owner, last completed step, next expected action, files touched, tests run, and blocker status
 - append one markdown log entry with the evidence and handoff note
+- if the handoff claims the feature is done or the ball is back in Codex's court, include explicit live-site proof for the actual changed feature
 
 ## Phase 5: Deploy
 
@@ -338,6 +343,10 @@ Test the deployed result like a real user:
 - record pass/fail, visible errors, UX gaps, data mismatches, broken states, and unauthorized or empty states
 
 Terminal success does not count as completion.
+Deploy success does not count as completion.
+The ball is not back in Codex's court until the actual website feature has been confirmed working on the real site.
+If the changed feature is still wrong, unconfirmed, or only proven locally, keep the run in verification or remediation rather than treating it as a completed handoff.
+If Claude is done and Codex is idle, the default interpretation should be that Codex already performed this live check and has explicit proof for it.
 
 ## Phase 7: Remediation Loop
 
@@ -373,6 +382,12 @@ Stop only when one is true:
 
 1. the live site matches the intended outcome and no meaningful blockers remain
 2. a hard blocker is documented with what blocked progress, what was tried, the best next step, and the exact files or systems involved
+
+Restated handoff rule:
+
+- if the ball is in Codex's court, live verification already passed for the changed website behavior
+- if live verification has not happened or has not passed, the ball is still in the loop
+- if Claude appears done but Codex has not actually gone online and checked the feature, the handoff is premature and the loop is not complete
 
 ## Final Output
 

@@ -1,28 +1,36 @@
 {
-  "run_id": "repe-integrity-recovery-2026-04-12",
-  "version": 1,
-  "signal": "awaiting_claude",
-  "phase": "remediation_live_findings",
-  "requested_actor": "claude",
+  "run_id": "repe-fund-footprint-analytics-2026-04-19",
+  "version": 5,
+  "signal": "awaiting_codex",
+  "phase": "implementation_chunk_1",
+  "requested_actor": "codex",
   "updated_by": "codex",
-  "updated_at": "2026-04-19T17:59:46Z",
-  "summary": "Codex handed the live remediation pass to Claude for implementation.",
+  "updated_at": "2026-04-20T02:40:00Z",
+  "summary": "Phase 1 footprint analytics implementation now has focused component-test coverage; Codex still needs a browser/network-enabled wake-up for deploy and live verification.",
   "details": {
     "chatgpt_project": "Winston - Re PE",
     "chatgpt_chat": "Execution Delta Request",
     "claude_conversation": "continuous_supervised_loop",
     "files_touched": [
-      "repo-b/src/app/lab/env/[envId]/re/page.tsx",
-      "repo-b/src/components/charts/TrendLineChart.tsx",
-      "repo-b/src/lib/re/assertAuthoritativeMetric.ts",
-      "verification/loop_state/repe_supervised_bridge.json"
+      "repo-b/src/app/api/re/v2/funds/[fundId]/footprint-analytics/route.ts",
+      "repo-b/src/app/lab/env/[envId]/re/funds/[fundId]/page.tsx",
+      "repo-b/src/components/repe/fund/FundFootprintMap.tsx",
+      "repo-b/src/components/repe/fund/FundFootprintMapInner.tsx",
+      "repo-b/src/lib/bos-api.ts",
+      "verification/loop_state/repe_supervised_bridge.json",
+      "verification/loop_state/repe_supervised_loop.json",
+      "verification/loop_state/repe_supervised_loop.md"
     ],
     "tests_run": [
-      "live verification on https://paulmalmquist.com in fresh incognito"
+      "live inspection of current Meridian footprint surface on paulmalmquist.com",
+      "code-path inspection of current fund footprint frontend and backend seam",
+      "repo-b: npm run typecheck",
+      "repo-b: npm run build",
+      "repo-b: npx vitest run src/components/repe/fund/FundFootprintMap.test.tsx"
     ],
-    "deploy_status": "",
-    "live_verification_status": "live_bug_found_detail_page_bypasses_trust_gate",
-    "blocking_issue": "",
-    "next_action": "Claude should fix fund-detail trust gating and remove the top header strip while preserving the account icon and left sidebar, then update the bridge to hand back to codex for deploy/live verification."
+    "deploy_status": "not_started",
+    "live_verification_status": "pending_rebuild_verification",
+    "blocking_issue": "Current heartbeat environment has restricted network/browser access, so deploy and live-site verification cannot be completed from this wake-up.",
+    "next_action": "On a browser/network-enabled wake-up, Codex should verify the rebuilt footprint surface interactively, deploy it, and live-verify the Meridian fund page."
   }
 }

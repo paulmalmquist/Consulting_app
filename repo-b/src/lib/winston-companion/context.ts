@@ -171,6 +171,13 @@ function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string
   const selected = primaryEntityLabel(envelope.ui.selected_entities);
 
   if (activeModule === "re") {
+    if (routeLabel.toLowerCase().includes("operator diagnostics")) {
+      return [
+        { id: "op-diag-why", label: "Explain underperformance", prompt: `For the current selection in ${routeLabel}, explain whether the weakness is operator-driven or market-driven. Use labor intensity, occupancy, and peer margin delta to argue one side.` },
+        { id: "op-diag-op-vs-mkt", label: "Operator vs market", prompt: `Decompose the NOI margin gap for the selected operator into labor, occupancy, and rent contributions. Call out whether peers at the same acuity + region + size band show the same issue.` },
+        { id: "op-diag-acuity", label: "Acuity mix risk", prompt: "Which acuity types carry the most risk right now, and which operators are over-exposed? Recommend a review order." },
+      ];
+    }
     if (envelope.ui.page_entity_type === "fund") {
       return [
         { id: "fund-summary", label: "Summarize this fund", prompt: `Summarize ${scopeLabel} and flag the biggest operating and capital risks.` },

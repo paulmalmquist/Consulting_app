@@ -90,3 +90,31 @@ Baton-pass log for the supervised loop. Entries are chronological; most recent a
 - Proof: login succeeded on `https://paulmalmquist.com`; portfolio surface showed `Unavailable` and chart gaps; IGF VII detail page still showed `Gross IRR 66.4%` / `Net IRR 52.4%`. Heartbeat automation `claude-repe-watch` now runs every 5 minutes and reads `verification/loop_state/repe_supervised_bridge.json` first.
 - Risks: bridge is now deterministic, but Claude still needs to update the bridge on chunk completion for fully clean handoff. Live UI remediation remains in progress.
 - Next: Claude fixes the fund detail trust-gating path and removes the top header strip, then marks the bridge for Codex deploy/live verification.
+
+### 2026-04-19T21:42Z — codex · sprint seal + baton cleanup
+- `run_id`: repe-integrity-recovery-2026-04-12
+- Change: resumed from a stale `awaiting_claude` bridge and found the remediation already landed on `main` (`f6cede8a`, followed by `80c8ba2c` and `8abdf851`). Restored the loop JSON to the sealed state, marked the strict bridge `complete`, and prepared the heartbeat for deletion so the thread stops polling a finished run.
+- Proof: `main` and `origin/main` both at `40cbff896afefe9521ef452a1257bd7fb2f45830`; `npx vitest run src/app/lab/env/[envId]/re/funds/[fundId]/page.test.tsx` passed including the trust-gate case; `npx vitest run src/lib/re/assertAuthoritativeMetric.test.ts src/components/charts/TrendLineChart.test.tsx` passed; commit `8abdf851` documents prior live verification on `https://paulmalmquist.com`.
+- Risks: this recovery pass could not use the Computer Use accessibility layer because the desktop bridge denied app control, so the fresh browser verification in this pass is repo- and test-backed rather than a new interactive session.
+- Next: none for this loop. Start a new run if you want to investigate the snapshot divergence or extend trust-state coverage to lower entity levels.
+
+### 2026-04-19T23:10Z — codex · new run initialized for Fund Footprint analytics rebuild
+- `run_id`: repe-fund-footprint-analytics-2026-04-19
+- Change: started a fresh REPE supervised loop for the `Fund Footprint` rebuild. Recovered the active feature brief from the `WInston - Re PE` / `Execution Delta Request` ChatGPT thread, verified the current live Meridian footprint surface, inspected the owning frontend/backend seams, and wrote a Claude execution handoff at `docs/ai-testing/repe-fund-footprint-analytics-handoff.md`.
+- Proof: located current implementation at `repo-b/src/components/repe/fund/FundFootprintMap.tsx`, `FundFootprintMapInner.tsx`, and `backend/app/routes/re_v2.py` asset-map route; live site confirms the current section is still a static full-width pin map.
+- Risks: direct desktop injection into the same Claude Code session is still blocked by local assistive-access restrictions, so the baton currently points to Claude via repo artifacts instead of an already-submitted desktop message.
+- Next: first implementation pass should add the richer backend payload and dual-pane frontend shell for the map + analytics surface.
+
+### 2026-04-19T23:38Z — codex · phase 1 implementation chunk 1
+- `run_id`: repe-fund-footprint-analytics-2026-04-19
+- Change: landed the first local Phase 1 slice in `repo-b`: a same-origin footprint analytics route, a new dual-pane fund footprint shell, richer asset and market map interactions, and a reactive analytics rail.
+- Proof: `repo-b` typecheck passed after wiring the new API contract and page integration. Full `next build` also completed successfully; unrelated pre-existing ESLint warnings elsewhere in the repo remain warnings only.
+- Risks: browser-level layout and interaction polish still need verification before deploy; later phases still need the full risk overlay and choropleth system.
+- Next: browser-verify the rebuilt footprint surface, remediate any UI issues, then deploy and live-verify the Meridian fund page.
+
+### 2026-04-20T02:40Z — codex · verification hardening under restricted wake-up
+- `run_id`: repe-fund-footprint-analytics-2026-04-19
+- Change: used this restricted heartbeat to add focused test coverage for the new fund footprint surface instead of letting the loop idle. Added `FundFootprintMap.test.tsx` to cover the dual-pane summary state plus asset- and market-selection analytics states.
+- Proof: `repo-b: npx vitest run src/components/repe/fund/FundFootprintMap.test.tsx` passed (2 tests).
+- Risks: this wake-up did not have the browser/network access needed for deploy or live-site verification, so the remaining blocker is environmental rather than code-level.
+- Next: on a browser/network-enabled wake-up, verify the rebuilt footprint UI interactively, then deploy and live-verify the Meridian fund page.

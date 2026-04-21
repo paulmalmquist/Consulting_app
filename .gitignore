@@ -83,6 +83,11 @@ artifacts/
 repo-b/.next.bak*/
 .openclaw/
 scripts/.winston_managed_agent_state.json
+.playwright-cli/
+
+# Local scratch: daily dumps, outreach drafts, article scratch
+outputs/
+deal-opportunities-*.md
 
 # Binary files and outputs
 *.pdf
@@ -101,3 +106,4 @@ TaxHacker-main/
 pretext-main/
 mandalore/
 client-hunting/
+job-search/
