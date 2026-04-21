@@ -30,10 +30,14 @@ function isActive(pathname: string, href: string, exact = false) {
 }
 
 function anchorSections(pathname: string): AnchorItem[] {
-  // Accounting Command Desk renders full-bleed; no anchor aside.
-  if (pathname.includes("/operator/accounting")) {
-    return [];
-  }
+  // Full-bleed operating-surface pages own their own chrome — no anchor aside.
+  if (pathname.includes("/operator/accounting")) return [];
+  if (pathname.includes("/operator/pipeline")) return [];
+  if (pathname.includes("/operator/capital-raising")) return [];
+  if (pathname.includes("/operator/engagements")) return [];
+  if (pathname.includes("/operator/product")) return [];
+  if (pathname.includes("/operator/research")) return [];
+  if (pathname.includes("/operator/tasks")) return [];
   if (pathname.includes("/operator/finance")) {
     return [
       { id: "overview", label: "Overview" },
@@ -148,10 +152,11 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       { href: `${base}/pipeline-integrity`, label: "Pipeline Integrity" },
       { href: `${base}/projects`, label: "Delivery" },
       { href: `${base}/documents`, label: "Documents" },
-      { href: `${base}/pipeline`, label: "Pipeline" },
+      { href: `${base}/sites`, label: "Sites" },
       { href: `${base}/vendors`, label: "Vendors" },
       { href: `${base}/close`, label: "Closeout" },
       { href: `${base}/finance`, label: "Finance" },
+      { href: `${base}/pipeline`, label: "Pipeline" },
       { href: `${base}/accounting`, label: "Accounting" },
     ],
     [base]

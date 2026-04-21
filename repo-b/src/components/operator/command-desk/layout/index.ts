@@ -1,4 +1,7 @@
 export { CommandDeskShell } from "./CommandDeskShell";
+export { OperatingSurfaceShell } from "./OperatingSurfaceShell";
+export { LeftSidebar } from "./LeftSidebar";
+export type { LeftSidebarItem, LeftSidebarSection } from "./LeftSidebar";
 export { TopControlBar } from "./TopControlBar";
 export type { TopControlBarStatusCounts } from "./TopControlBar";
 export { FilterStrip } from "./FilterStrip";

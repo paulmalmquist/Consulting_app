@@ -451,7 +451,14 @@ def _upsert_profile(
 
 
 def get_execution_board(*, env_id: str, business_id: UUID) -> dict:
+    from app.services import pipeline_buckets
+
     rows = [_row_to_card(row) for row in _load_rows(env_id=env_id, business_id=business_id)]
+    # Tag every card with its canonical action-view bucket. Server-side is
+    # authoritative; the frontend falls back to a mirror function only when
+    # this field is absent (rolling-deploy safety).
+    for row in rows:
+        row["action_view_bucket"] = pipeline_buckets.bucket_for_action_view(row)
     columns = []
     total_pipeline = Decimal("0")
     weighted_pipeline = Decimal("0")

@@ -125,6 +125,31 @@ def log_outreach(
         )
         log_entry = cur.fetchone()
 
+        # Denormalized last-touch on cro_strategic_lead (473_cro_last_touch.sql).
+        # Keeps rail aggregations + the `high_value_idle` reason_code accurate
+        # without a lateral join per card render.
+        # The column may not exist yet in older deployments; catch-and-continue.
+        try:
+            cur.execute(
+                """
+                UPDATE cro_strategic_lead
+                   SET last_touch_at = %s,
+                       last_touched_by = %s,
+                       last_touch_channel = %s,
+                       updated_at = now()
+                 WHERE crm_account_id = %s AND business_id = %s::uuid
+                """,
+                (
+                    datetime.now(timezone.utc),
+                    sent_by,
+                    channel if channel in ("email", "linkedin", "phone", "meeting", "other") else "other",
+                    str(crm_account_id),
+                    str(business_id),
+                ),
+            )
+        except Exception:
+            pass
+
         # Bump template use_count
         if template_id:
             cur.execute(

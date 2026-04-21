@@ -140,6 +140,7 @@ from app.services import (
     cro_outreach,
     cro_pipeline,
     pipeline_execution_engine,
+    pipeline_rail,
     cro_proof_assets,
     cro_proposal_generator,
     cro_proposals,
@@ -303,6 +304,75 @@ def get_daily_execution_brief(env_id: str = Query(...), business_id: UUID = Quer
 def get_stuck_deals(env_id: str = Query(...), business_id: UUID = Query(...)):
     try:
         return pipeline_execution_engine.list_stuck_deals(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Pipeline operating-surface right-rail aggregations ───────────────────────
+
+from app.schemas.pipeline_rail import (  # noqa: E402
+    OutreachBriefOut as _OutreachBriefOut,
+    PipelineRisksOut as _PipelineRisksOut,
+    RecentActivityRowOut as _RecentActivityRowOut,
+    RecentClosesOut as _RecentClosesOut,
+    TodayMoveOut as _TodayMoveOut,
+)
+
+
+@router.get("/pipeline/today-moves", response_model=list[_TodayMoveOut])
+def pipeline_today_moves(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    limit: int = Query(6, ge=1, le=20),
+):
+    try:
+        return pipeline_rail.today_moves(env_id=env_id, business_id=business_id, limit=limit)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/risks", response_model=_PipelineRisksOut)
+def pipeline_risks(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return pipeline_rail.risks_summary(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/recent-activity", response_model=list[_RecentActivityRowOut])
+def pipeline_recent_activity(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+):
+    try:
+        return pipeline_rail.recent_activity(env_id=env_id, business_id=business_id, limit=limit)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/recent-closes", response_model=_RecentClosesOut)
+def pipeline_recent_closes(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    limit: int = Query(10, ge=1, le=50),
+):
+    try:
+        return pipeline_rail.recent_closes(env_id=env_id, business_id=business_id, limit=limit)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/pipeline/outreach-brief", response_model=_OutreachBriefOut)
+def pipeline_outreach_brief(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return pipeline_rail.outreach_brief(env_id=env_id, business_id=business_id)
     except Exception as exc:
         raise _to_http(exc)
 

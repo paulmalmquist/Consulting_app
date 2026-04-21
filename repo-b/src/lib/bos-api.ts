@@ -12381,3 +12381,65 @@ export function nvUploadReceipt(
     body: form,
   });
 }
+
+// =============================================================================
+// Consulting Pipeline — right-rail aggregations
+// =============================================================================
+
+import type {
+  TodayMoveRow,
+  PipelineRisksOut,
+  RecentActivityRow,
+  RecentClosesOut,
+  OutreachBriefOut,
+} from "@/types/pipeline-rail";
+
+const _PIPE_BASE = "/api/consulting/pipeline";
+
+export function getConsultingPipelineTodayMoves(
+  envId: string,
+  businessId?: string,
+  limit = 6,
+): Promise<TodayMoveRow[]> {
+  return bosFetch(`${_PIPE_BASE}/today-moves`, {
+    params: { env_id: envId, business_id: businessId, limit: String(limit) },
+  });
+}
+
+export function getConsultingPipelineRisks(
+  envId: string,
+  businessId?: string,
+): Promise<PipelineRisksOut> {
+  return bosFetch(`${_PIPE_BASE}/risks`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getConsultingPipelineRecentActivity(
+  envId: string,
+  businessId?: string,
+  limit = 20,
+): Promise<RecentActivityRow[]> {
+  return bosFetch(`${_PIPE_BASE}/recent-activity`, {
+    params: { env_id: envId, business_id: businessId, limit: String(limit) },
+  });
+}
+
+export function getConsultingPipelineRecentCloses(
+  envId: string,
+  businessId?: string,
+  limit = 10,
+): Promise<RecentClosesOut> {
+  return bosFetch(`${_PIPE_BASE}/recent-closes`, {
+    params: { env_id: envId, business_id: businessId, limit: String(limit) },
+  });
+}
+
+export function getConsultingPipelineOutreachBrief(
+  envId: string,
+  businessId?: string,
+): Promise<OutreachBriefOut> {
+  return bosFetch(`${_PIPE_BASE}/outreach-brief`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}

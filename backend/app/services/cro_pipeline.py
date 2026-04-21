@@ -327,6 +327,24 @@ def advance_opportunity_stage(
                  note or f"Opportunity moved to {to_stage_key}",
                  datetime.now(timezone.utc)),
             )
+
+            # Bump denormalized last_touch_at on cro_strategic_lead
+            # (473_cro_last_touch.sql). Stage advances count as a touch.
+            if acct_id:
+                try:
+                    cur.execute(
+                        """
+                        UPDATE cro_strategic_lead
+                           SET last_touch_at = %s,
+                               last_touched_by = 'stage_advance',
+                               last_touch_channel = 'stage_advance',
+                               updated_at = now()
+                         WHERE crm_account_id = %s AND business_id = %s::uuid
+                        """,
+                        (datetime.now(timezone.utc), str(acct_id), str(business_id)),
+                    )
+                except Exception:
+                    pass
     except Exception:
         pass
 

@@ -191,6 +191,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.nv_accounting_kpis.get_cursor",
     "app.services.nv_accounting_trends.get_cursor",
     "app.services.nv_transaction_matcher.get_cursor",
+    "app.services.pipeline_rail.get_cursor",
+    "app.services.hr_decision_runner.get_cursor",
 ]
 
 
