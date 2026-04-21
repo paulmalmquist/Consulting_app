@@ -77,9 +77,14 @@ def run_us_waterfall(contract: WaterfallContract, wf_input: WaterfallInput) -> l
     gp_participants = [p for p in participants if p.role == "gp"]
     lp_participants = [p for p in participants if p.role != "gp"]
 
-    # Tier 1: Return of capital.
+    # Tier 1: Return of capital — bounded by aggregate unreturned capital.
+    # INV-W1 (conservation): tier 1 total == min(remaining, Σ unreturned).
+    # INV-W2 (per-partner cap): payout_i <= unreturned_i.
+    # Cascade any excess (remaining > Σ unreturned) to tier 2+.
     t1_weights = {p.participant_id: qmoney(p.unreturned_capital) for p in participants}
-    t1_alloc, t1_lines = _tier_alloc("tier_1_return_of_capital", "return_of_capital", remaining, t1_weights)
+    t1_target = qmoney(sum(t1_weights.values(), Decimal("0")))
+    t1_amount = min(remaining, t1_target)
+    t1_alloc, t1_lines = _tier_alloc("tier_1_return_of_capital", "return_of_capital", t1_amount, t1_weights)
     lines.extend(t1_lines)
     remaining = qmoney(remaining - t1_alloc)
 
