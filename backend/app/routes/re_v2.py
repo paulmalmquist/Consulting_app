@@ -1099,6 +1099,81 @@ def get_fund_bottom_up_cashflow(
         raise _to_http(exc)
 
 
+@router.post("/funds/{fund_id}/decomposition")
+async def post_fund_decomposition(fund_id: UUID, request: Request):
+    """Fund Decomposition — Gross Contribution Overlay.
+
+    Given a subset of investments (by exclusion list), compute the
+    ownership-weighted gross IRR, TVPI, DPI, paid-in, distributions, NAV,
+    and CF series for the selection. Returns the authoritative fund baseline
+    alongside the derived selection, plus identity checks and provenance.
+
+    The response contract is fixed: `state_origin` is always
+    `"decomposition_overlay"`. Asset-level filtering is not supported — the
+    primitive is investment, because paid-in / distributions only exist at
+    the investment grain in `re_investment_quarter_state`.
+
+    See: /Users/paulmalmquist/.claude/plans/you-are-working-inside-greedy-crane.md
+    """
+    try:
+        from app.services.fund_decomposition import (
+            EmptySelection,
+            UnknownInvestmentIds,
+            compute_fund_decomposition,
+        )
+
+        body = await request.json() if request.headers.get("content-length") else {}
+        as_of_quarter = body.get("as_of_quarter")
+        if not as_of_quarter or not isinstance(as_of_quarter, str):
+            raise HTTPException(
+                400,
+                {"error_code": "VALIDATION_ERROR", "message": "as_of_quarter is required"},
+            )
+
+        excluded_raw = body.get("excluded_investment_ids") or []
+        if not isinstance(excluded_raw, list):
+            raise HTTPException(
+                400,
+                {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids must be a list"},
+            )
+        try:
+            excluded: set[UUID] = {UUID(str(x)) for x in excluded_raw}
+        except (ValueError, TypeError):
+            raise HTTPException(
+                400,
+                {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids contains an invalid UUID"},
+            )
+
+        cap_raw = body.get("default_cap_rate")
+        cap = Decimal(str(cap_raw)) if cap_raw is not None else None
+
+        try:
+            return compute_fund_decomposition(
+                fund_id,
+                as_of_quarter,
+                excluded_investment_ids=excluded,
+                env_default_cap_rate=cap,
+            )
+        except EmptySelection:
+            raise HTTPException(
+                400,
+                {"error_code": "EMPTY_SELECTION", "error": "at_least_one_investment_required"},
+            )
+        except UnknownInvestmentIds as exc:
+            raise HTTPException(
+                400,
+                {
+                    "error_code": "UNKNOWN_INVESTMENT_IDS",
+                    "error": "unknown_investment_ids",
+                    "ids": [str(i) for i in exc.ids],
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
 @router.get("/assets/{asset_id}/cashflow")
 def get_asset_bottom_up_cashflow(
     asset_id: UUID,

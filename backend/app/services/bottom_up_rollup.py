@@ -262,6 +262,7 @@ def compute_fund_rollup(
     *,
     env_default_cap_rate: Decimal | None = None,
     compute_contributions: bool = True,
+    included_investment_ids: set[UUID] | None = None,
 ) -> FundRollup:
     """Sum investment series into fund series. Compute gross bottom-up IRR.
 
@@ -269,9 +270,24 @@ def compute_fund_rollup(
     distributions are intentionally excluded (that's the separate investor IRR
     path). Net IRR / carry / gp_share remain out-of-scope and return null with
     null_reason `out_of_scope_requires_waterfall` in the snapshot writer.
+
+    When `included_investment_ids` is provided, only those investments are
+    merged into the fund series and the leave-one-out marginal pass runs
+    within that selection. This supports the Fund Decomposition overlay; the
+    caller is responsible for labeling the result as a derived overlay and
+    not displaying it as an authoritative fund metric.
     """
     with get_cursor() as cur:
-        investments = _list_fund_investments(cur, fund_id)
+        all_investments = _list_fund_investments(cur, fund_id)
+
+    if included_investment_ids is None:
+        investments = all_investments
+    else:
+        investments = [
+            inv for inv in all_investments
+            if (UUID(inv["investment_id"]) if isinstance(inv["investment_id"], str) else inv["investment_id"])
+            in included_investment_ids
+        ]
 
     if not investments:
         return FundRollup(
@@ -279,7 +295,7 @@ def compute_fund_rollup(
             as_of_quarter=as_of_quarter,
             series=[],
             irr=None,
-            null_reason="no_investments",
+            null_reason=("no_investments_in_selection" if included_investment_ids is not None else "no_investments"),
         )
 
     merged: dict[str, CFPoint] = {}

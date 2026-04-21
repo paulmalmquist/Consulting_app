@@ -22,6 +22,7 @@ import {
   Scale,
   Shield,
   Sparkles,
+  Stethoscope,
   TrendingUp,
   Users,
   WalletCards,
@@ -122,8 +123,10 @@ export function buildRepeNavGroups({
       icon: BarChart3,
       items: [
         { href: `${base}/models`, label: "Models", isBase: false, icon: LineChart },
+        { href: `${base}/fund-decomposition`, label: "Fund Decomposition", isBase: false, icon: TrendingUp },
         { href: `${base}/dashboards`, label: "Dashboards", isBase: false, icon: LayoutDashboard },
         { href: `${base}/saved-analyses`, label: "Saved Analyses", isBase: false, icon: Bookmark },
+        { href: `${base}/operator-diagnostics`, label: "Operator Diagnostics", isBase: false, icon: Stethoscope },
         { href: `${base}/reports`, label: "Reports", isBase: false, icon: FileBarChart },
         ...(showIntelligence
           ? [{ href: `${base}/intelligence`, label: "Intelligence", isBase: false, icon: Activity }]

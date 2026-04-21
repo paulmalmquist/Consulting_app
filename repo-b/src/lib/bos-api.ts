@@ -5220,6 +5220,286 @@ export function getPortfolioAuthoritativeStates(
   );
 }
 
+// Fund Decomposition — Gross Contribution Overlay ──────────────────────────
+//
+// NOT a KPI fetcher. Response always carries state_origin:"decomposition_overlay"
+// and includes the authoritative baseline side-by-side with the derived
+// selection plus identity checks. The contract is owned by the FastAPI
+// service backend/app/services/fund_decomposition.py.
+
+export type ReV2FundDecompositionCheck = {
+  name: string;
+  passed: boolean;
+  applied?: boolean;
+  applied_reason?: string;
+  delta?: number;
+  tolerance?: number | string;
+  delta_gross_irr_bps?: number | null;
+  delta_tvpi?: number | null;
+  tolerance_gross_irr_bps?: number;
+  tolerance_tvpi?: number;
+  cache_key_hash?: string;
+  last_quarter?: string | null;
+  as_of_quarter_end?: string;
+};
+
+export type ReV2FundDecompositionBaseline = {
+  source: string;
+  snapshot_version: string | null;
+  trust_status: string | null;
+  period_exact: boolean | null;
+  promotion_state: string | null;
+  null_reason?: string | null;
+  gross_irr: number | null;
+  net_irr: number | null;
+  tvpi: number | null;
+  dpi: number | null;
+  paid_in: number | null;
+  distributions: number | null;
+  nav: number | null;
+  net_irr_label?: string;
+};
+
+export type ReV2FundDecompositionCashflowPoint = {
+  quarter: string;
+  quarter_end_date: string;
+  amount: number;
+  cumulative: number;
+};
+
+export type ReV2FundDecompositionSelection = {
+  gross_irr: number | null;
+  gross_irr_null_reason: string | null;
+  tvpi: number | null;
+  dpi: number | null;
+  paid_in: number;
+  distributions: number;
+  nav: number;
+  cashflow_series: ReV2FundDecompositionCashflowPoint[];
+  net_irr: null;
+  net_irr_null_reason: string;
+  carry: null;
+  carry_null_reason: string;
+  promote: null;
+  promote_null_reason: string;
+  gp_share: null;
+  gp_share_null_reason: string;
+};
+
+export type ReV2FundDecompositionAsset = {
+  asset_id: string;
+  name: string;
+  nav: number | null;
+  status: string | null;
+};
+
+export type ReV2FundDecompositionInvestment = {
+  investment_id: string;
+  name: string;
+  included: boolean;
+  paid_in: number | null;
+  distributions: number | null;
+  nav: number | null;
+  gross_irr: number | null;
+  value_share: number | null;
+  irr_marginal_bps: number | null;
+  irr_marginal_label: string;
+  assets: ReV2FundDecompositionAsset[];
+};
+
+export type ReV2FundDecomposition = {
+  fund_id: string;
+  as_of_quarter: string;
+  state_origin: "decomposition_overlay";
+  selection_definition: {
+    primitive: "investment";
+    included_investment_ids: string[];
+    excluded_investment_ids: string[];
+    ownership_basis: string;
+    cf_grain: string;
+    overlay_semantics: string;
+  };
+  baseline_authoritative: ReV2FundDecompositionBaseline;
+  selection_derived: ReV2FundDecompositionSelection;
+  investment_contributions: ReV2FundDecompositionInvestment[];
+  identity_checks: ReV2FundDecompositionCheck[];
+  provenance: {
+    cf_substrate: string;
+    paid_in_substrate: string;
+    xirr_engine: string;
+    cache_key_hash: string;
+  };
+  warnings: string[];
+};
+
+export function getFundDecomposition(args: {
+  fundId: string;
+  asOfQuarter: string;
+  excludedInvestmentIds?: string[];
+  defaultCapRate?: number | null;
+  signal?: AbortSignal;
+}): Promise<ReV2FundDecomposition> {
+  const { fundId, asOfQuarter, excludedInvestmentIds, defaultCapRate, signal } = args;
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const url = new URL(`/api/re/v2/funds/${fundId}/decomposition`, origin);
+  return fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      as_of_quarter: asOfQuarter,
+      excluded_investment_ids: (excludedInvestmentIds ?? []).slice().sort(),
+      default_cap_rate: defaultCapRate ?? null,
+    }),
+    signal,
+  }).then(async (res) => {
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      const err = new Error(`Fund decomposition request failed (${res.status}): ${text}`) as BosApiError;
+      err.status = res.status;
+      throw err;
+    }
+    return res.json() as Promise<ReV2FundDecomposition>;
+  });
+}
+
+// Operator Diagnostics (senior-housing operator vs market analysis) ─────────
+//
+// Composed endpoint — NOT a financial KPI fetcher. Internally the backend
+// calls re_authoritative_snapshots.get_authoritative_state per asset for
+// NOI/occupancy (Invariant 2) and never aggregates over re_authoritative_*
+// (Invariant 7). Every field carries state_origin + null_reasons so the UI
+// can render provenance verbatim.
+
+export type ReV2OperatorFieldOrigin =
+  | "authoritative"
+  | "operational"
+  | "profile"
+  | "derived"
+  | "fallback";
+
+export type ReV2OperatorAcuityType = "AL" | "IL" | "MC" | "SNF" | "mixed";
+export type ReV2OperatorSizeBand = "small" | "mid" | "large";
+export type ReV2OperatorProvenance =
+  | "seed"
+  | "imported"
+  | "manual"
+  | "derived"
+  | "imported_gl";
+
+export interface ReV2OperatorDiagnosticsPeerSet {
+  acuity_type: ReV2OperatorAcuityType | null;
+  region: string | null;
+  size_band: ReV2OperatorSizeBand | null;
+  peer_count: number;
+}
+
+export interface ReV2OperatorDiagnosticsAssetSources {
+  operator_name_source: ReV2OperatorProvenance | null;
+  acuity_type_source: ReV2OperatorProvenance | null;
+  labor_cost_source: ReV2OperatorProvenance | null;
+  revenue_source: ReV2OperatorProvenance | null;
+}
+
+export interface ReV2OperatorDiagnosticsAsset {
+  asset_id: string;
+  name: string;
+  operator_name: string | null;
+  acuity_type: ReV2OperatorAcuityType | null;
+  size_band: ReV2OperatorSizeBand | null;
+  market: string | null;
+  units: number | null;
+  noi: string | null;
+  occupancy: string | null;
+  revenue: string | null;
+  labor_cost: string | null;
+  noi_margin: string | null;
+  labor_intensity: string | null;
+  occupancy_trend_qoq: string | null;
+  peer_margin_delta: string | null;
+  state_origin: ReV2OperatorFieldOrigin;
+  snapshot_version: string | null;
+  period_exact: boolean;
+  null_reasons: Record<string, string>;
+  sources: ReV2OperatorDiagnosticsAssetSources;
+  peer_set: ReV2OperatorDiagnosticsPeerSet;
+}
+
+export interface ReV2OperatorDiagnosticsOperator {
+  operator_name: string;
+  asset_count: number;
+  avg_noi_margin: string | null;
+  avg_occupancy: string | null;
+  avg_labor_intensity: string | null;
+  peer_margin_delta: string | null;
+  rank: number;
+  trust_status: "trusted" | "untrusted" | "missing_source";
+  contains_seed_sources: boolean;
+}
+
+export interface ReV2OperatorDiagnosticsSummary {
+  env_id: string;
+  quarter: string;
+  asset_count: number;
+  released_count: number;
+  avg_noi_margin: string | null;
+  avg_occupancy: string | null;
+  avg_labor_intensity: string | null;
+  avg_peer_delta: string | null;
+  state_origin: ReV2OperatorFieldOrigin;
+  null_reasons: Record<string, string>;
+}
+
+export interface ReV2OperatorDiagnosticsAudit {
+  snapshot_versions: string[];
+  released_count: number;
+  missing_count: number;
+  peer_set_definition: {
+    cohort_keys: string[];
+    min_sample: number;
+    aggregation: "mean";
+    exclude_self: boolean;
+  };
+  peer_count_histogram: Record<string, number>;
+  metric_suppression_reasons: Record<string, Record<string, number>>;
+  source_provenance_counts: Record<string, Record<string, number>>;
+  demo_seed_present: boolean;
+  quarter: string;
+  requested_quarter: string;
+  generated_at: string;
+}
+
+export interface ReV2OperatorDiagnostics {
+  summary: ReV2OperatorDiagnosticsSummary;
+  operators: ReV2OperatorDiagnosticsOperator[];
+  assets: ReV2OperatorDiagnosticsAsset[];
+  audit: ReV2OperatorDiagnosticsAudit;
+}
+
+export function getReV2OperatorDiagnostics(args: {
+  envId: string;
+  quarter: string;
+  fundId?: string;
+  acuity?: string;
+  region?: string;
+  operator?: string;
+  snapshotVersion?: string;
+  auditRunId?: string;
+}): Promise<ReV2OperatorDiagnostics> {
+  const { envId, quarter, fundId, acuity, region, operator, snapshotVersion, auditRunId } = args;
+  return directFetch(`/api/re/v2/operator-diagnostics`, {
+    params: {
+      env_id: envId,
+      quarter,
+      fund_id: fundId,
+      acuity,
+      region,
+      operator,
+      snapshot_version: snapshotVersion,
+      audit_run_id: auditRunId,
+    },
+  });
+}
+
 // Investments
 export function listReV2Investments(fundId: string): Promise<ReV2Investment[]> {
   return directFetch(`/api/re/v2/funds/${fundId}/investments`);
@@ -11211,6 +11491,100 @@ export interface AssetMapResponse {
   points: AssetMapPoint[];
 }
 
+export interface FundFootprintAssetPoint {
+  asset_id: string;
+  name: string;
+  status: "owned" | "pipeline" | "disposed";
+  lifecycle: "stabilized" | "development" | "distressed";
+  property_type: string | null;
+  market: string | null;
+  market_key: string;
+  city: string | null;
+  state: string | null;
+  lat: number;
+  lon: number;
+  cost_basis: number | null;
+  asset_value: number | null;
+  noi: number | null;
+  occupancy: number | null;
+  dscr: number | null;
+  ltv: number | null;
+  valuation_quarter: string | null;
+  trust_status: string | null;
+  dscr_trust_state: string | null;
+  dscr_reason: string | null;
+  integrity_reason: string | null;
+}
+
+export interface FundFootprintMarketRollup {
+  market_key: string;
+  market_label: string;
+  state: string | null;
+  lat: number;
+  lon: number;
+  asset_count: number;
+  total_nav: number;
+  avg_occupancy: number | null;
+  avg_dscr: number | null;
+  avg_irr: number | null;
+  integrity_issues: number;
+  status_breakdown: {
+    owned: number;
+    pipeline: number;
+    disposed: number;
+  };
+  performance_state: "outperforming" | "neutral" | "underperforming";
+  lead_asset_ids: string[];
+}
+
+export interface FundFootprintSeriesPoint {
+  quarter: string;
+  asset_value?: number | null;
+  noi?: number | null;
+  occupancy?: number | null;
+  dscr?: number | null;
+  ltv?: number | null;
+  total_nav?: number | null;
+  total_noi?: number | null;
+  avg_occupancy?: number | null;
+  avg_dscr?: number | null;
+}
+
+export interface FundFootprintAnalyticsResponse {
+  summary: {
+    total_nav: number;
+    owned_assets: number;
+    pipeline_assets: number;
+    disposed_assets: number;
+    markets: number;
+    geography_allocation: Array<{
+      region: string;
+      total_nav: number;
+      asset_count: number;
+      share_of_nav: number;
+    }>;
+    top_markets: Array<{
+      market_key: string;
+      market_label: string;
+      total_nav: number;
+      share_of_nav: number;
+      avg_occupancy: number | null;
+      avg_dscr: number | null;
+      integrity_issues: number;
+      performance_state: "outperforming" | "neutral" | "underperforming";
+    }>;
+    performance_by_market: FundFootprintMarketRollup[];
+    signals: string[];
+  };
+  selection_defaults: {
+    mode: "portfolio" | "market" | "asset";
+  };
+  asset_points: FundFootprintAssetPoint[];
+  market_rollups: FundFootprintMarketRollup[];
+  asset_series: Record<string, FundFootprintSeriesPoint[]>;
+  market_series: Record<string, FundFootprintSeriesPoint[]>;
+}
+
 export function getAssetMapPoints(params: {
   env_id?: string;
   business_id?: string;
@@ -11218,6 +11592,18 @@ export function getAssetMapPoints(params: {
   status?: "owned" | "pipeline" | "disposed" | "all";
 }): Promise<AssetMapResponse> {
   return directFetch("/api/re/v2/funds/asset-map", { params });
+}
+
+export function getFundFootprintAnalytics(
+  fundId: string,
+  params: {
+    env_id?: string;
+    business_id?: string;
+    quarter: string;
+    status?: "owned" | "pipeline" | "disposed" | "all";
+  },
+): Promise<FundFootprintAnalyticsResponse> {
+  return directFetch(`/api/re/v2/funds/${fundId}/footprint-analytics`, { params });
 }
 
 
