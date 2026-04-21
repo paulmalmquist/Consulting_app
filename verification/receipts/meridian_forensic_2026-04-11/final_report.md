@@ -268,3 +268,84 @@ Meridian Credit Opportunities Fund I:   NOT SAFE FOR REPORTING
 - `backend/tests/test_repe_irr_completeness.py` — INV-3 regression tests  
 - `backend/tests/test_repe_rollup_symmetry.py` — INV-4 stub  
 - `backend/tests/test_repe_golden_fund.py` — Golden fund test stub  
+
+---
+
+## §7a — 2026-04-20 Re-Promotion Delta
+
+Engine-hardening pass + read-only Meridian investigation. **No authoritative snapshots were re-promoted.** Net new artifacts below.
+
+### Engine hardening (Part A) — SHIPPED
+
+| Addition | Status |
+|---|---|
+| `backend/tests/test_repe_snapshot_consistency.py` (10 tests — correctness gate) | shipped (`46ccba7d`) |
+| `backend/tests/test_repe_golden_asset.py` + fixture (7 tests — asset oracle) | shipped (`46ccba7d`) |
+| `backend/app/services/re_reconciliation.py::build_environment_reconciliation` | shipped (`3880220a`) |
+| `GET /api/re/v2/environments/{env_id}/reconciliation/{quarter}` route | shipped (`3880220a`) |
+| `backend/tests/test_reconciliation.py` (6 tests — ownership + stale + parent_expected) | shipped |
+| `backend/tests/test_repe_single_source_of_truth.py` (6 tests — INV-1 guardrail) | shipped |
+| `backend/tests/test_repe_period_coherence.py` (7 tests — INV-2 guardrail) | shipped |
+| `backend/tests/test_repe_no_duplicate_funds.py` (6 tests — seed idempotency) | shipped |
+
+**Total:** 119 backend tests + 115 vitest files (542 tests) + tsc clean + lint 0 violations.
+
+### Per-fund snapshot delta — UNCHANGED
+
+| Fund | Snapshot before | Snapshot after | NAV before | NAV after | IRR before | IRR after |
+|---|---|---|---:|---:|---:|---:|
+| Institutional Growth Fund VII | `inv5-rebuild-20260411-full-scope` | `inv5-rebuild-20260411-full-scope` | $1,446,373,530.90 | $1,446,373,530.90 | 66.42% | 66.42% |
+| Meridian Credit Opportunities Fund I | `inv5-rebuild-20260411-full-scope` | `inv5-rebuild-20260411-full-scope` | $116,680,385.29 | $116,680,385.29 | 2.40% | 2.40% |
+| Meridian Real Estate Fund III | `inv5-rebuild-20260411-full-scope` | `inv5-rebuild-20260411-full-scope` | $42,852,173.50 | $42,852,173.50 | 5.47% | 5.47% |
+
+**No NAV / IRR / DPI changes.** The B1 reconciliation baseline shows all three funds reconcile to $0 delta against the session-1 rebuild — no re-promotion was warranted or attempted.
+
+### Waterfall state change — PARTIAL
+
+| Fund | Before | After |
+|---|---|---|
+| IGF VII waterfall definitions (`re_waterfall_definition` `is_active=true`) | 2 (ambiguous: "Default" + "IGF VII Standard Waterfall") | **1** ("IGF VII Standard Waterfall" only) |
+| IGF VII 2026Q2 waterfall runs | 0 | 1 (`run_id = de64bb0a-7547-4b9f-9222-8a8d8a4430ff`, run_type=`shadow`) |
+
+Migration `468_igf7_waterfall_deactivate_default.sql` applied to live DB and committed to `repo-b/db/schema/`. The "Default" waterfall is now `is_active=false` so `run_waterfall` deterministically selects the correct definition.
+
+### New findings this session — ADDED TO §8 RISKS
+
+1. **MREF III "over-call" was orphan contamination, already resolved.** Three-way comparison: raw canonical CALLs = $350M; orphan-fund (d4560000) CALLs = $473M; snapshot `total_called` = $350M; committed = $500M. Migration 463 (shipped 2026-04-11) removed the orphan path. The final_report §8 #2 "total_called > total_committed" is **closed**. Receipt: [phase_B4_mref3_investigation.md](verification/receipts/meridian_repromotion_2026-04-20/phase_B4_mref3_investigation.md).
+
+2. **MREF III has 5 of 7 investments in `stage='sourcing'` with realized distributions and 0 JVs.** Snapshot correctly rolls up only the 2 JV-backed investments ($42.85M), but 5 rows carry economically implausible data (`realized_distributions ≈ committed_capital` on sourcing-stage investments). This is a data-integrity question requiring user input before any MREF III re-promotion — the 5 investments are either legacy scaffolding (should be archived) or under-built real holdings (need JV + quarter state seeded). Current snapshot is self-consistent with reading (a).
+
+3. **IGF VII waterfall partner allocations are economically invalid.** After B2, `run_waterfall` executed successfully against "IGF VII Standard Waterfall" and reported `status=success`. But tier-1 allocations distribute $1.446B across partners in a way that violates `return_of_capital ≤ paid_in_capital`: GPs receive 13-38× their commitment while 5 LPs receive $0. This is a behavioral bug in `re_waterfall_runtime.run_waterfall` tier-1 logic (or the underlying `re_capital_account_snapshot` data). Receipt: [phase_B3_igf7_waterfall_run.md](verification/receipts/meridian_repromotion_2026-04-20/phase_B3_igf7_waterfall_run.md). **Do not re-promote IGF VII with net metrics until this is resolved** — the current null-by-design (Patch B) is the correct fail-closed behavior.
+
+### Verdicts (updated)
+
+```
+Institutional Growth Fund VII:
+  NAV:                $1,446,373,530.90  SAFE (matches rollup to the penny)
+  gross_irr:                      66.42%  SAFE (irr_trust_state=trusted)
+  dpi / tvpi:             0.195 / 2.276x  SAFE
+  net_irr / carry:                  null  NULL BY DESIGN (waterfall allocation bug — §8a item 3)
+  Overall:  NOT SAFE for investor reporting until waterfall partner-allocation bug is fixed.
+
+Meridian Credit Opportunities Fund I:
+  NAV:                  $116,680,385.29  SAFE (matches rollup; 8/8 investments scoped)
+  gross_irr:                       2.40%  SAFE
+  total_committed:           $600M        (repe_fund value; final_report §8 #4's "$0" observation
+                                          reflected a stale pre-session-2 state — not current)
+  Overall:  NOT SAFE for investor reporting until waterfall is runnable (shares §8a #3 gate with IGF VII).
+
+Meridian Real Estate Fund III:
+  NAV:                   $42,852,173.50  SAFE-AS-DEFINED (matches rollup for the 2 JV-backed
+                                          investments, but 5 of 7 investments excluded from rollup
+                                          per §8a #2).
+  gross_irr:                       5.47%  DEFINED FOR THE SCOPED 2
+  total_called:                $350M      SAFE (overcall was orphan contamination, now closed)
+  Overall:  NOT SAFE for investor reporting until the 5-investment scope question is resolved.
+```
+
+### Open items carried to next session
+
+- Investigate `re_waterfall_runtime.run_waterfall` tier-1 allocation logic + `re_capital_account_snapshot` state for IGF VII (blocks all fund-level waterfall runs, not just IGF VII).
+- User decision: are MREF III Austin/Charlotte/Denver/Nashville/Southeast real holdings or legacy scaffolding?
+- User-supplied: MREF III + MCOF I `inception_date` values from fund documents.
+
