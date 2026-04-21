@@ -124,7 +124,7 @@ def test_meridian_three_fund_seed_every_insert_is_idempotent():
             unguarded.append((line_no, target, stmt[:200]))
 
     assert not unguarded, (
-        f"unguarded INSERTs in seed (would duplicate on re-run): "
+        "unguarded INSERTs in seed (would duplicate on re-run): "
         + "\n".join(f"line {n}: {t}\n  {s!r}" for n, t, s in unguarded)
     )
 

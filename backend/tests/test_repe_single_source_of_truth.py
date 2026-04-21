@@ -177,9 +177,6 @@ def test_reconciliation_never_uses_non_released_snapshot_as_truth():
         "null_reasons": {}, "formulas": {}, "provenance": [], "artifact_paths": {},
     }
 
-    from decimal import Decimal
-    rollup_result = {"agg_nav": Decimal("100000000")}
-
     with patch.object(re_reconciliation, "get_cursor", fake_cursor), \
          patch("app.services.re_authoritative_snapshots.get_authoritative_state", return_value=draft_response):
         rows = re_reconciliation.build_environment_reconciliation(
