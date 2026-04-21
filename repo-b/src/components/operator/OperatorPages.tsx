@@ -1650,7 +1650,7 @@ export function OperatorPipelinePage() {
 
 export { SiteDecisionSurface as OperatorSiteDetailPage } from "@/components/operator/site-decision";
 
-function _LegacyOperatorSiteDetailPage({ siteId }: { siteId: string }) {
+function LegacyOperatorSiteDetailPage({ siteId }: { siteId: string }) {
   const pathname = usePathname();
   const { envId, businessId } = useDomainEnv();
   const [detail, setDetail] = useState<OperatorSiteDetail | null>(null);
