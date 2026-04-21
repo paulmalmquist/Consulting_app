@@ -356,8 +356,8 @@ def test_fail_closed_waterfall_returns_value_on_valid_engine():
 
     mock_result = {
         "results": [
-            {"tier_code": "tier_4_carry", "amount": "7600000.00"},
-            {"tier_code": "tier_1_roc", "amount": "200000000.00"},  # not counted
+            {"tier_code": "tier_4_carry_split_gp", "amount": "7600000.00"},
+            {"tier_code": "tier_1_return_of_capital", "amount": "200000000.00"},  # not counted (roc)
         ]
     }
     with patch("app.services.re_waterfall_runtime.run_waterfall", return_value=mock_result):

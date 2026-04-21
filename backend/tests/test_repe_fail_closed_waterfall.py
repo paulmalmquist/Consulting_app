@@ -114,10 +114,13 @@ def test_net_xirr_returns_none_when_carry_is_none():
 
 def test_carry_returns_decimal_on_success():
     wf_carry, _ = _get_fn()
+    # Use real tier codes emitted by run_us_waterfall; classified via _TIER_TYPE_MAP.
+    # tier_4_carry_split_gp → "carry_gp" (counts toward carry)
+    # tier_2_preferred_return → "pref" (does NOT count toward carry)
     mock_result = {
         "results": [
-            {"tier_code": "carry_tier", "amount": "1234567.89"},
-            {"tier_code": "preferred_return", "amount": "5000000.00"},
+            {"tier_code": "tier_4_carry_split_gp", "amount": "1234567.89"},
+            {"tier_code": "tier_2_preferred_return", "amount": "5000000.00"},
         ]
     }
     with patch("app.services.re_waterfall_runtime.run_waterfall", return_value=mock_result):

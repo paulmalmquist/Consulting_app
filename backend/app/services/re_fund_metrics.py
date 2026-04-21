@@ -120,20 +120,44 @@ def _compute_net_xirr(
     return _compute_fund_xirr(cur, env_id, business_id, fund_id, quarter, net_terminal)
 
 
+# Explicit classification of every tier code emitted by app.finance.waterfall_engine.run_us_waterfall.
+# "carry" here means economic carry accruing to the GP (tier-3 catch-up + tier-4 GP split).
+# The tier-4 LP split shares a "carry" substring in its tier_code for historical reasons
+# but is the LP's residual participation, NOT carry. Do not use substring matching.
+# INV-W-CLASSIFY: every tier_code the engine can emit MUST appear in this map. If a new
+# tier code is added to the engine without a corresponding entry here, the lookup below
+# raises KeyError and _compute_waterfall_carry returns None (fail-closed).
+_TIER_TYPE_MAP: dict[str, str] = {
+    "tier_1_return_of_capital":   "roc",
+    "tier_2_preferred_return":    "pref",
+    "tier_3_gp_catch_up":         "carry_gp",
+    "tier_4_carry_split_gp":      "carry_gp",
+    "tier_4_carry_split_lp":      "residual_lp",
+    "tier_5_rounding_adjustment": "rounding",
+}
+
+
 def _compute_waterfall_carry(fund_id: UUID, quarter: str, gross_return: Decimal, total_called: Decimal) -> Decimal | None:
     """Compute carry using real waterfall engine.
 
     Returns None (null_reason: out_of_scope_requires_waterfall) if the waterfall engine raises.
     Fail-closed per INV-5 / SYSTEM_RULES_AUTHORITATIVE_STATE Rule 3 — no fallback approximation.
+
+    Classification uses _TIER_TYPE_MAP (exact tier_code match); substring matching is
+    forbidden because tier_4_carry_split_lp contains "carry" but is the LP's residual
+    participation, not economic carry. See phase_B7_step7_gate_stop.md.
     """
     try:
         from app.services.re_waterfall_runtime import run_waterfall
         wf_result = run_waterfall(fund_id=fund_id, quarter=quarter)
-        # Sum carry + catch-up allocations from waterfall results
         carry = Decimal("0")
         for result in (wf_result.get("results") or []):
             tier_code = result.get("tier_code", "")
-            if "carry" in tier_code or "catch_up" in tier_code:
+            # Unknown tier codes fail closed — forces explicit classification for every new tier.
+            tier_type = _TIER_TYPE_MAP.get(tier_code)
+            if tier_type is None:
+                raise ValueError(f"Unknown waterfall tier_code '{tier_code}' — add to _TIER_TYPE_MAP")
+            if tier_type == "carry_gp":
                 carry += Decimal(str(result.get("amount", 0)))
         return carry.quantize(Decimal("0.01"))
     except (LookupError, ValueError, ImportError):
