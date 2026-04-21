@@ -90,7 +90,10 @@ BEGIN
     SELECT
       a.asset_id,
       pa.units,
-      f.env_id,
+      COALESCE(
+        (SELECT s.env_id FROM re_authoritative_fund_state_qtr s WHERE s.fund_id = f.fund_id LIMIT 1),
+        'demo'
+      ) AS env_id,
       f.business_id
     FROM repe_asset a
     JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
