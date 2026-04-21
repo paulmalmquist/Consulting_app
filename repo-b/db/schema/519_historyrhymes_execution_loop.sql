@@ -90,6 +90,11 @@ COMMENT ON TABLE public.hr_paper_trading_ledger IS
 -- single-direction schema. Add optional columns to hold the extras without
 -- breaking existing seed rows or the prediction resolution flow.
 
+-- Drop dependent view before ALTER so the subsequent apply-idempotency rerun
+-- can re-create it with the expanded p.* column list without PostgreSQL's
+-- "cannot change name of view column" error (42P16).
+DROP VIEW IF EXISTS public.hr_pending_predictions;
+
 ALTER TABLE public.hr_predictions
     ADD COLUMN IF NOT EXISTS regime VARCHAR(50),
     ADD COLUMN IF NOT EXISTS positions JSONB,            -- array of {asset, direction, size, time_horizon_days, entry_type, key_drivers, top_analog, rhyme_score, invalidation, next_check}
@@ -98,6 +103,17 @@ ALTER TABLE public.hr_predictions
     ADD COLUMN IF NOT EXISTS execution_tasks JSONB,      -- array of strings
     ADD COLUMN IF NOT EXISTS source_brief_id UUID REFERENCES public.hr_weekly_briefs(brief_id),
     ADD COLUMN IF NOT EXISTS source_snapshot_id UUID REFERENCES public.hr_signal_snapshots(snapshot_id);
+
+-- Recreate hr_pending_predictions view explicitly after the ALTER so p.*
+-- expands to the full current column list. Subsequent idempotent reruns of
+-- 434/506 will hit CREATE OR REPLACE against this same expanded set.
+CREATE OR REPLACE VIEW public.hr_pending_predictions AS
+SELECT p.*, e.name as analog_name
+FROM public.hr_predictions p
+LEFT JOIN public.episodes e ON p.top_analog_id = e.id
+WHERE p.resolved = FALSE
+  AND p.target_date <= CURRENT_DATE
+ORDER BY p.target_date;
 
 COMMENT ON COLUMN public.hr_predictions.regime IS
     'Execution-layer regime call: expansion | late_cycle | stagflation | crisis | recovery | unknown. Null for pre-v1 rows and for legacy single-direction predictions.';

@@ -369,7 +369,12 @@ CREATE INDEX IF NOT EXISTS idx_trap_checks_date ON public.wss_trap_checks(check_
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Active predictions needing resolution
-CREATE OR REPLACE VIEW public.hr_pending_predictions AS
+-- DROP first so idempotent re-runs (after later migrations add columns to
+-- hr_predictions) can re-create the view with the expanded p.* expansion.
+-- CREATE OR REPLACE VIEW alone fails with 42P16 when the p.* column list
+-- shifts position of the "analog_name" aliased column.
+DROP VIEW IF EXISTS public.hr_pending_predictions;
+CREATE VIEW public.hr_pending_predictions AS
 SELECT p.*, e.name as analog_name
 FROM public.hr_predictions p
 LEFT JOIN public.episodes e ON p.top_analog_id = e.id
