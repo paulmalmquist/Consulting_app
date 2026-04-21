@@ -3,10 +3,11 @@ import { expect, test } from "@playwright/test";
 const adminEnvironments = [
   {
     env_id: "11111111-1111-4111-8111-111111111111",
-    slug: "novendor",
+    slug: "meridian",
     client_name: "Meridian Capital Management",
-    industry: "real_estate",
-    industry_type: "real_estate",
+    industry: "real_estate_pe",
+    industry_type: "repe",
+    repe_initialized: false,
     schema_name: "env_meridian_capital_management",
     is_active: true,
     created_at: "2026-02-25T00:00:00.000Z",
@@ -14,14 +15,36 @@ const adminEnvironments = [
   },
   {
     env_id: "22222222-2222-4222-8222-222222222222",
-    slug: "resume",
-    client_name: "Paul Malmquist Resume",
-    industry: "visual_resume",
-    industry_type: "visual_resume",
-    schema_name: "env_resume",
+    slug: "ncf",
+    client_name: "National Christian Foundation",
+    industry: "ncf",
+    industry_type: "ncf",
+    schema_name: "env_ncf",
     is_active: true,
     created_at: "2026-02-24T00:00:00.000Z",
-    business_id: "business-resume",
+    business_id: "business-ncf",
+  },
+  {
+    env_id: "33333333-3333-4333-8333-333333333333",
+    slug: "hall-boys",
+    client_name: "Hall Boys Operating System",
+    industry: "multi_entity_operator",
+    industry_type: "multi_entity_operator",
+    schema_name: "env_hall_boys",
+    is_active: true,
+    created_at: "2026-02-23T00:00:00.000Z",
+    business_id: "business-hall-boys",
+  },
+  {
+    env_id: "44444444-4444-4444-8444-444444444444",
+    slug: "novendor",
+    client_name: "Novendor",
+    industry: "consulting",
+    industry_type: "consulting",
+    schema_name: "env_novendor",
+    is_active: true,
+    created_at: "2026-02-22T00:00:00.000Z",
+    business_id: "business-novendor",
   },
 ];
 
@@ -47,14 +70,33 @@ test.describe("mobile entry surfaces", () => {
     await page.goto("/app");
 
     await expect(page.getByRole("heading", { name: "Winston" })).toBeVisible();
-    await expect(page.getByText("Current environment")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open workspace" })).toBeVisible();
-    await expect(page.getByText("Provisioned workspaces")).toBeVisible();
+    await expect(page.getByText("Current workspace")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tap to enter" })).toBeVisible();
+    await expect(page.getByText("Workspaces")).toBeVisible();
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
     );
     expect(hasHorizontalOverflow).toBe(false);
+
+    const meridianCard = page
+      .locator("section")
+      .filter({ hasText: "Workspaces" })
+      .getByRole("button", { name: /Meridian Capital Management/i });
+    await expect(meridianCard).toBeVisible();
+    await expect(meridianCard.getByTestId("env-lifecycle-pill")).toBeVisible();
+
+    const [cardBox, pillBox] = await Promise.all([
+      meridianCard.boundingBox(),
+      meridianCard.getByTestId("env-lifecycle-pill").boundingBox(),
+    ]);
+    expect(cardBox).not.toBeNull();
+    expect(pillBox).not.toBeNull();
+
+    expect((pillBox?.x ?? 0) >= (cardBox?.x ?? 0)).toBe(true);
+    expect((pillBox?.y ?? 0) >= (cardBox?.y ?? 0)).toBe(true);
+    expect((pillBox?.x ?? 0) + (pillBox?.width ?? 0) <= (cardBox?.x ?? 0) + (cardBox?.width ?? 0)).toBe(true);
+    expect((pillBox?.y ?? 0) + (pillBox?.height ?? 0) <= (cardBox?.y ?? 0) + (cardBox?.height ?? 0)).toBe(true);
 
     await page.screenshot({
       path: testInfo.outputPath("app-mobile-selector.png"),

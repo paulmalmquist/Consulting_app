@@ -31,6 +31,14 @@ function environmentTone(environment: { slug?: string | null }) {
   };
 }
 
+function assertEnvironmentClientName(environment: { env_id: string; client_name: string }) {
+  const clientName = environment.client_name?.trim();
+  if (!clientName) {
+    throw new Error(`Malformed environment card data: missing client_name for env ${environment.env_id}`);
+  }
+  return clientName;
+}
+
 const SYSTEM_LINKS = [
   { href: "/lab/system/control-tower", label: "Control Tower", detail: "Provision and monitor environments" },
   { href: "/lab/system/access", label: "Access", detail: "Grant memberships and workspace visibility" },
@@ -49,6 +57,9 @@ function AppIndexPageInner() {
     () => selectedEnv || environments[0] || null,
     [environments, selectedEnv],
   );
+  const selectedEnvironmentName = selectedEnvironment
+    ? assertEnvironmentClientName(selectedEnvironment)
+    : null;
 
   async function openEnvironment(envId: string, slug?: string | null) {
     setOpeningEnvId(envId);
@@ -129,7 +140,7 @@ function AppIndexPageInner() {
             <div className="space-y-1">
               <p className="text-[10px] uppercase tracking-[0.22em] text-white/42">Current workspace</p>
               <h2 className="text-[1.8rem] font-semibold tracking-tight text-white">
-                {selectedEnvironment ? selectedEnvironment.client_name : "No workspace selected"}
+                {selectedEnvironmentName ?? "No workspace selected"}
               </h2>
               <p className="text-sm leading-6 text-white/66">
                 {selectedEnvironment
@@ -193,6 +204,7 @@ function AppIndexPageInner() {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
                   const lifecycle = deriveEnvLifecycleState(environment);
+                  const clientName = assertEnvironmentClientName(environment);
                   return (
                     <button
                       key={`mobile-${environment.env_id}`}
@@ -211,12 +223,12 @@ function AppIndexPageInner() {
                       }}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold text-white">
-                              {environment.client_name}
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="truncate text-sm font-semibold text-white">
+                              {clientName}
                             </div>
-                            <EnvLifecyclePill state={lifecycle} />
+                            <EnvLifecyclePill state={lifecycle} className="shrink-0" />
                           </div>
                           <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-white/42">
                             {humanIndustry(environment.industry_type || environment.industry)}
@@ -282,6 +294,7 @@ function AppIndexPageInner() {
                   const isOpening = openingEnvId === environment.env_id;
                   const tone = environmentTone(environment);
                   const lifecycle = deriveEnvLifecycleState(environment);
+                  const clientName = assertEnvironmentClientName(environment);
                   return (
                     <button
                       key={environment.env_id}
@@ -301,12 +314,12 @@ function AppIndexPageInner() {
                       }}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-sm font-semibold text-white">
-                              {environment.client_name}
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <div className="truncate text-sm font-semibold text-white">
+                              {clientName}
                             </div>
-                            <EnvLifecyclePill state={lifecycle} />
+                            <EnvLifecyclePill state={lifecycle} className="shrink-0" />
                           </div>
                           <p className="mt-1 text-xs leading-5 text-white/46">
                             {humanIndustry(environment.industry_type || environment.industry)}
@@ -365,7 +378,7 @@ function AppIndexPageInner() {
               <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md lg:p-8">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Workspace access</p>
                 <h2 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-tight text-white">
-                  {selectedEnvironment ? selectedEnvironment.client_name : "No workspace selected"}
+                  {selectedEnvironmentName ?? "No workspace selected"}
                 </h2>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-white/66">
                   {selectedEnvironment
