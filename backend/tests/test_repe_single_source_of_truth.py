@@ -145,9 +145,11 @@ def test_reconciliation_never_uses_non_released_snapshot_as_truth():
     FUND = str(uuid4())
     INV = str(uuid4())
 
+    from decimal import Decimal as _D
     queue = [
         [{"fund_id": FUND, "name": "Test Fund"}],
         [{"investment_id": INV, "name": "Test Inv"}],
+        [{"investment_id": INV, "nav": _D("100000000")}],
     ]
 
     class Cur:
@@ -179,8 +181,7 @@ def test_reconciliation_never_uses_non_released_snapshot_as_truth():
     rollup_result = {"agg_nav": Decimal("100000000")}
 
     with patch.object(re_reconciliation, "get_cursor", fake_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", return_value=draft_response), \
-         patch("app.services.re_rollup.rollup_investment", return_value=rollup_result):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", return_value=draft_response):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )

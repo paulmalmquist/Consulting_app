@@ -202,6 +202,7 @@ def test_reconciliation_surfaces_non_period_exact_snapshot_as_stale():
     queue = [
         [{"fund_id": FUND, "name": "Fund"}],
         [{"investment_id": INV, "name": "Inv"}],
+        [{"investment_id": INV, "nav": Decimal("100000000")}],
     ]
 
     class Cur:
@@ -232,8 +233,7 @@ def test_reconciliation_surfaces_non_period_exact_snapshot_as_stale():
     }
 
     with patch.object(re_reconciliation, "get_cursor", fake_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", return_value=off_period), \
-         patch("app.services.re_rollup.rollup_investment", return_value={"agg_nav": Decimal("100000000")}):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", return_value=off_period):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )

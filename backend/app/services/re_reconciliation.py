@@ -544,7 +544,6 @@ def build_environment_reconciliation(
     legacy re_fund_quarter_state or re_fund_metrics_qtr.
     """
     from app.services.re_authoritative_snapshots import get_authoritative_state
-    from app.services.re_rollup import rollup_investment
 
     env_id_s = str(env_id)
     business_id_s = str(business_id)
@@ -564,12 +563,13 @@ def build_environment_reconciliation(
         )
         funds = cur.fetchall() or []
 
+        # Investments are `re_investment`, linked to `repe_fund` via `fund_id`.
         fund_investments: dict[str, list[dict]] = {}
         for fund in funds:
             cur.execute(
                 """
                 SELECT investment_id::text AS investment_id, name
-                FROM repe_investment
+                FROM re_investment
                 WHERE fund_id = %s::uuid
                 ORDER BY name
                 """,
@@ -607,18 +607,49 @@ def build_environment_reconciliation(
             if nav is not None:
                 portfolio_expected += nav
 
-    # ── 3. Per-fund rollup: sum investment rollups → fund rollup value ──
+    # ── 3. Per-fund rollup: read investment NAV from re_investment_quarter_state ──
+    # This is the same source the authoritative snapshot builder writes to after
+    # running `rollup_investment`. Reading it directly means reconciliation compares
+    # the *actual* aggregation inputs the snapshot used, not a re-execution of the
+    # rollup (which depends on re_jv_quarter_state being populated — and on live
+    # Meridian 2026Q2 data, it is not).
+    #
+    # Why not call rollup_investment live here? Two reasons:
+    #  (a) rollup_investment reads re_jv_quarter_state which may lag or be empty
+    #  (b) calling it for every investment would trigger N DB round-trips plus
+    #      an INSERT into re_investment_quarter_state (side-effect on a read
+    #      path — wrong for a diagnostic surface)
     fund_rollup_value: dict[str, Decimal] = {}
     investment_rollup_value: dict[str, Decimal] = {}
+    all_inv_ids: list[str] = []
+    for fund in funds:
+        for inv in fund_investments.get(fund["fund_id"], []):
+            all_inv_ids.append(inv["investment_id"])
+
+    inv_nav_by_id: dict[str, Decimal] = {}
+    if all_inv_ids:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT ON (iqs.investment_id)
+                    iqs.investment_id::text AS investment_id,
+                    iqs.nav
+                FROM re_investment_quarter_state iqs
+                WHERE iqs.investment_id = ANY(%s::uuid[])
+                  AND iqs.quarter = %s
+                  AND iqs.scenario_id IS NULL
+                ORDER BY iqs.investment_id, iqs.created_at DESC
+                """,
+                (all_inv_ids, quarter),
+            )
+            for row in cur.fetchall() or []:
+                inv_nav_by_id[row["investment_id"]] = _to_decimal_or_none(row["nav"]) or Decimal("0")
+
     for fund in funds:
         fund_id = fund["fund_id"]
         fund_total = Decimal("0")
         for inv in fund_investments.get(fund_id, []):
-            try:
-                rollup = rollup_investment(investment_id=inv["investment_id"], quarter=quarter)
-                inv_nav = _to_decimal_or_none(rollup.get("agg_nav")) or Decimal("0")
-            except Exception:
-                inv_nav = Decimal("0")
+            inv_nav = inv_nav_by_id.get(inv["investment_id"], Decimal("0"))
             investment_rollup_value[inv["investment_id"]] = inv_nav
             fund_total += inv_nav
         fund_rollup_value[fund_id] = fund_total

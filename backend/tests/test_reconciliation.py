@@ -161,6 +161,11 @@ def test_clean_reconciliation_all_within_tolerance():
         [{"investment_id": INV_A1, "name": "Alpha Inv 1"}],
         # Investments for fund B
         [{"investment_id": INV_B1, "name": "Beta Inv 1"}],
+        # re_investment_quarter_state nav lookup (batched across all investments)
+        [
+            {"investment_id": INV_A1, "nav": Decimal("100000000")},
+            {"investment_id": INV_B1, "nav": Decimal("50000000")},
+        ],
     ]
     fake_get_cursor, _ = _cursor_factory(queued_results)
 
@@ -168,14 +173,9 @@ def test_clean_reconciliation_all_within_tolerance():
         FUND_A: _released_auth(FUND_A, "100000000", "v-alpha"),
         FUND_B: _released_auth(FUND_B, "50000000", "v-beta"),
     }
-    rollup_map = {
-        INV_A1: _rollup("100000000"),
-        INV_B1: _rollup("50000000"),
-    }
 
     with patch.object(re_reconciliation, "get_cursor", fake_get_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]), \
-         patch("app.services.re_rollup.rollup_investment", side_effect=lambda **kw: rollup_map[kw["investment_id"]]):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )
@@ -220,18 +220,18 @@ def test_ownership_mismatch_surfaces_as_delta_gt_1usd():
     queued_results = [
         [{"fund_id": FUND_A, "name": "Alpha Fund"}],
         [{"investment_id": INV_A1, "name": "Alpha Inv 1"}, {"investment_id": INV_A2, "name": "Alpha Inv 2"}],
+        # re_investment_quarter_state nav lookup
+        [
+            {"investment_id": INV_A1, "nav": Decimal("60000000")},
+            {"investment_id": INV_A2, "nav": Decimal("40000000")},
+        ],
     ]
     fake_get_cursor, _ = _cursor_factory(queued_results)
 
     auth_map = {FUND_A: _released_auth(FUND_A, "90000000")}
-    rollup_map = {
-        INV_A1: _rollup("60000000"),
-        INV_A2: _rollup("40000000"),
-    }
 
     with patch.object(re_reconciliation, "get_cursor", fake_get_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]), \
-         patch("app.services.re_rollup.rollup_investment", side_effect=lambda **kw: rollup_map[kw["investment_id"]]):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )
@@ -256,15 +256,14 @@ def test_unreleased_snapshot_flags_stale():
     queued_results = [
         [{"fund_id": FUND_A, "name": "Alpha Fund"}],
         [{"investment_id": INV_A1, "name": "Alpha Inv 1"}],
+        [{"investment_id": INV_A1, "nav": Decimal("60000000")}],
     ]
     fake_get_cursor, _ = _cursor_factory(queued_results)
 
     auth_map = {FUND_A: _unreleased_auth(FUND_A)}
-    rollup_map = {INV_A1: _rollup("60000000")}
 
     with patch.object(re_reconciliation, "get_cursor", fake_get_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]), \
-         patch("app.services.re_rollup.rollup_investment", side_effect=lambda **kw: rollup_map[kw["investment_id"]]):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )
@@ -298,6 +297,10 @@ def test_parent_expected_semantics_per_level():
         [{"fund_id": FUND_A, "name": "Alpha Fund"}, {"fund_id": FUND_B, "name": "Beta Fund"}],
         [{"investment_id": INV_A1, "name": "Alpha Inv 1"}],
         [{"investment_id": INV_B1, "name": "Beta Inv 1"}],
+        [
+            {"investment_id": INV_A1, "nav": Decimal("100000000")},
+            {"investment_id": INV_B1, "nav": Decimal("50000000")},
+        ],
     ]
     fake_get_cursor, _ = _cursor_factory(queued_results)
 
@@ -305,14 +308,9 @@ def test_parent_expected_semantics_per_level():
         FUND_A: _released_auth(FUND_A, "100000000"),
         FUND_B: _released_auth(FUND_B, "50000000"),
     }
-    rollup_map = {
-        INV_A1: _rollup("100000000"),
-        INV_B1: _rollup("50000000"),
-    }
 
     with patch.object(re_reconciliation, "get_cursor", fake_get_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]), \
-         patch("app.services.re_rollup.rollup_investment", side_effect=lambda **kw: rollup_map[kw["investment_id"]]):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )
@@ -345,15 +343,14 @@ def test_fund_rows_carry_snapshot_version_and_source_origin():
     queued_results = [
         [{"fund_id": FUND_A, "name": "Alpha Fund"}],
         [{"investment_id": INV_A1, "name": "Alpha Inv 1"}],
+        [{"investment_id": INV_A1, "nav": Decimal("100000000")}],
     ]
     fake_get_cursor, _ = _cursor_factory(queued_results)
 
     auth_map = {FUND_A: _released_auth(FUND_A, "100000000", snapshot_version="meridian-20260419-eb7e1153")}
-    rollup_map = {INV_A1: _rollup("100000000")}
 
     with patch.object(re_reconciliation, "get_cursor", fake_get_cursor), \
-         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]), \
-         patch("app.services.re_rollup.rollup_investment", side_effect=lambda **kw: rollup_map[kw["investment_id"]]):
+         patch("app.services.re_authoritative_snapshots.get_authoritative_state", side_effect=lambda **kw: auth_map[kw["entity_id"]]):
         rows = re_reconciliation.build_environment_reconciliation(
             env_id=uuid4(), business_id=uuid4(), quarter="2026Q2",
         )
