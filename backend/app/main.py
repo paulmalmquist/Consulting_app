@@ -98,6 +98,7 @@ from app.routes import market_regime
 from app.routes import market_correlation
 from app.routes import market_research_state
 from app.routes import rhymes
+from app.routes import podcast_intelligence
 from app.routes import hr as hr_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
@@ -386,6 +387,7 @@ app.include_router(market_regime.router)
 app.include_router(market_correlation.router)
 app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
+app.include_router(podcast_intelligence.router)
 app.include_router(hr_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
