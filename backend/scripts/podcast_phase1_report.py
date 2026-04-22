@@ -118,6 +118,37 @@ def main() -> None:
                 add(f"| {ep_label} | `{model}` | {cols['macro']} | {cols['trade']} | {cols['narr']} | {cols['analog']} | {unc} | {spk} |")
         add("")
 
+        # ── Cross-episode narrative crowding (Phase 3) ────────────────────
+        cur.execute("""
+            SELECT narrative_label, mention_count, unique_speakers, conviction_avg,
+                   crowding_risk, metadata
+            FROM podcast_narrative_velocity
+            WHERE (metadata->'episode_ids') IS NOT NULL
+              AND jsonb_array_length(metadata->'episode_ids') >= 2
+            ORDER BY mention_count DESC, conviction_avg DESC
+        """)
+        cross_ep_rows = cur.fetchall()
+        if cross_ep_rows:
+            add("## Cross-Episode Narrative Crowding (Phase 3)")
+            add("")
+            add("Narrative labels clustered by cosine similarity (text-embedding-3-small, "
+                "threshold 0.65). Labels that appear across ≥2 of the 3 episodes indicate "
+                "convergent themes — candidates for crowding detection once the corpus grows.")
+            add("")
+            add("| Canonical narrative | Episodes | Mentions | Conviction | Crowding |")
+            add("|---|---:|---:|---:|---|")
+            for row in cross_ep_rows:
+                meta = row["metadata"] or {}
+                members = meta.get("cluster_members") or []
+                ep_count = len(meta.get("episode_ids") or [])
+                label = row["narrative_label"][:70].replace("|", "\\|")
+                add(f"| {label} | {ep_count} | {row['mention_count']} | "
+                    f"{float(row['conviction_avg']):.0f} | {row['crowding_risk']} |")
+                if len(members) > 1:
+                    for m in members[:4]:
+                        add(f"|   ↳ _{m[:70]}_ |  |  |  |  |")
+            add("")
+
         # ── Phase 0 vs Phase 1 comparison on Odd Lots ────────────────────
         cur.execute("SELECT episode_id FROM podcast_episodes WHERE title ILIKE '%exceptionalism%' LIMIT 1")
         odd_row = cur.fetchone()

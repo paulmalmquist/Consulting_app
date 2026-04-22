@@ -1,6 +1,6 @@
 # Podcast Intelligence — Phase 1 Gate Check
 
-_Generated: 2026-04-22T17:14:17.294071Z_
+_Generated: 2026-04-22T17:30:04.334352Z_
 
 Full end-to-end Phase 1 pipeline run: YouTube ingest → auto-caption transcription → sentence+speaker-turn chunking → 4-pass extraction (GPT-4o structured + Claude nuanced + Claude adversarial) → speaker resolver with fuzzy fallback → signals land in 7 tables.
 
@@ -25,6 +25,28 @@ Counts broken out by `extraction_model` so Phase 0 (legacy standalone pipeline) 
 | Is This the End of the US Exceptionalism | `gpt-4o` | 25 | 12 | 0 | 0 | 115 | 4 |
 |    | `claude-sonnet-4` | 0 | 0 | 34 | 0 |  |  |
 |    | `claude-sonnet-4-5` | 0 | 0 | 39 | 13 |  |  |
+
+## Cross-Episode Narrative Crowding (Phase 3)
+
+Narrative labels clustered by cosine similarity (text-embedding-3-small, threshold 0.65). Labels that appear across ≥2 of the 3 episodes indicate convergent themes — candidates for crowding detection once the corpus grows.
+
+| Canonical narrative | Episodes | Mentions | Conviction | Crowding |
+|---|---:|---:|---:|---|
+| Europe/Asia Recession First - Dollar Rally Imminent | 2 | 4 | 84 | moderate |
+|   ↳ _dollar rally incoming_ |  |  |  |  |
+|   ↳ _Europe/Asia Recession First - Dollar Rally Imminent_ |  |  |  |  |
+|   ↳ _Imminent Euro Recession Drives Dollar Rally_ |  |  |  |  |
+|   ↳ _dollar breakout ending reflation trade_ |  |  |  |  |
+| Gold as ultimate safe haven amid limited alternatives | 2 | 3 | 78 | moderate |
+|   ↳ _Gold as ultimate safe haven amid limited alternatives_ |  |  |  |  |
+|   ↳ _Gold as ultimate safe haven in policy chaos_ |  |  |  |  |
+|   ↳ _Gold as Safe Haven Despite QE_ |  |  |  |  |
+| Fed QE to Treasury QE transition | 2 | 2 | 75 | moderate |
+|   ↳ _Fed QE intervention necessity_ |  |  |  |  |
+|   ↳ _Fed QE to Treasury QE transition_ |  |  |  |  |
+| steepener trade still crowded despite pain | 2 | 2 | 65 | moderate |
+|   ↳ _steepener trade still crowded despite pain_ |  |  |  |  |
+|   ↳ _steepener_trade_ |  |  |  |  |
 
 ## K1/K3 Fix Validation — Odd Lots Episode (before vs after)
 
