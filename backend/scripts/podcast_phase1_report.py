@@ -146,7 +146,7 @@ def main() -> None:
                 p1 = p1_claude + other
                 # For macro_views and trade_ideas the Phase 1 gpt-4o write lands same model string.
                 # Count phase 1 writes distinctly: they're created after phase 0. Use created_at.
-                cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND created_at > now() - interval '1 hour'", (eid,))
+                cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND extraction_model IN ('gpt-4o','claude-sonnet-4-5')", (eid,))
                 p1_recent = cur.fetchone()["c"]
                 cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s", (eid,))
                 total = cur.fetchone()["c"]
@@ -208,7 +208,7 @@ def main() -> None:
                        mv.tickers, mv.asset_classes, s.name AS speaker
                 FROM podcast_macro_views mv
                 LEFT JOIN podcast_speakers s ON s.speaker_id = mv.speaker_id
-                WHERE mv.episode_id=%s AND mv.created_at > now() - interval '1 hour'
+                WHERE mv.episode_id=%s AND mv.extraction_model IN ('gpt-4o','claude-sonnet-4-5')
                 ORDER BY mv.confidence_implied DESC LIMIT 4
             """, (eid,))
             mvs = cur.fetchall()
@@ -233,7 +233,7 @@ def main() -> None:
                        an.reasoning, s.name AS speaker
                 FROM podcast_analogs an
                 LEFT JOIN podcast_speakers s ON s.speaker_id = an.speaker_id
-                WHERE an.episode_id=%s AND an.created_at > now() - interval '1 hour'
+                WHERE an.episode_id=%s AND an.extraction_model IN ('gpt-4o','claude-sonnet-4-5')
                 ORDER BY an.created_at DESC LIMIT 4
             """, (eid,))
             ans = cur.fetchall()
@@ -247,7 +247,7 @@ def main() -> None:
             cur.execute("""
                 SELECT narrative_label, conviction, novelty_score, narrative_type
                 FROM podcast_narratives
-                WHERE episode_id=%s AND created_at > now() - interval '1 hour'
+                WHERE episode_id=%s AND extraction_model IN ('gpt-4o','claude-sonnet-4-5')
                 ORDER BY conviction DESC LIMIT 5
             """, (eid,))
             ns = cur.fetchall()
