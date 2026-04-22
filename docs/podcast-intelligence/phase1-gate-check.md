@@ -1,6 +1,6 @@
 # Podcast Intelligence — Phase 1 Gate Check
 
-_Generated: 2026-04-22T18:24:52.508218Z_
+_Generated: 2026-04-22T21:18:35.978839Z_
 
 Full end-to-end Phase 1 pipeline run: YouTube ingest → auto-caption transcription → sentence+speaker-turn chunking → 4-pass extraction (GPT-4o structured + Claude nuanced + Claude adversarial) → speaker resolver with fuzzy fallback → signals land in 7 tables.
 
@@ -34,6 +34,35 @@ Counts broken out by `extraction_model` so Phase 0 (legacy standalone pipeline) 
 | Is This the End of the US Exceptionalism | `gpt-4o` | 25 | 12 | 0 | 0 | 115 | 4 |
 |    | `claude-sonnet-4` | 0 | 0 | 34 | 0 |  |  |
 |    | `claude-sonnet-4-5` | 0 | 0 | 39 | 13 |  |  |
+
+## Trading Lab Promotions (Phase 4.2)
+
+**155 podcast signals** promoted to `public.trading_signals` with `source='ai_generated'` and `evidence->>'origin'='podcast'`. Direction split: **69 bullish / 69 bearish / 17 neutral**. Promotion gates:
+
+- Macro views: `confidence_implied >= 70`
+- Trade ideas: `conviction='high' AND crowding_tag != 'crowded'`
+- Narrative warnings: `crowding_risk in ('elevated','high','extreme')`
+
+Strength = `confidence * speaker_credibility/100`, floored at `0.7×` until speaker track records mature (Phase 5).
+
+Top tickers appearing in promoted signals:
+
+`DXY×5` `USD×4` `XAU×3` `GC=F×3` `EUR×2` `JPY×2` `EURUSD×1` `BTC-USD×1` `GC×1` `GBPUSD×1`
+
+Top promoted signals by strength:
+
+- `bearish` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
+    > The odds of a recession just went up huge.
+- `bearish` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
+    > Odds of a recession just went up huge.
+- `bearish` strength=63 — **Unattributed** · _Grant Williams: The Global Monetary Orde_ · tickers `XAU`
+    > Central banks trying to lower their dependence on dollars, and switch out of US Treasuries into gold.
+- `bullish` strength=63 — **Unattributed** · _URGENT: Raoul Pal's Macro Thesis UPDATE_
+    > Crypto becomes the supermassive black hole. It becomes the most powerful asset we've ever had, the greatest performing asset of all time.
+- `bullish` strength=63 — **Unattributed** · _URGENT: Raoul Pal's Macro Thesis UPDATE_
+    > The opportunities for outsize returns, even risk adjusted in this space are bar none and it's the best thing that we've ever seen as an asse
+- `neutral` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
+    > They are not hiking.
 
 ## Cross-Episode Narrative Crowding (Phase 3)
 

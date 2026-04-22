@@ -118,6 +118,62 @@ def main() -> None:
                 add(f"| {ep_label} | `{model}` | {cols['macro']} | {cols['trade']} | {cols['narr']} | {cols['analog']} | {unc} | {spk} |")
         add("")
 
+        # ── Trading lab promotions (Phase 4.2) ────────────────────────────
+        cur.execute("""
+            SELECT COUNT(*) c,
+                   SUM(CASE WHEN direction='bullish' THEN 1 ELSE 0 END) bull,
+                   SUM(CASE WHEN direction='bearish' THEN 1 ELSE 0 END) bear,
+                   SUM(CASE WHEN direction='neutral' THEN 1 ELSE 0 END) neut
+            FROM trading_signals WHERE evidence->>'origin' = 'podcast'
+        """)
+        promo = cur.fetchone()
+        if promo and promo["c"]:
+            add("## Trading Lab Promotions (Phase 4.2)")
+            add("")
+            add(f"**{promo['c']} podcast signals** promoted to `public.trading_signals` with "
+                f"`source='ai_generated'` and `evidence->>'origin'='podcast'`. "
+                f"Direction split: **{promo['bull']} bullish / {promo['bear']} bearish / "
+                f"{promo['neut']} neutral**. Promotion gates:")
+            add("")
+            add("- Macro views: `confidence_implied >= 70`")
+            add("- Trade ideas: `conviction='high' AND crowding_tag != 'crowded'`")
+            add("- Narrative warnings: `crowding_risk in ('elevated','high','extreme')`")
+            add("")
+            add("Strength = `confidence * speaker_credibility/100`, floored at `0.7×` "
+                "until speaker track records mature (Phase 5).")
+            add("")
+            # Top tickers
+            cur.execute("""
+                SELECT unnest(tickers) tick, COUNT(*) c FROM trading_signals
+                WHERE evidence->>'origin'='podcast' AND array_length(tickers,1) > 0
+                GROUP BY tick ORDER BY c DESC LIMIT 10
+            """)
+            tick_rows = cur.fetchall()
+            if tick_rows:
+                add("Top tickers appearing in promoted signals:")
+                add("")
+                add(f"`{'` `'.join(r['tick'] + f'×{r[chr(99)]}' for r in tick_rows)}`")
+                add("")
+            # Sample highest-strength signals
+            cur.execute("""
+                SELECT direction, strength, evidence->>'speaker_name' spk,
+                       evidence->>'statement' stmt, evidence->>'description' desc,
+                       evidence->>'episode_title' title, tickers
+                FROM trading_signals
+                WHERE evidence->>'origin' = 'podcast'
+                ORDER BY strength DESC LIMIT 6
+            """)
+            add("Top promoted signals by strength:")
+            add("")
+            for r in cur.fetchall():
+                txt = (r["stmt"] or r["desc"] or "")[:140]
+                tick = ",".join(r["tickers"]) if r["tickers"] else ""
+                tick_str = f" · tickers `{tick}`" if tick else ""
+                add(f"- `{r['direction']}` strength={float(r['strength']):.0f} — "
+                    f"**{r['spk'] or '?'}** · _{r['title'][:40]}_{tick_str}")
+                add(f"    > {txt}")
+            add("")
+
         # ── Cross-episode narrative crowding (Phase 3) ────────────────────
         cur.execute("""
             SELECT narrative_label, mention_count, unique_speakers, conviction_avg,
