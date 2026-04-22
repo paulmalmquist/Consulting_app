@@ -270,6 +270,42 @@ def main() -> None:
                     add(f"> {adv['analysis_notes'][:400]}")
                 add("")
 
+            # Pass 3 synthesis (stored in metadata.synthesis)
+            cur.execute(
+                "SELECT metadata FROM podcast_episodes WHERE episode_id=%s", (eid,)
+            )
+            meta_row = cur.fetchone()
+            synth = (meta_row or {}).get("metadata", {}).get("synthesis") if meta_row else None
+            if synth:
+                add("**Episode synthesis (Pass 3):**")
+                add("")
+                if summary := synth.get("executive_summary"):
+                    add(f"> {summary}")
+                    add("")
+                if dom := synth.get("dominant_narrative"):
+                    add(f"- **Dominant narrative:** {dom}")
+                for key, label in [
+                    ("agreements", "Agreements"),
+                    ("disagreements", "Disagreements"),
+                    ("novel_insights", "Novel insights"),
+                    ("crowded_takes", "Crowded takes"),
+                    ("adversarial_red_flags", "Red flags"),
+                ]:
+                    items = synth.get(key) or []
+                    if items:
+                        add(f"- **{label}:**")
+                        for item in items[:4]:
+                            add(f"    - {item}")
+                act = synth.get("single_most_actionable")
+                if act and isinstance(act, dict) and act.get("thesis"):
+                    add(f"- **Most actionable:** `{act.get('direction')}` "
+                        f"{act.get('asset_or_ticker')} — "
+                        f"conv={act.get('conviction')} horizon={act.get('time_horizon')}")
+                    add(f"    > {act.get('thesis')}")
+                    if risk := act.get("risk_to_thesis"):
+                        add(f"    - risk: {risk}")
+                add("")
+
     OUT_FILE.write_text("\n".join(lines))
     print(f"Wrote {OUT_FILE} ({len(lines)} lines)")
 
