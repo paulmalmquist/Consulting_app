@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-04-22",
+  "total_canonical_narratives": 169,
+  "cross_episode_count": 4,
+  "similarity_threshold": 0.65,
+  "cross_episode_narratives": [
+    {
+      "canonical_label": "Europe/Asia Recession First - Dollar Rally Imminent",
+      "mention_count": 4,
+      "unique_speakers": 2,
+      "conviction_avg": 84.5,
+      "crowding_risk": "moderate",
+      "episode_count": 2,
+      "cluster_members": [
+        "dollar rally incoming",
+        "Europe/Asia Recession First - Dollar Rally Imminent",
+        "Imminent Euro Recession Drives Dollar Rally",
+        "dollar breakout ending reflation trade"
+      ]
+    },
+    {
+      "canonical_label": "Gold as ultimate safe haven amid limited alternatives",
+      "mention_count": 3,
+      "unique_speakers": 2,
+      "conviction_avg": 78.33,
+      "crowding_risk": "moderate",
+      "episode_count": 2,
+      "cluster_members": [
+        "Gold as ultimate safe haven amid limited alternatives",
+        "Gold as ultimate safe haven in policy chaos",
+        "Gold as Safe Haven Despite QE"
+      ]
+    },
+    {
+      "canonical_label": "Fed QE to Treasury QE transition",
+      "mention_count": 2,
+      "unique_speakers": 2,
+      "conviction_avg": 75.0,
+      "crowding_risk": "moderate",
+      "episode_count": 2,
+      "cluster_members": [
+        "Fed QE intervention necessity",
+        "Fed QE to Treasury QE transition"
+      ]
+    },
+    {
+      "canonical_label": "steepener trade still crowded despite pain",
+      "mention_count": 2,
+      "unique_speakers": 2,
+      "conviction_avg": 65.0,
+      "crowding_risk": "moderate",
+      "episode_count": 2,
+      "cluster_members": [
+        "steepener trade still crowded despite pain",
+        "steepener_trade"
+      ]
+    }
+  ]
+}
