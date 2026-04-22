@@ -32,7 +32,54 @@ from app.services.podcast_speaker_resolver import SpeakerResolver
 logger = logging.getLogger(__name__)
 
 EXTRACTION_MODEL_GPT4O = "gpt-4o"
-EXTRACTION_MODEL_CLAUDE = "claude-3-5-sonnet"
+EXTRACTION_MODEL_CLAUDE = "claude-sonnet-4-5"
+
+
+# Schema enum sets — mirror repo-b/db/schema/425_podcast_intelligence.sql CHECKs.
+# LLMs occasionally return values outside these sets; we clamp to a safe default
+# rather than losing the whole row to a constraint violation.
+_VIEW_TYPES = {"macro", "sector", "asset_class", "geopolitical", "policy"}
+_DIRECTIONS_MACRO = {"bullish", "bearish", "neutral", "mixed"}
+_TIME_HORIZONS = {"immediate", "1-4_weeks", "1-3_months", "3-12_months", "1y_plus", "structural"}
+_IDEA_TYPES = {"explicit_trade", "implied_position", "risk_reward", "hedging", "portfolio_construction"}
+_DIRECTIONS_TRADE = {"long", "short", "neutral", "spread", "hedge"}
+_CONVICTION = {"high", "medium", "low"}
+_CROWDING = {"crowded", "contrarian", "consensus", "early", "late", "unknown"}
+_NARRATIVE_STAGE = {"early", "emerging", "mainstream", "crowded", "fading"}
+_NARRATIVE_TYPE = {"emerging", "reinforcing", "shifting", "fading", "contrarian"}
+_SENTIMENT = {"positive", "negative", "neutral", "mixed"}
+_RHYME_TYPE = {"structural", "cyclical", "behavioral", "policy", "technical"}
+_MARKER_TYPE = {"hedge", "qualifier", "conditional", "strong_conviction", "admission_of_uncertainty"}
+
+
+def _clamp(value, allowed: set[str], default: str | None) -> str | None:
+    """Return value if in allowed set, else default. Handles None + case/whitespace."""
+    if value is None:
+        return default
+    v = str(value).strip().lower().replace(" ", "_")
+    if v in allowed:
+        return v
+    # Common alternative spellings / synonyms the LLM emits
+    synonyms = {
+        "equities": "asset_class", "rates": "asset_class", "commodities": "asset_class",
+        "fx": "asset_class", "currencies": "asset_class", "credit": "asset_class",
+        "mid-term": "1-3_months", "short-term": "1-4_weeks", "long-term": "1y_plus",
+        "short_term": "1-4_weeks", "long_term": "1y_plus", "medium_term": "3-12_months",
+        "6-12_months": "3-12_months", "12_months": "3-12_months",
+        "buy": "long", "sell": "short",
+    }
+    mapped = synonyms.get(v)
+    if mapped in allowed:
+        return mapped
+    return default
+
+
+def _clamp_int(value, lo: int = 0, hi: int = 100, default: int = 50) -> int:
+    try:
+        n = int(float(value))
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, n))
 
 
 # ── LLM client interface (injectable for tests) ───────────────────────────────
@@ -205,11 +252,11 @@ def _write_macro_view(
             """,
             (
                 tenant_id, episode_id, speaker_id,
-                view.get("view_type") or "macro",
+                _clamp(view.get("view_type"), _VIEW_TYPES, "macro"),
                 view.get("statement") or "",
-                view.get("direction") or "neutral",
-                view.get("confidence_implied") or 50,
-                view.get("time_horizon"),
+                _clamp(view.get("direction"), _DIRECTIONS_MACRO, "neutral"),
+                _clamp_int(view.get("confidence_implied")),
+                _clamp(view.get("time_horizon"), _TIME_HORIZONS, None),
                 view.get("asset_classes") or [],
                 view.get("tickers") or [],
                 view.get("reasoning"),
@@ -239,14 +286,14 @@ def _write_trade_idea(
             """,
             (
                 tenant_id, episode_id, speaker_id,
-                idea.get("idea_type") or "implied_position",
+                _clamp(idea.get("idea_type"), _IDEA_TYPES, "implied_position"),
                 idea.get("description") or "",
-                idea.get("direction"),
+                _clamp(idea.get("direction"), _DIRECTIONS_TRADE, None),
                 idea.get("asset_classes") or [],
                 idea.get("tickers") or [],
-                idea.get("conviction"),
-                idea.get("crowding_tag"),
-                idea.get("narrative_stage"),
+                _clamp(idea.get("conviction"), _CONVICTION, None),
+                _clamp(idea.get("crowding_tag"), _CROWDING, None),
+                _clamp(idea.get("narrative_stage"), _NARRATIVE_STAGE, None),
                 chunk_index,
                 extraction_model,
             ),
@@ -271,10 +318,10 @@ def _write_narrative(
             (
                 tenant_id, episode_id,
                 narr.get("narrative_label") or "unlabeled",
-                narr.get("narrative_type"),
-                narr.get("sentiment"),
-                narr.get("conviction") or 50,
-                narr.get("novelty_score") or 50,
+                _clamp(narr.get("narrative_type"), _NARRATIVE_TYPE, None),
+                _clamp(narr.get("sentiment"), _SENTIMENT, None),
+                _clamp_int(narr.get("conviction")),
+                _clamp_int(narr.get("novelty_score")),
                 narr.get("supporting_quotes") or [],
                 [chunk_index],
                 extraction_model,
@@ -307,8 +354,8 @@ def _write_analog(
                 analog.get("reasoning") or "",
                 analog.get("missing_differences"),
                 analog.get("asset_classes") or [],
-                analog.get("confidence_implied") or 50,
-                analog.get("rhyme_type"),
+                _clamp_int(analog.get("confidence_implied")),
+                _clamp(analog.get("rhyme_type"), _RHYME_TYPE, None),
                 chunk_index,
                 extraction_model,
             ),
@@ -331,9 +378,9 @@ def _write_uncertainty_marker(
             """,
             (
                 episode_id, speaker_id,
-                marker.get("marker_type") or "hedge",
+                _clamp(marker.get("marker_type"), _MARKER_TYPE, "hedge"),
                 marker.get("raw_text") or "",
-                marker.get("inferred_confidence") or 50,
+                _clamp_int(marker.get("inferred_confidence")),
                 marker.get("context_statement"),
                 chunk_index,
             ),
@@ -363,10 +410,10 @@ def _write_adversarial_score(
             """,
             (
                 tenant_id, episode_id,
-                score.get("authenticity_score") or 50,
-                score.get("originality_score") or 50,
-                score.get("manipulation_risk") or 0,
-                score.get("recycled_talking_points") or 0,
+                _clamp_int(score.get("authenticity_score")),
+                _clamp_int(score.get("originality_score")),
+                _clamp_int(score.get("manipulation_risk"), default=0),
+                max(0, int(score.get("recycled_talking_points") or 0)),
                 score.get("analysis_notes"),
             ),
         )
