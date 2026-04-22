@@ -42,8 +42,14 @@ _UNATTRIBUTED_TOKENS = frozenset(
         "the host",
         "the speaker",
         "speaker",
+        "speaker unidentified",
+        "unidentified speaker",
+        "unidentified",
         "unknown",
+        "unnamed",
         "unattributed",
+        "n a",
+        "none",
         "",
     }
 )
