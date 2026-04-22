@@ -120,7 +120,7 @@ def test_extract_trigger_409_when_transcription_pending(client):
         def execute(self, sql, params=()):
             pass
         def fetchone(self):
-            return {"transcription_status": "pending"}
+            return {"transcription_status": "pending", "extraction_status": "pending"}
 
     @contextmanager
     def fake_get_cursor():
@@ -137,7 +137,7 @@ def test_extract_trigger_queued_when_ready(client):
         def execute(self, sql, params=()):
             pass
         def fetchone(self):
-            return {"transcription_status": "completed"}
+            return {"transcription_status": "completed", "extraction_status": "pending"}
 
     @contextmanager
     def fake_get_cursor():

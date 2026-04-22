@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from app.db import get_cursor
 from app.schemas.podcast_intelligence import (
@@ -37,6 +37,7 @@ from app.services.podcast_ingest import (
     ingest_transcript,
     ingest_youtube,
 )
+from app.services.podcast_runner import run_extraction_in_background
 
 logger = logging.getLogger(__name__)
 
@@ -192,16 +193,19 @@ def get_episode(episode_id: UUID) -> EpisodeDetail:
 @router.post(
     "/episodes/{episode_id}/extract", response_model=ExtractionTriggerResponse
 )
-def trigger_extraction(episode_id: UUID) -> ExtractionTriggerResponse:
-    """Stub endpoint — the async runner that consumes this lands in commit 6.
+def trigger_extraction(
+    episode_id: UUID,
+    background_tasks: BackgroundTasks,
+) -> ExtractionTriggerResponse:
+    """Validate the episode and queue the 4-pass extraction pipeline.
 
-    Validates the episode exists and has transcription_status='completed',
-    then returns a 'queued' response. Actual queueing is wired in the
-    runner commit.
+    Returns immediately with status='queued'. The runner swallows exceptions
+    and sets extraction_status='failed' on the episode if the pipeline
+    crashes — callers poll GET /episodes/{id} for final state.
     """
     with get_cursor() as cur:
         cur.execute(
-            "SELECT transcription_status FROM public.podcast_episodes WHERE episode_id = %s",
+            "SELECT transcription_status, extraction_status FROM public.podcast_episodes WHERE episode_id = %s",
             (episode_id,),
         )
         row = cur.fetchone()
@@ -212,9 +216,14 @@ def trigger_extraction(episode_id: UUID) -> ExtractionTriggerResponse:
             status_code=409,
             detail=f"transcription_status={row['transcription_status']}, must be 'completed'",
         )
-    # Commit 6 will BackgroundTasks.add_task(extract_episode, episode_id) here.
+    if row["extraction_status"] == "processing":
+        raise HTTPException(
+            status_code=409, detail="extraction already in progress"
+        )
+
+    background_tasks.add_task(run_extraction_in_background, episode_id, None)
     return ExtractionTriggerResponse(
         episode_id=episode_id,
         status="queued",
-        detail="Extraction runner wires in commit 6.",
+        detail="Extraction pipeline dispatched as background task.",
     )
