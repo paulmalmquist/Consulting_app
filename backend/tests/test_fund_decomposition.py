@@ -24,9 +24,13 @@ import pytest
 from app.services import fund_decomposition as fd
 from app.services.fund_decomposition import (
     EmptySelection,
+    EnvHasNoReData,
+    EnvNotCapable,
+    FundNotFound,
     UnknownInvestmentIds,
     _InvestmentState,
     compute_fund_decomposition,
+    probe_decomposition_capabilities,
 )
 
 
@@ -249,12 +253,35 @@ def _fake_get_authoritative_state(*, entity_type, entity_id, quarter, **_):
 # ---------------------------------------------------------------------------
 
 
+def _fake_capability_capable(*, fund_id=None):
+    """Default capability stub — env is capable, 3 funds, fund is present."""
+    table = _investments_table()
+    return {
+        "capable": True,
+        "error_code": None,
+        "reasons": [],
+        "missing_migrations": [],
+        "missing_tables": [],
+        "fund_count": 1,  # one fund in this test suite
+        "fund": (
+            {
+                "fund_id": str(fund_id),
+                "exists": True,
+                "investment_count": len(table),
+            }
+            if fund_id is not None
+            else None
+        ),
+    }
+
+
 @pytest.fixture
 def overlay_stubs():
     """Patch all of fund_decomposition's substrate dependencies."""
     # Reset the module cache between tests so they don't alias each other.
     fd._cache_clear()
     with (
+        patch.object(fd, "probe_decomposition_capabilities", side_effect=_fake_capability_capable),
         patch.object(fd, "_list_fund_investments", side_effect=_fake_list_fund_investments),
         patch.object(fd, "_load_investment_states", side_effect=_fake_load_investment_states),
         patch.object(fd, "_load_investment_assets", side_effect=_fake_load_investment_assets),
@@ -436,6 +463,7 @@ def test_unreleased_baseline_full_set_check_not_applied(overlay_stubs):
     fd._cache_clear()
     with patch.object(fd, "get_authoritative_state", side_effect=_unreleased_baseline):
         with (
+            patch.object(fd, "probe_decomposition_capabilities", side_effect=_fake_capability_capable),
             patch.object(fd, "_list_fund_investments", side_effect=_fake_list_fund_investments),
             patch.object(fd, "_load_investment_states", side_effect=_fake_load_investment_states),
             patch.object(fd, "_load_investment_assets", side_effect=_fake_load_investment_assets),
@@ -448,3 +476,149 @@ def test_unreleased_baseline_full_set_check_not_applied(overlay_stubs):
     assert check["applied_reason"] == "baseline_not_released"
     assert out["baseline_authoritative"]["trust_status"] == "missing_source"
     assert out["baseline_authoritative"]["null_reason"] == "authoritative_state_not_released"
+
+
+# ---------------------------------------------------------------------------
+# Capability probe + typed error categories
+# ---------------------------------------------------------------------------
+#
+# Each test below targets exactly one error category. These should never
+# collapse into a generic bucket in the UI or audit log.
+
+
+def test_capability_probe_reports_not_capable_on_missing_tables():
+    """Schema gap → ENV_NOT_DECOMPOSITION_CAPABLE, with structured missing tables."""
+    with patch.object(
+        fd, "_list_missing_tables",
+        return_value=["re_investment_quarter_state", "re_asset_cf_series_mat"],
+    ):
+        out = probe_decomposition_capabilities()
+    assert out["capable"] is False
+    assert out["error_code"] == "ENV_NOT_DECOMPOSITION_CAPABLE"
+    assert "re_investment_quarter_state" in out["missing_tables"]
+    assert "re_asset_cf_series_mat" in out["missing_tables"]
+    # missing_migrations is derived from missing_tables.
+    assert out["missing_migrations"] == sorted(
+        {"270_re_institutional_model", "507_re_bottom_up_cashflow"}
+    )
+
+
+def test_capability_probe_reports_env_has_no_re_data_when_schema_present_but_empty():
+    with (
+        patch.object(fd, "_list_missing_tables", return_value=[]),
+        patch.object(fd, "_count_env_funds", return_value=0),
+    ):
+        out = probe_decomposition_capabilities()
+    assert out["capable"] is False
+    assert out["error_code"] == "ENV_HAS_NO_RE_DATA"
+    assert out["fund_count"] == 0
+
+
+def test_capability_probe_reports_fund_not_found_when_fund_id_absent():
+    with (
+        patch.object(fd, "_list_missing_tables", return_value=[]),
+        patch.object(fd, "_count_env_funds", return_value=3),
+        patch.object(fd, "_fund_exists", return_value=False),
+    ):
+        out = probe_decomposition_capabilities(fund_id=FUND_ID)
+    # Env is capable (schema + fund presence OK), but the specific fund_id is
+    # not present. These are distinct states.
+    assert out["capable"] is True
+    assert out["error_code"] == "FUND_NOT_FOUND"
+    assert out["fund"]["exists"] is False
+
+
+def test_capability_probe_reports_capable_with_fund_investment_count():
+    with (
+        patch.object(fd, "_list_missing_tables", return_value=[]),
+        patch.object(fd, "_count_env_funds", return_value=3),
+        patch.object(fd, "_fund_exists", return_value=True),
+        patch.object(fd, "_count_fund_investments", return_value=7),
+    ):
+        out = probe_decomposition_capabilities(fund_id=FUND_ID)
+    assert out["capable"] is True
+    assert out["error_code"] is None
+    assert out["fund"] == {
+        "fund_id": str(FUND_ID),
+        "exists": True,
+        "investment_count": 7,
+    }
+
+
+def test_compute_fails_closed_with_env_not_capable_when_probe_says_so():
+    """Capability is a fail-closed guard inside compute_fund_decomposition.
+    A direct POST that bypassed the probe must still raise the typed error."""
+    fd._cache_clear()
+
+    def _probe_not_capable(*, fund_id=None):
+        return {
+            "capable": False,
+            "error_code": "ENV_NOT_DECOMPOSITION_CAPABLE",
+            "reasons": ["required RE data-model migrations are not applied"],
+            "missing_migrations": ["270_re_institutional_model"],
+            "missing_tables": ["re_investment_quarter_state"],
+            "fund_count": 0,
+            "fund": None,
+        }
+
+    with patch.object(fd, "probe_decomposition_capabilities", side_effect=_probe_not_capable):
+        with pytest.raises(EnvNotCapable) as exc_info:
+            compute_fund_decomposition(FUND_ID, QUARTER, excluded_investment_ids=set())
+    assert "re_investment_quarter_state" in exc_info.value.missing_tables
+
+
+def test_compute_fails_closed_with_env_has_no_re_data_when_probe_says_so():
+    fd._cache_clear()
+
+    def _probe_empty(*, fund_id=None):
+        return {
+            "capable": False,
+            "error_code": "ENV_HAS_NO_RE_DATA",
+            "reasons": ["this workspace has no RE funds seeded yet"],
+            "missing_migrations": [],
+            "missing_tables": [],
+            "fund_count": 0,
+            "fund": None,
+        }
+
+    with patch.object(fd, "probe_decomposition_capabilities", side_effect=_probe_empty):
+        with pytest.raises(EnvHasNoReData):
+            compute_fund_decomposition(FUND_ID, QUARTER, excluded_investment_ids=set())
+
+
+def test_compute_fails_closed_with_fund_not_found_when_probe_says_so():
+    fd._cache_clear()
+
+    def _probe_fund_missing(*, fund_id=None):
+        return {
+            "capable": True,
+            "error_code": "FUND_NOT_FOUND",
+            "reasons": [f"fund {fund_id} is not present in this workspace"],
+            "missing_migrations": [],
+            "missing_tables": [],
+            "fund_count": 3,
+            "fund": {"fund_id": str(fund_id), "exists": False, "investment_count": 0},
+        }
+
+    with patch.object(fd, "probe_decomposition_capabilities", side_effect=_probe_fund_missing):
+        with pytest.raises(FundNotFound):
+            compute_fund_decomposition(FUND_ID, QUARTER, excluded_investment_ids=set())
+
+
+def test_compute_raises_fund_not_found_when_fund_exists_but_has_no_investments(overlay_stubs):
+    """Capability passes (schema + funds exist), fund row exists, but zero
+    investments under it. This is semantically FUND_NOT_FOUND, not
+    AT_LEAST_ONE_ASSET_REQUIRED — the user didn't exclude anything."""
+    fd._cache_clear()
+    # Override the overlay stub to return zero investments for this fund.
+    with patch.object(fd, "_list_fund_investments", return_value=[]):
+        with pytest.raises(FundNotFound):
+            compute_fund_decomposition(FUND_ID, QUARTER, excluded_investment_ids=set())
+
+
+def test_at_least_one_asset_required_is_distinct_from_fund_not_found(overlay_stubs):
+    """EmptySelection only fires when the caller excluded every investment,
+    not when the fund itself is empty. Keep the categories distinct."""
+    all_ids = {I1, I2, I3}
+    with pytest.raises(EmptySelection):
+        compute_fund_decomposition(FUND_ID, QUARTER, excluded_investment_ids=all_ids)

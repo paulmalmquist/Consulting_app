@@ -1115,63 +1115,152 @@ async def post_fund_decomposition(fund_id: UUID, request: Request):
 
     See: /Users/paulmalmquist/.claude/plans/you-are-working-inside-greedy-crane.md
     """
+    from app.services.fund_decomposition import (
+        EmptySelection,
+        EnvHasNoReData,
+        EnvNotCapable,
+        FundNotFound,
+        OverlayComputationFailed,
+        UnknownInvestmentIds,
+        compute_fund_decomposition,
+    )
+
     try:
-        from app.services.fund_decomposition import (
-            EmptySelection,
-            UnknownInvestmentIds,
-            compute_fund_decomposition,
+        body = await request.json() if request.headers.get("content-length") else {}
+    except Exception:
+        raise HTTPException(
+            400,
+            {"error_code": "VALIDATION_ERROR", "message": "request body is not valid JSON"},
         )
 
-        body = await request.json() if request.headers.get("content-length") else {}
-        as_of_quarter = body.get("as_of_quarter")
-        if not as_of_quarter or not isinstance(as_of_quarter, str):
-            raise HTTPException(
-                400,
-                {"error_code": "VALIDATION_ERROR", "message": "as_of_quarter is required"},
-            )
+    as_of_quarter = body.get("as_of_quarter")
+    if not as_of_quarter or not isinstance(as_of_quarter, str):
+        raise HTTPException(
+            400,
+            {"error_code": "VALIDATION_ERROR", "message": "as_of_quarter is required"},
+        )
 
-        excluded_raw = body.get("excluded_investment_ids") or []
-        if not isinstance(excluded_raw, list):
-            raise HTTPException(
-                400,
-                {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids must be a list"},
-            )
-        try:
-            excluded: set[UUID] = {UUID(str(x)) for x in excluded_raw}
-        except (ValueError, TypeError):
-            raise HTTPException(
-                400,
-                {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids contains an invalid UUID"},
-            )
+    excluded_raw = body.get("excluded_investment_ids") or []
+    if not isinstance(excluded_raw, list):
+        raise HTTPException(
+            400,
+            {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids must be a list"},
+        )
+    try:
+        excluded: set[UUID] = {UUID(str(x)) for x in excluded_raw}
+    except (ValueError, TypeError):
+        raise HTTPException(
+            400,
+            {"error_code": "VALIDATION_ERROR", "message": "excluded_investment_ids contains an invalid UUID"},
+        )
 
-        cap_raw = body.get("default_cap_rate")
-        cap = Decimal(str(cap_raw)) if cap_raw is not None else None
+    cap_raw = body.get("default_cap_rate")
+    cap = Decimal(str(cap_raw)) if cap_raw is not None else None
 
-        try:
-            return compute_fund_decomposition(
-                fund_id,
-                as_of_quarter,
-                excluded_investment_ids=excluded,
-                env_default_cap_rate=cap,
-            )
-        except EmptySelection:
-            raise HTTPException(
-                400,
-                {"error_code": "EMPTY_SELECTION", "error": "at_least_one_investment_required"},
-            )
-        except UnknownInvestmentIds as exc:
-            raise HTTPException(
-                400,
-                {
-                    "error_code": "UNKNOWN_INVESTMENT_IDS",
-                    "error": "unknown_investment_ids",
-                    "ids": [str(i) for i in exc.ids],
-                },
-            )
+    try:
+        return compute_fund_decomposition(
+            fund_id,
+            as_of_quarter,
+            excluded_investment_ids=excluded,
+            env_default_cap_rate=cap,
+        )
+    except EnvNotCapable as exc:
+        raise HTTPException(
+            503,
+            {
+                "error_code": "ENV_NOT_DECOMPOSITION_CAPABLE",
+                "message": "Fund decomposition is unavailable in this environment. Required RE data-model migrations and decomposition tables are not present for this workspace.",
+                "missing_tables": exc.missing_tables,
+                "reasons": exc.reasons,
+            },
+        )
+    except EnvHasNoReData:
+        raise HTTPException(
+            404,
+            {
+                "error_code": "ENV_HAS_NO_RE_DATA",
+                "message": "This workspace has no RE funds seeded yet. There is nothing to decompose.",
+            },
+        )
+    except FundNotFound as exc:
+        raise HTTPException(
+            404,
+            {
+                "error_code": "FUND_NOT_FOUND",
+                "message": f"Fund {exc.fund_id} is not present in this workspace, or has no investments.",
+                "fund_id": str(exc.fund_id),
+            },
+        )
+    except EmptySelection:
+        raise HTTPException(
+            400,
+            {
+                "error_code": "AT_LEAST_ONE_ASSET_REQUIRED",
+                "message": "Select at least one investment to see a decomposition.",
+            },
+        )
+    except UnknownInvestmentIds as exc:
+        raise HTTPException(
+            400,
+            {
+                "error_code": "UNKNOWN_INVESTMENT_IDS",
+                "message": "The exclusion list references investments that are not part of this fund.",
+                "ids": [str(i) for i in exc.ids],
+            },
+        )
+    except OverlayComputationFailed as exc:
+        raise HTTPException(
+            500,
+            {
+                "error_code": "OVERLAY_COMPUTATION_FAILED",
+                "message": "The decomposition compute failed.",
+                "detail": str(exc),
+            },
+        )
     except HTTPException:
         raise
     except Exception as exc:
-        raise _to_http(exc)
+        # Capability probe fails-closed above, so anything reaching here
+        # is a genuine overlay compute error, not a schema gap.
+        raise HTTPException(
+            500,
+            {
+                "error_code": "OVERLAY_COMPUTATION_FAILED",
+                "message": "The decomposition compute failed unexpectedly.",
+                "detail": str(exc),
+            },
+        )
+
+
+@router.get("/funds/decomposition/capabilities")
+def get_fund_decomposition_capabilities(fund_id: UUID | None = Query(None)):
+    """Env-scoped readiness check for the Fund Decomposition overlay.
+
+    Env-first: schema completeness and fund presence. Fund-second: when
+    `fund_id` is supplied, also reports fund existence and investment count.
+    Never raises — returns structured reasons instead. The page calls this
+    on mount and refuses to POST to /decomposition until `capable=true`.
+
+    Direct API callers still get typed errors on the POST endpoint (stale
+    tabs, cross-env stitch, race) — this probe does not relax the POST
+    contract.
+    """
+    from app.services.fund_decomposition import probe_decomposition_capabilities
+    try:
+        return probe_decomposition_capabilities(fund_id=fund_id)
+    except Exception as exc:
+        raise HTTPException(
+            503,
+            {
+                "capable": False,
+                "error_code": "CAPABILITY_PROBE_FAILED",
+                "reasons": [f"capability probe failed: {exc.__class__.__name__}"],
+                "missing_migrations": [],
+                "missing_tables": [],
+                "fund_count": 0,
+                "fund": None,
+            },
+        )
 
 
 @router.get("/assets/{asset_id}/cashflow")

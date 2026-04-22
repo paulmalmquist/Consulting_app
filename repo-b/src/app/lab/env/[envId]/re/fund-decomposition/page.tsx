@@ -38,8 +38,11 @@ import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { useAuthoritativeState, isLockStateRenderable } from "@/hooks/useAuthoritativeState";
 import {
   getFundDecomposition,
+  getFundDecompositionCapabilities,
   listRepeFunds,
+  type FundDecompositionApiError,
   type ReV2FundDecomposition,
+  type ReV2FundDecompositionCapability,
   type ReV2FundDecompositionInvestment,
   type RepeFund,
 } from "@/lib/bos-api";
@@ -95,9 +98,25 @@ export default function FundDecompositionPage({
   const [fundId, setFundId] = useState<string | null>(fundFromUrl);
   const [decomp, setDecomp] = useState<ReV2FundDecomposition | null>(null);
   const [overlayLoading, setOverlayLoading] = useState<boolean>(false);
-  const [overlayError, setOverlayError] = useState<string | null>(null);
+  /**
+   * Typed overlay error. Distinct from the capability probe — this fires only
+   * when a POST actually reached FastAPI and came back with an error_code.
+   * The UI must switch on `errorCode`, never display the raw message alone.
+   */
+  const [overlayError, setOverlayError] = useState<
+    { errorCode: string; message: string; detail?: Record<string, unknown> } | null
+  >(null);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [identityOpen, setIdentityOpen] = useState<boolean>(false);
+
+  /**
+   * Capability probe result. Gates the first POST — no /decomposition request
+   * is issued until `capability?.capable === true && fundId`. Env-scoped
+   * first (schema + fund presence); fund-scoped second (fund exists with
+   * investments) when the selected fundId is included in the probe.
+   */
+  const [capability, setCapability] = useState<ReV2FundDecompositionCapability | null>(null);
+  const [capabilityLoading, setCapabilityLoading] = useState<boolean>(true);
 
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +140,35 @@ export default function FundDecompositionPage({
       cancelled = true;
     };
   }, [businessId, fundId]);
+
+  // Capability probe. Runs on mount and whenever fundId changes.
+  useEffect(() => {
+    let cancelled = false;
+    setCapabilityLoading(true);
+    getFundDecompositionCapabilities({ fundId: fundId ?? undefined })
+      .then((payload) => {
+        if (cancelled) return;
+        setCapability(payload);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCapability({
+          capable: false,
+          error_code: "CAPABILITY_PROBE_FAILED",
+          reasons: ["capability probe request failed"],
+          missing_migrations: [],
+          missing_tables: [],
+          fund_count: 0,
+          fund: null,
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setCapabilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fundId]);
 
   // Authoritative baseline — mandatory via SINGLE FETCH LAYER.
   const { state: authState, lockState: authLock } = useAuthoritativeState({
@@ -150,9 +198,14 @@ export default function FundDecompositionPage({
           const failing = payload.identity_checks.some((c) => !c.passed && c.applied !== false);
           setIdentityOpen(failing);
         })
-        .catch((err: Error) => {
+        .catch((err: FundDecompositionApiError | Error) => {
           if (ctrl.signal.aborted) return;
-          setOverlayError(err.message);
+          const errorCode = (err as FundDecompositionApiError).errorCode ?? "OVERLAY_COMPUTATION_FAILED";
+          setOverlayError({
+            errorCode,
+            message: err.message,
+            detail: (err as FundDecompositionApiError).detail,
+          });
           setDecomp(null);
         })
         .finally(() => {
@@ -162,8 +215,15 @@ export default function FundDecompositionPage({
     [quarter],
   );
 
+  // Gate POST on capability + fund selection. Direct API callers still get
+  // typed errors from the endpoint, but the UI refuses to even try until
+  // both preconditions hold.
+  const shouldFetchOverlay = Boolean(
+    fundId && capability?.capable && !capabilityLoading,
+  );
+
   useEffect(() => {
-    if (!fundId) return;
+    if (!shouldFetchOverlay || !fundId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       fetchOverlay(fundId, Array.from(excludedIds));
@@ -171,7 +231,7 @@ export default function FundDecompositionPage({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [fundId, excludedIds, fetchOverlay]);
+  }, [shouldFetchOverlay, fundId, excludedIds, fetchOverlay]);
 
   // Winston page context publish.
   useEffect(() => {
@@ -428,6 +488,84 @@ export default function FundDecompositionPage({
         </div>
       </header>
 
+      {/* Unavailable / empty / error states.
+          Gated in strict priority order so we never collapse distinct
+          states into one generic banner:
+            1. env_not_capable   — schema / migrations missing
+            2. env_has_no_re_data — schema present but env has no funds
+            3. fund_not_found    — capability says fund is missing OR overlay POST said so
+            4. overlay_failed    — compute actually broke (last resort)
+      */}
+      {!capabilityLoading && capability?.error_code === "ENV_NOT_DECOMPOSITION_CAPABLE" && (
+        <div
+          className="border border-rose-300 bg-rose-50 text-rose-900 rounded p-4 text-sm"
+          data-testid="state-env-not-capable"
+        >
+          <div className="font-semibold mb-1">
+            Fund decomposition is unavailable in this environment
+          </div>
+          <div>
+            Required RE data-model migrations and decomposition tables are not present for this workspace.
+          </div>
+          {capability.missing_migrations.length > 0 && (
+            <div className="mt-2 text-xs text-rose-800">
+              Missing migrations: {capability.missing_migrations.join(", ")}
+            </div>
+          )}
+          {capability.missing_tables.length > 0 && (
+            <div className="mt-1 text-xs text-rose-800">
+              Missing tables: {capability.missing_tables.join(", ")}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!capabilityLoading && capability?.error_code === "ENV_HAS_NO_RE_DATA" && (
+        <div
+          className="border border-amber-300 bg-amber-50 text-amber-900 rounded p-4 text-sm"
+          data-testid="state-env-has-no-re-data"
+        >
+          <div className="font-semibold mb-1">No RE funds in this workspace yet</div>
+          <div>
+            Fund decomposition has nothing to show until at least one fund is seeded into this environment.
+          </div>
+        </div>
+      )}
+
+      {!capabilityLoading
+        && capability?.capable
+        && (capability.error_code === "FUND_NOT_FOUND"
+          || overlayError?.errorCode === "FUND_NOT_FOUND") && (
+        <div
+          className="border border-amber-300 bg-amber-50 text-amber-900 rounded p-4 text-sm"
+          data-testid="state-fund-not-found"
+        >
+          <div className="font-semibold mb-1">Fund not found</div>
+          <div>
+            The selected fund is not present in this workspace, or has no investments.
+          </div>
+        </div>
+      )}
+
+      {/* Generic overlay failure — only shown when none of the typed states
+          above apply. Never swallow a typed category into this bucket. */}
+      {overlayError
+        && overlayError.errorCode !== "FUND_NOT_FOUND"
+        && overlayError.errorCode !== "ENV_NOT_DECOMPOSITION_CAPABLE"
+        && overlayError.errorCode !== "ENV_HAS_NO_RE_DATA"
+        && overlayError.errorCode !== "AT_LEAST_ONE_ASSET_REQUIRED" && (
+        <div
+          className="border border-rose-300 bg-rose-50 text-rose-900 rounded p-4 text-sm"
+          data-testid="state-overlay-failed"
+        >
+          <div className="font-semibold mb-1">Decomposition failed</div>
+          <div>{overlayError.message}</div>
+          <div className="mt-1 text-xs text-rose-800">
+            error_code: {overlayError.errorCode}
+          </div>
+        </div>
+      )}
+
       {/* Identity checks drawer */}
       {identityOpen && decomp && (
         <div
@@ -534,11 +672,6 @@ export default function FundDecompositionPage({
             Why?
           </span>
         </div>
-        {overlayError && (
-          <div className="text-xs text-red-700 mt-2" data-testid="overlay-error">
-            {overlayError}
-          </div>
-        )}
       </section>
 
       {/* Main grid */}

@@ -5227,6 +5227,84 @@ export function getPortfolioAuthoritativeStates(
 // selection plus identity checks. The contract is owned by the FastAPI
 // service backend/app/services/fund_decomposition.py.
 
+/**
+ * Typed error codes on the POST endpoint. Distinguishes capability from data
+ * presence from selection mistakes. The UI must handle each category as a
+ * distinct state; never collapse them into one "something went wrong."
+ */
+export type FundDecompositionErrorCode =
+  | "ENV_NOT_DECOMPOSITION_CAPABLE"
+  | "ENV_HAS_NO_RE_DATA"
+  | "FUND_NOT_FOUND"
+  | "AT_LEAST_ONE_ASSET_REQUIRED"
+  | "UNKNOWN_INVESTMENT_IDS"
+  | "VALIDATION_ERROR"
+  | "OVERLAY_COMPUTATION_FAILED"
+  | "CAPABILITY_PROBE_FAILED";
+
+export interface FundDecompositionApiError extends Error {
+  status: number;
+  errorCode: FundDecompositionErrorCode | string;
+  detail?: Record<string, unknown>;
+}
+
+export interface ReV2FundDecompositionCapability {
+  capable: boolean;
+  error_code:
+    | "ENV_NOT_DECOMPOSITION_CAPABLE"
+    | "ENV_HAS_NO_RE_DATA"
+    | "FUND_NOT_FOUND"
+    | "CAPABILITY_PROBE_FAILED"
+    | null;
+  reasons: string[];
+  missing_migrations: string[];
+  missing_tables: string[];
+  fund_count: number;
+  fund: {
+    fund_id: string;
+    exists: boolean;
+    investment_count: number;
+  } | null;
+}
+
+/**
+ * Env-scoped capability check. The page must call this on mount and refuse
+ * to POST to /decomposition until `capable === true`. Pass `fundId` to also
+ * report fund-level data presence. Never throws on non-capability reasons —
+ * returns a structured not-capable payload.
+ */
+export async function getFundDecompositionCapabilities(args: {
+  fundId?: string;
+  signal?: AbortSignal;
+}): Promise<ReV2FundDecompositionCapability> {
+  const { fundId, signal } = args;
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const url = new URL(`/api/re/v2/funds/decomposition/capabilities`, origin);
+  if (fundId) url.searchParams.set("fund_id", fundId);
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    signal,
+  });
+  // Probe is fail-open: 200 and 503 are both valid capability answers with
+  // a structured body.
+  const payload = (await res.json().catch(() => null)) as
+    | ReV2FundDecompositionCapability
+    | null;
+  if (payload && typeof payload.capable === "boolean") {
+    return payload;
+  }
+  return {
+    capable: false,
+    error_code: "CAPABILITY_PROBE_FAILED",
+    reasons: [`capability probe returned HTTP ${res.status}`],
+    missing_migrations: [],
+    missing_tables: [],
+    fund_count: 0,
+    fund: null,
+  };
+}
+
 export type ReV2FundDecompositionCheck = {
   name: string;
   passed: boolean;
@@ -5332,7 +5410,7 @@ export type ReV2FundDecomposition = {
   warnings: string[];
 };
 
-export function getFundDecomposition(args: {
+export async function getFundDecomposition(args: {
   fundId: string;
   asOfQuarter: string;
   excludedInvestmentIds?: string[];
@@ -5342,7 +5420,7 @@ export function getFundDecomposition(args: {
   const { fundId, asOfQuarter, excludedInvestmentIds, defaultCapRate, signal } = args;
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
   const url = new URL(`/api/re/v2/funds/${fundId}/decomposition`, origin);
-  return fetch(url.toString(), {
+  const res = await fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -5351,15 +5429,24 @@ export function getFundDecomposition(args: {
       default_cap_rate: defaultCapRate ?? null,
     }),
     signal,
-  }).then(async (res) => {
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      const err = new Error(`Fund decomposition request failed (${res.status}): ${text}`) as BosApiError;
-      err.status = res.status;
-      throw err;
-    }
-    return res.json() as Promise<ReV2FundDecomposition>;
   });
+  if (!res.ok) {
+    // Try to parse structured FastAPI detail. HTTPException bodies look like
+    // { detail: { error_code, message, ...extras } }.
+    const payload = (await res.json().catch(() => null)) as
+      | { detail?: { error_code?: string; message?: string } & Record<string, unknown> }
+      | null;
+    const detail = payload?.detail ?? {};
+    const errorCode = (detail.error_code as string) || "OVERLAY_COMPUTATION_FAILED";
+    const message = (detail.message as string) || `Fund decomposition request failed (${res.status})`;
+    const err: FundDecompositionApiError = Object.assign(new Error(message), {
+      status: res.status,
+      errorCode,
+      detail,
+    });
+    throw err;
+  }
+  return (await res.json()) as ReV2FundDecomposition;
 }
 
 // Operator Diagnostics (senior-housing operator vs market analysis) ─────────

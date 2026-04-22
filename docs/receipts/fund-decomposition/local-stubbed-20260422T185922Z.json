@@ -1,0 +1,174 @@
+{
+  "kind": "fund_decomposition.local_stubbed_receipt",
+  "generated_at": "20260422T185922Z",
+  "disclaimer": "LOCAL STUBBED receipt. Not a proof of production correctness. Substrate (capability probe, investment states, bottom-up rollup, authoritative baseline) is stubbed with the test fixtures in backend/tests/test_fund_decomposition.py so the overlay service runs exactly as it does under test. For a prod happy-path receipt, target a deployment whose DB has all RE migrations applied and at least one seeded fund with investments.",
+  "substrate": {
+    "fund_id": "11111111-1111-1111-1111-111111111111",
+    "quarter": "2026Q2",
+    "source": "backend/tests/test_fund_decomposition.py fixtures",
+    "capability_probe": "stubbed capable=true with fund present"
+  },
+  "beats": {
+    "1_baseline_authoritative_visible": {
+      "baseline_authoritative": {
+        "source": "re_authoritative_snapshots",
+        "snapshot_version": "test-snapshot-v1",
+        "trust_status": "trusted",
+        "period_exact": true,
+        "promotion_state": "released",
+        "gross_irr": 0.071184,
+        "net_irr": 0.08,
+        "tvpi": 1.263157894736842,
+        "dpi": 0.47368421052631576,
+        "paid_in": 190000000.0,
+        "distributions": 90000000.0,
+        "nav": 150000000.0,
+        "net_irr_label": "baseline fund only, not recomputed under selection"
+      },
+      "pass": true
+    },
+    "2_exclude_one_investment_shifts_metrics": {
+      "excluded_investment": "22222222-2222-2222-2222-222222222201",
+      "full_set": {
+        "gross_irr": 0.071184,
+        "tvpi": 1.263157894736842,
+        "dpi": 0.47368421052631576
+      },
+      "subset": {
+        "gross_irr": 0.034015,
+        "tvpi": 1.1111111111111112,
+        "dpi": 0.3333333333333333
+      },
+      "delta_gross_irr_bps": -371.69,
+      "delta_tvpi": -0.152047,
+      "delta_dpi": -0.140351,
+      "pass": true
+    },
+    "3_metrics_stable_on_round_trip_toggle": {
+      "full_again_gross_irr": 0.071184,
+      "matches_original_full": true,
+      "pass": true
+    },
+    "4_net_irr_nulls_under_selection": {
+      "net_irr": null,
+      "net_irr_null_reason": "net_irr_not_dimensional_to_investment_subset",
+      "carry_null_reason": "out_of_scope_requires_waterfall",
+      "gp_share_null_reason": "out_of_scope_requires_waterfall",
+      "pass": true
+    },
+    "5_quick_pick_applies_exclusion": {
+      "excluded_investment": "22222222-2222-2222-2222-222222222203",
+      "selection_irr": 0.092285,
+      "included_count": 2,
+      "excluded_count": 1,
+      "investment_contributions": [
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222201",
+          "name": "Deal A",
+          "included": true,
+          "gross_irr": 0.18,
+          "irr_marginal_bps": 108.97
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222202",
+          "name": "Deal B",
+          "included": true,
+          "gross_irr": 0.12,
+          "irr_marginal_bps": -47.45
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222203",
+          "name": "Deal C",
+          "included": false,
+          "gross_irr": null,
+          "irr_marginal_bps": null
+        }
+      ],
+      "pass": true
+    },
+    "6_explain_action_carries_selection_context": {
+      "top_marginal_contributors": [
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222201",
+          "name": "Deal A",
+          "irr_marginal_bps": 371.69
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222202",
+          "name": "Deal B",
+          "irr_marginal_bps": 35.83
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222203",
+          "name": "Deal C",
+          "irr_marginal_bps": -211.01
+        }
+      ],
+      "bottom_marginal_contributors": [
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222203",
+          "name": "Deal C",
+          "irr_marginal_bps": -211.01
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222202",
+          "name": "Deal B",
+          "irr_marginal_bps": 35.83
+        },
+        {
+          "investment_id": "22222222-2222-2222-2222-222222222201",
+          "name": "Deal A",
+          "irr_marginal_bps": 371.69
+        }
+      ],
+      "pass": true
+    }
+  },
+  "identity_checks_full_set": [
+    {
+      "name": "tvpi_identity",
+      "passed": true,
+      "delta": 0.0,
+      "tolerance": 1e-09
+    },
+    {
+      "name": "dpi_identity",
+      "passed": true,
+      "delta": 0.0,
+      "tolerance": 1e-09
+    },
+    {
+      "name": "full_set_matches_baseline",
+      "passed": true,
+      "delta_gross_irr_bps": 0.0,
+      "delta_tvpi": 1.0526315789473685e-16,
+      "tolerance_gross_irr_bps": 5,
+      "tolerance_tvpi": 0.005,
+      "applied": true
+    },
+    {
+      "name": "order_independent",
+      "passed": true,
+      "cache_key_hash": "5b2bbcedb8e2edfd",
+      "tolerance": "hash_stable"
+    },
+    {
+      "name": "no_future_cf",
+      "passed": true,
+      "last_quarter": "2026Q2",
+      "as_of_quarter_end": "2026-06-30"
+    }
+  ],
+  "state_origin": "decomposition_overlay",
+  "provenance_full_set": {
+    "cf_substrate": "re_investment_cf_series_mat (via compute_fund_rollup)",
+    "paid_in_substrate": "re_investment_quarter_state",
+    "xirr_engine": "app.finance.irr_engine.xirr",
+    "cache_key_hash": "5b2bbcedb8e2edfd"
+  },
+  "summary": {
+    "all_beats_pass": true,
+    "total_beats": 6,
+    "passing": 6
+  }
+}

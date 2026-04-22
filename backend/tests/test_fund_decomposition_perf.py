@@ -168,10 +168,27 @@ def _fake_baseline(**_):
     }
 
 
+def _fake_capability_capable(*, fund_id=None):
+    return {
+        "capable": True,
+        "error_code": None,
+        "reasons": [],
+        "missing_migrations": [],
+        "missing_tables": [],
+        "fund_count": 1,
+        "fund": (
+            {"fund_id": str(fund_id), "exists": True, "investment_count": INVESTMENT_COUNT}
+            if fund_id is not None
+            else None
+        ),
+    }
+
+
 @pytest.fixture
 def perf_stubs():
     fd._cache_clear()
     with (
+        patch.object(fd, "probe_decomposition_capabilities", side_effect=_fake_capability_capable),
         patch.object(fd, "_list_fund_investments", side_effect=_fake_list_fund_investments),
         patch.object(fd, "_load_investment_states", side_effect=_fake_load_investment_states),
         patch.object(fd, "_load_investment_assets", side_effect=_fake_load_investment_assets),

@@ -54,15 +54,62 @@ _IDENTITY_TOLERANCE = Decimal("0.000000001")
 
 
 class EmptySelection(ValueError):
-    """Raised when the caller filters out every investment."""
+    """Raised when the caller filters out every investment.
+
+    Maps to error_code AT_LEAST_ONE_ASSET_REQUIRED on the POST endpoint.
+    """
 
 
 class UnknownInvestmentIds(ValueError):
-    """Raised when `excluded_investment_ids` contains IDs not in the fund."""
+    """Raised when `excluded_investment_ids` contains IDs not in the fund.
+
+    Maps to error_code UNKNOWN_INVESTMENT_IDS on the POST endpoint.
+    """
 
     def __init__(self, ids: list[UUID]):
         self.ids = ids
         super().__init__(f"unknown_investment_ids: {[str(i) for i in ids]}")
+
+
+class EnvNotCapable(Exception):
+    """Raised when the env is missing schema/materializations required to run
+    the overlay. Reported as error_code ENV_NOT_DECOMPOSITION_CAPABLE.
+
+    The capability probe is the authoritative source — this exception is
+    the fail-closed path when the POST endpoint is called directly without
+    a prior capability check.
+    """
+
+    def __init__(self, missing_tables: list[str], reasons: list[str]):
+        self.missing_tables = missing_tables
+        self.reasons = reasons
+        super().__init__(f"env_not_decomposition_capable: {reasons}")
+
+
+class EnvHasNoReData(Exception):
+    """Raised when schema is present but the env has no funds.
+
+    Distinct from EnvNotCapable (schema) and FundNotFound (bad id within an
+    env that has funds). Reported as ENV_HAS_NO_RE_DATA.
+    """
+
+
+class FundNotFound(Exception):
+    """Raised when the requested fund_id does not exist in the env's scope.
+
+    Distinct from EnvHasNoReData (no funds at all). Reported as FUND_NOT_FOUND.
+    """
+
+    def __init__(self, fund_id: UUID):
+        self.fund_id = fund_id
+        super().__init__(f"fund_not_found: {fund_id}")
+
+
+class OverlayComputationFailed(Exception):
+    """Raised when the overlay compute itself fails for a reason other than
+    the typed categories above (xirr nonconvergence, mismatched state, etc).
+    Reported as OVERLAY_COMPUTATION_FAILED.
+    """
 
 
 @dataclass
@@ -242,6 +289,179 @@ def _cache_clear() -> None:
         _cache.clear()
 
 
+# ---------------------------------------------------------------------------
+# Capability probe
+# ---------------------------------------------------------------------------
+#
+# Environment-scoped readiness check for the Fund Decomposition overlay.
+# The page calls this on mount and refuses to issue a POST until
+# `capable=true` and a valid fund is selected. Direct API callers still
+# need to handle typed errors on the POST endpoint (stale tabs, races,
+# cross-env stitching) — this probe does not relax the POST contract.
+#
+# Decomposition capability = every one of:
+#   1. Schema for repe_fund, repe_deal, re_investment_quarter_state,
+#      re_asset_cf_series_mat, re_investment_cf_series_mat, re_authoritative_fund_state_qtr.
+#   2. The env (scoped via RLS session context) has at least one fund.
+#
+# Data-presence checks (fund existence, investment count, snapshot for the
+# requested quarter) are fund-scoped extras returned when `fund_id` is
+# provided but are NOT required for env-level capability.
+
+_REQUIRED_TABLES = [
+    "repe_fund",
+    "repe_deal",
+    "re_investment_quarter_state",
+    "re_asset_cf_series_mat",
+    "re_investment_cf_series_mat",
+    "re_authoritative_fund_state_qtr",
+]
+
+
+def _list_missing_tables() -> list[str]:
+    """Return the subset of _REQUIRED_TABLES that don't exist in the current
+    DB. Uses information_schema.tables so a missing table is a clean empty
+    row, not an exception.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = ANY(%s::text[])
+            """,
+            [_REQUIRED_TABLES],
+        )
+        rows = cur.fetchall() or []
+    present = {r["table_name"] for r in rows}
+    return [t for t in _REQUIRED_TABLES if t not in present]
+
+
+def _count_env_funds() -> int:
+    """Fund count within the caller's RLS scope. Returns 0 if the table is
+    missing — capability probe callers filter that case out earlier."""
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT COUNT(*)::bigint AS n FROM repe_fund")
+            row = cur.fetchone()
+            return int(row["n"]) if row and row.get("n") is not None else 0
+    except Exception:
+        return 0
+
+
+def _count_fund_investments(fund_id: UUID) -> int:
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*)::bigint AS n FROM repe_deal WHERE fund_id = %s",
+                [str(fund_id)],
+            )
+            row = cur.fetchone()
+            return int(row["n"]) if row and row.get("n") is not None else 0
+    except Exception:
+        return 0
+
+
+def _fund_exists(fund_id: UUID) -> bool:
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM repe_fund WHERE fund_id = %s LIMIT 1",
+                [str(fund_id)],
+            )
+            return cur.fetchone() is not None
+    except Exception:
+        return False
+
+
+def probe_decomposition_capabilities(
+    *, fund_id: UUID | None = None
+) -> dict[str, Any]:
+    """Report whether the current env can run the Fund Decomposition overlay.
+
+    Env-scoped first: schema completeness + fund presence. If `fund_id` is
+    provided, also reports fund-level data presence (existence, investment
+    count). Never raises — this function is the fail-open probe; it returns
+    structured reasons instead.
+    """
+    missing_tables = _list_missing_tables()
+    schema_complete = len(missing_tables) == 0
+
+    if not schema_complete:
+        return {
+            "capable": False,
+            "error_code": "ENV_NOT_DECOMPOSITION_CAPABLE",
+            "reasons": [
+                "required RE data-model migrations and decomposition tables are not present for this workspace",
+            ],
+            "missing_migrations": _infer_missing_migrations(missing_tables),
+            "missing_tables": missing_tables,
+            "fund_count": 0,
+            "fund": None,
+        }
+
+    fund_count = _count_env_funds()
+    if fund_count == 0:
+        return {
+            "capable": False,
+            "error_code": "ENV_HAS_NO_RE_DATA",
+            "reasons": [
+                "this workspace has no RE funds seeded yet",
+            ],
+            "missing_migrations": [],
+            "missing_tables": [],
+            "fund_count": 0,
+            "fund": None,
+        }
+
+    fund_info: dict[str, Any] | None = None
+    if fund_id is not None:
+        if not _fund_exists(fund_id):
+            return {
+                "capable": True,
+                "error_code": "FUND_NOT_FOUND",
+                "reasons": [f"fund {fund_id} is not present in this workspace"],
+                "missing_migrations": [],
+                "missing_tables": [],
+                "fund_count": fund_count,
+                "fund": {"fund_id": str(fund_id), "exists": False, "investment_count": 0},
+            }
+        inv_count = _count_fund_investments(fund_id)
+        fund_info = {
+            "fund_id": str(fund_id),
+            "exists": True,
+            "investment_count": inv_count,
+        }
+
+    return {
+        "capable": True,
+        "error_code": None,
+        "reasons": [],
+        "missing_migrations": [],
+        "missing_tables": [],
+        "fund_count": fund_count,
+        "fund": fund_info,
+    }
+
+
+def _infer_missing_migrations(missing_tables: list[str]) -> list[str]:
+    """Map missing tables back to the schema migration(s) that introduce them.
+    Kept narrow and honest — only the migration families directly relevant
+    to this feature."""
+    families: set[str] = set()
+    for t in missing_tables:
+        if t in {"repe_fund", "repe_deal"}:
+            families.add("265_repe_object_model")
+        elif t == "re_investment_quarter_state":
+            families.add("270_re_institutional_model")
+        elif t in {"re_asset_cf_series_mat", "re_investment_cf_series_mat"}:
+            families.add("507_re_bottom_up_cashflow")
+        elif t == "re_authoritative_fund_state_qtr":
+            families.add("authoritative_state_lockdown")
+    return sorted(families)
+
+
 def compute_fund_decomposition(
     fund_id: UUID,
     as_of_quarter: str,
@@ -249,7 +469,17 @@ def compute_fund_decomposition(
     excluded_investment_ids: set[UUID] | None = None,
     env_default_cap_rate: Decimal | None = None,
 ) -> dict[str, Any]:
-    """Assemble the overlay response. See module docstring for invariants."""
+    """Assemble the overlay response. See module docstring for invariants.
+
+    Typed error contract — the POST endpoint maps each of these to a
+    distinct error_code so UI and API callers can distinguish states:
+      * EnvNotCapable           → ENV_NOT_DECOMPOSITION_CAPABLE
+      * EnvHasNoReData          → ENV_HAS_NO_RE_DATA
+      * FundNotFound            → FUND_NOT_FOUND
+      * EmptySelection          → AT_LEAST_ONE_ASSET_REQUIRED
+      * UnknownInvestmentIds    → UNKNOWN_INVESTMENT_IDS
+      * OverlayComputationFailed → OVERLAY_COMPUTATION_FAILED
+    """
     excluded = excluded_investment_ids or set()
 
     # Cache key is built from sorted inputs — order-independent by construction.
@@ -258,6 +488,20 @@ def compute_fund_decomposition(
     if cached is not None:
         return cached
 
+    # Capability fail-closed. A direct POST that bypassed the probe (stale
+    # tab, cross-env stitch, race) must still distinguish schema/data gaps
+    # from the overlay's fund/selection errors.
+    cap = probe_decomposition_capabilities(fund_id=fund_id)
+    if cap["error_code"] == "ENV_NOT_DECOMPOSITION_CAPABLE":
+        raise EnvNotCapable(
+            missing_tables=cap.get("missing_tables") or [],
+            reasons=cap.get("reasons") or [],
+        )
+    if cap["error_code"] == "ENV_HAS_NO_RE_DATA":
+        raise EnvHasNoReData()
+    if cap["error_code"] == "FUND_NOT_FOUND":
+        raise FundNotFound(fund_id)
+
     all_investments = _list_fund_investments(fund_id)
     all_ids = set()
     for inv in all_investments:
@@ -265,6 +509,12 @@ def compute_fund_decomposition(
         if isinstance(iid, str):
             iid = UUID(iid)
         all_ids.add(iid)
+
+    # Fund exists per the capability probe but has zero investments — treat
+    # as FUND_NOT_FOUND semantically (nothing to decompose). Separate from
+    # EmptySelection which only fires when the user excludes everything.
+    if not all_ids:
+        raise FundNotFound(fund_id)
 
     unknown = excluded - all_ids
     if unknown:

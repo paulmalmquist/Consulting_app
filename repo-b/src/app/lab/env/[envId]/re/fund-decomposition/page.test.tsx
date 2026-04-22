@@ -5,6 +5,7 @@ import FundDecompositionPage from "@/app/lab/env/[envId]/re/fund-decomposition/p
 
 const mockUseReEnv = vi.fn();
 const mockGetFundDecomposition = vi.fn();
+const mockGetFundDecompositionCapabilities = vi.fn();
 const mockListRepeFunds = vi.fn();
 const mockPublishCtx = vi.fn();
 const mockResetCtx = vi.fn();
@@ -39,6 +40,8 @@ vi.mock("@/lib/bos-api", async () => {
     ...actual,
     listRepeFunds: (...args: unknown[]) => mockListRepeFunds(...args),
     getFundDecomposition: (...args: unknown[]) => mockGetFundDecomposition(...args),
+    getFundDecompositionCapabilities: (...args: unknown[]) =>
+      mockGetFundDecompositionCapabilities(...args),
   };
 });
 
@@ -158,6 +161,15 @@ describe("FundDecompositionPage", () => {
       { fund_id: "fund-1", name: "Fund I", business_id: "biz-1", vintage_year: 2022, fund_type: "closed_end", strategy: "equity", status: "investing" },
     ]);
     mockGetFundDecomposition.mockImplementation(() => Promise.resolve(makeOverlay()));
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: true,
+      error_code: null,
+      reasons: [],
+      missing_migrations: [],
+      missing_tables: [],
+      fund_count: 1,
+      fund: { fund_id: "fund-1", exists: true, investment_count: 3 },
+    });
   });
 
   test("renders the overlay-semantics subtitle (product guarantee, pinned)", async () => {
@@ -220,5 +232,120 @@ describe("FundDecompositionPage", () => {
     const chips = overlay.querySelectorAll("span");
     const overlayChipCount = Array.from(chips).filter((el) => el.textContent === "overlay").length;
     expect(overlayChipCount).toBeGreaterThanOrEqual(3);
+  });
+
+  // ── Unavailable / error state split ───────────────────────────────────
+  // Each test pins one state. The copy is deliberately blunt — never
+  // euphemize "schema missing" as "temporarily unavailable."
+
+  test("env_not_capable: renders the explicit unavailable banner and does NOT POST", async () => {
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: false,
+      error_code: "ENV_NOT_DECOMPOSITION_CAPABLE",
+      reasons: ["required RE data-model migrations are not applied"],
+      missing_migrations: ["270_re_institutional_model"],
+      missing_tables: ["re_investment_quarter_state"],
+      fund_count: 0,
+      fund: null,
+    });
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    const banner = await screen.findByTestId("state-env-not-capable");
+    expect(banner.textContent).toMatch(/Fund decomposition is unavailable in this environment/);
+    expect(banner.textContent).toMatch(/RE data-model migrations/);
+    expect(banner.textContent).toMatch(/270_re_institutional_model/);
+    expect(banner.textContent).toMatch(/re_investment_quarter_state/);
+    // Critical: the gate prevents the POST entirely.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(mockGetFundDecomposition).not.toHaveBeenCalled();
+  });
+
+  test("env_has_no_re_data: renders the 'no funds seeded' banner and does NOT POST", async () => {
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: false,
+      error_code: "ENV_HAS_NO_RE_DATA",
+      reasons: ["this workspace has no RE funds seeded yet"],
+      missing_migrations: [],
+      missing_tables: [],
+      fund_count: 0,
+      fund: null,
+    });
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    const banner = await screen.findByTestId("state-env-has-no-re-data");
+    expect(banner.textContent).toMatch(/No RE funds in this workspace yet/);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(mockGetFundDecomposition).not.toHaveBeenCalled();
+  });
+
+  test("fund_not_found via capability probe: renders the fund-missing banner", async () => {
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: true,
+      error_code: "FUND_NOT_FOUND",
+      reasons: ["fund fund-1 is not present in this workspace"],
+      missing_migrations: [],
+      missing_tables: [],
+      fund_count: 3,
+      fund: { fund_id: "fund-1", exists: false, investment_count: 0 },
+    });
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    const banner = await screen.findByTestId("state-fund-not-found");
+    expect(banner.textContent).toMatch(/Fund not found/);
+  });
+
+  test("fund_not_found via overlay POST error: still renders the fund-missing banner", async () => {
+    // Capability says env is fine but overlay POST came back with FUND_NOT_FOUND
+    // (e.g. a race where the fund was deleted between probe and POST).
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: true,
+      error_code: null,
+      reasons: [],
+      missing_migrations: [],
+      missing_tables: [],
+      fund_count: 3,
+      fund: { fund_id: "fund-1", exists: true, investment_count: 3 },
+    });
+    mockGetFundDecomposition.mockRejectedValue(
+      Object.assign(new Error("Fund fund-1 is not present in this workspace."), {
+        status: 404,
+        errorCode: "FUND_NOT_FOUND",
+        detail: { fund_id: "fund-1" },
+      }),
+    );
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    const banner = await screen.findByTestId("state-fund-not-found");
+    expect(banner.textContent).toMatch(/Fund not found/);
+  });
+
+  test("overlay_failed: only fires when the error is NOT one of the typed categories", async () => {
+    mockGetFundDecompositionCapabilities.mockResolvedValue({
+      capable: true,
+      error_code: null,
+      reasons: [],
+      missing_migrations: [],
+      missing_tables: [],
+      fund_count: 3,
+      fund: { fund_id: "fund-1", exists: true, investment_count: 3 },
+    });
+    mockGetFundDecomposition.mockRejectedValue(
+      Object.assign(new Error("compute failed"), {
+        status: 500,
+        errorCode: "OVERLAY_COMPUTATION_FAILED",
+      }),
+    );
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    const banner = await screen.findByTestId("state-overlay-failed");
+    expect(banner.textContent).toMatch(/Decomposition failed/);
+    expect(banner.textContent).toMatch(/OVERLAY_COMPUTATION_FAILED/);
+    // None of the typed banners should also render.
+    expect(screen.queryByTestId("state-env-not-capable")).toBeNull();
+    expect(screen.queryByTestId("state-env-has-no-re-data")).toBeNull();
+    expect(screen.queryByTestId("state-fund-not-found")).toBeNull();
+  });
+
+  test("capability gate: POST only fires when capable=true AND a fund is selected", async () => {
+    // Capability resolves capable, overlay is called with the selected fund.
+    render(<FundDecompositionPage params={{ envId: "env-1" }} />);
+    await waitFor(() => expect(mockGetFundDecomposition).toHaveBeenCalled());
+    const firstCallArgs = mockGetFundDecomposition.mock.calls[0][0];
+    expect(firstCallArgs.fundId).toBe("fund-1");
   });
 });
