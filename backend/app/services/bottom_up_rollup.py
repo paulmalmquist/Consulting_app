@@ -100,25 +100,34 @@ def _list_fund_investments(cur, fund_id: UUID) -> list[dict[str, Any]]:
 def _merge_series(
     dest: dict[str, CFPoint], src: list[CFPoint], *, weight: Decimal
 ) -> None:
-    """Merge weight-scaled `src` points into `dest` keyed by quarter."""
+    """Merge weight-scaled `src` points into `dest` keyed by quarter_end_date.
+
+    Keying by date (not the quarter string) ensures that rows sourced from
+    different systems with different label formats — e.g. "2024-Q1" from ledger
+    capital-call events and "2024Q1" from the asset CF rollup — are collapsed
+    into a single CF point rather than counted twice. Both refer to the same
+    quarter-end date and must be summed, not stacked.
+    """
     for p in src:
+        # Use ISO date string as the canonical merge key.
+        merge_key = p.quarter_end_date.isoformat()
         scaled = p.amount * weight
-        if p.quarter in dest:
-            dest[p.quarter].amount += scaled
+        if merge_key in dest:
+            dest[merge_key].amount += scaled
             # Preserve has-* flags as the OR of contributors.
-            dest[p.quarter].has_actual = dest[p.quarter].has_actual or p.has_actual
-            dest[p.quarter].has_projection = (
-                dest[p.quarter].has_projection or p.has_projection
+            dest[merge_key].has_actual = dest[merge_key].has_actual or p.has_actual
+            dest[merge_key].has_projection = (
+                dest[merge_key].has_projection or p.has_projection
             )
-            dest[p.quarter].has_exit = dest[p.quarter].has_exit or p.has_exit
-            dest[p.quarter].has_terminal_value = (
-                dest[p.quarter].has_terminal_value or p.has_terminal_value
+            dest[merge_key].has_exit = dest[merge_key].has_exit or p.has_exit
+            dest[merge_key].has_terminal_value = (
+                dest[merge_key].has_terminal_value or p.has_terminal_value
             )
             for w in p.warnings:
-                if w not in dest[p.quarter].warnings:
-                    dest[p.quarter].warnings.append(w)
+                if w not in dest[merge_key].warnings:
+                    dest[merge_key].warnings.append(w)
         else:
-            dest[p.quarter] = CFPoint(
+            dest[merge_key] = CFPoint(
                 quarter=p.quarter,
                 quarter_end_date=p.quarter_end_date,
                 amount=scaled,
