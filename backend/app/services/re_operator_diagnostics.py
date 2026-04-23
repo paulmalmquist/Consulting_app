@@ -144,9 +144,12 @@ def get_operator_diagnostics(
         )
         unfiltered_assets.append(row)
 
+    # Peer-set math runs on the full unfiltered set so cohort (acuity, region,
+    # size_band) stays the stable definition regardless of what the UI narrows.
+    # Every asset's `peer_margin_delta` is written onto unfiltered_assets here.
     _apply_peer_deltas(unfiltered_assets)
 
-    # Apply display filters (narrows returned list; does NOT re-compute peer math).
+    # Display filters narrow only the returned rows + rollups — never peer math.
     visible_assets = [r for r in unfiltered_assets if _matches_filter(r, acuity, region, operator)]
 
     operators = _rollup_operators(visible_assets)
@@ -179,22 +182,30 @@ def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
 def _list_senior_housing_assets(
     *, env_id: str, fund_id: UUID | str | None
 ) -> list[dict[str, Any]]:
+    # env_id lives in re_asset_operator_profile (denormalized) and in
+    # re_authoritative_asset_state_qtr — NOT in repe_fund. We scope via a
+    # UNION of both env-tagged tables so assets appear whether or not they
+    # have a profile or a released snapshot yet.
     sql = """
-        SELECT a.asset_id,
+        SELECT DISTINCT a.asset_id,
                a.name,
                pa.units,
                pa.market,
-               pa.property_type
+               pa.property_type,
+               d.fund_id
           FROM repe_asset a
           JOIN repe_property_asset pa ON pa.asset_id = a.asset_id
           JOIN repe_deal d            ON d.deal_id = a.deal_id
-          JOIN repe_fund f            ON f.fund_id = d.fund_id
-         WHERE f.env_id = %s
-           AND LOWER(COALESCE(pa.property_type, '')) IN ('senior_housing','senior housing')
+         WHERE LOWER(COALESCE(pa.property_type, '')) IN ('senior_housing','senior housing')
+           AND a.asset_id IN (
+               SELECT asset_id FROM re_asset_operator_profile  WHERE env_id = %s
+               UNION
+               SELECT asset_id FROM re_authoritative_asset_state_qtr WHERE env_id = %s
+           )
     """
-    params: list[Any] = [env_id]
+    params: list[Any] = [env_id, env_id]
     if fund_id is not None:
-        sql += " AND f.fund_id = %s::uuid"
+        sql += " AND d.fund_id = %s::uuid"
         params.append(str(fund_id))
     sql += " ORDER BY a.name ASC"
 
@@ -633,6 +644,8 @@ def _build_audit(
                     demo_seed_present = True
     provenance_out = {f: dict(vs) for f, vs in provenance.items()}
 
+    fixture_versions = [v for v in versions if v.startswith("demo_fixture_")]
+
     return {
         "snapshot_versions": versions,
         "released_count": released_count,
@@ -647,6 +660,8 @@ def _build_audit(
         "metric_suppression_reasons": suppression_out,
         "source_provenance_counts": provenance_out,
         "demo_seed_present": demo_seed_present,
+        "authoritative_fixture_present": bool(fixture_versions),
+        "authoritative_fixture_snapshot_versions": fixture_versions,
         "quarter": quarter,
         "requested_quarter": quarter,
         "generated_at": datetime.now(timezone.utc),

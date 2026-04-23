@@ -114,6 +114,8 @@ class OperatorDiagnosticsAudit(BaseModel):
     metric_suppression_reasons: dict[str, dict[str, int]] = Field(default_factory=dict)
     source_provenance_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
     demo_seed_present: bool = False
+    authoritative_fixture_present: bool = False
+    authoritative_fixture_snapshot_versions: list[str] = Field(default_factory=list)
     quarter: str
     requested_quarter: str
     generated_at: datetime
