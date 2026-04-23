@@ -61,8 +61,15 @@ SELECTED_INVESTMENT_IDS = [
     # ── MREF III ──
     "a1b2c3d4-0001-0010-0002-000000000001",  # MRF III – Dallas Multifamily Cluster
     "a1b2c3d4-0001-0010-0002-000000000002",  # MRF III – Phoenix Value-Add Portfolio
-    # ── MCOF I ──
-    "a1b2c3d4-0002-0020-0002-000000000002",  # Midtown Towers – Atlanta GA
+    # ── MCOF I — all 8 investments (phase_C3 fix: was only Midtown Towers) ──
+    "a1b2c3d4-0002-0020-0002-000000000001",  # MCOF I – Riverdale Multifamily – Dallas TX
+    "a1b2c3d4-0002-0020-0002-000000000002",  # MCOF I – Midtown Towers – Atlanta GA
+    "a1b2c3d4-0002-0020-0002-000000000003",  # MCOF I – Vertex Multifamily – Tampa FL (exited, nav=0)
+    "a1b2c3d4-0002-0020-0002-000000000004",  # MCOF I – Bellmont Residential – Charlotte NC
+    "a1b2c3d4-0002-0020-0002-000000000005",  # MCOF I – Summit Heights – Nashville TN
+    "a1b2c3d4-0002-0020-0002-000000000006",  # MCOF I – Westridge Commons – Austin TX (exited, nav=0)
+    "a1b2c3d4-0002-0020-0002-000000000007",  # MCOF I – Riverside Park – Miami FL
+    "a1b2c3d4-0002-0020-0002-000000000008",  # MCOF I – Stratford Village – Denver CO
 ]
 HIGHLIGHT_ASSET_IDS = [
     "3371333b-a54a-46e3-b4d9-0ad8443dd6a9",  # Tech Campus North capex sample
@@ -280,7 +287,7 @@ def build_sample_manifest(hierarchy_rows: list[dict[str, Any]]) -> dict[str, Any
             "Institutional Growth Fund VII is the primary positive chain sample.",
             "Tech Campus North is the primary multi-asset 80/20 JV sample.",
             "Meridian Real Estate Fund III is the primary fee-bearing equity sample.",
-            "Meridian Credit Opportunities Fund I / Midtown Towers is the debt and negative-cash-flow sample.",
+            "Meridian Credit Opportunities Fund I includes all 8 investments (phase_C3 fix: prior run had only 1/8).",
         ],
     }
 
@@ -1102,10 +1109,56 @@ def build_fund_receipts(
         if row["investment_id"] not in fund_investments[row["fund_id"]]:
             fund_investments[row["fund_id"]].append(row["investment_id"])
 
+    # Scope invariant: COUNT(investments_in_scope) == COUNT(investments_linked_to_fund)
+    # Hard fail on partial scope — prevents silent partial-fund NAV aggregation.
+    # Any fund where the manifest includes fewer investments than actually exist
+    # gets a partial_scope breakpoint and an exception; the snapshot is written
+    # but with trust_status='untrusted' and null_reason='partial_scope', which
+    # blocks promotion via both validate_snapshot_for_release and promote_fund_snapshot.
+    fund_db_investment_counts: dict[str, int] = {}
+    for row in fetchall(
+        """
+        SELECT fund_id::text AS fund_id, COUNT(*) AS cnt
+        FROM re_investment
+        WHERE fund_id = ANY(%s::uuid[])
+        GROUP BY fund_id
+        """,
+        (SELECTED_FUND_IDS,),
+    ):
+        fund_db_investment_counts[row["fund_id"]] = int(row["cnt"])
+
+    fund_scope_completeness: dict[str, str] = {}
+    for fund_id in SELECTED_FUND_IDS:
+        in_scope = len(fund_investments.get(fund_id, []))
+        in_db = fund_db_investment_counts.get(fund_id, 0)
+        if in_db == 0:
+            fund_scope_completeness[fund_id] = "complete"  # no investments exist — vacuously complete
+        elif in_scope < in_db:
+            fund_scope_completeness[fund_id] = "partial"
+            for quarter in QUARTERS:
+                exceptions.append({
+                    "exception_type": "partial_scope",
+                    "entity_type": "fund",
+                    "entity_id": fund_id,
+                    "quarter": quarter,
+                    "breakpoint_layer": "partial_scope",
+                    "message": (
+                        f"Scope invariant violated: manifest includes {in_scope} of {in_db} "
+                        f"investments linked to fund {fund_id}. "
+                        f"null_reason=partial_scope blocks promotion. "
+                        f"Add all {in_db} investments to SELECTED_INVESTMENT_IDS."
+                    ),
+                })
+        else:
+            fund_scope_completeness[fund_id] = "complete"
+
     for fund_id in SELECTED_FUND_IDS:
         total_committed = load_total_committed(fund_id)
         for quarter in QUARTERS:
             investments = fund_investments.get(fund_id, [])
+            in_scope_count = len(investments)
+            expected_count = fund_db_investment_counts.get(fund_id, 0)
+            scope_completeness = fund_scope_completeness.get(fund_id, "complete")
             beginning_nav = Decimal("0")
             ending_nav = Decimal("0")
             gross_operating_cf = Decimal("0")
@@ -1265,13 +1318,20 @@ def build_fund_receipts(
                     "total_committed": total_committed,
                     "total_called": total_calls,
                     "total_distributed": total_distributions,
+                    "scope": {
+                        "investment_count": in_scope_count,
+                        "expected_investment_count": expected_count,
+                        "scope_completeness": scope_completeness,
+                    },
                     **derive_fund_trust_fields(gross_irr=gross_irr, net_irr=net_irr),
+                },
+                "null_reasons": {
+                    **({"state": "partial_scope"} if scope_completeness == "partial" else {}),
                 },
                 "display_metrics": {
                     "gross_irr_pct": gross_irr * Decimal("100") if gross_irr is not None else None,
                     "net_irr_pct": net_irr * Decimal("100") if net_irr is not None else None,
                 },
-                "null_reasons": {},
                 "formulas": {
                     "gross_operating_cash_flow": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees",
                     "net_operating_cash_flow": "net operating cash flow = gross operating cash flow - management fees - fund expenses",

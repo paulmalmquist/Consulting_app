@@ -398,6 +398,20 @@ def validate_snapshot_for_release(
             )
             continue
 
+        # Belt-and-suspenders scope gate: if canonical_metrics.scope.scope_completeness
+        # is 'partial', block promotion regardless of IRR trust state.
+        # The null_reasons check above catches partial_scope too (via state='partial_scope'),
+        # but this explicit check on the scope field is more descriptive in violation logs.
+        scope_meta = cm.get("scope") or {}
+        if isinstance(scope_meta, dict) and scope_meta.get("scope_completeness") == "partial":
+            in_scope = scope_meta.get("investment_count", "?")
+            expected = scope_meta.get("expected_investment_count", "?")
+            violations.append({
+                "fund_id": fund_id,
+                "reason": f"partial_scope:{in_scope}_of_{expected}_investments_included",
+            })
+            continue
+
         gross_irr = cm.get("gross_irr")
         if gross_irr is None:
             violations.append(
@@ -592,6 +606,15 @@ def promote_fund_snapshot(
             raise ScopedPromotionError(
                 snapshot_version, fund_id_str, quarter,
                 f"gate_fail:top_null_reason={top_reason}"
+            )
+        # Scope completeness gate — partial_scope snapshots must never be promoted.
+        scope_meta = cm.get("scope") or {}
+        if isinstance(scope_meta, dict) and scope_meta.get("scope_completeness") == "partial":
+            in_scope = scope_meta.get("investment_count", "?")
+            expected = scope_meta.get("expected_investment_count", "?")
+            raise ScopedPromotionError(
+                snapshot_version, fund_id_str, quarter,
+                f"gate_fail:partial_scope={in_scope}_of_{expected}_investments_included",
             )
         gross_irr = cm.get("gross_irr")
         if gross_irr is None:
