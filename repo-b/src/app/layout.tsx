@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter, Inter_Tight, JetBrains_Mono, Josefin_Sans } from "next/font/google";
 import "@fontsource/league-gothic/400.css";
 import "./globals.css";
-import Providers from "@/components/Providers";
+import { RootProviders } from "@/components/Providers";
 import { mandaloreCommand } from "@/lib/brandFonts";
 
 export const metadata: Metadata = {
@@ -97,7 +97,7 @@ export default function RootLayout({
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable} ${editorialFont.variable} ${labelFont.variable}`}
     >
       <body>
-        <Providers>{children}</Providers>
+        <RootProviders>{children}</RootProviders>
       </body>
     </html>
   );

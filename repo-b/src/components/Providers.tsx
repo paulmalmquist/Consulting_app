@@ -52,21 +52,39 @@ function RouteChangeListener() {
   return null;
 }
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+// Site-wide: theme + toasts. Safe for marketing, login, and app surfaces alike.
+// ToastProvider is a dormant UI primitive — marketing and login pages never call useToast(),
+// so it has no effect there. Kept at root because /tasks and /design-system use it
+// outside the /app/* layout boundary.
+export function RootProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyThemeMode(getStoredThemeMode());
   }, []);
 
   return (
     <ThemeProvider>
-      <ToastProvider>
-        <WinstonCompanionProvider>
-          <RouteChangeListener />
-          {children}
-          <GlobalCommandBar />
-          <WinstonLoader />
-        </WinstonCompanionProvider>
-      </ToastProvider>
+      <ToastProvider>{children}</ToastProvider>
     </ThemeProvider>
+  );
+}
+
+// App-only: command bar, Winston loader/companion. Must not render on marketing or login.
+export function WinstonProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <WinstonCompanionProvider>
+      <RouteChangeListener />
+      {children}
+      <GlobalCommandBar />
+      <WinstonLoader />
+    </WinstonCompanionProvider>
+  );
+}
+
+// Legacy default export — kept for any test files that import it directly.
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <RootProviders>
+      <WinstonProviders>{children}</WinstonProviders>
+    </RootProviders>
   );
 }
