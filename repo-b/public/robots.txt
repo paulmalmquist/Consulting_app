@@ -1,9 +1,0 @@
-User-agent: *
-Disallow: /admin
-Disallow: /lab
-Disallow: /app
-Disallow: /api
-Disallow: /login
-Allow: /
-
-Sitemap: https://paulmalmquist.com/sitemap.xml

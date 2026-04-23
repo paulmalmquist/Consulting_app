@@ -1,12 +1,22 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { IBM_Plex_Mono, Inter, Orbitron } from 'next/font/google';
 import { LayoutShell } from '@/components/marketing/layout/LayoutShell';
 import './marketing.css';
 
-// Nested layout for /m/* in Phase 1. This file gets renamed/moved into
-// src/app/(marketing)/layout.tsx during Phase 3 when marketing takes over `/`.
-// Phase 1 constraint: do NOT set metadata here. Root layout's robots:noindex
-// is inherited intentionally until Phase 4.
+const ORIGIN = process.env.NEXT_PUBLIC_MARKETING_ORIGIN ?? 'https://novendor.ai';
+
+export const metadata: Metadata = {
+  metadataBase: new URL(ORIGIN),
+  robots: { index: true, follow: true },
+  openGraph: {
+    siteName: 'Novendor',
+    type: 'website',
+  },
+  alternates: {
+    canonical: '/',
+  },
+};
 
 const inter = Inter({
   subsets: ['latin'],
