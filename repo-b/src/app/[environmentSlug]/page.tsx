@@ -35,7 +35,7 @@ export default async function EnvironmentEntryPage({
     if (session) {
       redirect(`/app?denied=${environmentSlug}`);
     }
-    redirect(`/?returnTo=/${environmentSlug}`);
+    redirect(`/login?returnTo=/${environmentSlug}`);
   }
 
   redirect(

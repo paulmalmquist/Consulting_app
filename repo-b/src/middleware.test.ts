@@ -53,7 +53,7 @@ describe("middleware", () => {
 
   it("redirects unauthenticated users to the correct branded login", async () => {
     const response = await middleware(await makeRequest("/novendor"));
-    expect(response.headers.get("location")).toBe("http://localhost:3001/?returnTo=%2Fnovendor");
+    expect(response.headers.get("location")).toBe("http://localhost:3001/login?returnTo=%2Fnovendor");
   });
 
   it("redirects authenticated users without membership back to the authenticated selector", async () => {
@@ -64,16 +64,14 @@ describe("middleware", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3001/app?denied=trading");
   });
 
-  it("keeps the root route public when logged out", async () => {
-    const response = await middleware(await makeRequest("/"));
-    expect(response.headers.get("location")).toBeNull();
+  it("keeps the root route public (marketing home, no middleware)", async () => {
+    // / is not in the middleware matcher — Next.js serves (marketing)/page.tsx directly.
+    // Middleware does not run for this path, so we skip this test at the middleware layer.
+    // The route is verified in the Playwright smoke test.
   });
 
-  it("redirects authenticated users away from root and login to /app", async () => {
-    const rootResponse = await middleware(await makeRequest("/", buildClaims()));
+  it("redirects authenticated users away from /login to /app", async () => {
     const loginResponse = await middleware(await makeRequest("/login", buildClaims()));
-
-    expect(rootResponse.headers.get("location")).toBe("http://localhost:3001/app");
     expect(loginResponse.headers.get("location")).toBe("http://localhost:3001/app");
   });
 

@@ -20,7 +20,7 @@ const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
 
 function buildLoginRedirect(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();
-  url.pathname = "/";
+  url.pathname = "/login";
   const returnTo = `${pathname}${request.nextUrl.search}`;
   if (returnTo && returnTo !== "/") {
     url.searchParams.set("returnTo", returnTo);
@@ -121,17 +121,9 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/public/") ||
-    pathname.startsWith("/public/")
+    pathname.startsWith("/api/public/")
   ) {
     return NextResponse.next();
-  }
-
-  if (pathname === "/") {
-    if (!session) return NextResponse.next();
-    const url = request.nextUrl.clone();
-    url.pathname = "/app";
-    return NextResponse.redirect(url);
   }
 
   const topLevelEnvironment = pathname.match(TOP_LEVEL_ENV_RE)?.[1] || null;
@@ -201,7 +193,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
     "/login",
     "/admin",
     "/admin/:path*",
@@ -227,6 +218,5 @@ export const config = {
     "/meridian/:path*",
     "/trading/:path*",
     "/ncf/:path*",
-    "/public/:path*",
   ],
 };
