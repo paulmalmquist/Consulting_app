@@ -1,0 +1,30 @@
+[
+  {
+    "title": "Dependency map and control points",
+    "description": "Where the platform is truly required vs. where it is simply adjacent — with named control points for change.",
+    "tags": ["dependency", "controls"],
+    "href": "/method",
+    "eyebrow": "Deliverable"
+  },
+  {
+    "title": "Continuity baselines and reconciliations",
+    "description": "The evidence CFOs and auditors need to see before approving any capability cutover.",
+    "tags": ["continuity", "reconciliation"],
+    "href": "/method",
+    "eyebrow": "Deliverable"
+  },
+  {
+    "title": "Parallel-run scorecards",
+    "description": "Side-by-side outcomes that show the new capability is safe, accurate, and ready for controlled adoption.",
+    "tags": ["parallel run", "evidence"],
+    "href": "/services",
+    "eyebrow": "Deliverable"
+  },
+  {
+    "title": "Cutover briefs and rollback criteria",
+    "description": "Clear go/no-go criteria, owners, and rollback triggers so optionality is preserved throughout the program.",
+    "tags": ["cutover", "rollback"],
+    "href": "/method",
+    "eyebrow": "Deliverable"
+  }
+]

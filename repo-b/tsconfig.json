@@ -21,6 +21,9 @@
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@content/*": [
+        "content/*"
       ]
     },
     "types": [

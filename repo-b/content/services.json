@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Capability Discovery",
+    "description": "What you get: dependency map, contract exposure snapshot, and continuity baselines. Typical timeline: 2-3 weeks. Decision enabled: where dependency is truly risky versus merely inconvenient.",
+    "tags": ["discovery", "risk", "baseline"],
+    "href": "/services",
+    "eyebrow": "Engagement phase"
+  },
+  {
+    "title": "Capability Pilot",
+    "description": "What you get: one ringfenced capability run in parallel with reconciliations and rollback criteria. Typical timeline: 4-8 weeks. Decision enabled: approve cutover, extend the pilot, or stop safely.",
+    "tags": ["pilot", "parallel run", "cutover"],
+    "href": "/services",
+    "eyebrow": "Engagement phase"
+  },
+  {
+    "title": "Controlled Cutover Program",
+    "description": "What you get: sequenced capability cutovers, executive control narratives, and governance routines that reduce dependency quarter by quarter. Typical timeline: roadmap-led. Decision enabled: scale with clarity, not momentum.",
+    "tags": ["cutover", "governance", "program"],
+    "href": "/services",
+    "eyebrow": "Engagement phase"
+  }
+]

@@ -2,7 +2,8 @@
 module.exports = {
   content: [
     "./src/app/**/*.{ts,tsx}",
-    "./src/components/**/*.{ts,tsx}"
+    "./src/components/**/*.{ts,tsx}",
+    "./content/**/*.{md,mdx}"
   ],
   darkMode: ["selector", "html:not([data-theme='light'])"],
   theme: {
@@ -51,6 +52,15 @@ module.exports = {
           signalOrange: "hsl(var(--pds-signal-orange) / <alpha-value>)",
           signalRed: "hsl(var(--pds-signal-red) / <alpha-value>)",
         },
+        // Marketing palette (ported from Consulting_site). Only non-colliding
+        // additions: `ink`, `accent`, `gold`. Slate, cyan, violet stay on
+        // Tailwind defaults — Winston uses those scales extensively, so
+        // overriding them would change Winston visuals. Consulting_site's
+        // custom shades are close enough to Tailwind defaults for Phase 1
+        // parity; revisit in Phase 4 if brand visual review requires exact match.
+        ink: "#0D1117",
+        accent: "#7FD7E0",
+        gold: "#FBBF24",
       },
       fontFamily: {
         sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],

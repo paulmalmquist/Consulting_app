@@ -1,0 +1,35 @@
+{
+  "hero": {
+    "headline": "Reduce system dependency without a risky replatform",
+    "subheadline": "We help operations leaders isolate one high-friction capability, run a controlled pilot, and scale only when evidence is clear."
+  },
+  "pillars": [
+    "Keep systems of record in place",
+    "Pilot one capability in 4-8 weeks",
+    "Cut over with reconciliations and rollback gates"
+  ],
+  "whatYouGet": [
+    "A plain-language map of where dependency creates risk",
+    "A capability map with clear ownership, controls, and decisions",
+    "A sequenced pilot-to-cutover plan tied to business risk",
+    "Evidence gates leaders can use to approve, pause, or stop change"
+  ],
+  "deliverables": [
+    {
+      "title": "Capability control map",
+      "description": "A cross-functional view of the capabilities that run the business, the systems that support them, and where control leaks."
+    },
+    {
+      "title": "Stabilization plan",
+      "description": "Targeted interventions that stop spreadsheet sprawl, patch brittle handoffs, and reduce operational noise."
+    },
+    {
+      "title": "Pilot design",
+      "description": "Parallel-run design with reconciliations and rollback triggers defined before execution."
+    },
+    {
+      "title": "Cutover governance pack",
+      "description": "Decision checkpoints, approval criteria, and evidence expectations that keep change under executive control."
+    }
+  ]
+}

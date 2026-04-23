@@ -1,0 +1,44 @@
+[
+  {
+    "title": "Accounting close support",
+    "description": "Ringfence reconciliations, approvals, and close checklists so finance can reduce system dependency without risking reporting integrity.",
+    "tags": ["accounting", "close", "controls"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  },
+  {
+    "title": "CRM routing and pipeline control",
+    "description": "Replace brittle assignment rules and manual workarounds with a governed decision layer that clarifies ownership, exceptions, and escalation paths.",
+    "tags": ["CRM", "routing", "governance"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  },
+  {
+    "title": "Project and portfolio management",
+    "description": "Isolate intake, prioritization, and status control so delivery teams can improve visibility and decision speed without a full platform overhaul.",
+    "tags": ["PM", "portfolio", "intake"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  },
+  {
+    "title": "Legal intake and obligation tracking",
+    "description": "Capture requests once, apply policy-aware triage, and maintain auditable obligation tracking while reducing reliance on heavyweight suites.",
+    "tags": ["legal", "intake", "obligations"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  },
+  {
+    "title": "Operational analytics and executive reporting",
+    "description": "Decouple decision-grade reporting from platform lock-in by defining shared metrics, reconciliations, and ownership for critical executive views.",
+    "tags": ["analytics", "reporting", "metrics"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  },
+  {
+    "title": "Procurement approvals and vendor controls",
+    "description": "Introduce clear approval gates, policy checks, and exception routing to reduce spend leakage while keeping existing systems of record intact.",
+    "tags": ["procurement", "approvals", "policy"],
+    "href": "/industries",
+    "eyebrow": "Capability module"
+  }
+]

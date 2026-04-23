@@ -1,0 +1,41 @@
+---
+title: Engagement model
+description: Three phases with evidence gates and rollback controls at every step.
+tags: [engagement, method, governance, phases]
+type: doc
+slug: engagement-model
+---
+
+Every engagement follows three phases. Each phase has defined scope, concrete deliverables, and a leadership decision gate.
+
+## Phase 1: Capability Discovery
+- **Duration:** 2-3 weeks.
+- **Focus:** Map dependency risk, contract exposure, and continuity baselines for one critical capability.
+- **Deliverables:**
+  - Capability control map showing owners, supporting systems, and control leaks.
+  - Dependency risk profile with contract and continuity exposure.
+  - Recommended first capability to pilot.
+- **Decision gate:** Leadership chooses the first capability to pilot or stops with a clear map of risk.
+
+## Phase 2: Capability Pilot
+- **Duration:** 4-8 weeks.
+- **Focus:** Run one ringfenced capability in parallel with existing systems.
+- **Deliverables:**
+  - Parallel-run design with reconciliation routines.
+  - Rollback triggers and escalation paths.
+  - Evidence log showing outcomes against agreed success criteria.
+- **Decision gate:** Leadership approves cutover, extends the pilot, or stops safely based on evidence.
+
+## Phase 3: Controlled Cutover Program
+- **Duration:** Roadmap-led (quarter by quarter).
+- **Focus:** Sequence capability cutovers with clear governance gates.
+- **Deliverables:**
+  - Cutover governance pack with decision checkpoints and approval criteria.
+  - Sequenced capability roadmap tied to business risk.
+  - Evidence expectations for executive sign-off at each gate.
+- **Decision gate:** Each capability cutover is independently approved.
+
+## Risk controls
+1. **Ownership is named.** Every capability has a single accountable owner with decision authority.
+2. **Evidence precedes action.** No cutover happens without reconciliation data and agreed success criteria.
+3. **Rollback is always available.** Parallel-run architecture keeps the old path live until the new one is proven.

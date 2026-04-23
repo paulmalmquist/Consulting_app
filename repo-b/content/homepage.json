@@ -1,0 +1,35 @@
+{
+  "nav": {
+    "logo": {
+      "label": "Consulting",
+      "href": "/"
+    },
+    "links": [{ "label": "Overview", "href": "#overview" }],
+    "primaryCta": { "label": "Operational assessment", "href": "/operational-assessment" },
+    "secondaryCta": { "label": "Book strategy call", "href": "/contact" }
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "type": "hero",
+      "headline": "Put AI to Work",
+      "subheadline": "Consulting engagements to show measurable ROI using AI-native workflows\nBuilt for leaders under real pressure to modernize.",
+      "primaryCta": { "label": "Operational assessment", "href": "/operational-assessment" },
+      "secondaryCta": { "label": "Book strategy call", "href": "/contact" },
+      "proofBullets": [
+        {
+          "icon": "📌",
+          "title": "Operational Assessment"
+        },
+        {
+          "icon": "🤖",
+          "title": "AI Concierge"
+        },
+        {
+          "icon": "🧭",
+          "title": "Legacy SaaS Migration"
+        }
+      ]
+    }
+  ]
+}
