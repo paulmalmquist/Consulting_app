@@ -1,10 +1,9 @@
 """Promote high-quality podcast signals into the trading_signals table.
 
 Meta-prompt Step 4.2. Creates rows in public.trading_signals with:
-  - source='ai_generated' (the schema's CHECK constraint allow-list doesn't
-    include 'podcast' yet; put origin=podcast in evidence jsonb instead)
-  - evidence jsonb carrying the full provenance (episode_id, speaker,
-    statement, extraction_model, podcast_*_id)
+  - source='podcast' (added to the CHECK constraint in migration 521)
+  - evidence jsonb carrying full provenance (episode_id, speaker, statement,
+    extraction_model, podcast_source_kind + podcast_source_id)
   - category/direction/strength mapped from the podcast signal fields
 
 Promotion criteria (from the meta-prompt):
@@ -92,7 +91,7 @@ def _insert_signal(
             INSERT INTO public.trading_signals (
                 tenant_id, name, description, category, direction, strength,
                 source, asset_class, tickers, evidence, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, 'ai_generated', %s, %s, %s, 'active')
+            ) VALUES (%s, %s, %s, %s, %s, %s, 'podcast', %s, %s, %s, 'active')
             RETURNING signal_id
             """,
             (
