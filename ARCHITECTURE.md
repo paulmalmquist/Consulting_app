@@ -26,6 +26,7 @@ Approved durable prefixes for new public tables:
 - `fact_`
 - `stg_`
 - `hr_` — History Rhymes analytics module. **Exempt from `env_id`/RLS requirements**: single-tenant by construction (analytics/research data, not per-client business data). Existing tables (`hr_predictions`, `hr_pending_predictions`, `hr_agent_calibration`, `hr_episode_balance`, `hr_latest_agents`) established this convention; new `hr_*` tables should match.
+- `am_` — Altered Mind operator analytics module. Per-client business data (therapy practice metrics, referrals, reflections). Full RLS and `env_id` required.
 
 Experimental or frozen prefixes. Do not expand these without an explicit architecture review:
 
@@ -106,6 +107,25 @@ Shared dimensions and reference tables currently exempt by design:
 - `object_type`
 
 If a new shared reference table is introduced, add it to this exemption list in the same PR.
+
+## Authoritative Snapshot Fixture Convention
+
+Snapshot versions matching `demo_fixture_%` (e.g. `demo_fixture_2026Q2_operator_diag`) are
+**proof-stage / demo fixtures only**. They are not production verification runs and must not be:
+
+- Treated as authoritative releases in financial reporting or fund-level calculations.
+- Displayed without an explicit `authoritative_fixture_present: true` audit flag surfaced in the UI.
+- Promoted beyond `draft_audit` state by any automated promotion pipeline.
+
+Code that reads `re_authoritative_asset_state_qtr` for financial KPIs must either:
+
+1. Filter `WHERE promotion_state = 'released'` (standard path, excludes fixtures left in `draft_audit`), or
+2. Be an explicitly fixture-aware diagnostic surface (e.g. Operator Diagnostics) that surfaces the
+   `authoritative_fixture_present` audit banner to the user.
+
+Do not write new `demo_fixture_%` rows outside a numbered schema migration. Production snapshot
+versions use timestamp slugs (e.g. `meridian-20260410T182315Z-3881843b`) and are always set by
+the promotion pipeline — never by hand or seed scripts.
 
 ## Session Guardrails
 
