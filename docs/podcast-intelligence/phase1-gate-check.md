@@ -1,6 +1,6 @@
 # Podcast Intelligence — Phase 1 Gate Check
 
-_Generated: 2026-04-22T21:18:35.978839Z_
+_Generated: 2026-04-23T12:07:20.265705Z_
 
 Full end-to-end Phase 1 pipeline run: YouTube ingest → auto-caption transcription → sentence+speaker-turn chunking → 4-pass extraction (GPT-4o structured + Claude nuanced + Claude adversarial) → speaker resolver with fuzzy fallback → signals land in 7 tables.
 
@@ -35,6 +35,27 @@ Counts broken out by `extraction_model` so Phase 0 (legacy standalone pipeline) 
 |    | `claude-sonnet-4` | 0 | 0 | 34 | 0 |  |  |
 |    | `claude-sonnet-4-5` | 0 | 0 | 39 | 13 |  |  |
 
+## Speaker Predictions (Phase 3.2)
+
+**192 resolvable predictions** extracted from macro_views + high-conviction trade_ideas and persisted as `speaker_predictions` with `resolution_status='open'`. Phase 5 resolver will score them against market data and build per-speaker Brier score + hit rate over time.
+
+Direction split: **88 up / 79 down / 17 flat / 8 range**.
+
+**Top named predictors (pending resolution):**
+
+| Speaker | Total | Bullish | Bearish |
+|---|---:|---:|---:|
+| Eric Townsend | 10 | 4 | 5 |
+| Patrick Szna | 9 | 4 | 2 |
+| Grant Williams | 8 | 1 | 3 |
+| Joe Weisenthal | 7 | 5 | 0 |
+| Michael Howell | 6 | 2 | 4 |
+| Raoul Pal | 3 | 3 | 0 |
+| Tracy Alloway | 2 | 1 | 0 |
+| Andre Steno | 2 | 2 | 0 |
+| Mark Faber | 1 | 1 | 0 |
+| Brandy Maban | 1 | 0 | 1 |
+
 ## Trading Lab Promotions (Phase 4.2)
 
 **155 podcast signals** promoted to `public.trading_signals` with `source='ai_generated'` and `evidence->>'origin'='podcast'`. Direction split: **69 bullish / 69 bearish / 17 neutral**. Promotion gates:
@@ -52,8 +73,6 @@ Top tickers appearing in promoted signals:
 Top promoted signals by strength:
 
 - `bearish` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
-    > The odds of a recession just went up huge.
-- `bearish` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
     > Odds of a recession just went up huge.
 - `bearish` strength=63 — **Unattributed** · _Grant Williams: The Global Monetary Orde_ · tickers `XAU`
     > Central banks trying to lower their dependence on dollars, and switch out of US Treasuries into gold.
@@ -61,6 +80,8 @@ Top promoted signals by strength:
     > Crypto becomes the supermassive black hole. It becomes the most powerful asset we've ever had, the greatest performing asset of all time.
 - `bullish` strength=63 — **Unattributed** · _URGENT: Raoul Pal's Macro Thesis UPDATE_
     > The opportunities for outsize returns, even risk adjusted in this space are bar none and it's the best thing that we've ever seen as an asse
+- `bearish` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
+    > The odds of a recession just went up huge.
 - `neutral` strength=63 — **Unattributed** · _Why the Oil Shock Could Trigger a Global_
     > They are not hiking.
 

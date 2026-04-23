@@ -118,6 +118,44 @@ def main() -> None:
                 add(f"| {ep_label} | `{model}` | {cols['macro']} | {cols['trade']} | {cols['narr']} | {cols['analog']} | {unc} | {spk} |")
         add("")
 
+        # ── Speaker predictions (Phase 3.2) ───────────────────────────────
+        cur.execute("""
+            SELECT COUNT(*) total,
+                   COUNT(*) FILTER (WHERE predicted_direction='up') ups,
+                   COUNT(*) FILTER (WHERE predicted_direction='down') downs,
+                   COUNT(*) FILTER (WHERE predicted_direction='flat') flats,
+                   COUNT(*) FILTER (WHERE predicted_direction='range') ranges
+            FROM speaker_predictions WHERE resolution_status='open'
+        """)
+        pred = cur.fetchone()
+        if pred and pred["total"]:
+            add("## Speaker Predictions (Phase 3.2)")
+            add("")
+            add(f"**{pred['total']} resolvable predictions** extracted from macro_views + "
+                f"high-conviction trade_ideas and persisted as `speaker_predictions` with "
+                f"`resolution_status='open'`. Phase 5 resolver will score them against "
+                f"market data and build per-speaker Brier score + hit rate over time.")
+            add("")
+            add(f"Direction split: **{pred['ups']} up / {pred['downs']} down / "
+                f"{pred['flats']} flat / {pred['ranges']} range**.")
+            add("")
+            cur.execute("""
+                SELECT s.name, COUNT(*) c,
+                       COUNT(*) FILTER (WHERE predicted_direction='up') ups,
+                       COUNT(*) FILTER (WHERE predicted_direction='down') downs
+                FROM speaker_predictions p JOIN podcast_speakers s ON s.speaker_id=p.speaker_id
+                WHERE p.resolution_status='open'
+                  AND s.normalized_name NOT LIKE '\\_\\_unattributed%%'
+                GROUP BY s.name ORDER BY c DESC LIMIT 10
+            """)
+            add("**Top named predictors (pending resolution):**")
+            add("")
+            add("| Speaker | Total | Bullish | Bearish |")
+            add("|---|---:|---:|---:|")
+            for r in cur.fetchall():
+                add(f"| {r['name']} | {r['c']} | {r['ups']} | {r['downs']} |")
+            add("")
+
         # ── Trading lab promotions (Phase 4.2) ────────────────────────────
         cur.execute("""
             SELECT COUNT(*) c,
