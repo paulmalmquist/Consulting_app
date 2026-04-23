@@ -207,7 +207,7 @@ def _load_investment_assets(investment_ids: list[UUID]) -> dict[UUID, list[dict[
             SELECT a.deal_id  AS investment_id,
                    a.asset_id,
                    a.name,
-                   a.status,
+                   a.asset_status AS status,
                    aqs.nav      AS nav,
                    aqs.asset_value
             FROM repe_asset a
