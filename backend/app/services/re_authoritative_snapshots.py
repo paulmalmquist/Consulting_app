@@ -377,7 +377,7 @@ def validate_snapshot_for_release(
             SELECT
               fund_id::text AS fund_id,
               canonical_metrics,
-              null_reason
+              null_reasons
             FROM re_authoritative_fund_state_qtr
             WHERE snapshot_version = %s
             """,
@@ -389,7 +389,8 @@ def validate_snapshot_for_release(
     for row in rows:
         fund_id = row["fund_id"]
         cm = row.get("canonical_metrics") or {}
-        top_reason = row.get("null_reason")
+        null_reasons = row.get("null_reasons") or {}
+        top_reason = null_reasons.get("state") or null_reasons.get("fund")
 
         if top_reason:
             violations.append(
@@ -498,6 +499,222 @@ def promote_snapshot_version(
                 """,
                 (target_state, actor, snapshot_version),
             )
+
+
+class ScopedPromotionError(ValueError):
+    """Raised when promote_fund_snapshot rejects a release for a specific
+    (fund_id, quarter) row within a snapshot_version."""
+
+    def __init__(self, snapshot_version: str, fund_id: str, quarter: str, reason: str):
+        self.snapshot_version = snapshot_version
+        self.fund_id = fund_id
+        self.quarter = quarter
+        self.reason = reason
+        super().__init__(
+            f"Scoped promotion rejected: snapshot={snapshot_version} "
+            f"fund={fund_id} quarter={quarter} reason={reason}"
+        )
+
+
+def promote_fund_snapshot(
+    *,
+    snapshot_version: str,
+    fund_id: UUID | str,
+    quarter: str,
+    target_state: str,
+    actor: str,
+    findings_summary: dict[str, Any] | None = None,
+    skip_gate: bool = False,
+) -> dict[str, Any]:
+    """Promote exactly one (fund_id, quarter) row within a snapshot_version.
+
+    This is the disciplined per-fund release path. It scopes the IRR gate,
+    the promotion UPDATE, and the lineage audit row to the single target row.
+    All other (fund_id, quarter) rows in the same snapshot_version are
+    untouched — their promotion_state does not change.
+
+    Invariants enforced:
+    - Only the exact (snapshot_version, fund_id, quarter) row is mutated.
+    - No partial quarter: the quarter filter is an exact match.
+    - An audit lineage row records the old released snapshot_version (if any)
+      and the new scoped release, tied to (fund_id, quarter).
+
+    Returns a dict with pre/post state for receipt generation.
+    """
+    if target_state not in ("verified", "released"):
+        raise ValueError(f"Unsupported target_state: {target_state!r}")
+
+    fund_id_str = str(fund_id)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, promotion_state, trust_status,
+                   canonical_metrics, null_reasons, audit_run_id
+            FROM re_authoritative_fund_state_qtr
+            WHERE snapshot_version = %s
+              AND fund_id = %s::uuid
+              AND quarter = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (snapshot_version, fund_id_str, quarter),
+        )
+        target_row = cur.fetchone()
+
+    if not target_row:
+        raise ScopedPromotionError(
+            snapshot_version, fund_id_str, quarter,
+            "row_not_found: no matching (snapshot_version, fund_id, quarter) in re_authoritative_fund_state_qtr"
+        )
+
+    current_state = target_row["promotion_state"]
+    if _PROMOTION_ORDER.get(target_state, -1) <= _PROMOTION_ORDER.get(current_state or "draft_audit", -1):
+        raise ScopedPromotionError(
+            snapshot_version, fund_id_str, quarter,
+            f"already_at_or_past_target: current={current_state} target={target_state}"
+        )
+    if target_state == "released" and current_state != "verified":
+        raise ScopedPromotionError(
+            snapshot_version, fund_id_str, quarter,
+            f"must_be_verified_first: current={current_state}"
+        )
+
+    # Fund-scoped IRR gate — same rules as validate_snapshot_for_release
+    # but bounded to this single fund row.
+    if target_state == "released" and not skip_gate:
+        cm = target_row.get("canonical_metrics") or {}
+        null_reasons = target_row.get("null_reasons") or {}
+        # A top-level blocking null reason sits under key "state" or "fund"
+        # in the null_reasons JSONB, not a dedicated column.
+        top_reason = null_reasons.get("state") or null_reasons.get("fund")
+        if top_reason:
+            raise ScopedPromotionError(
+                snapshot_version, fund_id_str, quarter,
+                f"gate_fail:top_null_reason={top_reason}"
+            )
+        gross_irr = cm.get("gross_irr")
+        if gross_irr is None:
+            raise ScopedPromotionError(
+                snapshot_version, fund_id_str, quarter,
+                "gate_fail:missing_gross_irr"
+            )
+        irr_trust = cm.get("irr_trust_state")
+        if irr_trust is not None and irr_trust != "trusted":
+            raise ScopedPromotionError(
+                snapshot_version, fund_id_str, quarter,
+                f"gate_fail:irr_untrusted={irr_trust}"
+            )
+
+    # Capture the currently-released snapshot_version for this (fund_id, quarter)
+    # before we change anything — used for lineage.
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT snapshot_version AS old_snapshot_version
+            FROM re_authoritative_fund_state_qtr
+            WHERE fund_id = %s::uuid
+              AND quarter = %s
+              AND promotion_state = 'released'
+            ORDER BY released_at DESC NULLS LAST, created_at DESC
+            LIMIT 1
+            """,
+            (fund_id_str, quarter),
+        )
+        prior_row = cur.fetchone()
+    old_snapshot_version = prior_row["old_snapshot_version"] if prior_row else None
+
+    timestamp_col = "verified_at" if target_state == "verified" else "released_at"
+    actor_col = "verified_by" if target_state == "verified" else "released_by"
+
+    with get_cursor() as cur:
+        # Promote only the targeted fund row in the fund state table.
+        cur.execute(
+            f"""
+            UPDATE re_authoritative_fund_state_qtr
+            SET promotion_state = %s,
+                {timestamp_col} = COALESCE({timestamp_col}, now()),
+                {actor_col} = %s
+            WHERE snapshot_version = %s
+              AND fund_id = %s::uuid
+              AND quarter = %s
+            """,
+            (target_state, actor, snapshot_version, fund_id_str, quarter),
+        )
+
+        # Promote the gross-to-net bridge row if it exists for the same scope.
+        cur.execute(
+            f"""
+            UPDATE re_authoritative_fund_gross_to_net_qtr
+            SET promotion_state = %s,
+                {timestamp_col} = COALESCE({timestamp_col}, now()),
+                {actor_col} = %s
+            WHERE snapshot_version = %s
+              AND fund_id = %s::uuid
+              AND quarter = %s
+            """,
+            (target_state, actor, snapshot_version, fund_id_str, quarter),
+        )
+
+        # Promote investment-level rows that belong to this fund+quarter scope.
+        cur.execute(
+            f"""
+            UPDATE re_authoritative_investment_state_qtr
+            SET promotion_state = %s,
+                {timestamp_col} = COALESCE({timestamp_col}, now()),
+                {actor_col} = %s
+            WHERE snapshot_version = %s
+              AND fund_id = %s::uuid
+              AND quarter = %s
+            """,
+            (target_state, actor, snapshot_version, fund_id_str, quarter),
+        )
+
+        # Promote asset-level rows that belong to this fund+quarter scope.
+        cur.execute(
+            f"""
+            UPDATE re_authoritative_asset_state_qtr
+            SET promotion_state = %s,
+                {timestamp_col} = COALESCE({timestamp_col}, now()),
+                {actor_col} = %s
+            WHERE snapshot_version = %s
+              AND fund_id = %s::uuid
+              AND quarter = %s
+            """,
+            (target_state, actor, snapshot_version, fund_id_str, quarter),
+        )
+
+        # Write an audit lineage record to re_authoritative_snapshot_run
+        # scoped annotations column (uses jsonb findings_summary field).
+        lineage_note = {
+            "scope": "fund_only",
+            "fund_id": fund_id_str,
+            "quarter": quarter,
+            "target_state": target_state,
+            "actor": actor,
+            "old_release_snapshot_version": old_snapshot_version,
+            "new_scoped_snapshot_version": snapshot_version,
+            **(findings_summary or {}),
+        }
+        cur.execute(
+            """
+            UPDATE re_authoritative_snapshot_run
+            SET findings_summary = COALESCE(findings_summary, '{}'::jsonb)
+                  || %s::jsonb
+            WHERE snapshot_version = %s
+            """,
+            (_json_dumps({"scoped_promotions": [lineage_note]}), snapshot_version),
+        )
+
+    return {
+        "snapshot_version": snapshot_version,
+        "fund_id": fund_id_str,
+        "quarter": quarter,
+        "target_state": target_state,
+        "actor": actor,
+        "old_release_snapshot_version": old_snapshot_version,
+        "lineage": lineage_note,
+    }
 
 
 def _build_missing_state(
@@ -834,6 +1051,16 @@ def get_released_portfolio_kpis(
 
     unique_versions = sorted({row["snapshot_version"] for row in rows if row.get("snapshot_version")})
     unique_run_ids = sorted({str(row["audit_run_id"]) for row in rows if row.get("audit_run_id")})
+    mixed_release_states = len(unique_versions) > 1
+    per_fund_snapshot_version = {
+        row["fund_id"]: row.get("snapshot_version") for row in rows
+    }
+    warnings: list[str] = []
+    if mixed_release_states:
+        warnings.append(
+            "Portfolio contains funds from multiple snapshot_versions. "
+            "Aggregate metrics blend methodologies — see per_fund_snapshot_version for breakdown."
+        )
     return {
         "env_id": str(env_id),
         "business_id": str(business_id),
@@ -845,13 +1072,15 @@ def get_released_portfolio_kpis(
         "active_assets": active_assets,
         "gross_irr": str(nav_weighted_gross / nav_base_gross) if nav_base_gross > 0 else None,
         "net_irr": str(nav_weighted_net / nav_base_net) if nav_base_net > 0 else None,
-        "warnings": [],
+        "warnings": warnings,
         "null_reason": None,
         "null_reasons": {},
         "provenance": provenance_rows,
         "artifact_paths": artifact_paths,
         "audit_run_id": unique_run_ids[0] if len(unique_run_ids) == 1 else None,
         "snapshot_version": unique_versions[0] if len(unique_versions) == 1 else None,
+        "mixed_release_states": mixed_release_states,
+        "per_fund_snapshot_version": per_fund_snapshot_version,
         "promotion_state": "released",
         "breakpoint_layer": breakpoint_layers[0] if breakpoint_layers else None,
         "source_snapshots": source_snapshots,
