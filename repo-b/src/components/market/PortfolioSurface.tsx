@@ -208,6 +208,9 @@ export function MarketsHomeSurface({
             <Link href={`/lab/env/${envId}/markets/execution`} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-500/20">
               Execution Workspace
             </Link>
+            <Link href={`/lab/env/${envId}/markets/podcast-intel`} className="rounded-full border border-sky-400/30 bg-sky-500/10 px-4 py-2 text-sm text-sky-100 transition hover:bg-sky-500/20">
+              Podcast Intelligence
+            </Link>
           </div>
         </div>
 
