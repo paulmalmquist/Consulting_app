@@ -41,6 +41,8 @@ import {
   VERTICAL_COLORS,
   type ColorMode,
 } from "@/components/consulting/pipeline-verticals";
+import { LeftSidebar } from "@/components/operator/command-desk";
+import { operatorSidebarSections } from "../../operator/_sidebar";
 
 
 function formatError(err: unknown): string {
@@ -564,16 +566,24 @@ export default function PipelinePage({
 
   if (isLoading) {
     return (
-      <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
-        ))}
+      <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+        <div style={{ width: 240, flexShrink: 0 }} />
+        <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4 flex-1">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ background: "#05070B", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
+      <LeftSidebar
+        sections={operatorSidebarSections(params.envId)}
+        activeKey="pipeline"
+      />
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {bannerMessage ? (
         <div className="mx-4 mt-3">
           {isSchemaError(bannerMessage) ? (
@@ -718,6 +728,7 @@ export default function PipelinePage({
           </div>
         </div>
       ) : null}
+    </div>
     </div>
   );
 }

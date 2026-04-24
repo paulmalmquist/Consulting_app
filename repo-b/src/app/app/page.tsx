@@ -271,9 +271,7 @@ function AppIndexPageInner() {
         <aside className="border-b border-white/10 bg-[rgba(8,10,15,0.86)] px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r">
           <div className="space-y-2">
             <h1 className="font-command text-[2rem] uppercase tracking-[0.08em] text-white">Winston</h1>
-            <p className="text-sm leading-6 text-white/58">
-              Login grants capability. Environment grants scope.
-            </p>
+       
           </div>
 
           <div className="mt-8 space-y-3">

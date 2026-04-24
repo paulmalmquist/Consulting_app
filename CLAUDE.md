@@ -145,6 +145,25 @@ When a request touches client portability or white-labeling, keep the three-laye
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
 
+## Infrastructure CLI Guardrails
+
+Always use the CLI for Railway, Vercel, Supabase, and GitHub operations — proactively, without waiting to be asked. Never tell the user to open a dashboard or run a command themselves when the CLI can do it directly.
+
+| Platform | CLI | Common operations |
+| -------- | --- | ----------------- |
+| **Vercel** | `vercel` | `vercel env add`, `vercel env ls`, `vercel deploy --prod`, `vercel logs`, `vercel inspect` |
+| **Railway** | `railway` | `railway up --service <name>`, `railway logs`, `railway variables set`, `railway status` |
+| **Supabase** | Supabase MCP (`mcp__claude_ai_Supabase__*`) | `execute_sql`, `apply_migration`, `get_logs`, `list_tables`, `get_project` |
+| **GitHub** | `gh` | `gh pr create`, `gh pr merge`, `gh issue list`, `gh run list`, `gh run watch` |
+
+Rules:
+
+- **Env vars:** Use `printf "value" | vercel env add VAR production` (never `echo` — it appends a trailing newline that embeds in the value).
+- **Railway deploys:** Always run from `backend/` directory (`railway up --service authentic-sparkle`), not repo root.
+- **Supabase SQL:** Run via the Supabase MCP tool directly — never paste SQL for the user to run manually.
+- **Secrets:** Generate production secrets with `openssl rand -hex 32`. Never reuse local dev placeholders in production env vars.
+- **Verification:** After any env var change, redeploy immediately and tail logs to confirm the change took effect.
+
 ## Portability Guardrails
 
 - Classify meaningful work as `platform core`, `environment package`, or `client config` before spreading behavior across shared code.
@@ -301,7 +320,7 @@ This is not optional busywork — these files contain real production data (test
 - `Add a new MCP tool schema and registry entry` -> `agents/mcp.md`
 - `/research compare assistant routing approaches` -> `agents/architect.md`
 - `ingest research: docs/research/2026-03-11-irr-libs.md` -> `.skills/research-ingest/SKILL.md`
-- `use Codex CLI for this Winston bug` -> `skills/winston-router/SKILL.md`
+
 - `verify the deploy landed` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `log in and check if the market intel fix worked` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `push this and watch Railway and Vercel` -> `agents/deploy.md`
