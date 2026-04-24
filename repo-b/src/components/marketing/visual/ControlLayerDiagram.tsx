@@ -26,15 +26,15 @@ export function ControlLayerDiagram({
   ];
 
   return (
-    <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6">
+    <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
       <h3 className="text-lg font-semibold text-white">{title}</h3>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         {columns.map((column) => (
-          <article key={column.label} className="rounded-2xl border border-slate-800/70 bg-slate-950/45 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200">{column.label}</p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-200">
+          <article key={column.label} className="rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">{column.label}</p>
+            <ul className="mt-3 space-y-2 text-sm text-nv-text">
               {column.items.map((item) => (
-                <li key={item} className="rounded-lg border border-slate-800/70 bg-slate-900/50 px-3 py-2">
+                <li key={item} className="rounded-lg border border-nv-text/10 bg-nv-surface/50 px-3 py-2">
                   {item}
                 </li>
               ))}

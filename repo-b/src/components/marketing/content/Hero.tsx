@@ -10,34 +10,34 @@ export function Hero({
   pillars: string[];
 }) {
   return (
-    <section className="grid gap-8 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-8 md:grid-cols-[1.2fr_0.8fr]">
+    <section className="grid gap-8 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-8 md:grid-cols-[1.2fr_0.8fr]">
       <div className="space-y-6">
-        <p className="text-xs uppercase tracking-[0.4em] text-cyan-200/80">Intent-first internal support</p>
+        <p className="text-xs uppercase tracking-[0.4em] text-nv-teal/80">Intent-first internal support</p>
         <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight text-white md:text-6xl">{headline}</h1>
-        <p className="max-w-prose text-base leading-relaxed text-slate-300 md:text-lg">{subheadline}</p>
+        <p className="max-w-prose text-base leading-relaxed text-nv-muted md:text-lg">{subheadline}</p>
         <div className="flex flex-wrap gap-3">
           <Link
             href="/demo"
-            className="rounded-full border border-cyan-300/30 bg-slate-900/70 px-5 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-200/10"
+            className="rounded-[4px] border border-nv-teal/18 bg-nv-surface/70 px-5 py-2 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/10"
           >
             See how this works safely
           </Link>
           <Link
             href="/contact"
-            className="rounded-full border border-slate-700/80 px-5 py-2 text-sm font-semibold text-slate-100 hover:border-slate-500"
+            className="rounded-full border border-nv-text/16 px-5 py-2 text-sm font-semibold text-nv-text hover:border-nv-text/20"
           >
             Start with a Proof-of-Concept
           </Link>
         </div>
       </div>
-      <div className="space-y-4 rounded-2xl border border-slate-800/70 bg-gradient-to-b from-slate-800/60 to-slate-900/90 p-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Proof points</p>
-        <ul className="space-y-3 text-xs tracking-wide text-slate-300">
+      <div className="space-y-4 rounded-2xl border border-nv-text/10 bg-gradient-to-b from-slate-800/60 to-slate-900/90 p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-nv-dim">Proof points</p>
+        <ul className="space-y-3 text-xs tracking-wide text-nv-muted">
           {pillars.map((pillar) => (
             <li key={pillar}>{pillar}</li>
           ))}
         </ul>
-        <div className="rounded-xl border border-slate-700/60 bg-slate-900/70 p-4 text-xs text-slate-300">
+        <div className="rounded-xl border border-nv-text/10 bg-nv-surface/70 p-4 text-xs text-nv-muted">
           <p className="font-semibold text-white">Operator stance</p>
           <p className="mt-2">
             Systems of record stay. Systems of work get redesigned with governance, auditability, and explicit human

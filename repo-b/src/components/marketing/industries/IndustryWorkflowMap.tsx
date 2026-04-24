@@ -137,14 +137,14 @@ export function IndustryWorkflowMap() {
     <section
       id="industry-map"
       aria-labelledby="industry-map-title"
-      className="scroll-mt-24 space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/55 p-4 sm:p-6 lg:p-8"
+      className="scroll-mt-24 space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6 lg:p-8"
     >
       <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">Workflows Visualize</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Workflows Visualize</p>
         <h2 id="industry-map-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
           Operational Lifecycles, Reconstructed.
         </h2>
-        <p className="max-w-3xl text-sm text-slate-300 sm:text-base">
+        <p className="max-w-3xl text-sm text-nv-muted sm:text-base">
           See how real workflows operate inside your industry — and where they break.
         </p>
       </div>
@@ -152,7 +152,7 @@ export function IndustryWorkflowMap() {
       <div
         role="tablist"
         aria-label="Industry lifecycle tabs"
-        className="flex flex-wrap gap-2 rounded-2xl border border-slate-800/80 bg-slate-950/45 p-2"
+        className="flex flex-wrap gap-2 rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-2"
       >
         {INDUSTRY_PROFILES.map((item, index) => {
           const selected = index === activeIndex;
@@ -170,10 +170,10 @@ export function IndustryWorkflowMap() {
               onClick={() => setActiveIndex(index)}
               onKeyDown={(event) => onStepKeyDown(event, index)}
               className={cn(
-                'rounded-xl border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+                'rounded-xl border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nv-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg',
                 selected
-                  ? 'border-emerald-300/60 bg-emerald-200/10 text-emerald-50'
-                  : 'border-slate-700/80 bg-slate-900/60 text-slate-300 hover:border-emerald-300/35'
+                  ? 'border-nv-teal/25 bg-nv-teal/8 text-nv-teal'
+                  : 'border-nv-text/16 bg-nv-surface/60 text-nv-muted hover:border-nv-teal/25'
               )}
             >
               {item.tab}
@@ -186,60 +186,60 @@ export function IndustryWorkflowMap() {
         role="tabpanel"
         id={`industry-panel-${activeIndex}`}
         aria-labelledby={`industry-tab-${activeIndex}`}
-        className="grid gap-4 rounded-2xl border border-slate-800/80 bg-slate-950/65 p-4 lg:grid-cols-3"
+        className="grid gap-4 rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 lg:grid-cols-3"
       >
-        <article className="space-y-3 rounded-xl border border-slate-800/80 bg-slate-900/55 p-4">
+        <article className="space-y-3 rounded-xl border border-nv-text/8 bg-nv-surface/55 p-4">
           <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-rose-200">Fragmented State</h3>
-          <p className="text-sm text-slate-200">{profile.fragmentedState}</p>
+          <p className="text-sm text-nv-text">{profile.fragmentedState}</p>
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.08em] text-slate-400">System dependencies</p>
+            <p className="text-xs uppercase tracking-[0.08em] text-nv-dim">System dependencies</p>
             <div className="flex flex-wrap gap-2">
               {profile.systems.map((system) => (
-                <span key={system} className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200">
+                <span key={system} className="rounded-[4px] border border-nv-text/10 bg-nv-bg px-2 py-1 text-xs text-nv-muted">
                   {system}
                 </span>
               ))}
             </div>
           </div>
-          <ul className="space-y-1 text-xs text-slate-300">
+          <ul className="space-y-1 text-xs text-nv-muted">
             {profile.failurePoints.map((point) => (
               <li key={point}>• {point}</li>
             ))}
           </ul>
         </article>
 
-        <article className="space-y-3 rounded-xl border border-emerald-300/30 bg-emerald-200/5 p-4 lg:col-span-2">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-emerald-100">Execution Layer</h3>
-          <p className="text-sm text-slate-100">{profile.executionLayer}</p>
+        <article className="space-y-3 rounded-xl border border-nv-teal/25 bg-nv-teal/8 p-4 lg:col-span-2">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-nv-teal">Execution Layer</h3>
+          <p className="text-sm text-nv-text">{profile.executionLayer}</p>
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {profile.lifecycle.map((stage, index) => (
-              <div key={stage} className="rounded-lg border border-emerald-300/30 bg-slate-900/70 p-3 text-xs text-emerald-50">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-200/80">Stage {index + 1}</p>
-                <p className="mt-1 text-sm text-slate-100">{stage}</p>
+              <div key={stage} className="rounded-lg border border-nv-teal/25 bg-nv-surface/70 p-3 text-xs text-nv-teal">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-nv-teal/80">Stage {index + 1}</p>
+                <p className="mt-1 text-sm text-nv-text">{stage}</p>
               </div>
             ))}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <p className="text-xs uppercase tracking-[0.08em] text-slate-300">Native artifacts</p>
-              <ul className="mt-2 space-y-1 text-xs text-slate-200">
+              <p className="text-xs uppercase tracking-[0.08em] text-nv-muted">Native artifacts</p>
+              <ul className="mt-2 space-y-1 text-xs text-nv-text">
                 {profile.artifacts.map((artifact) => (
                   <li key={artifact}>• {artifact}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.08em] text-slate-300">Governance markers</p>
-              <ul className="mt-2 space-y-1 text-xs text-slate-200">
+              <p className="text-xs uppercase tracking-[0.08em] text-nv-muted">Governance markers</p>
+              <ul className="mt-2 space-y-1 text-xs text-nv-text">
                 {profile.governance.map((item) => (
                   <li key={item}>• {item}</li>
                 ))}
               </ul>
-              <div className="mt-3 flex gap-2 text-[11px] text-emerald-100">
+              <div className="mt-3 flex gap-2 text-[11px] text-nv-teal">
                 {['Log', 'Version', 'Ownership'].map((tag) => (
-                  <span key={tag} className="rounded-full border border-emerald-300/40 bg-emerald-200/10 px-2 py-0.5">
+                  <span key={tag} className="rounded-[4px] border border-nv-teal/25 bg-nv-teal/8 px-2 py-0.5">
                     {tag}
                   </span>
                 ))}
@@ -247,9 +247,9 @@ export function IndustryWorkflowMap() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-700/80 bg-slate-900/80 p-3">
-            <p className="text-xs uppercase tracking-[0.08em] text-slate-300">Executive Outcome</p>
-            <p className="mt-1 text-sm text-slate-100">{profile.executiveOutcome}</p>
+          <div className="rounded-lg border border-nv-text/16 bg-nv-surface/80 p-3">
+            <p className="text-xs uppercase tracking-[0.08em] text-nv-muted">Executive Outcome</p>
+            <p className="mt-1 text-sm text-nv-text">{profile.executiveOutcome}</p>
           </div>
         </article>
       </div>

@@ -36,7 +36,7 @@ const PANEL_CONTENT: Record<string, Omit<CapabilityPanel, 'title'>> = {
   }
 };
 
-const GRAPHIC_STYLES = 'h-[clamp(4.5rem,9vh,7rem)] w-full text-cyan-200';
+const GRAPHIC_STYLES = 'h-[clamp(4.5rem,9vh,7rem)] w-full text-nv-teal';
 
 const renderGraphic = (variant: CapabilityPanel['graphic']) => {
   switch (variant) {
@@ -136,18 +136,18 @@ export function CapabilityScrollPanels({ items }: CapabilityScrollPanelsProps) {
       <div className="nv-snap-flow">
         {panels.map((panel, index) => {
           const isVisible = visiblePanels[index] ?? index === 0;
-          const panelShellClassName = `nv-panel-shell transition duration-200 group-hover:border-cyan-200/50 group-hover:shadow-[0_0_35px_rgba(94,203,255,0.18)] group-focus-visible:border-cyan-200/70 group-focus-visible:shadow-[0_0_40px_rgba(94,203,255,0.28)] ${
+          const panelShellClassName = `nv-panel-shell transition duration-200 group-hover:border-white/18 group-focus-visible:border-white/25 ${
             isVisible ? 'nv-panel-shell--visible' : ''
           }`;
           const panelContent = (
             <div className={panelShellClassName}>
               <div className="flex flex-col gap-[clamp(0.9rem,1.8vh,1.6rem)]">
-                <div className="rounded-3xl border border-cyan-100/20 bg-slate-950/70 p-[clamp(0.9rem,1.5vh,1.5rem)] shadow-[0_0_30px_rgba(94,203,255,0.14)]">
+                <div className="rounded-3xl border border-white/8 bg-nv-bg/70 p-[clamp(0.9rem,1.5vh,1.5rem)]">
                   {renderGraphic(panel.graphic)}
                 </div>
                 <div className="space-y-[clamp(0.45rem,1vh,0.8rem)]">
                   <h2 className="text-[clamp(1.05rem,1.15vw,1.55rem)] font-semibold tracking-tight text-white">{panel.title}</h2>
-                  <p className="text-[clamp(0.9rem,0.95vw,1rem)] leading-relaxed text-slate-300">{panel.sentence}</p>
+                  <p className="text-[clamp(0.9rem,0.95vw,1rem)] leading-relaxed text-nv-muted">{panel.sentence}</p>
                 </div>
               </div>
             </div>
@@ -164,7 +164,7 @@ export function CapabilityScrollPanels({ items }: CapabilityScrollPanelsProps) {
             >
               <Link
                 href={panel.href ?? '#'}
-                className="group block w-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 touch-manipulation cursor-pointer"
+                className="group block w-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg touch-manipulation cursor-pointer"
                 aria-label={`Learn more about ${panel.title}`}
               >
                 {panelContent}

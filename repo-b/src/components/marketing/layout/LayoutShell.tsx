@@ -73,7 +73,7 @@ export function LayoutShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-ink text-white">
+    <div className="min-h-screen bg-nv-bg text-nv-text">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -83,7 +83,7 @@ export function LayoutShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             aria-label="Close sidebar"
-            className="fixed inset-0 z-30 bg-slate-950/60 md:bg-slate-950/40"
+            className="fixed inset-0 z-30 bg-nv-bg/60 md:bg-nv-bg/40"
             onClick={closeSidebar}
           >
             {/* Overlay captures click-off interactions so users can collapse the sidebar anywhere. */}

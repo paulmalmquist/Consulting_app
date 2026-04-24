@@ -11,18 +11,18 @@ export default function ShiftPage() {
       <ShiftMap />
       <RegimeTimeline />
       <WhatYouGainGrid />
-      <section className="rounded-3xl border border-emerald-300/25 bg-gradient-to-r from-slate-900/80 to-emerald-900/20 p-6 sm:p-8">
+      <section className="rounded-3xl border border-nv-teal/25 bg-gradient-to-r from-nv-surface/80 to-nv-teal/6 p-6 sm:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">Next Step</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Next Step</p>
             <h2 className="text-2xl font-semibold tracking-tight text-white">Inventory your current execution</h2>
-            <p className="text-sm text-slate-300 sm:text-base">
+            <p className="text-sm text-nv-muted sm:text-base">
               Baseline what should stay, what should automate, and where governance must hold.
             </p>
           </div>
           <Link
             href="/operational-assessment"
-            className="inline-flex items-center justify-center rounded-full border border-emerald-300/45 bg-slate-950/70 px-6 py-3 text-sm font-semibold text-emerald-100 transition hover:border-emerald-200/70 hover:bg-emerald-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-6 py-3 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nv-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg"
           >
             Start an assessment
           </Link>

@@ -4,7 +4,7 @@ export function TagPills({ tags }: { tags: string[] }) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="rounded-full border border-slate-700/60 px-2 py-0.5 text-[11px] uppercase tracking-wide text-slate-300"
+          className="rounded-full border border-nv-text/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-nv-muted"
         >
           {tag}
         </span>

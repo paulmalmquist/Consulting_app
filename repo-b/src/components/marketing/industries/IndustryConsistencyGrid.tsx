@@ -21,10 +21,10 @@ export function IndustryConsistencyGrid() {
   return (
     <section
       aria-labelledby="industry-consistency-title"
-      className="space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/55 p-4 sm:p-6 lg:p-8"
+      className="space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6 lg:p-8"
     >
       <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">What Stays Consistent</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">What Stays Consistent</p>
         <h2 id="industry-consistency-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
           The operating model is stable, even when workflows differ.
         </h2>
@@ -36,13 +36,13 @@ export function IndustryConsistencyGrid() {
           return (
             <article
               key={item.title}
-              className="rounded-2xl border border-slate-800/80 bg-slate-950/45 p-4 transition hover:border-emerald-300/35"
+              className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 transition hover:border-nv-teal/25"
             >
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-300/30 bg-emerald-200/10 text-emerald-100">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-nv-teal/25 bg-nv-teal/8 text-nv-teal">
                 <Icon size={16} aria-hidden="true" />
               </span>
               <h3 className="mt-3 text-sm font-semibold text-white">{item.title}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-slate-300 sm:text-sm">{item.line}</p>
+              <p className="mt-2 text-xs leading-relaxed text-nv-muted sm:text-sm">{item.line}</p>
             </article>
           );
         })}

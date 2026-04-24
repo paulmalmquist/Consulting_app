@@ -47,10 +47,10 @@ export function QuestionSimulator() {
   }, [results, submitted]);
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6">
+    <div className="space-y-4 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-6">
       <div>
         <h3 className="text-lg font-semibold text-white">Question simulator</h3>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-nv-dim">
           This uses local retrieval plus a deterministic template — no hosted LLM calls, with citations preserved.
         </p>
       </div>
@@ -58,28 +58,28 @@ export function QuestionSimulator() {
         <input
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          className="flex-1 rounded-xl border border-slate-700/60 bg-slate-950/40 px-4 py-3 text-sm text-white"
+          className="flex-1 rounded-xl border border-nv-text/10 bg-nv-bg/40 px-4 py-3 text-sm text-white"
           aria-label="Ask a demo question"
         />
         <button
           type="button"
           onClick={() => setSubmitted(true)}
-          className="rounded-xl border border-cyan-300/30 bg-slate-900/70 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-200/10"
+          className="rounded-xl border border-nv-teal/18 bg-nv-surface/70 px-5 py-3 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/10"
         >
           Retrieve answers
         </button>
       </div>
       {submitted && (
         <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
-          <div className="space-y-3 rounded-xl border border-slate-700/60 bg-slate-950/40 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Top objects</p>
-            <ul className="space-y-3 text-sm text-slate-200">
+          <div className="space-y-3 rounded-xl border border-nv-text/10 bg-nv-bg/40 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-nv-dim">Top objects</p>
+            <ul className="space-y-3 text-sm text-nv-text">
               {results.length === 0 && <li>No matches yet.</li>}
               {results.map((result) => (
                 <li key={result.item.id}>
                   <p className="font-semibold text-white">{result.item.title}</p>
-                  <p className="text-xs text-slate-400">{result.item.description}</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-500">
+                  <p className="text-xs text-nv-dim">{result.item.description}</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-nv-faint">
                     {result.item.citations.map((citation) => (
                       <li key={citation}>{citation}</li>
                     ))}
@@ -88,7 +88,7 @@ export function QuestionSimulator() {
               ))}
             </ul>
           </div>
-          <div className="rounded-xl border border-slate-700/60 bg-slate-950/40 p-4 text-sm text-slate-200 whitespace-pre-line">
+          <div className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-4 text-sm text-nv-text whitespace-pre-line">
             {answer}
           </div>
         </div>

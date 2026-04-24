@@ -39,21 +39,21 @@ export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
 
   return (
     <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-slate-800/70 bg-slate-900/55 p-6 sm:p-8 lg:p-10">
+      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         <SloganBadge />
-        <p className="mt-4 text-sm uppercase tracking-[0.2em] text-slate-400">{industry.label}</p>
+        <p className="mt-4 text-sm uppercase tracking-[0.2em] text-nv-dim">{industry.label}</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">{industry.heroHeadline} in 12 weeks with a controlled execution layer.</h1>
-        <p className="mt-4 max-w-3xl text-sm text-slate-300 sm:text-base">{industry.heroSubheadline}</p>
-        <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">
+        <p className="mt-4 max-w-3xl text-sm text-nv-muted sm:text-base">{industry.heroSubheadline}</p>
+        <div className="mt-5 inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">
           <industryLabel.Icon size={14} aria-hidden="true" /> {industryLabel.label}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6">
+      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
         <h2 className="text-2xl font-semibold text-white">Why It Breaks</h2>
-        <ul className="mt-4 space-y-2 text-sm text-slate-200">
+        <ul className="mt-4 space-y-2 text-sm text-nv-text">
           {industry.whyItBreaks.items.slice(0, 4).map((item) => (
-            <li key={item} className="rounded-xl border border-slate-800/70 bg-slate-950/40 p-3">{item}</li>
+            <li key={item} className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-3">{item}</li>
           ))}
         </ul>
       </section>
@@ -61,40 +61,40 @@ export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
       <BeforeAfterDiagram title={`${industry.label}: Before → After`} />
       <ControlLayerDiagram title={`${industry.label} Control Layer`} />
 
-      <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6">
+      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
         <h2 className="text-2xl font-semibold text-white">System We Build</h2>
-        <ul className="mt-4 space-y-2 text-sm text-slate-200">
+        <ul className="mt-4 space-y-2 text-sm text-nv-text">
           {industry.whatWeChange.items.slice(0, 4).map((item) => (
-            <li key={item} className="rounded-xl border border-slate-800/70 bg-slate-950/40 p-3">{item}</li>
+            <li key={item} className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-3">{item}</li>
           ))}
         </ul>
       </section>
 
-      <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-cyan-200">Micro case snippet</p>
-        <p className="mt-2 text-sm text-slate-300">{industryLabel.microCase}</p>
+      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
+        <p className="text-xs uppercase tracking-[0.14em] text-nv-teal">Micro case snippet</p>
+        <p className="mt-2 text-sm text-nv-muted">{industryLabel.microCase}</p>
       </section>
 
       <section className={cn('rounded-3xl border p-6', theme.impactSection)}>
         <SloganBadge className="mb-4" />
         <h2 className="text-2xl font-semibold text-white">Typical Results</h2>
-        <ul className="mt-3 space-y-2 text-sm text-slate-200">
+        <ul className="mt-3 space-y-2 text-sm text-nv-text">
           <li>25–40% reduction in manual reconciliation</li>
           <li>20–35% faster cycle times on the target workflow</li>
           <li>90%+ traceability on approvals, exceptions, and outputs</li>
         </ul>
         <div className="mt-5 flex flex-wrap gap-2">
-          <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-200">Own Your Operating Logic</span>
-          <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-200">Controlled execution, not tool sprawl</span>
+          <span className="rounded-full border border-nv-text/16 px-3 py-1 text-xs text-nv-text">Own Your Operating Logic</span>
+          <span className="rounded-full border border-nv-text/16 px-3 py-1 text-xs text-nv-text">Controlled execution, not tool sprawl</span>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-800/80 bg-slate-950/50 p-6 sm:p-8">
+      <section className="rounded-3xl border border-nv-text/8 bg-nv-bg/80 p-6 sm:p-8">
         <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Action</h2>
-        <p className="mt-2 text-sm text-slate-300 sm:text-base">Start with one workflow, prove outcomes, then scale.</p>
+        <p className="mt-2 text-sm text-nv-muted sm:text-base">Start with one workflow, prove outcomes, then scale.</p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link href={contactHref} className={theme.primaryCta}>Fix your {industry.label.toLowerCase()} workflow</Link>
-          <Link href="/operational-assessment" className="rounded-full border border-slate-700 px-5 py-2.5 text-sm font-semibold text-white">See your first use case</Link>
+          <Link href="/operational-assessment" className="rounded-full border border-nv-text/12 px-5 py-2.5 text-sm font-semibold text-white">See your first use case</Link>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           {INDUSTRY_VERTICALS.filter((item) => item.slug !== industry.slug).map((item) => (

@@ -67,7 +67,7 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
   }
 
   return (
-    <section id="schemes" className="space-y-4 rounded-3xl border border-slate-800/75 bg-slate-900/60 p-5 sm:p-6">
+    <section id="schemes" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
       <h2 className="text-2xl font-semibold tracking-tight text-white">{schemesSection.title}</h2>
 
       <div role="tablist" aria-label="Website narrative schemes" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -90,10 +90,10 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
               onClick={() => setActiveIndex(index)}
               onKeyDown={(event) => onTabKeyDown(event, index)}
               className={cn(
-                'rounded-xl border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+                'rounded-xl border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nv-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg',
                 isActive
-                  ? 'border-emerald-300/60 bg-emerald-200/15 text-emerald-100'
-                  : 'border-slate-700/80 bg-slate-950/45 text-slate-300 hover:border-emerald-300/40'
+                  ? 'border-nv-teal/25 bg-nv-teal/8 text-nv-teal'
+                  : 'border-nv-text/16 bg-nv-bg/80 text-nv-muted hover:border-nv-teal/25'
               )}
             >
               {item.name}
@@ -107,16 +107,16 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
           id={panelId}
           role="tabpanel"
           aria-labelledby={`${activeScheme.id}-tab`}
-          className="space-y-4 rounded-2xl border border-slate-800/75 bg-slate-950/50 p-4 sm:p-5"
+          className="space-y-4 rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4 sm:p-5"
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">When to use</p>
-            <p className="mt-1 text-sm text-slate-300">{activeScheme.whenToUse}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">When to use</p>
+            <p className="mt-1 text-sm text-nv-muted">{activeScheme.whenToUse}</p>
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">Narrative arc</p>
-            <ul className="mt-1 space-y-1 text-sm text-slate-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Narrative arc</p>
+            <ul className="mt-1 space-y-1 text-sm text-nv-muted">
               {activeScheme.narrativeArc.map((point) => (
                 <li key={point}>{point}</li>
               ))}
@@ -124,13 +124,13 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-800/70 bg-slate-900/55 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">Hero example</p>
+            <div className="rounded-xl border border-nv-text/10 bg-nv-surface/55 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Hero example</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeScheme.hero.headline}</p>
-              <p className="mt-1 text-sm text-slate-300">{activeScheme.hero.subhead}</p>
+              <p className="mt-1 text-sm text-nv-muted">{activeScheme.hero.subhead}</p>
             </div>
-            <div className="rounded-xl border border-slate-800/70 bg-slate-900/55 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">CTA example</p>
+            <div className="rounded-xl border border-nv-text/10 bg-nv-surface/55 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">CTA example</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeScheme.ctaExample}</p>
             </div>
           </div>
@@ -140,9 +140,9 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-amber-100">Risk</p>
               <p className="mt-1 text-sm text-amber-50">{activeScheme.risk}</p>
             </div>
-            <div className="rounded-xl border border-emerald-300/25 bg-emerald-200/10 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">Mitigation</p>
-              <p className="mt-1 text-sm text-emerald-100">{activeScheme.mitigation}</p>
+            <div className="rounded-xl border border-nv-teal/25 bg-nv-teal/8 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Mitigation</p>
+              <p className="mt-1 text-sm text-nv-teal">{activeScheme.mitigation}</p>
             </div>
           </div>
         </article>

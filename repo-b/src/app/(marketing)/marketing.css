@@ -1,21 +1,55 @@
-/* Marketing-only styles for /m/* (Phase 1) and eventually the (marketing) route group.
- * Scoped via .marketing-shell wrapper where collisions with Winston global styles
- * (repo-b/src/app/globals.css) could occur. Font CSS vars are namespaced
+/* Marketing-only styles for the (marketing) route group.
+ * Scoped via .marketing-shell wrapper. Font CSS vars namespaced
  * --font-marketing-{sans,display,mono} to avoid collision with Winston's
  * --font-{body,display,mono,editorial,label}.
+ *
+ * Design System v2.0 — "Controlled OS Surface"
+ * Abadi (display) + Geist (body) + Geist Mono (labels only)
+ * ink → graphite → slate background tiers
+ * desaturated teal + copper accents — no neon glow
  */
+
+/* Abadi — commercial Monotype, self-hosted. Falls back gracefully to
+   Gill Sans (macOS) / Verdana (Windows) / system-ui when WOFF2 not present. */
+@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Medium.woff2')  format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Bold.woff2')    format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 
 .marketing-shell {
   color-scheme: dark;
-  --nv-bg: 13 17 23;
-  --nv-surface: 16 21 28;
-  --nv-surface-raised: 21 27 36;
-  --nv-text-primary: 230 233 238;
-  --nv-text-secondary: 165 177 194;
-  --nv-accent-cyan: 127 215 224;
-  --nv-accent-violet: 169 148 222;
-  --nv-border: 43 52 66;
-  background-color: rgb(var(--nv-bg));
+
+  /* ── Background tiers — ink → graphite → slate ──────────── */
+  --nv-bg:              11 14 18;     /* #0B0E12 — deepest ink */
+  --nv-surface:         18 22 28;     /* #12161C — panel */
+  --nv-surface-raised:  24 29 37;     /* #181D25 — card */
+  --nv-surface-overlay: 31 37 48;     /* #1F2530 — overlay / popover */
+
+  /* ── Foreground tiers ────────────────────────────────────── */
+  --nv-text-primary:    231 236 242;  /* #E7ECF2 */
+  --nv-text-secondary:  168 177 189;  /* #A8B1BD */
+  --nv-text-tertiary:   108 118 132;  /* #6C7684 */
+  --nv-text-muted:       74  82  94;  /* #4A525E */
+
+  /* ── Accents — desaturated, same lightness band ─────────── */
+  --nv-accent-teal:      79 179 169;  /* #4FB3A9 — primary */
+  --nv-accent-teal-ink:  30  78  74;  /* #1E4E4A — rail background tint */
+  --nv-accent-copper:   200 137  90;  /* #C8895A — secondary warmth */
+
+  /* ── Hairlines — always tinted, never pure gray ─────────── */
+  --nv-hair-soft: 232 236 242;        /* use at /0.06 opacity */
+  --nv-edge-top:    rgba(255,255,255,0.06);   /* inset top edge light */
+  --nv-edge-top-hi: rgba(255,255,255,0.10);
+
+  /* ── Semantic — share 65-72% L so nothing shouts ────────── */
+  --nv-sem-success: 107 174 127;  /* #6BAE7F */
+  --nv-sem-warning: 209 161  91;  /* #D1A15B */
+  --nv-sem-risk:    212 122 114;  /* #D47A72 */
+
+  /* ── Base ────────────────────────────────────────────────── */
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(79,179,169,0.04), transparent 60%),
+    radial-gradient(900px  500px at 95% 110%, rgba(200,137,90,0.03),  transparent 60%),
+    rgb(var(--nv-bg));
   color: rgb(var(--nv-text-primary));
   text-rendering: optimizeLegibility;
   text-wrap: balance;
@@ -31,25 +65,50 @@
 }
 
 .marketing-shell ::selection {
-  background: rgb(var(--nv-accent-cyan) / 0.25);
+  background: rgb(var(--nv-accent-teal) / 0.25);
 }
 
 .skip-link {
   @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded-md;
 }
 
-.gradient-card {
-  background: radial-gradient(circle at top left, rgb(var(--nv-accent-cyan) / 0.12), transparent 60%),
-    linear-gradient(145deg, rgba(21, 27, 36, 0.4), rgba(11, 15, 20, 0.92));
-}
+/* ── Typography ────────────────────────────────────────────── */
 
 .nv-brand-font {
-  font-family: var(--font-marketing-sans), sans-serif;
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
 }
 
 .nv-headline {
-  font-family: var(--font-marketing-display), sans-serif;
+  /* Abadi — humanist sans, warm, editorial, slightly condensed */
+  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.022em;
 }
+
+.nv-subheadline {
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  letter-spacing: -0.005em;
+  color: rgb(var(--nv-text-secondary));
+}
+
+/* Accent emphasis — teal, same typeface as surrounding headline */
+.nv-hero-emphasis {
+  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-weight: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: rgb(var(--nv-accent-teal));
+}
+
+/* ── Surfaces ──────────────────────────────────────────────── */
+
+.gradient-card {
+  background:
+    radial-gradient(circle at top left, rgb(var(--nv-accent-teal) / 0.06), transparent 60%),
+    linear-gradient(145deg, rgba(24,29,37,0.9), rgba(11,14,18,0.97));
+}
+
+/* ── Badges ────────────────────────────────────────────────── */
 
 .nv-mark-badge {
   display: inline-flex;
@@ -58,11 +117,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.65rem;
-  border: 2px solid rgba(250, 252, 255, 0.92);
-  background: linear-gradient(135deg, rgba(5, 10, 20, 0.88), rgba(9, 29, 43, 0.75));
-  box-shadow: inset 0 0 0 1px rgba(96, 192, 255, 0.2), 0 0 20px rgba(82, 178, 255, 0.25);
-  color: rgba(250, 252, 255, 0.95);
-  font-family: var(--font-marketing-sans), sans-serif;
+  border: 1px solid rgba(79,179,169,0.30);
+  background: linear-gradient(135deg, rgba(11,14,18,0.9), rgba(18,22,28,0.85));
+  box-shadow:
+    inset 0 1px 0 var(--nv-edge-top-hi),
+    inset 0 0 0 1px rgba(79,179,169,0.18);
+  color: rgb(var(--nv-text-primary));
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
   font-size: 1.45rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -81,19 +142,7 @@
   letter-spacing: 0.03em;
 }
 
-.nv-subheadline {
-  font-family: var(--font-marketing-sans), sans-serif;
-  letter-spacing: 0.01em;
-  color: rgb(var(--nv-text-secondary));
-}
-
-.nv-hero-emphasis {
-  font-family: var(--font-marketing-display), sans-serif;
-  font-weight: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: rgb(var(--nv-accent-cyan));
-}
+/* ── Scroll panels ─────────────────────────────────────────── */
 
 .nv-snap-flow {
   display: block;
@@ -109,15 +158,21 @@
   padding-block: 1.5rem;
 }
 
+/* Edge-lit surface — no border outline */
 .nv-panel-shell {
   width: 100%;
   display: grid;
   gap: clamp(0.9rem, 1.4vh, 1.25rem);
   grid-template-columns: 1fr;
   align-content: start;
-  border: 1px solid rgb(var(--nv-border) / 0.75);
   border-radius: 1.75rem;
-  background: linear-gradient(160deg, rgb(var(--nv-surface) / 0.88), rgb(var(--nv-bg) / 0.94));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0) 30%),
+    rgb(var(--nv-surface-raised));
+  box-shadow:
+    inset 0 1px 0 0 var(--nv-edge-top),
+    0 1px 0 0 rgba(0,0,0,0.4),
+    0 20px 40px -20px rgba(0,0,0,0.6);
   padding: clamp(1rem, 1.6vh, 1.5rem);
   opacity: 0.45;
   transform: translateY(24px);
@@ -168,40 +223,18 @@
   }
 }
 
-.nv-hero-scanline {
-  position: relative;
-  overflow: hidden;
-}
+/* .nv-hero-scanline + ::before removed — CRT scanline was a terminal artifact */
 
-.nv-hero-scanline::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.04) 0,
-    rgba(255, 255, 255, 0.04) 1px,
-    transparent 1px,
-    transparent 4px
-  );
-  opacity: 0.18;
-  mix-blend-mode: screen;
-}
+/* ── Utilities ─────────────────────────────────────────────── */
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* ── SVG: System Convergence Graphic ──────────────────────── */
 
-/* System Convergence Graphic — styles only (animation is JS-driven) */
 .system-nodes .node-circle {
-  fill: rgb(var(--nv-accent-cyan) / 0.16);
-  stroke: rgb(var(--nv-accent-cyan) / 0.45);
+  fill: rgb(var(--nv-accent-teal) / 0.12);
+  stroke: rgb(var(--nv-accent-teal) / 0.40);
   stroke-width: 2.2;
 }
 
@@ -209,46 +242,40 @@
   fill: rgb(var(--nv-text-secondary) / 0.9);
   font-size: 11px;
   text-anchor: middle;
-  font-family: var(--font-marketing-sans);
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
 
 @media (min-width: 1024px) {
-  .system-nodes .node-label {
-    font-size: 11.5px;
-  }
+  .system-nodes .node-label { font-size: 11.5px; }
 }
 
 @media (max-width: 640px) {
-  .system-nodes .node-circle {
-    stroke-width: 2;
-  }
-  .system-nodes .node-label {
-    font-size: 9px;
-  }
+  .system-nodes .node-circle { stroke-width: 2; }
+  .system-nodes .node-label  { font-size: 9px; }
 }
 
 .connection-lines .connection-line {
-  stroke: rgb(var(--nv-accent-cyan) / 0.28);
+  stroke: rgb(var(--nv-accent-teal) / 0.22);
   stroke-width: 1;
 }
 
 .nv-logo-core .nv-letter {
   fill: none;
-  stroke: rgb(var(--nv-accent-cyan) / 0.7);
+  stroke: rgb(var(--nv-accent-teal) / 0.65);
   stroke-width: 3;
   stroke-linejoin: miter;
   stroke-linecap: square;
-  filter: drop-shadow(0 0 8px rgb(var(--nv-accent-cyan) / 0.4));
+  filter: drop-shadow(0 0 6px rgb(var(--nv-accent-teal) / 0.28));
 }
 
 .nv-logo-core .nv-glow {
-  fill: rgb(var(--nv-accent-cyan) / 0.08);
+  fill: rgb(var(--nv-accent-teal) / 0.07);
   stroke: none;
 }
 
-/* Reduced motion — handled by JS fallback, but ensure panels still work */
+/* ── Reduced motion ────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .nv-panel-shell {
     opacity: 1 !important;

@@ -249,13 +249,13 @@ export function OperationalQuestionnaire({
 
   if (results) {
     return (
-      <div className="space-y-6 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 lg:p-8">
+      <div className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="text-emerald-400" size={24} />
+            <CheckCircle2 className="text-nv-teal" size={24} />
             <h2 className="text-2xl font-semibold text-white">Your Operational Assessment</h2>
           </div>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-nv-muted">
             Based on your responses, here&apos;s your current operational state across key areas.
           </p>
         </div>
@@ -266,7 +266,7 @@ export function OperationalQuestionnaire({
             return (
               <div
                 key={result.category}
-                className="rounded-2xl border border-slate-800/70 bg-slate-950/40 p-5 space-y-3"
+                className="rounded-2xl border border-nv-text/10 bg-nv-bg/40 p-5 space-y-3"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -274,16 +274,16 @@ export function OperationalQuestionnaire({
                       <h3 className="text-base font-semibold text-white">{result.category}</h3>
                       {result.level === 'critical' && <AlertCircle className="text-rose-400" size={16} />}
                       {result.level === 'needs-attention' && <AlertCircle className="text-amber-400" size={16} />}
-                      {result.level === 'healthy' && <CheckCircle2 className="text-emerald-400" size={16} />}
+                      {result.level === 'healthy' && <CheckCircle2 className="text-nv-teal" size={16} />}
                     </div>
                     <div className="mt-2">
-                      <div className="h-2 w-full rounded-full bg-slate-800">
+                      <div className="h-2 w-full rounded-full bg-nv-raised">
                         <div
                           className={`h-2 rounded-full transition-all ${
                             result.level === 'healthy'
-                              ? 'bg-emerald-400'
+                              ? 'bg-nv-teal'
                               : result.level === 'moderate'
-                                ? 'bg-cyan-400'
+                                ? 'bg-nv-teal/10'
                                 : result.level === 'needs-attention'
                                   ? 'bg-amber-400'
                                   : 'bg-rose-400'
@@ -295,13 +295,13 @@ export function OperationalQuestionnaire({
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-white">{Math.round(percentage)}%</p>
-                    <p className="text-xs text-slate-400 capitalize">{result.level.replace('-', ' ')}</p>
+                    <p className="text-xs text-nv-dim capitalize">{result.level.replace('-', ' ')}</p>
                   </div>
                 </div>
-                <ul className="space-y-1 text-sm text-slate-300">
+                <ul className="space-y-1 text-sm text-nv-muted">
                   {result.insights.map((insight, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-cyan-300">•</span>
+                      <span className="text-nv-teal">•</span>
                       <span>{insight}</span>
                     </li>
                   ))}
@@ -311,18 +311,18 @@ export function OperationalQuestionnaire({
           })}
         </div>
 
-        <div className="rounded-2xl border border-emerald-300/30 bg-emerald-900/20 p-5">
+        <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-5">
           <div className="flex items-start gap-3">
-            <TrendingUp className="mt-0.5 text-emerald-300" size={20} />
+            <TrendingUp className="mt-0.5 text-nv-teal" size={20} />
             <div className="space-y-2">
-              <h3 className="text-base font-semibold text-emerald-100">Next Steps</h3>
-              <p className="text-sm text-emerald-200/90">
+              <h3 className="text-base font-semibold text-nv-teal">Next Steps</h3>
+              <p className="text-sm text-nv-teal/90">
                 Book a strategy session to discuss your assessment results and explore targeted solutions for your
                 highest-impact areas.
               </p>
               <a
                 href="/contact"
-                className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/45 bg-slate-950/70 px-5 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-200/70 hover:bg-emerald-200/10"
+                className="mt-3 inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-5 py-2 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"
               >
                 Book strategy session
                 <ChevronRight size={16} />
@@ -335,17 +335,17 @@ export function OperationalQuestionnaire({
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 lg:p-8">
+    <div className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-white">Operational Assessment</h2>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-nv-dim">
             {currentStep + 1} of {questions.length}
           </span>
         </div>
-        <div className="h-2 w-full rounded-full bg-slate-800">
+        <div className="h-2 w-full rounded-full bg-nv-raised">
           <div
-            className="h-2 rounded-full bg-cyan-400 transition-all duration-300"
+            className="h-2 rounded-full bg-nv-teal/10 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -353,7 +353,7 @@ export function OperationalQuestionnaire({
 
       <div className="space-y-6">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-wide text-cyan-200">{currentQuestion.category}</p>
+          <p className="text-xs uppercase tracking-wide text-nv-teal">{currentQuestion.category}</p>
           <h3 className="text-lg font-medium text-white">{currentQuestion.text}</h3>
         </div>
 
@@ -366,8 +366,8 @@ export function OperationalQuestionnaire({
                 onClick={() => handleAnswer(currentQuestion.id, option)}
                 className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
                   answers[currentQuestion.id] === option
-                    ? 'border-cyan-300/50 bg-cyan-200/10 text-cyan-100'
-                    : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                    ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
+                    : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                 }`}
               >
                 {option}
@@ -393,8 +393,8 @@ export function OperationalQuestionnaire({
                   }}
                   className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
                     isSelected
-                      ? 'border-cyan-300/50 bg-cyan-200/10 text-cyan-100'
-                      : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                      ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
+                      : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                   }`}
                 >
                   {option}
@@ -406,7 +406,7 @@ export function OperationalQuestionnaire({
 
         {currentQuestion.type === 'scale' && (
           <div className="space-y-4">
-            <div className="flex justify-between text-xs text-slate-400">
+            <div className="flex justify-between text-xs text-nv-dim">
               <span>{currentQuestion.scaleLabels?.min}</span>
               <span>{currentQuestion.scaleLabels?.max}</span>
             </div>
@@ -418,8 +418,8 @@ export function OperationalQuestionnaire({
                   onClick={() => handleAnswer(currentQuestion.id, value.toString())}
                   className={`flex-1 rounded-lg border px-4 py-3 text-center text-sm font-medium transition ${
                     answers[currentQuestion.id] === value.toString()
-                      ? 'border-cyan-300/50 bg-cyan-200/10 text-cyan-100'
-                      : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                      ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
+                      : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                   }`}
                 >
                   {value}
@@ -435,7 +435,7 @@ export function OperationalQuestionnaire({
           type="button"
           onClick={handlePrevious}
           disabled={currentStep === 0}
-          className="rounded-full border border-slate-700/70 px-5 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:bg-slate-800/60 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-full border border-nv-text/12 px-5 py-2 text-sm text-nv-muted transition hover:border-nv-text/20 hover:bg-nv-raised/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Previous
         </button>
@@ -443,7 +443,7 @@ export function OperationalQuestionnaire({
           type="button"
           onClick={handleNext}
           disabled={!isAnswered()}
-          className="inline-flex items-center gap-2 rounded-full border border-cyan-300/40 bg-slate-900/70 px-5 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-200/10 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/18 bg-nv-surface/70 px-5 py-2 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/10 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {currentStep === questions.length - 1 ? 'View Results' : 'Next'}
           <ChevronRight size={16} />

@@ -136,38 +136,38 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
   };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6">
+    <div className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-xs text-slate-400">
+          <label className="text-xs text-nv-dim">
             Name
             <input
               required
               value={form.attendeeName}
               onChange={(event) => setForm((prev) => ({ ...prev, attendeeName: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-sm text-white focus:border-cyan-200/50 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
             />
           </label>
-          <label className="text-xs text-slate-400">
+          <label className="text-xs text-nv-dim">
             Work email
             <input
               type="email"
               required
               value={form.attendeeEmail}
               onChange={(event) => setForm((prev) => ({ ...prev, attendeeEmail: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-sm text-white focus:border-cyan-200/50 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
             />
           </label>
         </div>
 
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-nv-dim">
           What problem are you trying to solve?
           <textarea
             required
             rows={4}
             value={form.agenda}
             onChange={(event) => setForm((prev) => ({ ...prev, agenda: event.target.value }))}
-            className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-sm text-white focus:border-cyan-200/50 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
           />
         </label>
 
@@ -175,33 +175,33 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-slate-900/70 px-5 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-200/60 hover:bg-emerald-200/10 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/25 bg-nv-surface/70 px-5 py-2 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <CalendarCheck2 size={16} aria-hidden="true" />}
             {isSubmitting ? 'Preparing...' : 'Book a meeting'}
           </button>
         </div>
 
-        <div className="border-t border-slate-800/80 pt-4">
-          <p className="text-xs text-slate-500">Optional details (helps us prepare)</p>
+        <div className="border-t border-nv-text/8 pt-4">
+          <p className="text-xs text-nv-faint">Optional details (helps us prepare)</p>
         </div>
 
         <div className="space-y-5 opacity-90">
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-xs text-slate-400">
+            <label className="text-xs text-nv-dim">
               Company (optional)
               <input
                 value={form.attendeeCompany}
                 onChange={(event) => setForm((prev) => ({ ...prev, attendeeCompany: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-sm text-white focus:border-cyan-200/50 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
               />
             </label>
-            <label className="text-xs text-slate-400">
+            <label className="text-xs text-nv-dim">
               Company Size
               <select
                 value={form.companySize}
                 onChange={(event) => setForm((prev) => ({ ...prev, companySize: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-sm text-white focus:border-cyan-200/50 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
               >
                 <option value="">Select size</option>
                 {COMPANY_SIZE_OPTIONS.map((size) => (
@@ -214,7 +214,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400">Industry Type (select all that apply)</label>
+            <label className="text-xs text-nv-dim">Industry Type (select all that apply)</label>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {INDUSTRY_OPTIONS.map((industry) => (
                 <button
@@ -223,8 +223,8 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
                   onClick={() => toggleMultiSelect('industryTypes', industry)}
                   className={`rounded-lg border px-3 py-2 text-xs transition ${
                     form.industryTypes.includes(industry)
-                      ? 'border-cyan-300/50 bg-cyan-200/10 text-cyan-100'
-                      : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                      ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
+                      : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                   }`}
                 >
                   {industry}
@@ -234,7 +234,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400">Primary System Concerns (select all that apply)</label>
+            <label className="text-xs text-nv-dim">Primary System Concerns (select all that apply)</label>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {SYSTEM_CONCERN_OPTIONS.map((concern) => (
                 <button
@@ -243,8 +243,8 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
                   onClick={() => toggleMultiSelect('systemConcerns', concern)}
                   className={`rounded-lg border px-3 py-2 text-xs text-left transition ${
                     form.systemConcerns.includes(concern)
-                      ? 'border-cyan-300/50 bg-cyan-200/10 text-cyan-100'
-                      : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                      ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
+                      : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                   }`}
                 >
                   {concern}
@@ -253,7 +253,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
             </div>
           </div>
           <div>
-            <label className="text-xs text-slate-400">What are your main objectives? (select all that apply)</label>
+            <label className="text-xs text-nv-dim">What are your main objectives? (select all that apply)</label>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {OBJECTIVE_OPTIONS.map((objective) => (
                 <button
@@ -262,8 +262,8 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
                   onClick={() => toggleMultiSelect('objectives', objective)}
                   className={`rounded-lg border px-3 py-2 text-xs text-left transition ${
                     form.objectives.includes(objective)
-                      ? 'border-emerald-300/50 bg-emerald-200/10 text-emerald-100'
-                      : 'border-slate-700/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60'
+                      ? 'border-nv-teal/25 bg-nv-teal/8 text-nv-teal'
+                      : 'border-nv-text/10 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20 hover:bg-nv-surface/60'
                   }`}
                 >
                   {objective}
@@ -274,7 +274,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
 
           <a
             href={`mailto:${directEmail}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700/70 px-5 py-2 text-sm text-slate-100 hover:border-slate-500"
+            className="inline-flex items-center gap-2 rounded-full border border-nv-text/12 px-5 py-2 text-sm text-nv-text hover:border-nv-text/20"
           >
             <Mail size={16} aria-hidden="true" />
             Email directly
@@ -282,7 +282,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
         </div>
 
         {status && (
-          <div className="rounded-xl border border-emerald-300/30 bg-emerald-200/10 px-4 py-3 text-sm text-emerald-100">
+          <div className="rounded-xl border border-nv-teal/25 bg-nv-teal/8 px-4 py-3 text-sm text-nv-teal">
             {status}
           </div>
         )}

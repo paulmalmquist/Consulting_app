@@ -53,15 +53,15 @@ export function KBExplorer() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.8fr_1fr_1.2fr]">
-      <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
+      <div className="space-y-4 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4">
         <h3 className="text-sm font-semibold text-white">Filters</h3>
         {(['role', 'workflow', 'system', 'risk'] as const).map((key) => (
-          <label key={key} className="block text-xs text-slate-400">
+          <label key={key} className="block text-xs text-nv-dim">
             {key}
             <select
               value={filters[key]}
               onChange={(event) => setFilters((prev) => ({ ...prev, [key]: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-white"
             >
               <option>All</option>
               {options[key].map((value) => {
@@ -76,16 +76,16 @@ export function KBExplorer() {
             </select>
           </label>
         ))}
-        <label className="block text-xs text-slate-400">
+        <label className="block text-xs text-nv-dim">
           Search within KB
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-white"
           />
         </label>
       </div>
-      <div className="space-y-3 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
+      <div className="space-y-3 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4">
         <h3 className="text-sm font-semibold text-white">Objects</h3>
         <div className="space-y-2">
           {filtered.map((item) => (
@@ -95,28 +95,28 @@ export function KBExplorer() {
               onClick={() => setSelectedId(item.id)}
               className={`w-full rounded-xl border px-3 py-3 text-left text-sm transition ${
                 selected?.id === item.id
-                  ? 'border-cyan-300/60 bg-cyan-400/10 text-white'
-                  : 'border-slate-800/80 bg-slate-950/40 text-slate-300 hover:border-slate-600'
+                  ? 'border-nv-teal/18 bg-nv-teal/10 text-white'
+                  : 'border-nv-text/8 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20'
               }`}
             >
               <p className="font-semibold text-white">{item.title}</p>
-              <p className="mt-1 text-xs text-slate-400">{item.description}</p>
+              <p className="mt-1 text-xs text-nv-dim">{item.description}</p>
             </button>
           ))}
         </div>
       </div>
-      <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
+      <div className="space-y-4 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4">
         {selected ? (
           <>
             <div>
               <h3 className="text-lg font-semibold text-white">{selected.title}</h3>
-              <p className="text-sm text-slate-300">{selected.description}</p>
+              <p className="text-sm text-nv-muted">{selected.description}</p>
             </div>
             <TagPills tags={selected.tags} />
-            <p className="text-sm text-slate-200">{selected.content}</p>
-            <div className="rounded-xl border border-slate-700/60 bg-slate-950/40 p-3">
-              <p className="text-xs font-semibold text-slate-200">Citations</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-400">
+            <p className="text-sm text-nv-text">{selected.content}</p>
+            <div className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-3">
+              <p className="text-xs font-semibold text-nv-text">Citations</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-nv-dim">
                 {selected.citations.map((citation) => (
                   <li key={citation}>{citation}</li>
                 ))}
@@ -124,7 +124,7 @@ export function KBExplorer() {
             </div>
           </>
         ) : (
-          <p className="text-sm text-slate-400">No objects match this filter.</p>
+          <p className="text-sm text-nv-dim">No objects match this filter.</p>
         )}
       </div>
     </div>

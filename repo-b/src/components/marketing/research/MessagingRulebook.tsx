@@ -104,16 +104,16 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
   return (
     <div className="space-y-6">
       {ruleCards && (
-        <section id="rules" className="space-y-4 rounded-3xl border border-slate-800/75 bg-slate-900/60 p-5 sm:p-6">
+        <section id="rules" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
           <h2 className="text-2xl font-semibold tracking-tight text-white">{ruleCards.title}</h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ruleCards.rules.map((rule) => (
-              <article key={rule.id} className="rounded-2xl border border-slate-800/75 bg-slate-950/45 p-4">
+              <article key={rule.id} className="rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4">
                 <h3 className="text-sm font-semibold text-white">{rule.name}</h3>
                 <div className="mt-3 space-y-3 text-sm">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">Do</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Do</p>
+                    <ul className="mt-1 space-y-1 text-nv-muted">
                       {rule.do.map((item) => (
                         <li key={item}>{item}</li>
                       ))}
@@ -121,7 +121,7 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.1em] text-rose-200">Avoid</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                    <ul className="mt-1 space-y-1 text-nv-muted">
                       {rule.avoid.map((item) => (
                         <li key={item}>{item}</li>
                       ))}
@@ -135,9 +135,9 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
       )}
 
       {checker && (
-        <section id="checker" className="space-y-4 rounded-3xl border border-slate-800/75 bg-slate-900/60 p-5 sm:p-6">
+        <section id="checker" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
           <h2 className="text-2xl font-semibold tracking-tight text-white">{checker.title}</h2>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-nv-muted">
             Paste draft copy to run quick checks for banned phrasing, jargon density, and readability.
           </p>
 
@@ -146,36 +146,36 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Paste a headline, value proposition, or section draft."
             rows={7}
-            className="w-full rounded-2xl border border-slate-700/70 bg-slate-950/55 px-4 py-3 text-sm leading-relaxed text-slate-100 outline-none placeholder:text-slate-500"
+            className="w-full rounded-2xl border border-nv-text/12 bg-nv-bg/80 px-4 py-3 text-sm leading-relaxed text-nv-text outline-none placeholder:text-nv-faint"
           />
 
           <div className="space-y-2">
             {checkResults.length === 0 && (
-              <p className="rounded-xl border border-slate-800/70 bg-slate-950/45 px-3 py-2 text-sm text-slate-400">
+              <p className="rounded-xl border border-nv-text/10 bg-nv-bg/80 px-3 py-2 text-sm text-nv-dim">
                 Start typing to run checks.
               </p>
             )}
             {checkResults.map((result) => (
               <div
                 key={result.label}
-                className="flex items-start gap-2 rounded-xl border border-slate-800/70 bg-slate-950/45 px-3 py-2 text-sm"
+                className="flex items-start gap-2 rounded-xl border border-nv-text/10 bg-nv-bg/80 px-3 py-2 text-sm"
               >
                 {result.status === 'ok' ? (
-                  <CheckCircle2 size={16} className="mt-0.5 text-emerald-200" aria-hidden="true" />
+                  <CheckCircle2 size={16} className="mt-0.5 text-nv-teal" aria-hidden="true" />
                 ) : (
                   <AlertTriangle size={16} className="mt-0.5 text-amber-200" aria-hidden="true" />
                 )}
                 <div>
-                  <p className="font-semibold text-slate-100">{result.label}</p>
-                  <p className="text-slate-300">{result.detail}</p>
+                  <p className="font-semibold text-nv-text">{result.label}</p>
+                  <p className="text-nv-muted">{result.detail}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="rounded-2xl border border-emerald-300/25 bg-emerald-200/10 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">Cleaner version suggestions</p>
-            <ul className="mt-2 space-y-1 text-sm text-emerald-100">
+          <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Cleaner version suggestions</p>
+            <ul className="mt-2 space-y-1 text-sm text-nv-teal">
               {checker.suggestions.map((item) => (
                 <li key={item}>{item}</li>
               ))}

@@ -24,13 +24,13 @@ const topNavLinks = [
 
 export function Topbar({ setDrawerOpen }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-ink/90 px-4 py-3 backdrop-blur md:px-8">
+    <header className="sticky top-0 z-30 border-b border-[rgba(232,236,242,0.06)] bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8">
       <div className="mx-auto flex w-full max-w-none flex-col gap-3">
         {/* Row 1: search + CTA + account (desktop) / hamburger + account (mobile) */}
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-md border border-slate-700/60 p-2 text-slate-200 md:hidden"
+            className="inline-flex items-center justify-center rounded-[4px] border border-[rgba(232,236,242,0.10)] p-2 text-nv-muted md:hidden"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
@@ -40,7 +40,7 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
             <InlineSearch />
             <Link
               href="/operational-assessment"
-              className="shrink-0 rounded-full border border-emerald-300/40 bg-emerald-300/10 px-4 py-1.5 text-xs font-semibold text-emerald-100 hover:border-emerald-200/60 hover:bg-emerald-300/15"
+              className="shrink-0 rounded-[4px] bg-gradient-to-b from-[#5EC2B7] to-nv-teal px-4 py-1.5 text-xs font-semibold text-[#0B1E1C] shadow-nv-btn-primary transition hover:-translate-y-px"
             >
               See your first use case
             </Link>
@@ -53,7 +53,7 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-full border border-slate-700/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-emerald-300/40 hover:text-emerald-100"
+              className="rounded-[4px] border border-[rgba(232,236,242,0.08)] px-3 py-1.5 text-xs font-semibold text-nv-muted transition hover:border-[rgba(232,236,242,0.16)] hover:text-nv-text"
             >
               {link.label}
             </Link>

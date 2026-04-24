@@ -108,17 +108,17 @@ export function ShiftMap() {
       ref={sectionRef}
       id="shift-map"
       aria-labelledby="shift-map-title"
-      className="scroll-mt-24 space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/55 p-4 sm:p-6 lg:p-8"
+      className="scroll-mt-24 space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6 lg:p-8"
     >
       <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">Shift Map</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Shift Map</p>
         <h2 id="shift-map-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
           Consolidate execution from fragmented tools to one governed core.
         </h2>
       </div>
 
-      <div className="rounded-2xl border border-slate-800/80 bg-slate-950/65 p-3 sm:p-4">
-        <div className="rounded-xl border border-emerald-300/20 bg-emerald-200/5 px-3 py-2 text-xs text-emerald-100 sm:text-sm">
+      <div className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-3 sm:p-4">
+        <div className="rounded-xl border border-nv-teal/25 bg-nv-teal/8 px-3 py-2 text-xs text-nv-teal sm:text-sm">
           {activeCallout}
         </div>
         <div className="mt-3 overflow-x-auto pb-1">
@@ -214,24 +214,24 @@ export function ShiftMap() {
           </svg>
         </div>
 
-        <ul className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300 sm:text-sm">
-          <li className="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2 py-1">
+        <ul className="mt-3 flex flex-wrap gap-2 text-xs text-nv-muted sm:text-sm">
+          <li className="inline-flex items-center gap-1 rounded-full border border-nv-text/16 bg-nv-surface/60 px-2 py-1">
             <Database size={14} aria-hidden="true" />
             Data
           </li>
-          <li className="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2 py-1">
+          <li className="inline-flex items-center gap-1 rounded-full border border-nv-text/16 bg-nv-surface/60 px-2 py-1">
             <FileText size={14} aria-hidden="true" />
             Files
           </li>
-          <li className="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2 py-1">
+          <li className="inline-flex items-center gap-1 rounded-full border border-nv-text/16 bg-nv-surface/60 px-2 py-1">
             <GitBranch size={14} aria-hidden="true" />
             Workflows
           </li>
-          <li className="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2 py-1">
+          <li className="inline-flex items-center gap-1 rounded-full border border-nv-text/16 bg-nv-surface/60 px-2 py-1">
             <CheckCheck size={14} aria-hidden="true" />
             Approvals
           </li>
-          <li className="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2 py-1">
+          <li className="inline-flex items-center gap-1 rounded-full border border-nv-text/16 bg-nv-surface/60 px-2 py-1">
             <ScrollText size={14} aria-hidden="true" />
             Audit Log
           </li>
@@ -239,9 +239,9 @@ export function ShiftMap() {
       </div>
 
       <div className="space-y-3">
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-800/90" aria-hidden="true">
+        <div className="h-1.5 overflow-hidden rounded-full bg-nv-raised/90" aria-hidden="true">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-300/35 via-emerald-300/60 to-emerald-200/80 transition-[width] duration-300 motion-reduce:transition-none"
+            className="h-full rounded-full bg-gradient-to-r from-nv-teal/35 via-nv-teal/55 to-nv-teal/70 transition-[width] duration-300 motion-reduce:transition-none"
             style={{ width: `${((activeStep + 1) / STEPS.length) * 100}%` }}
           />
         </div>
@@ -261,10 +261,10 @@ export function ShiftMap() {
                 onClick={() => setActiveStep(index)}
                 onKeyDown={(event) => onStepKeyDown(event, index)}
                 className={cn(
-                  'rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+                  'rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nv-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg',
                   selected
-                    ? 'border-emerald-300/60 bg-emerald-200/10 text-emerald-50'
-                    : 'border-slate-800/80 bg-slate-950/45 text-slate-300 hover:border-emerald-300/35'
+                    ? 'border-nv-teal/25 bg-nv-teal/8 text-nv-teal'
+                    : 'border-nv-text/8 bg-nv-bg/80 text-nv-muted hover:border-nv-teal/25'
                 )}
               >
                 <span className="flex items-center gap-2">

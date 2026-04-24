@@ -25,7 +25,7 @@ export function Hero({ headline, subheadline, secondaryCta, proofBullets }: Hero
       <div className="flex flex-col gap-y-[clamp(1.5rem,4vh,3rem)] pt-[clamp(3rem,8vh,6rem)]">
         <div className="grid gap-[clamp(1.25rem,3vh,2.5rem)] lg:grid-cols-2 lg:items-start lg:gap-[clamp(2rem,4vw,3.5rem)]">
           <div className="space-y-[clamp(1rem,2.2vh,1.5rem)] text-center lg:pl-3 lg:text-left">
-            <p className="nv-headline text-sm uppercase tracking-[0.2em] text-cyan-200">novendor</p>
+            <p className="nv-headline text-sm uppercase tracking-[0.2em] text-white/50">novendor</p>
             <h1 className="nv-brand-font text-[clamp(2rem,5vw,3.75rem)] font-semibold tracking-tight text-white">
               {hasEmphasis ? (
                 <>
@@ -45,7 +45,7 @@ export function Hero({ headline, subheadline, secondaryCta, proofBullets }: Hero
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2 lg:justify-start">
               <Link
                 href={secondaryCta.href}
-                className="nv-hero-cta rounded-full border border-[rgb(var(--nv-accent-cyan)/0.45)] bg-[rgb(var(--nv-accent-cyan)/0.08)] px-7 py-3 text-sm font-semibold text-white shadow-[0_0_16px_rgb(var(--nv-accent-cyan)/0.12)] transition-all duration-200 hover:border-[rgb(var(--nv-accent-cyan)/0.7)] hover:bg-[rgb(var(--nv-accent-cyan)/0.14)] hover:shadow-[0_0_24px_rgb(var(--nv-accent-cyan)/0.22)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--nv-accent-cyan)/0.6)] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                className="nv-hero-cta rounded-full border border-white/20 bg-white/[0.05] px-7 py-3 text-sm font-semibold text-white transition-all duration-200 hover:border-white/35 hover:bg-white/[0.09] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg"
               >
                 {secondaryCta.label}
               </Link>

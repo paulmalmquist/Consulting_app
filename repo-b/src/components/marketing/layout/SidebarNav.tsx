@@ -90,9 +90,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
   };
 
   const isActivePath = (href: string) => {
-    if (href === '/') {
-      return pathname === href;
-    }
+    if (href === '/') return pathname === href;
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -107,25 +105,26 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
         <div key={item.href} className="space-y-1">
           <div
             className={cn(
-              'group flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm transition',
+              'group relative flex items-center gap-2 rounded-[4px] px-2 py-1.5 text-sm transition-all duration-120',
               industriesActive
-                ? 'border-emerald-300/45 bg-emerald-200/10 text-emerald-50'
-                : 'border border-transparent text-slate-300 hover:border-emerald-300/35 hover:bg-slate-800/60 hover:text-emerald-100'
+                ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
+                : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
             )}
           >
+            {industriesActive && (
+              <span className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
+            )}
             <Link
               href={item.href}
-              onClick={() => {
-                setDrawerOpen(false);
-              }}
+              onClick={() => setDrawerOpen(false)}
               className="flex min-w-0 flex-1 items-center gap-3"
             >
               <span
                 className={cn(
-                  'inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-slate-950/60',
+                  'inline-flex h-8 w-8 items-center justify-center rounded-[4px]',
                   industriesActive
-                    ? 'border-emerald-300/55 text-emerald-100'
-                    : 'border-slate-700/80 text-slate-300 group-hover:border-emerald-300/45 group-hover:text-emerald-100'
+                    ? 'text-nv-teal'
+                    : 'text-nv-dim group-hover:text-nv-muted'
                 )}
                 role="img"
                 aria-label={`${item.label} icon`}
@@ -138,7 +137,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
               type="button"
               onClick={() => setIndustriesOpen((prev) => !prev)}
               className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800/70 hover:text-emerald-100',
+                'inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-nv-dim transition hover:bg-white/[0.03] hover:text-nv-muted',
                 isCollapsed && 'hidden'
               )}
               aria-label={industriesOpen ? 'Collapse industries list' : 'Expand industries list'}
@@ -161,16 +160,17 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
                   <Link
                     key={child.href}
                     href={child.href}
-                    onClick={() => {
-                      setDrawerOpen(false);
-                    }}
+                    onClick={() => setDrawerOpen(false)}
                     className={cn(
-                      'block rounded-md border px-3 py-2 text-xs transition',
+                      'relative block rounded-[4px] px-3 py-2 text-xs transition-all duration-120',
                       childActive
-                        ? 'border-emerald-300/45 bg-emerald-200/10 text-emerald-50'
-                        : 'border-transparent text-slate-300 hover:border-emerald-300/30 hover:bg-slate-800/60 hover:text-emerald-100'
+                        ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
+                        : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
                     )}
                   >
+                    {childActive && (
+                      <span className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
+                    )}
                     {child.label}
                   </Link>
                 );
@@ -185,22 +185,21 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => {
-          setDrawerOpen(false);
-        }}
+        onClick={() => setDrawerOpen(false)}
         className={cn(
-          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+          'group relative flex items-center gap-3 rounded-[4px] px-3 py-2 text-sm transition-all duration-120',
           active
-            ? 'border border-emerald-300/45 bg-emerald-200/10 text-emerald-50'
-            : 'border border-transparent text-slate-300 hover:border-emerald-300/35 hover:bg-slate-800/60 hover:text-emerald-100'
+            ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
+            : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
         )}
       >
+        {active && (
+          <span className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
+        )}
         <span
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-slate-950/60',
-            active
-              ? 'border-emerald-300/55 text-emerald-100'
-              : 'border-slate-700/80 text-slate-300 group-hover:border-emerald-300/45 group-hover:text-emerald-100'
+            'inline-flex h-8 w-8 items-center justify-center rounded-[4px]',
+            active ? 'text-nv-teal' : 'text-nv-dim group-hover:text-nv-muted'
           )}
           role="img"
           aria-label={`${item.label} icon`}
@@ -215,14 +214,14 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-700/50 bg-slate-900/80 backdrop-blur md:static md:translate-x-0',
+        'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[rgba(232,236,242,0.06)] bg-nv-surface/95 backdrop-blur md:static md:translate-x-0',
         drawerOpen ? 'translate-x-0' : '-translate-x-full',
         isCollapsed ? 'md:w-20' : 'md:w-72'
       )}
     >
       <div className="flex items-center justify-between px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-lg border border-cyan-100/25 bg-slate-950/80">
+          <div className="relative h-11 w-11 overflow-hidden rounded-[8px] border border-[rgba(232,236,242,0.10)] bg-nv-bg/80">
             <Image
               src="/assets/branding/Image-1.jpg"
               alt="Novendor logo"
@@ -233,14 +232,12 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
             />
           </div>
           {!isCollapsed && (
-            <div>
-              <p className="nv-headline text-base font-semibold uppercase tracking-[0.14em] text-white">Novendor</p>
-            </div>
+            <p className="nv-headline text-base font-semibold uppercase tracking-[0.14em] text-nv-text">Novendor</p>
           )}
         </div>
         <button
           type="button"
-          className="hidden p-0.5 text-slate-500 transition hover:text-slate-300 md:inline-flex"
+          className="hidden p-0.5 text-nv-dim transition hover:text-nv-muted md:inline-flex"
           onClick={toggleCollapsed}
           aria-label="Toggle sidebar"
         >
@@ -248,20 +245,21 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
         </button>
         <button
           type="button"
-          className="inline-flex rounded-md border border-slate-700/60 p-2 text-slate-200 md:hidden"
+          className="inline-flex rounded-[4px] border border-[rgba(232,236,242,0.10)] p-2 text-nv-muted md:hidden"
           onClick={() => setDrawerOpen(false)}
           aria-label="Close menu"
         >
           <X size={18} />
         </button>
       </div>
+
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-6">
         {VISIBLE_NAV_GROUPS.map((group) => (
           <div key={group.title} className="space-y-2">
             <button
               type="button"
               onClick={() => toggleGroup(group.title)}
-              className="flex w-full items-center justify-between rounded-md px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-white"
+              className="flex w-full items-center justify-between rounded-[4px] px-2 py-2 text-xs font-semibold uppercase tracking-wide text-nv-faint hover:text-nv-muted"
               aria-expanded={openGroups[group.title]}
             >
               <span className={cn(isCollapsed && 'sr-only')}>{group.title}</span>
@@ -274,13 +272,14 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
           </div>
         ))}
       </nav>
+
       <div className="px-4 pb-5">
-        <div className="rounded-xl border border-slate-700/60 bg-slate-800/60 p-4 text-xs text-slate-200">
+        <div className="rounded-[8px] shadow-nv-surface bg-nv-raised/80 p-4 text-xs text-nv-muted">
           <p className={cn(isCollapsed && 'sr-only')}>Ready to talk?</p>
           <Link
             href="/contact"
             onClick={() => setDrawerOpen(false)}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-cyan-300/30 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-200/10"
+            className="mt-2 inline-flex w-full items-center justify-center rounded-[4px] bg-gradient-to-b from-[#5EC2B7] to-nv-teal px-3 py-2 text-xs font-semibold text-[#0B1E1C] shadow-nv-btn-primary transition hover:-translate-y-px"
           >
             Start with one workflow
           </Link>

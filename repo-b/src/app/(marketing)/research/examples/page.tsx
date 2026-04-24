@@ -22,14 +22,14 @@ export default function ResearchExamplesPage() {
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/55 p-6 sm:p-8 lg:p-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">Research / Proof</p>
+      <section className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Research / Proof</p>
         <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{entry.title}</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">{entry.summary}</p>
+        <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">{entry.summary}</p>
         {callout && (
-          <div className="rounded-2xl border border-emerald-300/30 bg-emerald-200/10 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">{callout.title}</p>
-            <p className="mt-1 text-sm text-emerald-100">{callout.body}</p>
+          <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">{callout.title}</p>
+            <p className="mt-1 text-sm text-nv-teal">{callout.body}</p>
           </div>
         )}
       </section>

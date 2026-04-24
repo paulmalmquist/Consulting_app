@@ -52,15 +52,26 @@ module.exports = {
           signalOrange: "hsl(var(--pds-signal-orange) / <alpha-value>)",
           signalRed: "hsl(var(--pds-signal-red) / <alpha-value>)",
         },
-        // Marketing palette (ported from Consulting_site). Only non-colliding
-        // additions: `ink`, `accent`, `gold`. Slate, cyan, violet stay on
-        // Tailwind defaults — Winston uses those scales extensively, so
-        // overriding them would change Winston visuals. Consulting_site's
-        // custom shades are close enough to Tailwind defaults for Phase 1
-        // parity; revisit in Phase 4 if brand visual review requires exact match.
-        ink: "#0D1117",
-        accent: "#7FD7E0",
+        // Marketing palette — v2.0 Design System tokens (scoped to .marketing-shell)
+        ink: "#0B0E12",   // updated to v2 base ink
+        accent: "#4FB3A9", // updated to desaturated teal (was neon cyan)
         gold: "#FBBF24",
+        // nv.* maps to CSS vars set on .marketing-shell for opacity modifier support
+        nv: {
+          bg:      "rgb(var(--nv-bg) / <alpha-value>)",
+          surface: "rgb(var(--nv-surface) / <alpha-value>)",
+          raised:  "rgb(var(--nv-surface-raised) / <alpha-value>)",
+          overlay: "rgb(var(--nv-surface-overlay) / <alpha-value>)",
+          text:    "rgb(var(--nv-text-primary) / <alpha-value>)",
+          muted:   "rgb(var(--nv-text-secondary) / <alpha-value>)",
+          dim:     "rgb(var(--nv-text-tertiary) / <alpha-value>)",
+          faint:   "rgb(var(--nv-text-muted) / <alpha-value>)",
+          teal:    "rgb(var(--nv-accent-teal) / <alpha-value>)",
+          copper:  "rgb(var(--nv-accent-copper) / <alpha-value>)",
+          success: "rgb(var(--nv-sem-success) / <alpha-value>)",
+          warning: "rgb(var(--nv-sem-warning) / <alpha-value>)",
+          risk:    "rgb(var(--nv-sem-risk) / <alpha-value>)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -93,6 +104,11 @@ module.exports = {
         "bm-sm": "var(--bm-shadow-sm)",
         "bm-md": "var(--bm-shadow-md)",
         "bm-lg": "var(--bm-shadow-lg)",
+        // Marketing v2 surface shadows
+        "nv-card":     "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 0 0 rgba(0,0,0,0.4), 0 20px 40px -20px rgba(0,0,0,0.6)",
+        "nv-card-hover": "inset 0 1px 0 0 rgba(255,255,255,0.10), 0 1px 0 0 rgba(0,0,0,0.4), 0 24px 48px -20px rgba(0,0,0,0.7)",
+        "nv-btn-primary": "inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 0 rgba(0,0,0,0.4), 0 8px 20px -8px rgba(79,179,169,0.5)",
+        "nv-surface":  "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(232,236,242,0.06)",
       },
       backgroundImage: {
         "bm-vignette":

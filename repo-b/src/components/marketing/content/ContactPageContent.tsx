@@ -14,9 +14,9 @@ export function ContactPageContent() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-800/70 bg-slate-900/55 p-6 sm:p-8 lg:p-10">
+      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         {selectedIndustry && (
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">Industry context: {selectedIndustry.label}</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Industry context: {selectedIndustry.label}</p>
         )}
         <h1
           className={
@@ -25,7 +25,7 @@ export function ContactPageContent() {
         >
           Book a meeting.
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
+        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
           You will receive a calendar invite with Google, Outlook, and ICS options after confirmation.
         </p>
       </section>

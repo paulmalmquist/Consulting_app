@@ -30,8 +30,8 @@ export function OnThisPageMobile({ links }: OnThisPageProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800/75 bg-slate-900/55 p-4 xl:hidden">
-      <label htmlFor={selectId} className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-emerald-200">
+    <div className="rounded-2xl border border-nv-text/10 bg-nv-surface/55 p-4 xl:hidden">
+      <label htmlFor={selectId} className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-nv-teal">
         On this page
       </label>
       <select
@@ -43,7 +43,7 @@ export function OnThisPageMobile({ links }: OnThisPageProps) {
           }
           scrollToAnchor(event.target.value);
         }}
-        className="w-full rounded-xl border border-slate-700/70 bg-slate-950/55 px-3 py-2 text-sm text-slate-200"
+        className="w-full rounded-xl border border-nv-text/12 bg-nv-bg/80 px-3 py-2 text-sm text-nv-text"
       >
         <option value="" disabled>
           Jump to section
@@ -65,14 +65,14 @@ export function OnThisPageDesktop({ links }: OnThisPageProps) {
 
   return (
     <aside className="hidden xl:block" aria-label="On this page">
-      <div className="sticky top-24 space-y-3 rounded-2xl border border-slate-800/75 bg-slate-900/55 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-200">On this page</p>
+      <div className="sticky top-24 space-y-3 rounded-2xl border border-nv-text/10 bg-nv-surface/55 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-nv-teal">On this page</p>
         <nav className="space-y-1 text-sm">
           {links.map((link) => (
             <a
               key={link.id}
               href={`#${link.id}`}
-              className="block rounded-lg px-2 py-1 text-slate-300 transition hover:bg-slate-800/70 hover:text-white"
+              className="block rounded-lg px-2 py-1 text-nv-muted transition hover:bg-nv-raised/70 hover:text-white"
             >
               {link.label}
             </a>

@@ -12,10 +12,10 @@ type Node = {
 
 const tones = {
   cyan: {
-    border: 'border-cyan-200/25',
-    bg: 'bg-cyan-300/10',
-    text: 'text-cyan-50',
-    icon: 'text-cyan-200'
+    border: 'border-nv-teal/18',
+    bg: 'bg-nv-teal/10',
+    text: 'text-nv-teal',
+    icon: 'text-nv-teal'
   },
   violet: {
     border: 'border-violet-200/25',
@@ -24,10 +24,10 @@ const tones = {
     icon: 'text-violet-200'
   },
   emerald: {
-    border: 'border-emerald-200/25',
-    bg: 'bg-emerald-300/10',
-    text: 'text-emerald-50',
-    icon: 'text-emerald-200'
+    border: 'border-nv-teal/18',
+    bg: 'bg-nv-teal/10',
+    text: 'text-nv-teal',
+    icon: 'text-nv-teal'
   }
 } as const;
 
@@ -66,13 +66,13 @@ const nodes: Node[] = [
 
 export function ConciergeFlowGraphic() {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-gradient-to-b from-slate-950/40 via-slate-950/65 to-[#07172e] p-5 sm:p-6">
-      <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-300/15 blur-3xl" />
+    <div className="relative overflow-hidden rounded-3xl border border-nv-text/10 bg-gradient-to-b from-slate-950/40 via-slate-950/65 to-[#07172e] p-5 sm:p-6">
+      <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-nv-teal/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 left-10 h-72 w-72 rounded-full bg-violet-300/10 blur-3xl" />
 
       <div className="flex items-center justify-between gap-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">How it works</p>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Vendor-neutral</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-nv-muted">How it works</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-nv-dim">Vendor-neutral</p>
       </div>
 
       <div className="mt-4 grid gap-3">
@@ -86,14 +86,14 @@ export function ConciergeFlowGraphic() {
                   aria-hidden="true"
                 />
               )}
-              <div className={`rounded-2xl border ${tone.border} bg-slate-950/45 p-4`}>
+              <div className={`rounded-2xl border ${tone.border} bg-nv-bg/80 p-4`}>
                 <div className="flex items-start gap-3">
                   <span className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl border ${tone.border} ${tone.bg} ${tone.icon}`}>
                     {node.icon}
                   </span>
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold ${tone.text}`}>{node.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-300">{node.description}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-nv-muted">{node.description}</p>
                   </div>
                 </div>
               </div>
@@ -102,9 +102,9 @@ export function ConciergeFlowGraphic() {
         })}
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-950/40 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">What this replaces</p>
-        <p className="mt-2 text-sm text-slate-200">
+      <div className="mt-4 rounded-2xl border border-nv-text/12 bg-nv-bg/40 p-4">
+        <p className="text-xs uppercase tracking-[0.2em] text-nv-dim">What this replaces</p>
+        <p className="mt-2 text-sm text-nv-text">
           Copy/paste docs. Guessing. “Ask Bob.” Threads with no owner. Dashboards that don&apos;t answer the real question.
         </p>
       </div>
