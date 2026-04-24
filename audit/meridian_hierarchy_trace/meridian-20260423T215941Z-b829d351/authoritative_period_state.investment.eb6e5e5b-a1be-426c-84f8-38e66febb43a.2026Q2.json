@@ -1,0 +1,75 @@
+{
+  "entity_type": "investment",
+  "investment_id": "eb6e5e5b-a1be-426c-84f8-38e66febb43a",
+  "investment_name": "Harbor Industrial Portfolio",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "73725524.970000000000",
+    "ending_nav_full": "46782941.090000000000",
+    "beginning_nav_attributable": "58980419.976000000000",
+    "ending_nav_attributable": "37426352.872000000000",
+    "gross_operating_cash_flow_full": "-40207.68",
+    "fund_attributable_operating_cash_flow": "-32166.144000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-26942583.880000000000",
+    "fund_attributable_valuation_movement": "-21554067.104000000000",
+    "gross_return_amount": "-21586233.2480000000000000000000000000000000",
+    "gross_return_rate": "-0.292791855423",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-29.279185542300"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "a99464ea-7a79-47ab-91d6-567eb272d709"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "09c5f998-1b34-4bf2-b079-ee3635eebf2b"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "fb430668-253a-4cf7-9d89-a5606a8ecfcb"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "7d5c6828-2b51-4a0b-b8f3-e4ffd5725513"
+    }
+  ]
+}

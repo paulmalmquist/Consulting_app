@@ -395,6 +395,40 @@ def _failure_clusters(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return ordered
 
 
+def _collect_regressions_artifact(
+    *,
+    run_id: str,
+    suite: str,
+    results: list[dict[str, Any]],
+    postgres_summary: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Artifact consumed by the GH Actions follow-on job to open issues."""
+    regressions: list[dict[str, Any]] = []
+    for result in results:
+        if not result.get("failure_category"):
+            continue
+        regressions.append(
+            {
+                "case_id": result.get("scenario_id"),
+                "failure_category": result.get("failure_category"),
+                "environment": result.get("environment"),
+                "suite": suite,
+                "mismatches": result.get("mismatches", [])[:5],
+                "suspected_files": [
+                    s.get("path") for s in (result.get("suspected_files") or [])[:5]
+                ],
+            }
+        )
+    return {
+        "run_id": run_id,
+        "suite": suite,
+        "postgres_run_id": (postgres_summary or {}).get("run_id"),
+        "postgres_status": (postgres_summary or {}).get("status"),
+        "count": len(regressions),
+        "regressions": regressions,
+    }
+
+
 def _mutated_high_value_scenarios(scenarios: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         scenario for scenario in scenarios
@@ -640,6 +674,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-chaos", action="store_true", help="Include chaos suite inside forever mode.")
     parser.add_argument("--include-mutations", action="store_true", help="Include mutated high-value suite inside forever mode.")
     parser.add_argument("--include-comparisons", action="store_true", help="Include comparison reports inside forever mode.")
+    parser.add_argument("--persist-postgres", action="store_true", help="Mirror run into Postgres (winston_eval_runs/_results/_baselines). Requires DATABASE_URL.")
+    parser.add_argument("--persist-business-id", default=os.environ.get("WINSTON_EVAL_BUSINESS_ID"), help="business_id for Postgres persistence (required with --persist-postgres).")
+    parser.add_argument("--persist-env-id", default=os.environ.get("WINSTON_EVAL_ENV_ID"), help="env_id for Postgres persistence (optional).")
+    parser.add_argument("--persist-trigger", default="manual", choices=["manual", "schedule", "post_deploy"], help="Trigger source recorded on the run row.")
+    parser.add_argument("--regressions-out", default=None, help="Write a regressions JSON artifact for the follow-on issue job.")
+    parser.add_argument("--write-docs-report", action="store_true", help="Write docs/ai-testing/reports/YYYY-MM-DD_HHMM.md and update docs/LATEST.md.")
     return parser.parse_args()
 
 
@@ -689,6 +729,7 @@ async def _run_cycle(
         suites_to_run.append(("contamination", contamination_candidates, False))
 
     all_results: list[dict[str, Any]] = []
+    all_scenarios: list[dict[str, Any]] = []
     all_regressions: list[dict[str, Any]] = []
     all_receipt_diffs: list[dict[str, Any]] = []
     final_summary: dict[str, Any] | None = None
@@ -708,6 +749,7 @@ async def _run_cycle(
             chaos_profile=args.chaos_profile,
         )
         all_results.extend(results)
+        all_scenarios.extend(suite_scenarios)
         all_regressions.extend(regressions)
         all_receipt_diffs.extend(receipt_diffs)
         final_summary = summary
@@ -796,6 +838,55 @@ async def _run_cycle(
         suspect_heatmap=suspect_heatmap,
         receipt_diffs=all_receipt_diffs,
     )
+
+    postgres_run_summary: dict[str, Any] | None = None
+    if getattr(args, "persist_postgres", False):
+        if not args.persist_business_id:
+            raise SystemExit(
+                "--persist-postgres requires --persist-business-id (or WINSTON_EVAL_BUSINESS_ID env var)."
+            )
+        from eval_loop.postgres_sink import persist_cycle_to_postgres
+
+        postgres_run_summary = persist_cycle_to_postgres(
+            cycle_run_id=run_id,
+            trigger=args.persist_trigger,
+            suite=final_summary["suite"],
+            scenarios=all_scenarios,
+            results=all_results,
+            business_id=args.persist_business_id,
+            env_id=args.persist_env_id,
+        )
+        (ARTIFACTS_DIR / "postgres_run_summary.json").write_text(
+            json.dumps(postgres_run_summary, indent=2) + "\n"
+        )
+
+    if getattr(args, "write_docs_report", False):
+        from eval_loop.docs_report_writer import write_docs_report
+
+        try:
+            docs_report_path = write_docs_report(
+                repo_root=ROOT,
+                run_id=run_id,
+                suite=final_summary["suite"],
+                trigger=getattr(args, "persist_trigger", "manual"),
+                summary=final_summary,
+                results=all_results,
+                regressions=all_regressions,
+                postgres_summary=postgres_run_summary,
+            )
+            print(f"docs report written: {docs_report_path.relative_to(ROOT)}")
+        except Exception as exc:  # noqa: BLE001 — non-fatal; report write should not sink the run
+            print(f"warning: docs report write failed: {exc}")
+
+    if getattr(args, "regressions_out", None):
+        regressions_payload = _collect_regressions_artifact(
+            run_id=run_id,
+            suite=final_summary["suite"],
+            results=all_results,
+            postgres_summary=postgres_run_summary,
+        )
+        Path(args.regressions_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.regressions_out).write_text(json.dumps(regressions_payload, indent=2) + "\n")
 
     critical_regression = any(
         regression.get("regression_type") == "contamination_regression"

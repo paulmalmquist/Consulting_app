@@ -1,0 +1,9 @@
+[
+  {"event": "status", "data": {"message": "..."}},
+  {"event": "token",  "data": {"text": "No response from Winston."}},
+  {"event": "done",   "data": {
+    "turn_receipt": {"response_text": "No response from Winston."},
+    "trace": {"lane": "A", "execution_path": "chat", "elapsed_ms": 200},
+    "response_blocks": []
+  }}
+]

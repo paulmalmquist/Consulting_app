@@ -128,7 +128,8 @@ export function EnvironmentLoginForm({
 
     const client = getSupabaseBrowserClient();
     if (!client) {
-      setError("Supabase is not configured in this environment.");
+      console.error("Auth client unavailable: Supabase env vars missing or placeholder.");
+      setError("Login is currently unavailable. Please try again shortly.");
       return;
     }
 
@@ -140,7 +141,7 @@ export function EnvironmentLoginForm({
       const { data } = await client.auth.getSession();
       const accessToken = data.session?.access_token;
       if (!accessToken) {
-        throw new Error("Supabase session was not established");
+        throw new Error("Session could not be established");
       }
 
       const response = await fetch("/api/auth/session", {
@@ -244,7 +245,8 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
 
     const client = getSupabaseBrowserClient();
     if (!client) {
-      setError("Supabase is not configured in this environment.");
+      console.error("Auth client unavailable: Supabase env vars missing or placeholder.");
+      setError("Login is currently unavailable. Please try again shortly.");
       return;
     }
 
@@ -255,7 +257,7 @@ export function GenericPlatformLoginForm({ returnTo }: { returnTo?: string | nul
 
       const { data } = await client.auth.getSession();
       const accessToken = data.session?.access_token;
-      if (!accessToken) throw new Error("Supabase session was not established");
+      if (!accessToken) throw new Error("Session could not be established");
 
       const response = await fetch("/api/auth/session", {
         method: "POST",

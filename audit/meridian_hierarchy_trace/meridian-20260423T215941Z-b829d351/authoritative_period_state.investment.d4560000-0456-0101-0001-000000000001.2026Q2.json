@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "d4560000-0456-0101-0001-000000000001",
+  "investment_name": "Meadowview Apartments Acquisition",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "126248848.000000000000",
+    "ending_nav_full": "129049336.000000000000",
+    "beginning_nav_attributable": "113623963.200000000000",
+    "ending_nav_attributable": "116144402.400000000000",
+    "gross_operating_cash_flow_full": "-811841.55",
+    "fund_attributable_operating_cash_flow": "-730657.395000000000",
+    "effective_fund_ownership_percent": "0.900000000000000000000000",
+    "valuation_movement_full": "2800488.000000000000",
+    "fund_attributable_valuation_movement": "2520439.200000000000",
+    "gross_return_amount": "1789781.80500000000000000000000000000000000",
+    "gross_return_rate": "0.014176618903",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "1.417661890300"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "1db88733-703f-4613-acbc-8b9463c81ab2"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "f3ecf872-1846-4917-9182-5f42c4855ab6"
+    }
+  ]
+}

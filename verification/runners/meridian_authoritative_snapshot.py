@@ -1110,11 +1110,13 @@ def build_fund_receipts(
             fund_investments[row["fund_id"]].append(row["investment_id"])
 
     # Scope invariant: COUNT(investments_in_scope) == COUNT(investments_linked_to_fund)
-    # Hard fail on partial scope — prevents silent partial-fund NAV aggregation.
-    # Any fund where the manifest includes fewer investments than actually exist
-    # gets a partial_scope breakpoint and an exception; the snapshot is written
-    # but with trust_status='untrusted' and null_reason='partial_scope', which
-    # blocks promotion via both validate_snapshot_for_release and promote_fund_snapshot.
+    # Hard fail on partial or over scope — prevents silent partial-fund NAV aggregation.
+    # Cache invalidation: re_investment is queried live on every runner invocation.
+    # Any insert/delete from re_investment takes effect on the next run — no separate
+    # trigger or cache flush needed. The promotion gate independently verifies scope
+    # completeness from canonical_metrics.scope written into each snapshot row, so
+    # even a snapshot written before a membership change cannot be promoted without
+    # a fresh run that reflects the updated re_investment count.
     fund_db_investment_counts: dict[str, int] = {}
     for row in fetchall(
         """
@@ -1147,6 +1149,26 @@ def build_fund_receipts(
                         f"investments linked to fund {fund_id}. "
                         f"null_reason=partial_scope blocks promotion. "
                         f"Add all {in_db} investments to SELECTED_INVESTMENT_IDS."
+                    ),
+                })
+        elif in_scope > in_db:
+            # Over-scope: manifest references more investments than exist in re_investment.
+            # This means SELECTED_INVESTMENT_IDS contains a stale or incorrect investment_id.
+            # Hard fail — a manifest that references non-existent investments is a data
+            # integrity error that must be corrected before any snapshot is written.
+            fund_scope_completeness[fund_id] = "over_scope"
+            for quarter in QUARTERS:
+                exceptions.append({
+                    "exception_type": "over_scope",
+                    "entity_type": "fund",
+                    "entity_id": fund_id,
+                    "quarter": quarter,
+                    "breakpoint_layer": "over_scope",
+                    "message": (
+                        f"Over-scope invariant violated: manifest includes {in_scope} investments "
+                        f"but only {in_db} exist in re_investment for fund {fund_id}. "
+                        f"null_reason=over_scope blocks promotion. "
+                        f"Remove stale investment IDs from SELECTED_INVESTMENT_IDS."
                     ),
                 })
         else:
@@ -1296,8 +1318,8 @@ def build_fund_receipts(
                 "quarter": quarter,
                 "period_start": current_start,
                 "period_end": current_end,
-                "trust_status": "trusted",
-                "breakpoint_layer": None,
+                "trust_status": "untrusted" if scope_completeness in ("partial", "over_scope") else "trusted",
+                "breakpoint_layer": scope_completeness if scope_completeness in ("partial", "over_scope") else None,
                 "canonical_metrics": {
                     "beginning_nav": beginning_nav,
                     "ending_nav": ending_nav,
@@ -1322,15 +1344,25 @@ def build_fund_receipts(
                         "investment_count": in_scope_count,
                         "expected_investment_count": expected_count,
                         "scope_completeness": scope_completeness,
+                        "scope_contract_version": "v1",
                     },
                     **derive_fund_trust_fields(gross_irr=gross_irr, net_irr=net_irr),
                 },
                 "null_reasons": {
-                    **({"state": "partial_scope"} if scope_completeness == "partial" else {}),
+                    **({"state": "partial_scope"} if scope_completeness == "partial" else
+                       {"state": "over_scope"} if scope_completeness == "over_scope" else {}),
                 },
                 "display_metrics": {
                     "gross_irr_pct": gross_irr * Decimal("100") if gross_irr is not None else None,
                     "net_irr_pct": net_irr * Decimal("100") if net_irr is not None else None,
+                    # scope_badge: UI reads this for the fund header indicator.
+                    # "complete" → green, "partial"/"over_scope" → amber + block promotion, None → gray.
+                    "scope_badge": scope_completeness,
+                    "scope_label": (
+                        f"{in_scope_count}/{expected_count} complete"
+                        if scope_completeness == "complete"
+                        else f"{in_scope_count}/{expected_count} {scope_completeness}"
+                    ),
                 },
                 "formulas": {
                     "gross_operating_cash_flow": "gross operating cash flow = sum of investment attributable operating cash flows before fund-level fees",

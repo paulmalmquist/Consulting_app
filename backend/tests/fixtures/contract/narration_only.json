@@ -1,0 +1,10 @@
+[
+  {"event": "status", "data": {"message": "Drafting response"}},
+  {"event": "token",  "data": {"text": "I looked at three metrics "}},
+  {"event": "token",  "data": {"text": "and they all trended up this quarter."}},
+  {"event": "done",   "data": {
+    "turn_receipt": {"response_text": "I looked at three metrics and they all trended up this quarter."},
+    "trace": {"lane": "C", "execution_path": "chat", "elapsed_ms": 1400},
+    "response_blocks": []
+  }}
+]

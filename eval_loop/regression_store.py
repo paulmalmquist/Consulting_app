@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import sqlite3
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -407,3 +411,344 @@ class RegressionStore:
 
     def close(self) -> None:
         self.conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Postgres durable store (sibling of SQLite RegressionStore)
+#
+# Writes eval runs/results/baselines to the Postgres tables defined in
+# repo-b/db/schema/030_winston_eval_core.sql. Keeps the SQLite store for
+# local/debugging; Postgres is the durable source of truth used by the
+# autonomous workflow and admin inspection routes.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _response_shape_hash(result: dict[str, Any]) -> str:
+    """Stable hash of the response shape (event types + block types).
+
+    Delegates to the authoritative implementation in
+    `backend.app.assistant_runtime.response_contract`. Preserved as a
+    top-level name so `postgres_sink.py` and other internal callers keep
+    working without edits.
+    """
+    try:
+        from app.assistant_runtime.response_contract import response_shape_hash
+    except ImportError:
+        # Backend path not on sys.path yet (rare — happens in isolated tests).
+        # Fall back to the original implementation to keep behavior stable.
+        events = result.get("events") or []
+        event_types = [str(e.get("event") or e.get("type") or "") for e in events]
+        block_types: list[str] = []
+        for block in result.get("response_blocks") or []:
+            if isinstance(block, dict):
+                block_types.append(str(block.get("type") or ""))
+        payload = json.dumps(
+            {"events": event_types, "blocks": block_types}, sort_keys=True
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
+    return response_shape_hash(
+        result.get("events") or [],
+        result.get("response_blocks") or [],
+    )
+
+
+class PostgresRegressionStore:
+    """
+    Postgres-backed durable store for Winston autonomous eval results.
+
+    Unlike the SQLite `RegressionStore`, this class is shaped around
+    run / result / baseline semantics rather than scenario_runs +
+    scenario_summaries + regression_events. It's intentionally narrow:
+    the rich local telemetry stays in SQLite; Postgres holds the
+    authoritative pass/fail + baseline signal.
+    """
+
+    def __init__(
+        self,
+        *,
+        dsn: str | None = None,
+        business_id: str,
+        env_id: str | None = None,
+    ) -> None:
+        import psycopg  # local import so sqlite-only callers don't need psycopg
+        from psycopg.rows import dict_row
+
+        resolved_dsn = dsn or os.environ.get("DATABASE_URL")
+        if not resolved_dsn:
+            raise RuntimeError(
+                "PostgresRegressionStore requires DATABASE_URL or explicit dsn"
+            )
+        self._psycopg = psycopg
+        self.conn = psycopg.connect(resolved_dsn, row_factory=dict_row)
+        self.conn.autocommit = True
+        self.business_id = business_id
+        self.env_id = env_id
+
+    # ── Runs ────────────────────────────────────────────────────────
+    def create_run(
+        self,
+        *,
+        trigger: str,
+        suite: str,
+        git_sha: str | None = None,
+        run_id: str | None = None,
+    ) -> str:
+        run_id = run_id or str(uuid.uuid4())
+        self.conn.execute(
+            """
+            INSERT INTO winston_eval_runs
+              (run_id, business_id, env_id, trigger, suite, git_sha, started_at, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'running')
+            """,
+            (
+                run_id,
+                self.business_id,
+                self.env_id,
+                trigger,
+                suite,
+                git_sha,
+                _utcnow(),
+            ),
+        )
+        return run_id
+
+    def finalize_run(
+        self,
+        *,
+        run_id: str,
+        status: str,
+        total: int,
+        passed: int,
+        failed: int,
+        errored: int,
+        regressions: int,
+        summary: dict[str, Any] | None = None,
+    ) -> None:
+        self.conn.execute(
+            """
+            UPDATE winston_eval_runs
+               SET completed_at = %s,
+                   status = %s,
+                   total_cases = %s,
+                   passed_count = %s,
+                   failed_count = %s,
+                   errored_count = %s,
+                   regressions_count = %s,
+                   summary = %s::jsonb
+             WHERE run_id = %s
+            """,
+            (
+                _utcnow(),
+                status,
+                total,
+                passed,
+                failed,
+                errored,
+                regressions,
+                json.dumps(summary or {}, default=str),
+                run_id,
+            ),
+        )
+
+    # ── Results ─────────────────────────────────────────────────────
+    def insert_result(
+        self,
+        *,
+        run_id: str,
+        case_id: str,
+        status: str,
+        contract_version: int = 1,
+        expected_lane: str | None = None,
+        observed_lane: str | None = None,
+        failure_category: str | None = None,
+        latency_ms: int | None = None,
+        ttft_ms: int | None = None,
+        tool_count: int | None = None,
+        token_count: int | None = None,
+        response_excerpt: str | None = None,
+        assertion_failures: list[dict[str, Any]] | None = None,
+        trace_summary: dict[str, Any] | None = None,
+        ai_gateway_log_id: str | None = None,
+        is_regression: bool = False,
+        baseline_delta: dict[str, Any] | None = None,
+    ) -> str:
+        result_id = str(uuid.uuid4())
+        self.conn.execute(
+            """
+            INSERT INTO winston_eval_results (
+                result_id, run_id, business_id, env_id,
+                case_id, contract_version, expected_lane, observed_lane,
+                status, failure_category,
+                latency_ms, ttft_ms, tool_count, token_count,
+                response_excerpt, assertion_failures, trace_summary,
+                ai_gateway_log_id, is_regression, baseline_delta
+            ) VALUES (
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s,
+                %s, %s, %s, %s,
+                %s, %s::jsonb, %s::jsonb,
+                %s, %s, %s::jsonb
+            )
+            """,
+            (
+                result_id,
+                run_id,
+                self.business_id,
+                self.env_id,
+                case_id,
+                contract_version,
+                expected_lane,
+                observed_lane,
+                status,
+                failure_category,
+                latency_ms,
+                ttft_ms,
+                tool_count,
+                token_count,
+                (response_excerpt or "")[:2000] or None,
+                json.dumps(assertion_failures or [], default=str),
+                json.dumps(trace_summary or {}, default=str),
+                ai_gateway_log_id,
+                is_regression,
+                json.dumps(baseline_delta) if baseline_delta else None,
+            ),
+        )
+        return result_id
+
+    # ── Baselines ───────────────────────────────────────────────────
+    def get_baseline(
+        self,
+        *,
+        case_id: str,
+        contract_version: int,
+        expected_lane: str | None,
+    ) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT *
+              FROM winston_eval_baselines
+             WHERE business_id = %s
+               AND case_id = %s
+               AND contract_version = %s
+               AND (expected_lane IS NOT DISTINCT FROM %s)
+               AND (env_id IS NOT DISTINCT FROM %s)
+               AND invalidated_at IS NULL
+             ORDER BY last_pass_at DESC
+             LIMIT 1
+            """,
+            (
+                self.business_id,
+                case_id,
+                contract_version,
+                expected_lane,
+                self.env_id,
+            ),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def upsert_baseline_on_pass(
+        self,
+        *,
+        case_id: str,
+        contract_version: int,
+        expected_lane: str | None,
+        run_id: str,
+        result_id: str,
+        latency_ms: int | None,
+        ttft_ms: int | None,
+        response_shape_hash: str | None,
+    ) -> None:
+        """Update last-known-good. Called only on `status='pass'`."""
+        now = _utcnow()
+        self.conn.execute(
+            """
+            INSERT INTO winston_eval_baselines (
+                business_id, env_id, case_id, contract_version, expected_lane,
+                last_pass_run_id, last_pass_result_id, last_pass_at,
+                last_pass_latency_ms, last_pass_ttft_ms,
+                last_pass_response_shape_hash,
+                created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s,
+                %s,
+                %s, %s
+            )
+            ON CONFLICT (business_id, case_id, env_id, contract_version, expected_lane)
+            DO UPDATE SET
+                last_pass_run_id = EXCLUDED.last_pass_run_id,
+                last_pass_result_id = EXCLUDED.last_pass_result_id,
+                last_pass_at = EXCLUDED.last_pass_at,
+                last_pass_latency_ms = EXCLUDED.last_pass_latency_ms,
+                last_pass_ttft_ms = EXCLUDED.last_pass_ttft_ms,
+                last_pass_response_shape_hash = EXCLUDED.last_pass_response_shape_hash,
+                invalidated_at = NULL,
+                invalidated_reason = NULL,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (
+                self.business_id,
+                self.env_id,
+                case_id,
+                contract_version,
+                expected_lane,
+                run_id,
+                result_id,
+                now,
+                latency_ms,
+                ttft_ms,
+                response_shape_hash,
+                now,
+                now,
+            ),
+        )
+
+    def invalidate_baseline(
+        self,
+        *,
+        case_id: str,
+        contract_version: int,
+        expected_lane: str | None,
+        reason: str,
+    ) -> int:
+        cur = self.conn.execute(
+            """
+            UPDATE winston_eval_baselines
+               SET invalidated_at = %s,
+                   invalidated_reason = %s,
+                   updated_at = %s
+             WHERE business_id = %s
+               AND case_id = %s
+               AND contract_version = %s
+               AND (expected_lane IS NOT DISTINCT FROM %s)
+               AND (env_id IS NOT DISTINCT FROM %s)
+               AND invalidated_at IS NULL
+            """,
+            (
+                _utcnow(),
+                reason,
+                _utcnow(),
+                self.business_id,
+                case_id,
+                contract_version,
+                expected_lane,
+                self.env_id,
+            ),
+        )
+        return cur.rowcount or 0
+
+    def close(self) -> None:
+        self.conn.close()
+
+
+__all__ = [
+    "RegressionStore",
+    "PostgresRegressionStore",
+    "_response_shape_hash",
+]

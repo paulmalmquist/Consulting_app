@@ -479,6 +479,107 @@ def test_insufficient_peer_sample_suppresses_delta(monkeypatch):
 
 
 # ─────────────────────────────────────────────────────────────
+# Invariant 9b — peer math is NOT narrowed by UI display filters
+# ─────────────────────────────────────────────────────────────
+
+
+def test_peer_deltas_stable_across_display_filters(monkeypatch):
+    """A visible asset's peer_margin_delta must match what it was unfiltered.
+
+    If display filters leaked into peer math, applying operator=Brookdale to
+    a cohort of 4 (Brookdale x2 + Atria x2) would crash peer_count from 3 to 1
+    and peer deltas would differ. The service must use the full unfiltered
+    cohort for peer math regardless of UI filters.
+    """
+    assets_raw, profiles, auth, prior_auth, operational = _default_scenario()
+    _install_fixture(
+        monkeypatch,
+        assets_raw=assets_raw, profiles=profiles,
+        auth_map=auth, prior_auth_map=prior_auth, operational=operational,
+    )
+    unfiltered = re_operator_diagnostics.get_operator_diagnostics(
+        env_id="env-1", quarter="2026Q2"
+    )
+    filtered = re_operator_diagnostics.get_operator_diagnostics(
+        env_id="env-1", quarter="2026Q2", operator="Brookdale"
+    )
+
+    # All four released assets should see peer_count == 3 (cohort of 4, minus self)
+    for row in unfiltered["assets"]:
+        assert row["peer_set"]["peer_count"] == 3
+
+    # Brookdale-only view narrows the returned list to 2, but each remaining
+    # asset must carry the SAME peer_count (3) and the SAME peer_margin_delta
+    # it had unfiltered. If either moved, peer math leaked into UI filters.
+    by_id_unfiltered = {r["asset_id"]: r for r in unfiltered["assets"]}
+    assert len(filtered["assets"]) == 2
+    for row in filtered["assets"]:
+        expected = by_id_unfiltered[row["asset_id"]]
+        assert row["peer_set"]["peer_count"] == expected["peer_set"]["peer_count"] == 3
+        assert row["peer_margin_delta"] == expected["peer_margin_delta"]
+        assert row["peer_margin_delta"] is not None  # sanity: cohort qualifies
+
+
+def test_acuity_filter_does_not_collapse_peer_set(monkeypatch):
+    """Mixed-acuity cohort: filtering by acuity must not shrink peer math."""
+    assets_raw = [
+        _build_raw_asset(0, "Brookdale", "AL", "Dallas", 100),
+        _build_raw_asset(1, "Brookdale", "AL", "Dallas", 110),
+        _build_raw_asset(2, "Atria", "AL", "Dallas", 90),
+        _build_raw_asset(3, "Atria", "AL", "Dallas", 85),
+        _build_raw_asset(4, "Sunrise", "IL", "Dallas", 80),  # different acuity
+    ]
+    profiles = {
+        ASSET_IDS[0]: _build_profile(ASSET_IDS[0], "Brookdale", "AL", "mid"),
+        ASSET_IDS[1]: _build_profile(ASSET_IDS[1], "Brookdale", "AL", "mid"),
+        ASSET_IDS[2]: _build_profile(ASSET_IDS[2], "Atria", "AL", "mid"),
+        ASSET_IDS[3]: _build_profile(ASSET_IDS[3], "Atria", "AL", "mid"),
+        ASSET_IDS[4]: _build_profile(ASSET_IDS[4], "Sunrise", "IL", "mid"),
+    }
+    quarter = "2026Q2"
+    auth = {
+        (ASSET_IDS[0], quarter): _released_auth(quarter, "300000", "0.92"),
+        (ASSET_IDS[1], quarter): _released_auth(quarter, "330000", "0.93"),
+        (ASSET_IDS[2], quarter): _released_auth(quarter, "360000", "0.95"),
+        (ASSET_IDS[3], quarter): _released_auth(quarter, "380000", "0.94"),
+        (ASSET_IDS[4], quarter): _released_auth(quarter, "200000", "0.88"),
+    }
+    operational = {
+        ASSET_IDS[i]: {
+            "asset_id": ASSET_IDS[i], "quarter": quarter,
+            "revenue": Decimal("1000000") + Decimal(50_000 * i),
+            "labor_cost": Decimal("480000") + Decimal(10_000 * i),
+            "labor_cost_source": "seed", "source_type": "seed",
+        }
+        for i in range(5)
+    }
+    _install_fixture(
+        monkeypatch,
+        assets_raw=assets_raw, profiles=profiles,
+        auth_map=auth, prior_auth_map={}, operational=operational,
+    )
+
+    unfiltered = re_operator_diagnostics.get_operator_diagnostics(
+        env_id="env-1", quarter="2026Q2"
+    )
+    al_filtered = re_operator_diagnostics.get_operator_diagnostics(
+        env_id="env-1", quarter="2026Q2", acuity="AL"
+    )
+
+    # The IL asset lives in its own cohort (peer_count=0, insufficient sample).
+    il_row_unfiltered = [r for r in unfiltered["assets"] if r["asset_id"] == ASSET_IDS[4]][0]
+    assert il_row_unfiltered["peer_set"]["peer_count"] == 0
+    assert il_row_unfiltered["peer_margin_delta"] is None
+
+    # AL filter drops the IL row from display, but AL peer math must be identical
+    # to unfiltered AL peer math (cohort of 4 → peer_count=3 per asset).
+    by_id = {r["asset_id"]: r for r in unfiltered["assets"]}
+    for row in al_filtered["assets"]:
+        assert row["peer_set"]["peer_count"] == 3
+        assert row["peer_margin_delta"] == by_id[row["asset_id"]]["peer_margin_delta"]
+
+
+# ─────────────────────────────────────────────────────────────
 # Invariant 10 — no waterfall-dependent metrics
 # ─────────────────────────────────────────────────────────────
 

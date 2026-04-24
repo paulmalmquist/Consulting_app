@@ -1,0 +1,115 @@
+{
+  "entity_type": "investment",
+  "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+  "investment_name": "Suburban Office Park",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "168543557.600000000000",
+    "ending_nav_full": "89637546.450000000000",
+    "beginning_nav_attributable": "134834846.080000000000",
+    "ending_nav_attributable": "71710037.160000000000",
+    "gross_operating_cash_flow_full": "-2704920.31",
+    "fund_attributable_operating_cash_flow": "-2163936.248000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-78906011.150000000000",
+    "fund_attributable_valuation_movement": "-63124808.920000000000",
+    "gross_return_amount": "-65288745.1680000000000000000000000000000000",
+    "gross_return_rate": "-0.387370161742",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-38.737016174200"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "efe41eb5-76ef-4425-9cfc-406b99f26416"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "ee184951-ecab-429d-976a-2d5b561aa401"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "65573e0f-29dc-45fa-bf23-b1a3b9d90d6a"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e1db5bcb-3494-4b12-afc3-85bbccf0bd50"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "754f363f-e9f3-4fbf-956e-6cda4761f275"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "45f26c9e-d0ea-43b6-bec2-a9d8014fd801"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "679afa9e-425f-4358-97b3-b2853c020ff5"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "7d8cbd3e-28d7-4929-a4dc-f29f84f7f03a"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "cad37d37-4c35-43a4-8108-266d14958a51"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "4dfa11ae-ad3f-4619-9e11-d406a731f5e9"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "24bde3aa-428e-41e8-b3f4-ab5ee998fc57"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "6b46af21-840a-41f5-bb8e-33aa7db0a0af"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "48a94f8e-05ca-47c5-876e-3ec4edd89936"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e7c935e4-6627-4ecb-aa92-96a8e3207a40"
+    }
+  ]
+}

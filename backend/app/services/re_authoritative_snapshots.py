@@ -399,18 +399,28 @@ def validate_snapshot_for_release(
             continue
 
         # Belt-and-suspenders scope gate: if canonical_metrics.scope.scope_completeness
-        # is 'partial', block promotion regardless of IRR trust state.
-        # The null_reasons check above catches partial_scope too (via state='partial_scope'),
-        # but this explicit check on the scope field is more descriptive in violation logs.
+        # is 'partial' or 'over_scope', block promotion regardless of IRR trust state.
+        # The null_reasons check above catches these too (via state='partial_scope' /
+        # 'over_scope'), but this explicit check on the scope field is more descriptive.
         scope_meta = cm.get("scope") or {}
-        if isinstance(scope_meta, dict) and scope_meta.get("scope_completeness") == "partial":
-            in_scope = scope_meta.get("investment_count", "?")
-            expected = scope_meta.get("expected_investment_count", "?")
-            violations.append({
-                "fund_id": fund_id,
-                "reason": f"partial_scope:{in_scope}_of_{expected}_investments_included",
-            })
-            continue
+        if isinstance(scope_meta, dict):
+            sc = scope_meta.get("scope_completeness")
+            if sc == "partial":
+                in_scope = scope_meta.get("investment_count", "?")
+                expected = scope_meta.get("expected_investment_count", "?")
+                violations.append({
+                    "fund_id": fund_id,
+                    "reason": f"partial_scope:{in_scope}_of_{expected}_investments_included",
+                })
+                continue
+            if sc == "over_scope":
+                in_scope = scope_meta.get("investment_count", "?")
+                expected = scope_meta.get("expected_investment_count", "?")
+                violations.append({
+                    "fund_id": fund_id,
+                    "reason": f"over_scope:{in_scope}_investments_but_only_{expected}_exist_in_re_investment",
+                })
+                continue
 
         gross_irr = cm.get("gross_irr")
         if gross_irr is None:
@@ -430,6 +440,33 @@ def validate_snapshot_for_release(
                 else f"irr_untrusted:{irr_trust}"
             )
             violations.append({"fund_id": fund_id, "reason": reason})
+            continue
+
+        # IRR dispersion sanity gate: high-IRR + terminal-value-concentrated funds
+        # require explicit acknowledgement before promotion. This prevents a single
+        # large terminal value from producing a suspiciously high IRR that goes
+        # unreviewed. To pass: set null_reasons.dispersion_acknowledged=true in the
+        # snapshot row (or skip_gate=True for manual override).
+        try:
+            irr_float = float(gross_irr)
+        except (TypeError, ValueError):
+            irr_float = 0.0
+        terminal_value_pct = cm.get("terminal_value_pct")
+        if terminal_value_pct is not None:
+            try:
+                tv_float = float(terminal_value_pct)
+            except (TypeError, ValueError):
+                tv_float = 0.0
+            if irr_float > 0.40 and tv_float > 0.80:
+                if not null_reasons.get("dispersion_acknowledged"):
+                    violations.append({
+                        "fund_id": fund_id,
+                        "reason": (
+                            f"dispersion_warning_unacknowledged:"
+                            f"gross_irr={irr_float:.2%}_terminal_value_pct={tv_float:.2%}."
+                            " Set null_reasons.dispersion_acknowledged=true to release."
+                        ),
+                    })
 
     return {
         "ok": len(violations) == 0,
@@ -607,15 +644,22 @@ def promote_fund_snapshot(
                 snapshot_version, fund_id_str, quarter,
                 f"gate_fail:top_null_reason={top_reason}"
             )
-        # Scope completeness gate — partial_scope snapshots must never be promoted.
+        # Scope completeness gate — partial or over_scope snapshots must never be promoted.
         scope_meta = cm.get("scope") or {}
-        if isinstance(scope_meta, dict) and scope_meta.get("scope_completeness") == "partial":
+        if isinstance(scope_meta, dict):
+            sc = scope_meta.get("scope_completeness")
             in_scope = scope_meta.get("investment_count", "?")
             expected = scope_meta.get("expected_investment_count", "?")
-            raise ScopedPromotionError(
-                snapshot_version, fund_id_str, quarter,
-                f"gate_fail:partial_scope={in_scope}_of_{expected}_investments_included",
-            )
+            if sc == "partial":
+                raise ScopedPromotionError(
+                    snapshot_version, fund_id_str, quarter,
+                    f"gate_fail:partial_scope={in_scope}_of_{expected}_investments_included",
+                )
+            if sc == "over_scope":
+                raise ScopedPromotionError(
+                    snapshot_version, fund_id_str, quarter,
+                    f"gate_fail:over_scope={in_scope}_investments_but_only_{expected}_exist_in_re_investment",
+                )
         gross_irr = cm.get("gross_irr")
         if gross_irr is None:
             raise ScopedPromotionError(
@@ -628,6 +672,25 @@ def promote_fund_snapshot(
                 snapshot_version, fund_id_str, quarter,
                 f"gate_fail:irr_untrusted={irr_trust}"
             )
+        # IRR dispersion sanity gate — same rule as validate_snapshot_for_release.
+        try:
+            irr_float = float(gross_irr)
+        except (TypeError, ValueError):
+            irr_float = 0.0
+        terminal_value_pct = cm.get("terminal_value_pct")
+        null_reasons_check = target_row.get("null_reasons") or {}
+        if terminal_value_pct is not None:
+            try:
+                tv_float = float(terminal_value_pct)
+            except (TypeError, ValueError):
+                tv_float = 0.0
+            if irr_float > 0.40 and tv_float > 0.80 and not null_reasons_check.get("dispersion_acknowledged"):
+                raise ScopedPromotionError(
+                    snapshot_version, fund_id_str, quarter,
+                    f"gate_fail:dispersion_warning_unacknowledged:"
+                    f"gross_irr={irr_float:.2%}_terminal_value_pct={tv_float:.2%}."
+                    " Set null_reasons.dispersion_acknowledged=true to release.",
+                )
 
     # Capture the currently-released snapshot_version for this (fund_id, quarter)
     # before we change anything — used for lineage.
@@ -1041,8 +1104,21 @@ def get_released_portfolio_kpis(
     breakpoint_layers: list[str] = []
     provenance_rows: list[dict[str, Any]] = []
     artifact_paths: dict[str, Any] = {}
+    excluded_funds: list[dict[str, Any]] = []
 
     for row in rows:
+        # Homogeneity gate: exclude funds whose scope is not complete from aggregates.
+        # A partial or over_scope fund would silently distort portfolio NAV and IRR.
+        cm_check = row.get("canonical_metrics") or {}
+        scope_check = cm_check.get("scope") or {}
+        sc = scope_check.get("scope_completeness") if isinstance(scope_check, dict) else None
+        if sc in ("partial", "over_scope"):
+            excluded_funds.append({
+                "fund_id": row["fund_id"],
+                "reason": f"scope_not_complete:{sc}",
+                "snapshot_version": row.get("snapshot_version"),
+            })
+            continue
         metrics = row.get("canonical_metrics") or {}
         nav_value = _to_decimal(metrics.get("ending_nav") or metrics.get("portfolio_nav"))
         portfolio_nav += nav_value
@@ -1072,11 +1148,15 @@ def get_released_portfolio_kpis(
             nav_weighted_net += _to_decimal(net_irr) * nav_value
             nav_base_net += nav_value
 
-    unique_versions = sorted({row["snapshot_version"] for row in rows if row.get("snapshot_version")})
-    unique_run_ids = sorted({str(row["audit_run_id"]) for row in rows if row.get("audit_run_id")})
+    included_rows = [
+        row for row in rows
+        if row["fund_id"] not in {ef["fund_id"] for ef in excluded_funds}
+    ]
+    unique_versions = sorted({row["snapshot_version"] for row in included_rows if row.get("snapshot_version")})
+    unique_run_ids = sorted({str(row["audit_run_id"]) for row in included_rows if row.get("audit_run_id")})
     mixed_release_states = len(unique_versions) > 1
     per_fund_snapshot_version = {
-        row["fund_id"]: row.get("snapshot_version") for row in rows
+        row["fund_id"]: row.get("snapshot_version") for row in included_rows
     }
     warnings: list[str] = []
     if mixed_release_states:
@@ -1084,12 +1164,20 @@ def get_released_portfolio_kpis(
             "Portfolio contains funds from multiple snapshot_versions. "
             "Aggregate metrics blend methodologies — see per_fund_snapshot_version for breakdown."
         )
+    if excluded_funds:
+        fund_list = ", ".join(ef["fund_id"] for ef in excluded_funds)
+        warnings.append(
+            f"Portfolio aggregates exclude {len(excluded_funds)} fund(s) with incomplete scope "
+            f"(partial or over_scope): {fund_list}. Correct SELECTED_INVESTMENT_IDS and re-run."
+        )
     return {
         "env_id": str(env_id),
         "business_id": str(business_id),
         "quarter": quarter,
         "effective_quarter": quarter,
-        "fund_count": len(rows),
+        "fund_count": len(included_rows),
+        "excluded_fund_count": len(excluded_funds),
+        "excluded_funds": excluded_funds,
         "total_commitments": str(total_commitments),
         "portfolio_nav": str(portfolio_nav) if portfolio_nav != 0 else None,
         "active_assets": active_assets,

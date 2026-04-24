@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "a1b2c3d4-0002-0020-0002-000000000008",
+  "investment_name": "Stratford Village \u2013 Denver CO",
+  "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+  "fund_name": "Meridian Credit Opportunities Fund I",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "58133000.000000000000",
+    "ending_nav_full": "58194000.000000000000",
+    "beginning_nav_attributable": "58133000.000000000000",
+    "ending_nav_attributable": "58194000.000000000000",
+    "gross_operating_cash_flow_full": "-312096.16",
+    "fund_attributable_operating_cash_flow": "-312096.160000000000",
+    "effective_fund_ownership_percent": "1.000000000000",
+    "valuation_movement_full": "61000.000000000000",
+    "fund_attributable_valuation_movement": "61000.000000000000",
+    "gross_return_amount": "-251096.160000000000000000000000",
+    "gross_return_rate": "-0.004319339446",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-0.431933944600"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "c76af63f-42ce-4103-8c81-c89a1f796604"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "4a27d457-4015-4284-a851-cb8c35c134cf"
+    }
+  ]
+}

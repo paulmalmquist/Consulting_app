@@ -1,0 +1,18 @@
+[
+  {"event": "status",            "data": {"message": "Composing dashboard"}},
+  {"event": "structured_result", "data": {
+    "result_type": "dynamic_dashboard",
+    "card": {
+      "title": "Monthly operating report",
+      "widgets": [
+        {"type": "metrics_strip", "data": []},
+        {"type": "trend_line", "data": {}}
+      ]
+    }
+  }},
+  {"event": "done",              "data": {
+    "turn_receipt": {},
+    "trace": {"lane": "A", "execution_path": "meridian_structured_query", "elapsed_ms": 800},
+    "response_blocks": []
+  }}
+]

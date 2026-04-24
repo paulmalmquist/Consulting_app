@@ -1,0 +1,5 @@
+[
+  {"event": "token", "data": {"text": "ok"}},
+  {"event": "done",  "data": {"turn_receipt": {}, "trace": {"lane": "A", "execution_path": "chat", "elapsed_ms": 100}}},
+  {"event": "token", "data": {"text": "leaked after terminal"}}
+]

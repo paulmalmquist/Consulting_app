@@ -100,6 +100,7 @@ from app.routes import market_research_state
 from app.routes import rhymes
 from app.routes import podcast_intelligence
 from app.routes import hr as hr_routes
+from app.routes import altered_mind as altered_mind_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
 from app.routes import trades
@@ -109,6 +110,7 @@ from app.routes import unified_metrics
 from app.routes import operator
 from app.routes import site_risk
 from app.routes import pipeline_integrity
+from app.routes.winston_contract_admin import router as winston_contract_admin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -340,6 +342,9 @@ app.include_router(extraction.router)
 app.include_router(compliance.router)
 app.include_router(admin_tools.router)
 app.include_router(admin_prompt_receipts_router)
+from app.routes.winston_eval_admin import router as winston_eval_admin_router  # noqa: E402
+app.include_router(winston_eval_admin_router)
+app.include_router(winston_contract_admin_router)
 app.include_router(underwriting.router)
 app.include_router(real_estate.router)
 app.include_router(repe.router)
@@ -389,6 +394,7 @@ app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
 app.include_router(podcast_intelligence.router)
 app.include_router(hr_routes.router)
+app.include_router(altered_mind_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
 app.include_router(trades.router)

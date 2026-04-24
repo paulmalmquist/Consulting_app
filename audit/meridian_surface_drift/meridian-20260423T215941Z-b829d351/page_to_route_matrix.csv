@@ -1,0 +1,5 @@
+page,route,contract
+/lab/env/[envId]/re/portfolio,/api/re/v2/environments/[envId]/portfolio-kpis,authoritative_released_only
+/lab/env/[envId]/re/funds/[fundId],/api/re/v2/funds/[fundId]/returns/[quarter],authoritative_released_only
+Winston structured Meridian answer,backend/app/sql_agent/query_templates.py::repe.fund_performance_summary,authoritative_released_only
+/lab/env/[envId]/re/runs/quarter-close,/api/re/v2/funds/[fundId]/quarter-close,legacy_comparison_only

@@ -4476,8 +4476,9 @@ async def run_gateway_stream(
     new_conversation_created: bool = False,
 ) -> AsyncGenerator[str, None]:
     from app.assistant_runtime.request_lifecycle import run_request_lifecycle
+    from app.assistant_runtime.contract_enforcer import wrap_lifecycle_stream
 
-    async for sse_line in run_request_lifecycle(
+    upstream = run_request_lifecycle(
         message=message,
         session_id=session_id,
         conversation_id=conversation_id,
@@ -4491,5 +4492,13 @@ async def run_gateway_stream(
         pending_question_text=pending_question_text,
         request_id=request_id,
         new_conversation_created=new_conversation_created,
+    )
+    async for sse_line in wrap_lifecycle_stream(
+        upstream,
+        business_id=str(business_id) if business_id else None,
+        env_id=str(env_id) if env_id else None,
+        request_id=request_id,
+        conversation_id=str(conversation_id) if conversation_id else None,
+        session_id=session_id,
     ):
         yield sse_line

@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "d4560000-0456-0101-0008-000000000001",
+  "investment_name": "Northwest Commerce Center Acquisition",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "114349634.400000000000",
+    "ending_nav_full": "116991131.200000000000",
+    "beginning_nav_attributable": "97197189.240000000000",
+    "ending_nav_attributable": "99442461.520000000000",
+    "gross_operating_cash_flow_full": "-991591.78",
+    "fund_attributable_operating_cash_flow": "-842853.013000000000",
+    "effective_fund_ownership_percent": "0.850000000000000000000000",
+    "valuation_movement_full": "2641496.800000000000",
+    "fund_attributable_valuation_movement": "2245272.280000000000",
+    "gross_return_amount": "1402419.26700000000000000000000000000000000",
+    "gross_return_rate": "0.012264309146",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "1.226430914600"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "de993a25-36f4-4cff-97cc-78c694e8a7da"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "93966fa3-ffcc-4e25-b451-ef5031b5b210"
+    }
+  ]
+}

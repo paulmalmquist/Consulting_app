@@ -1,0 +1,98 @@
+name: Winston Eval Weekly
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"   # 04:00 UTC every Sunday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  eval:
+    name: Run Winston eval (full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      DATABASE_URL: ${{ secrets.WINSTON_EVAL_DATABASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STORAGE_BUCKET: documents
+      ALLOWED_ORIGINS: http://127.0.0.1:3000
+      WINSTON_EVAL_BUSINESS_ID: ${{ secrets.WINSTON_EVAL_BUSINESS_ID }}
+      WINSTON_EVAL_ENV_ID: ${{ secrets.WINSTON_EVAL_ENV_ID }}
+      AI_GATEWAY_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sanity-check secrets
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::WINSTON_EVAL_DATABASE_URL missing"; exit 1; fi
+          if [ -z "$WINSTON_EVAL_BUSINESS_ID" ]; then echo "::error::WINSTON_EVAL_BUSINESS_ID missing"; exit 1; fi
+
+      - name: Run Winston eval (full)
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/eval-loop
+          python -m eval_loop.runner \
+            --full \
+            --persist-postgres \
+            --persist-business-id "$WINSTON_EVAL_BUSINESS_ID" \
+            ${WINSTON_EVAL_ENV_ID:+--persist-env-id "$WINSTON_EVAL_ENV_ID"} \
+            --persist-trigger schedule \
+            --regressions-out artifacts/eval-loop/regressions.json \
+            --write-docs-report \
+            | tee artifacts/eval-loop/runner.stdout.txt
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winston-eval-weekly-${{ github.run_id }}
+          path: |
+            artifacts/eval-loop/
+            docs/ai-testing/reports/
+          retention-days: 60
+
+      - name: Open / update GitHub issue per regression
+        if: always() && hashFiles('artifacts/eval-loop/regressions.json') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/eval_regressions_to_issues.py \
+            --input artifacts/eval-loop/regressions.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --suite full \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      - name: Commit docs report
+        if: success()
+        run: |
+          git config user.name  "winston-eval[bot]"
+          git config user.email "winston-eval@users.noreply.github.com"
+          if [ -n "$(git status --porcelain docs/ai-testing/reports/ docs/LATEST.md 2>/dev/null)" ]; then
+            git add docs/ai-testing/reports/ docs/LATEST.md || true
+            git commit -m "chore(winston-eval): weekly report ${{ github.run_id }}" || true
+            git push || echo "::warning::Push failed (likely branch protection). Report is still in artifacts."
+          else
+            echo "No docs report changes to commit."
+          fi

@@ -1,0 +1,19 @@
+[
+  {"event": "status", "data": {"message": "routing"}},
+  {"event": "token",  "data": {"text": "Sure, here's the data."}},
+  {"event": "done",   "data": {
+    "turn_receipt": {"response_text": "Sure, here's the data."},
+    "trace": {
+      "lane": "F",
+      "execution_path": "fallback",
+      "elapsed_ms": 3100,
+      "runtime_identity": {
+        "path": "fallback",
+        "lane": "F",
+        "contract_version": "v1",
+        "request_lifecycle_version": "v1"
+      }
+    },
+    "response_blocks": []
+  }}
+]

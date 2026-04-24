@@ -1,0 +1,20 @@
+[
+  {"event": "status", "data": {"message": "Thinking...", "stage": "route"}},
+  {"event": "token",  "data": {"text": "Meridian Fund One "}},
+  {"event": "token",  "data": {"text": "holds three assets."}},
+  {"event": "done",   "data": {
+    "turn_receipt": {"response_text": "Meridian Fund One holds three assets."},
+    "trace": {
+      "lane": "A",
+      "execution_path": "chat",
+      "elapsed_ms": 1200,
+      "runtime_identity": {
+        "path": "canonical",
+        "lane": "A_FAST",
+        "contract_version": "v1",
+        "request_lifecycle_version": "v1"
+      }
+    },
+    "response_blocks": []
+  }}
+]

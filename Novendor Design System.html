@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Novendor — Design System Evolution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Abadi is a commercial Monotype face (not on Google Fonts). Self-host WOFF2 in /fonts and it will take
+     priority; the stack falls back to Gill Sans (macOS) / Verdana (Windows) / system sans otherwise. */
+  @font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Medium.woff2')  format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Bold.woff2')    format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+</style>
+<style>
+  /* ---------- TOKENS ---------- */
+  :root{
+    /* Background tiers — ink → graphite → slate, cool but not navy */
+    --bg-base:        #0B0E12;   /* oklch(17% .008 245) — deepest ink */
+    --bg-surface:     #12161C;   /* panel */
+    --bg-elevated:    #181D25;   /* card */
+    --bg-raised:      #1F2530;   /* overlay / popover */
+
+    /* Foreground */
+    --fg-primary:     #E7ECF2;   /* near-white, slight cool warmth */
+    --fg-secondary:   #A8B1BD;
+    --fg-tertiary:    #6C7684;
+    --fg-muted:       #4A525E;
+
+    /* Hairlines — never pure white/gray, always tinted */
+    --hair-soft:      rgba(232,236,242,0.06);
+    --hair-medium:    rgba(232,236,242,0.10);
+    --hair-strong:    rgba(232,236,242,0.16);
+    --edge-top:       rgba(255,255,255,0.06);   /* edge lighting */
+    --edge-top-hi:    rgba(255,255,255,0.10);
+
+    /* Accents — controlled, desaturated, same lightness band */
+    --accent-teal:     #4FB3A9;   /* oklch(72% .09 190) — primary */
+    --accent-teal-ink: #1E4E4A;   /* darker rail */
+    --accent-copper:   #C8895A;   /* oklch(68% .11 52) — secondary warmth */
+    --accent-copper-ink:#5A3A24;
+
+    /* Semantic — share 65-72% L so nothing shouts */
+    --sem-success:    #6BAE7F;   /* muted emerald */
+    --sem-warning:    #D1A15B;   /* amber, aligned w/ copper */
+    --sem-risk:       #D47A72;   /* clay red, not fire red */
+    --sem-info:       var(--accent-teal);
+
+    /* Type scale — Abadi is a humanist sans from Monotype (Ong Chong Wah, 1987). Warm, editorial,
+       slightly condensed. Distinctive enough to anchor display without feeling techy or generic. */
+    --font-display: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+    --font-sans:    "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-body:    "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-mono:    "Geist Mono", ui-monospace, monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 18px;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html,body{ background: var(--bg-base); color: var(--fg-primary); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  body{
+    /* very subtle ambient wash — not a gradient landing page, just depth */
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(79,179,169,0.045), transparent 60%),
+      radial-gradient(900px 500px at 95% 110%, rgba(200,137,90,0.035), transparent 60%),
+      var(--bg-base);
+    min-height: 100vh;
+  }
+
+  /* ---------- LAYOUT SHELL ---------- */
+  .page{ max-width: 1320px; margin: 0 auto; padding: 72px 48px 120px; }
+
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-tertiary);
+  }
+  .eyebrow .dot{ display:inline-block; width:5px; height:5px; border-radius:50%; background: var(--accent-teal); margin-right:8px; vertical-align: middle; box-shadow: 0 0 8px rgba(79,179,169,0.5); }
+
+  h1.display{
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 84px;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    color: var(--fg-primary);
+    margin: 18px 0 24px;
+    max-width: 960px;
+    text-wrap: balance;
+  }
+  h1.display em{ font-style: normal; color: var(--accent-teal); font-weight: 500; }
+  .lede{
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--fg-secondary);
+    max-width: 680px;
+    text-wrap: pretty;
+  }
+
+  /* Section header */
+  .section{ margin-top: 96px; }
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--hair-medium);
+    margin-bottom: 36px;
+  }
+  .section-head .left{ display:flex; align-items:baseline; gap: 20px; }
+  .section-head h2{
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 40px;
+    letter-spacing: -0.022em;
+    color: var(--fg-primary);
+  }
+  .section-head .ix{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-tertiary);
+    letter-spacing: 0.1em;
+  }
+  .section-head .right{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* ---------- CARDS (core surface) ---------- */
+  .card{
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0) 30%),
+      var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-top),        /* edge light */
+      0 1px 0 0 rgba(0,0,0,0.4),
+      0 20px 40px -20px rgba(0,0,0,0.6);
+    transition: box-shadow 140ms ease, transform 140ms ease;
+  }
+  .card:hover{
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-top-hi),
+      0 1px 0 0 rgba(0,0,0,0.4),
+      0 24px 48px -20px rgba(0,0,0,0.7);
+  }
+  .card-pad{ padding: 24px; }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    display:grid; grid-template-columns: 1.2fr 1fr; gap: 48px;
+    align-items: end;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--hair-medium);
+  }
+  .hero-meta{
+    display:flex; gap: 32px; margin-top: 40px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-tertiary);
+    letter-spacing: 0.08em;
+  }
+  .hero-meta span strong{ color: var(--fg-secondary); font-weight: 500; }
+
+  .hero-panel{
+    padding: 28px;
+    background:
+      linear-gradient(180deg, rgba(79,179,169,0.04), rgba(79,179,169,0) 50%),
+      var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-top-hi),
+      inset 0 0 0 1px var(--hair-soft);
+  }
+  .hero-panel .line{ display:flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--hair-soft); font-family: var(--font-mono); font-size: 12px; }
+  .hero-panel .line:last-child{ border-bottom: none; }
+  .hero-panel .line .k{ color: var(--fg-tertiary); letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+  .hero-panel .line .v{ color: var(--fg-primary); }
+
+  /* ---------- TYPOGRAPHY SECTION ---------- */
+  .type-grid{
+    display:grid; grid-template-columns: 2fr 1fr; gap: 32px;
+  }
+  .type-specimen{
+    padding: 40px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.015), transparent 40%),
+      var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-top),
+      inset 0 0 0 1px var(--hair-soft);
+  }
+  .type-row{
+    display:grid; grid-template-columns: 150px 1fr; gap: 32px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--hair-soft);
+    align-items: baseline;
+  }
+  .type-row:last-child{ border-bottom:none; }
+  .type-row .meta{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--fg-tertiary);
+    letter-spacing: 0.08em;
+    line-height: 1.5;
+  }
+  .type-row .meta strong{ display:block; color: var(--fg-secondary); font-weight: 500; text-transform: uppercase; }
+  .spec-h1{ font-family: var(--font-display); font-size:68px; font-weight:500; letter-spacing:-0.025em; line-height:1.02; color: var(--fg-primary); }
+  .spec-h2{ font-family: var(--font-display); font-size:44px; font-weight:500; letter-spacing:-0.02em; line-height:1.1; color: var(--fg-primary); }
+  .spec-h3{ font-family: var(--font-sans); font-size:20px; font-weight:500; letter-spacing:-0.01em; line-height:1.3; color: var(--fg-primary); text-transform: none; }
+  .spec-body{ font-family: var(--font-body); font-weight:400; font-size:15px; line-height:1.65; color: var(--fg-secondary); max-width: 54ch; }
+  .spec-small{ font-family: var(--font-body); font-size:13px; line-height:1.5; color: var(--fg-tertiary); }
+  .spec-label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color: var(--fg-tertiary); font-weight: 500; }
+
+  .type-notes{
+    padding: 28px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+  }
+  .type-notes h4{
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.015em;
+    color: var(--fg-primary);
+    margin-bottom: 16px;
+  }
+  .type-notes dl{ display:grid; grid-template-columns: 88px 1fr; gap: 10px 16px; font-size: 13px; line-height:1.5; }
+  .type-notes dt{ color: var(--fg-tertiary); font-family: var(--font-mono); font-size: 11px; letter-spacing:0.08em; text-transform: uppercase; padding-top: 2px; }
+  .type-notes dd{ color: var(--fg-secondary); }
+  .type-notes dd strong{ color: var(--fg-primary); font-weight:500; }
+  .type-notes + .type-notes{ margin-top: 20px; }
+
+  /* Hero usage example */
+  .hero-usage{
+    grid-column: 1 / -1;
+    margin-top: 28px;
+    padding: 56px;
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(900px 400px at 20% 20%, rgba(79,179,169,0.08), transparent 60%),
+      radial-gradient(600px 300px at 95% 110%, rgba(200,137,90,0.05), transparent 70%),
+      var(--bg-surface);
+    box-shadow: inset 0 1px 0 var(--edge-top-hi), inset 0 0 0 1px var(--hair-soft);
+  }
+  .hero-usage .eyebrow{ margin-bottom: 16px; }
+  .hero-usage h3{
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 72px;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    max-width: 860px;
+    margin-bottom: 24px;
+    text-wrap: balance;
+  }
+  .hero-usage h3 em{ font-style: normal; color: var(--accent-teal); font-weight: 500; }
+  .hero-usage p{ font-size: 17px; color: var(--fg-secondary); max-width: 560px; line-height: 1.55; }
+  .hero-usage .cta-row{ display:flex; gap: 12px; margin-top: 32px; }
+
+  /* ---------- COLOR SECTION ---------- */
+  .color-block{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .color-block.accents{ grid-template-columns: repeat(4, 1fr); }
+  .swatch{
+    padding: 20px;
+    border-radius: var(--radius-md);
+    position: relative;
+    min-height: 128px;
+    display:flex; flex-direction: column; justify-content: space-between;
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+  }
+  .swatch .name{ font-family: var(--font-sans); font-size: 14px; font-weight: 500; color: var(--fg-primary); letter-spacing: -0.005em; }
+  .swatch .role{ font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-tertiary); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+  .swatch .hex{ font-family: var(--font-mono); font-size: 12px; color: var(--fg-secondary); margin-top: 24px; }
+  .swatch .usage{ font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-muted); margin-top: 6px; letter-spacing: 0.04em; }
+
+  .swatch-base{ background: var(--bg-base); }
+  .swatch-surface{ background: var(--bg-surface); }
+  .swatch-elevated{ background: var(--bg-elevated); }
+  .swatch-raised{ background: var(--bg-raised); }
+
+  .swatch-teal{ background: linear-gradient(180deg, rgba(79,179,169,0.22), rgba(79,179,169,0.08)), var(--bg-elevated); }
+  .swatch-teal .name{ color: var(--accent-teal); }
+  .swatch-copper{ background: linear-gradient(180deg, rgba(200,137,90,0.22), rgba(200,137,90,0.08)), var(--bg-elevated); }
+  .swatch-copper .name{ color: var(--accent-copper); }
+
+  .swatch-success{ background: linear-gradient(180deg, rgba(107,174,127,0.18), rgba(107,174,127,0.06)), var(--bg-elevated); }
+  .swatch-success .name{ color: var(--sem-success); }
+  .swatch-warning{ background: linear-gradient(180deg, rgba(209,161,91,0.18), rgba(209,161,91,0.06)), var(--bg-elevated); }
+  .swatch-warning .name{ color: var(--sem-warning); }
+  .swatch-risk{ background: linear-gradient(180deg, rgba(212,122,114,0.18), rgba(212,122,114,0.06)), var(--bg-elevated); }
+  .swatch-risk .name{ color: var(--sem-risk); }
+  .swatch-info{ background: linear-gradient(180deg, rgba(79,179,169,0.18), rgba(79,179,169,0.06)), var(--bg-elevated); }
+  .swatch-info .name{ color: var(--sem-info); }
+
+  .color-caption{ margin-top: 36px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-tertiary); letter-spacing: 0.06em; line-height: 1.7; }
+  .color-caption strong{ color: var(--fg-secondary); font-weight: 500; }
+
+  /* Layered surfaces demo */
+  .depth-demo{
+    margin-top: 32px;
+    padding: 48px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-base);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+    display:flex; align-items:center; justify-content: center; gap: 20px;
+    min-height: 260px;
+  }
+  .depth-slab{
+    width: 180px; height: 180px; border-radius: var(--radius-md);
+    padding: 16px;
+    display:flex; flex-direction:column; justify-content: space-between;
+    box-shadow: inset 0 1px 0 var(--edge-top), 0 18px 30px -18px rgba(0,0,0,0.6);
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--fg-tertiary); text-transform: uppercase;
+  }
+  .depth-slab .dlabel{ color: var(--fg-secondary); }
+  .depth-slab .dhex{ color: var(--fg-muted); }
+  .d1{ background: var(--bg-base); }
+  .d2{ background: var(--bg-surface); }
+  .d3{ background: var(--bg-elevated); }
+  .d4{ background: var(--bg-raised); }
+
+  /* ---------- COMPONENT SECTION ---------- */
+  .comp-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .comp-grid .full{ grid-column: 1 / -1; }
+
+  .comp-title{
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: -0.005em;
+    color: var(--fg-primary);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .comp-title .num{ font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-tertiary); letter-spacing: 0.1em; }
+
+  /* Buttons */
+  .btn{
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: all 140ms ease;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary{
+    color: #0B1E1C;
+    background: linear-gradient(180deg, #5EC2B7, var(--accent-teal));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      0 1px 0 rgba(0,0,0,0.4),
+      0 8px 20px -8px rgba(79,179,169,0.5);
+  }
+  .btn-primary:hover{ transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 10px 24px -8px rgba(79,179,169,0.6); }
+  .btn-secondary{
+    color: var(--fg-primary);
+    background: var(--bg-raised);
+    box-shadow:
+      inset 0 1px 0 var(--edge-top-hi),
+      inset 0 0 0 1px var(--hair-medium);
+  }
+  .btn-secondary:hover{ background: #252C38; }
+  .btn-ghost{
+    color: var(--fg-secondary);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--hair-medium);
+  }
+  .btn-ghost:hover{ color: var(--fg-primary); background: rgba(255,255,255,0.025); }
+
+  .btn-row{ display:flex; gap: 12px; align-items:center; flex-wrap: wrap; }
+
+  /* Nav pills / tabs */
+  .tabs{
+    display: inline-flex;
+    padding: 4px;
+    background: var(--bg-base);
+    border-radius: var(--radius-md);
+    box-shadow: inset 0 0 0 1px var(--hair-soft);
+    gap: 2px;
+  }
+  .tab{
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 6px;
+    color: var(--fg-tertiary);
+    cursor: pointer;
+    transition: all 140ms ease;
+    letter-spacing: -0.003em;
+  }
+  .tab:hover{ color: var(--fg-secondary); }
+  .tab.active{
+    color: var(--fg-primary);
+    background: var(--bg-elevated);
+    box-shadow: inset 0 1px 0 var(--edge-top-hi), 0 1px 0 rgba(0,0,0,0.3);
+  }
+
+  /* Rail nav */
+  .rail-nav{ display:flex; flex-direction: column; gap: 2px; }
+  .rail-item{
+    padding: 9px 14px;
+    border-radius: var(--radius-sm);
+    color: var(--fg-tertiary);
+    font-size: 13px;
+    display:flex; justify-content: space-between;
+    transition: all 120ms ease;
+    cursor: pointer;
+    position: relative;
+  }
+  .rail-item .count{ font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+  .rail-item:hover{ color: var(--fg-secondary); background: rgba(255,255,255,0.02); }
+  .rail-item.active{
+    color: var(--fg-primary);
+    background: linear-gradient(90deg, rgba(79,179,169,0.08), transparent 80%);
+  }
+  .rail-item.active::before{
+    content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 2px; background: var(--accent-teal);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(79,179,169,0.6);
+  }
+  .rail-item.active .count{ color: var(--accent-teal); }
+
+  /* KPI / data highlight */
+  .kpi{
+    padding: 22px 24px;
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%),
+      var(--bg-elevated);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi .klabel{ display:flex; align-items:baseline; gap: 10px; margin-bottom: 8px; }
+  .kpi .klabel .k{ font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-tertiary); letter-spacing: 0.12em; text-transform: uppercase; }
+  .kpi .klabel .sub{ font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); letter-spacing: 0.08em; }
+  .kpi .kvalue{
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--fg-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .kpi .kdelta{
+    display:inline-flex; align-items:center; gap: 6px;
+    margin-top: 10px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--sem-success);
+  }
+  .kpi .kdelta.down{ color: var(--sem-risk); }
+  .kpi .kdelta .arrow{ font-size: 9px; }
+  .kpi .spark{
+    position: absolute; right: 20px; bottom: 18px; height: 28px; width: 92px;
+    opacity: 0.85;
+  }
+
+  /* Badges / pills (restrained) */
+  .pill{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .pill .dot{ width: 5px; height: 5px; border-radius: 50%; }
+  .pill-teal{ color: var(--accent-teal); background: rgba(79,179,169,0.10); box-shadow: inset 0 0 0 1px rgba(79,179,169,0.25); }
+  .pill-teal .dot{ background: var(--accent-teal); }
+  .pill-copper{ color: var(--accent-copper); background: rgba(200,137,90,0.10); box-shadow: inset 0 0 0 1px rgba(200,137,90,0.25); }
+  .pill-copper .dot{ background: var(--accent-copper); }
+  .pill-success{ color: var(--sem-success); background: rgba(107,174,127,0.10); box-shadow: inset 0 0 0 1px rgba(107,174,127,0.22); }
+  .pill-success .dot{ background: var(--sem-success); }
+  .pill-warning{ color: var(--sem-warning); background: rgba(209,161,91,0.10); box-shadow: inset 0 0 0 1px rgba(209,161,91,0.22); }
+  .pill-warning .dot{ background: var(--sem-warning); }
+  .pill-risk{ color: var(--sem-risk); background: rgba(212,122,114,0.10); box-shadow: inset 0 0 0 1px rgba(212,122,114,0.22); }
+  .pill-risk .dot{ background: var(--sem-risk); }
+  .pill-muted{ color: var(--fg-tertiary); background: rgba(255,255,255,0.03); box-shadow: inset 0 0 0 1px var(--hair-medium); }
+  .pill-muted .dot{ background: var(--fg-tertiary); }
+
+  /* ---------- BEFORE / AFTER ---------- */
+  .ba-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .ba-card{
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+  }
+  .ba-head{
+    padding: 14px 20px;
+    display:flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--hair-soft);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .ba-head .label{ color: var(--fg-secondary); }
+  .ba-head .tag{ color: var(--fg-muted); }
+  .ba-body{ padding: 28px; min-height: 340px; }
+
+  /* BEFORE: terminal look */
+  .before-bg{ background: #0a0f1f; }
+  .before-bg .ba-body{ font-family: 'JetBrains Mono', monospace; color: #4ade80; font-size: 12px; line-height: 1.8; }
+  .before-bg .row{ display:flex; justify-content:space-between; }
+  .before-bg .cyan{ color:#22d3ee; }
+  .before-bg .yellow{ color:#fbbf24; }
+  .before-bg .dim{ color:#475569; }
+  .before-bg .val{ color:#e2e8f0; font-size: 22px; font-weight: 700; display:block; margin-top:2px; }
+  .before-bg .big-num{ color:#22d3ee; font-size: 34px; font-weight: 700; text-shadow: 0 0 12px rgba(34,211,238,0.5); }
+  .before-bg .pill-ter{ display:inline-block; padding: 3px 8px; border-radius: 999px; border: 1px solid #22d3ee; color:#22d3ee; font-size: 10px; text-transform: uppercase; box-shadow: 0 0 8px rgba(34,211,238,0.35); }
+
+  /* AFTER: evolved */
+  .after-bg{
+    background:
+      radial-gradient(600px 300px at 10% -10%, rgba(79,179,169,0.06), transparent 60%),
+      var(--bg-surface);
+  }
+  .after-bg .ba-body{ padding: 24px; }
+  .after-kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .after-act{ margin-top: 18px; display:flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 11.5px; color: var(--fg-tertiary); }
+  .after-act .ln{ display:grid; grid-template-columns: 60px 80px 1fr; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--hair-soft); }
+  .after-act .ln:last-child{ border:none; }
+  .after-act .ts{ color: var(--fg-muted); }
+  .after-act .who{ color: var(--fg-secondary); }
+  .after-act .msg{ color: var(--fg-tertiary); }
+  .after-act .msg strong{ color: var(--fg-primary); font-weight: 500; }
+
+  /* Explainer */
+  .ba-explain{
+    margin-top: 32px;
+    display:grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  .explain{
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+  }
+  .explain h4{ font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.015em; margin-bottom: 16px; color: var(--fg-primary); }
+  .explain ul{ list-style: none; display:flex; flex-direction: column; gap: 12px; }
+  .explain li{
+    display:grid; grid-template-columns: 24px 1fr; gap: 12px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--fg-secondary);
+  }
+  .explain li .i{ font-family: var(--font-mono); font-size: 11px; color: var(--accent-teal); padding-top: 2px; }
+  .explain li strong{ color: var(--fg-primary); font-weight: 500; }
+
+  /* ---------- MOTION SECTION ---------- */
+  .motion-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .motion-card{
+    padding: 24px; border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);
+    min-height: 180px;
+    display:flex; flex-direction: column; gap: 12px;
+    cursor: pointer;
+    transition: all 160ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .motion-card:hover{ transform: translateY(-2px); }
+  .motion-card h5{ font-family: var(--font-sans); font-weight: 500; font-size: 14px; color: var(--fg-primary); }
+  .motion-card p{ font-size: 12.5px; color: var(--fg-tertiary); line-height: 1.5; font-family: var(--font-mono); letter-spacing: 0.02em; }
+
+  /* hover glow - subtle edge brighten */
+  .motion-card.glow::after{
+    content:''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(79,179,169,0.12), transparent 40%);
+    opacity: 0;
+    transition: opacity 240ms ease;
+    pointer-events: none;
+  }
+  .motion-card.glow:hover::after{ opacity: 1; }
+
+  .motion-card.sweep::before{
+    content:''; position: absolute; top:0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.035), transparent);
+    transition: left 700ms ease;
+  }
+  .motion-card.sweep:hover::before{ left: 100%; }
+
+  .motion-card .numblock{
+    font-family: var(--font-display);
+    font-size: 44px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--fg-primary);
+    font-variant-numeric: tabular-nums;
+    margin-top: auto;
+    line-height: 1;
+  }
+  .motion-card.counter:hover .numblock{ color: var(--accent-teal); transition: color 300ms ease; }
+
+  /* ---------- TIPS MD ---------- */
+  .tips{
+    margin-top: 48px;
+    padding: 48px;
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(180deg, rgba(200,137,90,0.035), transparent 40%),
+      var(--bg-surface);
+    box-shadow: inset 0 1px 0 var(--edge-top-hi), inset 0 0 0 1px var(--hair-soft);
+  }
+  .tips .fileheader{
+    display:flex; align-items:center; gap: 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hair-soft);
+    margin-bottom: 28px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-tertiary);
+    letter-spacing: 0.1em;
+  }
+  .tips .fileheader .fname{ color: var(--fg-secondary); }
+  .tips h3{ font-family: var(--font-display); font-weight: 500; font-size: 38px; letter-spacing: -0.02em; color: var(--fg-primary); margin-bottom: 10px; }
+  .tips .tip-sub{ font-size: 14px; color: var(--fg-tertiary); margin-bottom: 36px; }
+  .tip-list{ display:grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; }
+  .tip-item{ padding-left: 16px; border-left: 1px solid var(--hair-medium); }
+  .tip-item .num{ font-family: var(--font-mono); font-size: 10.5px; color: var(--accent-teal); letter-spacing: 0.1em; }
+  .tip-item h5{ font-family: var(--font-sans); font-weight: 500; font-size: 15px; color: var(--fg-primary); margin: 4px 0 8px; letter-spacing: -0.005em; }
+  .tip-item p{ font-size: 13.5px; color: var(--fg-secondary); line-height: 1.55; }
+  .tip-item p strong{ color: var(--fg-primary); font-weight: 500; }
+
+  /* footer */
+  .footer{
+    margin-top: 96px;
+    padding-top: 28px;
+    border-top: 1px solid var(--hair-soft);
+    display:flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--fg-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ============== HERO ============== -->
+  <section class="hero">
+    <div>
+      <div class="eyebrow"><span class="dot"></span>Novendor · Design System · v2.0 · Draft</div>
+      <h1 class="display">Evolve from terminal to <em>control system.</em></h1>
+      <p class="lede">A refined visual language for Novendor — dark, deliberate, engineered. Less hacker aesthetic, more operating layer. This document defines type, color, surfaces, and motion; no layout rewrite required.</p>
+      <div class="hero-meta">
+        <span><strong>STATUS</strong> · ready for review</span>
+        <span><strong>SCOPE</strong> · marketing + app</span>
+        <span><strong>IMPL</strong> · tailwind compatible</span>
+      </div>
+    </div>
+    <div class="hero-panel">
+      <div class="line"><span class="k">palette</span><span class="v">ink / graphite / teal / copper</span></div>
+      <div class="line"><span class="k">typeface</span><span class="v">Abadi + Geist + Geist Mono</span></div>
+      <div class="line"><span class="k">surfaces</span><span class="v">edge-lit, layered</span></div>
+      <div class="line"><span class="k">motion</span><span class="v">120ms ease-out</span></div>
+      <div class="line"><span class="k">tone</span><span class="v">calm authority</span></div>
+    </div>
+  </section>
+
+  <!-- ============== TYPOGRAPHY ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="left">
+        <span class="ix">A · 01</span>
+        <h2>Typography</h2>
+      </div>
+      <div class="right">editorial · controlled · warm</div>
+    </div>
+
+    <div class="type-grid">
+      <div class="type-specimen">
+        <div class="type-row">
+          <div class="meta"><strong>H1 · Display</strong>Abadi 500<br>68 / 1.02 / -0.025</div>
+          <div class="spec-h1">Operations, without the <em style="color:var(--accent-teal); font-style:normal;">overhead</em>.</div>
+        </div>
+        <div class="type-row">
+          <div class="meta"><strong>H2 · Section</strong>Abadi 500<br>44 / 1.1 / -0.02</div>
+          <div class="spec-h2">One surface for every <em style="color:var(--accent-copper); font-style:normal;">pipeline</em>.</div>
+        </div>
+        <div class="type-row">
+          <div class="meta"><strong>H3 · UI Head</strong>Geist 500<br>20 / 1.3 / -0.01</div>
+          <div class="spec-h3">Held orders, EMEA, above $50k</div>
+        </div>
+        <div class="type-row">
+          <div class="meta"><strong>Body</strong>Geist 400<br>15 / 1.65 / 0</div>
+          <div class="spec-body">Novendor is a control system for operations teams running mission-critical pipelines. We replace brittle scripts and terminal workflows with a calm, deliberate interface — so your team can patch, override, and ship without losing the thread.</div>
+        </div>
+        <div class="type-row">
+          <div class="meta"><strong>Small</strong>Geist 400<br>13 / 1.5 / 0</div>
+          <div class="spec-small">Optimized for dashboards and dense secondary copy. Still warm, still readable at 13px on dark backgrounds.</div>
+        </div>
+        <div class="type-row">
+          <div class="meta"><strong>Label · Mono</strong>Geist Mono 500<br>11 / 1.4 / +0.14</div>
+          <div class="spec-label">ID · ORD-14829 · kafka/orders.v2</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="type-notes">
+          <h4>Font choices</h4>
+          <dl>
+            <dt>Display</dt>
+            <dd><strong>Abadi</strong> (Monotype, Ong Chong Wah) — humanist sans with subtle editorial character. Slightly condensed proportions and warm terminals give it presence without feeling techy. Used for marketing heroes, section heads, and large numerics.</dd>
+            <dt>Sans</dt>
+            <dd><strong>Geist</strong> — crisp modern sans. Body copy, UI subheads, buttons, table cells. The geometric precision against Abadi's warmth is the core type contrast.</dd>
+            <dt>Mono</dt>
+            <dd><strong>Geist Mono</strong> — pairs natively with Geist. Reserved for IDs, timestamps, labels, command snippets — nothing else.</dd>
+          </dl>
+        </div>
+        <div class="type-notes">
+          <h4>Rules</h4>
+          <dl>
+            <dt>Tracking</dt>
+            <dd>Display −0.025em. Body 0. Mono labels +0.14em uppercase.</dd>
+            <dt>Weights</dt>
+            <dd>Display 500 (medium). Sans 400/500. No 700 anywhere. <strong>No italics anywhere</strong> — emphasis via color or weight only.</dd>
+            <dt>Licensing</dt>
+            <dd>Abadi is a commercial Monotype face. Self-host WOFF2 in <code>/fonts</code>; the <code>@font-face</code> block at the top of this file picks them up. Fallback stack: Gill Sans (macOS) → Verdana (Windows) → system sans.</dd>
+            <dt>Numerics</dt>
+            <dd><strong>tabular-nums</strong> on all KPIs, tables, deltas.</dd>
+            <dt>Mono restraint</dt>
+            <dd>Mono is a seasoning, not a base. Never set body copy, section heads, or buttons in mono.</dd>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Hero usage example -->
+      <div class="hero-usage">
+        <div class="eyebrow"><span class="dot"></span>USAGE · HERO / MARKETING</div>
+        <h3>The <em>control layer</em> for teams that ship operations.</h3>
+        <p>Replace ten dashboards, six Slack channels, and a spreadsheet of overrides with one surface. Patch live systems with a paper trail you can defend.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary">Request access →</button>
+          <button class="btn btn-ghost">Read the spec</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== COLOR ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="left">
+        <span class="ix">B · 02</span>
+        <h2>Color system</h2>
+      </div>
+      <div class="right">dark · layered · controlled</div>
+    </div>
+
+    <div class="eyebrow" style="margin-bottom:18px;">background tiers · ink → graphite → slate</div>
+    <div class="color-block">
+      <div class="swatch swatch-base">
+        <div><div class="name">Ink (base)</div><div class="role">app canvas</div></div>
+        <div><div class="hex">#0B0E12</div><div class="usage">body · full-bleed surfaces</div></div>
+      </div>
+      <div class="swatch swatch-surface">
+        <div><div class="name">Graphite (surface)</div><div class="role">panel</div></div>
+        <div><div class="hex">#12161C</div><div class="usage">side rails · containers</div></div>
+      </div>
+      <div class="swatch swatch-elevated">
+        <div><div class="name">Slate (elevated)</div><div class="role">card</div></div>
+        <div><div class="hex">#181D25</div><div class="usage">cards · KPI tiles</div></div>
+      </div>
+      <div class="swatch swatch-raised">
+        <div><div class="name">Fog (raised)</div><div class="role">overlay</div></div>
+        <div><div class="hex">#1F2530</div><div class="usage">popovers · modals · menus</div></div>
+      </div>
+    </div>
+
+    <div class="eyebrow" style="margin: 36px 0 18px;">accents · desaturated, same lightness band</div>
+    <div class="color-block accents">
+      <div class="swatch swatch-teal">
+        <div><div class="name">Teal (primary)</div><div class="role">brand · action</div></div>
+        <div><div class="hex">#4FB3A9</div><div class="usage">oklch(72% .09 190)</div></div>
+      </div>
+      <div class="swatch swatch-copper">
+        <div><div class="name">Copper (secondary)</div><div class="role">warmth · emphasis</div></div>
+        <div><div class="hex">#C8895A</div><div class="usage">oklch(68% .11 52)</div></div>
+      </div>
+      <div class="swatch swatch-success">
+        <div><div class="name">Emerald</div><div class="role">success</div></div>
+        <div><div class="hex">#6BAE7F</div><div class="usage">synced · healthy · nominal</div></div>
+      </div>
+      <div class="swatch swatch-warning">
+        <div><div class="name">Amber</div><div class="role">warning</div></div>
+        <div><div class="hex">#D1A15B</div><div class="usage">degraded · stale · hold</div></div>
+      </div>
+    </div>
+
+    <div class="color-block accents" style="margin-top:16px; grid-template-columns: repeat(4, 1fr);">
+      <div class="swatch swatch-risk">
+        <div><div class="name">Clay</div><div class="role">risk · error</div></div>
+        <div><div class="hex">#D47A72</div><div class="usage">failed · override · high-risk</div></div>
+      </div>
+      <div class="swatch swatch-info">
+        <div><div class="name">Teal (info)</div><div class="role">info</div></div>
+        <div><div class="hex">#4FB3A9</div><div class="usage">systems · live · active</div></div>
+      </div>
+      <div class="swatch" style="background: var(--bg-elevated);">
+        <div><div class="name" style="color:var(--fg-primary);">Foreground</div><div class="role">text / icon</div></div>
+        <div><div class="hex" style="color: var(--fg-primary);">#E7ECF2 · primary</div><div class="usage" style="color:var(--fg-secondary);">#A8B1BD · secondary · #6C7684 · tertiary</div></div>
+      </div>
+      <div class="swatch" style="background: var(--bg-elevated);">
+        <div><div class="name" style="color:var(--fg-secondary);">Hairlines</div><div class="role">borders · dividers</div></div>
+        <div><div class="hex" style="color: var(--fg-secondary);">rgba(232,236,242,0.06–0.16)</div><div class="usage">never pure gray; always tinted</div></div>
+      </div>
+    </div>
+
+    <div class="color-caption">
+      <strong>Philosophy.</strong> Accents share the same lightness band (~68–72% L) so the interface never shouts. Semantic colors are <em>desaturated siblings</em> of the accents — the old neon cyan/green is gone. Borders are hairlines tinted with the foreground color, never pure white or gray.
+    </div>
+
+    <!-- layered depth demo -->
+    <div class="depth-demo">
+      <div class="depth-slab d1"><span class="dlabel">Base</span><span class="dhex">#0B0E12</span></div>
+      <div class="depth-slab d2"><span class="dlabel">Surface</span><span class="dhex">#12161C</span></div>
+      <div class="depth-slab d3"><span class="dlabel">Elevated</span><span class="dhex">#181D25</span></div>
+      <div class="depth-slab d4"><span class="dlabel">Raised</span><span class="dhex">#1F2530</span></div>
+    </div>
+  </section>
+
+  <!-- ============== COMPONENTS ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="left">
+        <span class="ix">C · 03</span>
+        <h2>Components</h2>
+      </div>
+      <div class="right">edge-lit · layered · quiet</div>
+    </div>
+
+    <div class="comp-grid">
+
+      <!-- KPI -->
+      <div class="card card-pad full">
+        <div class="comp-title">Data highlights <span class="num">KPI · tabular-nums · Abadi 500</span></div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+          <div class="kpi">
+            <div class="klabel"><span class="k">GMV</span><span class="sub">24h</span></div>
+            <div class="kvalue">$14.38M</div>
+            <div class="kdelta"><span class="arrow">▲</span>+2.34% vs 24h prior</div>
+            <svg class="spark" viewBox="0 0 92 28" fill="none"><path d="M0 22 L10 19 L20 21 L30 14 L40 16 L52 9 L62 12 L74 6 L84 8 L92 3" stroke="#4FB3A9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M0 22 L10 19 L20 21 L30 14 L40 16 L52 9 L62 12 L74 6 L84 8 L92 3 L92 28 L0 28 Z" fill="url(#gtl)"/><defs><linearGradient id="gtl" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4FB3A9" stop-opacity="0.3"/><stop offset="1" stop-color="#4FB3A9" stop-opacity="0"/></linearGradient></defs></svg>
+          </div>
+          <div class="kpi">
+            <div class="klabel"><span class="k">Orders</span><span class="sub">MTD</span></div>
+            <div class="kvalue">1,284</div>
+            <div class="kdelta"><span class="arrow">▲</span>+118 this week</div>
+            <svg class="spark" viewBox="0 0 92 28" fill="none"><path d="M0 20 L12 18 L24 21 L36 15 L48 17 L60 11 L72 13 L84 7 L92 5" stroke="#4FB3A9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="kpi">
+            <div class="klabel"><span class="k">P95 latency</span><span class="sub">live</span></div>
+            <div class="kvalue">482<span style="font-size:20px; color: var(--fg-tertiary);">ms</span></div>
+            <div class="kdelta down"><span class="arrow">▲</span>+44ms over threshold</div>
+            <svg class="spark" viewBox="0 0 92 28" fill="none"><path d="M0 20 L12 18 L24 16 L36 18 L48 14 L60 12 L72 9 L84 6 L92 4" stroke="#C8895A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="card card-pad">
+        <div class="comp-title">Buttons <span class="num">primary · secondary · ghost</span></div>
+        <div class="btn-row" style="margin-bottom: 16px;">
+          <button class="btn btn-primary">Create patch →</button>
+          <button class="btn btn-secondary">Preview</button>
+          <button class="btn btn-ghost">Cancel</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" style="padding: 6px 12px; font-size:12px;">Run</button>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;">Diff</button>
+          <span class="pill pill-teal"><span class="dot"></span>READY</span>
+          <span class="pill pill-copper"><span class="dot"></span>PENDING</span>
+          <span class="pill pill-risk"><span class="dot"></span>OVERRIDE</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="card card-pad">
+        <div class="comp-title">Nav tabs <span class="num">inset track · active = elevated surface</span></div>
+        <div class="tabs">
+          <div class="tab">Overview</div>
+          <div class="tab active">Orders</div>
+          <div class="tab">Risk</div>
+          <div class="tab">Pipelines</div>
+          <div class="tab">Nodes</div>
+          <div class="tab">Patches</div>
+        </div>
+        <div style="margin-top: 18px; font-size: 12.5px; color: var(--fg-tertiary); line-height:1.55;">
+          Tabs sit on an inset track. Active state is an <strong style="color:var(--fg-secondary);">elevated surface</strong>, not a glowing underline. Inactive tabs step down two tiers to tertiary foreground.
+        </div>
+      </div>
+
+      <!-- Rail nav -->
+      <div class="card card-pad">
+        <div class="comp-title">Rail nav · saved views <span class="num">left-accent · no borders</span></div>
+        <div class="rail-nav">
+          <div class="rail-item">All orders <span class="count">12,308</span></div>
+          <div class="rail-item active">Held / EMEA / &gt;$50k <span class="count">142</span></div>
+          <div class="rail-item">Broken pipelines <span class="count">8</span></div>
+          <div class="rail-item">Manual overrides <span class="count">17</span></div>
+          <div class="rail-item">Stale &gt; 14m <span class="count">44</span></div>
+        </div>
+      </div>
+
+      <!-- Badges / semantic -->
+      <div class="card card-pad">
+        <div class="comp-title">Status pills <span class="num">semantic · restrained</span></div>
+        <div style="display:flex; flex-wrap: wrap; gap: 8px;">
+          <span class="pill pill-success"><span class="dot"></span>SYNCED</span>
+          <span class="pill pill-teal"><span class="dot"></span>LIVE</span>
+          <span class="pill pill-copper"><span class="dot"></span>PATCHING</span>
+          <span class="pill pill-warning"><span class="dot"></span>DEGRADED</span>
+          <span class="pill pill-risk"><span class="dot"></span>FAILED</span>
+          <span class="pill pill-muted"><span class="dot"></span>STALE</span>
+          <span class="pill pill-muted"><span class="dot"></span>IDLE · 41m</span>
+        </div>
+        <div style="margin-top: 18px; font-size: 12.5px; color: var(--fg-tertiary); line-height:1.55;">
+          Pills are 4px radius — not fully rounded. No glow, no ring. Dot + short caps label. Same family across every surface.
+        </div>
+      </div>
+    </div>
+
+    <!-- Component rules -->
+    <div style="margin-top: 24px; display:grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="explain">
+        <h4>Card rules</h4>
+        <ul>
+          <li><span class="i">01</span><span><strong>Edge lighting, not full borders.</strong> 1px inset highlight on the top edge (rgba 0.06). Bottom-shadow carries weight.</span></li>
+          <li><span class="i">02</span><span><strong>12px radius on cards, 8px on controls.</strong> Pills at 4px. Never mix.</span></li>
+          <li><span class="i">03</span><span><strong>Subtle top-gradient wash</strong> on elevated surfaces (~2% white over tier color) — gives productized sheen without being a gradient landing page.</span></li>
+          <li><span class="i">04</span><span><strong>Hover = edge brightens 4%, lift 1–2px.</strong> No color swap, no scale, no pulse.</span></li>
+        </ul>
+      </div>
+      <div class="explain">
+        <h4>Hierarchy rules</h4>
+        <ul>
+          <li><span class="i">01</span><span><strong>Contrast carries hierarchy, not color.</strong> Primary FG, secondary FG, tertiary FG — in that order, always.</span></li>
+          <li><span class="i">02</span><span><strong>Accent = meaning.</strong> Teal is action or "live." Copper is emphasis or secondary action. Never decorative.</span></li>
+          <li><span class="i">03</span><span><strong>One accent per surface.</strong> Cards with teal numbers don't also get copper chrome.</span></li>
+          <li><span class="i">04</span><span><strong>Labels are mono, values are display.</strong> This contrast replaces the old "everything is monospace" feel.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== BEFORE / AFTER ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="left">
+        <span class="ix">D · 04</span>
+        <h2>Before &amp; after</h2>
+      </div>
+      <div class="right">same content · different tone</div>
+    </div>
+
+    <div class="ba-grid">
+      <div class="ba-card before-bg">
+        <div class="ba-head"><span class="label" style="color:#94a3b8;">BEFORE · terminal</span><span class="tag">v1.x</span></div>
+        <div class="ba-body">
+          <div class="row"><span class="cyan">GMV · 24H</span><span class="dim">kafka/orders.v2</span></div>
+          <span class="big-num">$14.38M</span>
+          <div style="color:#4ade80; margin-top: 4px;">+2.34% ▲</div>
+          <div style="margin-top: 20px; border-top: 1px dashed #1e293b; padding-top: 14px;">
+            <div class="row"><span class="cyan">ORD-14829</span><span class="pill-ter">MED</span></div>
+            <div class="row"><span class="dim">EMEA → JFK · s.chen</span><span class="yellow">$182,340.00 ▲+2.3</span></div>
+          </div>
+          <div style="margin-top: 18px; color:#64748b;">14:22:08 ▲ s.chen override route-07</div>
+          <div style="color:#64748b;">14:21:44 ! system returned 504 · last ok 41m</div>
+          <div style="color:#64748b;">14:21:02 › m.ortega saved view held/emea/gt50k</div>
+        </div>
+      </div>
+
+      <div class="ba-card after-bg">
+        <div class="ba-head"><span class="label">AFTER · control system</span><span class="tag" style="color: var(--accent-teal);">v2.0</span></div>
+        <div class="ba-body">
+          <div class="after-kpis">
+            <div class="kpi" style="padding: 16px 18px;">
+              <div class="klabel"><span class="k">GMV</span><span class="sub">24h</span></div>
+              <div class="kvalue" style="font-size:26px;">$14.38M</div>
+              <div class="kdelta" style="font-size:10.5px;"><span class="arrow">▲</span>+2.34%</div>
+            </div>
+            <div class="kpi" style="padding: 16px 18px;">
+              <div class="klabel"><span class="k">Orders</span><span class="sub">MTD</span></div>
+              <div class="kvalue" style="font-size:26px;">1,284</div>
+              <div class="kdelta" style="font-size:10.5px;"><span class="arrow">▲</span>+118</div>
+            </div>
+            <div class="kpi" style="padding: 16px 18px;">
+              <div class="klabel"><span class="k">P95</span><span class="sub">live</span></div>
+              <div class="kvalue" style="font-size:26px;">482<span style="font-size:14px;color:var(--fg-tertiary);">ms</span></div>
+              <div class="kdelta down" style="font-size:10.5px;"><span class="arrow">▲</span>+44ms</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 18px; padding: 14px 16px; border-radius: 8px; background: var(--bg-elevated); box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft);">
+            <div style="display:flex; justify-content: space-between; align-items:center;">
+              <div style="display:flex; gap: 14px; align-items:center;">
+                <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--fg-secondary); letter-spacing:0.06em;">ORD-14829</span>
+                <span style="font-size: 12.5px; color: var(--fg-tertiary);">EMEA → JFK · s.chen</span>
+              </div>
+              <div style="display:flex; gap: 10px; align-items:center;">
+                <span class="pill pill-warning"><span class="dot"></span>MED</span>
+                <span style="font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--fg-primary);">$182,340.00</span>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--sem-success);">▲+2.3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="after-act">
+            <div class="ln"><span class="ts">14:22:08</span><span class="who">s.chen</span><span class="msg">override <strong>route-07</strong> · expires 45m</span></div>
+            <div class="ln"><span class="ts">14:21:44</span><span class="who">system</span><span class="msg">coinbase-rates returned <strong>504</strong> · last ok 41m</span></div>
+            <div class="ln"><span class="ts">14:21:02</span><span class="who">m.ortega</span><span class="msg">saved view <strong>held/emea/gt50k</strong></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ba-explain">
+      <div class="explain">
+        <h4>How this fixes the "terminal look"</h4>
+        <ul>
+          <li><span class="i">01</span><span>Mono is <strong>demoted</strong> — only IDs, timestamps, and system labels. Numbers and headlines move to <strong>Abadi</strong> (humanist sans) with tabular-nums.</span></li>
+          <li><span class="i">02</span><span>Neon cyan/green replaced with <strong>desaturated teal and copper</strong> in the same lightness band. Glows removed; weight comes from typography.</span></li>
+          <li><span class="i">03</span><span>Fully-rounded pills and bright outlines gone. Pills are <strong>4px radius, 1px hairline, caps label</strong> — functional, not decorative.</span></li>
+          <li><span class="i">04</span><span>The screen reads as <strong>a product surface</strong>, not a console buffer. Same density, new tone.</span></li>
+        </ul>
+      </div>
+      <div class="explain">
+        <h4>How this fixes the "generic React SaaS feel"</h4>
+        <ul>
+          <li><span class="i">01</span><span>No Tailwind-default <strong>slate-900 / indigo-500</strong>. The palette is custom ink + controlled teal in oklch — recognizably not a starter template.</span></li>
+          <li><span class="i">02</span><span>Cards use <strong>edge lighting and layered depth</strong> instead of 1px borders. This is the single biggest shift from "SaaS dashboard" to "instrument panel."</span></li>
+          <li><span class="i">03</span><span>Type pairing is <strong>genuinely distinct</strong>, not "Inter for everything." A humanist sans (Abadi) for authority, a geometric sans (Geist) for precision, Geist Mono for system. Three voices, one system.</span></li>
+          <li><span class="i">04</span><span>Accents are <strong>semantic, not decorative</strong>. Copper isn't used to make something "pop" — it marks a specific class of state.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== MOTION ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="left">
+        <span class="ix">E · 05</span>
+        <h2>Motion &amp; hover</h2>
+      </div>
+      <div class="right">120–180ms · ease-out · restrained</div>
+    </div>
+
+    <div class="motion-grid">
+      <div class="motion-card glow">
+        <div class="eyebrow">HOVER · EDGE GLOW</div>
+        <h5>Edge lighting brightens</h5>
+        <p>hover → top-edge highlight<br>0.06 → 0.10 opacity<br>140ms ease-out</p>
+      </div>
+      <div class="motion-card sweep">
+        <div class="eyebrow">HOVER · SHEEN</div>
+        <h5>Sheen sweep, once</h5>
+        <p>subtle light pass across<br>card on first hover<br>700ms · 3.5% white</p>
+      </div>
+      <div class="motion-card counter">
+        <div class="eyebrow">KPI · COUNT-UP</div>
+        <h5>Numbers ease up</h5>
+        <div class="numblock">$14.38M</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 24px; padding: 24px 28px; border-radius: var(--radius-lg); background: var(--bg-surface); box-shadow: inset 0 1px 0 var(--edge-top), inset 0 0 0 1px var(--hair-soft); display:grid; grid-template-columns: repeat(4, 1fr); gap: 28px; font-size: 13px; color: var(--fg-secondary); line-height: 1.6;">
+      <div><div class="eyebrow" style="margin-bottom:8px;">DURATION</div>120ms controls · 180ms cards · 280ms page. Never longer.</div>
+      <div><div class="eyebrow" style="margin-bottom:8px;">EASING</div>cubic-bezier(0.2, 0.8, 0.2, 1) · ease-out for entries, ease-in-out for hovers.</div>
+      <div><div class="eyebrow" style="margin-bottom:8px;">NEVER</div>Pulsing "live" dots. Neon glows. Spinner explosions. Bounce.</div>
+      <div><div class="eyebrow" style="margin-bottom:8px;">ALWAYS</div>Reduced-motion fallback. Functional motion only — never decorative.</div>
+    </div>
+  </section>
+
+  <!-- ============== TIPS.MD ============== -->
+  <section class="section">
+    <div class="tips">
+      <div class="fileheader">
+        <span>//</span><span class="fname">tips.md</span><span>·</span><span>project-root</span><span>·</span><span>append-only</span>
+      </div>
+      <h3>Design System Evolution — Marketing vs Terminal</h3>
+      <p class="tip-sub">Reusable rules for moving a "competent engineering" UI into a premium product surface, without rewriting layout.</p>
+
+      <div class="tip-list">
+        <div class="tip-item">
+          <span class="num">01 · TYPE</span>
+          <h5>Demote mono to a seasoning</h5>
+          <p>Monospace creates a "terminal" feel the moment it touches body copy or headings. Reserve it for <strong>IDs, timestamps, labels, and code</strong>. Everything else moves to a display/body sans pairing. This single change does more than any color swap.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">02 · TYPE</span>
+          <h5>Pair a display cut with a body cut</h5>
+          <p>Don't use one font for everything. Pair a <strong>humanist display sans</strong> (Abadi, Gill Sans, GT America) for marketing authority with a <strong>crisp geometric sans</strong> (Geist, Söhne) for UI. The tension between the two is what reads as premium — not a single tight cut of Inter.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">03 · COLOR</span>
+          <h5>Ditch Tailwind defaults</h5>
+          <p>Anything sitting on <code>slate-900 + indigo-500 + emerald-500</code> reads as a template. Define the palette in <strong>oklch</strong>, keep accents in the same lightness band (~68–72% L), and use <strong>ink/graphite/slate</strong> tones instead of pure navy.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">04 · COLOR</span>
+          <h5>Accent ≠ decoration</h5>
+          <p>Every accent color must carry a meaning. If you can't answer "what does teal mean on this surface," remove it. A good system has <strong>2 accents max</strong> (primary + secondary warmth), and the semantic palette sits beside them at the same chroma.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">05 · SURFACE</span>
+          <h5>Edge lighting beats full borders</h5>
+          <p>1px borders on cards scream "dashboard." Replace them with <strong>an inset 1px top-edge highlight</strong> and a soft bottom shadow. This is the single biggest shift from "SaaS panel" to "instrument card."</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">06 · SURFACE</span>
+          <h5>Build depth, not decoration</h5>
+          <p>Use 3–4 background tiers (base → surface → elevated → raised). Hierarchy comes from <strong>tier stepping</strong>, not outlines. A popover is raised above a card; a card is raised above a panel. This is how instruments feel layered.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">07 · MOTION</span>
+          <h5>Kill the neon glow, keep the discipline</h5>
+          <p>Pulsing dots and glowing pills read as <strong>cyberpunk cliché</strong>. Replace with restrained transitions: edge brightens on hover, numbers count up, cards lift 1–2px. 120ms ease-out; nothing longer than 280ms.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">08 · VOICE</span>
+          <h5>Marketing surfaces &amp; app surfaces share DNA</h5>
+          <p>Same type, same palette, same surface grammar — just different density. The landing page uses the same card chrome as the Orders view. Users arriving from the site into the product should feel <strong>zero seam</strong>.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">09 · DENSITY</span>
+          <h5>Hierarchy via contrast, not decoration</h5>
+          <p>When everything is outlined, nothing is. Drop 80% of borders. Replace them with <strong>foreground contrast tiers</strong> (primary / secondary / tertiary). If a thing needs to recede, desaturate its text — don't add a box around the things that don't.</p>
+        </div>
+        <div class="tip-item">
+          <span class="num">10 · IMPL</span>
+          <h5>Tailwind-compatible without a rewrite</h5>
+          <p>All tokens live as CSS variables in <code>:root</code>; extend <code>tailwind.config</code> to reference them (<code>bg-base</code>, <code>bg-surface</code>, <code>accent-teal</code>, etc). No utility changes at the component call-site. One theme file replaces the old palette.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>NOVENDOR · DESIGN SYSTEM · V2.0 · DRAFT</span>
+    <span>GENERATED · APR 2026 · READY FOR REVIEW</span>
+  </footer>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,169 @@
+{
+  "kind": "fund_decomposition.prod_real_receipt",
+  "generated_at": "20260423T194920Z",
+  "disclaimer": "PRODUCTION receipt against Railway backend (same prod DB, no stubs). IRR may be null with documented null_reason if re_investment_cf_series_mat has not yet been populated by the bottom-up CF refresh job \u2014 this is correct behavior. TVPI/DPI identity closes from re_investment_quarter_state regardless of CF series state.",
+  "substrate": {
+    "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+    "quarter": "2026Q2",
+    "fund_name": "Institutional Growth Fund VII",
+    "backend": "https://authentic-sparkle-production-7f37.up.railway.app",
+    "source": "production DB via Railway HTTP (no stubs)",
+    "capability_probe": {
+      "capable": true,
+      "error_code": null,
+      "reasons": [],
+      "missing_migrations": [],
+      "missing_tables": [],
+      "fund_count": 12,
+      "fund": {
+        "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+        "exists": true,
+        "investment_count": 20
+      }
+    }
+  },
+  "beats": {
+    "1_capability_probe_capable": {
+      "capable": true,
+      "fund_count": 12,
+      "fund": {
+        "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+        "exists": true,
+        "investment_count": 20
+      },
+      "pass": true
+    },
+    "2_baseline_authoritative_visible": {
+      "trust_status": "trusted",
+      "snapshot_version": "meridian-20260421T151330Z-325c3fa0",
+      "promotion_state": "released",
+      "gross_irr": 0.5340307732730141,
+      "tvpi": 1.978495932383,
+      "dpi": 0.194975188619,
+      "pass": true
+    },
+    "3_exclude_one_investment_shifts_metrics": {
+      "excluded_investment": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+      "excluded_name": "Ironworks Mixed-Use",
+      "full_set": {
+        "gross_irr": -0.134172,
+        "tvpi": 0.8096773440019627,
+        "dpi": 0.04049337898214555
+      },
+      "subset": {
+        "gross_irr": -0.128542,
+        "tvpi": 0.8260844715152026,
+        "dpi": 0.04117069703378031
+      },
+      "delta_gross_irr_bps": 56.3,
+      "delta_tvpi": 0.016407,
+      "delta_dpi": 0.000677,
+      "irr_changed": true,
+      "tvpi_changed": true,
+      "dpi_changed": true,
+      "pass": true
+    },
+    "4_metrics_stable_on_round_trip_toggle": {
+      "original_gross_irr": -0.134172,
+      "round_trip_gross_irr": -0.134172,
+      "original_tvpi": 0.8096773440019627,
+      "round_trip_tvpi": 0.8096773440019627,
+      "pass": true
+    },
+    "5_net_irr_nulls_correctly": {
+      "net_irr": null,
+      "net_irr_null_reason": "net_irr_not_dimensional_to_investment_subset",
+      "carry": null,
+      "carry_null_reason": "out_of_scope_requires_waterfall",
+      "gp_share_null_reason": "out_of_scope_requires_waterfall",
+      "pass": true
+    },
+    "6_explain_action_carries_selection_context": {
+      "investment_count": 20,
+      "marginal_bps_available": 20,
+      "top_marginal_contributors": [
+        {
+          "investment_id": "5b642a1e-feb7-4407-b38e-cdd2649c1b77",
+          "name": "Lakeside Senior Living",
+          "irr_marginal_bps": 98.91
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0001-000000000001",
+          "name": "Meadowview Apartments Acquisition",
+          "irr_marginal_bps": 52.16
+        },
+        {
+          "investment_id": "d4560000-0456-0101-0006-000000000001",
+          "name": "Lone Star Distribution Acquisition",
+          "irr_marginal_bps": 50.37
+        }
+      ],
+      "bottom_marginal_contributors": [
+        {
+          "investment_id": "594a1367-8109-49db-a353-44685fe6578e",
+          "name": "Suburban Office Park",
+          "irr_marginal_bps": -238.05
+        },
+        {
+          "investment_id": "6a793adf-cdfb-49f3-8a2e-440d38c48dea",
+          "name": "Ironworks Mixed-Use",
+          "irr_marginal_bps": -56.3
+        },
+        {
+          "investment_id": "6c6f1416-e1a4-43ff-bbe6-cad3967f97ff",
+          "name": "Downtown Mixed-Use",
+          "irr_marginal_bps": -33.29
+        }
+      ],
+      "note": null,
+      "pass": true
+    }
+  },
+  "identity_checks_full_set": [
+    {
+      "name": "tvpi_identity",
+      "passed": true,
+      "delta": 0.0,
+      "tolerance": 1e-09
+    },
+    {
+      "name": "dpi_identity",
+      "passed": true,
+      "delta": 0.0,
+      "tolerance": 1e-09
+    },
+    {
+      "name": "full_set_matches_baseline",
+      "passed": false,
+      "delta_gross_irr_bps": 6682.027732730141,
+      "delta_tvpi": 1.1688185883810374,
+      "tolerance_gross_irr_bps": 5,
+      "tolerance_tvpi": 0.005,
+      "applied": true
+    },
+    {
+      "name": "order_independent",
+      "passed": true,
+      "cache_key_hash": "1981a304bc85d995",
+      "tolerance": "hash_stable"
+    },
+    {
+      "name": "no_future_cf",
+      "passed": true,
+      "last_quarter": "2026Q2",
+      "as_of_quarter_end": "2026-06-30"
+    }
+  ],
+  "state_origin": "decomposition_overlay",
+  "provenance_full_set": {
+    "cf_substrate": "re_investment_cf_series_mat (via compute_fund_rollup)",
+    "paid_in_substrate": "re_investment_quarter_state",
+    "xirr_engine": "app.finance.irr_engine.xirr",
+    "cache_key_hash": "1981a304bc85d995"
+  },
+  "summary": {
+    "all_beats_pass": true,
+    "total_beats": 6,
+    "passing": 6
+  }
+}

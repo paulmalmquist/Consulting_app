@@ -1,0 +1,19 @@
+[
+  {"event": "status",                 "data": {"message": "Understanding request"}},
+  {"event": "clarification_required", "data": {"questions": [{"id": "q1", "text": "Which fund?"}]}},
+  {"event": "done",                   "data": {
+    "turn_receipt": {"response_text": ""},
+    "trace": {
+      "lane": "B",
+      "execution_path": "clarification",
+      "elapsed_ms": 400,
+      "runtime_identity": {
+        "path": "canonical",
+        "lane": "B_LOOKUP",
+        "contract_version": "v1",
+        "request_lifecycle_version": "v1"
+      }
+    },
+    "response_blocks": []
+  }}
+]

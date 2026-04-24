@@ -1,0 +1,9 @@
+[
+  {"event": "status", "data": {"message": "Drafting"}},
+  {"event": "token",  "data": {"text": "You asked about fund 7b8f3c6e-1234-4abc-8d9e-00112233aabb — here's the detail."}},
+  {"event": "done",   "data": {
+    "turn_receipt": {"response_text": "You asked about fund 7b8f3c6e-1234-4abc-8d9e-00112233aabb — here's the detail."},
+    "trace": {"lane": "B", "execution_path": "tool", "elapsed_ms": 1100},
+    "response_blocks": []
+  }}
+]

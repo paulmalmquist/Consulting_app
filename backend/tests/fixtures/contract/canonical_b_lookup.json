@@ -1,0 +1,22 @@
+[
+  {"event": "status",          "data": {"message": "Looking up..."}},
+  {"event": "tool_call",       "data": {"tool_name": "lookup_entity", "args": {"name": "Meridian"}}},
+  {"event": "tool_result",     "data": {"tool_name": "lookup_entity", "result": {"found": true, "id": "fund-1"}}},
+  {"event": "token",           "data": {"text": "Meridian Fund One is an open fund."}},
+  {"event": "response_block",  "data": {"block": {"type": "markdown", "content": "Details..."}}},
+  {"event": "done",            "data": {
+    "turn_receipt": {"response_text": "Meridian Fund One is an open fund."},
+    "trace": {
+      "lane": "B",
+      "execution_path": "tool",
+      "elapsed_ms": 2800,
+      "runtime_identity": {
+        "path": "canonical",
+        "lane": "B_LOOKUP",
+        "contract_version": "v1",
+        "request_lifecycle_version": "v1"
+      }
+    },
+    "response_blocks": [{"type": "markdown", "content": "Details..."}]
+  }}
+]

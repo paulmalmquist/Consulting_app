@@ -1,0 +1,4 @@
+[
+  {"event": "status", "data": {"message": "Routing"}},
+  {"event": "error",  "data": {"message": "OPENAI_API_KEY not configured", "debug": "missing env"}}
+]

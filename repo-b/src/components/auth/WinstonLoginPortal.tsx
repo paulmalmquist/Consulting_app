@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input";
 import { applyEnvironmentClientState } from "@/lib/platformSessionClient";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
+const AUTH_UNAVAILABLE_MESSAGE = "Login is currently unavailable. Please try again shortly.";
+
 function panelInputClassName() {
   return "h-12 rounded-xl border-white/12 bg-white/[0.08] text-white placeholder:text-white/32 focus-visible:border-white/24 focus-visible:shadow-[0_0_0_1px_rgba(255,255,255,0.14)]";
 }
@@ -33,14 +35,18 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<"auth" | "infra" | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setErrorKind(null);
 
     const client = getSupabaseBrowserClient();
     if (!client) {
-      setError("Supabase is not configured in this environment.");
+      console.error("Auth client unavailable: Supabase env vars missing or placeholder.");
+      setError(AUTH_UNAVAILABLE_MESSAGE);
+      setErrorKind("infra");
       return;
     }
 
@@ -52,7 +58,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       const { data } = await client.auth.getSession();
       const accessToken = data.session?.access_token;
       if (!accessToken) {
-        throw new Error("Supabase session was not established");
+        throw new Error("Session could not be established");
       }
 
       const response = await fetch("/api/auth/session", {
@@ -83,6 +89,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Authentication failed");
+      setErrorKind("auth");
     } finally {
       setLoading(false);
     }
@@ -144,7 +151,7 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
                 WINSTON
               </h1>
               <p className="max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-                Winston is a full-stack operating system I built for real estate, consulting, and AI delivery. After sign-in, you&apos;ll see the workspaces available to your account.
+                Winston is the execution layer behind Novendor. Sign in to access your environments.
               </p>
             </div>
 
@@ -197,7 +204,13 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
               </label>
 
               {error ? (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                <div
+                  className={
+                    errorKind === "infra"
+                      ? "rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white/52"
+                      : "rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+                  }
+                >
                   {error}
                 </div>
               ) : null}

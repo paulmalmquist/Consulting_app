@@ -18,7 +18,8 @@ export function PsychragAuthForm({ mode }: { mode: "login" | "signup" }) {
     event.preventDefault();
     const client = getPsychragSupabaseClient();
     if (!client) {
-      setError("Supabase is not configured in this environment.");
+      console.error("Auth client unavailable: Supabase env vars missing or placeholder.");
+      setError("Login is currently unavailable. Please try again shortly.");
       return;
     }
 

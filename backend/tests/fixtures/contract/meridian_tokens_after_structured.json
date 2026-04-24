@@ -1,0 +1,21 @@
+[
+  {"event": "status",            "data": {"message": "Running structured query"}},
+  {"event": "structured_result", "data": {"result_type": "scenario_comparison", "card": {"title": "Q3 fund returns", "rows": [{"label": "TVPI", "value": 1.72}]}}},
+  {"event": "token",             "data": {"text": "TVPI of 1.72 "}},
+  {"event": "token",             "data": {"text": "reflects a healthy Q3."}},
+  {"event": "done",              "data": {
+    "turn_receipt": {"response_text": "TVPI of 1.72 reflects a healthy Q3."},
+    "trace": {
+      "lane": "A",
+      "execution_path": "meridian_structured_query",
+      "elapsed_ms": 900,
+      "runtime_identity": {
+        "path": "fast",
+        "lane": "A_FAST",
+        "contract_version": "v1",
+        "request_lifecycle_version": "v1"
+      }
+    },
+    "response_blocks": []
+  }}
+]

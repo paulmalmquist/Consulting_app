@@ -217,9 +217,13 @@ def _build_trace(
     if turn_receipt.status != TurnStatus.SUCCESS and turn_receipt.structured_query is None:
         execution_path = "unavailable"
     warnings = [turn_receipt.degraded_reason] if turn_receipt.degraded_reason else []
+    from app.assistant_runtime.response_contract import build_runtime_identity
+    short_lane = turn_receipt.lane.value.split("_", 1)[0]
+    runtime_identity = build_runtime_identity(lane=short_lane, execution_path=execution_path)
     return {
         "execution_path": execution_path,
-        "lane": turn_receipt.lane.value.split("_", 1)[0],
+        "lane": short_lane,
+        "runtime_identity": runtime_identity,
         "model": model,
         "prompt_tokens": 0,
         "completion_tokens": 0,

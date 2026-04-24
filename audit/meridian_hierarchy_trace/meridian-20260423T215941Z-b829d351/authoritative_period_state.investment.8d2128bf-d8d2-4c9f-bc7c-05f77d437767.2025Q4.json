@@ -1,0 +1,75 @@
+{
+  "entity_type": "investment",
+  "investment_id": "8d2128bf-d8d2-4c9f-bc7c-05f77d437767",
+  "investment_name": "Harborview Logistics Park",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "63988092.990000000000",
+    "ending_nav_full": "62689525.820000000000",
+    "beginning_nav_attributable": "51190474.392000000000",
+    "ending_nav_attributable": "50151620.656000000000",
+    "gross_operating_cash_flow_full": "44991.40",
+    "fund_attributable_operating_cash_flow": "35993.120000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "-1298567.170000000000",
+    "fund_attributable_valuation_movement": "-1038853.736000000000",
+    "gross_return_amount": "-1002860.61600000000000000000000000000000000",
+    "gross_return_rate": "-0.015672612968",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "-1.567261296800"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "3fdbebb9-b1fe-4d5d-8256-8e0ac88a075b"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "a838dc3c-7da7-45c5-8562-43a7088c6153"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "1d6d3149-44ad-43f7-9f44-74f1d1cee52f"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "c75e5996-2005-4611-b370-09e7bf270453"
+    }
+  ]
+}

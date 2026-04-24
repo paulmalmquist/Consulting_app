@@ -1,0 +1,81 @@
+{
+  "kind": "fund_decomposition.prod_real_receipt",
+  "generated_at": "20260423T162204Z",
+  "disclaimer": "PRODUCTION receipt against Railway backend (same prod DB, no stubs). IRR may be null with documented null_reason if re_investment_cf_series_mat has not yet been populated by the bottom-up CF refresh job \u2014 this is correct behavior. TVPI/DPI identity closes from re_investment_quarter_state regardless of CF series state.",
+  "substrate": {
+    "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+    "quarter": "2026Q2",
+    "fund_name": "Institutional Growth Fund VII",
+    "backend": "https://authentic-sparkle-production-7f37.up.railway.app",
+    "source": "production DB via Railway HTTP (no stubs)",
+    "capability_probe": {
+      "capable": true,
+      "error_code": null,
+      "reasons": [],
+      "missing_migrations": [],
+      "missing_tables": [],
+      "fund_count": 12,
+      "fund": {
+        "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+        "exists": true,
+        "investment_count": 20
+      }
+    }
+  },
+  "beats": {
+    "1_capability_probe_capable": {
+      "capable": true,
+      "fund_count": 12,
+      "fund": {
+        "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+        "exists": true,
+        "investment_count": 20
+      },
+      "pass": true
+    },
+    "2_baseline_authoritative_visible": {
+      "trust_status": null,
+      "snapshot_version": null,
+      "promotion_state": null,
+      "gross_irr": null,
+      "tvpi": null,
+      "dpi": null,
+      "pass": false
+    },
+    "3_exclude_one_investment_shifts_metrics": {
+      "note": "no investments returned",
+      "pass": false
+    },
+    "4_metrics_stable_on_round_trip_toggle": {
+      "original_gross_irr": null,
+      "round_trip_gross_irr": -0.134172,
+      "original_tvpi": null,
+      "round_trip_tvpi": 0.8096773440019627,
+      "pass": false
+    },
+    "5_net_irr_nulls_correctly": {
+      "net_irr": null,
+      "net_irr_null_reason": null,
+      "carry": null,
+      "carry_null_reason": null,
+      "gp_share_null_reason": null,
+      "pass": false
+    },
+    "6_explain_action_carries_selection_context": {
+      "investment_count": 0,
+      "marginal_bps_available": 0,
+      "top_marginal_contributors": [],
+      "bottom_marginal_contributors": [],
+      "note": "irr_marginal_bps null \u2014 CF series not yet seeded in re_investment_cf_series_mat",
+      "pass": false
+    }
+  },
+  "identity_checks_full_set": [],
+  "state_origin": null,
+  "provenance_full_set": {},
+  "summary": {
+    "all_beats_pass": false,
+    "total_beats": 6,
+    "passing": 1
+  }
+}
