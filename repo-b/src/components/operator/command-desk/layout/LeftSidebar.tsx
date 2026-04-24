@@ -25,6 +25,27 @@ type LeftSidebarProps = {
   footer?: ReactNode;
 };
 
+// Hard-coded palette so the sidebar renders correctly in any context —
+// not just inside [data-command-desk] where CSS tokens are scoped.
+const SB = {
+  bg: "rgba(10, 14, 20, 0.98)",
+  border: "rgba(255,255,255,0.10)",
+  sectionDivider: "rgba(255,255,255,0.07)",
+  sectionLabel: "rgba(220,230,240,0.42)",
+  itemInactive: "rgba(220,230,240,0.68)",
+  itemHover: "rgba(255,255,255,0.92)",
+  itemActive: "#ffffff",
+  itemActiveBg: "rgba(0,220,255,0.10)",
+  itemActiveBorder: "#00DCFF",
+  itemDisabled: "rgba(255,255,255,0.22)",
+  badgeBorder: "rgba(255,255,255,0.14)",
+  badgeText: "rgba(220,230,240,0.50)",
+  badgeBg: "rgba(255,255,255,0.04)",
+  backBorder: "rgba(255,255,255,0.14)",
+  backColor: "rgba(220,230,240,0.60)",
+  footerText: "rgba(220,230,240,0.42)",
+} as const;
+
 export function LeftSidebar({
   brand,
   sections,
@@ -37,9 +58,10 @@ export function LeftSidebar({
     <aside
       style={{
         width,
-        flex: "none",
-        background: "var(--bg-void)",
-        borderRight: "1px solid var(--line-2)",
+        minWidth: width,
+        flexShrink: 0,
+        background: SB.bg,
+        borderRight: `1px solid ${SB.border}`,
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
@@ -49,7 +71,7 @@ export function LeftSidebar({
       <div
         style={{
           padding: "12px 14px",
-          borderBottom: "1px solid var(--line-2)",
+          borderBottom: `1px solid ${SB.border}`,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -64,8 +86,8 @@ export function LeftSidebar({
             title="Back to Operator"
             style={{
               background: "transparent",
-              border: "1px solid var(--line-2)",
-              color: "var(--fg-2)",
+              border: `1px solid ${SB.backBorder}`,
+              color: SB.backColor,
               height: 24,
               width: 24,
               display: "inline-flex",
@@ -87,19 +109,19 @@ export function LeftSidebar({
             style={{
               paddingTop: idx === 0 ? 0 : 10,
               paddingBottom: 6,
-              borderTop: idx === 0 ? "none" : "1px solid var(--line-1)",
+              borderTop: idx === 0 ? "none" : `1px solid ${SB.sectionDivider}`,
               marginTop: idx === 0 ? 0 : 4,
             }}
           >
             {sec.label && (
               <div
                 style={{
-                  padding: "4px 14px 6px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 9,
+                  padding: "4px 16px 7px",
+                  fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                  fontSize: 10,
                   letterSpacing: ".12em",
                   textTransform: "uppercase",
-                  color: "var(--fg-3)",
+                  color: SB.sectionLabel,
                 }}
               >
                 {sec.label}
@@ -115,18 +137,19 @@ export function LeftSidebar({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "7px 14px",
+                      height: 36,
+                      padding: "0 16px",
                       borderLeft: active
-                        ? "2px solid var(--neon-cyan)"
+                        ? `2px solid ${SB.itemActiveBorder}`
                         : "2px solid transparent",
-                      background: active ? "rgba(0,229,255,.06)" : "transparent",
+                      background: active ? SB.itemActiveBg : "transparent",
                       color: disabled
-                        ? "var(--fg-4)"
+                        ? SB.itemDisabled
                         : active
-                        ? "var(--fg-1)"
-                        : "var(--fg-2)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
+                        ? SB.itemActive
+                        : SB.itemInactive,
+                      fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                      fontSize: 12,
                       letterSpacing: ".04em",
                       cursor: disabled ? "not-allowed" : "pointer",
                       transition: "background 80ms, color 80ms",
@@ -136,13 +159,13 @@ export function LeftSidebar({
                     {item.badge != null && (
                       <span
                         style={{
-                          fontFamily: "var(--font-mono)",
+                          fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
                           fontSize: 9,
                           padding: "1px 5px",
                           borderRadius: 2,
-                          border: "1px solid var(--line-2)",
-                          color: "var(--fg-3)",
-                          background: "var(--bg-inset)",
+                          border: `1px solid ${SB.badgeBorder}`,
+                          color: SB.badgeText,
+                          background: SB.badgeBg,
                         }}
                       >
                         {item.badge}
@@ -159,7 +182,7 @@ export function LeftSidebar({
                 }
                 return (
                   <li key={item.key}>
-                    <Link href={item.href} style={{ textDecoration: "none", border: 0 }}>
+                    <Link href={item.href} style={{ textDecoration: "none", border: 0, display: "block" }}>
                       {content}
                     </Link>
                   </li>
@@ -173,11 +196,11 @@ export function LeftSidebar({
         <div
           style={{
             flex: "none",
-            borderTop: "1px solid var(--line-2)",
-            padding: "10px 14px",
-            fontFamily: "var(--font-mono)",
+            borderTop: `1px solid ${SB.border}`,
+            padding: "10px 16px",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
             fontSize: 10,
-            color: "var(--fg-3)",
+            color: SB.footerText,
           }}
         >
           {footer}

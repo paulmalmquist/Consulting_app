@@ -11,7 +11,7 @@ import { VERTICAL_COLORS, type ColorMode } from "./pipeline-verticals";
 const LANE_W = 206;      // px — active column width (chart + kanban share this)
 const CLOSED_W = 156;    // px — closed-stage columns are narrower / terminal
 const LANE_GAP = 2;      // px — gap between columns
-const BAR_H = 240;       // px — total bar area height per lane
+const BAR_H = 300;       // px — total bar area height per lane
 const BAR_HEADROOM = 28; // px — reserved above bars for health label
 const BAR_BASELINE = 10; // px — gap from bottom of bar area to base of bars
 
