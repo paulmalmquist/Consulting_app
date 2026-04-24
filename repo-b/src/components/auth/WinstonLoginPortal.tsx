@@ -81,6 +81,12 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       };
 
       if (!response.ok) {
+        if (response.status === 503 || response.status >= 500) {
+          console.error("[auth] Server error from /api/auth/session:", response.status, payload);
+          setError(AUTH_UNAVAILABLE_MESSAGE);
+          setErrorKind("infra");
+          return;
+        }
         throw new Error(payload.error || "Authentication failed");
       }
 
@@ -88,8 +94,22 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
       router.push(payload.redirectTo || "/app");
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Authentication failed");
-      setErrorKind("auth");
+      const msg = cause instanceof Error ? cause.message : "";
+      const isInfra =
+        msg.includes("Database pool not available") ||
+        msg.includes("Supabase") ||
+        msg.includes("DATABASE_URL") ||
+        msg.includes("not configured") ||
+        msg.includes("Internal Server Error") ||
+        msg.includes("Failed to fetch");
+      if (isInfra) {
+        console.error("[auth] Infrastructure failure during login:", cause);
+        setError(AUTH_UNAVAILABLE_MESSAGE);
+        setErrorKind("infra");
+      } else {
+        setError(msg || "Authentication failed");
+        setErrorKind("auth");
+      }
     } finally {
       setLoading(false);
     }

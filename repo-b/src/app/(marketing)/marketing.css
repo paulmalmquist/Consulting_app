@@ -9,11 +9,13 @@
  * desaturated teal + copper accents — no neon glow
  */
 
-/* Abadi — commercial Monotype, self-hosted. Falls back gracefully to
-   Gill Sans (macOS) / Verdana (Windows) / system-ui when WOFF2 not present. */
-@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Medium.woff2')  format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Abadi'; src: url('/fonts/Abadi-Bold.woff2')    format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+/* Abadi — commercial Monotype. local() is checked first; the browser only
+   fetches the WOFF2 if the system font is absent, so no 404 spam when the
+   files have not been deployed yet. Drop the WOFF2 files into
+   repo-b/public/fonts/ when they are licensed and available. */
+@font-face { font-family: 'Abadi'; src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Abadi'; src: local('Abadi Medium'), local('Abadi MT Medium'), url('/fonts/Abadi-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Abadi'; src: local('Abadi Bold'), local('Abadi MT Bold'), url('/fonts/Abadi-Bold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 
 .marketing-shell {
   color-scheme: dark;

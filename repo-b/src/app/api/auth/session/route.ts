@@ -77,6 +77,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    const isInfra =
+      message.includes("Database pool not available") ||
+      message.includes("not configured") ||
+      message.includes("DATABASE_URL") ||
+      message.includes("Supabase auth is not configured");
+    if (isInfra) {
+      console.error("[api/auth/session] Infrastructure failure:", error);
+      return NextResponse.json(
+        { error: "Login is currently unavailable. Please try again shortly." },
+        { status: 503 }
+      );
+    }
+
+    console.error("[api/auth/session] Unexpected error:", error);
+    return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
   }
 }
