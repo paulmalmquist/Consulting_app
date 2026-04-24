@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
 import { InlineSearch } from '../search/InlineSearch';
+import { AccountButton } from './AccountButton';
 
 type TopbarProps = {
   isCollapsed: boolean;
@@ -34,6 +35,9 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
           >
             <Menu size={18} />
           </button>
+          <div className="md:hidden">
+            <AccountButton />
+          </div>
           <span className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
             Own Your Operating Logic
           </span>
@@ -50,6 +54,7 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
           <Link href="/operational-assessment" className="ml-auto rounded-full border border-emerald-300/40 bg-emerald-300/10 px-4 py-1.5 text-xs font-semibold text-emerald-100">
             See your first use case
           </Link>
+          <AccountButton />
         </nav>
         <div className="md:hidden">
           <InlineSearch />
