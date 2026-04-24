@@ -618,7 +618,7 @@ def test_validate_snapshot_for_release_top_null_reason_blocks():
             {
                 "fund_id": str(uuid4()),
                 "canonical_metrics": {"gross_irr": "0.14", "irr_trust_state": "trusted"},
-                "null_reason": "investigation_pending",
+                "null_reasons": {"state": "investigation_pending"},
             },
         ]
     )

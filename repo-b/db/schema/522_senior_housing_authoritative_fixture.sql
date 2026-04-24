@@ -124,6 +124,8 @@ BEGIN
 
   -- ── 4. Operational rows for released assets (source_type=seed) ────────────
   -- inputs_hash = md5("fixture_522:{asset_id}:{quarter}") for determinism
+  -- Guard: only insert if the asset exists (378_scenario_v2_seed may have skipped
+  -- if no business was present in the environment, e.g. fresh CI database).
   INSERT INTO re_asset_operating_qtr (
     asset_id, quarter, scenario_id,
     revenue, labor_cost, labor_cost_source,
@@ -138,11 +140,12 @@ BEGIN
     (v_heritage, 1980000.00::numeric, 891000.00::numeric),
     (v_desert,   1776000.00::numeric, 888000.00::numeric)
   ) AS t(asset_id, rev, lc)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM re_asset_operating_qtr x
-    WHERE x.asset_id = t.asset_id
-      AND x.quarter  = v_quarter
-      AND x.scenario_id IS NULL
-  );
+  WHERE EXISTS (SELECT 1 FROM repe_asset ra WHERE ra.asset_id = t.asset_id)
+    AND NOT EXISTS (
+      SELECT 1 FROM re_asset_operating_qtr x
+      WHERE x.asset_id = t.asset_id
+        AND x.quarter  = v_quarter
+        AND x.scenario_id IS NULL
+    );
 
 END $$;
