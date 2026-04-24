@@ -67,6 +67,7 @@ COMMENT ON TABLE am_daily_checkin IS
     'counts. Source: Daily Check In sheet of the weekly Excel tracker.';
 
 ALTER TABLE am_daily_checkin ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS am_daily_checkin_tenant_isolation ON am_daily_checkin;
 CREATE POLICY am_daily_checkin_tenant_isolation ON am_daily_checkin
     USING (env_id = current_setting('app.env_id', true))
     WITH CHECK (env_id = current_setting('app.env_id', true));
@@ -132,6 +133,7 @@ COMMENT ON TABLE am_weekly_summary IS
     'Future weeks with zero data are excluded at ingest time.';
 
 ALTER TABLE am_weekly_summary ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS am_weekly_summary_tenant_isolation ON am_weekly_summary;
 CREATE POLICY am_weekly_summary_tenant_isolation ON am_weekly_summary
     USING (env_id = current_setting('app.env_id', true))
     WITH CHECK (env_id = current_setting('app.env_id', true));
@@ -164,6 +166,7 @@ COMMENT ON TABLE am_referral IS
     'Log sheet. Platform values are normalized (e.g. "ZOCDOC " → "ZOCDOC").';
 
 ALTER TABLE am_referral ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS am_referral_tenant_isolation ON am_referral;
 CREATE POLICY am_referral_tenant_isolation ON am_referral
     USING (env_id = current_setting('app.env_id', true))
     WITH CHECK (env_id = current_setting('app.env_id', true));
@@ -199,6 +202,7 @@ COMMENT ON TABLE am_monthly_reflection IS
     'sheet. Only months with actual data are ingested (empty future months skipped).';
 
 ALTER TABLE am_monthly_reflection ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS am_monthly_reflection_tenant_isolation ON am_monthly_reflection;
 CREATE POLICY am_monthly_reflection_tenant_isolation ON am_monthly_reflection
     USING (env_id = current_setting('app.env_id', true))
     WITH CHECK (env_id = current_setting('app.env_id', true));
