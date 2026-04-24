@@ -17,6 +17,8 @@ import {
   type EnvironmentSlug,
 } from "@/lib/environmentAuth";
 import { switchPlatformEnvironment } from "@/lib/platformSessionClient";
+import { getCapabilityConfig } from "@/lib/workspaceCapabilities";
+import { resolveWorkspaceOpenPath } from "@/lib/workspaceTemplates";
 
 function environmentTone(environment: { slug?: string | null }) {
   if (environment.slug && isEnvironmentSlug(environment.slug)) {
@@ -46,10 +48,256 @@ const SYSTEM_LINKS = [
   { href: "/lab/ai-audit", label: "AI Audit", detail: "Assistant and model oversight" },
 ] as const;
 
+// ── Mode A: default overview ──────────────────────────────────────────────────
+function CenterModeA({
+  envCount,
+  isPlatformAdmin,
+}: {
+  envCount: number;
+  isPlatformAdmin: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Execution layer</p>
+        <h2 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-tight text-white">
+          Ready
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-white/60">
+          {envCount > 0
+            ? `${envCount} workspace${envCount === 1 ? "" : "s"} provisioned. Select one from the left to enter.`
+            : "Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left."}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-white/36">
+        <span>{envCount} environment{envCount === 1 ? "" : "s"}</span>
+        <span className="opacity-40">·</span>
+        <span>AI gateway online</span>
+        {isPlatformAdmin && (
+          <>
+            <span className="opacity-40">·</span>
+            <span className="text-white/50">Platform admin</span>
+          </>
+        )}
+      </div>
+
+      {isPlatformAdmin && (
+        <div className="space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">System</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {SYSTEM_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-colors duration-150 hover:bg-white/[0.06]"
+              >
+                <div className="text-sm font-medium text-white">{item.label}</div>
+                <p className="mt-1 text-xs leading-5 text-white/46">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Mode B: workspace preview ─────────────────────────────────────────────────
+function CenterModeB({
+  environment,
+  onOpen,
+  isOpening,
+}: {
+  environment: {
+    env_id: string;
+    client_name: string;
+    slug?: string | null;
+    industry?: string | null;
+    industry_type?: string | null;
+    workspace_template_key?: string | null;
+  };
+  onOpen: () => void;
+  isOpening: boolean;
+}) {
+  const tone = environmentTone(environment);
+  const clientName = environment.client_name?.trim() || "Workspace";
+  const industryLabel = humanIndustry(environment.industry_type || environment.industry);
+  const capConfig = getCapabilityConfig(
+    environment.workspace_template_key,
+    environment.industry_type || environment.industry,
+  );
+  const openPath = resolveWorkspaceOpenPath(environment.env_id, {
+    workspaceTemplateKey: environment.workspace_template_key,
+    industryType: environment.industry_type,
+    industry: environment.industry,
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">{industryLabel}</p>
+        <h2
+          className="mt-3 text-[clamp(2rem,4vw,2.8rem)] font-semibold tracking-tight text-white"
+          style={{ textShadow: `0 0 28px rgba(${tone.glow}, 0.12)` }}
+        >
+          {clientName}
+        </h2>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Capabilities</p>
+        <ul className="space-y-1.5">
+          {capConfig.capabilities.map((cap) => (
+            <li key={cap} className="flex items-center gap-3 text-sm text-white/72">
+              <span
+                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: `rgba(${tone.glow}, 0.85)` }}
+              />
+              {cap}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div
+        className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
+        style={{
+          backgroundColor: `rgba(${tone.glow}, 0.10)`,
+          color: `rgba(${tone.glow}, 0.95)`,
+          border: `1px solid rgba(${tone.glow}, 0.22)`,
+        }}
+      >
+        <span
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: `rgba(${tone.glow}, 0.9)` }}
+        />
+        {capConfig.dataPhrase}
+      </div>
+
+      <div>
+        {openPath ? (
+          <Link
+            href={openPath}
+            className="inline-flex h-12 items-center gap-3 rounded-2xl px-6 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105"
+            style={{
+              background: `linear-gradient(135deg, rgba(${tone.glow}, 0.95), rgba(${tone.glow}, 0.80))`,
+            }}
+          >
+            {isOpening ? "Opening…" : capConfig.entryLabel}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpen}
+            disabled={isOpening}
+            className="inline-flex h-12 items-center gap-3 rounded-2xl px-6 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 disabled:pointer-events-none disabled:opacity-70"
+            style={{
+              background: `linear-gradient(135deg, rgba(${tone.glow}, 0.95), rgba(${tone.glow}, 0.80))`,
+            }}
+          >
+            {isOpening ? "Opening…" : capConfig.entryLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Mode C: experimental partial warning ──────────────────────────────────────
+function CenterModeC({
+  environment,
+  onOpen,
+  isOpening,
+}: {
+  environment: {
+    env_id: string;
+    client_name: string;
+    slug?: string | null;
+    industry?: string | null;
+    industry_type?: string | null;
+    workspace_template_key?: string | null;
+    is_active?: boolean;
+    repe_initialized?: boolean;
+  };
+  onOpen: () => void;
+  isOpening: boolean;
+}) {
+  const lifecycle = deriveEnvLifecycleState(environment);
+  const clientName = environment.client_name?.trim() || "Workspace";
+  const industryLabel = humanIndustry(environment.industry_type || environment.industry);
+  const openPath = resolveWorkspaceOpenPath(environment.env_id, {
+    workspaceTemplateKey: environment.workspace_template_key,
+    industryType: environment.industry_type,
+    industry: environment.industry,
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">{industryLabel}</p>
+          <EnvLifecyclePill state={lifecycle} />
+        </div>
+        <h2 className="mt-3 text-[clamp(2rem,4vw,2.8rem)] font-semibold tracking-tight text-white">
+          {clientName}
+        </h2>
+      </div>
+
+      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-5 py-4">
+        <p className="text-sm font-medium text-amber-200">Partially scaffolded workspace</p>
+        <p className="mt-1.5 text-sm leading-6 text-amber-100/70">
+          This environment has been provisioned but initialization is incomplete.
+          Some modules may be unavailable or show limited data.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Status</p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3 text-sm text-white/66">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
+            Workspace provisioned
+          </div>
+          <div className="flex items-center gap-3 text-sm text-white/66">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
+            Auth and session active
+          </div>
+          <div className="flex items-center gap-3 text-sm text-white/44">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400/60" />
+            Data initialization pending
+          </div>
+        </div>
+      </div>
+
+      <div>
+        {openPath ? (
+          <Link
+            href={openPath}
+            className="inline-flex h-12 items-center gap-3 rounded-2xl border border-white/14 bg-white/[0.06] px-6 text-sm font-semibold uppercase tracking-[0.14em] text-white/80 transition-[transform,background-color] duration-150 hover:-translate-y-[1px] hover:bg-white/[0.09]"
+          >
+            {isOpening ? "Opening…" : "Enter anyway"}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpen}
+            disabled={isOpening}
+            className="inline-flex h-12 items-center gap-3 rounded-2xl border border-white/14 bg-white/[0.06] px-6 text-sm font-semibold uppercase tracking-[0.14em] text-white/80 transition-[transform,background-color] duration-150 hover:-translate-y-[1px] hover:bg-white/[0.09] disabled:pointer-events-none disabled:opacity-70"
+          >
+            {isOpening ? "Opening…" : "Enter anyway"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AppIndexPageInner() {
   const searchParams = useSearchParams();
   const { environments, selectedEnv, selectEnv, loading, isPlatformAdmin } = useEnv();
   const [openingEnvId, setOpeningEnvId] = useState<string | null>(null);
+  const [hoveredEnvId, setHoveredEnvId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const deniedTarget = searchParams.get("denied");
@@ -60,6 +308,12 @@ function AppIndexPageInner() {
   const selectedEnvironmentName = selectedEnvironment
     ? assertEnvironmentClientName(selectedEnvironment)
     : null;
+
+  // State priority: hovered > selected > null
+  const previewEnvironment = useMemo(
+    () => environments.find((e) => e.env_id === hoveredEnvId) ?? selectedEnvironment ?? null,
+    [hoveredEnvId, selectedEnvironment, environments],
+  );
 
   async function openEnvironment(envId: string, slug?: string | null) {
     setOpeningEnvId(envId);
@@ -96,6 +350,15 @@ function AppIndexPageInner() {
   const deniedMessage = deniedTarget
     ? `You do not have access to ${deniedTarget}. Your account can only enter provisioned environments.`
     : null;
+
+  // Determine center panel mode
+  const previewLifecycle = previewEnvironment ? deriveEnvLifecycleState(previewEnvironment) : null;
+  const centerMode: "A" | "B" | "C" =
+    previewEnvironment === null
+      ? "A"
+      : previewLifecycle === "experimental_partial"
+        ? "C"
+        : "B";
 
   return (
     <div className="min-h-screen bg-[#05070b] text-white">
@@ -271,7 +534,6 @@ function AppIndexPageInner() {
         <aside className="border-b border-white/10 bg-[rgba(8,10,15,0.86)] px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r">
           <div className="space-y-2">
             <h1 className="font-command text-[2rem] uppercase tracking-[0.08em] text-white">Winston</h1>
-       
           </div>
 
           <div className="mt-8 space-y-3">
@@ -299,6 +561,8 @@ function AppIndexPageInner() {
                       type="button"
                       onClick={() => void openEnvironment(environment.env_id, environment.slug || null)}
                       disabled={isOpening}
+                      onMouseEnter={() => setHoveredEnvId(environment.env_id)}
+                      onMouseLeave={() => setHoveredEnvId(null)}
                       className={cn(
                         "w-full rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.98]",
                         isActive
@@ -374,23 +638,31 @@ function AppIndexPageInner() {
               ) : null}
 
               <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md lg:p-8">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Workspace access</p>
-                <h2 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-tight text-white">
-                  {selectedEnvironmentName ?? "No workspace selected"}
-                </h2>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-white/66">
-                  {selectedEnvironment
-                    ? `Your workspace access is ready. Select an environment from the left to enter.`
-                    : "Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left."}
-                </p>
-
-                {selectedEnvironment ? (
-                  <div className="mt-6">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/42">
-                      {humanIndustry(selectedEnvironment.industry_type || selectedEnvironment.industry)}
-                    </p>
-                  </div>
-                ) : null}
+                <div
+                  key={previewEnvironment?.env_id ?? "mode-a"}
+                  className="transition-opacity duration-200"
+                >
+                  {centerMode === "A" && (
+                    <CenterModeA
+                      envCount={environments.length}
+                      isPlatformAdmin={isPlatformAdmin}
+                    />
+                  )}
+                  {centerMode === "B" && previewEnvironment && (
+                    <CenterModeB
+                      environment={previewEnvironment}
+                      onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
+                      isOpening={openingEnvId === previewEnvironment.env_id}
+                    />
+                  )}
+                  {centerMode === "C" && previewEnvironment && (
+                    <CenterModeC
+                      environment={previewEnvironment}
+                      onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
+                      isOpening={openingEnvId === previewEnvironment.env_id}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
