@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from app.services.podcast_chunker import (
-    PodcastChunk,
     chunk_segments,
     chunk_transcript,
 )
@@ -62,7 +61,6 @@ def test_chunk_overlap_carries_sentences():
     if len(chunks) < 2:
         return  # skip if text was small enough for 1 chunk
     prev_tail = chunks[0].text.split(". ")[-2:]
-    next_head = chunks[1].text.split(". ")[:2]
     # Allow trailing punctuation / spacing differences — just check substring.
     for prev_sentence in prev_tail:
         core = prev_sentence.strip(".").strip()

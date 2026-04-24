@@ -33,7 +33,6 @@ from app.db import get_cursor
 from app.services.podcast_speaker_resolver import (
     SpeakerResolver,
     is_unattributed_form,
-    normalize_name,
 )
 
 logger = logging.getLogger(__name__)
@@ -270,7 +269,7 @@ def dedup_episode(episode_id: UUID) -> MergeReport:
                 report.placeholders_routed += moved
                 report.clusters.append(
                     [f"[placeholder] {s['name']}" for s in cluster]
-                    + [f"→ unattributed"]
+                    + ["→ unattributed"]
                 )
         else:
             if len(cluster) < 2:

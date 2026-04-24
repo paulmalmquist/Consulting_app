@@ -6,7 +6,6 @@ import uuid
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import pytest
 
 from app.services.podcast_ingest import IngestResult, RssIngestResult
 

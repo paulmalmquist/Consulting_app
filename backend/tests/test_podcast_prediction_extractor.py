@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import pytest
 
 from app.services.podcast_prediction_extractor import (
-    _HORIZON_DAYS,
     _MACRO_DIR_TO_PRED,
     _TRADE_DIR_TO_PRED,
     _horizon_to_target_date,

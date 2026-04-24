@@ -5,7 +5,6 @@ Pydantic response models for the Altered Mind operator analytics module.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel

@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS ai_contract_observations (
   env_id              uuid,
 
   request_id          text,
-  conversation_id     uuid REFERENCES ai_conversations(conversation_id) ON DELETE SET NULL,
+  conversation_id     uuid,                                -- soft ref to ai_conversations(conversation_id); FK added post-317
   session_id          text,
-  ai_gateway_log_id   uuid REFERENCES ai_gateway_logs(id) ON DELETE SET NULL,
+  ai_gateway_log_id   uuid,                                -- soft ref to ai_gateway_logs(id); FK added post-318
 
   contract_version              text NOT NULL,
   request_lifecycle_version     text NOT NULL,

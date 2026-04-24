@@ -58,7 +58,6 @@ from app.assistant_runtime.response_contract import (
     advance_phase,
     validate_turn,
 )
-from app.assistant_runtime.response_contract_types import EventType as _EventType
 
 logger = logging.getLogger(__name__)
 

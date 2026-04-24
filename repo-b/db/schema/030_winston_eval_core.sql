@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS winston_eval_results (
   response_excerpt    text,                                -- first ~500 chars, for report grep
   assertion_failures  jsonb NOT NULL DEFAULT '[]'::jsonb,
   trace_summary       jsonb NOT NULL DEFAULT '{}'::jsonb,
-  ai_gateway_log_id   uuid REFERENCES ai_gateway_logs(id) ON DELETE SET NULL,
+  ai_gateway_log_id   uuid,                                -- soft ref to ai_gateway_logs(id); FK added post-318
 
   is_regression       boolean NOT NULL DEFAULT false,      -- pass->fail vs baseline
   baseline_delta      jsonb,                               -- structured diff vs baseline when regression

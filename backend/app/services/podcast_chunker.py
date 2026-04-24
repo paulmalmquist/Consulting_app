@@ -18,7 +18,7 @@ reference back-matter from the previous chunk.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.services.podcast_transcription import TranscriptSegment
 
