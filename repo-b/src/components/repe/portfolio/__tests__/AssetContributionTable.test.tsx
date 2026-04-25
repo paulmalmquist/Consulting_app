@@ -75,8 +75,8 @@ describe("AssetContributionTable", () => {
     ];
     render(<AssetContributionTable rollup={rollup} envId="env-1" />);
     expect(screen.queryByText(/no data|n\/a|pending/i)).toBeNull();
-    // Contribution + Realized/Unrealized always render the attribution-engine reason.
-    expect(screen.getAllByText("Awaiting attribution engine").length).toBeGreaterThan(0);
+    // Null IRR + NAV fields render specific awaiting reasons, not generic placeholders.
+    expect(screen.getAllByText("Awaiting IRR").length).toBeGreaterThan(0);
   });
 
   it("hides archived investments outside audit mode and shows them in audit mode", () => {
