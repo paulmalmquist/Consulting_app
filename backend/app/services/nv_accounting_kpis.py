@@ -76,6 +76,109 @@ def _count_daily_bucket_ids(
     return [by_date.get(start + timedelta(days=i), 0.0) for i in range(days)]
 
 
+def financial_snapshot(*, env_id: str, business_id: str) -> dict[str, Any]:
+    """6-field financial health snapshot for the SnapshotStrip.
+
+    Cash balance is only as accurate as the imported transactions. When no
+    transactions exist, returns None + status="unavailable" rather than 0.
+    """
+    today = date.today()
+    cutoff_30 = today - timedelta(days=30)
+
+    with get_cursor() as cur:
+        # Transaction count + cash balance
+        cur.execute(
+            """
+            SELECT COUNT(*) AS txn_count,
+                   SUM(amount_cents) AS balance_cents,
+                   SUM(CASE WHEN amount_cents > 0 AND posted_at::date >= %s THEN amount_cents END) AS in_30,
+                   SUM(CASE WHEN amount_cents < 0 AND posted_at::date >= %s THEN ABS(amount_cents) END) AS out_30
+              FROM nv_bank_transaction
+             WHERE env_id = %s AND business_id = %s::uuid
+               AND parent_txn_id IS NULL
+            """,
+            (cutoff_30, cutoff_30, env_id, business_id),
+        )
+        row = cur.fetchone()
+        txn_count = int(row["txn_count"] or 0)
+        balance_cents = row["balance_cents"]
+        in_30_cents = row["in_30"]
+        out_30_cents = row["out_30"]
+
+        # Unpaid receivables
+        cur.execute(
+            """
+            SELECT SUM(CASE WHEN state IN ('overdue','sent')
+                            THEN amount_cents - COALESCE(paid_cents, 0) END) AS unpaid_cents
+              FROM nv_invoice
+             WHERE env_id = %s AND business_id = %s::uuid
+            """,
+            (env_id, business_id),
+        )
+        unpaid_cents = cur.fetchone()["unpaid_cents"]
+
+        # MRR from subscription ledger (active rows, normalised to monthly)
+        cur.execute(
+            """
+            SELECT cadence, SUM(expected_amount) AS total
+              FROM nv_subscription_ledger
+             WHERE env_id = %s AND business_id = %s::uuid
+               AND is_active = true
+               AND expected_amount IS NOT NULL
+             GROUP BY cadence
+            """,
+            (env_id, business_id),
+        )
+        mrr = 0.0
+        for r in cur.fetchall():
+            amt = float(r["total"] or 0)
+            if r["cadence"] == "monthly":
+                mrr += amt
+            elif r["cadence"] == "quarterly":
+                mrr += amt / 3
+            elif r["cadence"] == "annual":
+                mrr += amt / 12
+
+    if txn_count == 0:
+        cash_balance = None
+        cash_balance_status = "unavailable"
+        cash_balance_unavailable_reason = "no_transactions_imported"
+        in_30: float | None = None
+        in_30_status = "unavailable"
+        in_30_unavailable_reason = "no_transactions_imported"
+        out_30: float | None = None
+        out_30_status = "unavailable"
+        out_30_unavailable_reason = "no_transactions_imported"
+    else:
+        cash_balance = float((balance_cents or 0) / 100)
+        cash_balance_status = "live"
+        cash_balance_unavailable_reason = None
+        in_30 = float((in_30_cents or 0) / 100)
+        in_30_status = "live"
+        in_30_unavailable_reason = None
+        out_30 = float((out_30_cents or 0) / 100)
+        out_30_status = "live"
+        out_30_unavailable_reason = None
+
+    net_30 = None if in_30 is None or out_30 is None else (in_30 - out_30)
+
+    return {
+        "cash_balance": cash_balance,
+        "cash_balance_status": cash_balance_status,
+        "cash_balance_unavailable_reason": cash_balance_unavailable_reason,
+        "cash_in_30d": in_30,
+        "cash_in_30d_status": in_30_status,
+        "cash_in_30d_unavailable_reason": in_30_unavailable_reason,
+        "cash_out_30d": out_30,
+        "cash_out_30d_status": out_30_status,
+        "cash_out_30d_unavailable_reason": out_30_unavailable_reason,
+        "net_30d": net_30,
+        "unpaid_receivables": float((unpaid_cents or 0) / 100),
+        "mrr_software": round(mrr, 2),
+        "as_of": today.isoformat(),
+    }
+
+
 def compute_kpis(*, env_id: str, business_id: str) -> dict[str, Any]:
     today = date.today()
     cutoff_30 = today - timedelta(days=30)

@@ -174,6 +174,9 @@ class ExecutionCardOut(BaseModel):
     auto_draft_stack: dict = Field(default_factory=dict)
     execution_state: dict = Field(default_factory=dict)
     narrative_memory: dict = Field(default_factory=dict)
+    contact_count: int = 0
+    outreach_count: int = 0
+    note_count: int = 0
 
 
 class ExecutionBoardColumnOut(BaseModel):
@@ -1489,6 +1492,34 @@ class AppScoreboardOut(BaseModel):
 
 class AppWeeklyMemoGenerateRequest(BaseModel):
     generated_by: str | None = None
+
+
+# ── Contact ──────────────────────────────────────────────────────────────────────
+
+class ContactCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    crm_account_id: UUID | None = None
+    full_name: str
+    email: str | None = None
+    phone: str | None = None
+    title: str | None = None
+    linkedin_url: str | None = None
+    relationship_strength: str | None = None  # cold|warm|hot|champion
+    decision_role: str | None = None           # champion|decision_maker|influencer|blocker|user
+    notes: str | None = None
+
+
+class ContactOut(BaseModel):
+    crm_contact_id: str
+    full_name: str
+    email: str | None = None
+    phone: str | None = None
+    title: str | None = None
+    linkedin_url: str | None = None
+    relationship_strength: str | None = None
+    decision_role: str | None = None
+    created_at: str
 
 
 class AppWeeklyMemoOut(BaseModel):

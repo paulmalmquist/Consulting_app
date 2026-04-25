@@ -252,7 +252,10 @@ def _load_rows(*, env_id: str, business_id: UUID) -> list[dict]:
               na.action_type AS next_action_type,
               nr.no_reply_count,
               ro.recent_reply_at,
-              ro.meeting_booked
+              ro.meeting_booked,
+              cc.contact_count,
+              oc.outreach_count,
+              nc.note_count
             FROM crm_opportunity o
             LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
             LEFT JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
@@ -290,10 +293,28 @@ def _load_rows(*, env_id: str, business_id: UUID) -> list[dict]:
               ORDER BY replied_at DESC
               LIMIT 1
             ) ro ON true
+            LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS contact_count
+              FROM crm_contact
+              WHERE crm_account_id = o.crm_account_id
+                AND business_id = %s
+                AND is_active = true
+            ) cc ON true
+            LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS outreach_count
+              FROM cro_outreach_log
+              WHERE crm_account_id = o.crm_account_id
+                AND business_id = %s
+            ) oc ON true
+            LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS note_count
+              FROM crm_activity
+              WHERE crm_opportunity_id = o.crm_opportunity_id
+            ) nc ON true
             WHERE o.business_id = %s
             ORDER BY s.stage_order NULLS LAST, o.created_at DESC
             """,
-            (env_id, str(business_id), str(business_id), str(business_id)),
+            (env_id, str(business_id), str(business_id), str(business_id), str(business_id), str(business_id)),
         )
         return cur.fetchall()
 

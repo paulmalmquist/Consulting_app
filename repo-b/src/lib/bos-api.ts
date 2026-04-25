@@ -12621,6 +12621,10 @@ import type {
   NvSubscriptionLedgerList,
   NvReviewQueueList,
   NvAISoftwareSummary,
+  NvFinancialSnapshot,
+  NvSoftwareSpend,
+  NvIncomeStatement,
+  NvBalanceSnapshot,
 } from "@/types/nv-accounting";
 
 const _NV_BASE = "/api/nv/accounting";
@@ -12741,6 +12745,52 @@ export function getNvAiSoftwareSummary(
   businessId?: string,
 ): Promise<NvAISoftwareSummary> {
   return bosFetch(`${_NV_BASE}/reports/ai-software-summary`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvFinancialSnapshot(
+  envId: string,
+  businessId?: string,
+): Promise<NvFinancialSnapshot> {
+  return bosFetch(`${_NV_BASE}/financial-snapshot`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvSoftwareSpend(
+  envId: string,
+  businessId?: string,
+): Promise<NvSoftwareSpend> {
+  return bosFetch(`${_NV_BASE}/software-spend`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvIncomeStatement(
+  envId: string,
+  businessId?: string,
+  months = 6,
+): Promise<NvIncomeStatement> {
+  return bosFetch(`${_NV_BASE}/statements/income`, {
+    params: { env_id: envId, business_id: businessId, months: String(months) },
+  });
+}
+
+export function getNvCashStatement(
+  envId: string,
+  businessId?: string,
+): Promise<NvCashMovementTrend> {
+  return bosFetch(`${_NV_BASE}/statements/cash`, {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getNvBalanceSnapshot(
+  envId: string,
+  businessId?: string,
+): Promise<NvBalanceSnapshot> {
+  return bosFetch(`${_NV_BASE}/statements/balance`, {
     params: { env_id: envId, business_id: businessId },
   });
 }

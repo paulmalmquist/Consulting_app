@@ -51,6 +51,11 @@ export type DecisionStripInputs = {
   covenants?: FiCovenantResult[] | null;
   snapshotVersion?: string | null;
   concentrationThresholdPct?: number;
+  scopeMeta?: {
+    scope_completeness?: string | null;
+    investment_count?: number | null;
+    expected_investment_count?: number | null;
+  } | null;
 };
 
 const STOPWORDS = new Set([
@@ -194,6 +199,34 @@ function pickRecommendation(
   return { rec: null, rejectionReason: "no_candidate_available" };
 }
 
+function scopeFlags(
+  scopeMeta: DecisionStripInputs["scopeMeta"]
+): RiskFlag[] {
+  if (!scopeMeta) return [];
+  const { scope_completeness, investment_count, expected_investment_count } = scopeMeta;
+  if (scope_completeness === "partial") {
+    return [{
+      key: "scope:partial",
+      label: `Partial scope: ${investment_count ?? "?"}/${expected_investment_count ?? "?"} investments`,
+      detail: "Snapshot covers fewer investments than exist in the fund. Promote is blocked. Re-run runner with full manifest.",
+      severity: "high",
+      metric: "scope_completeness",
+      value: `${investment_count}/${expected_investment_count}`,
+    }];
+  }
+  if (scope_completeness === "over_scope") {
+    return [{
+      key: "scope:over_scope",
+      label: `Over-scope: ${investment_count ?? "?"}/${expected_investment_count ?? "?"} investments`,
+      detail: "Manifest references more investments than exist in re_investment. Remove stale IDs and re-run.",
+      severity: "high",
+      metric: "scope_completeness",
+      value: `${investment_count}/${expected_investment_count}`,
+    }];
+  }
+  return [];
+}
+
 export function buildDecisionStrip(inputs: DecisionStripInputs): DecisionStripData {
   const rollup = (inputs.investmentRollup ?? []).filter(Boolean);
   const totalFundNav =
@@ -204,6 +237,7 @@ export function buildDecisionStrip(inputs: DecisionStripInputs): DecisionStripDa
     );
 
   const issues = rankFlags([
+    ...scopeFlags(inputs.scopeMeta),
     ...underperformerFlags(rollup),
     ...concentrationFlags(rollup, inputs.concentrationThresholdPct),
     ...covenantFlags(inputs.covenants),

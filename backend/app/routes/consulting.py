@@ -15,6 +15,8 @@ from app.observability.logger import emit_log
 from app.schemas.consulting import (
     AdvanceStageRequest,
     ClientOut,
+    ContactCreateRequest,
+    ContactOut,
     ConvertToClientRequest,
     DailyExecutionBriefOut,
     DemoReadinessOut,
@@ -1827,6 +1829,26 @@ def get_opportunity_stage_history(
     try:
         return cro_entity_detail.get_opportunity_stage_history(
             business_id=business_id, opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/contacts", response_model=ContactOut, status_code=201)
+def create_consulting_contact(body: ContactCreateRequest):
+    try:
+        return cro_entity_detail.create_contact(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            crm_account_id=body.crm_account_id,
+            full_name=body.full_name,
+            email=body.email,
+            phone=body.phone,
+            title=body.title,
+            linkedin_url=body.linkedin_url,
+            relationship_strength=body.relationship_strength,
+            decision_role=body.decision_role,
+            notes=body.notes,
         )
     except Exception as exc:
         raise _to_http(exc)

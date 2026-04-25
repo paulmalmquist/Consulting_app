@@ -24,6 +24,9 @@ export type AssetRow = {
   nav: number | null;
   navPct: number | null;
   irr: number | null;
+  contributionBps: number | null;
+  realizedNav: number | null;
+  unrealizedNav: number | null;
   performance: PerformanceState | null;
   trust: TrustState;
   isArchived?: boolean;
@@ -114,6 +117,15 @@ export default function AssetContributionTable({
       const nav = toNumberSafe(row.fund_nav_contribution) ?? toNumberSafe(row.nav) ?? toNumberSafe(row.total_asset_value);
       const invested = toNumberSafe(row.invested_capital) ?? toNumberSafe(row.committed_capital);
       const irr = toNumberSafe(row.gross_irr) ?? toNumberSafe(row.net_irr);
+      const navPct = fundNav > 0 && nav !== null ? (nav / fundNav) * 100 : null;
+      // IRR contribution in basis points = investment_irr × (nav / fund_nav) × 10000
+      const contributionBps =
+        irr !== null && navPct !== null ? irr * (navPct / 100) * 10000 : null;
+      // Realized/unrealized split: exited/sold investments are fully realized
+      const stage = (row.stage ?? "").toLowerCase();
+      const isRealized = stage.includes("realized") || stage.includes("exited") || stage.includes("sold");
+      const realizedNav = isRealized ? (nav ?? 0) : 0;
+      const unrealizedNav = isRealized ? 0 : (nav ?? null);
       return {
         investmentId: row.investment_id,
         name: row.name,
@@ -121,8 +133,11 @@ export default function AssetContributionTable({
         market: row.primary_market ?? null,
         invested,
         nav,
-        navPct: fundNav > 0 && nav !== null ? (nav / fundNav) * 100 : null,
+        navPct,
         irr,
+        contributionBps,
+        realizedNav: realizedNav > 0 ? realizedNav : null,
+        unrealizedNav,
         performance: performanceForIrr(irr, targetIrr),
         trust: deriveTrust(row),
         isArchived: Boolean((row as { is_archived?: boolean }).is_archived),
@@ -215,9 +230,7 @@ export default function AssetContributionTable({
       </div>
 
       <footer className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-5 py-2 text-[10px] uppercase tracking-wide text-bm-muted dark:border-bm-border/[0.08]">
-        <span>
-          Contribution & Realized / Unrealized: awaiting attribution engine
-        </span>
+        <span>Contribution = IRR × NAV weight × 10,000 bps</span>
         {snapshotVersion ? (
           <span className="ml-auto">
             Snapshot <span className="font-mono">{snapshotVersion}</span>
@@ -312,11 +325,32 @@ function AssetRowView({
       <td className={`px-3 py-2 text-right font-semibold ${irrColor}`}>
         {irrText ?? <Unavailable reason="Awaiting IRR" />}
       </td>
-      <td className="px-3 py-2 text-right">
-        <Unavailable reason="Awaiting attribution engine" />
+      <td className="px-3 py-2 text-right tabular-nums">
+        {row.contributionBps !== null ? (
+          <span className={row.contributionBps >= 0 ? "text-emerald-700" : "text-red-600"}>
+            {row.contributionBps >= 0 ? "+" : ""}
+            {row.contributionBps.toFixed(0)}
+          </span>
+        ) : (
+          <Unavailable reason="Awaiting IRR" />
+        )}
       </td>
-      <td className="px-3 py-2 text-right">
-        <Unavailable reason="Awaiting attribution engine" />
+      <td className="px-3 py-2 text-right text-xs tabular-nums">
+        {row.realizedNav !== null || row.unrealizedNav !== null ? (
+          <span className="text-bm-muted">
+            {row.realizedNav !== null && row.realizedNav > 0
+              ? <span className="text-slate-600">{fmtMoney(row.realizedNav)} R</span>
+              : null}
+            {row.unrealizedNav !== null && row.unrealizedNav > 0
+              ? <span className="text-bm-ink"> {fmtMoney(row.unrealizedNav)} U</span>
+              : null}
+            {(row.realizedNav === null || row.realizedNav === 0) && (row.unrealizedNav === null || row.unrealizedNav === 0)
+              ? <Unavailable reason="Awaiting NAV" />
+              : null}
+          </span>
+        ) : (
+          <Unavailable reason="Awaiting NAV" />
+        )}
       </td>
       <td className="px-3 py-2">
         {row.performance ? (

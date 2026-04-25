@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "d4560000-0456-0101-0004-000000000001",
+  "investment_name": "Bayshore Flats Acquisition",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "105811630.830000000000",
+    "ending_nav_full": "108187747.500000000000",
+    "beginning_nav_attributable": "95230467.747000000000",
+    "ending_nav_attributable": "97368972.750000000000",
+    "gross_operating_cash_flow_full": "-794578.45",
+    "fund_attributable_operating_cash_flow": "-715120.605000000000",
+    "effective_fund_ownership_percent": "0.900000000000000000000000",
+    "valuation_movement_full": "2376116.670000000000",
+    "fund_attributable_valuation_movement": "2138505.003000000000",
+    "gross_return_amount": "1423384.39800000000000000000000000000000000",
+    "gross_return_rate": "0.013452059919",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "1.345205991900"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "4b4352e2-fe74-4ac1-b859-a818d4fa3196"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "e1bddebf-48b8-43e7-9784-805dcc915161"
+    }
+  ]
+}

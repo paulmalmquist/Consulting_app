@@ -229,3 +229,60 @@ export type NvAISoftwareSummary = {
   ambiguous_pending_review_usd: number;
   missing_support_count: number;
 };
+
+export type NvFinancialSnapshot = {
+  cash_balance: number | null;
+  cash_balance_status: "live" | "unavailable";
+  cash_balance_unavailable_reason: string | null;
+  cash_in_30d: number | null;
+  cash_in_30d_status: "live" | "unavailable";
+  cash_in_30d_unavailable_reason: string | null;
+  cash_out_30d: number | null;
+  cash_out_30d_status: "live" | "unavailable";
+  cash_out_30d_unavailable_reason: string | null;
+  net_30d: number | null;
+  unpaid_receivables: number;
+  mrr_software: number;
+  as_of: string;
+};
+
+export type NvSoftwareSpendRow = {
+  vendor: string;
+  product: string;
+  platform: string | null;
+  cadence: string;
+  monthly_cost: number;
+  ytd_cost: number;
+  spend_type: string | null;
+  business_relevance: string | null;
+  is_apple_billed: boolean;
+  has_dedup_risk: boolean;
+};
+
+export type NvSoftwareSpend = {
+  rows: NvSoftwareSpendRow[];
+  totals: { ai_tools: number; infrastructure: number; other: number; apple_billed: number; direct: number };
+  dedup_candidates: { vendor: string; apple_billed_amount: number; direct_amount: number }[];
+};
+
+export type NvIncomeStatement = {
+  months: string[];
+  revenue: number[];
+  expenses_by_cat: Record<string, number[]>;
+  total_expenses: number[];
+  net: number[];
+  current_month: { revenue: number; expenses: number; net: number };
+};
+
+export type NvBalanceSnapshot = {
+  as_of: string;
+  assets: {
+    cash: number | null;
+    cash_status: "live" | "unavailable";
+    cash_unavailable_reason: string | null;
+    receivables: number;
+    total: number;
+  };
+  liabilities: { payables: number; total: number };
+  equity: number;
+};

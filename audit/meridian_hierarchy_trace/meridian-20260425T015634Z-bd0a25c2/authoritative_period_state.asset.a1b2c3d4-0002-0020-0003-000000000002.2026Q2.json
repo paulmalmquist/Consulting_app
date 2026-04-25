@@ -1,0 +1,68 @@
+{
+  "entity_type": "asset",
+  "asset_id": "a1b2c3d4-0002-0020-0003-000000000002",
+  "asset_name": "Midtown Towers \u2013 Atlanta GA",
+  "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+  "investment_id": "a1b2c3d4-0002-0020-0002-000000000002",
+  "quarter": "2026Q2",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "revenue": "1766165.72",
+    "opex": "865421.20",
+    "noi": "900744.52",
+    "capex": "176616.57",
+    "ti_lc": "141293.26",
+    "reserves": "22518.61",
+    "debt_service": "1289062.50",
+    "net_cash_flow": "-728746.42",
+    "beginning_nav": "82293750.000000000000",
+    "ending_nav": "28600000.000000000000",
+    "ending_asset_value": "111100000.000000000000"
+  },
+  "display_metrics": {},
+  "null_reasons": {
+    "value": null,
+    "occupancy": null,
+    "debt": null,
+    "noi": null
+  },
+  "formulas": {
+    "noi": "NOI = operating revenue - operating expenses",
+    "net_cash_flow": "net cash flow = NOI - capex - TI/LC - reserves - debt service"
+  },
+  "provenance": [
+    {
+      "table": "acct_gl_balance_monthly",
+      "notes": "Raw accounting entries"
+    },
+    {
+      "table": "acct_mapping_rule",
+      "notes": "GL account mapping"
+    },
+    {
+      "table": "acct_normalized_noi_monthly",
+      "notes": "Standardized monthly NOI lines"
+    },
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "notes": "Quarter cash-flow rollup"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "notes": "Quarter ending NAV and value"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "3c89dc63-3291-4a90-b400-d7340a84758f"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "c744fb54-f8ba-4364-8d26-bf08b4350983"
+    }
+  ]
+}

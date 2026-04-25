@@ -163,6 +163,67 @@ def get_contact_detail(*, business_id: UUID, contact_id: UUID) -> dict:
         return row
 
 
+def create_contact(
+    *,
+    env_id: str,
+    business_id: UUID,
+    crm_account_id: UUID | None,
+    full_name: str,
+    email: str | None = None,
+    phone: str | None = None,
+    title: str | None = None,
+    linkedin_url: str | None = None,
+    relationship_strength: str | None = None,
+    decision_role: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    from app.services.reporting_common import resolve_tenant_id
+    with get_cursor() as cur:
+        tenant_id = resolve_tenant_id(cur, business_id)
+        cur.execute(
+            """
+            INSERT INTO crm_contact (tenant_id, business_id, crm_account_id, full_name, email, phone, title)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING crm_contact_id, full_name, email, phone, title, created_at
+            """,
+            (
+                tenant_id, str(business_id),
+                str(crm_account_id) if crm_account_id else None,
+                full_name, email, phone, title,
+            ),
+        )
+        row = cur.fetchone()
+        contact_id = str(row["crm_contact_id"])
+        if linkedin_url or relationship_strength or decision_role or notes:
+            cur.execute(
+                """
+                INSERT INTO cro_contact_profile
+                  (crm_contact_id, env_id, business_id, linkedin_url, relationship_strength, decision_role, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (crm_contact_id) DO UPDATE
+                  SET linkedin_url         = EXCLUDED.linkedin_url,
+                      relationship_strength = EXCLUDED.relationship_strength,
+                      decision_role         = EXCLUDED.decision_role,
+                      notes                 = EXCLUDED.notes
+                """,
+                (
+                    contact_id, env_id, str(business_id),
+                    linkedin_url, relationship_strength, decision_role, notes,
+                ),
+            )
+        return {
+            "crm_contact_id": contact_id,
+            "full_name": row["full_name"],
+            "email": row["email"],
+            "phone": row["phone"],
+            "title": row["title"],
+            "linkedin_url": linkedin_url,
+            "relationship_strength": relationship_strength,
+            "decision_role": decision_role,
+            "created_at": str(row["created_at"]),
+        }
+
+
 def get_contact_outreach_history(*, business_id: UUID, contact_id: UUID) -> list[dict]:
     """Get outreach log entries for a specific contact."""
     with get_cursor() as cur:

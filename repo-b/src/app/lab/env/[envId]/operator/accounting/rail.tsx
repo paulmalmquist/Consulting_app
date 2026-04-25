@@ -58,7 +58,7 @@ export function ReceiptIntakePanel({ data }: ReceiptIntakeProps) {
                     <span
                       style={{
                         fontFamily: "var(--font-sans)",
-                        fontSize: 12,
+                        fontSize: 13,
                         color: "var(--fg-1)",
                         fontWeight: 500,
                         textOverflow: "ellipsis",
@@ -200,7 +200,7 @@ function SectionRows({
           }}
         >
           <div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--fg-1)" }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--fg-1)", fontWeight: 500 }}>
               {r.vendor_normalized ?? r.service_name}
             </div>
             <div
@@ -219,7 +219,8 @@ function SectionRows({
             <div
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 11,
+                fontSize: 12,
+                fontWeight: 600,
                 color: "var(--fg-1)",
                 fontVariantNumeric: "tabular-nums",
               }}
@@ -261,7 +262,7 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
               }}
             >
               <div>
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--fg-1)" }}>{o.client}</div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--fg-1)", fontWeight: 500 }}>{o.client}</div>
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
@@ -277,7 +278,8 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: 600,
                     color: "var(--fg-1)",
                     fontVariantNumeric: "tabular-nums",
                   }}
@@ -313,7 +315,7 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
               }}
             >
               <div>
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--fg-1)" }}>{u.client}</div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--fg-1)", fontWeight: 500 }}>{u.client}</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>
                   {u.invoice_number ?? u.id.slice(0, 8)} · due {u.due} · {u.days}d
                 </div>
@@ -321,7 +323,8 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 11,
+                  fontSize: 12,
+                  fontWeight: 600,
                   color: "var(--fg-1)",
                   fontVariantNumeric: "tabular-nums",
                   alignSelf: "center",
@@ -350,7 +353,7 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
             >
               <Dot color="var(--sem-up)" size={5} />
               <div>
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--fg-1)" }}>{p.client}</div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--fg-1)", fontWeight: 500 }}>{p.client}</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>
                   {p.invoice_number ?? p.id.slice(0, 8)} · paid {p.paid_rel} ago
                 </div>
@@ -358,7 +361,8 @@ export function RevenueWatchPanel({ data }: RevenueWatchProps) {
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 11,
+                  fontSize: 12,
+                  fontWeight: 600,
                   color: "var(--sem-up)",
                   fontVariantNumeric: "tabular-nums",
                 }}

@@ -20,23 +20,37 @@ from app.mcp.schemas.novendor_accounting_tools import (
     AiSoftwareSummaryInput,
     AppleBilledReportInput,
     AttachIntakeInput,
+    BalanceSnapshotInput,
     BulkIngestReceiptsInput,
+    CashMovementInput,
     ClassifyReceiptInput,
     CreateExpenseFromReceiptInput,
     DetectRecurringInput,
+    FinancialSnapshotInput,
     FlagAmbiguousInput,
+    FlagSubscriptionReviewInput,
     GetReceiptReviewInput,
+    IncomeStatementInput,
     IngestReceiptInput,
+    MarkBusinessRelevanceInput,
     MarkSubscriptionNonBusinessInput,
     MatchTransactionInput,
     ParseReceiptInput,
     ProcessIntakeInput,
+    RecordCapitalPurchaseInput,
+    RecordHomeOfficeExpenseInput,
     SetOccurrenceStateInput,
+    SoftwareSpendInput,
     SoftwareSpendReportInput,
+    SubscriptionLedgerInput,
     SuppressOccurrenceInput,
     UpdateLedgerInput,
 )
 from app.services import (
+    nv_accounting_kpis,
+    nv_accounting_trends,
+    nv_financial_statements,
+    nv_software_spend,
     receipt_classification,
     receipt_intake,
     receipt_matching,
@@ -336,6 +350,133 @@ def _ai_software_summary(ctx: McpContext, inp: AiSoftwareSummaryInput) -> dict:
     return _json_safe(report)
 
 
+# ── Phase 8 handlers ─────────────────────────────────────────────────────────
+
+def _financial_snapshot(ctx: McpContext, inp: FinancialSnapshotInput) -> dict:
+    return _json_safe(nv_accounting_kpis.financial_snapshot(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+    ))
+
+
+def _software_spend(ctx: McpContext, inp: SoftwareSpendInput) -> dict:
+    return _json_safe(nv_software_spend.get_software_spend(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+    ))
+
+
+def _subscription_ledger(ctx: McpContext, inp: SubscriptionLedgerInput) -> dict:
+    rows = subscription_ledger.list_ledger(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+        active_only=inp.active_only,
+    )
+    return _json_safe({"rows": rows, "count": len(rows)})
+
+
+def _income_statement(ctx: McpContext, inp: IncomeStatementInput) -> dict:
+    return _json_safe(nv_financial_statements.income_statement(
+        env_id=inp.env_id, business_id=str(inp.business_id), months=inp.months,
+    ))
+
+
+def _cash_movement(ctx: McpContext, inp: CashMovementInput) -> dict:
+    return _json_safe(nv_accounting_trends.cash_movement_30d(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+    ))
+
+
+def _balance_snapshot(ctx: McpContext, inp: BalanceSnapshotInput) -> dict:
+    return _json_safe(nv_financial_statements.balance_snapshot(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+    ))
+
+
+def _flag_subscription_review(ctx: McpContext, inp: FlagSubscriptionReviewInput) -> dict:
+    err = _confirm_required(inp.confirm, "novendor.accounting.subscription.flag_review")
+    if err:
+        return err
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE nv_subscription_ledger
+               SET documentation_complete = false,
+                   review_notes = COALESCE(%s, review_notes)
+             WHERE env_id = %s AND business_id = %s::uuid AND id = %s::uuid
+            RETURNING id
+            """,
+            (inp.note, inp.env_id, str(inp.business_id), str(inp.subscription_id)),
+        )
+        row = cur.fetchone()
+    return {"updated": row is not None, "id": str(inp.subscription_id)}
+
+
+def _mark_business_relevance(ctx: McpContext, inp: MarkBusinessRelevanceInput) -> dict:
+    err = _confirm_required(inp.confirm, "novendor.accounting.subscription.mark_relevance")
+    if err:
+        return err
+    allowed = {"business", "mixed", "personal"}
+    if inp.business_relevance not in allowed:
+        return {"error": "invalid_value", "message": f"business_relevance must be one of {allowed}"}
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE nv_subscription_ledger
+               SET business_relevance = %s
+             WHERE env_id = %s AND business_id = %s::uuid AND id = %s::uuid
+            RETURNING id
+            """,
+            (inp.business_relevance, inp.env_id, str(inp.business_id), str(inp.subscription_id)),
+        )
+        row = cur.fetchone()
+    return {"updated": row is not None, "business_relevance": inp.business_relevance}
+
+
+def _insert_expense_draft(
+    env_id: str, business_id: str, vendor: str, service_name: str,
+    amount: float, transaction_date: Any, category: str, notes: str | None,
+) -> dict:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO nv_expense_draft
+              (env_id, business_id, vendor_normalized, service_name,
+               amount, transaction_date, category, notes, status)
+            VALUES (%s, %s::uuid, %s, %s, %s, %s, %s, %s, 'draft')
+            RETURNING id, status, created_at
+            """,
+            (env_id, business_id, vendor, service_name,
+             amount, transaction_date, category, notes),
+        )
+        return dict(cur.fetchone())
+
+
+def _record_capital_purchase(ctx: McpContext, inp: RecordCapitalPurchaseInput) -> dict:
+    err = _confirm_required(inp.confirm, "novendor.accounting.record_capital_purchase")
+    if err:
+        return err
+    full_notes = f"[capital_purchase] {inp.notes or ''}".strip()
+    row = _insert_expense_draft(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+        vendor=inp.vendor, service_name=inp.description,
+        amount=inp.amount, transaction_date=inp.purchase_date,
+        category=inp.category, notes=full_notes,
+    )
+    return _json_safe(row)
+
+
+def _record_home_office_expense(ctx: McpContext, inp: RecordHomeOfficeExpenseInput) -> dict:
+    err = _confirm_required(inp.confirm, "novendor.accounting.record_home_office_expense")
+    if err:
+        return err
+    full_notes = f"[home_office][tax_review_required] {inp.notes or ''}".strip()
+    row = _insert_expense_draft(
+        env_id=inp.env_id, business_id=str(inp.business_id),
+        vendor="Home Office", service_name=inp.description,
+        amount=inp.amount, transaction_date=inp.period_end,
+        category="home_office", notes=full_notes,
+    )
+    return _json_safe(row)
+
+
 # ── Registration ─────────────────────────────────────────────────────────────
 
 def register_novendor_accounting_tools() -> None:
@@ -464,6 +605,78 @@ def register_novendor_accounting_tools() -> None:
                 module="novendor", permission="read",
                 input_model=AiSoftwareSummaryInput, handler=_ai_software_summary,
                 tags=frozenset({"novendor", "accounting", "report", "read"})),
+
+        # ── Phase 8: financial intelligence tools ──────────────────────────────
+        ToolDef(name="novendor.accounting.get_financial_snapshot",
+                description=(
+                    "6-field financial health snapshot: cash balance (with availability status), "
+                    "cash in/out 30d, net cash, unpaid receivables, MRR software spend. "
+                    "Cash balance returns null + status=unavailable when no transactions imported."
+                ),
+                module="novendor", permission="read",
+                input_model=FinancialSnapshotInput, handler=_financial_snapshot,
+                tags=frozenset({"novendor", "accounting", "financial", "read"})),
+
+        ToolDef(name="novendor.accounting.get_software_spend",
+                description=(
+                    "Aggregated software/AI spend from subscription ledger: per-vendor rows, "
+                    "category totals (ai_tools/infrastructure/other), apple_billed vs direct, "
+                    "and dedup_candidates (same vendor on both Apple billing and direct)."
+                ),
+                module="novendor", permission="read",
+                input_model=SoftwareSpendInput, handler=_software_spend,
+                tags=frozenset({"novendor", "accounting", "software", "read"})),
+
+        ToolDef(name="novendor.accounting.get_subscription_ledger",
+                description="List all subscription ledger rows with vendor, cadence, amount, business_relevance, billing_platform.",
+                module="novendor", permission="read",
+                input_model=SubscriptionLedgerInput, handler=_subscription_ledger,
+                tags=frozenset({"novendor", "accounting", "subscription", "read"})),
+
+        ToolDef(name="novendor.accounting.get_income_statement",
+                description="Monthly income statement for last N months: revenue, expenses by category, net per month.",
+                module="novendor", permission="read",
+                input_model=IncomeStatementInput, handler=_income_statement,
+                tags=frozenset({"novendor", "accounting", "financial", "read"})),
+
+        ToolDef(name="novendor.accounting.get_cash_movement",
+                description="30-day cash flow: daily inflow/outflow arrays, net_30d, in_30d, out_30d.",
+                module="novendor", permission="read",
+                input_model=CashMovementInput, handler=_cash_movement,
+                tags=frozenset({"novendor", "accounting", "financial", "read"})),
+
+        ToolDef(name="novendor.accounting.get_balance_snapshot",
+                description=(
+                    "Simple balance sheet: assets (cash + receivables), liabilities (payables), equity. "
+                    "Cash field carries status=unavailable when no transactions imported — never zero."
+                ),
+                module="novendor", permission="read",
+                input_model=BalanceSnapshotInput, handler=_balance_snapshot,
+                tags=frozenset({"novendor", "accounting", "financial", "read"})),
+
+        ToolDef(name="novendor.accounting.flag_subscription_review",
+                description="Mark a subscription as needing documentation review (sets documentation_complete=false). Requires confirm=true.",
+                module="novendor", permission="write",
+                input_model=FlagSubscriptionReviewInput, handler=_flag_subscription_review,
+                tags=frozenset({"novendor", "accounting", "subscription", "write"})),
+
+        ToolDef(name="novendor.accounting.mark_business_relevance",
+                description="Set business_relevance (business|mixed|personal) on a subscription row. Requires confirm=true.",
+                module="novendor", permission="write",
+                input_model=MarkBusinessRelevanceInput, handler=_mark_business_relevance,
+                tags=frozenset({"novendor", "accounting", "subscription", "write"})),
+
+        ToolDef(name="novendor.accounting.record_capital_purchase",
+                description="Create a capital_purchase expense draft (computers, equipment). Requires confirm=true.",
+                module="novendor", permission="write",
+                input_model=RecordCapitalPurchaseInput, handler=_record_capital_purchase,
+                tags=frozenset({"novendor", "accounting", "expense", "write"})),
+
+        ToolDef(name="novendor.accounting.record_home_office_expense",
+                description="Create a home_office expense draft with tax_review_flag=true. Requires confirm=true.",
+                module="novendor", permission="write",
+                input_model=RecordHomeOfficeExpenseInput, handler=_record_home_office_expense,
+                tags=frozenset({"novendor", "accounting", "expense", "write"})),
     ]
     for tool in tools:
         registry.register(tool)

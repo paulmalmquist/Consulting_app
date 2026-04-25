@@ -235,3 +235,102 @@ class InvoiceCreateRequest(BaseModel):
     due: str
     amount: float
     engagement_id: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Financial snapshot (SnapshotStrip)
+# ---------------------------------------------------------------------------
+
+
+class FinancialSnapshotOut(BaseModel):
+    cash_balance: float | None = None
+    cash_balance_status: Literal["live", "unavailable"] = "unavailable"
+    cash_balance_unavailable_reason: str | None = None
+    cash_in_30d: float | None = None
+    cash_in_30d_status: Literal["live", "unavailable"] = "unavailable"
+    cash_in_30d_unavailable_reason: str | None = None
+    cash_out_30d: float | None = None
+    cash_out_30d_status: Literal["live", "unavailable"] = "unavailable"
+    cash_out_30d_unavailable_reason: str | None = None
+    net_30d: float | None = None
+    unpaid_receivables: float = 0.0
+    mrr_software: float = 0.0
+    as_of: str
+
+
+# ---------------------------------------------------------------------------
+# Software spend
+# ---------------------------------------------------------------------------
+
+
+class SoftwareSpendRowOut(BaseModel):
+    vendor: str
+    product: str
+    platform: str | None = None
+    cadence: str
+    monthly_cost: float
+    ytd_cost: float
+    spend_type: str | None = None
+    business_relevance: str | None = None
+    is_apple_billed: bool
+    has_dedup_risk: bool
+
+
+class SoftwareSpendTotalsOut(BaseModel):
+    ai_tools: float
+    infrastructure: float
+    other: float
+    apple_billed: float
+    direct: float
+
+
+class DedupCandidateOut(BaseModel):
+    vendor: str
+    apple_billed_amount: float
+    direct_amount: float
+
+
+class SoftwareSpendOut(BaseModel):
+    rows: list[SoftwareSpendRowOut]
+    totals: SoftwareSpendTotalsOut
+    dedup_candidates: list[DedupCandidateOut]
+
+
+# ---------------------------------------------------------------------------
+# Financial statements
+# ---------------------------------------------------------------------------
+
+
+class IncomeStatementCurrentMonth(BaseModel):
+    revenue: float
+    expenses: float
+    net: float
+
+
+class IncomeStatementOut(BaseModel):
+    months: list[str]
+    revenue: list[float]
+    expenses_by_cat: dict[str, list[float]]
+    total_expenses: list[float]
+    net: list[float]
+    current_month: IncomeStatementCurrentMonth
+
+
+class BalanceAssetsOut(BaseModel):
+    cash: float | None = None
+    cash_status: Literal["live", "unavailable"] = "unavailable"
+    cash_unavailable_reason: str | None = None
+    receivables: float
+    total: float
+
+
+class BalanceLiabilitiesOut(BaseModel):
+    payables: float
+    total: float
+
+
+class BalanceSnapshotOut(BaseModel):
+    as_of: str
+    assets: BalanceAssetsOut
+    liabilities: BalanceLiabilitiesOut
+    equity: float

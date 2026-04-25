@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { fetchExecutionBoard, type ExecutionCard } from "@/lib/cro-api";
 import { LeftSidebar } from "@/components/operator/command-desk";
-import { operatorSidebarSections } from "../../../operator/_sidebar";
+import { consultingSidebarSections } from "../../../operator/_sidebar";
 
 function fmtUSD(n: number | null | undefined): string {
   if (!n) return "—";
@@ -47,7 +47,7 @@ export default function LostDealsPage() {
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
       <LeftSidebar
-        sections={operatorSidebarSections(envId)}
+        sections={consultingSidebarSections(envId)}
         activeKey="pipeline"
       />
 

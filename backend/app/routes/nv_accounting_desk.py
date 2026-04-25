@@ -18,6 +18,10 @@ from fastapi import APIRouter, Query, Request
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.nv_accounting_desk import (
     ARAgingOut,
+    BalanceSnapshotOut,
+    DedupCandidateOut,
+    FinancialSnapshotOut,
+    IncomeStatementOut,
     InvoiceCreateRequest,
     InvoiceRowOut,
     KPIBarOut,
@@ -27,6 +31,7 @@ from app.schemas.nv_accounting_desk import (
     MatchTransactionRequest,
     RemindInvoiceRequest,
     RemindInvoiceResult,
+    SoftwareSpendOut,
     SplitTransactionRequest,
     SplitTransactionResult,
     TransactionRowOut,
@@ -40,7 +45,9 @@ from app.services import (
     nv_accounting_trends,
     nv_ar_aging,
     nv_bank_transactions,
+    nv_financial_statements,
     nv_invoices,
+    nv_software_spend,
     receipt_review_queue,
 )
 
@@ -207,6 +214,98 @@ def get_cash_movement_trend(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="nv-accounting.trends.cash-movement.failed",
+        )
+
+
+@router.get("/financial-snapshot", response_model=FinancialSnapshotOut)
+def get_financial_snapshot(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        env, biz = _resolve(request, env_id, business_id)
+        return FinancialSnapshotOut(**nv_accounting_kpis.financial_snapshot(env_id=env, business_id=biz))
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="nv-accounting.financial-snapshot.failed",
+        )
+
+
+@router.get("/software-spend", response_model=SoftwareSpendOut)
+def get_software_spend(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        env, biz = _resolve(request, env_id, business_id)
+        data = nv_software_spend.get_software_spend(env_id=env, business_id=biz)
+        return SoftwareSpendOut(**data)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="nv-accounting.software-spend.failed",
+        )
+
+
+@router.get("/statements/income", response_model=IncomeStatementOut)
+def get_income_statement(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    months: int = Query(default=6, ge=1, le=24),
+):
+    try:
+        env, biz = _resolve(request, env_id, business_id)
+        data = nv_financial_statements.income_statement(env_id=env, business_id=biz, months=months)
+        return IncomeStatementOut(**data)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="nv-accounting.statements.income.failed",
+        )
+
+
+@router.get("/statements/cash", response_model=TrendCashMovementOut)
+def get_cash_statement(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    """30-day cash flow — thin wrapper over the existing cash movement trend."""
+    try:
+        env, biz = _resolve(request, env_id, business_id)
+        return TrendCashMovementOut(
+            **nv_accounting_trends.cash_movement_30d(env_id=env, business_id=biz)
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="nv-accounting.statements.cash.failed",
+        )
+
+
+@router.get("/statements/balance", response_model=BalanceSnapshotOut)
+def get_balance_snapshot(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        env, biz = _resolve(request, env_id, business_id)
+        data = nv_financial_statements.balance_snapshot(env_id=env, business_id=biz)
+        return BalanceSnapshotOut(**data)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="nv-accounting.statements.balance.failed",
         )
 
 

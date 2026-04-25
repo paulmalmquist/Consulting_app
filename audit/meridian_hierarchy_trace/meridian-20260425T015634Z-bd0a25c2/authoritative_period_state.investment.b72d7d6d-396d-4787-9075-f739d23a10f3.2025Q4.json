@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "b72d7d6d-396d-4787-9075-f739d23a10f3",
+  "investment_name": "Pacific Gateway Hotel",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "10024749.650000000000",
+    "ending_nav_full": "14697010.970000000000",
+    "beginning_nav_attributable": "8019799.720000000000",
+    "ending_nav_attributable": "11757608.776000000000",
+    "gross_operating_cash_flow_full": "266017.34",
+    "fund_attributable_operating_cash_flow": "212813.872000000000",
+    "effective_fund_ownership_percent": "0.800000000000000000000000",
+    "valuation_movement_full": "4672261.320000000000",
+    "fund_attributable_valuation_movement": "3737809.056000000000",
+    "gross_return_amount": "3950622.92800000000000000000000000000000000",
+    "gross_return_rate": "0.394086941413",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "39.408694141300"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "c7c1d2cc-c25f-4a57-a04d-58dba48991d0"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "55303761-6351-4d25-99fe-b709482cc3da"
+    }
+  ]
+}

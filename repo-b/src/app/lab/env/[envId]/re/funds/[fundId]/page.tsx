@@ -89,6 +89,7 @@ import {
 import { assertAuthoritativeMetric } from "@/lib/re/assertAuthoritativeMetric";
 import { AuditDrawer } from "@/components/re/AuditDrawer";
 import { TrustChip } from "@/components/re/TrustChip";
+import { ScopeBadge } from "@/components/re/ScopeBadge";
 import { publishAssistantPageContext, resetAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import SaleScenarioPanel from "@/components/repe/SaleScenarioPanel";
 import { AmortizationViewer } from "@/components/repe/AmortizationViewer";
@@ -1729,8 +1730,9 @@ export default function FundDetailPage({
         fundState,
         investmentRollup,
         snapshotVersion: authoritativeState?.snapshot_version ?? null,
+        scopeMeta: (authoritativeMetrics.scope as { scope_completeness?: string; investment_count?: number; expected_investment_count?: number } | null | undefined),
       }),
-    [fundState, investmentRollup, authoritativeState?.snapshot_version]
+    [fundState, investmentRollup, authoritativeState?.snapshot_version, authoritativeMetrics.scope]
   );
   // Authoritative State Lockdown — Phase 3 (INV-5 enforced)
   // KPI cards use authoritative snapshot values ONLY. No legacy fallback.
@@ -2122,6 +2124,9 @@ export default function FundDetailPage({
           snapshotVersion={authoritativeState?.snapshot_version}
           trustStatus={authoritativeState?.trust_status}
         />
+        <ScopeBadge
+          scope={(authoritativeMetrics.scope as import("@/components/re/ScopeBadge").ScopeMetadata | null | undefined)}
+        />
         <span className="text-slate-500">
           requested quarter: <span className="font-mono">{quarter}</span>
         </span>
@@ -2371,6 +2376,13 @@ function InvestmentRow({
                 <span className="capitalize">{rollup?.stage || inv.stage || "—"}</span>
                 {rollup?.sponsor ? <span>{rollup.sponsor}</span> : null}
               </div>
+              {(row.noi != null || (fmtFlexiblePercent(row.occupancy) !== "—") || (fmtFlexiblePercent(row.ltv) !== "—")) && (
+                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                  {row.noi != null && <span>NOI {fmtMoney(row.noi)}</span>}
+                  {fmtFlexiblePercent(row.occupancy) !== "—" && <span>Occ {fmtFlexiblePercent(row.occupancy)}</span>}
+                  {fmtFlexiblePercent(row.ltv) !== "—" && <span>LTV {fmtFlexiblePercent(row.ltv)}</span>}
+                </div>
+              )}
             </div>
           </div>
         </td>
@@ -2419,6 +2431,15 @@ function InvestmentRow({
                             {asset.state ? `, ${asset.state}` : ""}
                           </p>
                         ) : null}
+                        {(asset.noi || asset.occupancy || (asset.asset_value && asset.debt_balance)) && (
+                          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] md:hidden">
+                            {asset.noi ? <span>NOI {fmtMoney(asset.noi)}</span> : null}
+                            {asset.occupancy ? <span>Occ {fmtFlexiblePercent(asset.occupancy)}</span> : null}
+                            {asset.asset_value && asset.debt_balance ? (
+                              <span>LTV {fmtFlexiblePercent(Number(asset.debt_balance) / Math.max(Number(asset.asset_value), 1))}</span>
+                            ) : null}
+                          </div>
+                        )}
                       </td>
                       <td className="hidden sm:table-cell px-4 py-2 text-xs text-[#64748B]">
                         {labelFn(PROPERTY_TYPE_LABELS, asset.property_type || asset.asset_type || "")}
@@ -2992,7 +3013,17 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
           <tbody className="divide-y divide-bm-border/40">
             {data.items.map((item) => (
               <tr key={item.id} className="hover:bg-bm-surface/20">
-                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{fmtLineCode(item.line_code)}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">
+                  {fmtLineCode(item.line_code)}
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                    {item.plan_amount != null && <span>Plan {fmtMoney(item.plan_amount)}</span>}
+                    {item.variance_pct !== null && (
+                      <span className={Number(item.variance_pct) >= 0 ? "text-green-500" : "text-red-400"}>
+                        {fmtPercent(item.variance_pct)}
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(item.actual_amount)}</td>
                 <td className="hidden sm:table-cell px-4 py-3 text-right">{fmtMoney(item.plan_amount)}</td>
                 <td className={`px-2 py-2 sm:px-4 sm:py-3 text-right ${Number(item.variance_amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
@@ -3240,6 +3271,20 @@ function ReturnsTab({ baseScenario, loading }: {
                           {asset.investment_name}
                           {asset.market ? ` · ${asset.market}` : ""}
                         </p>
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500 sm:hidden">
+                          {asset.status_category && (
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              asset.status_category === "active" ? "bg-blue-50 text-blue-700"
+                                : asset.status_category === "disposed" ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}>
+                              {asset.status_category}
+                            </span>
+                          )}
+                          {asset.ownership_percent != null && (
+                            <span className="tabular-nums">{fmtFlexiblePercent(asset.ownership_percent)} owned</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3">
@@ -3383,7 +3428,14 @@ function LoanBookTab({ envId, businessId, fundId, quarter }: {
                 const passed = latest ? latest.pass : null;
                 return (
                   <tr key={loan.id} className="hover:bg-bm-surface/20">
-                    <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{loan.loan_name}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">
+                      {loan.loan_name}
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                        {loan.rate != null && <span>{fmtPercent(loan.rate)} rate</span>}
+                        {latest?.dscr ? <span>DSCR {Number(latest.dscr).toFixed(2)}</span> : null}
+                        {latest?.debt_yield ? <span>DY {fmtPercent(latest.debt_yield)}</span> : null}
+                      </div>
+                    </td>
                     <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">{fmtMoney(loan.upb)}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-right">{fmtPercent(loan.rate)}</td>
                     <td className="hidden md:table-cell px-4 py-3 text-right">{latest?.dscr ? Number(latest.dscr).toFixed(2) : "—"}</td>
@@ -4116,7 +4168,14 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
           <tbody className="divide-y divide-bm-border/40">
             {sortedPartners.map((p) => (
               <tr key={p.partner_id} className="hover:bg-bm-surface/20">
-                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">{p.name}</td>
+                <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">
+                  {p.name}
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] md:hidden">
+                    {p.dpi ? <span>DPI {fmtMultiple(p.dpi)}</span> : null}
+                    {p.tvpi ? <span>TVPI {fmtMultiple(p.tvpi)}</span> : null}
+                    {p.irr ? <span>IRR {fmtPercent(p.irr)}</span> : null}
+                  </div>
+                </td>
                 <td className="px-2 py-2 sm:px-4 sm:py-3">
                   <span className="rounded-full border border-bm-border/70 px-2 py-0.5 text-[11px] uppercase tracking-[0.08em]">
                     {p.partner_type}
@@ -4191,7 +4250,17 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
             <tbody className="divide-y divide-bm-border/40">
               {data.partners.filter((p) => p.waterfall_allocation).map((p) => (
                 <tr key={p.partner_id} className="hover:bg-bm-surface/20">
-                  <td className="px-2 py-2 sm:px-4 font-medium">{p.name}</td>
+                  <td className="px-2 py-2 sm:px-4 font-medium">
+                    {p.name}
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                      {p.waterfall_allocation?.preferred_return != null && (
+                        <span>Pref {fmtMoney(p.waterfall_allocation.preferred_return)}</span>
+                      )}
+                      {p.waterfall_allocation?.carry != null && (
+                        <span>Carry {fmtMoney(p.waterfall_allocation.carry)}</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-2 py-2 sm:px-4 text-right">{fmtMoney(p.waterfall_allocation?.return_of_capital)}</td>
                   <td className="hidden sm:table-cell px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.preferred_return)}</td>
                   <td className="hidden sm:table-cell px-4 py-2 text-right">{fmtMoney(p.waterfall_allocation?.carry)}</td>

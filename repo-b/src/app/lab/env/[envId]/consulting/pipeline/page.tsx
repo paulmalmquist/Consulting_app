@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { Search, X as XIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import {
   DndContext,
@@ -24,8 +25,11 @@ import { DealSidePanel } from "@/components/consulting/DealSidePanel";
 import PipelineLaneView, {
   PipelineCommandBand,
   LaneCardOverlay,
+  GroupedBoardView,
+  BoardViewToggle,
   type LaneMode,
 } from "@/components/consulting/PipelineLaneView";
+import type { BoardViewMode } from "@/components/consulting/pipeline-groups";
 import PipelineActionPanel, {
   type ActiveSlice,
 } from "@/components/consulting/PipelineActionPanel";
@@ -42,7 +46,7 @@ import {
   type ColorMode,
 } from "@/components/consulting/pipeline-verticals";
 import { LeftSidebar } from "@/components/operator/command-desk";
-import { operatorSidebarSections } from "../../operator/_sidebar";
+import { consultingSidebarSections } from "../../operator/_sidebar";
 import {
   TodayMovesPanel,
   PipelineRisksPanel,
@@ -210,7 +214,17 @@ export default function PipelinePage({
   const [focusedStage, setFocusedStage] = useState<string | null>(null);
   const [activeSlice, setActiveSlice] = useState<ActiveSlice | null>(null);
   const [chartMode, setChartMode] = useState<LaneMode>("count");
+  const [boardViewMode, setBoardViewMode] = useState<BoardViewMode>("groups");
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Right rail collapse — persisted to localStorage
+  const [railOpen, setRailOpen] = useState<boolean>(true);
 
   // Rail data
   const [moves, setMoves] = useState<TodayMoveRow[] | null>(null);
@@ -268,6 +282,27 @@ export default function PipelinePage({
     return () => { cancelled = true; };
   }, [params.envId, businessId, ready]);
 
+  // Debounce search query
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery]);
+
+  // Init rail state from localStorage + collapse on narrow viewports
+  useEffect(() => {
+    const stored = localStorage.getItem("nv_rail_open");
+    if (stored !== null) {
+      setRailOpen(stored !== "false");
+    } else if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setRailOpen(false);
+    }
+    const bvm = localStorage.getItem("nv_board_view_mode");
+    if (bvm === "groups" || bvm === "stages") setBoardViewMode(bvm);
+    const eg = localStorage.getItem("nv_expanded_group");
+    if (eg) setExpandedGroup(eg);
+  }, []);
+
   // Derive all cards from kanban for Today Panel and Action Bar
   const allCards = useMemo(() => {
     if (!kanban) return [];
@@ -302,10 +337,14 @@ export default function PipelinePage({
   // Closed stages are removed from the active board — they live in the rail (wins/losses)
   const CLOSED_KEYS = new Set(["closed_won", "closed_lost"]);
 
-  // Vertical + industry filtered columns — drives BOTH kanban render and chart
+  // Vertical + industry + search filtered columns — drives BOTH kanban render and chart
   // Closed stages are excluded entirely from the active kanban.
   const filteredColumns = useMemo((): ExecutionBoardColumn[] => {
     if (!kanban) return [];
+    const q = debouncedQuery.trim().toLowerCase();
+    const isTriageNoAction = q === "no action";
+    const isTriageNoContact = q === "no contact";
+    const isTriageNoOutreach = q === "no outreach";
     return kanban.columns
       .filter((col) => !CLOSED_KEYS.has(col.execution_column_key))
       .map((col) => ({
@@ -314,10 +353,26 @@ export default function PipelinePage({
           const ind = (c.industry || "Other").trim() || "Other";
           if (selectedVertical && industryToVertical(ind) !== selectedVertical) return false;
           if (selectedIndustries.size > 0 && !selectedIndustries.has(ind)) return false;
+          // Triage keywords — use real counts from backend payload
+          if (isTriageNoAction) return !c.next_action_description;
+          if (isTriageNoContact) return c.contact_count === 0;
+          if (isTriageNoOutreach) return c.outreach_count === 0;
+          // General search
+          if (q) {
+            const haystack = [
+              c.account_name ?? "",
+              c.name ?? "",
+              c.industry ?? "",
+              c.next_action_description ?? "",
+              c.pain_hypothesis ?? "",
+              (c.personas ?? []).join(" "),
+            ].join(" ").toLowerCase();
+            if (!haystack.includes(q)) return false;
+          }
           return true;
         }),
       }));
-  }, [kanban, selectedVertical, selectedIndustries]);
+  }, [kanban, selectedVertical, selectedIndustries, debouncedQuery]);
 
   // Verticals present in the full board (stable — not affected by filters)
   const availableVerticals = useMemo(() => {
@@ -539,6 +594,21 @@ export default function PipelinePage({
     setChartMode((m) => (m === "count" ? "value" : "count"));
   }, []);
 
+  const handleBoardViewMode = useCallback((m: BoardViewMode) => {
+    setBoardViewMode(m);
+    localStorage.setItem("nv_board_view_mode", m);
+    if (m === "stages") {
+      setExpandedGroup(null);
+      localStorage.removeItem("nv_expanded_group");
+    }
+  }, []);
+
+  const handleExpandGroup = useCallback((key: string | null) => {
+    setExpandedGroup(key);
+    if (key) localStorage.setItem("nv_expanded_group", key);
+    else localStorage.removeItem("nv_expanded_group");
+  }, []);
+
   // Stable per-key ref callbacks cached so LaneColumn doesn't see new
   // function references on every render (avoids unnecessary dnd-kit re-registration).
   const columnRefCallbackCache = useRef<
@@ -624,25 +694,37 @@ export default function PipelinePage({
   const isLoading = contextLoading || (ready && loading);
   const openDeals = allCards.length;
 
+  const winstonBrand: ReactNode = (
+    <span
+      className="font-command"
+      style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ffffff", textShadow: "0 0 12px rgba(255,255,255,0.07)" }}
+    >
+      WINSTON
+    </span>
+  );
+
   if (isLoading) {
     return (
       <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
-        <LeftSidebar sections={operatorSidebarSections(params.envId)} activeKey="pipeline" />
+        <LeftSidebar brand={winstonBrand} sections={consultingSidebarSections(params.envId)} activeKey="pipeline" />
         <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4 flex-1">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
           ))}
         </div>
-        <div style={{ width: 400, flexShrink: 0, borderLeft: "1px solid rgba(255,255,255,0.07)" }} />
+        <div style={{ width: 40, flexShrink: 0, borderLeft: "1px solid rgba(255,255,255,0.07)" }} />
       </div>
     );
   }
 
+  const totalVisible = filteredColumns.reduce((sum, col) => sum + col.cards.length, 0);
+
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
-      {/* LEFT SIDEBAR — operator navigation */}
+      {/* LEFT SIDEBAR — consulting navigation */}
       <LeftSidebar
-        sections={operatorSidebarSections(params.envId)}
+        brand={winstonBrand}
+        sections={consultingSidebarSections(params.envId)}
         activeKey="pipeline"
       />
 
@@ -676,7 +758,60 @@ export default function PipelinePage({
           </div>
         ) : null}
 
-        {kanban ? (
+        {/* Search bar — 52px header aligned with sidebar brand header */}
+        <div style={{
+          height: 52,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+          gap: 8,
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+        }}>
+          <Search size={14} style={{ color: "rgba(220,230,240,0.40)", flexShrink: 0 }} />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search deals, verticals… or type: no action / no contact / no outreach"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "#dce6f0",
+              fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{ color: "rgba(220,230,240,0.50)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+            >
+              <XIcon size={12} />
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: "rgba(220,230,240,0.40)", flexShrink: 0, whiteSpace: "nowrap" }}>
+            {kanban ? `${totalVisible} deal${totalVisible !== 1 ? "s" : ""}` : ""}
+            {debouncedQuery ? ` · "${debouncedQuery}"` : ""}
+          </span>
+        </div>
+
+        {/* Empty search state */}
+        {kanban && debouncedQuery && totalVisible === 0 ? (
+          <div style={{ padding: "32px 16px", textAlign: "center", color: "rgba(220,230,240,0.40)", fontSize: 13 }}>
+            No matching deals.{" "}
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{ color: "#00DCFF", background: "none", border: "none", cursor: "pointer", fontSize: 13 }}
+            >
+              Clear search
+            </button>{" "}
+            to see all.
+          </div>
+        ) : null}
+
+        {kanban && !(debouncedQuery && totalVisible === 0) ? (
           <>
             <PipelineCommandBand
               insight={insight}
@@ -701,13 +836,12 @@ export default function PipelinePage({
               onInsightAction={handleInsightAction}
               onToggleMode={handleToggleMode}
               onClearFilters={handleClearFilters}
+              boardViewToggle={
+                <BoardViewToggle mode={boardViewMode} onChange={handleBoardViewMode} />
+              }
             />
-            <DndContext
-              sensors={sensors}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <PipelineLaneView
+            {boardViewMode === "groups" ? (
+              <GroupedBoardView
                 columns={filteredColumns}
                 chartData={chartData}
                 chartGroupKeys={chartGroupKeys}
@@ -716,15 +850,38 @@ export default function PipelinePage({
                 focusedSegKey={focusedSegKey}
                 focusedStage={focusedStage}
                 mode={chartMode}
+                expandedGroup={expandedGroup}
+                onExpandGroup={handleExpandGroup}
                 onSelectStage={handleSelectStage}
                 onSelectSegment={handleSelectSegment}
                 onSelectCard={handleSelectCard}
                 makeColumnRef={makeColumnRef}
               />
-              <DragOverlay>
-                {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
-              </DragOverlay>
-            </DndContext>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <PipelineLaneView
+                  columns={filteredColumns}
+                  chartData={chartData}
+                  chartGroupKeys={chartGroupKeys}
+                  chartColorMap={chartColorMap}
+                  colorMode={colorMode}
+                  focusedSegKey={focusedSegKey}
+                  focusedStage={focusedStage}
+                  mode={chartMode}
+                  onSelectStage={handleSelectStage}
+                  onSelectSegment={handleSelectSegment}
+                  onSelectCard={handleSelectCard}
+                  makeColumnRef={makeColumnRef}
+                />
+                <DragOverlay>
+                  {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
+                </DragOverlay>
+              </DndContext>
+            )}
           </>
         ) : null}
 
@@ -751,28 +908,62 @@ export default function PipelinePage({
         ) : null}
       </div>
 
-      {/* RIGHT RAIL — command center */}
+      {/* RIGHT RAIL — collapsible command center */}
       <div
         data-command-desk
         style={{
-          width: 400,
-          minWidth: 400,
+          width: railOpen ? 400 : 40,
+          minWidth: railOpen ? 400 : 40,
           flexShrink: 0,
           borderLeft: "1px solid rgba(255,255,255,0.08)",
           background: "rgba(6,9,14,0.98)",
-          overflowY: "auto",
+          overflowY: railOpen ? "auto" : "hidden",
           overflowX: "hidden",
           display: "flex",
           flexDirection: "column",
           gap: 0,
+          transition: "width 200ms ease, min-width 200ms ease",
+          position: "relative",
         }}
       >
-        <TodayMovesPanel moves={moves} />
-        <PipelineRisksPanel data={risks} />
-        <OutreachEnginePanel data={outreach} />
-        <RecentActivityPanel rows={activity} />
-        <WinsLossesPanel data={closes} envId={params.envId} />
-        <FinanceSnapshotPanel kpis={kpis} envId={params.envId} />
+        {/* Toggle button — always visible */}
+        <button
+          onClick={() => {
+            const next = !railOpen;
+            setRailOpen(next);
+            localStorage.setItem("nv_rail_open", String(next));
+          }}
+          title={railOpen ? "Collapse rail" : "Expand rail"}
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            height: 40,
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: railOpen ? "flex-end" : "center",
+            padding: railOpen ? "0 12px" : "0",
+            background: "rgba(6,9,14,0.98)",
+            border: "none",
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            cursor: "pointer",
+            color: "rgba(220,230,240,0.40)",
+            flexShrink: 0,
+          }}
+        >
+          {railOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+        {railOpen && (
+          <>
+            <TodayMovesPanel moves={moves} />
+            <PipelineRisksPanel data={risks} />
+            <OutreachEnginePanel data={outreach} />
+            <RecentActivityPanel rows={activity} />
+            <WinsLossesPanel data={closes} envId={params.envId} />
+            <FinanceSnapshotPanel kpis={kpis} envId={params.envId} />
+          </>
+        )}
       </div>
 
       {/* Close Deal Dialog */}

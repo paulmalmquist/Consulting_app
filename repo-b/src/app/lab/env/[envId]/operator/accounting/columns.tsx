@@ -61,7 +61,7 @@ export const needsColumns: WorkTableColumn<NvQueueItem>[] = [
       );
     },
   },
-  { key: "date", header: "DATE", width: "68px", render: (r) => <span style={{ color: "var(--fg-3)" }}>{r.date}</span> },
+  { key: "date", header: "DATE", width: "68px", render: (r) => <span style={{ color: "var(--fg-3)", fontSize: 12 }}>{r.date}</span> },
   {
     key: "amount",
     header: "AMOUNT",
@@ -71,6 +71,8 @@ export const needsColumns: WorkTableColumn<NvQueueItem>[] = [
       <span
         style={{
           fontVariantNumeric: "tabular-nums",
+          fontSize: 13,
+          fontWeight: 600,
           color: r.state_tone === "error" ? "var(--sem-down)" : "var(--fg-1)",
         }}
       >
@@ -78,8 +80,8 @@ export const needsColumns: WorkTableColumn<NvQueueItem>[] = [
       </span>
     ),
   },
-  { key: "party",  header: "COUNTERPARTY",        width: "1fr",  render: (r) => r.party },
-  { key: "client", header: "CLIENT / ENGAGEMENT", width: "1fr",  render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.client}</span> },
+  { key: "party",  header: "COUNTERPARTY",        width: "1fr",  render: (r) => <span style={{ fontSize: 13 }}>{r.party}</span> },
+  { key: "client", header: "CLIENT / ENGAGEMENT", width: "1fr",  render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.client}</span> },
   {
     key: "state",
     header: "STATE",
@@ -106,10 +108,10 @@ export const needsColumns: WorkTableColumn<NvQueueItem>[] = [
 ];
 
 export const txnsColumns: WorkTableColumn<NvTransactionRow>[] = [
-  { key: "id",      header: "ID",          width: "90px",  render: (r) => <span style={{ color: "var(--fg-3)" }}>{(r.external_id ?? r.id).slice(0, 9)}</span> },
-  { key: "date",    header: "DATE · TIME", width: "150px", render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.date}</span> },
-  { key: "account", header: "ACCOUNT",     width: "120px", render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.account}</span> },
-  { key: "desc",    header: "DESCRIPTION", width: "1fr",   render: (r) => r.desc },
+  { key: "id",      header: "ID",          width: "90px",  render: (r) => <span style={{ color: "var(--fg-3)", fontSize: 11 }}>{(r.external_id ?? r.id).slice(0, 9)}</span> },
+  { key: "date",    header: "DATE · TIME", width: "150px", render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.date}</span> },
+  { key: "account", header: "ACCOUNT",     width: "120px", render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.account}</span> },
+  { key: "desc",    header: "DESCRIPTION", width: "1fr",   render: (r) => <span style={{ fontSize: 13 }}>{r.desc}</span> },
   {
     key: "amount",
     header: "AMOUNT",
@@ -119,6 +121,8 @@ export const txnsColumns: WorkTableColumn<NvTransactionRow>[] = [
       <span
         style={{
           fontVariantNumeric: "tabular-nums",
+          fontSize: 13,
+          fontWeight: 600,
           color: r.amount > 0 ? "var(--sem-up)" : "var(--fg-1)",
         }}
       >
@@ -277,18 +281,24 @@ const PLATFORM_COLORS: Record<string, string> = {
   direct: "var(--sem-up)",
 };
 
+const RELEVANCE_COLORS: Record<string, string> = {
+  business: "var(--sem-up)",
+  mixed: "var(--neon-amber)",
+  personal: "var(--fg-4)",
+};
+
 export const subscriptionsColumns: WorkTableColumn<NvSubscriptionRow>[] = [
   {
     key: "vendor",
     header: "VENDOR",
-    width: "180px",
-    render: (r) => r.vendor_normalized ?? "—",
+    width: "160px",
+    render: (r) => <span style={{ fontSize: 13 }}>{r.vendor_normalized ?? "—"}</span>,
   },
-  { key: "service", header: "PRODUCT", width: "1fr",  render: (r) => r.service_name },
+  { key: "service", header: "PRODUCT", width: "1fr",  render: (r) => <span style={{ fontSize: 13 }}>{r.service_name}</span> },
   {
     key: "platform",
     header: "PLATFORM",
-    width: "120px",
+    width: "110px",
     render: (r) => {
       if (!r.billing_platform) return <span style={{ color: "var(--fg-4)" }}>—</span>;
       const color = PLATFORM_COLORS[r.billing_platform] ?? "var(--fg-2)";
@@ -311,33 +321,57 @@ export const subscriptionsColumns: WorkTableColumn<NvSubscriptionRow>[] = [
     },
   },
   {
+    key: "relevance",
+    header: "RELEVANCE",
+    width: "110px",
+    render: (r) => {
+      const rel = r.business_relevance;
+      if (!rel) return <span style={{ color: "var(--fg-4)" }}>—</span>;
+      const color = RELEVANCE_COLORS[rel] ?? "var(--fg-3)";
+      return <span style={{ color, fontSize: 12, textTransform: "capitalize" }}>{rel}</span>;
+    },
+  },
+  {
     key: "cadence",
     header: "CADENCE",
-    width: "100px",
-    render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.cadence}</span>,
+    width: "90px",
+    render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.cadence}</span>,
   },
   {
     key: "last_seen",
     header: "LAST BILLED",
     width: "110px",
-    render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.last_seen_date ?? "—"}</span>,
+    render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.last_seen_date ?? "—"}</span>,
   },
   {
     key: "next",
     header: "NEXT",
     width: "110px",
-    render: (r) => <span style={{ color: "var(--fg-2)" }}>{r.next_expected_date ?? "—"}</span>,
+    render: (r) => <span style={{ color: "var(--fg-2)", fontSize: 12 }}>{r.next_expected_date ?? "—"}</span>,
   },
   {
     key: "amount",
     header: "AMOUNT",
     width: "110px",
     align: "right",
-    render: (r) => (
-      <span style={{ fontVariantNumeric: "tabular-nums" }}>
-        {r.expected_amount != null ? fmtUSD(Number(r.expected_amount)) : "—"}
-      </span>
-    ),
+    render: (r) => {
+      const hasPriceChange = r.last_price_delta_pct != null && r.last_price_delta_pct !== 0;
+      return (
+        <span
+          style={{
+            fontVariantNumeric: "tabular-nums",
+            fontSize: 13,
+            fontWeight: 600,
+            color: hasPriceChange ? "var(--neon-amber)" : "var(--fg-1)",
+          }}
+        >
+          {r.expected_amount != null ? fmtUSD(Number(r.expected_amount)) : "—"}
+          {hasPriceChange && (
+            <span style={{ fontSize: 9, marginLeft: 3, opacity: 0.7 }}>↑</span>
+          )}
+        </span>
+      );
+    },
   },
   {
     key: "doc",

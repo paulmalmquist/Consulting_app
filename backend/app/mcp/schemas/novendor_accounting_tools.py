@@ -111,3 +111,60 @@ class SetOccurrenceStateInput(_EnvScoped):
 class AiSoftwareSummaryInput(_EnvScoped):
     period_start: Optional[date] = None
     period_end: Optional[date] = None
+
+
+# ── New tools (Phase 8) ───────────────────────────────────────────────────────
+
+class FinancialSnapshotInput(_EnvScoped):
+    pass
+
+
+class SoftwareSpendInput(_EnvScoped):
+    pass
+
+
+class SubscriptionLedgerInput(_EnvScoped):
+    active_only: bool = True
+
+
+class IncomeStatementInput(_EnvScoped):
+    months: int = Field(6, ge=1, le=24)
+
+
+class CashMovementInput(_EnvScoped):
+    pass
+
+
+class BalanceSnapshotInput(_EnvScoped):
+    pass
+
+
+class FlagSubscriptionReviewInput(_EnvScoped):
+    subscription_id: UUID
+    note: Optional[str] = None
+    confirm: bool = False
+
+
+class MarkBusinessRelevanceInput(_EnvScoped):
+    subscription_id: UUID
+    business_relevance: str = Field(..., description="business|mixed|personal")
+    confirm: bool = False
+
+
+class RecordCapitalPurchaseInput(_EnvScoped):
+    vendor: str
+    description: str
+    amount: float
+    purchase_date: date
+    category: str = "capital_purchase"
+    notes: Optional[str] = None
+    confirm: bool = False
+
+
+class RecordHomeOfficeExpenseInput(_EnvScoped):
+    description: str
+    amount: float
+    period_start: date
+    period_end: date
+    notes: Optional[str] = None
+    confirm: bool = False

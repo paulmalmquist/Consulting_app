@@ -1,0 +1,67 @@
+{
+  "entity_type": "investment",
+  "investment_id": "d4560000-0456-0101-0007-000000000001",
+  "investment_name": "Peachtree Logistics Park Acquisition",
+  "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+  "fund_name": "Institutional Growth Fund VII",
+  "quarter": "2025Q4",
+  "period_start": "2025-10-01",
+  "period_end": "2025-12-31",
+  "trust_status": "trusted",
+  "breakpoint_layer": null,
+  "canonical_metrics": {
+    "beginning_nav_full": "128357042.860000000000",
+    "ending_nav_full": "131262612.860000000000",
+    "beginning_nav_attributable": "112954197.716800000000",
+    "ending_nav_attributable": "115511099.316800000000",
+    "gross_operating_cash_flow_full": "-1366863.34",
+    "fund_attributable_operating_cash_flow": "-1202839.739200000000",
+    "effective_fund_ownership_percent": "0.880000000000000000000000",
+    "valuation_movement_full": "2905570.000000000000",
+    "fund_attributable_valuation_movement": "2556901.600000000000",
+    "gross_return_amount": "1354061.86080000000000000000000000000000000",
+    "gross_return_rate": "0.010549182426",
+    "gross_irr": null,
+    "gross_irr_series": null
+  },
+  "display_metrics": {
+    "gross_return_rate_pct": "1.054918242600"
+  },
+  "null_reasons": {
+    "gross_irr": "missing_investment_dated_capital_series",
+    "contributions": "investment_level_capital_ledger_not_available",
+    "distributions": "investment_level_distribution_series_not_available"
+  },
+  "formulas": {
+    "gross_return_amount": "gross return amount = fund attributable operating cash flow + fund attributable valuation movement",
+    "gross_return_rate": "gross return rate = gross return amount / beginning attributable NAV",
+    "fund_attributable_operating_cash_flow": "fund attributable operating cash flow = sum(asset net cash flow * effective fund ownership %)"
+  },
+  "provenance": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "grain": "asset_quarter",
+      "notes": "Operating cash flow source"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "grain": "asset_quarter",
+      "notes": "NAV source"
+    },
+    {
+      "table": "re_jv",
+      "grain": "investment",
+      "notes": "Ownership source"
+    }
+  ],
+  "source_row_refs": [
+    {
+      "table": "re_asset_acct_quarter_rollup",
+      "id": "e77e99db-0a26-4add-851d-b37a65b1ab08"
+    },
+    {
+      "table": "re_asset_quarter_state",
+      "id": "ee473a76-f1dc-423a-aaf3-06c4aa2af362"
+    }
+  ]
+}

@@ -125,6 +125,9 @@ export type ExecutionCard = {
   auto_draft_stack: Record<string, unknown>;
   execution_state: Record<string, unknown>;
   narrative_memory: Record<string, unknown>;
+  contact_count: number;
+  outreach_count: number;
+  note_count: number;
 };
 
 export type ExecutionBoardColumn = {
@@ -1126,6 +1129,25 @@ export async function fetchOpportunityContacts(opportunityId: string, envId: str
 
 export async function fetchOpportunityStageHistory(opportunityId: string, envId: string, businessId: string): Promise<StageHistoryEntry[]> {
   return apiFetch<StageHistoryEntry[]>(`${CRO_BASE}/opportunities/${opportunityId}/stage-history?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function createContact(body: {
+  env_id: string;
+  business_id: string;
+  crm_account_id?: string | null;
+  full_name: string;
+  email?: string;
+  phone?: string;
+  title?: string;
+  linkedin_url?: string;
+  relationship_strength?: string;
+  decision_role?: string;
+  notes?: string;
+}): Promise<AccountContact> {
+  return apiFetch<AccountContact>(`${CRO_BASE}/contacts`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function fetchContactDetail(contactId: string, envId: string, businessId: string): Promise<ContactDetail> {

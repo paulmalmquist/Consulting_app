@@ -28,8 +28,11 @@ import type {
 import type {
   NvARAging,
   NvAISoftwareSummary,
+  NvBalanceSnapshot,
   NvCashMovementTrend,
   NvExpenseCategoryTrend,
+  NvFinancialSnapshot,
+  NvIncomeStatement,
   NvInvoiceRow,
   NvKPIBar,
   NvQueue,
@@ -43,8 +46,11 @@ import {
   getNvAccountingQueue,
   getNvAiSoftwareSummary,
   getNvArAging,
+  getNvBalanceSnapshot,
   getNvCashMovementTrend,
   getNvExpenseCategoryTrend,
+  getNvFinancialSnapshot,
+  getNvIncomeStatement,
   getNvInvoices,
   getNvKpis,
   getNvReceiptIntake,
@@ -68,8 +74,11 @@ import {
   RevenueWatchPanel,
   SubscriptionWatchPanel,
 } from "./rail";
+import { SnapshotStrip } from "./SnapshotStrip";
+import { StatementsView } from "./StatementsView";
+import { SetupChecklistPanel } from "./SetupChecklist";
 
-type View = "needs" | "txns" | "recs" | "invs" | "subs";
+type View = "needs" | "txns" | "recs" | "invs" | "subs" | "stmts";
 
 export default function AccountingDeskPage() {
   const params = useParams<{ envId: string }>();
@@ -93,6 +102,10 @@ export default function AccountingDeskPage() {
   const [expCat, setExpCat] = useState<NvExpenseCategoryTrend | null>(null);
   const [cashMove, setCashMove] = useState<NvCashMovementTrend | null>(null);
   const [aiSummary, setAiSummary] = useState<NvAISoftwareSummary | null>(null);
+
+  const [snapshot, setSnapshot] = useState<NvFinancialSnapshot | null>(null);
+  const [incomeStmt, setIncomeStmt] = useState<NvIncomeStatement | null>(null);
+  const [balanceSnap, setBalanceSnap] = useState<NvBalanceSnapshot | null>(null);
 
   const [refreshTick, setRefreshTick] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshTick((t) => t + 1), []);
@@ -133,6 +146,12 @@ export default function AccountingDeskPage() {
         } else if (view === "subs") {
           const data = await getNvSubscriptionLedger(envId, businessId ?? undefined);
           if (!cancelled) setLedger(data);
+        } else if (view === "stmts") {
+          const [inc, bal] = await Promise.all([
+            getNvIncomeStatement(envId, businessId ?? undefined),
+            getNvBalanceSnapshot(envId, businessId ?? undefined),
+          ]);
+          if (!cancelled) { setIncomeStmt(inc); setBalanceSnap(bal); }
         }
       } catch {
         /* errors surfaced as empty rows */
@@ -155,8 +174,9 @@ export default function AccountingDeskPage() {
       getNvReceiptIntake(envId, businessId ?? undefined, 8),
       getNvSubscriptionLedger(envId, businessId ?? undefined),
       getNvAiSoftwareSummary(envId, businessId ?? undefined).catch(() => null),
+      getNvFinancialSnapshot(envId, businessId ?? undefined).catch(() => null),
     ])
-      .then(([k, ar, ec, cm, intake, sub, summary]) => {
+      .then(([k, ar, ec, cm, intake, sub, summary, snap]) => {
         if (cancelled) return;
         setKpis(k);
         setArAging(ar);
@@ -165,6 +185,7 @@ export default function AccountingDeskPage() {
         setReceipts(intake);
         setLedger(sub);
         setAiSummary(summary ?? null);
+        setSnapshot(snap ?? null);
       })
       .catch(() => {});
     return () => {
@@ -192,11 +213,12 @@ export default function AccountingDeskPage() {
   const views: ViewSwitcherView[] = useMemo(() => {
     const c = queue?.counts;
     return [
-      { key: "needs", label: "Needs Attention", count: c?.needs ?? 0, accent: "var(--neon-amber)" },
-      { key: "txns",  label: "Transactions",    count: c?.txns  ?? 0, accent: "var(--neon-cyan)"  },
-      { key: "recs",  label: "Receipts",        count: c?.recs  ?? 0, accent: "var(--neon-cyan)"  },
-      { key: "invs",  label: "Invoices",        count: c?.invs  ?? 0, accent: "var(--neon-cyan)"  },
-      { key: "subs",  label: "Subscriptions",   count: c?.subs  ?? 0, accent: "var(--neon-magenta)" },
+      { key: "needs",  label: "Needs Attention", count: c?.needs ?? 0, accent: "var(--neon-amber)" },
+      { key: "txns",   label: "Transactions",    count: c?.txns  ?? 0, accent: "var(--neon-cyan)"  },
+      { key: "recs",   label: "Receipts",        count: c?.recs  ?? 0, accent: "var(--neon-cyan)"  },
+      { key: "invs",   label: "Invoices",        count: c?.invs  ?? 0, accent: "var(--neon-cyan)"  },
+      { key: "subs",   label: "Subscriptions",   count: c?.subs  ?? 0, accent: "var(--neon-magenta)" },
+      { key: "stmts",  label: "Statements",      count: 0,             accent: "var(--sem-up)" },
     ];
   }, [queue]);
 
@@ -356,18 +378,24 @@ export default function AccountingDeskPage() {
         />
       );
     }
+    if (view === "subs") {
+      return (
+        <WorkTable<NvSubscriptionRow>
+          rows={ledger?.rows ?? []}
+          columns={subscriptionsColumns}
+          rowKey={(r) => r.id}
+          emptyState="No subscriptions detected."
+        />
+      );
+    }
     return (
-      <WorkTable<NvSubscriptionRow>
-        rows={ledger?.rows ?? []}
-        columns={subscriptionsColumns}
-        rowKey={(r) => r.id}
-        emptyState="No subscriptions detected."
-      />
+      <StatementsView income={incomeStmt} cash={cashMove} balance={balanceSnap} />
     );
   })();
 
   const left = (
     <>
+      <SnapshotStrip snapshot={snapshot} />
       <ViewSwitcher
         views={views}
         value={view}
@@ -411,6 +439,7 @@ export default function AccountingDeskPage() {
 
   const rightRail = (
     <RightRail>
+      <SetupChecklistPanel envId={envId} />
       <ReceiptIntakePanel data={receipts} />
       <SubscriptionWatchPanel ledger={ledger} summary={aiSummary} />
       <RevenueWatchPanel data={arAging} />

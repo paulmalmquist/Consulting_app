@@ -47,5 +47,82 @@
     "mime_type": "text/plain",
     "source_type": "apple_export",
     "body": "Apple Services\nApple.com/bill\n\nApple One · Individual\nOrder ID: MPK21AAP\nDate: 04/15/2026\nTotal: $19.95 USD\nAuto-renews on 05/15/2026\n"
+  },
+  {
+    "key": "claude_code_max_direct",
+    "filename": "anthropic_claude_code_max_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Anthropic\nReceipt\n\nClaude Code Max\nBilling period: 03/01/2026 - 04/01/2026\n\nSubtotal: $100.00\nTax:       $0.00\nTotal:    $100.00 USD\n\nNext billing date: 04/01/2026\n"
+  },
+  {
+    "key": "claude_via_apple",
+    "filename": "claude_via_apple_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "apple_export",
+    "body": "Apple Services\nApp Store\n\nClaude.ai\nOrder ID: CLDE22MR\nDate: 03/18/2026\n\nSubtotal: $20.00\nTax:       $0.00\nTotal:    $20.00 USD\n\nRenews on 04/18/2026\n"
+  },
+  {
+    "key": "chatgpt_plus_direct",
+    "filename": "openai_chatgpt_plus_direct_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "OpenAI\nReceipt\n\nChatGPT Plus\nBilling period: 03/01/2026 - 04/01/2026\nTotal: $20.00 USD\n"
+  },
+  {
+    "key": "gemini_business_standard",
+    "filename": "google_gemini_business_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Google LLC\nReceipt\n\nGemini Business Standard\nBilling period: 03/01/2026 - 04/01/2026\n\nSubtotal: $22.00\nTax:       $0.00\nTotal:    $22.00 USD\n\nAuto-renews monthly\n"
+  },
+  {
+    "key": "railway_pro",
+    "filename": "railway_pro_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Railway\nInvoice\n\nRailway Pro (usage-based)\nBilling period: 03/01/2026 - 04/01/2026\n\nBase: $5.00\nUsage: $15.23\nTotal: $20.23 USD\n\nNext invoice: 04/01/2026\n"
+  },
+  {
+    "key": "vercel_pro",
+    "filename": "vercel_pro_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Vercel Inc.\nReceipt\n\nVercel Pro Plan\nBilling period: 03/01/2026 - 04/01/2026\n\nSubtotal: $20.00\nTax:       $0.00\nTotal:    $20.00 USD\n\nAuto-renews monthly\n"
+  },
+  {
+    "key": "github_copilot_business",
+    "filename": "github_copilot_business_march_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "GitHub, Inc.\nReceipt\n\nGitHub Copilot Business\nBilling period: 03/01/2026 - 04/01/2026\n1 seat × $19.00\n\nSubtotal: $19.00\nTax:       $0.00\nTotal:    $19.00 USD\n\nAuto-renews monthly\n"
+  },
+  {
+    "key": "godaddy_annual",
+    "filename": "godaddy_domain_hosting_annual_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "GoDaddy\nReceipt\n\nDomain Registration + Managed Hosting\nBilling period: 01/01/2026 - 01/01/2027\n\nDomain (1 yr):  $12.99\nHosting (1 yr): $15.00\nTotal:          $27.99 USD\n\nAnnual renewal. Next due: 01/01/2027\n"
+  },
+  {
+    "key": "macbook_pro_m4_purchase",
+    "filename": "apple_macbook_pro_m4_jan_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Apple Store\nReceipt\n\nMacBook Pro 14-inch M4 Pro\nDate: 01/15/2026\nOrder ID: W12345678\n\nMacBook Pro: $2,399.00\nAppleCare+:    $99.00\nTax:           $0.00\nTotal:      $2,498.00 USD\n\nCapital purchase — primary work computer\n"
+  },
+  {
+    "key": "uplift_standing_desk",
+    "filename": "uplift_standing_desk_jan_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "upload",
+    "body": "Uplift Desk\nReceipt\n\nUplift V2 Commercial Standing Desk 60\"\nDate: 01/20/2026\nOrder ID: UD-2026-00441\n\nDesk:    $799.00\nShipping:  $0.00\nTax:       $0.00\nTotal:   $799.00 USD\n\nOffice equipment purchase\n"
+  },
+  {
+    "key": "home_office_q1_2026",
+    "filename": "home_office_q1_2026.txt",
+    "mime_type": "text/plain",
+    "source_type": "manual",
+    "body": "Home Office Expense — Manual Entry\n\nQ1 2026 home office expense\nDate: 03/31/2026\n\nInternet (3 months × $80): $240.00\nUtility allocation (est.): $210.00\n\nTotal: $450.00 USD\n\nNote: home office deduction — tax review required\n"
   }
 ]

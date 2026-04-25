@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useCallback, useRef } from "react";
+import React, { useMemo, useCallback, useRef } from "react";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import type { ExecutionBoardColumn, ExecutionCard } from "@/lib/cro-api";
 import type { StageRow, Insight } from "./pipeline-insight";
 import type { ActiveSlice } from "./PipelineActionPanel";
 import { VERTICAL_COLORS, type ColorMode } from "./pipeline-verticals";
+import { PIPELINE_GROUPS, type BoardViewMode } from "./pipeline-groups";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const LANE_W = 206;      // px — active column width (chart + kanban share this)
@@ -114,6 +115,7 @@ type CommandBandProps = {
   onInsightAction: () => void;
   onToggleMode: () => void;
   onClearFilters: () => void;
+  boardViewToggle?: React.ReactNode;
 };
 
 export function PipelineCommandBand({
@@ -139,6 +141,7 @@ export function PipelineCommandBand({
   onInsightAction,
   onToggleMode,
   onClearFilters,
+  boardViewToggle,
 }: CommandBandProps) {
   const sevBorder =
     insight.severity === "critical"
@@ -254,6 +257,7 @@ export function PipelineCommandBand({
           >
             {mode === "count" ? "# COUNT" : "$ VALUE"}
           </button>
+          {boardViewToggle ?? null}
         </div>
       </div>
 
@@ -1323,6 +1327,431 @@ export function LaneCardOverlay({ card }: { card: ExecutionCard }) {
           <span style={{ fontSize: 9, fontWeight: 600, color: CP.text }}>
             {fmtCurrency(card.amount)}
           </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── BoardViewToggle ──────────────────────────────────────────────────────────
+export function BoardViewToggle({
+  mode,
+  onChange,
+}: {
+  mode: BoardViewMode;
+  onChange: (m: BoardViewMode) => void;
+}) {
+  const options: { key: BoardViewMode; label: string }[] = [
+    { key: "groups", label: "GROUPS" },
+    { key: "stages", label: "STAGES" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 2,
+        background: "rgba(255,255,255,0.04)",
+        borderRadius: 4,
+        padding: 2,
+        border: "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      {options.map((o) => (
+        <button
+          key={o.key}
+          onClick={() => onChange(o.key)}
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            padding: "3px 10px",
+            borderRadius: 3,
+            border: "none",
+            cursor: "pointer",
+            background: mode === o.key ? "rgba(245,185,66,0.15)" : "transparent",
+            color: mode === o.key ? CP.accent : CP.muted,
+            transition: "all 0.15s",
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── GroupedBoardView ─────────────────────────────────────────────────────────
+type GroupedBoardViewProps = {
+  columns: ExecutionBoardColumn[];
+  chartData: StageRow[];
+  chartGroupKeys: string[];
+  chartColorMap: Record<string, string>;
+  colorMode: ColorMode;
+  focusedSegKey: string | null;
+  focusedStage: string | null;
+  mode: LaneMode;
+  expandedGroup: string | null;
+  onExpandGroup: (key: string | null) => void;
+  onSelectStage: (key: string) => void;
+  onSelectSegment: (key: string, segKey: string) => void;
+  onSelectCard: (id: string) => void;
+  makeColumnRef: (key: string) => (el: HTMLDivElement | null) => void;
+};
+
+export function GroupedBoardView({
+  columns,
+  chartData,
+  chartGroupKeys,
+  chartColorMap,
+  colorMode,
+  focusedSegKey,
+  focusedStage,
+  mode,
+  expandedGroup,
+  onExpandGroup,
+  onSelectStage,
+  onSelectSegment,
+  onSelectCard,
+  makeColumnRef,
+}: GroupedBoardViewProps) {
+  const colorMap = useMemo(() => {
+    if (colorMode === "vertical") return chartColorMap;
+    const m: Record<string, string> = {};
+    chartGroupKeys.forEach((ind, i) => { m[ind] = indColor(ind, i); });
+    return m;
+  }, [colorMode, chartGroupKeys, chartColorMap]);
+
+  const globalMax = useMemo(() => {
+    return Math.max(
+      ...chartData.map((r) => {
+        if (mode === "count") return r._total;
+        return chartGroupKeys.reduce((s, key) => s + (Number(r[key]) || 0), 0);
+      }),
+      1,
+    );
+  }, [chartData, chartGroupKeys, mode]);
+
+  const rowByKey = useMemo(() => {
+    const m: Record<string, StageRow> = {};
+    chartData.forEach((r) => { m[r.stage_key] = r; });
+    return m;
+  }, [chartData]);
+
+  const colByKey = useMemo(() => {
+    const m: Record<string, ExecutionBoardColumn> = {};
+    columns.forEach((c) => { m[c.execution_column_key] = c; });
+    return m;
+  }, [columns]);
+
+  return (
+    <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            gap: 8,
+            padding: "14px 14px 14px",
+            minWidth: "max-content",
+            alignItems: "stretch",
+          }}
+        >
+          {PIPELINE_GROUPS.map((group) => {
+            const isExpanded = expandedGroup === group.key;
+            const groupCols = group.stageKeys
+              .map((k) => colByKey[k])
+              .filter(Boolean) as ExecutionBoardColumn[];
+            const allCards = groupCols.flatMap((c) => c.cards);
+            const totalCount = allCards.length;
+            const totalValue = allCards.reduce((s, c) => s + (c.amount || 0), 0);
+            const noActionCount = allCards.filter((c) => !c.next_action_description).length;
+            const overdueCount = allCards.filter((c) => isOverdue(c.next_action_due)).length;
+            const topCards = [...allCards]
+              .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+              .slice(0, 5);
+
+            // Mini stacked bar: one bar segment per stage key in the group
+            const miniBarTotal = totalCount || 1;
+            const stageColors: Record<string, string> = {
+              target_identified: "#22D3EE",
+              outreach: "#0EA5E9",
+              engaged: "#F5B942",
+              discovery_scheduled: "#F59E0B",
+              demo_completed: "#F97316",
+              proposal: "#34D399",
+            };
+
+            if (isExpanded) {
+              // Render child stage columns side by side inside the group wrapper
+              return (
+                <div
+                  key={group.key}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    minWidth: 0,
+                  }}
+                >
+                  {/* Group header bar */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      background: group.dimColor,
+                      border: `1px solid ${group.color}33`,
+                      borderRadius: 4,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => onExpandGroup(null)}
+                  >
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 800,
+                        letterSpacing: "0.15em",
+                        textTransform: "uppercase",
+                        color: group.color,
+                      }}
+                    >
+                      {group.label}
+                    </span>
+                    <span style={{ fontSize: 9, color: CP.muted, flex: 1 }}>
+                      {totalCount} deals · {fmtCurrency(totalValue)}
+                    </span>
+                    <span style={{ fontSize: 9, color: CP.muted, letterSpacing: "0.06em" }}>▲ collapse</span>
+                  </div>
+                  {/* Child stage columns */}
+                  <div style={{ display: "flex", gap: LANE_GAP, alignItems: "stretch" }}>
+                    {groupCols.map((col) => {
+                      const row = rowByKey[col.execution_column_key] ?? null;
+                      return (
+                        <LaneColumn
+                          key={col.execution_column_key}
+                          column={col}
+                          row={row}
+                          isClosed={false}
+                          isDimmed={false}
+                          chartGroupKeys={chartGroupKeys}
+                          colorMap={colorMap}
+                          globalMax={globalMax}
+                          mode={mode}
+                          isFocused={focusedStage === col.execution_column_key}
+                          focusedSegKey={focusedSegKey}
+                          onSelectStage={onSelectStage}
+                          onSelectSegment={onSelectSegment}
+                          onSelectCard={onSelectCard}
+                          columnRef={makeColumnRef(col.execution_column_key)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            // Collapsed group column
+            return (
+              <div
+                key={group.key}
+                style={{
+                  width: 240,
+                  minWidth: 240,
+                  flexShrink: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  border: `1px solid ${group.color}22`,
+                  borderRadius: 4,
+                  background: CP.surfaceAlt,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  transition: "border-color 0.15s",
+                }}
+                onClick={() => onExpandGroup(group.key)}
+              >
+                {/* Group header */}
+                <div
+                  style={{
+                    padding: "10px 12px 8px",
+                    background: group.dimColor,
+                    borderBottom: `1px solid ${group.color}22`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6 }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.13em",
+                        textTransform: "uppercase",
+                        color: group.color,
+                      }}
+                    >
+                      {group.label}
+                    </span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: CP.text, flexShrink: 0 }}>
+                      {totalCount}
+                    </span>
+                  </div>
+                  <p style={{ margin: "2px 0 0", fontSize: 9, color: CP.muted, letterSpacing: "0.04em" }}>
+                    {group.description}
+                  </p>
+                </div>
+
+                {/* KPI row */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 0,
+                    borderBottom: `1px solid rgba(255,255,255,0.05)`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ flex: 1, padding: "6px 10px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 7, color: CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>VALUE</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: CP.accent }}>{fmtCurrency(totalValue)}</div>
+                  </div>
+                  <div style={{ flex: 1, padding: "6px 10px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 7, color: noActionCount > 0 ? CP.critical : CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>NO ACTION</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: noActionCount > 0 ? CP.critical : CP.textDim }}>{noActionCount}</div>
+                  </div>
+                  <div style={{ flex: 1, padding: "6px 10px" }}>
+                    <div style={{ fontSize: 7, color: overdueCount > 0 ? CP.warning : CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>OVERDUE</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: overdueCount > 0 ? CP.warning : CP.textDim }}>{overdueCount}</div>
+                  </div>
+                </div>
+
+                {/* Mini stacked stage bar */}
+                {totalCount > 0 ? (
+                  <div
+                    style={{
+                      height: 4,
+                      display: "flex",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {groupCols.map((col) => {
+                      const pct = col.cards.length / miniBarTotal;
+                      return (
+                        <div
+                          key={col.execution_column_key}
+                          title={`${col.execution_column_label}: ${col.cards.length}`}
+                          style={{
+                            flex: pct,
+                            background: stageColors[col.execution_column_key] ?? CP.muted,
+                            minWidth: col.cards.length > 0 ? 2 : 0,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {/* Top 5 deal cards */}
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    padding: "6px 6px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 3,
+                    minHeight: 0,
+                  }}
+                >
+                  {topCards.length === 0 ? (
+                    <div
+                      style={{
+                        height: 36,
+                        border: `1px dashed ${CP.borderDim}`,
+                        borderRadius: 4,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <span style={{ fontSize: 9, color: CP.muted }}>No deals in this zone</span>
+                    </div>
+                  ) : (
+                    topCards.map((card) => (
+                      <div
+                        key={card.crm_opportunity_id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectCard(card.crm_opportunity_id);
+                        }}
+                        style={{
+                          borderLeft: `2px solid ${!card.next_action_description ? CP.critical : group.color}`,
+                          borderTop: `1px solid ${CP.borderDim}`,
+                          borderRight: `1px solid ${CP.borderDim}`,
+                          borderBottom: `1px solid ${CP.borderDim}`,
+                          borderRadius: "0 3px 3px 0",
+                          background: CP.surface,
+                          padding: "5px 8px 4px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
+                          <p
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: CP.text,
+                              margin: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              flex: 1,
+                            }}
+                          >
+                            {card.account_name || "—"}
+                          </p>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: CP.accent, flexShrink: 0 }}>
+                            {fmtCurrency(card.amount)}
+                          </span>
+                        </div>
+                        {!card.next_action_description ? (
+                          <p style={{ fontSize: 8, fontWeight: 700, color: CP.critical, margin: "2px 0 0", letterSpacing: "0.04em" }}>
+                            ! NO ACTION
+                          </p>
+                        ) : (
+                          <p style={{ fontSize: 8, color: CP.muted, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            ▸ {card.next_action_description}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                  {allCards.length > 5 ? (
+                    <p style={{ fontSize: 8, color: CP.muted, textAlign: "center", margin: "4px 0 0", letterSpacing: "0.06em" }}>
+                      +{allCards.length - 5} more — expand to see all
+                    </p>
+                  ) : null}
+                </div>
+
+                {/* Footer */}
+                <div
+                  style={{
+                    padding: "4px 10px 6px",
+                    borderTop: `1px solid rgba(255,255,255,0.05)`,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.06em" }}>
+                    {group.stageKeys.join(" → ")}
+                  </span>
+                  <span style={{ fontSize: 8, color: group.color, letterSpacing: "0.06em" }}>expand ▾</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
