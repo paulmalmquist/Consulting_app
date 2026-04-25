@@ -341,7 +341,7 @@ export function RecentActivityPanel({ rows }: { rows: RecentActivityRow[] | null
 
 // ---------- Wins / Losses ------------------------------------------------
 
-export function WinsLossesPanel({ data }: { data: RecentClosesOut | null }) {
+export function WinsLossesPanel({ data, envId }: { data: RecentClosesOut | null; envId?: string }) {
   if (!data) return <RailModule title="WINS / LOSSES" accent="var(--sem-up)"><EmptyRow label="Loading…" /></RailModule>;
   return (
     <RailModule
@@ -423,6 +423,24 @@ export function WinsLossesPanel({ data }: { data: RecentClosesOut | null }) {
       )}
       {data.wins.length === 0 && data.losses.length === 0 && (
         <EmptyRow label="No recent closes." />
+      )}
+      {envId && (
+        <div style={{ padding: "6px 12px", borderTop: "1px solid var(--line-2)" }}>
+          <Link
+            href={`/lab/env/${envId}/consulting/pipeline/lost`}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--neon-amber)",
+              letterSpacing: ".08em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              border: 0,
+            }}
+          >
+            View lost deals ›
+          </Link>
+        </div>
       )}
     </RailModule>
   );

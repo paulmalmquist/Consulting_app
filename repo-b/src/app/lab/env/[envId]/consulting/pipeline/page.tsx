@@ -43,6 +43,30 @@ import {
 } from "@/components/consulting/pipeline-verticals";
 import { LeftSidebar } from "@/components/operator/command-desk";
 import { operatorSidebarSections } from "../../operator/_sidebar";
+import {
+  TodayMovesPanel,
+  PipelineRisksPanel,
+  OutreachEnginePanel,
+  RecentActivityPanel,
+  WinsLossesPanel,
+  FinanceSnapshotPanel,
+} from "@/app/lab/env/[envId]/operator/pipeline/rail";
+import {
+  getConsultingPipelineTodayMoves,
+  getConsultingPipelineRisks,
+  getConsultingPipelineRecentActivity,
+  getConsultingPipelineRecentCloses,
+  getConsultingPipelineOutreachBrief,
+  getNvKpis,
+} from "@/lib/bos-api";
+import type {
+  TodayMoveRow,
+  PipelineRisksOut,
+  RecentActivityRow,
+  RecentClosesOut,
+  OutreachBriefOut,
+} from "@/types/pipeline-rail";
+import type { NvKPIBar } from "@/types/nv-accounting";
 
 
 function formatError(err: unknown): string {
@@ -188,6 +212,14 @@ export default function PipelinePage({
   const [chartMode, setChartMode] = useState<LaneMode>("count");
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Rail data
+  const [moves, setMoves] = useState<TodayMoveRow[] | null>(null);
+  const [risks, setRisks] = useState<PipelineRisksOut | null>(null);
+  const [activity, setActivity] = useState<RecentActivityRow[] | null>(null);
+  const [closes, setCloses] = useState<RecentClosesOut | null>(null);
+  const [outreach, setOutreach] = useState<OutreachBriefOut | null>(null);
+  const [kpis, setKpis] = useState<NvKPIBar | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
@@ -213,6 +245,28 @@ export default function PipelinePage({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    let cancelled = false;
+    Promise.all([
+      getConsultingPipelineTodayMoves(params.envId, businessId).catch(() => [] as TodayMoveRow[]),
+      getConsultingPipelineRisks(params.envId, businessId).catch(() => null),
+      getConsultingPipelineRecentActivity(params.envId, businessId).catch(() => [] as RecentActivityRow[]),
+      getConsultingPipelineRecentCloses(params.envId, businessId).catch(() => null),
+      getConsultingPipelineOutreachBrief(params.envId, businessId).catch(() => null),
+      getNvKpis(params.envId, businessId).catch(() => null),
+    ]).then(([m, rk, act, cl, ob, k]) => {
+      if (cancelled) return;
+      setMoves(m);
+      setRisks(rk);
+      setActivity(act);
+      setCloses(cl);
+      setOutreach(ob);
+      setKpis(k);
+    });
+    return () => { cancelled = true; };
+  }, [params.envId, businessId, ready]);
 
   // Derive all cards from kanban for Today Panel and Action Bar
   const allCards = useMemo(() => {
@@ -245,18 +299,24 @@ export default function PipelinePage({
     return Array.from(s).sort();
   }, [allCards]);
 
+  // Closed stages are removed from the active board — they live in the rail (wins/losses)
+  const CLOSED_KEYS = new Set(["closed_won", "closed_lost"]);
+
   // Vertical + industry filtered columns — drives BOTH kanban render and chart
+  // Closed stages are excluded entirely from the active kanban.
   const filteredColumns = useMemo((): ExecutionBoardColumn[] => {
     if (!kanban) return [];
-    return kanban.columns.map((col) => ({
-      ...col,
-      cards: col.cards.filter((c) => {
-        const ind = (c.industry || "Other").trim() || "Other";
-        if (selectedVertical && industryToVertical(ind) !== selectedVertical) return false;
-        if (selectedIndustries.size > 0 && !selectedIndustries.has(ind)) return false;
-        return true;
-      }),
-    }));
+    return kanban.columns
+      .filter((col) => !CLOSED_KEYS.has(col.execution_column_key))
+      .map((col) => ({
+        ...col,
+        cards: col.cards.filter((c) => {
+          const ind = (c.industry || "Other").trim() || "Other";
+          if (selectedVertical && industryToVertical(ind) !== selectedVertical) return false;
+          if (selectedIndustries.size > 0 && !selectedIndustries.has(ind)) return false;
+          return true;
+        }),
+      }));
   }, [kanban, selectedVertical, selectedIndustries]);
 
   // Verticals present in the full board (stable — not affected by filters)
@@ -566,124 +626,154 @@ export default function PipelinePage({
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
-        <div style={{ width: 240, flexShrink: 0 }} />
+      <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
+        <LeftSidebar sections={operatorSidebarSections(params.envId)} activeKey="pipeline" />
         <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4 flex-1">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
           ))}
         </div>
+        <div style={{ width: 400, flexShrink: 0, borderLeft: "1px solid rgba(255,255,255,0.07)" }} />
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
+      {/* LEFT SIDEBAR — operator navigation */}
       <LeftSidebar
         sections={operatorSidebarSections(params.envId)}
         activeKey="pipeline"
       />
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {bannerMessage ? (
-        <div className="mx-4 mt-3">
-          {isSchemaError(bannerMessage) ? (
-            <SchemaErrorBanner envId={params.envId} onRetry={loadData} />
-          ) : (
-            <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
-              {bannerMessage}
-            </div>
-          )}
-        </div>
-      ) : null}
 
-      {advanceError ? (
-        <div className="mx-4 mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-400 flex items-center justify-between">
-          <span>{advanceError}</span>
-          <button onClick={() => setAdvanceError(null)} className="text-red-400/60 hover:text-red-400 ml-2 text-xs">dismiss</button>
-        </div>
-      ) : null}
+      {/* CENTER — active pipeline board only (closed stages excluded) */}
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {bannerMessage ? (
+          <div className="mx-4 mt-3">
+            {isSchemaError(bannerMessage) ? (
+              <SchemaErrorBanner envId={params.envId} onRetry={loadData} />
+            ) : (
+              <div className="rounded-lg border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm text-bm-text">
+                {bannerMessage}
+              </div>
+            )}
+          </div>
+        ) : null}
 
-      {kanban && openDeals === 0 ? (
-        <div className="mx-4 mt-3 rounded-lg border border-bm-border/40 bg-bm-surface/20 px-4 py-5 text-sm text-bm-muted2">
-          No opportunities in the pipeline yet.
-        </div>
-      ) : null}
+        {advanceError ? (
+          <div className="mx-4 mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-400 flex items-center justify-between">
+            <span>{advanceError}</span>
+            <button onClick={() => setAdvanceError(null)} className="text-red-400/60 hover:text-red-400 ml-2 text-xs">dismiss</button>
+          </div>
+        ) : null}
 
-      {/* UNIFIED LANE VIEW — chart bars aligned above kanban columns */}
-      {kanban ? (
-        <>
-          <PipelineCommandBand
-            insight={insight}
-            industries={industries}
-            selectedIndustries={selectedIndustries}
-            availableVerticals={availableVerticals}
-            subVerticals={subVerticals}
-            selectedVertical={selectedVertical}
-            colorMode={colorMode}
-            mode={chartMode}
-            hasActiveFilters={hasActiveFilters}
-            openDeals={openDeals}
-            staleCount={staleCards.length}
-            criticalCount={kanban.critical_deals.length}
-            noActionCount={noActionCards.length}
-            revenueAtRisk={revenueAtRisk}
-            totalPipeline={kanban.total_pipeline ?? 0}
-            weightedPipeline={kanban.weighted_pipeline ?? 0}
-            onToggleIndustry={handleToggleIndustry}
-            onSelectVertical={handleSelectVertical}
-            onToggleColorMode={handleToggleColorMode}
-            onInsightAction={handleInsightAction}
-            onToggleMode={handleToggleMode}
-            onClearFilters={handleClearFilters}
-          />
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <PipelineLaneView
-              columns={filteredColumns}
-              chartData={chartData}
-              chartGroupKeys={chartGroupKeys}
-              chartColorMap={chartColorMap}
+        {kanban && openDeals === 0 ? (
+          <div className="mx-4 mt-3 rounded-lg border border-bm-border/40 bg-bm-surface/20 px-4 py-5 text-sm text-bm-muted2">
+            No open opportunities in the active pipeline.{" "}
+            <a href={`/lab/env/${params.envId}/consulting/pipeline/lost`} style={{ color: "rgba(220,230,240,0.50)", textDecoration: "underline" }}>
+              View lost deals →
+            </a>
+          </div>
+        ) : null}
+
+        {kanban ? (
+          <>
+            <PipelineCommandBand
+              insight={insight}
+              industries={industries}
+              selectedIndustries={selectedIndustries}
+              availableVerticals={availableVerticals}
+              subVerticals={subVerticals}
+              selectedVertical={selectedVertical}
               colorMode={colorMode}
-              focusedSegKey={focusedSegKey}
-              focusedStage={focusedStage}
               mode={chartMode}
-              onSelectStage={handleSelectStage}
-              onSelectSegment={handleSelectSegment}
-              onSelectCard={handleSelectCard}
-              makeColumnRef={makeColumnRef}
+              hasActiveFilters={hasActiveFilters}
+              openDeals={openDeals}
+              staleCount={staleCards.length}
+              criticalCount={kanban.critical_deals.length}
+              noActionCount={noActionCards.length}
+              revenueAtRisk={revenueAtRisk}
+              totalPipeline={kanban.total_pipeline ?? 0}
+              weightedPipeline={kanban.weighted_pipeline ?? 0}
+              onToggleIndustry={handleToggleIndustry}
+              onSelectVertical={handleSelectVertical}
+              onToggleColorMode={handleToggleColorMode}
+              onInsightAction={handleInsightAction}
+              onToggleMode={handleToggleMode}
+              onClearFilters={handleClearFilters}
             />
-            <DragOverlay>
-              {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
-            </DragOverlay>
-          </DndContext>
-        </>
-      ) : null}
+            <DndContext
+              sensors={sensors}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <PipelineLaneView
+                columns={filteredColumns}
+                chartData={chartData}
+                chartGroupKeys={chartGroupKeys}
+                chartColorMap={chartColorMap}
+                colorMode={colorMode}
+                focusedSegKey={focusedSegKey}
+                focusedStage={focusedStage}
+                mode={chartMode}
+                onSelectStage={handleSelectStage}
+                onSelectSegment={handleSelectSegment}
+                onSelectCard={handleSelectCard}
+                makeColumnRef={makeColumnRef}
+              />
+              <DragOverlay>
+                {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
+              </DragOverlay>
+            </DndContext>
+          </>
+        ) : null}
 
-      {kanban ? (
-        <PipelineActionPanel
-          slice={activeSlice}
-          columns={filteredColumns}
-          envId={params.envId}
-          businessId={businessId || ""}
-          onExecuted={loadData}
-          onOpenDeal={handleSelectCard}
-          onDismiss={() => setActiveSlice(null)}
-        />
-      ) : null}
+        {kanban ? (
+          <PipelineActionPanel
+            slice={activeSlice}
+            columns={filteredColumns}
+            envId={params.envId}
+            businessId={businessId || ""}
+            onExecuted={loadData}
+            onOpenDeal={handleSelectCard}
+            onDismiss={() => setActiveSlice(null)}
+          />
+        ) : null}
 
-      {/* DEAL SIDE PANEL */}
-      {selectedDealId ? (
-        <DealSidePanel
-          dealId={selectedDealId}
-          envId={params.envId}
-          businessId={businessId || ""}
-          onClose={() => setSelectedDealId(null)}
-          onDataChange={loadData}
-        />
-      ) : null}
+        {selectedDealId ? (
+          <DealSidePanel
+            dealId={selectedDealId}
+            envId={params.envId}
+            businessId={businessId || ""}
+            onClose={() => setSelectedDealId(null)}
+            onDataChange={loadData}
+          />
+        ) : null}
+      </div>
+
+      {/* RIGHT RAIL — command center */}
+      <div
+        data-command-desk
+        style={{
+          width: 400,
+          minWidth: 400,
+          flexShrink: 0,
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(6,9,14,0.98)",
+          overflowY: "auto",
+          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          gap: 0,
+        }}
+      >
+        <TodayMovesPanel moves={moves} />
+        <PipelineRisksPanel data={risks} />
+        <OutreachEnginePanel data={outreach} />
+        <RecentActivityPanel rows={activity} />
+        <WinsLossesPanel data={closes} envId={params.envId} />
+        <FinanceSnapshotPanel kpis={kpis} envId={params.envId} />
+      </div>
 
       {/* Close Deal Dialog */}
       {closeDialog ? (
@@ -728,7 +818,6 @@ export default function PipelinePage({
           </div>
         </div>
       ) : null}
-    </div>
     </div>
   );
 }
