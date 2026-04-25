@@ -15,6 +15,11 @@ export type TrustState =
 
 export type PerformanceState = "Performing" | "Watch" | "Underperforming";
 
+export type ImpactOverride = {
+  impactBps: number | null;
+  source: "canonical_loo" | "live_loo" | "fallback_weighted";
+};
+
 export type AssetRow = {
   investmentId: string;
   name: string;
@@ -24,7 +29,8 @@ export type AssetRow = {
   nav: number | null;
   navPct: number | null;
   irr: number | null;
-  contributionBps: number | null;
+  impactBps: number | null;
+  impactSource: ImpactOverride["source"];
   realizedNav: number | null;
   unrealizedNav: number | null;
   performance: PerformanceState | null;
@@ -42,6 +48,7 @@ interface Props {
   auditMode?: boolean;
   onRowSelect?: (investmentId: string) => void;
   snapshotVersion?: string | null;
+  impactOverrides?: Map<string, ImpactOverride>;
 }
 
 const DEFAULT_TARGET_IRR = 0.12;
@@ -94,9 +101,19 @@ export default function AssetContributionTable({
   auditMode = false,
   onRowSelect,
   snapshotVersion,
+  impactOverrides,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("nav");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+
+  const hasAnyLooOverride = useMemo(
+    () =>
+      impactOverrides != null &&
+      [...impactOverrides.values()].some(
+        (v) => v.source === "canonical_loo" || v.source === "live_loo"
+      ),
+    [impactOverrides]
+  );
 
   const rows = useMemo<AssetRow[]>(() => {
     const filtered = rollup.filter((row) => {
@@ -118,14 +135,20 @@ export default function AssetContributionTable({
       const invested = toNumberSafe(row.invested_capital) ?? toNumberSafe(row.committed_capital);
       const irr = toNumberSafe(row.gross_irr) ?? toNumberSafe(row.net_irr);
       const navPct = fundNav > 0 && nav !== null ? (nav / fundNav) * 100 : null;
-      // IRR contribution in basis points = investment_irr × (nav / fund_nav) × 10000
-      const contributionBps =
-        irr !== null && navPct !== null ? irr * (navPct / 100) * 10000 : null;
-      // Realized/unrealized split: exited/sold investments are fully realized
+
+      const override = impactOverrides?.get(row.investment_id);
+      const impactBps = override
+        ? override.impactBps
+        : irr !== null && navPct !== null
+          ? irr * (navPct / 100) * 10000
+          : null;
+      const impactSource: ImpactOverride["source"] = override?.source ?? "fallback_weighted";
+
       const stage = (row.stage ?? "").toLowerCase();
       const isRealized = stage.includes("realized") || stage.includes("exited") || stage.includes("sold");
       const realizedNav = isRealized ? (nav ?? 0) : 0;
       const unrealizedNav = isRealized ? 0 : (nav ?? null);
+
       return {
         investmentId: row.investment_id,
         name: row.name,
@@ -135,7 +158,8 @@ export default function AssetContributionTable({
         nav,
         navPct,
         irr,
-        contributionBps,
+        impactBps,
+        impactSource,
         realizedNav: realizedNav > 0 ? realizedNav : null,
         unrealizedNav,
         performance: performanceForIrr(irr, targetIrr),
@@ -143,7 +167,7 @@ export default function AssetContributionTable({
         isArchived: Boolean((row as { is_archived?: boolean }).is_archived),
       };
     });
-  }, [rollup, totalFundNav, targetIrr, auditMode]);
+  }, [rollup, totalFundNav, targetIrr, auditMode, impactOverrides]);
 
   const sorted = useMemo(() => {
     const arr = [...rows];
@@ -202,7 +226,7 @@ export default function AssetContributionTable({
               <Th onClick={() => toggleSort("irr")} active={sortKey === "irr"} dir={sortDir} align="right">
                 Asset IRR
               </Th>
-              <th className="px-3 py-2 text-right font-medium">Contribution (bps)</th>
+              <th className="px-3 py-2 text-right font-medium">IRR Impact (bps)</th>
               <th className="px-3 py-2 text-right font-medium">Realized / Unrealized</th>
               <th className="px-3 py-2 font-medium">Performance</th>
               <th className="px-3 py-2 font-medium">Trust</th>
@@ -230,7 +254,11 @@ export default function AssetContributionTable({
       </div>
 
       <footer className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-5 py-2 text-[10px] uppercase tracking-wide text-bm-muted dark:border-bm-border/[0.08]">
-        <span>Contribution = IRR × NAV weight × 10,000 bps</span>
+        {hasAnyLooOverride ? (
+          <span>IRR Impact = leave-one-out sensitivity from bottom-up CFs · non-additive</span>
+        ) : (
+          <span>IRR Impact = IRR × NAV weight × 10,000 bps (approximation)</span>
+        )}
         {snapshotVersion ? (
           <span className="ml-auto">
             Snapshot <span className="font-mono">{snapshotVersion}</span>
@@ -291,6 +319,8 @@ function AssetRowView({
           ? "text-amber-700"
           : "text-red-700";
 
+  const isApprox = row.impactSource === "fallback_weighted";
+
   return (
     <tr
       className={`hover:bg-slate-50 dark:hover:bg-bm-surface/[0.06] ${
@@ -326,10 +356,37 @@ function AssetRowView({
         {irrText ?? <Unavailable reason="Awaiting IRR" />}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
-        {row.contributionBps !== null ? (
-          <span className={row.contributionBps >= 0 ? "text-emerald-700" : "text-red-600"}>
-            {row.contributionBps >= 0 ? "+" : ""}
-            {row.contributionBps.toFixed(0)}
+        {row.impactBps !== null ? (
+          <span
+            title={
+              isApprox
+                ? "Approximation: IRR × NAV weight. Not cash-flow based."
+                : "Leave-one-out IRR sensitivity from bottom-up cash flows. Non-additive."
+            }
+            className={
+              isApprox
+                ? "text-bm-muted"
+                : row.impactBps >= 0
+                  ? "text-emerald-700"
+                  : "text-red-600"
+            }
+            data-impact-source={row.impactSource}
+          >
+            {isApprox ? (
+              <span className="italic">
+                {row.impactBps >= 0 ? "+" : ""}
+                {row.impactBps.toFixed(0)}
+                <span className="ml-0.5 text-[9px] not-italic opacity-60">approx</span>
+              </span>
+            ) : (
+              <>
+                {row.impactBps >= 0 ? "+" : ""}
+                {row.impactBps.toFixed(0)}
+                <span className="ml-1 inline-flex items-center rounded px-1 py-0 text-[9px] font-medium bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+                  CF-based
+                </span>
+              </>
+            )}
           </span>
         ) : (
           <Unavailable reason="Awaiting IRR" />

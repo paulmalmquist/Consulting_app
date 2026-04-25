@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useCallback, useRef } from "react";
-import { useDroppable, useDraggable } from "@dnd-kit/core";
+import { useDroppable, useDraggable, DndContext, DragOverlay, useSensors } from "@dnd-kit/core";
+import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import type { ExecutionBoardColumn, ExecutionCard } from "@/lib/cro-api";
 import type { StageRow, Insight } from "./pipeline-insight";
 import type { ActiveSlice } from "./PipelineActionPanel";
@@ -1381,6 +1382,16 @@ export function BoardViewToggle({
 }
 
 // ─── GroupedBoardView ─────────────────────────────────────────────────────────
+const STAGE_COLORS: Record<string, string> = {
+  target_identified: "#22D3EE",
+  researched: "#38BDF8",
+  outreach: "#0EA5E9",
+  engaged: "#F5B942",
+  discovery_scheduled: "#F59E0B",
+  demo_completed: "#F97316",
+  proposal: "#34D399",
+};
+
 type GroupedBoardViewProps = {
   columns: ExecutionBoardColumn[];
   chartData: StageRow[];
@@ -1396,6 +1407,11 @@ type GroupedBoardViewProps = {
   onSelectSegment: (key: string, segKey: string) => void;
   onSelectCard: (id: string) => void;
   makeColumnRef: (key: string) => (el: HTMLDivElement | null) => void;
+  // DnD props — only active when a group is expanded
+  dndSensors: ReturnType<typeof useSensors>;
+  onDragStart: (e: DragStartEvent) => void;
+  onDragEnd: (e: DragEndEvent) => void;
+  activeCard: ExecutionCard | null;
 };
 
 export function GroupedBoardView({
@@ -1413,6 +1429,10 @@ export function GroupedBoardView({
   onSelectSegment,
   onSelectCard,
   makeColumnRef,
+  dndSensors,
+  onDragStart,
+  onDragEnd,
+  activeCard,
 }: GroupedBoardViewProps) {
   const colorMap = useMemo(() => {
     if (colorMode === "vertical") return chartColorMap;
@@ -1443,6 +1463,11 @@ export function GroupedBoardView({
     return m;
   }, [columns]);
 
+  const handleGroupClick = useCallback((groupKey: string) => {
+    // Clicking the already-expanded group collapses it; clicking a different one expands it
+    onExpandGroup(expandedGroup === groupKey ? null : groupKey);
+  }, [expandedGroup, onExpandGroup]);
+
   return (
     <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
       <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -1466,23 +1491,36 @@ export function GroupedBoardView({
             const totalValue = allCards.reduce((s, c) => s + (c.amount || 0), 0);
             const noActionCount = allCards.filter((c) => !c.next_action_description).length;
             const overdueCount = allCards.filter((c) => isOverdue(c.next_action_due)).length;
-            const topCards = [...allCards]
-              .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-              .slice(0, 5);
-
-            // Mini stacked bar: one bar segment per stage key in the group
             const miniBarTotal = totalCount || 1;
-            const stageColors: Record<string, string> = {
-              target_identified: "#22D3EE",
-              outreach: "#0EA5E9",
-              engaged: "#F5B942",
-              discovery_scheduled: "#F59E0B",
-              demo_completed: "#F97316",
-              proposal: "#34D399",
-            };
 
             if (isExpanded) {
-              // Render child stage columns side by side inside the group wrapper
+              const childCols = (
+                <div style={{ display: "flex", gap: LANE_GAP, alignItems: "stretch" }}>
+                  {groupCols.map((col) => {
+                    const row = rowByKey[col.execution_column_key] ?? null;
+                    return (
+                      <LaneColumn
+                        key={col.execution_column_key}
+                        column={col}
+                        row={row}
+                        isClosed={false}
+                        isDimmed={false}
+                        chartGroupKeys={chartGroupKeys}
+                        colorMap={colorMap}
+                        globalMax={globalMax}
+                        mode={mode}
+                        isFocused={focusedStage === col.execution_column_key}
+                        focusedSegKey={focusedSegKey}
+                        onSelectStage={onSelectStage}
+                        onSelectSegment={onSelectSegment}
+                        onSelectCard={onSelectCard}
+                        columnRef={makeColumnRef(col.execution_column_key)}
+                      />
+                    );
+                  })}
+                </div>
+              );
+
               return (
                 <div
                   key={group.key}
@@ -1493,23 +1531,24 @@ export function GroupedBoardView({
                     minWidth: 0,
                   }}
                 >
-                  {/* Group header bar */}
+                  {/* Expanded group header — glow border signals active state */}
                   <div
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
+                      gap: 10,
+                      padding: "8px 12px",
                       background: group.dimColor,
-                      border: `1px solid ${group.color}33`,
+                      border: `1px solid ${group.color}66`,
                       borderRadius: 4,
                       cursor: "pointer",
+                      boxShadow: `0 0 0 1px ${group.color}22, 0 2px 12px ${group.color}18`,
                     }}
-                    onClick={() => onExpandGroup(null)}
+                    onClick={() => handleGroupClick(group.key)}
                   >
                     <span
                       style={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: 800,
                         letterSpacing: "0.15em",
                         textTransform: "uppercase",
@@ -1518,36 +1557,29 @@ export function GroupedBoardView({
                     >
                       {group.label}
                     </span>
-                    <span style={{ fontSize: 9, color: CP.muted, flex: 1 }}>
-                      {totalCount} deals · {fmtCurrency(totalValue)}
+                    <span style={{ fontSize: 9, color: CP.textDim }}>
+                      {totalCount} deal{totalCount !== 1 ? "s" : ""} · {fmtCurrency(totalValue)}
                     </span>
+                    {noActionCount > 0 ? (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: CP.critical }}>
+                        ⚠ {noActionCount} no action
+                      </span>
+                    ) : null}
+                    {overdueCount > 0 ? (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: CP.warning }}>
+                        ⏳ {overdueCount} overdue
+                      </span>
+                    ) : null}
+                    <span style={{ flex: 1 }} />
                     <span style={{ fontSize: 9, color: CP.muted, letterSpacing: "0.06em" }}>▲ collapse</span>
                   </div>
-                  {/* Child stage columns */}
-                  <div style={{ display: "flex", gap: LANE_GAP, alignItems: "stretch" }}>
-                    {groupCols.map((col) => {
-                      const row = rowByKey[col.execution_column_key] ?? null;
-                      return (
-                        <LaneColumn
-                          key={col.execution_column_key}
-                          column={col}
-                          row={row}
-                          isClosed={false}
-                          isDimmed={false}
-                          chartGroupKeys={chartGroupKeys}
-                          colorMap={colorMap}
-                          globalMax={globalMax}
-                          mode={mode}
-                          isFocused={focusedStage === col.execution_column_key}
-                          focusedSegKey={focusedSegKey}
-                          onSelectStage={onSelectStage}
-                          onSelectSegment={onSelectSegment}
-                          onSelectCard={onSelectCard}
-                          columnRef={makeColumnRef(col.execution_column_key)}
-                        />
-                      );
-                    })}
-                  </div>
+                  {/* Child stage columns wrapped in DndContext for drag support */}
+                  <DndContext sensors={dndSensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+                    {childCols}
+                    <DragOverlay>
+                      {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
+                    </DragOverlay>
+                  </DndContext>
                 </div>
               );
             }
@@ -1567,9 +1599,9 @@ export function GroupedBoardView({
                   background: CP.surfaceAlt,
                   overflow: "hidden",
                   cursor: "pointer",
-                  transition: "border-color 0.15s",
+                  transition: "border-color 0.15s, box-shadow 0.15s",
                 }}
-                onClick={() => onExpandGroup(group.key)}
+                onClick={() => handleGroupClick(group.key)}
               >
                 {/* Group header */}
                 <div
@@ -1592,48 +1624,45 @@ export function GroupedBoardView({
                     >
                       {group.label}
                     </span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: CP.text, flexShrink: 0 }}>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: CP.text, flexShrink: 0 }}>
                       {totalCount}
                     </span>
                   </div>
                   <p style={{ margin: "2px 0 0", fontSize: 9, color: CP.muted, letterSpacing: "0.04em" }}>
                     {group.description}
                   </p>
+                  {/* Alert row — dominates when counts are non-zero */}
+                  {(noActionCount > 0 || overdueCount > 0) ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 5 }}>
+                      {noActionCount > 0 ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: CP.critical, letterSpacing: "0.03em" }}>
+                          ⚠ {noActionCount} no action
+                        </span>
+                      ) : null}
+                      {overdueCount > 0 ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: CP.warning, letterSpacing: "0.03em" }}>
+                          ⏳ {overdueCount} overdue
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
-                {/* KPI row */}
+                {/* Value row */}
                 <div
                   style={{
-                    display: "flex",
-                    gap: 0,
+                    padding: "5px 12px 6px",
                     borderBottom: `1px solid rgba(255,255,255,0.05)`,
                     flexShrink: 0,
                   }}
                 >
-                  <div style={{ flex: 1, padding: "6px 10px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 7, color: CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>VALUE</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: CP.accent }}>{fmtCurrency(totalValue)}</div>
-                  </div>
-                  <div style={{ flex: 1, padding: "6px 10px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 7, color: noActionCount > 0 ? CP.critical : CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>NO ACTION</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: noActionCount > 0 ? CP.critical : CP.textDim }}>{noActionCount}</div>
-                  </div>
-                  <div style={{ flex: 1, padding: "6px 10px" }}>
-                    <div style={{ fontSize: 7, color: overdueCount > 0 ? CP.warning : CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>OVERDUE</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: overdueCount > 0 ? CP.warning : CP.textDim }}>{overdueCount}</div>
-                  </div>
+                  <span style={{ fontSize: 7, color: CP.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>PIPELINE VALUE</span>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: CP.accent }}>{fmtCurrency(totalValue)}</div>
                 </div>
 
                 {/* Mini stacked stage bar */}
                 {totalCount > 0 ? (
-                  <div
-                    style={{
-                      height: 4,
-                      display: "flex",
-                      overflow: "hidden",
-                      flexShrink: 0,
-                    }}
-                  >
+                  <div style={{ height: 4, display: "flex", overflow: "hidden", flexShrink: 0 }}>
                     {groupCols.map((col) => {
                       const pct = col.cards.length / miniBarTotal;
                       return (
@@ -1642,7 +1671,7 @@ export function GroupedBoardView({
                           title={`${col.execution_column_label}: ${col.cards.length}`}
                           style={{
                             flex: pct,
-                            background: stageColors[col.execution_column_key] ?? CP.muted,
+                            background: STAGE_COLORS[col.execution_column_key] ?? CP.muted,
                             minWidth: col.cards.length > 0 ? 2 : 0,
                           }}
                         />
@@ -1663,7 +1692,7 @@ export function GroupedBoardView({
                     minHeight: 0,
                   }}
                 >
-                  {topCards.length === 0 ? (
+                  {allCards.length === 0 ? (
                     <div
                       style={{
                         height: 36,
@@ -1677,54 +1706,63 @@ export function GroupedBoardView({
                       <span style={{ fontSize: 9, color: CP.muted }}>No deals in this zone</span>
                     </div>
                   ) : (
-                    topCards.map((card) => (
-                      <div
-                        key={card.crm_opportunity_id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectCard(card.crm_opportunity_id);
-                        }}
-                        style={{
-                          borderLeft: `2px solid ${!card.next_action_description ? CP.critical : group.color}`,
-                          borderTop: `1px solid ${CP.borderDim}`,
-                          borderRight: `1px solid ${CP.borderDim}`,
-                          borderBottom: `1px solid ${CP.borderDim}`,
-                          borderRadius: "0 3px 3px 0",
-                          background: CP.surface,
-                          padding: "5px 8px 4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
-                          <p
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: CP.text,
-                              margin: 0,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              flex: 1,
-                            }}
-                          >
-                            {card.account_name || "—"}
-                          </p>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: CP.accent, flexShrink: 0 }}>
-                            {fmtCurrency(card.amount)}
-                          </span>
+                    [...allCards]
+                      .sort((a, b) => {
+                        // No-action deals float to top
+                        const aNoAction = !a.next_action_description ? 0 : 1;
+                        const bNoAction = !b.next_action_description ? 0 : 1;
+                        if (aNoAction !== bNoAction) return aNoAction - bNoAction;
+                        return (b.amount || 0) - (a.amount || 0);
+                      })
+                      .slice(0, 5)
+                      .map((card) => (
+                        <div
+                          key={card.crm_opportunity_id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectCard(card.crm_opportunity_id);
+                          }}
+                          style={{
+                            borderLeft: `2px solid ${!card.next_action_description ? CP.critical : group.color}`,
+                            borderTop: `1px solid ${CP.borderDim}`,
+                            borderRight: `1px solid ${CP.borderDim}`,
+                            borderBottom: `1px solid ${CP.borderDim}`,
+                            borderRadius: "0 3px 3px 0",
+                            background: CP.surface,
+                            padding: "5px 8px 4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
+                            <p
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: CP.text,
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                              }}
+                            >
+                              {card.account_name || "—"}
+                            </p>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: CP.accent, flexShrink: 0 }}>
+                              {fmtCurrency(card.amount)}
+                            </span>
+                          </div>
+                          {!card.next_action_description ? (
+                            <p style={{ fontSize: 8, fontWeight: 700, color: CP.critical, margin: "2px 0 0", letterSpacing: "0.04em" }}>
+                              ! NO ACTION
+                            </p>
+                          ) : (
+                            <p style={{ fontSize: 8, color: CP.muted, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              ▸ {card.next_action_description}
+                            </p>
+                          )}
                         </div>
-                        {!card.next_action_description ? (
-                          <p style={{ fontSize: 8, fontWeight: 700, color: CP.critical, margin: "2px 0 0", letterSpacing: "0.04em" }}>
-                            ! NO ACTION
-                          </p>
-                        ) : (
-                          <p style={{ fontSize: 8, color: CP.muted, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            ▸ {card.next_action_description}
-                          </p>
-                        )}
-                      </div>
-                    ))
+                      ))
                   )}
                   {allCards.length > 5 ? (
                     <p style={{ fontSize: 8, color: CP.muted, textAlign: "center", margin: "4px 0 0", letterSpacing: "0.06em" }}>

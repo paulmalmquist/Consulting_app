@@ -106,4 +106,55 @@ describe("AssetContributionTable", () => {
     render(<AssetContributionTable rollup={[inv()]} envId="env-1" snapshotVersion="v2025.12.31" />);
     expect(screen.getByText("v2025.12.31")).toBeInTheDocument();
   });
+
+  it("uses LOO override value with CF-based badge when impactOverrides is provided", () => {
+    const rollup = [
+      inv({ investment_id: "inv-loo", name: "LOO Asset", fund_nav_contribution: 500_000_000, gross_irr: 0.20 }),
+    ];
+    const overrides = new Map([
+      ["inv-loo", { impactBps: 347, source: "canonical_loo" as const }],
+    ]);
+    render(
+      <AssetContributionTable
+        rollup={rollup}
+        totalFundNav={1_000_000_000}
+        envId="env-1"
+        impactOverrides={overrides}
+      />
+    );
+    // LOO value "+347" should be visible (not the approx 0.20 * 0.50 * 10000 = 1000 bps).
+    expect(screen.getByText(/\+347/)).toBeInTheDocument();
+    // "CF-based" badge must appear.
+    expect(screen.getByText("CF-based")).toBeInTheDocument();
+    // Footer should reference CF-based LOO, not approximation.
+    expect(screen.getByText(/leave-one-out/i)).toBeInTheDocument();
+    // The cell must NOT be styled as muted (no italic / approx suffix).
+    expect(screen.queryByText(/approx/i)).toBeNull();
+  });
+
+  it("renders fallback approx in muted style with tooltip when no override is present", () => {
+    const rollup = [
+      inv({ investment_id: "inv-fallback", name: "Fallback Asset", fund_nav_contribution: 400_000_000, gross_irr: 0.15 }),
+    ];
+    render(
+      <AssetContributionTable
+        rollup={rollup}
+        totalFundNav={1_000_000_000}
+        envId="env-1"
+        // No impactOverrides → fallback_weighted path
+      />
+    );
+    // The fallback cell badge "approx" should be present (there may be multiple matches
+    // because the footer also uses "approximation"; use getAllByText).
+    const approxElements = screen.getAllByText(/approx/i);
+    expect(approxElements.length).toBeGreaterThan(0);
+    // The outer span on the cell has the tooltip with IRR × NAV weight explanation.
+    const cellSpan = document.querySelector("[data-impact-source='fallback_weighted']");
+    expect(cellSpan).not.toBeNull();
+    expect(cellSpan?.getAttribute("title")).toMatch(/IRR × NAV weight/i);
+    // Footer should say approximation, not LOO.
+    expect(screen.getByText(/approximation/i)).toBeInTheDocument();
+    // "CF-based" badge must NOT appear.
+    expect(screen.queryByText("CF-based")).toBeNull();
+  });
 });

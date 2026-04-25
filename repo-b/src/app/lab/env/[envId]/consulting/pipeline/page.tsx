@@ -856,6 +856,10 @@ export default function PipelinePage({
                 onSelectSegment={handleSelectSegment}
                 onSelectCard={handleSelectCard}
                 makeColumnRef={makeColumnRef}
+                dndSensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                activeCard={activeCard}
               />
             ) : (
               <DndContext

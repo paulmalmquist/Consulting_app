@@ -13,8 +13,8 @@ export const PIPELINE_GROUPS: PipelineGroup[] = [
   {
     key: "build_target",
     label: "Build Target",
-    description: "Identify and map priority accounts",
-    stageKeys: ["target_identified", "outreach"],
+    description: "Identify, research, and initiate outreach",
+    stageKeys: ["target_identified", "researched", "outreach"],
     color: "#22D3EE",
     dimColor: "rgba(34,211,238,0.18)",
   },

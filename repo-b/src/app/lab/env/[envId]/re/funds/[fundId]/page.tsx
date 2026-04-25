@@ -80,6 +80,8 @@ import {
   runReV2QuarterClose,
   listReOpportunities,
   type ReOpportunity,
+  getFundBottomUpCashflow,
+  type FundBottomUpResponse,
 } from "@/lib/bos-api";
 import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import {
@@ -1539,6 +1541,7 @@ export default function FundDetailPage({
   const [deals, setDeals] = useState<RepeDeal[]>([]);
   const [investments, setInvestments] = useState<ReV2Investment[]>([]);
   const [investmentRollup, setInvestmentRollup] = useState<ReV2FundInvestmentRollupRow[]>([]);
+  const [bottomUpRollup, setBottomUpRollup] = useState<FundBottomUpResponse | null>(null);
   const [fundState, setFundState] = useState<ReV2FundQuarterState | null>(null);
   const [baseScenario, setBaseScenario] = useState<FundBaseScenario | null>(null);
   const [scenarios, setScenarios] = useState<ReV2Scenario[]>([]);
@@ -1602,16 +1605,18 @@ export default function FundDetailPage({
       // route returns 409 for released periods, and the lint forbids
       // calling it from here. Released-period KPIs come from
       // useAuthoritativeState below. See docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md.
-      const [fs, sc, rollup, lineageData] = await Promise.all([
+      const [fs, sc, rollup, lineageData, bottomUp] = await Promise.all([
         getReV2FundQuarterState(params.fundId, quarter).catch(() => null),
         listReV2Scenarios(params.fundId).catch(() => []),
         getReV2FundInvestmentRollup(params.fundId, quarter).catch(() => []),
         getReV2FundLineage(params.fundId, quarter).catch(() => null),
+        getFundBottomUpCashflow(params.fundId, quarter).catch(() => null),
       ]);
       setFundState(fs);
       setScenarios(sc);
       setInvestmentRollup(rollup);
       setLineage(lineageData);
+      setBottomUpRollup(bottomUp);
       setBaseScenario(null);
       // Fetch covenant alerts for banner
       if (envId && businessId) {
@@ -1734,6 +1739,26 @@ export default function FundDetailPage({
       }),
     [fundState, investmentRollup, authoritativeState?.snapshot_version, authoritativeMetrics.scope]
   );
+  // LOO IRR Impact overrides for AssetContributionTable.
+  // Priority: canonical_metrics.irr_contribution_by_investment (already in state,
+  // no extra fetch) → live bottom-up response → fallback weighted approx in the table.
+  type ImpactOverride = { impactBps: number | null; source: "canonical_loo" | "live_loo" | "fallback_weighted" };
+  const impactOverrides = useMemo<Map<string, ImpactOverride>>(() => {
+    const canonicalByInv = (authoritativeMetrics.irr_contribution_by_investment as
+      Array<{ investment_id: string; irr_marginal_bps: number | null }> | undefined);
+    const source = canonicalByInv?.length
+      ? { rows: canonicalByInv, kind: "canonical_loo" as const }
+      : bottomUpRollup?.irr_contribution_by_investment?.length
+        ? { rows: bottomUpRollup.irr_contribution_by_investment, kind: "live_loo" as const }
+        : null;
+    if (!source) return new Map();
+    const map = new Map<string, ImpactOverride>();
+    for (const c of source.rows) {
+      map.set(c.investment_id, { impactBps: c.irr_marginal_bps, source: source.kind });
+    }
+    return map;
+  }, [authoritativeMetrics.irr_contribution_by_investment, bottomUpRollup]);
+
   // Authoritative State Lockdown — Phase 3 (INV-5 enforced)
   // KPI cards use authoritative snapshot values ONLY. No legacy fallback.
   // When no released snapshot exists, values render as "—" (null),
@@ -2213,6 +2238,7 @@ export default function FundDetailPage({
           snapshotVersion={authoritativeState?.snapshot_version ?? null}
           auditMode={auditMode}
           totalFundNav={authoritativeNumber("ending_nav") ?? authoritativeNumber("portfolio_nav") ?? null}
+          impactOverrides={impactOverrides}
         />
       )}
       {tab === "Asset Variance" && envId && businessId && (
@@ -2640,7 +2666,7 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
   );
 }
 
-function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose, isMobile, snapshotVersion, auditMode, totalFundNav }: {
+function OverviewTab({ investments, investmentRollup, fund, fundState, baseScenario, envId, businessId, quarter, overviewData, onRunQuarterClose, runningClose, isMobile, snapshotVersion, auditMode, totalFundNav, impactOverrides }: {
   investments: ReV2Investment[];
   investmentRollup: ReV2FundInvestmentRollupRow[];
   fund: RepeFundDetail["fund"] | undefined;
@@ -2656,6 +2682,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
   snapshotVersion?: string | null;
   auditMode?: boolean;
   totalFundNav?: number | null;
+  impactOverrides?: Map<string, { impactBps: number | null; source: "canonical_loo" | "live_loo" | "fallback_weighted" }>;
 }) {
   const isDebtFund = fund?.strategy === "debt";
 
@@ -2864,6 +2891,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
           auditMode={Boolean(auditMode)}
           snapshotVersion={snapshotVersion ?? null}
           onRowSelect={(id) => setContributorFilter(id)}
+          impactOverrides={impactOverrides}
         />
       </div>
     </div>

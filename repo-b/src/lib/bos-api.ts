@@ -6101,6 +6101,7 @@ export interface FundBottomUpResponse {
   }>;
   irr_contribution: Array<{
     asset_id: string;
+    investment_id: string | null;
     name: string;
     value_share: number | null;
     irr_marginal_bps: number | null;
@@ -6108,6 +6109,13 @@ export interface FundBottomUpResponse {
     asset_irr: number | null;
     asset_null_reason: string | null;
     ownership_pct_as_of: number;
+  }>;
+  irr_contribution_by_investment: Array<{
+    investment_id: string;
+    name: string;
+    irr_marginal_bps: number | null;
+    asset_count: number;
+    source: "sum_child_asset_loo";
   }>;
   non_additive: boolean;
   non_additive_note: string;

@@ -269,8 +269,31 @@ def _persist_observation(
                     fallback_code,
                 ),
             )
-    except Exception:  # noqa: BLE001
-        logger.warning("contract_enforcer: failed to persist observation", exc_info=True)
+    except Exception as _persist_exc:  # noqa: BLE001
+        # Log with exc_info so the Railway log stream shows the full traceback.
+        # During shadow soak, this is the primary signal that the insert path is broken.
+        logger.warning(
+            "contract_enforcer: observation insert failed (quarantined) — "
+            "mode=%s request_id=%s error=%s",
+            mode, request_id, _persist_exc,
+            exc_info=True,
+        )
+        try:
+            from app.observability.logger import emit_log
+            emit_log(
+                level="warn",
+                service="backend",
+                action="contract_enforcer.persist_failed",
+                message="Contract observation insert failed",
+                context={
+                    "mode": mode,
+                    "request_id": request_id,
+                    "error": str(_persist_exc),
+                    "error_type": type(_persist_exc).__name__,
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass  # emit_log itself failed — nothing more we can do
 
 
 # ─────────────────────────────────────────────────────────────────────

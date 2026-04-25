@@ -41,6 +41,7 @@ class AssetContribution:
     value_share: float | None  # abs(sum_pos_asset) / abs(sum_pos_fund)
     irr_marginal_bps: float | None  # leave-one-out delta in bps
     irr_weighted_bps: float | None  # weighted approximation in bps
+    investment_id: UUID | None = None  # parent investment (set during fund rollup)
 
 
 @dataclass
@@ -64,6 +65,7 @@ class FundRollup:
     warnings: list[str] = field(default_factory=list)
     investment_contributions: list[dict[str, Any]] = field(default_factory=list)
     asset_contributions: list[AssetContribution] = field(default_factory=list)
+    irr_contribution_by_investment: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +327,7 @@ def compute_fund_rollup(
             null_inv_count += 1
         _merge_series(merged, roll.series, weight=Decimal("1"))
         for c in roll.asset_contributions:
+            c.investment_id = iid
             all_asset_contribs.append(c)
 
     series = sorted(merged.values(), key=lambda p: p.quarter_end_date)
@@ -438,6 +441,22 @@ def compute_fund_rollup(
             }
         )
 
+    # Investment-level LOO impact: sum child asset irr_marginal_bps per investment.
+    inv_impact_by_id: list[dict[str, Any]] = []
+    for iid, iname, roll in inv_rollups:
+        marginals = [
+            c.irr_marginal_bps
+            for c in roll.asset_contributions
+            if c.irr_marginal_bps is not None
+        ]
+        inv_impact_by_id.append({
+            "investment_id": str(iid),
+            "name": iname,
+            "irr_marginal_bps": sum(marginals) if marginals else None,
+            "asset_count": len(roll.asset_contributions),
+            "source": "sum_child_asset_loo",
+        })
+
     return FundRollup(
         fund_id=fund_id,
         as_of_quarter=as_of_quarter,
@@ -447,6 +466,7 @@ def compute_fund_rollup(
         warnings=warnings,
         investment_contributions=inv_contribs,
         asset_contributions=all_asset_contribs,
+        irr_contribution_by_investment=inv_impact_by_id,
     )
 
 
@@ -512,6 +532,7 @@ def fund_rollup_payload(roll: FundRollup) -> dict[str, Any]:
         "irr_contribution": [
             {
                 "asset_id": str(c.asset_id),
+                "investment_id": str(c.investment_id) if c.investment_id else None,
                 "name": c.name,
                 "value_share": c.value_share,
                 "irr_marginal_bps": c.irr_marginal_bps,
@@ -522,6 +543,7 @@ def fund_rollup_payload(roll: FundRollup) -> dict[str, Any]:
             }
             for c in roll.asset_contributions
         ],
+        "irr_contribution_by_investment": roll.irr_contribution_by_investment,
         # Non-additivity is a contract, not an implementation detail.
         "non_additive": True,
         "non_additive_note": "irr_marginal_bps values are leave-one-out deltas; they do NOT sum to gross_irr_bottom_up.",
@@ -552,6 +574,7 @@ def build_canonical_metrics_bottom_up(
         "irr_contribution": [
             {
                 "asset_id": str(c.asset_id),
+                "investment_id": str(c.investment_id) if c.investment_id else None,
                 "name": c.name,
                 "value_share": c.value_share,
                 "irr_marginal_bps": c.irr_marginal_bps,
@@ -559,5 +582,6 @@ def build_canonical_metrics_bottom_up(
             }
             for c in roll.asset_contributions
         ],
+        "irr_contribution_by_investment": roll.irr_contribution_by_investment,
         "non_additive_contribution": True,
     }
