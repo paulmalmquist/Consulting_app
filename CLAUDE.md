@@ -65,6 +65,10 @@ notes:
   - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
 ---
 
+## Writing Style
+
+When generating any prose — docs, comments, proposals, emails, copy, commit messages, skill files, or any other written output — follow the style rules in [`docs/anti-ai-style.md`](docs/anti-ai-style.md). Avoid the listed words, phrases, transitions, and structural tics. Write the way a clear-thinking person would write if they respected the reader's time.
+
 # CLAUDE Router Contract
 
 `CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.

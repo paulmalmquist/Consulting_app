@@ -1,10 +1,8 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
   "python.terminal.activateEnvironment": true,
   "python.terminal.activateEnvInCurrentTerminal": true,
   "jupyter.notebookFileRoot": "${workspaceFolder}",
-  "notebook.defaultKernel": "${workspaceFolder}/backend/.venv/bin/python",
-  "jupyter.kernels.excludePythonEnvironments": [
-    "${workspaceFolder}/backend/.venv/bin/python"
-  ]
+  "notebook.defaultKernel": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+  "jupyter.kernels.excludePythonEnvironments": []
 }
