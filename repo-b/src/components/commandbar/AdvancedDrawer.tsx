@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import {
+  listOperatorReceipts,
+  type OperatorReceipt,
+} from "@/lib/winston-companion/transports/operatorTransport";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type {
@@ -820,7 +825,129 @@ function RuntimeTab({
           <KV label="Entity ID" value={debug.resolvedScope.entity_id} mono />
         </div>
       )}
+
+      {/* Operator (Anthropic Managed Agent) panel — only present when the
+          last turn was served by /api/ai/operator/ask. */}
+      <OperatorRuntimePanel winstonTrace={winstonTrace} />
     </div>
+  );
+}
+
+/**
+ * Operator runtime metadata + live event ring buffer + recent receipts.
+ *
+ * Renders nothing when the most recent turn was not an Operator turn.
+ * The ring buffer is the difference between a 30-second triage and a
+ * 30-minute root-cause hunt — when something breaks, it's one click away.
+ */
+function OperatorRuntimePanel({
+  winstonTrace,
+}: {
+  winstonTrace: WinstonTrace | null;
+}) {
+  const ma = (winstonTrace as unknown as Record<string, unknown> | null)?.["managed_agent"] as
+    | Record<string, unknown>
+    | undefined;
+  const isOperator =
+    winstonTrace?.execution_path === ("managed_agent" as unknown as WinstonTrace["execution_path"]) ||
+    Boolean(ma);
+  const conversationId = ma?.conversation_id as string | undefined;
+  const [receipts, setReceipts] = useState<OperatorReceipt[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOperator || !conversationId) {
+      setReceipts([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void listOperatorReceipts(conversationId, 5)
+      .then((rows) => {
+        if (!cancelled) setReceipts(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setReceipts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, isOperator]);
+
+  if (!isOperator || !ma) return null;
+
+  const lastEvents = (ma.last_events as Array<Record<string, unknown>> | undefined) || [];
+  const droppedHighFreqCount =
+    (winstonTrace as unknown as Record<string, unknown>)?.["dropped_high_freq_count"] as
+      | number
+      | undefined;
+
+  return (
+    <>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5">
+        <p className="text-[10px] text-amber-300 uppercase tracking-wider mb-1">Operator (Anthropic Managed Agent)</p>
+        <KV label="Anthropic session" value={ma.anthropic_session_id as string | undefined} mono />
+        <KV label="Agent" value={ma.agent_id as string | undefined} mono />
+        <KV label="Agent version" value={ma.agent_version as number | undefined} />
+        <KV label="Environment" value={ma.environment_id as string | undefined} mono />
+        <KV label="MCP server" value={ma.mcp_server_name as string | undefined} />
+        <KV label="Stop reason" value={ma.stop_reason_type as string | undefined} />
+        <KV label="Health" value={ma.session_health_status as string | undefined} />
+        <KV
+          label="Session replaced"
+          value={ma.session_was_replaced ? "yes (this turn)" : "no"}
+        />
+        {typeof droppedHighFreqCount === "number" && droppedHighFreqCount > 0 && (
+          <KV label="Dropped events (backpressure)" value={droppedHighFreqCount} />
+        )}
+      </div>
+
+      {lastEvents.length > 0 && (
+        <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
+          <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">Last events (ring buffer)</p>
+          <div className="space-y-0.5 font-mono text-[10px]">
+            {lastEvents.map((ev, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-bm-muted2 w-4 text-right">{idx + 1}</span>
+                <span className="text-bm-text">{String(ev.type || "?")}</span>
+                {ev.id ? <span className="text-bm-muted2 truncate">{String(ev.id).slice(0, 16)}</span> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-md bg-bm-surface/20 px-2 py-1.5">
+        <p className="text-[10px] text-bm-muted2 uppercase tracking-wider mb-1">
+          Receipts {loading ? "(loading…)" : `(${receipts.length})`}
+        </p>
+        {receipts.length === 0 && !loading ? (
+          <p className="text-[10px] text-bm-muted2">No receipts yet for this conversation.</p>
+        ) : (
+          <div className="space-y-1">
+            {receipts.map((r) => (
+              <div key={r.receipt_id} className="rounded border border-bm-border/30 px-2 py-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono text-bm-muted2">{r.created_at?.slice(0, 19) ?? ""}</span>
+                  <span className="text-[10px] text-amber-300">{r.routing_decision || r.runtime}</span>
+                </div>
+                <div className="mt-0.5 grid grid-cols-2 gap-x-2 text-[10px] text-bm-muted2">
+                  <span>model: <span className="text-bm-text">{r.model || "—"}</span></span>
+                  <span>tools: <span className="text-bm-text">{r.tool_calls ?? 0}</span></span>
+                  <span>in: <span className="text-bm-text">{r.tokens_in ?? "—"}</span></span>
+                  <span>out: <span className="text-bm-text">{r.tokens_out ?? "—"}</span></span>
+                  <span>latency: <span className="text-bm-text">{r.session_runtime_ms ? `${r.session_runtime_ms}ms` : "—"}</span></span>
+                  <span>stop: <span className="text-bm-text">{r.stop_reason_type || "—"}</span></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

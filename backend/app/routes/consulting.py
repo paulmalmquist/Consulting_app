@@ -16,6 +16,8 @@ from app.schemas.consulting import (
     AdvanceStageRequest,
     ClientOut,
     ContactCreateRequest,
+    ContactListItemOut,
+    ContactListOut,
     ContactOut,
     ConvertToClientRequest,
     DailyExecutionBriefOut,
@@ -1829,6 +1831,28 @@ def get_opportunity_stage_history(
     try:
         return cro_entity_detail.get_opportunity_stage_history(
             business_id=business_id, opportunity_id=opportunity_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/contacts", response_model=ContactListOut)
+def list_consulting_contacts(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    search: str | None = Query(None),
+    account_id: UUID | None = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    try:
+        return cro_entity_detail.list_contacts(
+            env_id=env_id,
+            business_id=business_id,
+            search=search,
+            account_id=account_id,
+            limit=limit,
+            offset=offset,
         )
     except Exception as exc:
         raise _to_http(exc)

@@ -233,3 +233,59 @@ class MessageResponse(BaseModel):
     message_meta: dict[str, Any] | None = None
     token_count: int | None = None
     created_at: str | None = None
+
+
+# ── Operator (Anthropic Managed Agent) schemas ───────────────────────────────
+
+
+class OperatorAskRequest(BaseModel):
+    """Request body for /api/ai/operator/ask.
+
+    Mirrors GatewayAskRequest field-for-field so the frontend transport layer
+    stays a thin runtime selector — it always POSTs the same payload shape.
+    """
+    message: str = Field(min_length=1, max_length=20_000)
+    session_id: str | None = None
+    conversation_id: UUID | None = None
+    env_id: UUID | None = None
+    business_id: UUID
+    entity_type: str | None = None
+    entity_id: UUID | None = None
+    context_envelope: AssistantContextEnvelope | None = None
+    routing_hint: dict[str, Any] | None = None  # {"runtime", "reason"} from sendWinstonMessage
+
+
+class OperatorConfirmRequest(BaseModel):
+    tool_call_id: str = Field(min_length=1)
+    result: str = Field(pattern=r"^(allow|deny)$")
+    deny_message: str | None = None
+
+
+class OperatorHealthResponse(BaseModel):
+    enabled: bool
+    anthropic_key_present: bool
+    profile_loaded: bool
+    agent_name: str | None = None
+    agent_model: str | None = None
+    mcp_server_name: str | None = None
+    mcp_url: str | None = None
+    mcp_preflight: dict[str, Any] | None = None
+    auto_router_enabled: bool = False
+    message: str | None = None
+
+
+class OperatorReceiptItem(BaseModel):
+    receipt_id: str
+    conversation_id: str
+    runtime: str
+    model: str | None = None
+    tokens_in: int | None = None
+    tokens_out: int | None = None
+    tool_calls: int | None = None
+    session_runtime_ms: int | None = None
+    routing_decision: str | None = None
+    routing_reason: str | None = None
+    anthropic_session_id: str | None = None
+    stop_reason_type: str | None = None
+    errors: dict[str, Any] | None = None
+    created_at: str | None = None

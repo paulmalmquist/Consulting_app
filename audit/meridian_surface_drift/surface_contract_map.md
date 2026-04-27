@@ -4,4 +4,4 @@
 - `/api/re/v2/funds/[fundId]/returns/[quarter]` -> released authoritative fund state + released structured gross-to-net bridge.
 - `backend/app/sql_agent/query_templates.py` fund performance templates -> released authoritative fund snapshots.
 - Legacy comparison surfaces kept for drift analysis only: quarter-close route, `re_fund_quarter_state`, `re_fund_metrics_qtr`, `re_gross_net_bridge_qtr`.
-- Snapshot version under review: `meridian-20260425T015634Z-bd0a25c2`.
+- Snapshot version under review: `meridian-20260427T004728Z-318b7a1f`.

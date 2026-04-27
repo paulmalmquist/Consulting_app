@@ -114,6 +114,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
+| pitch deck, build me a deck, presentation for [client], pitch forge, give me 3 iterations, here's an idea for a presentation, Sarat review, run pitch forge | `skills/pitch-forge-deck/SKILL.md` |
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
@@ -151,18 +152,44 @@ Always use the CLI for Railway, Vercel, Supabase, and GitHub operations — proa
 
 | Platform | CLI | Common operations |
 | -------- | --- | ----------------- |
-| **Vercel** | `vercel` | `vercel env add`, `vercel env ls`, `vercel deploy --prod`, `vercel logs`, `vercel inspect` |
+| **Vercel** | `vercel` | `vercel env add`, `vercel env ls`, `vercel env pull`, `vercel deploy --prod`, `vercel logs`, `vercel inspect` |
 | **Railway** | `railway` | `railway up --service <name>`, `railway logs`, `railway variables set`, `railway status` |
-| **Supabase** | Supabase MCP (`mcp__claude_ai_Supabase__*`) | `execute_sql`, `apply_migration`, `get_logs`, `list_tables`, `get_project` |
+| **Supabase** | `supabase` CLI (preferred) + Supabase MCP for read-only spot checks | `supabase link --project-ref <ref>`, `supabase db query --linked`, `supabase db dump`, `supabase db push` |
 | **GitHub** | `gh` | `gh pr create`, `gh pr merge`, `gh issue list`, `gh run list`, `gh run watch` |
 
 Rules:
 
 - **Env vars:** Use `printf "value" | vercel env add VAR production` (never `echo` — it appends a trailing newline that embeds in the value).
 - **Railway deploys:** Always run from `backend/` directory (`railway up --service authentic-sparkle`), not repo root.
-- **Supabase SQL:** Run via the Supabase MCP tool directly — never paste SQL for the user to run manually.
+- **Supabase SQL:** Default to the `supabase` CLI (`supabase db query --linked`) for anything write-ish or anything that needs a real connection. Use Supabase MCP only for quick read-only spot checks.
 - **Secrets:** Generate production secrets with `openssl rand -hex 32`. Never reuse local dev placeholders in production env vars.
 - **Verification:** After any env var change, redeploy immediately and tail logs to confirm the change took effect.
+
+### Streamlined credentials flow (use this — never ask the user for secrets)
+
+Backend secrets like `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BM_SESSION_SECRET`, etc. are stored on the **`repo-b`** Vercel project (Production environment). Pull them locally instead of asking the user:
+
+```bash
+# One-time link (writes .vercel/project.json)
+vercel link --yes --project repo-b
+
+# Pulls every Production env var into backend/.env (the path the runners expect)
+vercel env pull backend/.env --environment production --yes
+```
+
+For Supabase project ops (running SQL, dumps, migrations) without ever needing a password:
+
+```bash
+supabase link --project-ref ozboonlsplroialdwuxj   # one-time
+echo "SELECT 1;" | supabase db query --linked      # auth via access token, no password needed
+```
+
+When a Python script needs a raw psycopg connection (e.g. `verification/runners/backfill_authoritative_snapshots.py`), the pulled `backend/.env` already contains `DATABASE_URL` — the script reads it via `load_dotenv(ROOT / "backend" / ".env")`. No prompting, no manual paste.
+
+Project refs to remember:
+- Vercel team: `paulmalmquists-projects`
+- Vercel projects: `repo-b` (frontend + has backend env vars), `consulting-app` (marketing), `backend` (legacy/empty), `floyorker`
+- Supabase project: `ozboonlsplroialdwuxj` (Novendor)
 
 ## Portability Guardrails
 
@@ -298,6 +325,10 @@ This is not optional busywork — these files contain real production data (test
 - `generate today's Winston demo ideas` -> `skills/winston-demo-generator/SKILL.md`
 - `what demos should we run for [persona]` -> `skills/winston-demo-generator/SKILL.md`
 - `give me a demo script for the CFO` -> `skills/winston-demo-generator/SKILL.md`
+- `build me a pitch deck for [topic]` -> `skills/pitch-forge-deck/SKILL.md`
+- `here's an idea for a presentation, give me 3 iterations` -> `skills/pitch-forge-deck/SKILL.md`
+- `run pitch forge on [topic]` -> `skills/pitch-forge-deck/SKILL.md`
+- `Sarat review this deck` -> `skills/pitch-forge-deck/SKILL.md`
 - `audit Winston so it can be forked cleanly for a new client` -> `agents/architect.md` with `PORTABILITY.MD` as reference
 - `design a client pack or tenant pack model` -> `agents/architect.md` with `PORTABILITY.MD` as reference
 - `remove hardcoded Winston branding from the shared UI` -> `.skills/feature-dev/SKILL.md` with `agents/frontend.md` and `PORTABILITY.MD` as reference

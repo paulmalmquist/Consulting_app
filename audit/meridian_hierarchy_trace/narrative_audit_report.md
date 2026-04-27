@@ -10,6 +10,6 @@ The authoritative serving layer is backed by persisted snapshot rows keyed by au
 
 ## Sample coverage
 
-- Institutional Growth Fund VII â€” positive multi-asset JV chain
-- Meridian Real Estate Fund III â€” fee-bearing equity chain
-- Meridian Credit Opportunities Fund I â€” debt and negative-cash-flow sample
+- Institutional Growth Fund VII — positive multi-asset JV chain
+- Meridian Real Estate Fund III — fee-bearing equity chain
+- Meridian Credit Opportunities Fund I — debt and negative-cash-flow sample

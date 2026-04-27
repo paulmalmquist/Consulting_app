@@ -1,0 +1,137 @@
+{
+  "title": "Claude Inside Hallboys",
+  "subtitle": "Five workflows, one scorecard, 60 days — measured against jobs you ran last quarter",
+  "slides": [
+    {
+      "slide_num": 1,
+      "layout": "title",
+      "title": "Claude Inside Hallboys",
+      "subtitle": "Five workflows, one scorecard, 60 days — measured against jobs you ran last quarter",
+      "notes": "New subtitle commits to measurement against real prior jobs, not generic ranges."
+    },
+    {
+      "slide_num": 2,
+      "layout": "section_header",
+      "title": "What we are not proposing",
+      "body": "No new ERP. No headcount cuts. No black-box AP automation. No custom build. No data leaving your Claude workspace.",
+      "notes": "Same disarm slide; tightened wording."
+    },
+    {
+      "slide_num": 3,
+      "layout": "two_column",
+      "title": "The Hallboys reality we are designing around",
+      "left_header": "What you have",
+      "left_points": [
+        "Acumatica as system of record — stays the source of truth",
+        "3-person IT team — no spare capacity for a 6-month rollout",
+        "One AP clerk processing every invoice that comes in",
+        "Claude already in use across estimating, ops, finance",
+        "No shared skill library, no audit trail on Claude prompts today"
+      ],
+      "right_header": "What we will not touch",
+      "right_points": [
+        "No replacement of Acumatica or any existing system",
+        "No new headcount required",
+        "No removal of human approval on AP, contracts, or schedule",
+        "No data leaves the Hallboys Claude workspace",
+        "No long onboarding — pilots fit inside existing weekly meetings"
+      ],
+      "notes": "Same content, sharper opening line."
+    },
+    {
+      "slide_num": 4,
+      "layout": "section_header",
+      "title": "Five workflows. Same team. Same systems.",
+      "body": "Each one ties to cost, capacity, or risk — and each one is measured against a real Hallboys baseline in week one.",
+      "notes": "Promises measurement up front, before any number gets shown."
+    },
+    {
+      "slide_num": 5,
+      "layout": "stat_callout",
+      "title": "Workflow 1 — Subcontractor quote comparison",
+      "stat": "3.25 hrs",
+      "stat_label": "Estimator time saved per multi-vendor bid package (estimate, to be validated week 1 against last quarter's bid log)",
+      "body": "Estimator drops 3-5 sub quotes into Claude. Output: side-by-side scope, line-item deltas, missing items, risk flags. Estimator still picks the winner. Baseline: pick 3 bid packages from last quarter, re-run them. Pilot kill: if average savings < 1.5 hrs per package by day 30, stop. Not available: confirmed Hallboys bid-package volume per estimator per month — needed week 1.",
+      "notes": "Single number. Explicit baseline source. Explicit kill threshold. Explicit 'Not available' for the one missing input."
+    },
+    {
+      "slide_num": 6,
+      "layout": "stat_callout",
+      "title": "Workflow 2 — Equipment scheduling coordination",
+      "stat": "$5,400",
+      "stat_label": "Cost of one idle crew day on a typical Hallboys mid-size job (estimate, to be confirmed against your last quarter)",
+      "body": "Weekly schedule plus equipment list go into Claude. Output: vendor overlaps, missing deliveries, dependency breaks, dates that don't match the critical path. Scheduler still owns every call. Baseline: pull the last 90 days of schedule changes from Acumatica, re-run them, count how many conflicts Claude would have caught before Monday. Pilot kill: if fewer than 1 caught conflict per month would have prevented an idle day, stop.",
+      "notes": "One number, not a range. Ties baseline to actual Acumatica records."
+    },
+    {
+      "slide_num": 7,
+      "layout": "stat_callout",
+      "title": "Workflow 3 — AP exception triage (assisted, not automated)",
+      "stat": "0 writes",
+      "stat_label": "Claude never posts to Acumatica — the AP clerk owns every approval, every code, every post",
+      "body": "Claude sits beside the clerk: extracts vendor, amount, PO match, scope match, flags duplicates and pricing anomalies. Clerk approves and posts in Acumatica as today. Target: same clerk reviews 1.6x current invoice volume per day with no drop in catch rate. Baseline: run 30 days of historical invoices through Claude in shadow mode before any clerk workflow change. Not available: confirmed duplicate-invoice rate at Hallboys today — needed to size the catch-rate signal.",
+      "notes": "Hammers the no-automation point with '0 writes'. Shadow mode means we measure before we change anything."
+    },
+    {
+      "slide_num": 8,
+      "layout": "stat_callout",
+      "title": "Workflow 4 — Project closeout document checks",
+      "stat": "1 retainage delay",
+      "stat_label": "Avoiding one retainage delay per quarter is the breakeven for this workflow alone",
+      "body": "PM uploads the closeout folder. Claude returns: missing items, inconsistent dates, lien waivers without matching pay apps, warranty letters absent — measured against the Hallboys closeout SOP. Pilot kill: if Claude doesn't surface at least 3 real missing items across the first 5 closeouts, stop. Not available: confirmed average retainage tied up per delayed closeout — needed to convert the breakeven to dollars.",
+      "notes": "Anchors on the financial pain (retainage) instead of a vague hours number."
+    },
+    {
+      "slide_num": 9,
+      "layout": "stat_callout",
+      "title": "Workflow 5 — Claude skill governance",
+      "stat": "12-15 hrs/wk",
+      "stat_label": "Estimated rework today across Hallboys Claude users rebuilding the same prompts (assumes 5 active users × ~3 hrs/week — to be validated week 1)",
+      "body": "Today: every Claude user writes their own prompts, no version control, no audit. After: one IT-owned skill per workflow above, used by everyone. Owner: IT lead. Cadence: monthly skill review with the workflow owners. Escalation: any skill change touching AP or finance requires AP clerk + controller sign-off. Pilot kill: if fewer than 3 of the 5 workflow skills are in active use by day 60, the governance layer wasn't worth it.",
+      "notes": "Now has dollars-via-hours, named owner, named cadence, named escalation path. This is what 'who owns it' looks like."
+    },
+    {
+      "slide_num": 10,
+      "layout": "two_column",
+      "title": "What happens when Claude is wrong",
+      "left_header": "Where the human still owns the call",
+      "left_points": [
+        "Quote comparison: estimator picks the winner, not Claude",
+        "Schedule conflicts: scheduler approves every change",
+        "AP: clerk posts to Acumatica — Claude never writes",
+        "Closeout: PM signs off the package",
+        "Skills: IT lead approves every skill version"
+      ],
+      "right_header": "What gets logged and reviewed",
+      "right_points": [
+        "Every Claude session in the shared workspace is auditable",
+        "Misses captured in a 1-page weekly review (15 min)",
+        "Repeated misses flow back into the skill as a fix",
+        "If a skill drifts >2 misses/week, it gets pulled until repaired",
+        "Quarterly review: kill any skill not earning its keep"
+      ],
+      "notes": "This is the slide Sarat said was missing in iteration 1. It directly answers 'what breaks, who eats it'."
+    },
+    {
+      "slide_num": 11,
+      "layout": "table",
+      "title": "What changes Monday morning — and how we measure it",
+      "headers": ["Workflow", "Owner", "Baseline source", "Kill threshold by day 30"],
+      "rows": [
+        ["Quote comparison", "Lead estimator", "Last quarter's bid log (re-run)", "<1.5 hrs saved per package"],
+        ["Equipment scheduling", "Scheduler", "Last 90 days schedule changes in Acumatica", "<1 caught conflict/month"],
+        ["AP triage", "AP clerk", "30 days historical invoices, shadow mode", "<1.3x volume at same catch rate"],
+        ["Closeout checks", "PM on closing job", "First 5 closeouts in pilot", "<3 real missing items surfaced"],
+        ["Skill governance", "IT lead", "Current Claude usage audit (week 1)", "<3 of 5 skills in active use"]
+      ],
+      "notes": "Every workflow has a named owner, a real baseline, and an explicit kill threshold. This slide alone closes the 'show me the number' objection."
+    },
+    {
+      "slide_num": 12,
+      "layout": "closing",
+      "title": "Two workflows. 60 days. One scorecard.",
+      "body": "Quote comparison + closeout checks. Real Hallboys baselines. Stop at any point. Decide from data.",
+      "notes": "Close with the offer narrowed to two workflows, named, on real baselines."
+    }
+  ]
+}

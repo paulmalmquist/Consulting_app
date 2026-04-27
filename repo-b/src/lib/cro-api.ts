@@ -1094,6 +1094,41 @@ export interface AccountContact {
   created_at: string;
 }
 
+export interface ContactListItem {
+  crm_contact_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  crm_account_id: string | null;
+  account_name: string | null;
+  vertical: string | null;
+  linkedin_url: string | null;
+  relationship_strength: string | null;
+  decision_role: string | null;
+  last_outreach_at: string | null;
+  profile_notes: string | null;
+  created_at: string;
+}
+
+export interface ContactListResult {
+  contacts: ContactListItem[];
+  total: number;
+}
+
+export async function fetchContacts(
+  envId: string,
+  businessId: string,
+  options?: { search?: string; accountId?: string; limit?: number; offset?: number },
+): Promise<ContactListResult> {
+  const p = new URLSearchParams({ env_id: envId, business_id: businessId });
+  if (options?.search) p.set("search", options.search);
+  if (options?.accountId) p.set("account_id", options.accountId);
+  if (options?.limit != null) p.set("limit", String(options.limit));
+  if (options?.offset != null) p.set("offset", String(options.offset));
+  return apiFetch<ContactListResult>(`${CRO_BASE}/contacts?${p.toString()}`);
+}
+
 export async function fetchAccountDetail(accountId: string, envId: string, businessId: string): Promise<AccountDetail> {
   return apiFetch<AccountDetail>(`${CRO_BASE}/accounts/${accountId}?env_id=${envId}&business_id=${businessId}`);
 }

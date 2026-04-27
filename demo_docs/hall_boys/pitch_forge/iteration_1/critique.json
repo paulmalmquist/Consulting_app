@@ -1,0 +1,52 @@
+{
+  "iteration": 1,
+  "overall_verdict": "WEAK",
+  "score": 68,
+  "section_verdicts": {
+    "Slide 1 — Claude Inside Hallboys": "PASS",
+    "Slide 2 — What we are not proposing": "PASS",
+    "Slide 3 — Hallboys reality we are designing around": "PASS",
+    "Slide 4 — Five workflows. Same team. Same systems.": "PASS",
+    "Slide 5 — Subcontractor quote comparison": "WEAK",
+    "Slide 6 — Equipment scheduling coordination": "WEAK",
+    "Slide 7 — AP exception triage": "PASS",
+    "Slide 8 — Project closeout document checks": "WEAK",
+    "Slide 9 — Claude skill governance": "WEAK",
+    "Slide 10 — What changes Monday morning": "PASS",
+    "Slide 11 — Pilot plan 60 days": "WEAK",
+    "Slide 12 — Same team. Same systems. More throughput.": "PASS"
+  },
+  "objection_scores": {
+    "economic_reality": 6,
+    "operational_reality": 8,
+    "tool_vs_workflow": 7,
+    "reliability": 4,
+    "ownership_burden": 5,
+    "redundancy": 7
+  },
+  "sarat_voice_summary": "I follow the framing — you respect Acumatica, you're not pitching a platform, you're not cutting headcount. Fine. But every number on these slides is a range. '4 hours to 35 minutes' — based on what? Show me one bid package you actually ran through this. And nowhere on these twelve slides does it say what happens when Claude is wrong on an AP invoice or misses a missing lien waiver on closeout. Who eats that? Tell me what breaks, who owns it, and what one specific job this would have helped on last quarter — then I'll keep listening.",
+  "kill_list": [],
+  "fatal_issues": [],
+  "fixable_issues": [
+    "Slide 5: '4 hrs → 35 min' has no derivation. Replace the range with one worked example from a real Hallboys bid package, or label it 'estimate, to be validated in week 1 of pilot'.",
+    "Slide 6: '2-3 saves/wk' and '$4-8K' are double ranges. Pick one job from the last 90 days where a schedule conflict cost real money and use that single number.",
+    "Slide 8: '<2 hrs' is unverified. Either name the closeout checklist Hallboys uses today or mark this 'Not available: depends on Hallboys closeout SOP' and propose week-1 baseline capture.",
+    "Slide 9: skill governance is the weakest tied-to-money slide. Quantify the cost of NO governance — e.g., 'five Claude users, no shared skills, ~3 hours/week each rebuilding the same prompts = 15 hours/week of rework today'.",
+    "Slide 11 is missing a kill clause. Sarat needs to see explicit exit criteria, not just 'decision point'. Add: 'Stop if hours saved < X by day 30' with a number.",
+    "Whole deck: no slide answers 'what happens when Claude is wrong'. Add a reliability/ownership slide before the pilot plan — who reviews, who escalates, what gets logged.",
+    "Whole deck: no slide names a specific Hallboys job, vendor, or PM. Right now this could be any GC. Anchor at least one slide to a real prior project."
+  ],
+  "missing_inputs": [
+    {"input_needed": "One real Hallboys bid package with 3+ sub quotes from the last 90 days", "blocks": "Defensible time-savings claim on Slide 5"},
+    {"input_needed": "One real schedule conflict cost (idle crew day) from last quarter", "blocks": "Defensible dollar figure on Slide 6"},
+    {"input_needed": "Hallboys closeout checklist (current SOP)", "blocks": "Defensible time claim on Slide 8"},
+    {"input_needed": "Count of Claude users at Hallboys today and rough hours/week each spends rewriting prompts", "blocks": "Quantified cost-of-no-governance on Slide 9"}
+  ],
+  "addressed_objections": {
+    "consulting_project_not_operational": "Mostly handled — pilot plan is operational, but exit clause is missing.",
+    "what_when_clerk_is_out": "Not addressed. No reliability slide.",
+    "we_already_have_X": "Partially — Slide 2 says no new system, but doesn't address why Excel/Acumatica's own AP screen isn't enough.",
+    "who_owns_after_you_leave": "Slide 9 mentions IT ownership but doesn't say what 'ownership' actually means (review cadence, who edits skills, escalation).",
+    "show_me_the_number": "Failed. Every number is a range or hedge. Sarat will not accept this."
+  }
+}

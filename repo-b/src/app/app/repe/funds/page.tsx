@@ -1,21 +1,21 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  deleteRepeFund,
   getAssetMapPoints,
+  getFundTableRows,
+  getPortfolioAuthoritativeStates,
   type AssetMapResponse,
   type FundTableRow,
+  type ReV2AuthoritativeState,
 } from "@/lib/bos-api";
-import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import {
   publishAssistantPageContext,
   resetAssistantPageContext,
 } from "@/lib/commandbar/appContextBridge";
 import { StateCard } from "@/components/ui/StateCard";
-import { useToast } from "@/components/ui/Toast";
 import {
   RepeIndexScaffold,
   reIndexActionClass,
@@ -51,19 +51,22 @@ function RepeFundsPageContent() {
     initializeWorkspace,
   } = useRepeContext();
   const basePath = useRepeBasePath();
-  const { push } = useToast();
   const { filters } = usePortfolioFilters();
 
   // Asset map data (shared between analytics grid and standalone)
   const [assetMap, setAssetMap] = useState<AssetMapResponse | null>(null);
   const [assetMapLoading, setAssetMapLoading] = useState(true);
 
+  // Fund table + authoritative-state overlay (lifted from PortfolioFundTable)
+  const [fundRows, setFundRows] = useState<FundTableRow[]>([]);
+  const [authStatesByFundId, setAuthStatesByFundId] = useState<
+    Map<string, ReV2AuthoritativeState>
+  >(new Map());
+  const [fundTableLoading, setFundTableLoading] = useState(true);
+  const [fundTableError, setFundTableError] = useState<string | null>(null);
+
   // Data quality (from integrity banner)
   const [dataQuality, setDataQuality] = useState<DataQuality>("ok");
-
-  // Delete state
-  const [deleteTarget, setDeleteTarget] = useState<FundTableRow | null>(null);
-  const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
 
   // Fetch asset map
   useEffect(() => {
@@ -77,6 +80,29 @@ function RepeFundsPageContent() {
       .catch(() => setAssetMap(null))
       .finally(() => setAssetMapLoading(false));
   }, [businessId, environmentId]);
+
+  // Fetch fund table rows + portfolio authoritative states in parallel
+  useEffect(() => {
+    if (!environmentId) return;
+    setFundTableLoading(true);
+    setFundTableError(null);
+    Promise.all([
+      getFundTableRows(environmentId, filters.quarter, filters.activeModelId || undefined),
+      getPortfolioAuthoritativeStates(environmentId, filters.quarter),
+    ])
+      .then(([rows, batched]) => {
+        setFundRows(rows);
+        const map = new Map<string, ReV2AuthoritativeState>();
+        for (const s of batched.states) {
+          map.set(s.entity_id, s);
+        }
+        setAuthStatesByFundId(map);
+      })
+      .catch((err) => {
+        setFundTableError(err instanceof Error ? err.message : "Failed to load fund data");
+      })
+      .finally(() => setFundTableLoading(false));
+  }, [environmentId, filters.quarter, filters.activeModelId]);
 
   // Publish assistant context
   useEffect(() => {
@@ -106,33 +132,6 @@ function RepeFundsPageContent() {
     });
     return () => resetAssistantPageContext();
   }, [basePath, environmentId, filters]);
-
-  const handleDeleteFund = useCallback(
-    async () => {
-      if (!deleteTarget) return;
-      setDeletingFundId(deleteTarget.fund_id);
-      try {
-        const result = await deleteRepeFund(deleteTarget.fund_id);
-        setDeleteTarget(null);
-        push({
-          title: "Fund deleted",
-          description: `Removed ${result.deleted.investments} investments and ${result.deleted.assets} assets.`,
-          variant: "success",
-        });
-        // Table will refetch via its own useEffect
-      } catch (err) {
-        push({
-          title: "Delete failed",
-          description:
-            err instanceof Error ? err.message : "Failed to delete fund.",
-          variant: "danger",
-        });
-      } finally {
-        setDeletingFundId(null);
-      }
-    },
-    [deleteTarget, push]
-  );
 
   // Loading / error states
   if (!businessId) {
@@ -193,21 +192,15 @@ function RepeFundsPageContent() {
           <PortfolioFilterBar />
 
           {/* Section D: Fund Table (Primary Anchor) */}
-          <PortfolioFundTable onDeleteFund={setDeleteTarget} />
+          <PortfolioFundTable
+            rows={fundRows}
+            authStatesByFundId={authStatesByFundId}
+            loading={fundTableLoading}
+            error={fundTableError}
+            quarter={filters.quarter}
+          />
         </RepeIndexScaffold>
       </div>
-
-      <FundDeleteDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-        fundName={deleteTarget?.name || ""}
-        deleting={
-          deleteTarget ? deletingFundId === deleteTarget.fund_id : false
-        }
-        onConfirm={handleDeleteFund}
-      />
     </>
   );
 }

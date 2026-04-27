@@ -342,7 +342,7 @@ export function OperatorExecutivePage() {
           cash: data.metrics_strip[2]?.value as number,
           at_risk_projects: data.metrics_strip[3]?.value as number,
         },
-        notes: data.assistant_focus.summary_lines,
+        notes: data.assistant_focus?.summary_lines ?? [],
         operator_command_center: data,
       },
     });
@@ -438,11 +438,13 @@ export function OperatorExecutivePage() {
             </SectionCard>
           ) : null}
 
-          <OperatorWinstonPanel
-            headline={data.assistant_focus.headline}
-            lines={data.assistant_focus.summary_lines}
-            prompts={data.assistant_focus.prompt_suggestions}
-          />
+          {data.assistant_focus ? (
+            <OperatorWinstonPanel
+              headline={data.assistant_focus.headline}
+              lines={data.assistant_focus.summary_lines}
+              prompts={data.assistant_focus.prompt_suggestions}
+            />
+          ) : null}
         </div>
       </div>
 

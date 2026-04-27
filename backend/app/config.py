@@ -117,6 +117,20 @@ LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
 LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
 LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
+# ── Operator (Anthropic Managed Agent) runtime ──────────────────────
+WINSTON_OPERATOR_ENABLED: bool = os.getenv("WINSTON_OPERATOR_ENABLED", "true").lower() == "true"
+WINSTON_AUTO_ROUTER_ENABLED: bool = os.getenv("WINSTON_AUTO_ROUTER_ENABLED", "false").lower() == "true"
+WINSTON_MANAGED_AGENT_PROFILE_PATH: str = os.getenv(
+    "WINSTON_MANAGED_AGENT_PROFILE_PATH",
+    "scripts/winston_managed_agent_profile.json",
+)
+WINSTON_OPERATOR_CONFIRM_TIMEOUT_SECONDS: int = int(
+    os.getenv("WINSTON_OPERATOR_CONFIRM_TIMEOUT_SECONDS", "300")
+)
+WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS: int = int(
+    os.getenv("WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS", "30")
+)
+
 # ── PsychRAG clinical module ────────────────────────────────────────
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 PSYCHRAG_ANTHROPIC_MODEL: str = os.getenv("PSYCHRAG_ANTHROPIC_MODEL", "")

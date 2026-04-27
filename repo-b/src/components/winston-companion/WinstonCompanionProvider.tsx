@@ -12,24 +12,32 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  archiveConversation,
-  createConversation,
   fetchContextSnapshot,
-  getConversation,
-  listConversations,
-  streamAi,
   type AskAiDebug,
   type AssistantApiTrace,
   type ConversationDetail,
   type ConversationSummary,
 } from "@/lib/commandbar/assistantApi";
 import {
+  archiveWinstonConversation as archiveConversation,
+  createWinstonConversation as createConversation,
+  getWinstonConversation as getConversation,
+  listWinstonConversations as listConversations,
+  sendWinstonMessage,
+} from "@/lib/winston-companion/sendWinstonMessage";
+import {
+  resolveRuntime,
+  subscribeRuntime,
+  type WinstonRuntime,
+} from "@/lib/winston-companion/runtimeRouter";
+import { confirmOperatorAction } from "@/lib/winston-companion/transports/operatorTransport";
+import {
   readAssistantAppContext,
   subscribeAssistantAppContext,
 } from "@/lib/commandbar/appContextBridge";
 import { buildAssistantContextEnvelope } from "@/lib/commandbar/contextEnvelope";
 import { makeMessage, type CommandMessage } from "@/lib/commandbar/store";
-import type { AssistantContextEnvelope, AssistantSelectedEntity, ContextSnapshot } from "@/lib/commandbar/types";
+import type { AssistantContextEnvelope, AssistantResponseBlock, AssistantSelectedEntity, ContextSnapshot } from "@/lib/commandbar/types";
 import {
   completeUpload,
   computeSha256,
@@ -136,6 +144,18 @@ type WinstonCompanionContextValue = {
   removeAttachment: (lane: WinstonLane, attachmentId: string) => void;
   openFullWorkspace: () => void;
   hydrateFromQuery: (conversationId: string | null, lane?: WinstonLane | null) => Promise<void>;
+  /** Active runtime selection (gateway / managed_agent / auto). */
+  winstonRuntime: WinstonRuntime;
+  /**
+   * Resolve a pending tool confirmation block. In operator mode this POSTs
+   * to /api/ai/operator/sessions/{id}/confirm with the block's tool_call_id;
+   * in gateway mode it falls back to sending a "Yes, confirm." / "Cancel."
+   * follow-up turn (the existing pre-operator flow).
+   */
+  confirmPendingTool: (
+    block: Extract<AssistantResponseBlock, { type: "confirmation" }>,
+    decision: "allow" | "deny",
+  ) => Promise<void>;
 };
 
 const WinstonCompanionContextStore = createContext<WinstonCompanionContextValue | null>(null);
@@ -524,6 +544,14 @@ export function WinstonCompanionProvider({
   const [clientReady, setClientReady] = useState(false);
   const [generalState, setGeneralState] = useState<LaneState>(EMPTY_LANE);
   const [contextualState, setContextualState] = useState<LaneState>(EMPTY_LANE);
+  // Active runtime ('gateway' | 'managed_agent' | 'auto'). Hydrated from
+  // localStorage / URL on mount via subscribeRuntime + initial resolveRuntime.
+  const [winstonRuntime, setWinstonRuntime] = useState<WinstonRuntime>("gateway");
+  // Per-lane in-flight request controllers so a runtime swap (or new prompt)
+  // can cancel any pending stream cleanly — prevents ghost responses landing
+  // in the wrong runtime's panel.
+  const generalAbortRef = useRef<AbortController | null>(null);
+  const contextualAbortRef = useRef<AbortController | null>(null);
   const [exploreQuery, setExploreQuery] = useState("");
   const [remoteExploreResults, setRemoteExploreResults] = useState<SearchResult[]>([]);
   const [exploreLoading, setExploreLoading] = useState(false);
@@ -536,6 +564,26 @@ export function WinstonCompanionProvider({
 
   useEffect(() => {
     setClientReady(true);
+  }, []);
+
+  // Hydrate runtime + subscribe to changes. On a runtime swap we abort any
+  // in-flight requests and reset BOTH lane states — switching runtime means a
+  // fresh conversation surface (the recents list also re-fetches via the
+  // existing currentContext.businessId effect, which we trigger by bumping
+  // bridgeTick). This is what enforces the "no cross-runtime history" rule
+  // visually without per-runtime state duplication.
+  useEffect(() => {
+    setWinstonRuntime(resolveRuntime());
+    return subscribeRuntime((next) => {
+      generalAbortRef.current?.abort();
+      contextualAbortRef.current?.abort();
+      generalAbortRef.current = null;
+      contextualAbortRef.current = null;
+      setGeneralState(EMPTY_LANE);
+      setContextualState(EMPTY_LANE);
+      setWinstonRuntime(next);
+      setBridgeTick((value) => value + 1);
+    });
   }, []);
 
   useEffect(() => {
@@ -659,7 +707,9 @@ export function WinstonCompanionProvider({
     }
 
     let cancelled = false;
-    void listConversations(businessId)
+    // Pass runtime so recents are filtered server-side (operator vs gateway
+    // conversations live in the same table but never bleed across the UI).
+    void listConversations(businessId, winstonRuntime)
       .then((items) => {
         if (!cancelled) {
           setConversations(items.sort((left, right) => conversationSortValue(right) - conversationSortValue(left)));
@@ -672,7 +722,7 @@ export function WinstonCompanionProvider({
     return () => {
       cancelled = true;
     };
-  }, [currentContext.businessId]);
+  }, [currentContext.businessId, winstonRuntime]);
 
   const exploreResults = useMemo(() => {
     const query = deferredExploreQuery.trim();
@@ -917,7 +967,18 @@ export function WinstonCompanionProvider({
         effectiveBinding,
       );
 
-      const result = await streamAi({
+      // Hook a per-lane AbortController so a runtime swap (or another prompt
+      // on the same lane) cancels this in-flight stream cleanly.
+      const abortController = new AbortController();
+      if (lane === "general") {
+        generalAbortRef.current?.abort();
+        generalAbortRef.current = abortController;
+      } else {
+        contextualAbortRef.current?.abort();
+        contextualAbortRef.current = abortController;
+      }
+
+      const result = await sendWinstonMessage({
         message,
         business_id: businessId,
         env_id: envId || undefined,
@@ -925,6 +986,7 @@ export function WinstonCompanionProvider({
         context_envelope: envelope,
         pending_continuation: pendingQuestion !== null,
         pending_question_text: pendingQuestion ?? undefined,
+        signal: abortController.signal,
         onStatus: (status) => {
           setLaneState(lane, (current) => ({
             ...current,
@@ -1016,14 +1078,27 @@ export function WinstonCompanionProvider({
         },
       });
 
+      // Operator route may have created a conversation server-side; capture
+      // its id from the response so subsequent turns reuse the Anthropic
+      // session stamped onto that row.
+      const resolvedConversationId =
+        result.conversation_id || conversationId || laneState.conversationId || null;
+
       setLaneState(lane, (current) => ({
         ...current,
-        conversationId: conversationId || current.conversationId,
+        conversationId: resolvedConversationId,
         binding: effectiveBinding,
         // thinking already cleared by onDone callback when 'done' SSE event arrives
         trace: result.trace,
         debug: result.debug,
       }));
+      // Clear our abort ref on success — only abort future cancellations,
+      // not this completed one.
+      if (lane === "general" && generalAbortRef.current === abortController) {
+        generalAbortRef.current = null;
+      } else if (lane === "contextual" && contextualAbortRef.current === abortController) {
+        contextualAbortRef.current = null;
+      }
       await refreshConversations();
     } catch (error) {
       console.error("Winston companion request failed", {
@@ -1182,6 +1257,31 @@ export function WinstonCompanionProvider({
     }));
   }
 
+  async function confirmPendingTool(
+    block: Extract<AssistantResponseBlock, { type: "confirmation" }>,
+    decision: "allow" | "deny",
+  ): Promise<void> {
+    // Operator runtime: POST tool_call_id back to /api/ai/operator/.../confirm.
+    // The server unblocks the worker thread, which resumes the Anthropic
+    // session — the user sees the next chat events as a continuation.
+    if (block.tool_call_id && block.anthropic_session_id) {
+      try {
+        await confirmOperatorAction({
+          anthropic_session_id: block.anthropic_session_id,
+          tool_call_id: block.tool_call_id,
+          result: decision,
+          deny_message: decision === "deny" ? "user_cancelled" : null,
+        });
+      } catch (err) {
+        console.error("[winston-companion] operator confirm failed", err);
+      }
+      return;
+    }
+    // Gateway fallback: emit a "Yes, confirm." or "Cancel." follow-up turn.
+    const lane = activeLaneRef.current;
+    void sendPrompt(lane, decision === "allow" ? "Yes, confirm." : "Cancel.");
+  }
+
   function openFullWorkspace() {
     const preferredEnvId = activeBinding?.envId || currentContext.envId;
     const preferredConversationId = activeState.conversationId;
@@ -1238,6 +1338,8 @@ export function WinstonCompanionProvider({
       removeAttachment,
       openFullWorkspace,
       hydrateFromQuery,
+      winstonRuntime,
+      confirmPendingTool,
     }),
     [
       activeBinding,
@@ -1258,6 +1360,7 @@ export function WinstonCompanionProvider({
       open,
       recentConversations,
       shouldRender,
+      winstonRuntime,
     ],
   );
 

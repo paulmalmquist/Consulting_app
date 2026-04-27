@@ -75,9 +75,13 @@ export default function ConsultingWorkspaceShell({
 
   const envLabel = environment?.client_name || envId || "Consulting";
 
-  // Pipeline gets an immersive full-screen surface — bypass all shell chrome.
-  // The page component handles its own loading / error states.
-  if (pathname.endsWith("/pipeline")) {
+  // Pipeline and Contacts render their own dark-Winston shell — bypass the
+  // generic ConsultingWorkspaceShell entirely.
+  if (
+    pathname.endsWith("/pipeline") ||
+    pathname.endsWith("/contacts") ||
+    pathname.endsWith("/tasks")
+  ) {
     return <>{children}</>;
   }
 

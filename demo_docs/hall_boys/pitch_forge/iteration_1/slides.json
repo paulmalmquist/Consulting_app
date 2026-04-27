@@ -1,0 +1,137 @@
+{
+  "title": "Claude Inside Hallboys",
+  "subtitle": "Five workflows where Claude saves hours this quarter — without changing Acumatica",
+  "slides": [
+    {
+      "slide_num": 1,
+      "layout": "title",
+      "title": "Claude Inside Hallboys",
+      "subtitle": "Five workflows where Claude saves hours this quarter — without changing Acumatica",
+      "notes": "Frame: this is not a platform pitch. We're operating inside the systems and team you already have."
+    },
+    {
+      "slide_num": 2,
+      "layout": "section_header",
+      "title": "What we are not proposing",
+      "body": "No new ERP. No headcount cuts. No black-box AP automation. No custom build.",
+      "notes": "Lead with what we are NOT doing. Sarat's first objection is always 'another platform pitch'. Disarm it up front."
+    },
+    {
+      "slide_num": 3,
+      "layout": "two_column",
+      "title": "Hallboys reality we are designing around",
+      "left_header": "What you have",
+      "left_points": [
+        "Acumatica as system of record — stays the source of truth",
+        "3-person IT team, no spare capacity for a 6-month rollout",
+        "One AP clerk processing every invoice that comes in",
+        "Claude already in use — but no shared rules or skill library",
+        "Field, office, and finance work happens on different cadences"
+      ],
+      "right_header": "What we will not touch",
+      "right_points": [
+        "No replacement of Acumatica or any existing system",
+        "No new headcount required",
+        "No removal of human approval on AP, contracts, or schedule",
+        "No long onboarding — pilots run inside existing weekly meetings",
+        "No data leaves Hallboys' Claude workspace"
+      ],
+      "notes": "Sarat needs to hear his constraints recited back before he will listen to anything new."
+    },
+    {
+      "slide_num": 4,
+      "layout": "section_header",
+      "title": "Five workflows. Same team. Same systems.",
+      "body": "Each one targets cost, capacity, or risk — measured against today's baseline.",
+      "notes": "Set up the five-workflow spine. Every following slide ties back to one of these."
+    },
+    {
+      "slide_num": 5,
+      "layout": "stat_callout",
+      "title": "Workflow 1 — Subcontractor quote comparison",
+      "stat": "4 hrs → 35 min",
+      "stat_label": "Per multi-vendor bid package, estimator time (medium confidence)",
+      "body": "Estimator drops 3-5 sub quotes into Claude. Output: side-by-side scope, line-item deltas, missing items, risk flags. Estimator still picks the winner. Impact: cost — fewer hidden scope gaps caught after award. Capacity — estimators run more bid packages per week with the same headcount.",
+      "notes": "Anchor on a real number Sarat can challenge. 'Medium confidence' shows we are not bluffing the estimate."
+    },
+    {
+      "slide_num": 6,
+      "layout": "stat_callout",
+      "title": "Workflow 2 — Equipment scheduling coordination",
+      "stat": "2-3 saves/wk",
+      "stat_label": "Avoided crew idle days from caught conflicts (medium confidence)",
+      "body": "Weekly schedule and equipment list go into Claude. Output: vendor overlaps, missing deliveries, dependency breaks, dates that don't match the critical path. Scheduler still owns the call. Impact: risk — one avoided idle day on a mid-size job is roughly $4-8K in crew cost.",
+      "notes": "Tie the save to a dollar range, not a percentage. Sarat can multiply by jobs per quarter himself."
+    },
+    {
+      "slide_num": 7,
+      "layout": "stat_callout",
+      "title": "Workflow 3 — AP exception triage (assisted, not automated)",
+      "stat": "1 clerk, 2x volume",
+      "stat_label": "Same AP clerk handles more invoices without losing review quality (medium confidence)",
+      "body": "Every invoice still flows through Acumatica. Claude sits beside the clerk: extracts vendor, amount, PO match, scope match, flags duplicates and pricing anomalies. Clerk approves, codes, and posts in Acumatica as today. Impact: capacity — AP clerk reviews more invoices per day. Risk — fewer missed duplicates and price drifts. Not available: confirmed duplicate-rate baseline (need 90 days of AP history).",
+      "notes": "Hit the AP automation objection head-on. We are NOT replacing the clerk and NOT writing into Acumatica. The clerk is faster and catches more."
+    },
+    {
+      "slide_num": 8,
+      "layout": "stat_callout",
+      "title": "Workflow 4 — Project closeout document checks",
+      "stat": "<2 hrs",
+      "stat_label": "To verify a closeout package vs. the required checklist (high confidence)",
+      "body": "PM uploads the closeout folder. Claude returns: missing items, inconsistent dates, lien waivers without matching pay apps, warranty letters absent. PM still signs off. Impact: risk — fewer retainage delays and warranty disputes after handover. Capacity — PMs spend closeout time fixing gaps, not hunting for them.",
+      "notes": "Closeout is the workflow most likely to be felt immediately — Sarat will recognize the pain."
+    },
+    {
+      "slide_num": 9,
+      "layout": "stat_callout",
+      "title": "Workflow 5 — Claude skill governance",
+      "stat": "1 shared library",
+      "stat_label": "Replacing scattered prompts across the team (high confidence)",
+      "body": "Today: every Claude user writes their own prompts. Result: inconsistent output, no audit trail, no reuse. Proposal: a small set of versioned skills (one per workflow above), owned by IT, used by everyone. Impact: risk — consistent outputs, no rogue prompts touching sensitive data. Capacity — new hires productive on day one.",
+      "notes": "This is the multiplier. Without governance, the other four workflows decay over six months."
+    },
+    {
+      "slide_num": 10,
+      "layout": "table",
+      "title": "What changes Monday morning",
+      "headers": ["Workflow", "Owner", "Where it runs", "First measurable signal"],
+      "rows": [
+        ["Quote comparison", "Lead estimator", "Claude desktop, beside Acumatica", "Bid cycle time per package"],
+        ["Equipment scheduling", "Scheduler", "Weekly schedule review meeting", "Conflicts caught before Monday"],
+        ["AP exception triage", "AP clerk", "Beside Acumatica AP screen", "Invoices per clerk per day"],
+        ["Closeout checks", "PM on closing job", "At handover, before final pay app", "Closeout cycle from punch to final"],
+        ["Skill governance", "IT (3-person team)", "Shared Claude workspace", "Number of prompts replaced by skills"]
+      ],
+      "notes": "This slide answers 'what actually happens' for each role. Sarat wants to see the seat, not the system."
+    },
+    {
+      "slide_num": 11,
+      "layout": "two_column",
+      "title": "Pilot plan — 60 days, no platform commitment",
+      "left_header": "Days 1-30",
+      "left_points": [
+        "Pick 2 of the 5 workflows (recommend: quote comparison + closeout checks)",
+        "Run beside the human owner — no system writes",
+        "Capture baseline: hours, errors caught, items missed",
+        "IT publishes v1 skills into shared workspace",
+        "Weekly 30-min review with one estimator and one PM"
+      ],
+      "right_header": "Days 31-60",
+      "right_points": [
+        "Add a third workflow if first two clear baseline",
+        "Sarat sees a one-page scorecard: hours saved, errors caught, prompts retired",
+        "Decision point: continue, adjust scope, or stop — no lock-in",
+        "Skill library handed to IT for ongoing ownership",
+        "Not available: training cost projection until pilot baseline lands"
+      ],
+      "notes": "60 days, exit at any point, no platform commitment. This is what gets a yes."
+    },
+    {
+      "slide_num": 12,
+      "layout": "closing",
+      "title": "Same team. Same systems. More throughput.",
+      "body": "Two workflows, 60 days, one scorecard. Decide from data, not a slide.",
+      "notes": "Close on the offer, not on the vision. Sarat funds pilots, not roadmaps."
+    }
+  ]
+}

@@ -52,6 +52,14 @@ const NULL_REASON_COPY: Record<string, { short: string; long: string }> = {
     short: "unavailable",
     long: "Source data missing",
   },
+  missing_commitment: {
+    short: "unavailable",
+    long: "Commitment data missing",
+  },
+  missing_pct_invested_inputs: {
+    short: "unavailable",
+    long: "% Invested inputs unavailable",
+  },
   ui_contract_violation: {
     short: "unavailable",
     long: "Internal: metric contract violation",

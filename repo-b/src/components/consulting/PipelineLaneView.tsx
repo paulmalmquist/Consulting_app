@@ -1401,8 +1401,10 @@ type GroupedBoardViewProps = {
   focusedSegKey: string | null;
   focusedStage: string | null;
   mode: LaneMode;
-  expandedGroup: string | null;
-  onExpandGroup: (key: string | null) => void;
+  expandedGroups: Set<string>;
+  onToggleGroup: (key: string) => void;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
   onSelectStage: (key: string) => void;
   onSelectSegment: (key: string, segKey: string) => void;
   onSelectCard: (id: string) => void;
@@ -1423,8 +1425,10 @@ export function GroupedBoardView({
   focusedSegKey,
   focusedStage,
   mode,
-  expandedGroup,
-  onExpandGroup,
+  expandedGroups,
+  onToggleGroup,
+  onExpandAll,
+  onCollapseAll,
   onSelectStage,
   onSelectSegment,
   onSelectCard,
@@ -1464,12 +1468,76 @@ export function GroupedBoardView({
   }, [columns]);
 
   const handleGroupClick = useCallback((groupKey: string) => {
-    // Clicking the already-expanded group collapses it; clicking a different one expands it
-    onExpandGroup(expandedGroup === groupKey ? null : groupKey);
-  }, [expandedGroup, onExpandGroup]);
+    // Each group toggles independently — multiple groups can be open simultaneously.
+    onToggleGroup(groupKey);
+  }, [onToggleGroup]);
+
+  const allExpanded = expandedGroups.size === PIPELINE_GROUPS.length;
+  const noneExpanded = expandedGroups.size === 0;
 
   return (
     <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+      {/* Expand-all / Collapse-all controls — independent of column flex so they don't shift the board */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          borderBottom: "1px solid rgba(255,255,255,0.05)",
+          flex: "none",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.13em",
+            textTransform: "uppercase",
+            color: "rgba(220,230,240,0.42)",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+          }}
+        >
+          Groups
+        </span>
+        <button
+          type="button"
+          onClick={onExpandAll}
+          disabled={allExpanded}
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            padding: "4px 10px",
+            borderRadius: 3,
+            border: `1px solid rgba(255,255,255,${allExpanded ? "0.06" : "0.12"})`,
+            background: "transparent",
+            color: allExpanded ? "rgba(220,230,240,0.30)" : "rgba(220,230,240,0.72)",
+            cursor: allExpanded ? "not-allowed" : "pointer",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+          }}
+        >
+          Expand all
+        </button>
+        <button
+          type="button"
+          onClick={onCollapseAll}
+          disabled={noneExpanded}
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            padding: "4px 10px",
+            borderRadius: 3,
+            border: `1px solid rgba(255,255,255,${noneExpanded ? "0.06" : "0.12"})`,
+            background: "transparent",
+            color: noneExpanded ? "rgba(220,230,240,0.30)" : "rgba(220,230,240,0.72)",
+            cursor: noneExpanded ? "not-allowed" : "pointer",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+          }}
+        >
+          Collapse all
+        </button>
+      </div>
       <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div
           style={{
@@ -1482,7 +1550,7 @@ export function GroupedBoardView({
           }}
         >
           {PIPELINE_GROUPS.map((group) => {
-            const isExpanded = expandedGroup === group.key;
+            const isExpanded = expandedGroups.has(group.key);
             const groupCols = group.stageKeys
               .map((k) => colByKey[k])
               .filter(Boolean) as ExecutionBoardColumn[];

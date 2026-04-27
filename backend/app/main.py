@@ -6,7 +6,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.config import ALLOWED_ORIGINS, AI_GATEWAY_ENABLED
+from app.config import (
+    AI_GATEWAY_ENABLED,
+    ALLOWED_ORIGINS,
+    WINSTON_OPERATOR_ENABLED,
+    WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS,
+)
 from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
 from app.mcp.registry import registry as _tool_registry
@@ -70,6 +75,7 @@ from app.routes import (
 from app.routes import re_authoritative, re_operator_diagnostics
 from app.routes.ai import router as ai_router
 from app.routes.ai_gateway import router as ai_gateway_router
+from app.routes.operator_agent import router as operator_agent_router
 from app.routes.ai_audit import router as ai_audit_router
 from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_router
 from app.routes import website_content, website_rankings, website_analytics
@@ -82,6 +88,7 @@ from app.routes import (
     nv_impact_estimator, nv_case_factory, nv_ai_copilot, nv_engagement_output,
     nv_receipt_intake, nv_accounting_desk,
 )
+from app.routes import pitch_forge as pitch_forge_routes
 from app.routes import epi as epi_routes
 from app.routes import re_query
 from app.routes import semantic_catalog, analytics
@@ -253,7 +260,35 @@ async def lifespan(app: FastAPI):
         context={"ready": db_connected and schema_ok, "duration_ms": elapsed_ms},
     )
 
+    # ── Operator runtime: confirmation registry sweep task ─────────
+    operator_sweep_task = None
+    if WINSTON_OPERATOR_ENABLED and db_connected:
+        try:
+            import asyncio
+            from app.services.operator_confirm_registry import run_sweep_loop
+            operator_sweep_task = asyncio.create_task(
+                run_sweep_loop(interval_seconds=WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS)
+            )
+            emit_log(
+                level="info", service="backend", action="startup.operator_sweep_started",
+                message="Operator confirm-registry sweep loop started",
+                context={"interval_s": WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS},
+            )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.operator_sweep_failed",
+                message="Operator sweep loop failed to start (non-fatal)",
+                context={}, error=exc,
+            )
+
     yield
+
+    if operator_sweep_task is not None:
+        operator_sweep_task.cancel()
+        try:
+            await operator_sweep_task
+        except BaseException:
+            pass
 
     emit_log(
         level="info", service="backend", action="shutdown.begin",
@@ -337,6 +372,8 @@ app.include_router(lab.router)
 app.include_router(lab_v2.router)
 app.include_router(ai_router)
 app.include_router(ai_gateway_router)
+if WINSTON_OPERATOR_ENABLED:
+    app.include_router(operator_agent_router)
 app.include_router(ai_audit_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
@@ -430,6 +467,7 @@ app.include_router(nv_engagement_output.router)
 app.include_router(nv_receipt_intake.router)
 app.include_router(nv_accounting_desk.router)
 app.include_router(epi_routes.router)
+app.include_router(pitch_forge_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(unified_metrics.router)
 app.include_router(analytics.router)

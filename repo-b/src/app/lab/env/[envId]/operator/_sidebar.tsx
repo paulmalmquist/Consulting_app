@@ -23,22 +23,15 @@ export function operatorSidebarSections(envId: string): LeftSidebarSection[] {
 }
 
 export function consultingSidebarSections(envId: string): LeftSidebarSection[] {
-  const base = `/lab/env/${envId}/consulting`;
+  const consultingBase = `/lab/env/${envId}/consulting`;
+  const operatorBase = `/lab/env/${envId}/operator`;
   return [
     {
       items: [
-        { key: "pipeline", label: "Pipeline", href: `${base}/pipeline` },
-        { key: "accounts", label: "Accounts", href: `${base}/accounts` },
-        { key: "contacts", label: "Contacts", href: `${base}/contacts` },
-      ],
-    },
-    {
-      label: "WORK",
-      items: [
-        { key: "clients", label: "Clients", href: `${base}/clients` },
-        { key: "research", label: "Research", href: `${base}/research` },
-        { key: "proof-assets", label: "Proof Assets", href: `${base}/proof-assets` },
-        { key: "loops", label: "Loops", href: `${base}/loops` },
+        { key: "pipeline", label: "Pipeline", href: `${consultingBase}/pipeline` },
+        { key: "accounting", label: "Accounting", href: `${operatorBase}/accounting` },
+        { key: "contacts", label: "Contacts", href: `${consultingBase}/contacts` },
+        { key: "tasks", label: "Tasks", href: `${consultingBase}/tasks` },
       ],
     },
   ];

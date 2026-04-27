@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2, ChevronUp, ChevronDown, Filter } from "lucide-react";
-import { getFundTableRows, type FundTableRow } from "@/lib/bos-api";
-import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import {
+  type FundTableRow,
+  type ReV2AuthoritativeState,
+} from "@/lib/bos-api";
+import { useRepeBasePath } from "@/lib/repe-context";
 import { usePortfolioFilters } from "./PortfolioFilterContext";
 import { StateCard } from "@/components/ui/StateCard";
 import { fmtMoney, fmtPct, fmtPctFromDecimal } from "@/lib/format-utils";
@@ -18,23 +21,27 @@ import {
   reIndexSecondaryCellClass,
   reIndexNumericCellClass,
 } from "@/components/repe/RepeIndexScaffold";
+import { TrustChip } from "@/components/re/TrustChip";
+import { ScopeBadge, type ScopeMetadata } from "@/components/re/ScopeBadge";
+import { UnavailableCell } from "@/components/re/UnavailableTile";
+import type { LockState } from "@/hooks/useAuthoritativeState";
 
 // ---------------------------------------------------------------------------
-// Column definitions
+// Types
 // ---------------------------------------------------------------------------
 
 type SortDir = "asc" | "desc";
+type EnrichedRow = FundTableRow & { auth: ReV2AuthoritativeState | null };
 
 interface ColumnDef {
   key: string;
   label: string;
   align: "left" | "right";
   sortable: boolean;
-  format: (row: FundTableRow) => React.ReactNode;
-  sortValue: (row: FundTableRow) => number | string;
+  format: (row: EnrichedRow) => React.ReactNode;
+  sortValue: (row: EnrichedRow) => number | string;
   hasInlineBar?: boolean;
-  barValue?: (row: FundTableRow) => number | null;
-  testId?: string;
+  barValue?: (row: EnrichedRow) => number | null;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -55,53 +62,130 @@ const STATUS_ORDER: Record<string, number> = {
   fundraising: 0, investing: 1, harvesting: 2, closed: 3,
 };
 
-function numVal(s: string | null | undefined): number {
-  if (!s) return -Infinity;
-  const n = parseFloat(s);
-  return isNaN(n) ? -Infinity : n;
+// ---------------------------------------------------------------------------
+// Auth-state helpers (mirror /lab/env/[envId]/re/page.tsx pattern)
+// ---------------------------------------------------------------------------
+
+function isReleased(fund: EnrichedRow): boolean {
+  const a = fund.auth;
+  return Boolean(
+    a
+      && a.promotion_state === "released"
+      && a.state_origin === "authoritative"
+      && a.period_exact === true,
+  );
 }
 
-function pctBar(val: number | null, max: number): number {
-  if (val === null || max <= 0) return 0;
-  return Math.min(Math.max((val / max) * 100, 0), 100);
+function authNumeric(fund: EnrichedRow, field: string): number | null {
+  if (!isReleased(fund)) return null;
+  const cm = fund.auth?.state?.canonical_metrics as Record<string, unknown> | undefined;
+  const v = cm?.[field];
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function authNullReason(fund: EnrichedRow, field: string): string {
+  const reasons = fund.auth?.null_reasons as Record<string, unknown> | undefined;
+  const r = reasons?.[field];
+  if (typeof r === "string" && r) return r;
+  if (!isReleased(fund)) return "authoritative_state_not_released";
+  return `missing:${field}`;
+}
+
+function authScopeMeta(fund: EnrichedRow): ScopeMetadata | null {
+  const cm = fund.auth?.state?.canonical_metrics as Record<string, unknown> | undefined;
+  const scope = cm?.scope;
+  if (!scope || typeof scope !== "object") return null;
+  const s = scope as Record<string, unknown>;
+  return {
+    investment_count: typeof s.investment_count === "number" ? s.investment_count : null,
+    expected_investment_count:
+      typeof s.expected_investment_count === "number" ? s.expected_investment_count : null,
+    scope_completeness: typeof s.scope_completeness === "string" ? s.scope_completeness : null,
+    scope_contract_version:
+      typeof s.scope_contract_version === "string" ? s.scope_contract_version : null,
+  };
+}
+
+function lockStateOf(fund: EnrichedRow): LockState {
+  const a = fund.auth;
+  if (!a) return "not_found";
+  if (a.null_reason === "authoritative_state_not_released") return "not_released";
+  if (a.null_reason === "authoritative_state_not_found") return "not_found";
+  if (a.null_reason) return "not_released";
+  if (!a.period_exact) return "period_drift";
+  if (a.state_origin !== "authoritative") return "period_drift";
+  if (a.promotion_state === "released") return "released";
+  if (a.promotion_state === "verified") return "verified";
+  return "not_released";
+}
+
+function bridgeTooltip(fund: EnrichedRow): string {
+  const cm = (fund.auth?.state?.canonical_metrics ?? {}) as Record<string, unknown>;
+  const bridge = fund.auth?.state?.gross_to_net_bridge;
+  const lines: string[] = [];
+  if (cm.net_irr != null) lines.push(`Net IRR: ${fmtPctFromDecimal(String(cm.net_irr))}`);
+  if (cm.gross_irr != null) lines.push(`Gross IRR: ${fmtPctFromDecimal(String(cm.gross_irr))}`);
+  if (bridge?.management_fees != null) lines.push(`– Management fees: ${fmtMoney(String(bridge.management_fees))}`);
+  if (bridge?.fund_expenses != null) lines.push(`– Fund expenses: ${fmtMoney(String(bridge.fund_expenses))}`);
+  if (bridge?.gross_return_amount != null) lines.push(`Gross return: ${fmtMoney(String(bridge.gross_return_amount))}`);
+  if (bridge?.net_return_amount != null) lines.push(`Net return: ${fmtMoney(String(bridge.net_return_amount))}`);
+  if (!bridge) lines.push("Gross-to-net bridge unavailable in this snapshot.");
+  return lines.join("\n");
+}
+
+function masterTargetSize(row: FundTableRow): number | null {
+  if (!row.target_size) return null;
+  const n = parseFloat(row.target_size);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pctBar(val: number | null, max: number): number | null {
+  if (val === null || max <= 0) return null;
+  const barPct = Math.min(Math.max((val / max) * 100, 0), 100);
+  return barPct;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-interface PortfolioFundTableProps {
-  onDeleteFund?: (fund: FundTableRow) => void;
+export interface PortfolioFundTableProps {
+  rows: FundTableRow[];
+  authStatesByFundId: Map<string, ReV2AuthoritativeState>;
+  loading: boolean;
+  error: string | null;
+  quarter: string;
 }
 
-export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
-  const { businessId, environmentId } = useRepeContext();
+export function PortfolioFundTable({
+  rows,
+  authStatesByFundId,
+  loading,
+  error,
+}: PortfolioFundTableProps) {
   const basePath = useRepeBasePath();
-  const { filters, ui, setChartSelection } = usePortfolioFilters();
+  const { filters, ui } = usePortfolioFilters();
 
-  const [rows, setRows] = useState<FundTableRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // Fetch data
-  useEffect(() => {
-    if (!environmentId) return;
-    setLoading(true);
-    getFundTableRows(environmentId, filters.quarter, filters.activeModelId || undefined)
-      .then((data) => {
-        setRows(data);
-        setError(null);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load fund data"))
-      .finally(() => setLoading(false));
-  }, [environmentId, filters.quarter, filters.activeModelId]);
+  const enrichedRows = useMemo<EnrichedRow[]>(
+    () => rows.map((r) => ({ ...r, auth: authStatesByFundId.get(r.fund_id) ?? null })),
+    [rows, authStatesByFundId],
+  );
 
-  // Column definitions
   const columns = useMemo<ColumnDef[]>(() => {
-    const maxIrr = Math.max(...rows.map((r) => Math.abs(numVal(r.gross_irr))).filter((v) => v > 0), 0.01);
-    const maxTvpi = Math.max(...rows.map((r) => numVal(r.tvpi)).filter((v) => v > 0), 0.01);
+    const irrValues = enrichedRows
+      .map((r) => authNumeric(r, "gross_irr"))
+      .filter((v): v is number => v !== null);
+    const maxIrr = Math.max(...irrValues.map((v) => Math.abs(v)), 0.01);
+
+    const tvpiValues = enrichedRows
+      .map((r) => authNumeric(r, "tvpi"))
+      .filter((v): v is number => v !== null);
+    const maxTvpi = Math.max(...tvpiValues, 0.01);
 
     return [
       {
@@ -119,6 +203,14 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
               {r.strategy && r.fund_type && " · "}
               {r.fund_type && (FUND_TYPE_LABELS[r.fund_type] || r.fund_type)}
             </p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <TrustChip
+                lockState={lockStateOf(r)}
+                snapshotVersion={r.auth?.snapshot_version ?? null}
+                trustStatus={r.auth?.trust_status ?? null}
+              />
+              <ScopeBadge scope={authScopeMeta(r)} />
+            </div>
           </div>
         ),
         sortValue: (r) => r.name.toLowerCase(),
@@ -136,16 +228,40 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         label: "AUM",
         align: "right",
         sortable: true,
-        format: (r) => fmtMoney(r.target_size),
-        sortValue: (r) => numVal(r.target_size),
+        format: (r) => {
+          const auth = authNumeric(r, "total_committed");
+          if (auth !== null) {
+            return <span data-metric="aum">{fmtMoney(String(auth))}</span>;
+          }
+          const target = masterTargetSize(r);
+          if (target !== null) {
+            return (
+              <span data-metric="aum" data-source="target">
+                {fmtMoney(String(target))}
+                <span
+                  className="ml-1.5 inline-block rounded px-1 py-0 text-[9px] uppercase tracking-wide text-bm-muted2/80 border border-bm-muted2/30"
+                  title="Target size — pre-release commitment estimate"
+                >
+                  target
+                </span>
+              </span>
+            );
+          }
+          return <UnavailableCell nullReason="missing_commitment" />;
+        },
+        sortValue: (r) => authNumeric(r, "total_committed") ?? masterTargetSize(r) ?? -Infinity,
       },
       {
         key: "nav",
         label: "NAV",
         align: "right",
         sortable: true,
-        format: (r) => fmtMoney(r.portfolio_nav),
-        sortValue: (r) => numVal(r.portfolio_nav),
+        format: (r) => {
+          const v = authNumeric(r, "ending_nav");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "ending_nav")} />;
+          return <span data-metric="nav">{fmtMoney(String(v))}</span>;
+        },
+        sortValue: (r) => authNumeric(r, "ending_nav") ?? -Infinity,
       },
       {
         key: "gross_irr",
@@ -154,44 +270,82 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         sortable: true,
         hasInlineBar: true,
         barValue: (r) => {
-          const v = numVal(r.gross_irr);
-          return v > -Infinity ? pctBar(Math.abs(v * 100), maxIrr * 100) : null;
+          const v = authNumeric(r, "gross_irr");
+          if (v === null) return null;
+          return pctBar(Math.abs(v) * 100, maxIrr * 100);
         },
-        format: (r) => (
-          <span data-metric="gross_irr">{fmtPctFromDecimal(r.gross_irr)}</span>
-        ),
-        sortValue: (r) => numVal(r.gross_irr),
+        format: (r) => {
+          const v = authNumeric(r, "gross_irr");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "gross_irr")} />;
+          return <span data-metric="gross_irr">{fmtPctFromDecimal(String(v))}</span>;
+        },
+        sortValue: (r) => authNumeric(r, "gross_irr") ?? -Infinity,
       },
       {
         key: "net_irr",
         label: "Net IRR",
         align: "right",
         sortable: true,
-        format: (r) => fmtPctFromDecimal(r.net_irr),
-        sortValue: (r) => numVal(r.net_irr),
+        format: (r) => {
+          const reasons = r.auth?.null_reasons as Record<string, unknown> | undefined;
+          const reason = reasons?.net_irr;
+          if (typeof reason === "string" && reason === "out_of_scope_requires_waterfall") {
+            return <UnavailableCell nullReason="out_of_scope_requires_waterfall" />;
+          }
+          const v = authNumeric(r, "net_irr");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "net_irr")} />;
+          return (
+            <span
+              data-metric="net_irr"
+              title={bridgeTooltip(r)}
+              className="cursor-help underline decoration-dotted decoration-bm-muted2/40 underline-offset-2"
+            >
+              {fmtPctFromDecimal(String(v))}
+            </span>
+          );
+        },
+        sortValue: (r) => authNumeric(r, "net_irr") ?? -Infinity,
       },
       {
         key: "dpi",
         label: "DPI",
         align: "right",
         sortable: true,
-        format: (r) => r.dpi ? `${parseFloat(r.dpi).toFixed(2)}x` : "—",
-        sortValue: (r) => numVal(r.dpi),
+        format: (r) => {
+          const v = authNumeric(r, "dpi");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "dpi")} />;
+          return <span data-metric="dpi">{`${v.toFixed(2)}x`}</span>;
+        },
+        sortValue: (r) => authNumeric(r, "dpi") ?? -Infinity,
       },
       {
-        key: "tvpi",
-        label: "TVPI",
+        key: "tvpi_gross",
+        label: "Gross TVPI",
         align: "right",
         sortable: true,
         hasInlineBar: true,
         barValue: (r) => {
-          const v = numVal(r.tvpi);
-          return v > -Infinity ? pctBar(v, maxTvpi) : null;
+          const v = authNumeric(r, "tvpi");
+          return pctBar(v, maxTvpi);
         },
-        format: (r) => (
-          <span data-metric="tvpi">{r.tvpi ? `${parseFloat(r.tvpi).toFixed(2)}x` : "—"}</span>
-        ),
-        sortValue: (r) => numVal(r.tvpi),
+        format: (r) => {
+          const v = authNumeric(r, "tvpi");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "tvpi")} />;
+          return <span data-metric="gross_tvpi">{`${v.toFixed(2)}x`}</span>;
+        },
+        sortValue: (r) => authNumeric(r, "tvpi") ?? -Infinity,
+      },
+      {
+        key: "tvpi_net",
+        label: "Net TVPI",
+        align: "right",
+        sortable: true,
+        format: (r) => {
+          const v = authNumeric(r, "net_tvpi");
+          if (v === null) return <UnavailableCell nullReason={authNullReason(r, "net_tvpi")} />;
+          return <span data-metric="net_tvpi">{`${v.toFixed(2)}x`}</span>;
+        },
+        sortValue: (r) => authNumeric(r, "net_tvpi") ?? -Infinity,
       },
       {
         key: "pct_invested",
@@ -200,11 +354,34 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         sortable: true,
         hasInlineBar: true,
         barValue: (r) => {
-          const v = numVal(r.pct_invested);
-          return v > -Infinity ? v * 100 : null;
+          if (!isReleased(r)) return null;
+          const committed = authNumeric(r, "total_committed");
+          const called = authNumeric(r, "total_called");
+          if (committed === null || called === null || committed <= 0) return null;
+          return Math.min(Math.max((called / committed) * 100, 0), 100);
         },
-        format: (r) => fmtPctFromDecimal(r.pct_invested),
-        sortValue: (r) => numVal(r.pct_invested),
+        format: (r) => {
+          if (!isReleased(r)) {
+            return <UnavailableCell nullReason="authoritative_state_not_released" />;
+          }
+          const committed = authNumeric(r, "total_committed");
+          const called = authNumeric(r, "total_called");
+          if (committed === null || committed <= 0 || called === null) {
+            const reasons = r.auth?.null_reasons as Record<string, unknown> | undefined;
+            const reason =
+              (typeof reasons?.total_called === "string" && reasons.total_called) ||
+              (typeof reasons?.total_committed === "string" && reasons.total_committed) ||
+              "missing_pct_invested_inputs";
+            return <UnavailableCell nullReason={reason} />;
+          }
+          return <span data-metric="pct_invested">{fmtPct(called / committed)}</span>;
+        },
+        sortValue: (r) => {
+          const committed = authNumeric(r, "total_committed");
+          const called = authNumeric(r, "total_called");
+          if (committed === null || called === null || committed <= 0) return -Infinity;
+          return called / committed;
+        },
       },
       {
         key: "status",
@@ -223,19 +400,17 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         sortValue: (r) => STATUS_ORDER[r.status] ?? 99,
       },
     ];
-  }, [rows, basePath]);
+  }, [enrichedRows, basePath]);
 
-  // Filter rows
   const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
+    return enrichedRows.filter((r) => {
       if (filters.strategy && r.strategy !== filters.strategy) return false;
       if (filters.vintage && String(r.vintage_year) !== filters.vintage) return false;
       if (filters.status && r.status !== filters.status) return false;
 
-      // Metric filters
       for (const mf of filters.metricFilters) {
-        const val = numVal((r as unknown as Record<string, string | null>)[mf.field]);
-        if (val === -Infinity) continue;
+        const val = authNumeric(r, mf.field);
+        if (val === null) continue;
         switch (mf.operator) {
           case "<": if (!(val < mf.value)) return false; break;
           case ">": if (!(val > mf.value)) return false; break;
@@ -245,24 +420,22 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
         }
       }
 
-      // Chart selection filter
       if (ui.chartSelection?.dimension === "fund" && r.fund_id !== ui.chartSelection.value) {
         return false;
       }
 
-      // Signal scope filter overrides
       if (ui.signalScope) {
         const overrides = ui.signalScope.filterOverrides;
-        if (overrides.dscr_max && r.weighted_dscr) {
-          if (numVal(r.weighted_dscr) > parseFloat(overrides.dscr_max)) return false;
+        if (overrides.dscr_max) {
+          const dscr = authNumeric(r, "weighted_dscr");
+          if (dscr !== null && dscr > parseFloat(overrides.dscr_max)) return false;
         }
       }
 
       return true;
     });
-  }, [rows, filters, ui.chartSelection, ui.signalScope]);
+  }, [enrichedRows, filters, ui.chartSelection, ui.signalScope]);
 
-  // Sort rows
   const sortedRows = useMemo(() => {
     if (!sortCol) return filteredRows;
     const col = columns.find((c) => c.key === sortCol);
@@ -289,7 +462,6 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
     }
   }, [sortCol]);
 
-  // Highlight logic
   const highlightedFundIds = useMemo(() => {
     const ids = new Set<string>();
     if (ui.hoveredFundId) ids.add(ui.hoveredFundId);
@@ -324,13 +496,13 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
   return (
     <section data-testid="re-funds-list">
       <div className={reIndexTableShellClass}>
-        <table className={`${reIndexTableClass} min-w-[1100px]`}>
+        <table className={`${reIndexTableClass} min-w-[1200px]`}>
           <thead className="sticky top-0 z-10 bg-bm-bg">
             <tr className={reIndexTableHeadRowClass}>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-3 py-2.5 font-medium text-[11px] uppercase tracking-wider ${
+                  className={`px-3 py-2.5 font-semibold text-[10px] uppercase tracking-[0.17em] ${
                     col.align === "right" ? "text-right" : "text-left"
                   } ${col.sortable ? "cursor-pointer select-none hover:text-bm-text transition-colors" : ""}`}
                   onClick={col.sortable ? () => handleSort(col.key) : undefined}
@@ -345,7 +517,6 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
                   </span>
                 </th>
               ))}
-              <th className="px-3 py-2.5 w-8"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className={reIndexTableBodyClass}>
@@ -357,33 +528,23 @@ export function PortfolioFundTable({ onDeleteFund }: PortfolioFundTableProps) {
                   data-testid={`fund-row-${fund.fund_id}`}
                   className={`${reIndexTableRowClass} ${isHighlighted ? "bg-bm-accent/5 ring-1 ring-inset ring-bm-accent/20" : ""}`}
                 >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className={`px-3 py-3 align-middle ${col.align === "right" ? reIndexNumericCellClass : ""} relative`}
-                    >
-                      {col.hasInlineBar && col.barValue && (
-                        <div
-                          className="absolute inset-y-0 left-0 bg-bm-accent/8 pointer-events-none"
-                          style={{ width: `${col.barValue(fund) ?? 0}%` }}
-                        />
-                      )}
-                      <span className="relative z-[1]">{col.format(fund)}</span>
-                    </td>
-                  ))}
-                  <td className="px-3 py-3 align-middle text-right">
-                    {onDeleteFund && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onDeleteFund(fund); }}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-bm-muted2 transition-colors hover:bg-bm-danger/10 hover:text-bm-danger"
-                        data-testid={`delete-fund-${fund.fund_id}`}
-                        title="Delete fund"
+                  {columns.map((col) => {
+                    const barWidth = col.hasInlineBar && col.barValue ? col.barValue(fund) : null;
+                    return (
+                      <td
+                        key={col.key}
+                        className={`px-3 py-3 align-middle ${col.align === "right" ? reIndexNumericCellClass : "text-[13px] text-slate-600"} relative`}
                       >
-                        <Trash2 className="h-3 w-3" strokeWidth={1.5} />
-                      </button>
-                    )}
-                  </td>
+                        {barWidth !== null && (
+                          <div
+                            className="absolute inset-y-0 left-0 bg-bm-accent/8 pointer-events-none"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        )}
+                        <span className="relative z-[1]">{col.format(fund)}</span>
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}

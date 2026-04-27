@@ -29,7 +29,7 @@ import PipelineLaneView, {
   BoardViewToggle,
   type LaneMode,
 } from "@/components/consulting/PipelineLaneView";
-import type { BoardViewMode } from "@/components/consulting/pipeline-groups";
+import { PIPELINE_GROUPS, type BoardViewMode } from "@/components/consulting/pipeline-groups";
 import PipelineActionPanel, {
   type ActiveSlice,
 } from "@/components/consulting/PipelineActionPanel";
@@ -215,7 +215,7 @@ export default function PipelinePage({
   const [activeSlice, setActiveSlice] = useState<ActiveSlice | null>(null);
   const [chartMode, setChartMode] = useState<LaneMode>("count");
   const [boardViewMode, setBoardViewMode] = useState<BoardViewMode>("groups");
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Search
@@ -299,8 +299,25 @@ export default function PipelinePage({
     }
     const bvm = localStorage.getItem("nv_board_view_mode");
     if (bvm === "groups" || bvm === "stages") setBoardViewMode(bvm);
-    const eg = localStorage.getItem("nv_expanded_group");
-    if (eg) setExpandedGroup(eg);
+    const groupsRaw = localStorage.getItem("nv_expanded_groups");
+    if (groupsRaw) {
+      try {
+        const parsed = JSON.parse(groupsRaw);
+        if (Array.isArray(parsed)) {
+          setExpandedGroups(new Set(parsed.filter((k): k is string => typeof k === "string")));
+        }
+      } catch {
+        // Ignore malformed payloads
+      }
+    } else {
+      // One-time migration from the old single-key state
+      const legacy = localStorage.getItem("nv_expanded_group");
+      if (legacy) {
+        setExpandedGroups(new Set([legacy]));
+        localStorage.setItem("nv_expanded_groups", JSON.stringify([legacy]));
+        localStorage.removeItem("nv_expanded_group");
+      }
+    }
   }, []);
 
   // Derive all cards from kanban for Today Panel and Action Bar
@@ -598,16 +615,36 @@ export default function PipelinePage({
     setBoardViewMode(m);
     localStorage.setItem("nv_board_view_mode", m);
     if (m === "stages") {
-      setExpandedGroup(null);
-      localStorage.removeItem("nv_expanded_group");
+      setExpandedGroups(new Set());
+      localStorage.removeItem("nv_expanded_groups");
     }
   }, []);
 
-  const handleExpandGroup = useCallback((key: string | null) => {
-    setExpandedGroup(key);
-    if (key) localStorage.setItem("nv_expanded_group", key);
-    else localStorage.removeItem("nv_expanded_group");
+  const persistExpandedGroups = useCallback((next: Set<string>) => {
+    if (next.size === 0) localStorage.removeItem("nv_expanded_groups");
+    else localStorage.setItem("nv_expanded_groups", JSON.stringify(Array.from(next)));
   }, []);
+
+  const handleToggleGroup = useCallback((key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      persistExpandedGroups(next);
+      return next;
+    });
+  }, [persistExpandedGroups]);
+
+  const handleExpandAllGroups = useCallback(() => {
+    const next = new Set(PIPELINE_GROUPS.map((g) => g.key));
+    setExpandedGroups(next);
+    persistExpandedGroups(next);
+  }, [persistExpandedGroups]);
+
+  const handleCollapseAllGroups = useCallback(() => {
+    setExpandedGroups(new Set());
+    persistExpandedGroups(new Set());
+  }, [persistExpandedGroups]);
 
   // Stable per-key ref callbacks cached so LaneColumn doesn't see new
   // function references on every render (avoids unnecessary dnd-kit re-registration).
@@ -705,31 +742,132 @@ export default function PipelinePage({
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
-        <LeftSidebar brand={winstonBrand} sections={consultingSidebarSections(params.envId)} activeKey="pipeline" />
-        <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4 flex-1">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "240px minmax(0, 1fr) 40px",
+          gridTemplateRows: "52px minmax(0, 1fr)",
+          height: "100%",
+          minHeight: 0,
+          background: "#05070B",
+        }}
+      >
+        <LeftSidebar mode="brand" brand={winstonBrand} sections={consultingSidebarSections(params.envId)} activeKey="pipeline" />
+        <div style={{ height: 52, borderBottom: "1px solid rgba(255,255,255,0.07)" }} />
+        <div style={{ height: 52, borderLeft: "1px solid rgba(255,255,255,0.08)", borderBottom: "1px solid rgba(255,255,255,0.07)" }} />
+        <LeftSidebar mode="nav" sections={consultingSidebarSections(params.envId)} activeKey="pipeline" />
+        <div className="flex gap-0.5 overflow-x-auto px-4 pt-4 pb-4">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div key={i} className="shrink-0 w-[150px] sm:w-[206px] h-[480px] bg-bm-surface/40 rounded animate-pulse" />
           ))}
         </div>
-        <div style={{ width: 40, flexShrink: 0, borderLeft: "1px solid rgba(255,255,255,0.07)" }} />
+        <div style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }} />
       </div>
     );
   }
 
   const totalVisible = filteredColumns.reduce((sum, col) => sum + col.cards.length, 0);
 
+  const railWidth = railOpen ? 400 : 40;
+
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0, background: "#05070B" }}>
-      {/* LEFT SIDEBAR — consulting navigation */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `240px minmax(0, 1fr) ${railWidth}px`,
+        gridTemplateRows: "52px minmax(0, 1fr)",
+        height: "100%",
+        minHeight: 0,
+        background: "#05070B",
+        transition: "grid-template-columns 200ms ease",
+      }}
+    >
+      {/* Row 1, Col 1 — WINSTON brand block */}
       <LeftSidebar
+        mode="brand"
         brand={winstonBrand}
         sections={consultingSidebarSections(params.envId)}
         activeKey="pipeline"
       />
 
-      {/* CENTER — active pipeline board only (closed stages excluded) */}
-      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Row 1, Col 2 — Search bar (52px) */}
+      <div
+        style={{
+          height: 52,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+          gap: 8,
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+          minWidth: 0,
+        }}
+      >
+        <Search size={14} style={{ color: "rgba(220,230,240,0.40)", flexShrink: 0 }} />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search deals, verticals… or type: no action / no contact / no outreach"
+          style={{
+            flex: 1,
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            color: "#dce6f0",
+            fontSize: 13,
+            fontFamily: "inherit",
+          }}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            style={{ color: "rgba(220,230,240,0.50)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+          >
+            <XIcon size={12} />
+          </button>
+        )}
+        <span style={{ fontSize: 11, color: "rgba(220,230,240,0.40)", flexShrink: 0, whiteSpace: "nowrap" }}>
+          {kanban ? `${totalVisible} deal${totalVisible !== 1 ? "s" : ""}` : ""}
+          {debouncedQuery ? ` · "${debouncedQuery}"` : ""}
+        </span>
+      </div>
+
+      {/* Row 1, Col 3 — Rail toggle (always visible, even when collapsed) */}
+      <button
+        data-command-desk
+        onClick={() => {
+          const next = !railOpen;
+          setRailOpen(next);
+          localStorage.setItem("nv_rail_open", String(next));
+        }}
+        title={railOpen ? "Collapse rail" : "Expand rail"}
+        style={{
+          height: 52,
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: railOpen ? "flex-end" : "center",
+          padding: railOpen ? "0 12px" : "0",
+          background: "rgba(6,9,14,0.98)",
+          border: "none",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          cursor: "pointer",
+          color: "rgba(220,230,240,0.40)",
+        }}
+      >
+        {railOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </button>
+
+      {/* Row 2, Col 1 — Sidebar nav (aligned with center content row) */}
+      <LeftSidebar
+        mode="nav"
+        sections={consultingSidebarSections(params.envId)}
+        activeKey="pipeline"
+      />
+
+      {/* Row 2, Col 2 — Banners + command band + board */}
+      <div style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {bannerMessage ? (
           <div className="mx-4 mt-3">
             {isSchemaError(bannerMessage) ? (
@@ -758,45 +896,6 @@ export default function PipelinePage({
           </div>
         ) : null}
 
-        {/* Search bar — 52px header aligned with sidebar brand header */}
-        <div style={{
-          height: 52,
-          display: "flex",
-          alignItems: "center",
-          padding: "0 16px",
-          gap: 8,
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          flexShrink: 0,
-        }}>
-          <Search size={14} style={{ color: "rgba(220,230,240,0.40)", flexShrink: 0 }} />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search deals, verticals… or type: no action / no contact / no outreach"
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "#dce6f0",
-              fontSize: 13,
-              fontFamily: "inherit",
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              style={{ color: "rgba(220,230,240,0.50)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
-            >
-              <XIcon size={12} />
-            </button>
-          )}
-          <span style={{ fontSize: 11, color: "rgba(220,230,240,0.40)", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {kanban ? `${totalVisible} deal${totalVisible !== 1 ? "s" : ""}` : ""}
-            {debouncedQuery ? ` · "${debouncedQuery}"` : ""}
-          </span>
-        </div>
-
         {/* Empty search state */}
         {kanban && debouncedQuery && totalVisible === 0 ? (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "rgba(220,230,240,0.40)", fontSize: 13 }}>
@@ -812,7 +911,7 @@ export default function PipelinePage({
         ) : null}
 
         {kanban && !(debouncedQuery && totalVisible === 0) ? (
-          <>
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <PipelineCommandBand
               insight={insight}
               industries={industries}
@@ -850,8 +949,10 @@ export default function PipelinePage({
                 focusedSegKey={focusedSegKey}
                 focusedStage={focusedStage}
                 mode={chartMode}
-                expandedGroup={expandedGroup}
-                onExpandGroup={handleExpandGroup}
+                expandedGroups={expandedGroups}
+                onToggleGroup={handleToggleGroup}
+                onExpandAll={handleExpandAllGroups}
+                onCollapseAll={handleCollapseAllGroups}
                 onSelectStage={handleSelectStage}
                 onSelectSegment={handleSelectSegment}
                 onSelectCard={handleSelectCard}
@@ -886,7 +987,7 @@ export default function PipelinePage({
                 </DragOverlay>
               </DndContext>
             )}
-          </>
+          </div>
         ) : null}
 
         {kanban ? (
@@ -912,13 +1013,12 @@ export default function PipelinePage({
         ) : null}
       </div>
 
-      {/* RIGHT RAIL — collapsible command center */}
+      {/* Row 2, Col 3 — Right rail panels (collapsible) */}
       <div
         data-command-desk
         style={{
-          width: railOpen ? 400 : 40,
-          minWidth: railOpen ? 400 : 40,
-          flexShrink: 0,
+          minWidth: 0,
+          minHeight: 0,
           borderLeft: "1px solid rgba(255,255,255,0.08)",
           background: "rgba(6,9,14,0.98)",
           overflowY: railOpen ? "auto" : "hidden",
@@ -926,38 +1026,8 @@ export default function PipelinePage({
           display: "flex",
           flexDirection: "column",
           gap: 0,
-          transition: "width 200ms ease, min-width 200ms ease",
-          position: "relative",
         }}
       >
-        {/* Toggle button — always visible */}
-        <button
-          onClick={() => {
-            const next = !railOpen;
-            setRailOpen(next);
-            localStorage.setItem("nv_rail_open", String(next));
-          }}
-          title={railOpen ? "Collapse rail" : "Expand rail"}
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-            height: 40,
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: railOpen ? "flex-end" : "center",
-            padding: railOpen ? "0 12px" : "0",
-            background: "rgba(6,9,14,0.98)",
-            border: "none",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
-            cursor: "pointer",
-            color: "rgba(220,230,240,0.40)",
-            flexShrink: 0,
-          }}
-        >
-          {railOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
         {railOpen && (
           <>
             <TodayMovesPanel moves={moves} />

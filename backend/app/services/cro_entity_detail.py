@@ -163,6 +163,64 @@ def get_contact_detail(*, business_id: UUID, contact_id: UUID) -> dict:
         return row
 
 
+def list_contacts(
+    *,
+    env_id: str,
+    business_id: UUID,
+    search: str | None = None,
+    account_id: UUID | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict:
+    """List all contacts for a business with optional search and account filter."""
+    with get_cursor() as cur:
+        conditions = ["c.business_id = %s"]
+        params: list = [str(business_id)]
+
+        if account_id is not None:
+            conditions.append("c.crm_account_id = %s")
+            params.append(str(account_id))
+
+        if search:
+            conditions.append(
+                "(c.full_name ILIKE %s OR c.email ILIKE %s OR c.title ILIKE %s OR a.name ILIKE %s)"
+            )
+            term = f"%{search}%"
+            params.extend([term, term, term, term])
+
+        where = " AND ".join(conditions)
+
+        cur.execute(
+            f"""
+            SELECT COUNT(*) AS total
+            FROM crm_contact c
+            LEFT JOIN crm_account a ON a.crm_account_id = c.crm_account_id
+            WHERE {where}
+            """,
+            params,
+        )
+        total = cur.fetchone()["total"]
+
+        cur.execute(
+            f"""
+            SELECT c.crm_contact_id, c.full_name, c.email, c.phone, c.title,
+                   c.crm_account_id, c.created_at,
+                   a.name AS account_name, a.industry AS vertical,
+                   cp.linkedin_url, cp.relationship_strength, cp.decision_role,
+                   cp.last_outreach_at, cp.notes AS profile_notes
+            FROM crm_contact c
+            LEFT JOIN crm_account a ON a.crm_account_id = c.crm_account_id
+            LEFT JOIN cro_contact_profile cp ON cp.crm_contact_id = c.crm_contact_id
+            WHERE {where}
+            ORDER BY c.created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            params + [limit, offset],
+        )
+        rows = cur.fetchall()
+        return {"contacts": rows, "total": total}
+
+
 def create_contact(
     *,
     env_id: str,

@@ -13,10 +13,10 @@ export const reIndexInputClass =
 export const reIndexTableShellClass =
   "overflow-x-auto rounded-xl border border-bm-border/70 bg-bm-surface/[0.03] shadow-sm";
 
-export const reIndexTableClass = "w-full text-sm";
+export const reIndexTableClass = "w-full text-[13px]";
 
 export const reIndexTableHeadRowClass =
-  "border-b border-bm-border/50 bg-bm-surface/14 text-left text-[11px] uppercase tracking-[0.12em] text-bm-muted2";
+  "border-b border-bm-border/50 bg-bm-surface/14 text-left text-[11px] uppercase tracking-[0.17em] text-bm-muted2";
 
 export const reIndexTableBodyClass = "divide-y divide-bm-border/30";
 
@@ -24,12 +24,12 @@ export const reIndexTableRowClass =
   "h-12 transition-colors duration-100 hover:bg-bm-surface/15";
 
 export const reIndexPrimaryCellClass =
-  "text-[15px] font-semibold text-bm-text transition-colors duration-100 hover:text-bm-accent";
+  "text-[13px] font-semibold tracking-[-0.01em] text-bm-text transition-colors duration-100 hover:text-bm-accent";
 
-export const reIndexSecondaryCellClass = "text-[12px] text-bm-muted2";
+export const reIndexSecondaryCellClass = "text-[11px] text-bm-muted2";
 
 export const reIndexNumericCellClass =
-  "text-right text-[14px] font-medium tabular-nums text-bm-text";
+  "text-right text-[13px] font-semibold tabular-nums text-slate-600";
 
 export function RepeIndexScaffold({
   title,
@@ -53,7 +53,7 @@ export function RepeIndexScaffold({
       <div className={cn(metrics ? "space-y-3" : "space-y-0")}>
         <div className="flex flex-col gap-2 rounded-lg border border-bm-border/10 bg-bm-surface/[0.02] px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-bm-text">{title}</h1>
+            <h1 className="text-[56px] font-semibold tracking-[-0.04em] leading-[1.05] text-bm-text">{title}</h1>
             {subtitle ? (
               <div className="mt-0.5 text-sm font-medium text-bm-muted2">{subtitle}</div>
             ) : null}

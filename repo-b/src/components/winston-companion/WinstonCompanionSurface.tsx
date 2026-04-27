@@ -19,6 +19,7 @@ import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type { CommandMessage } from "@/lib/commandbar/store";
 import { useWinstonCompanion, companionLauncherOffsetClass } from "@/components/winston-companion/WinstonCompanionProvider";
 import WinstonAvatar from "@/components/winston-companion/WinstonAvatar";
+import RuntimePill from "@/components/winston-companion/RuntimePill";
 import { useWinstonLoader } from "@/lib/loading-state";
 import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
 import SplitPane from "@/components/winston-companion/SplitPane";
@@ -55,16 +56,24 @@ function ThreadViewport({
   compact?: boolean;
 }) {
   const endRef = useRef<HTMLDivElement | null>(null);
-  const { activeLane, sendPrompt, setDraft, activeState } = useWinstonCompanion();
+  const { activeLane, sendPrompt, setDraft, activeState, confirmPendingTool } = useWinstonCompanion();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, thinking, thinkingStatus]);
 
-  const handleConfirm = () => {
+  const handleConfirm = (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => {
+    if (block.tool_call_id && block.anthropic_session_id) {
+      void confirmPendingTool(block, "allow");
+      return;
+    }
     void sendPrompt(activeLane, "Yes, confirm.");
   };
-  const handleCancel = () => {
+  const handleCancel = (block: Extract<AssistantResponseBlock, { type: "confirmation" }>) => {
+    if (block.tool_call_id && block.anthropic_session_id) {
+      void confirmPendingTool(block, "deny");
+      return;
+    }
     void sendPrompt(activeLane, "Cancel.");
   };
   const handleEdit = () => {
@@ -692,14 +701,17 @@ export function WinstonCompanionRoot() {
                   ) : null}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={closeDrawer}
-                className="shrink-0 rounded-full border border-bm-border/40 p-2 text-bm-muted transition hover:bg-bm-surface/40 hover:text-bm-text"
-                aria-label="Close Winston companion"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <RuntimePill />
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="rounded-full border border-bm-border/40 p-2 text-bm-muted transition hover:bg-bm-surface/40 hover:text-bm-text"
+                  aria-label="Close Winston companion"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           </header>
 
@@ -738,14 +750,17 @@ export function WinstonCompanionWorkspace() {
   return (
     <div className="space-y-5">
       <section className="rounded-[32px] border border-bm-border/55 bg-bm-surface/40 p-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
-          <div>
-            <h1 className="text-xl font-semibold text-bm-text">Ask Winston</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
-              Context-aware threads pinned to your current page.
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-bm-text">Ask Winston</h1>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
+                Context-aware threads pinned to your current page.
+              </p>
+            </div>
           </div>
+          <RuntimePill className="shrink-0" />
         </div>
       </section>
 

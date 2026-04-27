@@ -6,9 +6,6 @@ import { useSearchParams } from "next/navigation";
 
 import AccountMenu from "@/components/AccountMenu";
 import { useEnv } from "@/components/EnvProvider";
-import EnvLifecyclePill, {
-  deriveEnvLifecycleState,
-} from "@/components/lab/EnvLifecyclePill";
 import { humanIndustry } from "@/components/lab/environments/constants";
 import { cn } from "@/lib/cn";
 import {
@@ -204,94 +201,6 @@ function CenterModeB({
   );
 }
 
-// ── Mode C: experimental partial warning ──────────────────────────────────────
-function CenterModeC({
-  environment,
-  onOpen,
-  isOpening,
-}: {
-  environment: {
-    env_id: string;
-    client_name: string;
-    slug?: string | null;
-    industry?: string | null;
-    industry_type?: string | null;
-    workspace_template_key?: string | null;
-    is_active?: boolean;
-    repe_initialized?: boolean;
-  };
-  onOpen: () => void;
-  isOpening: boolean;
-}) {
-  const lifecycle = deriveEnvLifecycleState(environment);
-  const clientName = environment.client_name?.trim() || "Workspace";
-  const industryLabel = humanIndustry(environment.industry_type || environment.industry);
-  const openPath = resolveWorkspaceOpenPath(environment.env_id, {
-    workspaceTemplateKey: environment.workspace_template_key,
-    industryType: environment.industry_type,
-    industry: environment.industry,
-  });
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-3">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">{industryLabel}</p>
-          <EnvLifecyclePill state={lifecycle} />
-        </div>
-        <h2 className="mt-3 text-[clamp(2rem,4vw,2.8rem)] font-semibold tracking-tight text-white">
-          {clientName}
-        </h2>
-      </div>
-
-      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-5 py-4">
-        <p className="text-sm font-medium text-amber-200">Partially scaffolded workspace</p>
-        <p className="mt-1.5 text-sm leading-6 text-amber-100/70">
-          This environment has been provisioned but initialization is incomplete.
-          Some modules may be unavailable or show limited data.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Status</p>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-3 text-sm text-white/66">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
-            Workspace provisioned
-          </div>
-          <div className="flex items-center gap-3 text-sm text-white/66">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
-            Auth and session active
-          </div>
-          <div className="flex items-center gap-3 text-sm text-white/44">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400/60" />
-            Data initialization pending
-          </div>
-        </div>
-      </div>
-
-      <div>
-        {openPath ? (
-          <Link
-            href={openPath}
-            className="inline-flex h-12 items-center gap-3 rounded-2xl border border-white/14 bg-white/[0.06] px-6 text-sm font-semibold uppercase tracking-[0.14em] text-white/80 transition-[transform,background-color] duration-150 hover:-translate-y-[1px] hover:bg-white/[0.09]"
-          >
-            {isOpening ? "Opening…" : "Enter anyway"}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={onOpen}
-            disabled={isOpening}
-            className="inline-flex h-12 items-center gap-3 rounded-2xl border border-white/14 bg-white/[0.06] px-6 text-sm font-semibold uppercase tracking-[0.14em] text-white/80 transition-[transform,background-color] duration-150 hover:-translate-y-[1px] hover:bg-white/[0.09] disabled:pointer-events-none disabled:opacity-70"
-          >
-            {isOpening ? "Opening…" : "Enter anyway"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function AppIndexPageInner() {
   const searchParams = useSearchParams();
@@ -352,13 +261,8 @@ function AppIndexPageInner() {
     : null;
 
   // Determine center panel mode
-  const previewLifecycle = previewEnvironment ? deriveEnvLifecycleState(previewEnvironment) : null;
-  const centerMode: "A" | "B" | "C" =
-    previewEnvironment === null
-      ? "A"
-      : previewLifecycle === "experimental_partial"
-        ? "C"
-        : "B";
+  const centerMode: "A" | "B" =
+    previewEnvironment === null ? "A" : "B";
 
   return (
     <div className="min-h-screen bg-[#05070b] text-white">
@@ -466,7 +370,6 @@ function AppIndexPageInner() {
                 environments.map((environment) => {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
-                  const lifecycle = deriveEnvLifecycleState(environment);
                   const clientName = assertEnvironmentClientName(environment);
                   return (
                     <button
@@ -491,7 +394,6 @@ function AppIndexPageInner() {
                             <div className="truncate text-sm font-semibold text-white">
                               {clientName}
                             </div>
-                            <EnvLifecyclePill state={lifecycle} className="shrink-0" />
                           </div>
                           <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-white/42">
                             {humanIndustry(environment.industry_type || environment.industry)}
@@ -553,7 +455,6 @@ function AppIndexPageInner() {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
                   const tone = environmentTone(environment);
-                  const lifecycle = deriveEnvLifecycleState(environment);
                   const clientName = assertEnvironmentClientName(environment);
                   return (
                     <button
@@ -581,7 +482,6 @@ function AppIndexPageInner() {
                             <div className="truncate text-sm font-semibold text-white">
                               {clientName}
                             </div>
-                            <EnvLifecyclePill state={lifecycle} className="shrink-0" />
                           </div>
                           <p className="mt-1 text-xs leading-5 text-white/46">
                             {humanIndustry(environment.industry_type || environment.industry)}
@@ -650,13 +550,6 @@ function AppIndexPageInner() {
                   )}
                   {centerMode === "B" && previewEnvironment && (
                     <CenterModeB
-                      environment={previewEnvironment}
-                      onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
-                      isOpening={openingEnvId === previewEnvironment.env_id}
-                    />
-                  )}
-                  {centerMode === "C" && previewEnvironment && (
-                    <CenterModeC
                       environment={previewEnvironment}
                       onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
                       isOpening={openingEnvId === previewEnvironment.env_id}

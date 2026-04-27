@@ -1908,7 +1908,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run Meridian authoritative snapshot audit")
     parser.add_argument("--output-root", default=str(ROOT / "audit" / "meridian_hierarchy_trace"))
     parser.add_argument("--surface-output-root", default=str(ROOT / "audit" / "meridian_surface_drift"))
+    parser.add_argument(
+        "--quarters",
+        default=None,
+        help=(
+            "Comma-separated quarter list (e.g. '2024Q1,2024Q2'). "
+            "Overrides the module default for this invocation. "
+            "Used by the historical backfill runner."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.quarters:
+        override = [q.strip() for q in args.quarters.split(",") if q.strip()]
+        if override:
+            # In-place mutation so module-scoped readers pick up the override.
+            QUARTERS[:] = override
 
     latest_hierarchy_root = Path(args.output_root)
     latest_surface_root = Path(args.surface_output_root)

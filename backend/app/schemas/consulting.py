@@ -1522,6 +1522,28 @@ class ContactOut(BaseModel):
     created_at: str
 
 
+class ContactListItemOut(BaseModel):
+    crm_contact_id: str
+    full_name: str
+    email: str | None = None
+    phone: str | None = None
+    title: str | None = None
+    crm_account_id: str | None = None
+    account_name: str | None = None
+    vertical: str | None = None
+    linkedin_url: str | None = None
+    relationship_strength: str | None = None
+    decision_role: str | None = None
+    last_outreach_at: datetime | None = None
+    profile_notes: str | None = None
+    created_at: datetime
+
+
+class ContactListOut(BaseModel):
+    contacts: list[ContactListItemOut]
+    total: int
+
+
 class AppWeeklyMemoOut(BaseModel):
     id: UUID
     env_id: str

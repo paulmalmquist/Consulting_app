@@ -21,6 +21,14 @@ _OPTIONAL_CONVERSATION_COLUMNS = (
     "context_summary",
     "last_route",
     "thread_entity_state",
+    "runtime",
+    "anthropic_session_id",
+    "anthropic_agent_id",
+    "anthropic_agent_version",
+    "anthropic_environment_id",
+    "anthropic_vault_id",
+    "session_health_checked_at",
+    "session_health_status",
 )
 
 
@@ -80,6 +88,14 @@ def _normalize_conversation_row(row: dict[str, Any] | None) -> dict[str, Any] | 
     normalized.setdefault("last_route", None)
     normalized.setdefault("thread_entity_state", None)
     normalized.setdefault("actor", "anonymous")
+    normalized.setdefault("runtime", "gateway")
+    normalized.setdefault("anthropic_session_id", None)
+    normalized.setdefault("anthropic_agent_id", None)
+    normalized.setdefault("anthropic_agent_version", None)
+    normalized.setdefault("anthropic_environment_id", None)
+    normalized.setdefault("anthropic_vault_id", None)
+    normalized.setdefault("session_health_checked_at", None)
+    normalized.setdefault("session_health_status", None)
     return normalized
 
 
@@ -96,6 +112,7 @@ def create_conversation(
     context_summary: str | None = None,
     last_route: str | None = None,
     actor: str = "anonymous",
+    runtime: str = "gateway",
 ) -> dict[str, Any]:
     insert_payload: dict[str, Any] = {
         "business_id": str(business_id),
@@ -111,6 +128,7 @@ def create_conversation(
         "launch_source": launch_source,
         "context_summary": context_summary,
         "last_route": last_route,
+        "runtime": runtime,
     }
     for column in _available_optional_columns():
         if column in optional_values:
@@ -135,28 +153,35 @@ def list_conversations(
     business_id: UUID,
     limit: int = 50,
     include_archived: bool = False,
+    runtime: str | None = None,
 ) -> list[dict[str, Any]]:
     select_columns = ", ".join(_selectable_conversation_columns(alias="c"))
+    runtime_filter_sql = ""
+    runtime_params: tuple[Any, ...] = ()
+    if runtime is not None and "runtime" in _conversation_table_columns():
+        runtime_filter_sql = " AND c.runtime = %s"
+        runtime_params = (runtime,)
+
     with get_cursor() as cur:
         if include_archived:
             cur.execute(
                 f"""SELECT {select_columns},
                           (SELECT count(*) FROM ai_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
                    FROM ai_conversations c
-                   WHERE c.business_id = %s
+                   WHERE c.business_id = %s{runtime_filter_sql}
                    ORDER BY c.updated_at DESC
                    LIMIT %s""",
-                (str(business_id), limit),
+                (str(business_id), *runtime_params, limit),
             )
         else:
             cur.execute(
                 f"""SELECT {select_columns},
                           (SELECT count(*) FROM ai_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
                    FROM ai_conversations c
-                   WHERE c.business_id = %s AND c.archived = false
+                   WHERE c.business_id = %s AND c.archived = false{runtime_filter_sql}
                    ORDER BY c.updated_at DESC
                    LIMIT %s""",
-                (str(business_id), limit),
+                (str(business_id), *runtime_params, limit),
             )
         return [_normalize_conversation_row(row) or {} for row in cur.fetchall()]
 
@@ -235,6 +260,111 @@ def archive_conversation(*, conversation_id: UUID) -> bool:
             (str(conversation_id),),
         )
         return cur.fetchone() is not None
+
+
+# ── Operator (Anthropic Managed Agent) session ownership ──────────────
+
+def set_anthropic_session(
+    *,
+    conversation_id: UUID,
+    session_id: str,
+    agent_id: str,
+    agent_version: int | None,
+    environment_id: str,
+    vault_id: str | None,
+) -> None:
+    """Persist Anthropic Managed Agent session ids on the conversation row.
+
+    Why first-class columns (not message_meta): session health must be validated
+    before each turn — having to scan back through messages to find the active
+    session id is fragile and racey.
+    """
+    available = set(_conversation_table_columns())
+    required = {
+        "anthropic_session_id",
+        "anthropic_agent_id",
+        "anthropic_environment_id",
+    }
+    if not required.issubset(available):
+        return
+
+    fields: dict[str, Any] = {
+        "anthropic_session_id": session_id,
+        "anthropic_agent_id": agent_id,
+        "anthropic_environment_id": environment_id,
+        "session_health_status": "healthy",
+        "session_health_checked_at": "now()",
+    }
+    if "anthropic_agent_version" in available:
+        fields["anthropic_agent_version"] = agent_version
+    if "anthropic_vault_id" in available:
+        fields["anthropic_vault_id"] = vault_id
+
+    set_parts: list[str] = []
+    params: list[Any] = []
+    for column, value in fields.items():
+        if value == "now()":
+            set_parts.append(f"{column} = now()")
+        else:
+            set_parts.append(f"{column} = %s")
+            params.append(value)
+    params.append(str(conversation_id))
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""UPDATE ai_conversations
+                SET {", ".join(set_parts)}, updated_at = now()
+                WHERE conversation_id = %s""",
+            tuple(params),
+        )
+
+
+def mark_session_health(
+    *,
+    conversation_id: UUID,
+    status: str,
+) -> None:
+    """Record the result of the most recent session.retrieve health check."""
+    if "session_health_status" not in _conversation_table_columns():
+        return
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE ai_conversations
+               SET session_health_status = %s,
+                   session_health_checked_at = now()
+               WHERE conversation_id = %s""",
+            (status, str(conversation_id)),
+        )
+
+
+def clear_anthropic_session(*, conversation_id: UUID) -> None:
+    """Null out Anthropic session ids so the next turn provisions a fresh session.
+
+    Used when a session is detected as expired or invalidated; the user perceives
+    a single continuous Winston conversation while the underlying Anthropic
+    session is silently swapped.
+    """
+    available = set(_conversation_table_columns())
+    columns = [
+        c for c in (
+            "anthropic_session_id",
+            "anthropic_agent_id",
+            "anthropic_agent_version",
+            "anthropic_environment_id",
+            "anthropic_vault_id",
+            "session_health_status",
+        ) if c in available
+    ]
+    if not columns:
+        return
+    set_clause = ", ".join(f"{c} = NULL" for c in columns)
+    with get_cursor() as cur:
+        cur.execute(
+            f"""UPDATE ai_conversations
+                SET {set_clause}, session_health_checked_at = now()
+                WHERE conversation_id = %s""",
+            (str(conversation_id),),
+        )
 
 
 # ── Thread entity state ──────────────────────────────────────────────

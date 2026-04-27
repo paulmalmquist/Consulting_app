@@ -1,181 +1,618 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
-import { useTrainingWorkspace } from "@/components/consulting/local-training/useTrainingWorkspace";
-import { EmptyState, TonePill, fmtDate } from "@/components/consulting/local-training/ui";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardTitle } from "@/components/ui/Card";
+import { LeftSidebar } from "@/components/operator/command-desk/layout/LeftSidebar";
+import { consultingSidebarSections } from "@/app/lab/env/[envId]/operator/_sidebar";
+import {
+  createContact as apiCreateContact,
+  fetchContacts,
+  fetchLeads,
+  type ContactListItem,
+  type Lead,
+} from "@/lib/cro-api";
+
+type RelationshipStrength = "cold" | "warm" | "hot" | "champion";
+type FilterKey = "all" | "no_email" | "no_linkedin" | "needs_touch" | "no_account";
+
+const STRENGTH_TONE: Record<RelationshipStrength, { color: string; bg: string }> = {
+  cold: { color: "rgba(148,163,184,0.92)", bg: "rgba(148,163,184,0.12)" },
+  warm: { color: "#FBBF24", bg: "rgba(251,191,36,0.14)" },
+  hot: { color: "#FB923C", bg: "rgba(251,146,60,0.16)" },
+  champion: { color: "#34D399", bg: "rgba(52,211,153,0.16)" },
+};
+
+function fmtRelDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const diff = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (diff === 0) return "today";
+  if (diff === 1) return "1d ago";
+  if (diff < 30) return `${diff}d ago`;
+  return d.toLocaleDateString();
+}
+
+const winstonBrand: ReactNode = (
+  <span
+    className="font-command"
+    style={{
+      fontSize: "1rem",
+      fontWeight: 700,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      color: "#ffffff",
+      textShadow: "0 0 12px rgba(255,255,255,0.07)",
+    }}
+  >
+    WINSTON
+  </span>
+);
 
 export default function ContactsPage({ params }: { params: { envId: string } }) {
   const { businessId, ready } = useConsultingEnv();
-  const { workspace, loading, mutating, error, createContact, createActivity, upsertRegistration } = useTrainingWorkspace(params.envId, businessId, ready);
-  const [filter, setFilter] = useState("all");
-  const [form, setForm] = useState({ full_name: "", email: "", city: "Lake Worth Beach", persona_type: "curious beginner", lead_source: "facebook", interest_area: "AI basics" });
 
-  const contacts = useMemo(() => {
-    const rows = workspace?.contacts ?? [];
-    if (filter === "all") return rows;
-    if (filter === "priority") return rows.filter((contact) => contact.follow_up_priority === "high");
-    if (filter === "owners") return rows.filter((contact) => contact.business_owner_flag);
-    return rows.filter((contact) => contact.audience_segment === filter);
-  }, [filter, workspace?.contacts]);
+  const [accounts, setAccounts] = useState<Lead[]>([]);
+  const [contacts, setContacts] = useState<ContactListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
 
-  if (loading) return <div className="h-64 rounded-2xl border border-bm-border/60 bg-bm-surface/20 animate-pulse" />;
-  if (!workspace) return <EmptyState title="No CRM data" body={error ?? "Seed the workspace to review contacts."} />;
+  const [form, setForm] = useState({
+    full_name: "",
+    crm_account_id: "",
+    title: "",
+    email: "",
+    phone: "",
+    linkedin_url: "",
+    relationship_strength: "warm" as RelationshipStrength,
+    notes: "",
+  });
+
+  const loadData = useCallback(() => {
+    if (!ready || !businessId) {
+      if (ready && !businessId) setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setErrMsg(null);
+    Promise.all([
+      fetchContacts(params.envId, businessId),
+      fetchLeads(params.envId, businessId),
+    ])
+      .then(([result, leads]) => {
+        setContacts(result.contacts);
+        setTotal(result.total);
+        setAccounts(leads);
+      })
+      .catch((err) => {
+        setErrMsg(err instanceof Error ? err.message : "Failed to load contacts");
+      })
+      .finally(() => setLoading(false));
+  }, [businessId, params.envId, ready]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const filteredContacts = useMemo(() => {
+    let list = contacts;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.full_name.toLowerCase().includes(q) ||
+          (c.account_name ?? "").toLowerCase().includes(q) ||
+          (c.email ?? "").toLowerCase().includes(q) ||
+          (c.title ?? "").toLowerCase().includes(q),
+      );
+    }
+    if (activeFilter === "no_email") list = list.filter((c) => !c.email);
+    else if (activeFilter === "no_linkedin") list = list.filter((c) => !c.linkedin_url);
+    else if (activeFilter === "needs_touch") list = list.filter((c) => !c.last_outreach_at);
+    else if (activeFilter === "no_account") list = list.filter((c) => !c.crm_account_id);
+    return list;
+  }, [contacts, search, activeFilter]);
+
+  // KPI counts
+  const kpi = useMemo(() => ({
+    total: contacts.length,
+    noEmail: contacts.filter((c) => !c.email).length,
+    noLinkedIn: contacts.filter((c) => !c.linkedin_url).length,
+    needsTouch: contacts.filter((c) => !c.last_outreach_at).length,
+    noAccount: contacts.filter((c) => !c.crm_account_id).length,
+  }), [contacts]);
+
+  async function submitContact() {
+    if (!businessId || !form.full_name.trim()) return;
+    setSaving(true);
+    setErrMsg(null);
+    try {
+      await apiCreateContact({
+        env_id: params.envId,
+        business_id: businessId,
+        crm_account_id: form.crm_account_id || undefined,
+        full_name: form.full_name.trim(),
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        title: form.title || undefined,
+        linkedin_url: form.linkedin_url || undefined,
+        relationship_strength: form.relationship_strength,
+        notes: form.notes || undefined,
+      });
+      setShowAdd(false);
+      setForm({
+        full_name: "",
+        crm_account_id: "",
+        title: "",
+        email: "",
+        phone: "",
+        linkedin_url: "",
+        relationship_strength: "warm",
+        notes: "",
+      });
+      loadData();
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : "Failed to save contact");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="space-y-5 pb-24 md:pb-6">
-      {error ? <div className="rounded-xl border border-bm-danger/35 bg-bm-danger/10 px-4 py-3 text-sm">{error}</div> : null}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "240px minmax(0, 1fr)",
+        gridTemplateRows: "52px minmax(0, 1fr)",
+        height: "100%",
+        minHeight: 0,
+        background: "#05070B",
+      }}
+    >
+      <LeftSidebar
+        mode="brand"
+        brand={winstonBrand}
+        sections={consultingSidebarSections(params.envId)}
+        activeKey="contacts"
+      />
 
-      <div className="grid gap-4 xl:grid-cols-[0.95fr,1.25fr]">
-        <Card>
-          <CardContent className="py-5">
-            <CardTitle>Quick-add contact</CardTitle>
-            <p className="mt-2 text-sm text-bm-muted2">Workflow B starts here: create a lead, segment them, then invite or register them in one or two taps.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {[
-                ["full_name", "Full name"],
-                ["email", "Email"],
-                ["city", "City"],
-                ["persona_type", "Persona"],
-                ["lead_source", "Lead source"],
-                ["interest_area", "Interest area"],
-              ].map(([key, label]) => (
-                <label key={key} className="text-sm">
-                  <span className="mb-1 block text-xs uppercase tracking-[0.12em] text-bm-muted2">{label}</span>
-                  <input
-                    value={form[key as keyof typeof form]}
-                    onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
-                    className="w-full rounded-xl border border-bm-border bg-bm-bg px-3 py-2 text-sm"
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                onClick={() => void createContact({
-                  ...form,
-                  preferred_contact_method: "email",
-                  status: "new",
-                  audience_segment: form.persona_type === "small business owner" ? "local business owners" : "community learners",
-                  follow_up_priority: form.persona_type.includes("older") ? "high" : "medium",
-                  tags: [form.city.toLowerCase().replace(/\s+/g, "-"), "quick-add"],
-                  consent_to_email: true,
-                })}
-                disabled={mutating || !form.full_name}
-              >
-                Save contact
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const firstEventId = workspace.events[2]?.id;
-                  const firstContact = contacts[0];
-                  if (!firstEventId || !firstContact) return;
-                  void upsertRegistration({
-                    event_id: firstEventId,
-                    contact_id: firstContact.crm_contact_id,
-                    ticket_type: "standard",
-                    price_paid: workspace.events[2]?.ticket_price_standard,
-                    source_channel: "direct outreach",
-                    referral_source: "quick-add demo",
-                    follow_up_status: "queued",
-                  });
-                }}
-                disabled={mutating || contacts.length === 0 || workspace.events.length < 3}
-              >
-                Demo: mark registered
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const firstContact = contacts[0];
-                  const firstEvent = workspace.events[2];
-                  if (!firstContact || !firstEvent) return;
-                  void createActivity({
-                    activity_type: "invite sent",
-                    contact_id: firstContact.crm_contact_id,
-                    event_id: firstEvent.id,
-                    channel: "email",
-                    subject: `Invite — ${firstEvent.event_name}`,
-                    message_summary: "Sent beginner-friendly invite from contact workflow.",
-                    outcome: "pending",
-                    next_step: "Follow up in 3 days",
-                    due_date: firstEvent.event_date,
-                  });
-                }}
-                disabled={mutating || contacts.length === 0 || workspace.events.length < 3}
-              >
-                Demo: invite first contact
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div
+        style={{
+          height: 52,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          minWidth: 0,
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            fontSize: 12,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "rgba(220,230,240,0.72)",
+            flexShrink: 0,
+          }}
+        >
+          Contacts
+        </span>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, firm, email…"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            maxWidth: 280,
+            padding: "5px 10px",
+            borderRadius: 3,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(5,7,11,0.6)",
+            color: "#dce6f0",
+            fontSize: 12,
+            outline: "none",
+            fontFamily: "inherit",
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: "rgba(220,230,240,0.40)" }}>
+            {loading ? "loading…" : `${filteredContacts.length}${filteredContacts.length !== total ? `/${total}` : ""}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowAdd((v) => !v)}
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              padding: "5px 12px",
+              borderRadius: 3,
+              border: "1px solid rgba(0,220,255,0.40)",
+              background: "rgba(0,220,255,0.08)",
+              color: "#00DCFF",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            }}
+          >
+            {showAdd ? "Cancel" : "+ Contact"}
+          </button>
+        </div>
+      </div>
 
-        <Card>
-          <CardContent className="py-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <CardTitle>Mobile contact list</CardTitle>
-                <p className="mt-2 text-sm text-bm-muted2">Card layout keeps lookup fast on phone. Important fields stay above the fold; notes remain compact.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["all", "All"],
-                  ["priority", "High priority"],
-                  ["owners", "Business owners"],
-                  ["older adults", "Older adults"],
-                  ["community learners", "Community learners"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => setFilter(value)}
-                    className={`rounded-full px-3 py-2 text-xs ${filter === value ? "bg-bm-accent text-white" : "border border-bm-border text-bm-muted2"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {contacts.map((contact) => (
-                <div key={contact.crm_contact_id} className="rounded-2xl border border-bm-border/70 bg-bm-bg p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-base font-semibold text-bm-text">{contact.full_name}</p>
-                        <TonePill label={contact.status} tone={contact.status === "attended" ? "success" : contact.status === "registered" ? "info" : "default"} />
-                        {contact.business_owner_flag ? <TonePill label="business owner" tone="warning" /> : null}
-                      </div>
-                      <p className="mt-1 text-sm text-bm-muted2">{contact.email ?? "No email"} · {contact.phone ?? "No phone"}</p>
-                      <p className="mt-2 text-sm text-bm-muted2">{contact.persona_type} · {contact.city} · {contact.interest_area}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <TonePill label={`Events: ${contact.total_events_attended}`} tone={contact.total_events_attended > 1 ? "success" : "default"} />
-                      <TonePill label={`Priority: ${contact.follow_up_priority ?? "—"}`} tone={contact.follow_up_priority === "high" ? "warning" : "default"} />
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
-                    <div className="rounded-xl bg-bm-surface/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Shown on phone</p>
-                      <p className="mt-1 text-bm-text">Preferred contact: {contact.preferred_contact_method ?? "—"} · Source: {contact.lead_source ?? "—"}</p>
-                    </div>
-                    <div className="rounded-xl bg-bm-surface/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Expanded details</p>
-                      <p className="mt-1 text-bm-text">{contact.notes}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(contact.tags ?? []).map((tag) => <TonePill key={tag} label={tag} />)}
-                    <span className="text-xs text-bm-muted2">Created {fmtDate(contact.created_at)}</span>
-                  </div>
+      <LeftSidebar
+        mode="nav"
+        sections={consultingSidebarSections(params.envId)}
+        activeKey="contacts"
+      />
+
+      <div
+        style={{
+          minWidth: 0,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          padding: "16px 16px 24px",
+          color: "#dce6f0",
+        }}
+      >
+        {errMsg ? (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "8px 12px",
+              borderRadius: 4,
+              border: "1px solid rgba(239,68,68,0.30)",
+              background: "rgba(239,68,68,0.08)",
+              color: "#FCA5A5",
+              fontSize: 13,
+            }}
+          >
+            {errMsg}
+          </div>
+        ) : null}
+
+        {/* KPI strip */}
+        {!loading && contacts.length > 0 ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            {[
+              { label: "Total", value: kpi.total, key: "all" as FilterKey },
+              { label: "No email", value: kpi.noEmail, key: "no_email" as FilterKey },
+              { label: "No LinkedIn", value: kpi.noLinkedIn, key: "no_linkedin" as FilterKey },
+              { label: "Needs touch", value: kpi.needsTouch, key: "needs_touch" as FilterKey },
+              { label: "No account", value: kpi.noAccount, key: "no_account" as FilterKey },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveFilter(item.key)}
+                style={{
+                  textAlign: "left",
+                  padding: "8px 10px",
+                  borderRadius: 3,
+                  border: `1px solid ${activeFilter === item.key ? "rgba(0,220,255,0.40)" : "rgba(255,255,255,0.07)"}`,
+                  background: activeFilter === item.key ? "rgba(0,220,255,0.06)" : "rgba(10,14,20,0.4)",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: activeFilter === item.key ? "#00DCFF" : "#dce6f0",
+                    fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                  }}
+                >
+                  {item.value}
                 </div>
-              ))}
+                <div
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(220,230,240,0.42)",
+                    marginTop: 2,
+                    fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                  }}
+                >
+                  {item.label}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {showAdd ? (
+          <div
+            style={{
+              marginBottom: 16,
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: 4,
+              background: "rgba(10,14,20,0.6)",
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 12,
+              }}
+            >
+              <Field label="Full name *">
+                <Input value={form.full_name} onChange={(v) => setForm((s) => ({ ...s, full_name: v }))} placeholder="Jane Reddington" />
+              </Field>
+              <Field label="Firm / account">
+                <select
+                  value={form.crm_account_id}
+                  onChange={(e) => setForm((s) => ({ ...s, crm_account_id: e.target.value }))}
+                  style={selectStyle}
+                >
+                  <option value="">— Unaffiliated —</option>
+                  {accounts.map((a) => (
+                    <option key={a.crm_account_id} value={a.crm_account_id}>
+                      {a.company_name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Title">
+                <Input value={form.title} onChange={(v) => setForm((s) => ({ ...s, title: v }))} placeholder="CFO" />
+              </Field>
+              <Field label="Email">
+                <Input value={form.email} onChange={(v) => setForm((s) => ({ ...s, email: v }))} placeholder="jane@firm.com" />
+              </Field>
+              <Field label="Phone">
+                <Input value={form.phone} onChange={(v) => setForm((s) => ({ ...s, phone: v }))} placeholder="+1 …" />
+              </Field>
+              <Field label="LinkedIn">
+                <Input value={form.linkedin_url} onChange={(v) => setForm((s) => ({ ...s, linkedin_url: v }))} placeholder="linkedin.com/in/…" />
+              </Field>
+              <Field label="Relationship">
+                <select
+                  value={form.relationship_strength}
+                  onChange={(e) => setForm((s) => ({ ...s, relationship_strength: e.target.value as RelationshipStrength }))}
+                  style={selectStyle}
+                >
+                  <option value="cold">cold</option>
+                  <option value="warm">warm</option>
+                  <option value="hot">hot</option>
+                  <option value="champion">champion</option>
+                </select>
+              </Field>
             </div>
-          </CardContent>
-        </Card>
+            <div style={{ marginTop: 12 }}>
+              <Field label="Notes">
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
+                  rows={2}
+                  style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
+                />
+              </Field>
+            </div>
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void submitContact()}
+                disabled={saving || !form.full_name.trim()}
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "6px 14px",
+                  borderRadius: 3,
+                  border: "1px solid rgba(0,220,255,0.40)",
+                  background: saving ? "rgba(0,220,255,0.04)" : "rgba(0,220,255,0.10)",
+                  color: "#00DCFF",
+                  cursor: saving || !form.full_name.trim() ? "not-allowed" : "pointer",
+                  fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                  opacity: !form.full_name.trim() ? 0.5 : 1,
+                }}
+              >
+                {saving ? "Saving…" : "Save contact"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "6px 14px",
+                  borderRadius: 3,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "transparent",
+                  color: "rgba(220,230,240,0.72)",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div style={{ padding: 32, textAlign: "center", color: "rgba(220,230,240,0.40)", fontSize: 13 }}>
+            Loading contacts…
+          </div>
+        ) : filteredContacts.length === 0 ? (
+          <div
+            style={{
+              border: "1px dashed rgba(255,255,255,0.12)",
+              borderRadius: 4,
+              padding: "24px 20px",
+              color: "rgba(220,230,240,0.60)",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            <div style={{ marginBottom: 8, color: "rgba(220,230,240,0.85)", fontSize: 14 }}>No contacts yet.</div>
+            <div>
+              Add a contact above, or open{" "}
+              <Link href={`/lab/env/${params.envId}/consulting/pipeline`} style={{ color: "#00DCFF", textDecoration: "none" }}>
+                Pipeline
+              </Link>{" "}
+              and create account-linked contacts inside a deal drawer.
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 4,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
+                padding: "8px 12px",
+                background: "rgba(10,14,20,0.6)",
+                borderBottom: "1px solid rgba(255,255,255,0.07)",
+                fontSize: 10,
+                letterSpacing: "0.13em",
+                textTransform: "uppercase",
+                color: "rgba(220,230,240,0.42)",
+                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              }}
+            >
+              <span>Name</span>
+              <span>Firm</span>
+              <span>Title</span>
+              <span>Email</span>
+              <span>Strength</span>
+              <span>Last touch</span>
+            </div>
+            {filteredContacts.map((c) => {
+              const tone = (c.relationship_strength as RelationshipStrength) in STRENGTH_TONE
+                ? STRENGTH_TONE[c.relationship_strength as RelationshipStrength]
+                : STRENGTH_TONE.cold;
+              return (
+                <Link
+                  key={c.crm_contact_id}
+                  href={`/lab/env/${params.envId}/consulting/contacts/${c.crm_contact_id}`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.4fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
+                    padding: "10px 12px",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    fontSize: 13,
+                    color: "#dce6f0",
+                    textDecoration: "none",
+                    transition: "background 80ms",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.03)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>{c.full_name}</span>
+                  <span style={{ color: "rgba(220,230,240,0.72)" }}>
+                    {c.account_name ?? <span style={{ color: "rgba(220,230,240,0.30)" }}>—</span>}
+                    {c.vertical ? <span style={{ color: "rgba(220,230,240,0.30)", marginLeft: 6, fontSize: 11 }}>· {c.vertical}</span> : null}
+                    {!c.crm_account_id ? <span style={{ color: "rgba(220,230,240,0.25)", marginLeft: 6, fontSize: 10 }}>unlinked</span> : null}
+                  </span>
+                  <span style={{ color: "rgba(220,230,240,0.72)" }}>{c.title ?? "—"}</span>
+                  <span style={{ color: "rgba(220,230,240,0.72)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.email ?? "—"}
+                  </span>
+                  <span>
+                    {c.relationship_strength ? (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "2px 8px",
+                          borderRadius: 2,
+                          fontSize: 10,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: tone.color,
+                          background: tone.bg,
+                          border: `1px solid ${tone.color}33`,
+                        }}
+                      >
+                        {c.relationship_strength}
+                      </span>
+                    ) : (
+                      <span style={{ color: "rgba(220,230,240,0.30)" }}>—</span>
+                    )}
+                  </span>
+                  <span style={{ color: "rgba(220,230,240,0.50)", fontSize: 11 }}>
+                    {fmtRelDate(c.last_outreach_at)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 10px",
+  borderRadius: 3,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(5,7,11,0.8)",
+  color: "#dce6f0",
+  fontSize: 13,
+  outline: "none",
+};
+const selectStyle: React.CSSProperties = { ...inputStyle, fontFamily: "inherit" };
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label style={{ display: "block", fontSize: 13 }}>
+      <span
+        style={{
+          display: "block",
+          fontSize: 10,
+          letterSpacing: "0.13em",
+          textTransform: "uppercase",
+          color: "rgba(220,230,240,0.42)",
+          marginBottom: 4,
+          fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+        }}
+      >
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={inputStyle}
+    />
   );
 }

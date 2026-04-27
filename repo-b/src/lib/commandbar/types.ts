@@ -406,6 +406,14 @@ export type AssistantResponseBlock =
       provided_params?: Record<string, unknown>;
       missing_fields?: string[];
       confirm_label?: string | null;
+      /**
+       * Operator runtime only: the Anthropic tool_call_id that the user is
+       * approving / denying. Required when piping the decision back to
+       * `/api/ai/operator/sessions/{session_id}/confirm`. Null in gateway mode
+       * (which uses a pending_action_id mechanism instead).
+       */
+      tool_call_id?: string | null;
+      anthropic_session_id?: string | null;
     }
   | {
       type: "error";

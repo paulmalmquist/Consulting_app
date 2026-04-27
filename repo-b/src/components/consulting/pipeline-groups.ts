@@ -30,7 +30,7 @@ export const PIPELINE_GROUPS: PipelineGroup[] = [
     key: "close_convert",
     label: "Close / Convert",
     description: "Proposal to signed engagement",
-    stageKeys: ["proposal"],
+    stageKeys: ["proposal", "negotiation", "closed_won", "closed_lost"],
     color: "#34D399",
     dimColor: "rgba(52,211,153,0.15)",
   },
