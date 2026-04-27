@@ -108,6 +108,19 @@ cd .. && python -c "from backend.app.services.environment_seed_packs_v2 import g
 
 The Playwright spec `tests/supply-chain-platform.spec.ts` was authored against the same fixture pattern as `pds-executive.spec.ts` but was not run as part of this pass (the e2e suite needs a running dev server).
 
+## v2 templates registry (follow-up — applied 2026-04-27 evening)
+
+After the initial ship, applied schema files `514_environment_templates.sql`, `515_environments_v2_columns.sql`, `516_environment_templates_seed.sql`, and a new `517_environment_templates_supply_chain.sql` to prod. These had been authored months earlier but never deployed, which is why `POST /v2/environments` was returning 500.
+
+Path:
+
+1. New file `repo-b/db/schema/517_environment_templates_supply_chain.sql` registers the `supply_chain` template with `default_seed_pack: supply_chain_starter` and `default_home_route: /lab/env/{env_id}/supply-chain`.
+2. Applied 514-517 to prod in a single transaction via `supabase db query --linked` with explicit `BEGIN; … COMMIT;` (not `npm run db:apply`, which would replay all 1-516 files).
+3. Verified `GET /v2/environments/templates` returns 8 templates.
+4. Dry-ran `POST /v2/environments` with `template_key: supply_chain`. Validate + dry_run_preview stages both `ok`; no row inserted.
+5. Backfilled the existing legacy `aa41f51c-8bb0-483e-84db-58995071879c` row with v2 columns (`template_key`, `template_version`, `env_kind`, `lifecycle_state`, `lifecycle_state_at`, `default_home_route`, `seed_pack_applied`, `seed_pack_version`). The URL we already shared still resolves.
+6. `v1.environments` row needs no schema change — its columns predate v2.
+
 ## Known limitations
 
 - Seed data is frontend-local. Six source systems, 18 medallion tables, six data products, six ML models, four Genie Q&A pairs — all typed constants in `repo-b/src/lib/supply-chain/seed.ts`. Swap to API in the next pass.
@@ -115,6 +128,7 @@ The Playwright spec `tests/supply-chain-platform.spec.ts` was authored against t
 - Architecture flow is a CSS grid with bordered cards, not an interactive diagram. Fine for the canonical view, won't scale to drag-edit.
 - Backend seed pack only seeds `v1.pipeline_stages` (5 phases). Richer rows are deferred per the v2 seed-pack convention.
 - Playwright smoke not executed in this pass — author-only.
+- `supabase/config.toml` has `schema_paths = []`, so future schema files in `repo-b/db/schema/` won't auto-apply on `supabase db push`. Manual concat-and-pipe via `supabase db query --linked` remains the deploy path until that's fixed.
 
 ## How to verify locally
 
