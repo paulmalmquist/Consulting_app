@@ -81,7 +81,7 @@ describe("RE environment portfolio page", () => {
     expect(await screen.findByText("$490.0M")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Create Fund" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create your first fund" })).toBeInTheDocument();
     const navCard = screen.getByText("Portfolio NAV").closest("div");
     expect(navCard?.textContent).toContain("—");
   });
