@@ -304,15 +304,20 @@ def update_iteration(
     sets = ["updated_at = now()"]
     params: list = []
     if status is not None:
-        sets.append("status = %s"); params.append(status)
+        sets.append("status = %s")
+        params.append(status)
     if score is not None:
-        sets.append("score = %s"); params.append(score)
+        sets.append("score = %s")
+        params.append(score)
     if score_breakdown is not None:
-        sets.append("score_breakdown = %s"); params.append(json.dumps(score_breakdown))
+        sets.append("score_breakdown = %s")
+        params.append(json.dumps(score_breakdown))
     if raw_proposal is not None:
-        sets.append("raw_proposal = %s"); params.append(raw_proposal)
+        sets.append("raw_proposal = %s")
+        params.append(raw_proposal)
     if rebuilt_proposal is not None:
-        sets.append("rebuilt_proposal = %s"); params.append(rebuilt_proposal)
+        sets.append("rebuilt_proposal = %s")
+        params.append(rebuilt_proposal)
     params += [str(iteration_id), env_id, str(business_id)]
     with get_cursor() as cur:
         cur.execute(

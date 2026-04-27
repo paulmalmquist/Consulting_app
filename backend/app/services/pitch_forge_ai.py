@@ -343,8 +343,6 @@ def run_proposal_generation_step(
     3. Store iteration + use cases
     4. Return iteration summary
     """
-    from uuid import UUID
-
     # Load research from DB
     claims = pf_db.list_claims(
         env_id=env_id, business_id=business_id, project_id=project_id

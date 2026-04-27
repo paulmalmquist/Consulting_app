@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 
-const API_BASE = "";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,7 +206,7 @@ export default function PitchForgePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/pitch-forge/v1/projects?${qs()}`);
+      const res = await fetch(`/api/pitch-forge/v1/projects?${qs()}`);
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setProjects(data.projects ?? []);
@@ -222,7 +221,7 @@ export default function PitchForgePage() {
   const loadProject = useCallback(async (projectId: string) => {
     setActionLoading("loading");
     try {
-      const res = await fetch(`${API_BASE}/api/pitch-forge/v1/projects/${projectId}/summary?${qs()}`);
+      const res = await fetch(`/api/pitch-forge/v1/projects/${projectId}/summary?${qs()}`);
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setSelectedProject(data);
@@ -243,7 +242,7 @@ export default function PitchForgePage() {
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/pitch-forge/v1/projects/${selectedProject.project.id}/generate?${qs()}`,
+        `/api/pitch-forge/v1/projects/${selectedProject.project.id}/generate?${qs()}`,
         { method: "POST" }
       );
       const data = await res.json();
@@ -267,7 +266,7 @@ export default function PitchForgePage() {
     try {
       const mode = saratMode ? "sarat" : "standard";
       const res = await fetch(
-        `${API_BASE}/api/pitch-forge/v1/projects/${selectedProject.project.id}/iterations/${iterationId}/red-team?${qs()}&critique_mode=${mode}`,
+        `/api/pitch-forge/v1/projects/${selectedProject.project.id}/iterations/${iterationId}/red-team?${qs()}&critique_mode=${mode}`,
         { method: "POST" }
       );
       const data = await res.json();
@@ -293,7 +292,7 @@ export default function PitchForgePage() {
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/pitch-forge/v1/projects/${selectedProject.project.id}/final-output?${qs()}`,
+        `/api/pitch-forge/v1/projects/${selectedProject.project.id}/final-output?${qs()}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1001,4 +1000,31 @@ function FinalOutputPanel({ summary }: { summary: ProjectSummary }) {
       <div className="rounded-xl border border-bm-border/70 px-4 py-8 text-sm text-bm-muted2 text-center">
         {project.status === "failed"
           ? "This project failed to reach the pass threshold after 3 iterations. Review the red team panel for required inputs."
-          : "Not ready. Run
+          : "Not ready. Run at least one iteration to generate the proposal."
+        }
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-bm-muted2 uppercase tracking-wider font-semibold">Final Proposal</p>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(final_output?.content ?? "");
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="rounded-lg border border-bm-border/50 px-2.5 py-1 text-xs text-bm-muted hover:text-bm-text transition-colors"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <pre className="whitespace-pre-wrap text-sm font-mono text-bm-text bg-bm-surface/30 border border-bm-border/50 rounded-xl p-4 overflow-x-auto">
+        {final_output?.content ?? ""}
+      </pre>
+    </div>
+  );
+}

@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import pytest
 from unittest.mock import MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ class TestMaxIterations:
             "status": "rebuilding",
         }
 
-        with patch("app.services.pitch_forge.get_cursor") as mock_cursor_ctx:
+        with patch("app.services.pitch_forge.get_cursor"):
             # get_project returns a project at count 3
             from app.services import pitch_forge as pf
             with patch.object(pf, "get_project", return_value=mock_project):
@@ -117,8 +117,7 @@ class TestMaxIterations:
     def test_iteration_check_column_constraint(self):
         """pf_iteration has a CHECK constraint limiting iteration_num 1–3."""
         # Verify the schema definition includes the correct constraint
-        import re
-        schema_path = "repo-b/db/schema/10000_pitch_forge_core.sql"
+        schema_path = "repo-b/db/schema/524_pitch_forge_core.sql"
         try:
             with open(schema_path) as f:
                 content = f.read()

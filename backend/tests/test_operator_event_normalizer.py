@@ -153,11 +153,11 @@ def test_requires_action_emits_one_confirmation_per_tool_call_id(monkeypatch):
         last_events_ring=ring,
     )
 
-    confirmations = [l for l in lines if l.startswith("event: confirmation_required\n")]
+    confirmations = [ln for ln in lines if ln.startswith("event: confirmation_required\n")]
     assert len(confirmations) == 2, f"expected 2 confirmation events, got {len(confirmations)}"
 
     # Each confirmation_required SSE carries its own tool_call_id (no cross-wiring).
-    payloads = [json.loads(l.split("data: ", 1)[1].strip()) for l in confirmations]
+    payloads = [json.loads(ln.split("data: ", 1)[1].strip()) for ln in confirmations]
     tcids = sorted([p["tool_call_id"] for p in payloads])
     assert tcids == ["tc-A", "tc-B"]
 
@@ -189,7 +189,7 @@ def test_session_error_is_non_recoverable_for_mcp_auth(monkeypatch):
         last_events_ring=ring,
     )
 
-    payload_line = next(l for l in lines if "response_block" in l)
+    payload_line = next(ln for ln in lines if "response_block" in ln)
     payload = json.loads(payload_line.split("data: ", 1)[1].strip())
     assert payload["block"]["type"] == "error"
     assert payload["block"]["recoverable"] is False
@@ -219,7 +219,7 @@ def test_session_error_is_recoverable_for_generic_error(monkeypatch):
         last_events_ring=ring,
     )
 
-    payload_line = next(l for l in lines if "response_block" in l)
+    payload_line = next(ln for ln in lines if "response_block" in ln)
     payload = json.loads(payload_line.split("data: ", 1)[1].strip())
     assert payload["block"]["recoverable"] is True
 

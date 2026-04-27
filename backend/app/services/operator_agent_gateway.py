@@ -906,10 +906,9 @@ async def run_operator_stream(
         tool_use_count = max(tool_use_count, len(result.tool_uses or []))
 
     # Persist messages.
-    user_msg = None
     assistant_msg = None
     with suppress(Exception):
-        user_msg = convo_svc.append_message(
+        convo_svc.append_message(
             conversation_id=conversation_id,
             role="user",
             content=message,

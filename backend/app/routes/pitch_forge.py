@@ -13,12 +13,9 @@ from app.routes.domain_common import classify_domain_error, domain_error_respons
 from app.schemas.pitch_forge import (
     PfContextOut,
     ProjectCreateIn,
-    ProjectOut,
     SourceCreateIn,
     ClaimCreateIn,
     FinalOutputFormatIn,
-    GenerateProposalOut,
-    RunRedTeamOut,
     ResearchSynthesisIn,
     GenerateDeckIn,
 )

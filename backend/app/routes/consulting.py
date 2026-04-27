@@ -16,7 +16,6 @@ from app.schemas.consulting import (
     AdvanceStageRequest,
     ClientOut,
     ContactCreateRequest,
-    ContactListItemOut,
     ContactListOut,
     ContactOut,
     ConvertToClientRequest,
