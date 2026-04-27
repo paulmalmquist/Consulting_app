@@ -2161,3 +2161,199 @@ export function generateAppWeeklyMemo(envId: string, businessId: string, body?: 
 export function fetchLatestAppWeeklyMemo(envId: string, businessId: string) {
   return apiFetch<AppWeeklyMemo>(`${CRO_BASE}/app-intelligence/weekly-memo/latest?${appIntelQuery(envId, businessId)}`);
 }
+
+
+// ── Execution Board ────────────────────────────────────────────────────────────
+
+export type ExecutionTaskType =
+  | "outreach"
+  | "product"
+  | "proof_asset"
+  | "research"
+  | "follow_up";
+
+export type ExecutionTaskStatus = "today" | "this_week" | "waiting" | "done";
+
+export type ExecutionRevenueTag = "low" | "mid" | "high";
+
+export type ExecutionTaskOutcome =
+  | "moved_deal"
+  | "got_response"
+  | "no_effect"
+  | "blocked"
+  | "unknown";
+
+export type ExecutionAutoSource =
+  | "pipeline_no_next_action"
+  | "pipeline_stale_3d"
+  | "outreach_no_reply_2d"
+  | "proof_backlog_top"
+  | "manual"
+  | "ai_generated";
+
+export type ExecutionTask = {
+  id: string;
+  env_id: string;
+  business_id: string;
+  title: string;
+  description: string | null;
+  expected_outcome: string | null;
+  next_action: string;
+  why_now: string;
+  type: ExecutionTaskType;
+  status: ExecutionTaskStatus;
+  linked_deal_id: string | null;
+  linked_contact_id: string | null;
+  impact: number;
+  revenue_tag: ExecutionRevenueTag;
+  due_date: string | null;
+  auto_source: ExecutionAutoSource | null;
+  auto_source_ref: string | null;
+  sequence_group: string | null;
+  sequence_position: number | null;
+  outcome: ExecutionTaskOutcome | null;
+  outcome_note: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deal_name: string | null;
+  contact_name: string | null;
+};
+
+export type ExecutionBoardSummary = {
+  today_count: number;
+  this_week_count: number;
+  waiting_count: number;
+  done_visible_count: number;
+  overdue_count: number;
+};
+
+export type ExecutionAutoReport = {
+  pipeline_no_next_action: number;
+  pipeline_stale_3d: number;
+  outreach_no_reply_2d: number;
+  proof_backlog_top: number;
+  promoted_to_today: number;
+};
+
+export type ExecutionTaskBoard = {
+  tasks: ExecutionTask[];
+  summary: ExecutionBoardSummary;
+  auto_report: ExecutionAutoReport;
+};
+
+export type ExecutionTaskCreate = {
+  env_id: string;
+  business_id: string;
+  title: string;
+  description?: string | null;
+  expected_outcome?: string | null;
+  next_action: string;
+  why_now: string;
+  type: ExecutionTaskType;
+  status?: ExecutionTaskStatus;
+  linked_deal_id?: string | null;
+  linked_contact_id?: string | null;
+  impact?: number;
+  revenue_tag?: ExecutionRevenueTag;
+  due_date?: string | null;
+};
+
+export type ExecutionTaskUpdate = Partial<{
+  title: string;
+  description: string | null;
+  expected_outcome: string | null;
+  next_action: string;
+  why_now: string;
+  type: ExecutionTaskType;
+  status: ExecutionTaskStatus;
+  linked_deal_id: string | null;
+  linked_contact_id: string | null;
+  impact: number;
+  revenue_tag: ExecutionRevenueTag;
+  due_date: string | null;
+}>;
+
+export type GenerateActionsRequest = {
+  env_id: string;
+  business_id: string;
+  deal_id?: string | null;
+  goal_text?: string | null;
+};
+
+export type GenerateActionsResponse = {
+  sequence_group: string;
+  tasks: ExecutionTask[];
+};
+
+export type CompleteTaskRequest = {
+  outcome: ExecutionTaskOutcome;
+  outcome_note?: string | null;
+};
+
+function executionBoardQuery(
+  envId: string,
+  businessId: string,
+  opts: {
+    type?: ExecutionTaskType;
+    deal_id?: string;
+    revenue_tag?: ExecutionRevenueTag;
+    include_archived_done?: boolean;
+  } = {},
+): string {
+  const params = new URLSearchParams({ env_id: envId, business_id: businessId });
+  if (opts.type) params.set("type", opts.type);
+  if (opts.deal_id) params.set("deal_id", opts.deal_id);
+  if (opts.revenue_tag) params.set("revenue_tag", opts.revenue_tag);
+  if (opts.include_archived_done) params.set("include_archived_done", "true");
+  return params.toString();
+}
+
+export function fetchExecutionTaskBoard(
+  envId: string,
+  businessId: string,
+  opts?: {
+    type?: ExecutionTaskType;
+    deal_id?: string;
+    revenue_tag?: ExecutionRevenueTag;
+    include_archived_done?: boolean;
+  },
+) {
+  return apiFetch<ExecutionTaskBoard>(
+    `${CRO_BASE}/execution/board?${executionBoardQuery(envId, businessId, opts)}`,
+  );
+}
+
+export function createExecutionTask(body: ExecutionTaskCreate) {
+  return apiFetch<ExecutionTask>(`${CRO_BASE}/execution/tasks`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateExecutionTask(taskId: string, body: ExecutionTaskUpdate) {
+  return apiFetch<ExecutionTask>(`${CRO_BASE}/execution/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteExecutionTask(taskId: string) {
+  return apiFetch<void>(`${CRO_BASE}/execution/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
+
+export function completeExecutionTask(taskId: string, body: CompleteTaskRequest) {
+  return apiFetch<ExecutionTask>(`${CRO_BASE}/execution/tasks/${taskId}/complete`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function generateExecutionActions(body: GenerateActionsRequest) {
+  return apiFetch<GenerateActionsResponse>(`${CRO_BASE}/execution/generate-actions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

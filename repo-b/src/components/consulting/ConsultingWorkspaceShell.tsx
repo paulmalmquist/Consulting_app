@@ -30,6 +30,7 @@ export default function ConsultingWorkspaceShell({
   const navItems = useMemo(
     () => [
       { href: `${base}/pipeline`, label: "Pipeline", isBase: true },
+      { href: `${base}/execution`, label: "Execution", isBase: false },
       { href: `${base}/accounts`, label: "Accounts", isBase: false },
       { href: `${base}/contacts`, label: "Contacts", isBase: false },
       { href: `${base}/strategic-outreach`, label: "Outreach", isBase: false },
@@ -45,9 +46,9 @@ export default function ConsultingWorkspaceShell({
   const mobileNavItems = useMemo<MobileNavItem[]>(
     () => [
       { href: `${base}/pipeline`, label: "Pipeline", icon: "pipeline", matchPrefix: false },
+      { href: `${base}/execution`, label: "Execution", icon: "reports", matchPrefix: true },
       { href: `${base}/accounts`, label: "Accounts", icon: "contacts", matchPrefix: true },
       { href: `${base}/strategic-outreach`, label: "Outreach", icon: "tasks", matchPrefix: true },
-      { href: `${base}/tasks`, label: "Tasks", icon: "reports", matchPrefix: true },
     ],
     [base],
   );
@@ -75,12 +76,13 @@ export default function ConsultingWorkspaceShell({
 
   const envLabel = environment?.client_name || envId || "Consulting";
 
-  // Pipeline and Contacts render their own dark-Winston shell — bypass the
-  // generic ConsultingWorkspaceShell entirely.
+  // Pipeline, Contacts, Tasks, and Execution render their own dark-Winston
+  // shell — bypass the generic ConsultingWorkspaceShell entirely.
   if (
     pathname.endsWith("/pipeline") ||
     pathname.endsWith("/contacts") ||
-    pathname.endsWith("/tasks")
+    pathname.endsWith("/tasks") ||
+    pathname.endsWith("/execution")
   ) {
     return <>{children}</>;
   }

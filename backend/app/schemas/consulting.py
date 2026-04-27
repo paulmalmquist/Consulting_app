@@ -1554,3 +1554,105 @@ class AppWeeklyMemoOut(BaseModel):
     memo_payload: dict[str, Any]
     generated_at: datetime
     generated_by: str | None = None
+
+
+# ── Execution Board ────────────────────────────────────────────────────────────
+
+class ExecutionTask(BaseModel):
+    id: UUID
+    env_id: str
+    business_id: UUID
+    title: str
+    description: str | None = None
+    expected_outcome: str | None = None
+    next_action: str
+    why_now: str
+    type: str
+    status: str
+    linked_deal_id: UUID | None = None
+    linked_contact_id: UUID | None = None
+    impact: int
+    revenue_tag: str
+    due_date: date | None = None
+    auto_source: str | None = None
+    auto_source_ref: UUID | None = None
+    sequence_group: UUID | None = None
+    sequence_position: int | None = None
+    outcome: str | None = None
+    outcome_note: str | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    deal_name: str | None = None
+    contact_name: str | None = None
+
+
+class ExecutionTaskCreate(BaseModel):
+    env_id: str
+    business_id: UUID
+    title: str = Field(min_length=1)
+    description: str | None = None
+    expected_outcome: str | None = None
+    next_action: str = Field(min_length=1)
+    why_now: str = Field(min_length=1)
+    type: str
+    status: str = "today"
+    linked_deal_id: UUID | None = None
+    linked_contact_id: UUID | None = None
+    impact: int = Field(default=3, ge=1, le=5)
+    revenue_tag: str = "mid"
+    due_date: date | None = None
+
+
+class ExecutionTaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    expected_outcome: str | None = None
+    next_action: str | None = None
+    why_now: str | None = None
+    type: str | None = None
+    status: str | None = None
+    linked_deal_id: UUID | None = None
+    linked_contact_id: UUID | None = None
+    impact: int | None = Field(default=None, ge=1, le=5)
+    revenue_tag: str | None = None
+    due_date: date | None = None
+
+
+class ExecutionBoardSummary(BaseModel):
+    today_count: int
+    this_week_count: int
+    waiting_count: int
+    done_visible_count: int
+    overdue_count: int
+
+
+class AutoGenerateReport(BaseModel):
+    pipeline_no_next_action: int = 0
+    pipeline_stale_3d: int = 0
+    outreach_no_reply_2d: int = 0
+    proof_backlog_top: int = 0
+    promoted_to_today: int = 0
+
+
+class ExecutionBoardOutV2(BaseModel):
+    tasks: list[ExecutionTask]
+    summary: ExecutionBoardSummary
+    auto_report: AutoGenerateReport
+
+
+class GenerateActionsRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    deal_id: UUID | None = None
+    goal_text: str | None = None
+
+
+class GenerateActionsResponse(BaseModel):
+    sequence_group: UUID
+    tasks: list[ExecutionTask]
+
+
+class CompleteTaskRequest(BaseModel):
+    outcome: str = Field(default="unknown")
+    outcome_note: str | None = None

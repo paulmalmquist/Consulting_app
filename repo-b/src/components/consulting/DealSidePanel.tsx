@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { X, ExternalLink, Mail, Phone, Copy, Check } from "lucide-react";
+import { GenerateActionsModal } from "@/components/consulting/execution/GenerateActionsModal";
 import {
   completeNextAction,
   createContact,
@@ -440,6 +441,9 @@ export function DealSidePanel({
               onCompleteAction={handleCompleteAction}
               onAddAction={handleAddAction}
               onQuickAction={runQuickAction}
+              dealId={dealId}
+              envId={envId}
+              businessId={businessId}
             />
           ) : tab === "drafts" ? (
             <DraftsTab
@@ -882,6 +886,9 @@ function ExecutionTab({
   onCompleteAction,
   onAddAction,
   onQuickAction,
+  dealId,
+  envId,
+  businessId,
 }: {
   execution: ExecutionDetail | null;
   nextActions: NextAction[];
@@ -897,9 +904,50 @@ function ExecutionTab({
   onCompleteAction: (id: string) => void;
   onAddAction: () => void;
   onQuickAction: (kind: "draft" | "followups" | "prep") => void;
+  dealId: string;
+  envId: string;
+  businessId: string;
 }) {
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateMsg, setGenerateMsg] = useState<string | null>(null);
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">
+          Sequenced plan
+        </p>
+        <button
+          type="button"
+          onClick={() => setGenerateOpen(true)}
+          className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-400/15"
+        >
+          Create Actions
+        </button>
+      </div>
+      {generateMsg ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/05 px-3 py-2 text-[11px] text-emerald-300">
+          {generateMsg}{" "}
+          <a
+            href={`/lab/env/${envId}/consulting/execution`}
+            className="underline hover:text-emerald-200"
+          >
+            Open Execution →
+          </a>
+        </div>
+      ) : null}
+      {generateOpen ? (
+        <GenerateActionsModal
+          envId={envId}
+          businessId={businessId}
+          defaultDealId={dealId}
+          onClose={() => setGenerateOpen(false)}
+          onGenerated={() => {
+            setGenerateOpen(false);
+            setGenerateMsg("Sequenced tasks added to the Execution board.");
+          }}
+        />
+      ) : null}
       {hasNoAction ? (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-4">
           <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1">This deal is stalled</p>

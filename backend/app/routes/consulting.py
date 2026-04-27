@@ -120,6 +120,13 @@ from app.schemas.consulting import (
     LogActivityRequest,
     WinstonAssistRequest,
     WinstonAssistResult,
+    ExecutionTask,
+    ExecutionTaskCreate,
+    ExecutionTaskUpdate,
+    ExecutionBoardOutV2,
+    GenerateActionsRequest,
+    GenerateActionsResponse,
+    CompleteTaskRequest,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -157,6 +164,9 @@ from app.services import (
     nv_app_intel_memo,
     nv_outreach_engine,
     winston_assist,
+    execution_tasks as execution_tasks_svc,
+    execution_auto,
+    execution_actions,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -2245,6 +2255,130 @@ def ingest_leads_route(body: IngestLeadsRequest):
             env_id=body.env_id,
             business_id=UUID(body.business_id),
             file_path=body.source_path,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Execution Board
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/execution/board", response_model=ExecutionBoardOutV2)
+def execution_board_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    type: str | None = Query(None),
+    deal_id: UUID | None = Query(None),
+    revenue_tag: str | None = Query(None),
+    include_archived_done: bool = Query(False),
+):
+    """Run auto-generation, then return all visible tasks plus summary counts."""
+    try:
+        auto_report = execution_auto.run_auto_generation(
+            env_id=env_id, business_id=business_id,
+        )
+        tasks = execution_tasks_svc.list_tasks(
+            env_id=env_id,
+            business_id=business_id,
+            type_filter=type,
+            deal_filter=deal_id,
+            revenue_tag_filter=revenue_tag,
+            include_archived_done=include_archived_done,
+        )
+        summary = execution_tasks_svc.board_summary(
+            env_id=env_id, business_id=business_id,
+        )
+        return {"tasks": tasks, "summary": summary, "auto_report": auto_report}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/execution/tasks", response_model=ExecutionTask, status_code=201)
+def create_execution_task_route(body: ExecutionTaskCreate):
+    try:
+        return execution_tasks_svc.create_task(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            title=body.title,
+            description=body.description,
+            expected_outcome=body.expected_outcome,
+            next_action=body.next_action,
+            why_now=body.why_now,
+            type=body.type,
+            status=body.status,
+            linked_deal_id=body.linked_deal_id,
+            linked_contact_id=body.linked_contact_id,
+            impact=body.impact,
+            revenue_tag=body.revenue_tag,
+            due_date=body.due_date,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/execution/tasks/{task_id}", response_model=ExecutionTask)
+def update_execution_task_route(
+    task_id: UUID,
+    body: ExecutionTaskUpdate,
+):
+    try:
+        update_kwargs = body.model_dump(exclude_unset=True)
+        # The service uses sentinel flags so callers can intentionally null FKs.
+        if "linked_deal_id" in update_kwargs:
+            update_kwargs["_linked_deal_set"] = True
+        if "linked_contact_id" in update_kwargs:
+            update_kwargs["_linked_contact_set"] = True
+        if "due_date" in update_kwargs:
+            update_kwargs["_due_date_set"] = True
+        result = execution_tasks_svc.update_task(task_id=task_id, **update_kwargs)
+        if not result:
+            raise HTTPException(404, "Execution task not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.delete("/execution/tasks/{task_id}", status_code=204)
+def delete_execution_task_route(task_id: UUID):
+    try:
+        ok = execution_tasks_svc.delete_task(task_id=task_id)
+        if not ok:
+            raise HTTPException(404, "Execution task not found")
+        return None
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/execution/tasks/{task_id}/complete", response_model=ExecutionTask)
+def complete_execution_task_route(task_id: UUID, body: CompleteTaskRequest):
+    try:
+        result = execution_tasks_svc.complete_task(
+            task_id=task_id,
+            outcome=body.outcome,
+            outcome_note=body.outcome_note,
+        )
+        if not result:
+            raise HTTPException(404, "Execution task not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/execution/generate-actions", response_model=GenerateActionsResponse)
+def execution_generate_actions_route(body: GenerateActionsRequest):
+    try:
+        return execution_actions.generate_actions(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            deal_id=body.deal_id,
+            goal_text=body.goal_text,
         )
     except Exception as exc:
         raise _to_http(exc)

@@ -29,6 +29,7 @@ export function consultingSidebarSections(envId: string): LeftSidebarSection[] {
     {
       items: [
         { key: "pipeline", label: "Pipeline", href: `${consultingBase}/pipeline` },
+        { key: "execution", label: "Execution", href: `${consultingBase}/execution` },
         { key: "accounting", label: "Accounting", href: `${operatorBase}/accounting` },
         { key: "contacts", label: "Contacts", href: `${consultingBase}/contacts` },
         { key: "tasks", label: "Tasks", href: `${consultingBase}/tasks` },
