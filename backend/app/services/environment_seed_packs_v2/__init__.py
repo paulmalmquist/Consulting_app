@@ -38,6 +38,7 @@ from . import (  # noqa: E402  (import after protocol for circular-safety)
     empty,
     internal_ops_minimal,
     repe_starter,
+    supply_chain_starter,
     trading_research_starter,
 )
 
@@ -48,6 +49,7 @@ SEED_PACKS: dict[str, SeedPack] = {
     "client_delivery_starter": client_delivery_starter,  # type: ignore[dict-item]
     "repe_starter": repe_starter,  # type: ignore[dict-item]
     "trading_research_starter": trading_research_starter,  # type: ignore[dict-item]
+    "supply_chain_starter": supply_chain_starter,  # type: ignore[dict-item]
 }
 
 

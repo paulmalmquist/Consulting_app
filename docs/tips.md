@@ -2516,3 +2516,17 @@ DNS cutover complete: novendor.ai → Vercel. Added account icon to marketing to
 - **`NOT AVAILABLE: <reason>` is a content pattern, not just a UI label.** Gaps in `pf_claim` with `is_available=false` surface through the full pipeline: research synthesis, use case generation prompts, and the research board UI. The claim text is the canonical record; the UI renders it with a visual label.
 - **Score weights must sum to 100 — tested.** The score breakdown is: specificity 25 + economic_value 25 + client_fit 20 + evidence_quality 15 + demo_readiness 15 = 100. If weights are adjusted, the test `test_score_weights_sum_to_100` will fail. This is intentional.
 - **The frontend for this pattern is a 4-tab operating surface, not a form.** Research Board → Pitch Builder → Red Team Panel → Final Output. Each tab shows a different stage of the pipeline. The user advances by clicking AI action buttons, not by filling in forms. This is what makes it feel like an operating surface rather than a report viewer.
+
+## Adding a new vertical environment (e.g. Supply Chain · 2026-04-27)
+
+Three edits register a new top-level Winston environment vertical. Miss any one and the env appears broken in subtle ways:
+
+- **`repo-b/src/components/lab/environments/constants.ts`** — three places: the `industries` tuple, `INDUSTRY_DISPLAY_MAP`, and a new `isXEnvironment` predicate plus a clause inside `resolveEnvironmentOpenPath`. The resolver clause is what makes "Open" from the env list route to your custom URL slug.
+- **`repo-b/src/components/lab/LabEnvironmentShell.tsx`** — append your URL slug to the `isDomainRoute` regex (around line 167). Without this, the generic department/capability shell will render *on top of* your custom shell. Easy to miss because nothing throws — you just get visual clutter.
+- **`repo-b/src/components/lab/LabEnvTopBar.tsx`** — if your custom shell has its own top bar, suppress the parent `LabEnvTopBar` for your slug (the file already has a list of slugs — just add yours). Otherwise you get a duplicate workspace identity bar above your top bar.
+
+Convention: one typed seed module per vertical at `repo-b/src/lib/<slug>/seed.ts` with a `// SEED DATA — replace with API in next pass` header comment. Use `bm-*` Tailwind tokens (`bg-bm-bg`, `bg-bm-surface/35`, `border-bm-border/70`, `text-bm-muted`, `text-bm-accent`) for chrome — they already adapt to `data-theme`. For status-coded chips (red/amber/green), define light defaults plus `dark:` overrides; relying on a single color set never holds across both themes.
+
+The repo's `darkMode` config is `["selector", "html:not([data-theme='light'])"]`, so the `dark:` variant applies whenever `<html>` does *not* have `data-theme="light"`. Light mode is the explicit case; dark mode is the default and applies on initial SSR before the ThemeProvider mounts.
+
+For the demo pass, skip `DomainEnvProvider` entirely — it eagerly hits `/v1/environments/:id` and a domain-context endpoint, both of which fail if the env doesn't have a real DB record. Pass `envId` directly from your layout's `params`. When you actually have backend rows, swap to `DomainEnvProvider` later — the upgrade is local to the layout file.

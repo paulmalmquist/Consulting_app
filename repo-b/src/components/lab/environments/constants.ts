@@ -30,6 +30,7 @@ export const industries = [
   "visual_resume",
   "multi_entity_operator",
   "trading_platform",
+  "supply_chain",
 ] as const;
 
 export type Industry = (typeof industries)[number];
@@ -75,6 +76,7 @@ const INDUSTRY_DISPLAY_MAP: Record<string, string> = {
   visual_resume: "Visual Resume",
   multi_entity_operator: "Multi-Entity Operator",
   trading_platform: "Trading Platform",
+  supply_chain: "Supply Chain Data Platform",
 };
 
 export function statusFromFlags(isActive: boolean): EnvironmentStatus {
@@ -219,6 +221,11 @@ export function isTradingPlatformEnvironment(industry?: string | null): boolean 
 /** @deprecated Use isTradingPlatformEnvironment */
 export const isMarketRotationEnvironment = isTradingPlatformEnvironment;
 
+export function isSupplyChainEnvironment(industry?: string | null): boolean {
+  const key = (industry || "").trim().toLowerCase();
+  return key === "supply_chain" || key === "supply-chain" || key === "supply chain";
+}
+
 export function resolveEnvironmentOpenPath(args: {
   envId: string;
   industry?: string | null;
@@ -255,6 +262,7 @@ export function resolveEnvironmentOpenPath(args: {
   if (isExecutionPatternIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/pattern-intel`;
   if (isVisualResumeEnvironment(args.industry)) return `/lab/env/${args.envId}/resume`;
   if (isMarketRotationEnvironment(args.industry)) return `/lab/env/${args.envId}/markets`;
+  if (isSupplyChainEnvironment(args.industry)) return `/lab/env/${args.envId}/supply-chain`;
   return `/lab/env/${args.envId}`;
 }
 
