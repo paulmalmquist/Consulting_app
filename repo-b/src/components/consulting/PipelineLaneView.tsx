@@ -1546,7 +1546,7 @@ export function GroupedBoardView({
             gap: 8,
             padding: "14px 14px 14px",
             minWidth: "max-content",
-            alignItems: "stretch",
+            alignItems: "flex-start",
           }}
         >
           {PIPELINE_GROUPS.map((group) => {
@@ -1597,6 +1597,7 @@ export function GroupedBoardView({
                     flexDirection: "column",
                     gap: 6,
                     minWidth: 0,
+                    alignSelf: "stretch",
                   }}
                 >
                   {/* Expanded group header — glow border signals active state */}
@@ -1751,13 +1752,11 @@ export function GroupedBoardView({
                 {/* Top 5 deal cards */}
                 <div
                   style={{
-                    flex: 1,
                     overflowY: "auto",
                     padding: "6px 6px",
                     display: "flex",
                     flexDirection: "column",
                     gap: 3,
-                    minHeight: 0,
                   }}
                 >
                   {allCards.length === 0 ? (

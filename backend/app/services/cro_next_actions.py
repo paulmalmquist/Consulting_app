@@ -197,37 +197,6 @@ def complete_next_action(
              message=f"Next action {action_id} completed",
              context={"action_id": str(action_id)})
 
-    # Auto-generate follow-up if no other pending actions for this entity
-    entity_type = row.get("entity_type")
-    entity_id = row.get("entity_id")
-    env_id = row.get("env_id")
-    if entity_type and entity_id and env_id:
-        try:
-            with get_cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT COUNT(*) AS cnt FROM cro_next_action
-                    WHERE entity_type = %s AND entity_id = %s
-                      AND status IN ('pending', 'in_progress')
-                      AND business_id = %s
-                    """,
-                    (entity_type, str(entity_id), str(business_id)),
-                )
-                cnt_row = cur.fetchone()
-                if cnt_row and cnt_row["cnt"] == 0:
-                    create_next_action(
-                        env_id=env_id,
-                        business_id=business_id,
-                        entity_type=entity_type,
-                        entity_id=UUID(str(entity_id)),
-                        action_type="follow_up",
-                        description="Review and determine next step",
-                        due_date=date.today() + timedelta(days=3),
-                        priority="normal",
-                    )
-        except Exception:
-            pass
-
     return row
 
 
