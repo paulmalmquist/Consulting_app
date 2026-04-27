@@ -1,137 +1,21 @@
 {
-  "title": "Claude Inside Hallboys",
-  "subtitle": "Five workflows, one scorecard, 60 days — measured against jobs you ran last quarter",
+  "title": "Where Hallboys is leaking time — and four workflows to close it",
+  "subtitle": "An operational proposal grounded in the jobs you ran last quarter",
   "slides": [
-    {
-      "slide_num": 1,
-      "layout": "title",
-      "title": "Claude Inside Hallboys",
-      "subtitle": "Five workflows, one scorecard, 60 days — measured against jobs you ran last quarter",
-      "notes": "New subtitle commits to measurement against real prior jobs, not generic ranges."
-    },
-    {
-      "slide_num": 2,
-      "layout": "section_header",
-      "title": "What we are not proposing",
-      "body": "No new ERP. No headcount cuts. No black-box AP automation. No custom build. No data leaving your Claude workspace.",
-      "notes": "Same disarm slide; tightened wording."
-    },
-    {
-      "slide_num": 3,
-      "layout": "two_column",
-      "title": "The Hallboys reality we are designing around",
-      "left_header": "What you have",
-      "left_points": [
-        "Acumatica as system of record — stays the source of truth",
-        "3-person IT team — no spare capacity for a 6-month rollout",
-        "One AP clerk processing every invoice that comes in",
-        "Claude already in use across estimating, ops, finance",
-        "No shared skill library, no audit trail on Claude prompts today"
-      ],
-      "right_header": "What we will not touch",
-      "right_points": [
-        "No replacement of Acumatica or any existing system",
-        "No new headcount required",
-        "No removal of human approval on AP, contracts, or schedule",
-        "No data leaves the Hallboys Claude workspace",
-        "No long onboarding — pilots fit inside existing weekly meetings"
-      ],
-      "notes": "Same content, sharper opening line."
-    },
-    {
-      "slide_num": 4,
-      "layout": "section_header",
-      "title": "Five workflows. Same team. Same systems.",
-      "body": "Each one ties to cost, capacity, or risk — and each one is measured against a real Hallboys baseline in week one.",
-      "notes": "Promises measurement up front, before any number gets shown."
-    },
-    {
-      "slide_num": 5,
-      "layout": "stat_callout",
-      "title": "Workflow 1 — Subcontractor quote comparison",
-      "stat": "3.25 hrs",
-      "stat_label": "Estimator time saved per multi-vendor bid package (estimate, to be validated week 1 against last quarter's bid log)",
-      "body": "Estimator drops 3-5 sub quotes into Claude. Output: side-by-side scope, line-item deltas, missing items, risk flags. Estimator still picks the winner. Baseline: pick 3 bid packages from last quarter, re-run them. Pilot kill: if average savings < 1.5 hrs per package by day 30, stop. Not available: confirmed Hallboys bid-package volume per estimator per month — needed week 1.",
-      "notes": "Single number. Explicit baseline source. Explicit kill threshold. Explicit 'Not available' for the one missing input."
-    },
-    {
-      "slide_num": 6,
-      "layout": "stat_callout",
-      "title": "Workflow 2 — Equipment scheduling coordination",
-      "stat": "$5,400",
-      "stat_label": "Cost of one idle crew day on a typical Hallboys mid-size job (estimate, to be confirmed against your last quarter)",
-      "body": "Weekly schedule plus equipment list go into Claude. Output: vendor overlaps, missing deliveries, dependency breaks, dates that don't match the critical path. Scheduler still owns every call. Baseline: pull the last 90 days of schedule changes from Acumatica, re-run them, count how many conflicts Claude would have caught before Monday. Pilot kill: if fewer than 1 caught conflict per month would have prevented an idle day, stop.",
-      "notes": "One number, not a range. Ties baseline to actual Acumatica records."
-    },
-    {
-      "slide_num": 7,
-      "layout": "stat_callout",
-      "title": "Workflow 3 — AP exception triage (assisted, not automated)",
-      "stat": "0 writes",
-      "stat_label": "Claude never posts to Acumatica — the AP clerk owns every approval, every code, every post",
-      "body": "Claude sits beside the clerk: extracts vendor, amount, PO match, scope match, flags duplicates and pricing anomalies. Clerk approves and posts in Acumatica as today. Target: same clerk reviews 1.6x current invoice volume per day with no drop in catch rate. Baseline: run 30 days of historical invoices through Claude in shadow mode before any clerk workflow change. Not available: confirmed duplicate-invoice rate at Hallboys today — needed to size the catch-rate signal.",
-      "notes": "Hammers the no-automation point with '0 writes'. Shadow mode means we measure before we change anything."
-    },
-    {
-      "slide_num": 8,
-      "layout": "stat_callout",
-      "title": "Workflow 4 — Project closeout document checks",
-      "stat": "1 retainage delay",
-      "stat_label": "Avoiding one retainage delay per quarter is the breakeven for this workflow alone",
-      "body": "PM uploads the closeout folder. Claude returns: missing items, inconsistent dates, lien waivers without matching pay apps, warranty letters absent — measured against the Hallboys closeout SOP. Pilot kill: if Claude doesn't surface at least 3 real missing items across the first 5 closeouts, stop. Not available: confirmed average retainage tied up per delayed closeout — needed to convert the breakeven to dollars.",
-      "notes": "Anchors on the financial pain (retainage) instead of a vague hours number."
-    },
-    {
-      "slide_num": 9,
-      "layout": "stat_callout",
-      "title": "Workflow 5 — Claude skill governance",
-      "stat": "12-15 hrs/wk",
-      "stat_label": "Estimated rework today across Hallboys Claude users rebuilding the same prompts (assumes 5 active users × ~3 hrs/week — to be validated week 1)",
-      "body": "Today: every Claude user writes their own prompts, no version control, no audit. After: one IT-owned skill per workflow above, used by everyone. Owner: IT lead. Cadence: monthly skill review with the workflow owners. Escalation: any skill change touching AP or finance requires AP clerk + controller sign-off. Pilot kill: if fewer than 3 of the 5 workflow skills are in active use by day 60, the governance layer wasn't worth it.",
-      "notes": "Now has dollars-via-hours, named owner, named cadence, named escalation path. This is what 'who owns it' looks like."
-    },
-    {
-      "slide_num": 10,
-      "layout": "two_column",
-      "title": "What happens when Claude is wrong",
-      "left_header": "Where the human still owns the call",
-      "left_points": [
-        "Quote comparison: estimator picks the winner, not Claude",
-        "Schedule conflicts: scheduler approves every change",
-        "AP: clerk posts to Acumatica — Claude never writes",
-        "Closeout: PM signs off the package",
-        "Skills: IT lead approves every skill version"
-      ],
-      "right_header": "What gets logged and reviewed",
-      "right_points": [
-        "Every Claude session in the shared workspace is auditable",
-        "Misses captured in a 1-page weekly review (15 min)",
-        "Repeated misses flow back into the skill as a fix",
-        "If a skill drifts >2 misses/week, it gets pulled until repaired",
-        "Quarterly review: kill any skill not earning its keep"
-      ],
-      "notes": "This is the slide Sarat said was missing in iteration 1. It directly answers 'what breaks, who eats it'."
-    },
-    {
-      "slide_num": 11,
-      "layout": "table",
-      "title": "What changes Monday morning — and how we measure it",
-      "headers": ["Workflow", "Owner", "Baseline source", "Kill threshold by day 30"],
-      "rows": [
-        ["Quote comparison", "Lead estimator", "Last quarter's bid log (re-run)", "<1.5 hrs saved per package"],
-        ["Equipment scheduling", "Scheduler", "Last 90 days schedule changes in Acumatica", "<1 caught conflict/month"],
-        ["AP triage", "AP clerk", "30 days historical invoices, shadow mode", "<1.3x volume at same catch rate"],
-        ["Closeout checks", "PM on closing job", "First 5 closeouts in pilot", "<3 real missing items surfaced"],
-        ["Skill governance", "IT lead", "Current Claude usage audit (week 1)", "<3 of 5 skills in active use"]
-      ],
-      "notes": "Every workflow has a named owner, a real baseline, and an explicit kill threshold. This slide alone closes the 'show me the number' objection."
-    },
-    {
-      "slide_num": 12,
-      "layout": "closing",
-      "title": "Two workflows. 60 days. One scorecard.",
-      "body": "Quote comparison + closeout checks. Real Hallboys baselines. Stop at any point. Decide from data.",
-      "notes": "Close with the offer narrowed to two workflows, named, on real baselines."
-    }
+    {"slide_num": 1, "layout": "title", "title": "Where Hallboys is leaking time — and four workflows to close it", "subtitle": "An operational proposal grounded in the jobs you ran last quarter"},
+    {"slide_num": 2, "layout": "stat_callout", "title": "The leak we are estimating", "stat": "$280K/yr", "stat_label": "Working estimate of recoverable leak across estimating, scheduling, AP, and closeout (single number, derivation on next slide, week-1 validation)", "body": "Not a forecast. A working estimate built from public construction benchmarks layered onto Hallboys' team shape. We will validate or revise this in week 1 against your own jobs from last quarter."},
+    {"slide_num": 3, "layout": "table", "title": "How the $280K splits", "headers": ["Workflow", "Annualized leak (est.)", "Driver", "Validation source"], "rows": [["Quote comparison", "$78K", "Estimator hours absorbed by manual comparison instead of bid coverage", "Last quarter's bid log"], ["Schedule conflicts", "$95K", "1-2 idle crew days/quarter at $5,400/day blended", "Acumatica schedule changes, last 90 days"], ["AP capacity ceiling", "$45K", "Invoice volume already at clerk capacity, growth costs OT or new hire", "30 days of AP invoice receipts"], ["Closeout drag", "$62K", "Average retainage delay = ~2 weeks of working capital on a mid-size job", "Hallboys closeout SOP + last 4 closed jobs"]]},
+    {"slide_num": 4, "layout": "two_column", "title": "Hallboys context — what we are designing for", "left_header": "Your team and systems", "left_points": ["Acumatica is the system of record (AP, project, schedule)", "3-person IT team — capacity for configuration, not custom build", "One AP clerk processing every invoice end-to-end", "Active Claude usage already exists across estimating, ops, finance"], "right_header": "Constraints we hold throughout", "right_points": ["No replacement of Acumatica or any current system", "No headcount reduction — capacity expansion only", "No black-box automation on AP, contracts, or schedule", "No data leaves the Hallboys Claude workspace"]},
+    {"slide_num": 5, "layout": "section_header", "title": "How work happens today (the leaking parts)", "body": "Three workflows where the leak above is concentrated, in your current process."},
+    {"slide_num": 6, "layout": "two_column", "title": "Today's workflow — three pain points", "left_header": "Estimating + Scheduling", "left_points": ["Estimator opens 3-5 sub PDFs, hand-builds Excel comparison: 4 hrs/package", "Q4 2025 example: estimator ran 11 packages, ~44 hrs absorbed", "Scheduler reconciles equipment + sub list manually each Monday", "Q1 2026: one concrete pour shifted, crew of 8 idle 1 day"], "right_header": "AP + Closeout", "right_points": ["AP clerk opens each invoice cold, posts in Acumatica AP screen", "No automated duplicate or pricing-anomaly check", "PMs assemble closeout from shared drives, gaps caught by owner", "Recent closeout: lien waiver gaps held retainage 18 days past expected"]},
+    {"slide_num": 7, "layout": "section_header", "title": "Four workflows — each tied to one role and one number", "body": "We removed skill governance from this version. It is a knowledge-management problem your IT team can solve internally."},
+    {"slide_num": 8, "layout": "bullets", "title": "Workflow 1 — Subcontractor quote comparison", "subtitle": "Owner: lead estimator. Anchor: Q4 2025 Westside MOB bid package.", "points": ["Current workflow: estimator builds Excel comparison from 3-5 sub PDFs, 4 hrs per package", "Intervention: estimator drops PDFs into a Claude skill returning scope deltas, missing line items, risk flags", "Tomorrow morning change: estimator opens a pre-built comparison and picks the winner — no Excel build", "Measurable impact: 3 hrs saved per multi-vendor package = $78K/yr at current package volume", "Confidence: medium — estimate, validated week 1 by re-running 3 packages from the Q4 2025 bid log", "Risks / limitations: scope nuance on unusual trades; Not available — exact Hallboys bid-package volume per estimator (week-1 capture)"]},
+    {"slide_num": 9, "layout": "bullets", "title": "Workflow 2 — Equipment + crew schedule conflict scan", "subtitle": "Owner: scheduler. Anchor: Q1 2026 concrete pour shift incident.", "points": ["Current workflow: scheduler reconciles weekly schedule by hand against equipment, sub commitments, master plan", "Intervention: weekly schedule + equipment list go into Claude skill that flags overlaps, missing deliveries, dependency breaks", "Tomorrow morning change: Monday meeting opens with a flagged conflict list — scheduler decides each call", "Measurable impact: avoiding 1 idle crew day on a mid-size job = $5,400 (Q1 2026 incident: crew of 8 × 8 hrs × ~$84/hr blended)", "Confidence: medium — single Hallboys incident anchor, validated against last 90 days of Acumatica schedule changes", "Risks / limitations: schedule data quality drives output quality; false positives expected first 30 days as skill tunes"]},
+    {"slide_num": 10, "layout": "bullets", "title": "Workflow 3 — AP exception triage (0 writes to Acumatica)", "subtitle": "Owner: AP clerk. Headline: Claude never posts. The clerk owns every approval.", "points": ["Current workflow: clerk opens each invoice email, manually keys into Acumatica AP screen, checks PO, posts", "Intervention: Claude pre-reads invoice, extracts vendor/amount/PO match, flags duplicates and pricing drift; clerk reviews and posts in Acumatica unchanged", "Tomorrow morning change: clerk works from a triaged queue with anomalies surfaced first — same Acumatica screen, same posting flow", "Measurable impact: 1.6x current invoice volume per clerk-day at same catch rate; defers ~$45K in OT or new-hire cost", "Confidence: medium — validated through 30-day shadow mode before any clerk workflow change", "Risks / limitations: false-positive duplicate flags possible; Not available — current Hallboys duplicate-invoice rate (week-1 pull from Acumatica)"]},
+    {"slide_num": 11, "layout": "bullets", "title": "Workflow 4 — Closeout document checks against your SOP", "subtitle": "Owner: PM on closing job. Anchor: recent retainage held 18 days past expected.", "points": ["Current workflow: PM assembles closeout package from shared drives, owner finds gaps, retainage delay follows", "Intervention: PM uploads closeout folder to Claude skill checking against the Hallboys closeout SOP — missing items, mismatched dates, lien-pay-app gaps", "Tomorrow morning change: PM gets a missing-item list before sending the package, fixes gaps in-house", "Measurable impact: removing one 18-day retainage delay/quarter = ~$62K/yr in working capital recovered (assumes 1 mid-size job/quarter, ~$1M retainage tied)", "Confidence: medium-high — depends on Hallboys closeout SOP being current and Claude having access to it", "Risks / limitations: SOP completeness; doc not in SOP will not be flagged; Not available — confirmed current SOP version"]},
+    {"slide_num": 12, "layout": "table", "title": "Day-to-day workflow changes", "headers": ["Role", "Today (per week)", "After pilot (per week)", "What stays the same"], "rows": [["Lead estimator", "Builds 2-3 Excel comparisons by hand, ~10 hrs", "Reviews 2-3 pre-built comparisons, picks winner, ~3 hrs", "Estimator picks every winner; no auto-award"], ["Scheduler", "~3 hrs reconciling Monday schedule", "Opens Monday meeting with conflict list, ~30 min review", "Scheduler approves every change; no auto-reschedule"], ["AP clerk", "~25 invoices/day, no anomaly scan", "~40 invoices/day from triaged queue, anomalies surfaced", "Clerk posts every invoice in Acumatica; Claude never writes"], ["PM (closing job)", "Assembles package, owner finds gaps", "Pre-checks against SOP, sends clean package", "PM signs off every closeout"]]},
+    {"slide_num": 13, "layout": "two_column", "title": "Failure modes — what breaks, where the human stays in", "left_header": "What can go wrong", "left_points": ["Quote comparison: misses scope nuance on unusual trades", "Schedule scan: false-positive conflict from stale Acumatica data", "AP triage: flags legitimate invoice as duplicate (similar vendor/amount)", "Closeout: misses a doc not covered by the SOP", "Skill output drifts as vendors or scope conventions change"], "right_header": "Where the human still owns the call", "right_points": ["Estimator picks the bid winner — Claude cannot", "Scheduler approves every change — Claude only flags", "AP clerk posts every invoice in Acumatica — Claude never writes", "PM signs every closeout package — Claude only lists gaps", "IT lead approves every skill version, monthly review cadence"]},
+    {"slide_num": 14, "layout": "table", "title": "60-day pilot — kill thresholds defined here, not by reference", "headers": ["Workflow", "Owner", "Day-30 kill threshold", "Day-60 success signal"], "rows": [["Quote comparison", "Lead estimator", "<1.5 hrs saved per package average", ">2.5 hrs saved per package + estimator capacity for +1 package/wk"], ["Closeout checks", "PM (closing job)", "<3 real missing items found across first 5 closeouts", ">5 missing items found, >1 retainage delay avoided"], ["AP triage (shadow only)", "AP clerk + IT", "<70% extraction accuracy in shadow mode", ">85% accuracy + clerk endorses production switch"]]},
+    {"slide_num": 15, "layout": "closing", "title": "Next step — schedule the day-7 baseline review", "body": "30 minutes with the lead estimator and one PM to pull last quarter's bid log and the closeout SOP. Pilot starts day 8 if the data is intact. We exit if it is not."}
   ]
 }

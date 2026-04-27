@@ -1,0 +1,12 @@
+{
+  "title": "Hallboys + Claude — 6-slide executive cut",
+  "subtitle": "For the operating partner. Full deck available on request.",
+  "slides": [
+    {"slide_num": 1, "layout": "title", "title": "Hallboys + Claude — 6-slide executive cut", "subtitle": "$140K live-pilot upside, 60 days, day-30 kill points"},
+    {"slide_num": 2, "layout": "stat_callout", "title": "Estimated annual leak (4 workflows)", "stat": "$235K", "stat_label": "$78K quote comparison + $95K schedule + $62K closeout. AP capacity row pulled, replaced by week-1 audit.", "body": "We pulled the AP estimate because we cannot defend it without invoice data."},
+    {"slide_num": 3, "layout": "two_column", "title": "Pilot scope — 2 live, 1 shadow, 1 held", "left_header": "Live in pilot ($140K target)", "left_points": ["Quote comparison — lead estimator, $78K", "Closeout document checks — PM, $62K", "Both anchor to data Hallboys already has"], "right_header": "Not yet pitched", "right_points": ["AP exception triage — shadow only, no clerk workflow change", "Equipment + crew schedule — held until Acumatica data audit", "Reopen at day 60 if signals warrant"]},
+    {"slide_num": 4, "layout": "table", "title": "60-day pilot — kill thresholds defined", "headers": ["Workflow", "Mode", "Day-30 kill", "Day-60 success"], "rows": [["Quote comparison", "Live", "<1.5 hrs saved per package", ">2.5 hrs + 1 extra package/wk"], ["Closeout checks", "Live", "<3 missing items in 5 closeouts", ">5 items, >1 retainage delay avoided"], ["AP triage", "Shadow", "<70% extraction accuracy", ">85% + clerk endorsement"], ["Schedule", "Held", "—", "Reopen if data audit clean"]]},
+    {"slide_num": 5, "layout": "two_column", "title": "What this respects, and what it does not require", "left_header": "Respects", "left_points": ["Acumatica unchanged", "AP clerk role unchanged — capacity expands", "3-person IT team owns it after day 60", "Existing Claude workspace, no new vendor"], "right_header": "Does not require", "right_points": ["No headcount changes", "No new system build", "No data leaving Hallboys workspace", "No black-box automation — humans approve every decision"]},
+    {"slide_num": 6, "layout": "closing", "title": "Decision required from operating partner", "body": "Approve a 30-min baseline-data check this week with lead estimator + one PM. If data is intact, pilot starts within 5 business days. If not, no commitment."}
+  ]
+}

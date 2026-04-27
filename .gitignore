@@ -97,6 +97,10 @@ deal-opportunities-*.md
 *.xlsx
 *.lock
 
+# Brand assets (large binaries — stored in docs/assets/ but not committed)
+docs/assets/*.png
+docs/assets/*.html
+
 # Generated/synthetic data
 synthetic_repe_dataset.json
 
