@@ -99,6 +99,23 @@ deal-opportunities-*.md
 
 # Generated/synthetic data
 synthetic_repe_dataset.json
+
+# Generated audit run outputs — timestamped run directories and per-entity
+# authoritative-state snapshots produced by verification scripts and the
+# Meridian surface drift / hierarchy trace runners. Keep hand-curated summary
+# files (findings.md, audit_summary.json, etc.) but ignore bulk output.
+audit/meridian_surface_drift/meridian-*/
+audit/meridian_hierarchy_trace/meridian-*/
+audit/meridian_hierarchy_trace/authoritative_period_state.*.json
+audit/backfill/
+audit/verification_run_*/
+
+# Pitch Forge generated iteration outputs — critique JSON and final deck are
+# produced on each run; committed intentionally only when curated.
+demo_docs/**/pitch_forge/final/
+demo_docs/**/pitch_forge/iteration_*/critique.json
+demo_docs/**/pitch_forge/iteration_*/critique_summary.md
+demo_docs/**/pitch_forge/iteration_3/
 ~$*
 TaxHacker-main/
 # Lock files
