@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/supply-chain/primitives";
 import NotebooksPanel from "@/components/supply-chain/NotebooksPanel";
 
@@ -84,6 +85,68 @@ export default async function NotebooksPage({ params }: Props) {
             <code className="font-mono bg-[--bm-surface-2] px-1 rounded">COMMENT ON VIEW</code>,
             which is what makes that accuracy possible at scale.
           </p>
+        </div>
+      </div>
+
+      {/* Interviewer paths */}
+      <div className="mb-8 grid sm:grid-cols-2 gap-4">
+        {/* 10-minute path */}
+        <div className="rounded-xl border border-[--bm-border] bg-[--bm-surface] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-bm-muted2 mb-3">
+            If you have 10 minutes
+          </p>
+          <ol className="space-y-2.5">
+            {[
+              { step: "1", label: "Read this page", sub: "OTIF lineage + why it matters", tab: null },
+              { step: "2", label: "01_bronze_ingest.py", sub: "Ingestion patterns — JDBC, Auto Loader, Kafka", tab: "01_bronze_ingest" },
+              { step: "3", label: "03_gold_kpis.py", sub: "OTIF formula — line 48", tab: "03_gold_kpis" },
+              { step: "4", label: "06_ai_layer.py", sub: "Guardrails + NL→SQL worked examples", tab: "06_ai_layer" },
+            ].map(({ step, label, sub, tab }) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-[--bm-surface-2] border border-[--bm-border] text-[10px] font-semibold text-bm-muted flex items-center justify-center mt-0.5">
+                  {step}
+                </span>
+                <div className="min-w-0">
+                  {tab ? (
+                    <Link
+                      href={`/lab/env/${envId}/supply-chain/notebooks?tab=${tab}`}
+                      className="text-sm font-mono text-bm-text hover:text-bm-accent transition-colors"
+                    >
+                      {label}
+                    </Link>
+                  ) : (
+                    <span className="text-sm text-bm-text">{label}</span>
+                  )}
+                  <p className="text-xs text-bm-muted mt-0.5">{sub}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* 30-minute path */}
+        <div className="rounded-xl border border-[--bm-border] bg-[--bm-surface] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-bm-muted2 mb-3">
+            If you have 30 minutes
+          </p>
+          <ol className="space-y-2.5">
+            {[
+              { step: "1", label: "Walk all 8 tabs in order", sub: "Each notebook is one layer of the stack" },
+              { step: "2", label: "Compare each tab to the matching Winston page", sub: "Architecture → 00_setup · Medallion → 02 & 03 · Genie → 06 & 07" },
+              { step: "3", label: "Check the quality_results output in 05", sub: "Completeness, validity, and duplicate checks with failure rates" },
+              { step: "4", label: "Run the guardrail tests in 06_ai_layer.py", sub: "Verify DDL block and schema restriction work as expected" },
+            ].map(({ step, label, sub }) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-[--bm-surface-2] border border-[--bm-border] text-[10px] font-semibold text-bm-muted flex items-center justify-center mt-0.5">
+                  {step}
+                </span>
+                <div>
+                  <span className="text-sm text-bm-text">{label}</span>
+                  <p className="text-xs text-bm-muted mt-0.5">{sub}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
 
