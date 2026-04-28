@@ -127,6 +127,22 @@ Do not write new `demo_fixture_%` rows outside a numbered schema migration. Prod
 versions use timestamp slugs (e.g. `meridian-20260410T182315Z-3881843b`) and are always set by
 the promotion pipeline — never by hand or seed scripts.
 
+## Environment registries: `app.environments` vs `v1.environments`
+
+Two registries hold environment rows. Their roles are now declared, not implicit:
+
+- **`app.environments` is canonical for v2 metadata.** Carries `template_key`, `template_version`, `env_kind`, `lifecycle_state`, `seed_pack_applied`, `manifest_json`, etc. (added by `repo-b/db/schema/515_environments_v2_columns.sql`). Every read or write that needs v2 lifecycle, template lineage, or seed-pack provenance must hit this table.
+
+- **`v1.environments` is the legacy mirror.** Schema is older and narrower: `env_id`, `client_name`, `industry`, `schema_name`, `is_active`, `created_at`. The frontend `DomainEnvProvider` reads from `/v1/environments/:id` to resolve env identity at page load. Until that read path is migrated to a v2 endpoint, every new env must have a v1 row alongside its app row, and the two `env_id` values must match.
+
+Rules:
+
+1. **Both rows must exist** for every env. Provisioning code that inserts into `app.environments` must also insert (or upsert) the same `env_id` into `v1.environments`. The v2 pipeline (`environment_pipeline_v2.create_environment_v2`) does this; manual SQL provisioning must do it explicitly.
+2. **No v2 columns on v1.** Do not add `template_key` etc. to `v1.environments`. Keep the schemas distinct so the legacy read path stays narrow.
+3. **Drift is an integrity bug, not a normal state.** If `app.environments` has a row that `v1.environments` does not, the env will provision but fail to load in the UI. If `v1` has a row `app` does not, lifecycle/template state is invisible. Both cases are bugs.
+4. **The `/v2/environments/health` endpoint** (`backend/app/routes/lab_v2.py`) checks template-row integrity for every active app row with a `template_key` set. Extend it before adding new cross-table invariants — don't bury invariant checks in a separate diagnostic.
+5. **Future:** When the frontend env-identity read moves off `/v1/environments/:id`, retire `v1.environments` writes and demote it to read-only. Until then, treat it as a co-canonical mirror.
+
 ## Session Guardrails
 
 Autonomous coding sessions must follow these database rules:

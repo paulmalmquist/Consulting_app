@@ -1,13 +1,19 @@
 /**
  * apply.js — Schema applicator for Business OS backbone.
  *
- * Reads all *.sql files in db/schema/ in numeric filename order,
+ * Reads *.sql files in db/schema/ in numeric filename order,
  * concatenates them, and executes against the database.
  *
  * Supports:
  *   --dry-run     Parse and print statements without executing
  *   --verbose     Show full SQL for each statement
  *   --no-single-transaction   Run each statement independently
+ *   --files <list>            Comma-separated file numbers or names to apply.
+ *                             Examples: --files 514,515,516,517
+ *                                       --files 514_environment_templates.sql
+ *                             Targeted apply prevents accidental replay of all
+ *                             001..N files against prod, which is the
+ *                             documented production-integrity foot-gun.
  *
  * Env: DATABASE_URL or SUPABASE_DB_URL
  */
@@ -19,10 +25,13 @@ const { Client } = require('pg');
 const SCHEMA_DIR = path.resolve(__dirname);
 
 const args = process.argv.slice(2);
+const filesIdx = args.indexOf('--files');
+const filesArg = filesIdx >= 0 ? args[filesIdx + 1] : null;
 const options = {
   dryRun: args.includes('--dry-run'),
   verbose: args.includes('--verbose'),
   singleTransaction: !args.includes('--no-single-transaction'),
+  filesFilter: filesArg ? filesArg.split(',').map(s => s.trim()).filter(Boolean) : null,
 };
 
 /**
@@ -99,18 +108,42 @@ function excerpt(statement, length = 120) {
   return compact.length <= length ? compact : compact.slice(0, length) + '...';
 }
 
+function matchesFilter(filename, filter) {
+  if (!filter || filter.length === 0) return true;
+  for (const token of filter) {
+    if (filename === token) return true;
+    if (filename.startsWith(`${token}_`)) return true;
+    if (filename === `${token}.sql`) return true;
+  }
+  return false;
+}
+
 async function main() {
-  // Collect SQL files in numeric order
-  const files = fs.readdirSync(SCHEMA_DIR)
+  // Collect SQL files in numeric order, optionally filtered
+  const allFiles = fs.readdirSync(SCHEMA_DIR)
     .filter(f => f.endsWith('.sql'))
     .sort();
 
+  const files = options.filesFilter
+    ? allFiles.filter(f => matchesFilter(f, options.filesFilter))
+    : allFiles;
+
   if (files.length === 0) {
-    console.error('No .sql files found in', SCHEMA_DIR);
+    if (options.filesFilter) {
+      console.error('No SQL files matched filter:', options.filesFilter.join(','));
+      console.error('Available files:');
+      allFiles.slice(-10).forEach(f => console.error(`  ${f}`));
+    } else {
+      console.error('No .sql files found in', SCHEMA_DIR);
+    }
     process.exit(1);
   }
 
-  console.log(`Found ${files.length} SQL files in ${SCHEMA_DIR}:`);
+  if (options.filesFilter) {
+    console.log(`Targeted apply: matched ${files.length} of ${allFiles.length} SQL files:`);
+  } else {
+    console.log(`Found ${files.length} SQL files in ${SCHEMA_DIR}:`);
+  }
   files.forEach(f => console.log(`  ${f}`));
   console.log('');
 

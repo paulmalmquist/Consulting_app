@@ -55,6 +55,17 @@ max_client_conn = 100
 enabled = true
 # Specifies an ordered list of schema files that describe your database.
 # Supports glob patterns relative to supabase directory: "./schemas/*.sql"
+#
+# Intentionally left empty: declarative `supabase db push` is unsafe against
+# this prod DB because the historical 1..N schema files have drifted from
+# what's actually in prod. Pointing schema_paths at all of them would let the
+# CLI propose destructive diffs (drop columns, drop tables) on apply.
+#
+# Targeted apply pattern instead:
+#   cd repo-b && DATABASE_URL=... npm run db:apply-files 514,515,516,517
+# (see repo-b/db/schema/apply.js --files flag).
+#
+# Future migration to declarative mode is tracked but out of scope of this fix.
 schema_paths = []
 
 [db.seed]

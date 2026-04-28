@@ -20,6 +20,8 @@
     "prod:loop": "node scripts/production-loop.mjs",
     "db:dry": "node db/schema/apply.js --dry-run",
     "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js",
+    "db:apply-files": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/apply.js --files",
+    "db:dry-files": "node db/schema/apply.js --dry-run --files",
     "db:verify": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/schema/verify.js",
     "db:test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node db/tests/schema.test.js"
   },
