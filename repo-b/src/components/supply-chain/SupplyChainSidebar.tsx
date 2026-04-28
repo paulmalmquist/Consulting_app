@@ -13,6 +13,7 @@ import {
   LineChart,
   MessageSquareText,
   Map,
+  FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -34,6 +35,7 @@ function buildNav(base: string): NavItem[] {
     { href: `${base}/forecasting`, label: "Forecasting / ML", icon: LineChart },
     { href: `${base}/genie`, label: "Genie / NL BI", icon: MessageSquareText },
     { href: `${base}/roadmap`, label: "Delivery Roadmap", icon: Map },
+    { href: `${base}/notebooks`, label: "Notebooks", icon: FileCode },
   ];
 }
 
