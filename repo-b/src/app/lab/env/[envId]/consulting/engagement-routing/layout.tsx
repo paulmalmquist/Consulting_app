@@ -25,9 +25,12 @@ const plex = IBM_Plex_Sans({
   display: "swap",
 });
 
-export default function ConsultingPipelineLayout({ children }: { children: ReactNode }) {
+export default function EngagementRoutingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${orbitron.variable} ${jetbrains.variable} ${plex.variable}`} style={{ minHeight: "100vh", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div
+      className={`${orbitron.variable} ${jetbrains.variable} ${plex.variable}`}
+      style={{ minHeight: "100vh", height: "100%", display: "flex", flexDirection: "column" }}
+    >
       {children}
     </div>
   );

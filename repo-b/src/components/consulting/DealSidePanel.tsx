@@ -5,6 +5,7 @@ import { X, ExternalLink, Mail, Phone, Copy, Check } from "lucide-react";
 import { GenerateActionsModal } from "@/components/consulting/execution/GenerateActionsModal";
 import {
   completeNextAction,
+  convertDealToEngagement,
   createContact,
   createNextAction,
   draftOpportunityOutreach,
@@ -910,6 +911,22 @@ function ExecutionTab({
 }) {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generateMsg, setGenerateMsg] = useState<string | null>(null);
+  const [convertingEng, setConvertingEng] = useState(false);
+  const [convertMsg, setConvertMsg] = useState<string | null>(null);
+  const [convertErr, setConvertErr] = useState<string | null>(null);
+
+  async function handleConvertToEngagement() {
+    setConvertingEng(true);
+    setConvertErr(null);
+    try {
+      const detail = await convertDealToEngagement({ envId, businessId, dealId });
+      setConvertMsg(detail.engagement.name);
+    } catch (err) {
+      setConvertErr(err instanceof Error ? err.message : "Conversion failed");
+    } finally {
+      setConvertingEng(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -917,14 +934,40 @@ function ExecutionTab({
         <p className="text-[10px] font-bold uppercase tracking-wider text-bm-muted2">
           Sequenced plan
         </p>
-        <button
-          type="button"
-          onClick={() => setGenerateOpen(true)}
-          className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-400/15"
-        >
-          Create Actions
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleConvertToEngagement}
+            disabled={convertingEng}
+            className="rounded-lg border border-violet-400/40 bg-violet-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-300 hover:bg-violet-400/15 disabled:opacity-50"
+          >
+            {convertingEng ? "Converting…" : "Convert to Engagement"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setGenerateOpen(true)}
+            className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-400/15"
+          >
+            Create Actions
+          </button>
+        </div>
       </div>
+      {convertMsg ? (
+        <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2 text-[11px] text-violet-300">
+          Engagement created: {convertMsg}.{" "}
+          <a
+            href={`/lab/env/${envId}/consulting/engagement-routing`}
+            className="underline hover:text-violet-200"
+          >
+            Open Engagement Routing →
+          </a>
+        </div>
+      ) : null}
+      {convertErr ? (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
+          {convertErr}
+        </div>
+      ) : null}
       {generateMsg ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/05 px-3 py-2 text-[11px] text-emerald-300">
           {generateMsg}{" "}

@@ -2422,3 +2422,333 @@ def execution_quick_capture_route(body: QuickCaptureRequest):
         )
     except Exception as exc:
         raise _to_http(exc)
+
+
+# ── Engagement Routing ─────────────────────────────────────────────────────────
+
+from app.services import engagement_routing as engagement_routing_svc
+from app.schemas.consulting import (
+    AttributionIn,
+    AttributionOut,
+    AttributionPatchRequest,
+    ConvertDealPreview,
+    ConvertDealRequest,
+    ConvertToNovendorRequest,
+    EngagementContractIn,
+    EngagementContractOut,
+    EngagementDashboard,
+    EngagementDetail,
+    EngagementListResponse,
+    InvoiceIn,
+    InvoiceOut,
+    InvoicePatchRequest,
+    RevenueStreamIn,
+    RevenueStreamOut,
+    RoutingEngagementCreateRequest,
+    RoutingEngagementPatchRequest,
+)
+
+
+@router.get("/engagement-routing/engagements", response_model=EngagementListResponse)
+def list_routing_engagements(
+    env_id: str,
+    business_id: UUID,
+    routing_status: str | None = None,
+    routing_health_status: str | None = None,
+    contracting_entity: str | None = None,
+    originator_user_id: str | None = None,
+    relationship_owner_user_id: str | None = None,
+    delivery_owner_user_id: str | None = None,
+    client_name: str | None = None,
+    search: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """List engagements for the routing control tower.
+
+    Returns rollups + computed routing health for each engagement so the
+    list surface can render badges and KPI numbers without N+1 round trips.
+    """
+    try:
+        return engagement_routing_svc.list_engagements(
+            env_id=env_id,
+            business_id=business_id,
+            filters={
+                "routing_status": routing_status,
+                "routing_health_status": routing_health_status,
+                "contracting_entity": contracting_entity,
+                "originator_user_id": originator_user_id,
+                "relationship_owner_user_id": relationship_owner_user_id,
+                "delivery_owner_user_id": delivery_owner_user_id,
+                "client_name": client_name,
+                "search": search,
+            },
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/engagement-routing/engagements", response_model=EngagementDetail, status_code=201)
+def create_routing_engagement(
+    body: RoutingEngagementCreateRequest,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.create_engagement(
+            env_id=env_id,
+            business_id=business_id,
+            payload=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/engagement-routing/engagements/{engagement_id}", response_model=EngagementDetail)
+def get_routing_engagement(
+    engagement_id: UUID,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.get_engagement_detail(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/engagement-routing/engagements/{engagement_id}", response_model=EngagementDetail)
+def patch_routing_engagement(
+    engagement_id: UUID,
+    body: RoutingEngagementPatchRequest,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.update_engagement(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            patch=body.model_dump(exclude_none=True),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/engagements/{engagement_id}/contracts",
+    response_model=EngagementContractOut,
+    status_code=201,
+)
+def add_routing_contract(
+    engagement_id: UUID,
+    body: EngagementContractIn,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.add_contract(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            payload=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/engagements/{engagement_id}/revenue-streams",
+    response_model=RevenueStreamOut,
+    status_code=201,
+)
+def add_routing_revenue_stream(
+    engagement_id: UUID,
+    body: RevenueStreamIn,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.add_revenue_stream(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            payload=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/engagements/{engagement_id}/invoices",
+    response_model=InvoiceOut,
+    status_code=201,
+)
+def add_routing_invoice(
+    engagement_id: UUID,
+    body: InvoiceIn,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.add_invoice(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            payload=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch(
+    "/engagement-routing/invoices/{invoice_id}",
+    response_model=InvoiceOut,
+)
+def patch_routing_invoice(
+    invoice_id: UUID,
+    body: InvoicePatchRequest,
+    env_id: str,
+):
+    try:
+        return engagement_routing_svc.patch_invoice(
+            env_id=env_id,
+            invoice_id=invoice_id,
+            patch=body.model_dump(exclude_none=True),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/engagements/{engagement_id}/attribution",
+    response_model=AttributionOut,
+    status_code=201,
+)
+def add_routing_attribution(
+    engagement_id: UUID,
+    body: AttributionIn,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.add_attribution(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            payload=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch(
+    "/engagement-routing/attribution/{attribution_id}",
+    response_model=AttributionOut,
+)
+def patch_routing_attribution(
+    attribution_id: UUID,
+    body: AttributionPatchRequest,
+    env_id: str,
+):
+    try:
+        return engagement_routing_svc.patch_attribution(
+            env_id=env_id,
+            attribution_id=attribution_id,
+            patch=body.model_dump(exclude_none=True),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/engagements/{engagement_id}/convert-to-novendor",
+    response_model=EngagementDetail,
+)
+def convert_engagement_to_novendor(
+    engagement_id: UUID,
+    body: ConvertToNovendorRequest,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.convert_to_novendor(
+            env_id=env_id,
+            business_id=business_id,
+            engagement_id=engagement_id,
+            create_next_action_task=body.create_next_action_task,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/engagement-routing/dashboard", response_model=EngagementDashboard)
+def get_routing_dashboard(
+    env_id: str,
+    business_id: UUID,
+):
+    """Control-tower rollups: routed revenue, compounding %, gaps, and the
+    'Revenue Not Yet Routable' panel."""
+    try:
+        return engagement_routing_svc.get_dashboard(
+            env_id=env_id,
+            business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get(
+    "/engagement-routing/from-deal/{deal_id}/preview",
+    response_model=ConvertDealPreview,
+)
+def preview_engagement_from_deal(
+    deal_id: UUID,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.preview_deal_conversion(
+            env_id=env_id,
+            business_id=business_id,
+            deal_id=deal_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/engagement-routing/from-deal/{deal_id}/convert",
+    response_model=EngagementDetail,
+    status_code=201,
+)
+def convert_deal_to_engagement_route(
+    deal_id: UUID,
+    body: ConvertDealRequest,
+    env_id: str,
+    business_id: UUID,
+):
+    try:
+        return engagement_routing_svc.convert_deal_to_engagement(
+            env_id=env_id,
+            business_id=business_id,
+            deal_id=deal_id,
+            body=body.model_dump(exclude_none=False),
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/engagement-routing/seed")
+def seed_engagement_routing_route(env_id: str, business_id: UUID):
+    """Seed three demo engagements (RED/YELLOW/GREEN). Idempotent."""
+    try:
+        from app.services.engagement_routing_seed import seed_engagement_routing
+        return seed_engagement_routing(env_id=env_id, business_id=business_id)
+    except Exception as exc:
+        raise _to_http(exc)

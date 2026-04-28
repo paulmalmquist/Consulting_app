@@ -31,6 +31,7 @@ export default function ConsultingWorkspaceShell({
     () => [
       { href: `${base}/pipeline`, label: "Pipeline", isBase: true },
       { href: `${base}/execution`, label: "Execution", isBase: false },
+      { href: `${base}/engagement-routing`, label: "Engagement Routing", isBase: false },
       { href: `${base}/accounts`, label: "Accounts", isBase: false },
       { href: `${base}/contacts`, label: "Contacts", isBase: false },
       { href: `${base}/strategic-outreach`, label: "Outreach", isBase: false },
@@ -76,13 +77,14 @@ export default function ConsultingWorkspaceShell({
 
   const envLabel = environment?.client_name || envId || "Consulting";
 
-  // Pipeline, Contacts, Tasks, and Execution render their own dark-Winston
-  // shell — bypass the generic ConsultingWorkspaceShell entirely.
+  // Pipeline, Contacts, Tasks, Execution, and Engagement Routing render their
+  // own dark-Winston shell — bypass the generic ConsultingWorkspaceShell.
   if (
     pathname.endsWith("/pipeline") ||
     pathname.endsWith("/contacts") ||
     pathname.endsWith("/tasks") ||
-    pathname.endsWith("/execution")
+    pathname.endsWith("/execution") ||
+    pathname.endsWith("/engagement-routing")
   ) {
     return <>{children}</>;
   }

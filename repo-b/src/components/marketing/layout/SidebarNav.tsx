@@ -214,14 +214,14 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[rgba(232,236,242,0.06)] bg-nv-surface/95 backdrop-blur md:static md:translate-x-0',
+        'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r [border-color:rgb(var(--nv-hair-soft)/0.06)] bg-nv-surface/95 backdrop-blur md:static md:translate-x-0',
         drawerOpen ? 'translate-x-0' : '-translate-x-full',
         isCollapsed ? 'md:w-20' : 'md:w-72'
       )}
     >
       <div className="flex items-center justify-between px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-[8px] border border-[rgba(232,236,242,0.10)] bg-nv-bg/80">
+          <div className="relative h-11 w-11 overflow-hidden rounded-[8px] border [border-color:var(--nv-hair-medium-rgba)] bg-nv-bg/80">
             <Image
               src="/assets/branding/Image-1.jpg"
               alt="Novendor logo"
@@ -245,7 +245,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
         </button>
         <button
           type="button"
-          className="inline-flex rounded-[4px] border border-[rgba(232,236,242,0.10)] p-2 text-nv-muted md:hidden"
+          className="inline-flex rounded-[4px] border [border-color:var(--nv-hair-medium-rgba)] p-2 text-nv-muted md:hidden"
           onClick={() => setDrawerOpen(false)}
           aria-label="Close menu"
         >

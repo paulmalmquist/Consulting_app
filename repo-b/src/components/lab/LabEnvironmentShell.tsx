@@ -167,7 +167,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|operator|opportunity-engine|ecc|demo|documents|definitions|resume|markets|ncf|supply-chain)(/|$)`).test(pathname);
   const homeHref = `/lab/env/${envId}`;
   if (isDomainRoute) {
-    return <>{children}</>;
+    return <div className="min-h-screen bg-bm-bg">{children}</div>;
   }
 
   if (!currentDept) {
@@ -183,7 +183,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
   // every route, including vertical shells that bypass this component.
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-screen space-y-4">
       {/* ── Department icon tab bar ──────────────────────── */}
       <div className="rounded-lg border border-bm-border/70 bg-bm-surface/35 p-3">
         <div className="flex items-center justify-between gap-3">

@@ -241,10 +241,16 @@
     color-scheme: light;
   }
 
+  html,
+  body {
+    min-height: 100vh;
+  }
+
   body {
     @apply bg-bm-bg text-bm-text font-sans antialiased;
     background-image: theme("backgroundImage.bm-vignette");
     background-attachment: fixed;
+    min-height: 100vh;
   }
 
   html[data-theme="light"] body {

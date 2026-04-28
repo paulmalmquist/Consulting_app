@@ -1683,3 +1683,340 @@ class QuickCaptureMatch(BaseModel):
 class QuickCaptureResponse(BaseModel):
     task: ExecutionTask
     matched_entity: QuickCaptureMatch | None = None
+
+
+# ── Engagement Routing ──────────────────────────────────────────────────────────
+
+class RoutingHealth(BaseModel):
+    """Computed routing health for an engagement.
+
+    Routing health is computed server-side from contracting entity, contracts,
+    revenue streams, attribution, owners, next action, and invoice state. The
+    frontend only displays it; it does not recompute.
+    """
+
+    routing_health_status: str  # green | yellow | red
+    routing_health_reasons: list[str]
+    properly_routed: bool
+    personal_risk: bool
+    novendor_compounding_status: str  # compounds | partial | non_compounding
+
+
+class EngagementContractIn(BaseModel):
+    contract_type: str
+    status: str = "draft"
+    signed_by_client: bool = False
+    signed_by_novendor: bool = False
+    effective_date: date | None = None
+    expiration_date: date | None = None
+    file_url: str | None = None
+    file_storage_key: str | None = None
+    billing_terms: str | None = None
+    legal_notes: str | None = None
+
+
+class EngagementContractOut(BaseModel):
+    id: UUID
+    engagement_id: UUID
+    contract_type: str
+    status: str
+    signed_by_client: bool
+    signed_by_novendor: bool
+    is_fully_executed: bool
+    effective_date: date | None = None
+    expiration_date: date | None = None
+    file_url: str | None = None
+    billing_terms: str | None = None
+    legal_notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class RevenueStreamIn(BaseModel):
+    revenue_type: str
+    total_contract_value: Decimal | None = None
+    hourly_rate: Decimal | None = None
+    estimated_hours: Decimal | None = None
+    retainer_amount: Decimal | None = None
+    billing_frequency: str | None = None
+    margin_split_json: dict[str, Any] = Field(default_factory=dict)
+    start_date: date | None = None
+    end_date: date | None = None
+    revenue_notes: str | None = None
+
+
+class RevenueStreamOut(BaseModel):
+    id: UUID
+    engagement_id: UUID
+    revenue_type: str
+    total_contract_value: Decimal | None = None
+    hourly_rate: Decimal | None = None
+    estimated_hours: Decimal | None = None
+    retainer_amount: Decimal | None = None
+    billing_frequency: str | None = None
+    margin_split_json: dict[str, Any]
+    margin_split_warning: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    revenue_notes: str | None = None
+    created_at: datetime
+
+
+class InvoiceIn(BaseModel):
+    revenue_stream_id: UUID | None = None
+    invoice_number: str | None = None
+    amount: Decimal
+    issued_date: date | None = None
+    due_date: date | None = None
+    paid_date: date | None = None
+    status: str = "draft"
+    notes: str | None = None
+
+
+class InvoiceOut(BaseModel):
+    id: UUID
+    engagement_id: UUID
+    revenue_stream_id: UUID | None = None
+    invoice_number: str | None = None
+    amount: Decimal
+    issued_date: date | None = None
+    due_date: date | None = None
+    paid_date: date | None = None
+    status: str
+    is_overdue: bool
+    days_overdue: int
+    notes: str | None = None
+    created_at: datetime
+
+
+class InvoicePatchRequest(BaseModel):
+    status: str | None = None
+    paid_date: date | None = None
+    invoice_number: str | None = None
+    issued_date: date | None = None
+    due_date: date | None = None
+    notes: str | None = None
+
+
+class AttributionIn(BaseModel):
+    user_id: str | None = None
+    operator_name: str | None = None
+    role: str
+    credit_percentage: Decimal | None = None
+    economics_percentage: Decimal | None = None
+    notes: str | None = None
+
+
+class AttributionOut(BaseModel):
+    id: UUID
+    engagement_id: UUID
+    user_id: str | None = None
+    operator_name: str | None = None
+    role: str
+    credit_percentage: Decimal | None = None
+    economics_percentage: Decimal | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AttributionPatchRequest(BaseModel):
+    operator_name: str | None = None
+    role: str | None = None
+    credit_percentage: Decimal | None = None
+    economics_percentage: Decimal | None = None
+    notes: str | None = None
+
+
+class EngagementEventOut(BaseModel):
+    id: UUID
+    engagement_id: UUID
+    event_type: str
+    event_date: datetime
+    actor_user_id: str | None = None
+    summary: str
+    metadata_json: dict[str, Any]
+
+
+class RoutingEngagementCreateRequest(BaseModel):
+    name: str
+    client_name: str
+    crm_account_id: UUID | None = None
+    crm_contact_id: UUID | None = None
+    source_deal_id: UUID | None = None
+    contracting_entity: str = "Novendor LLC"
+    originated_by_user_id: str | None = None
+    relationship_owner_user_id: str | None = None
+    delivery_owner_user_id: str | None = None
+    lead_source: str | None = None
+    routing_status: str = "draft"
+    engagement_type: str | None = None
+    expected_start_date: date | None = None
+    expected_end_date: date | None = None
+    description: str | None = None
+    current_pain: str | None = None
+    what_winston_replaces: str | None = None
+    expected_roi_angle: str | None = None
+    marketing_permission_status: str = "unknown"
+    next_action_text: str | None = None
+    next_action_due_date: date | None = None
+    notes: str | None = None
+
+
+class RoutingEngagementPatchRequest(BaseModel):
+    name: str | None = None
+    contracting_entity: str | None = None
+    originated_by_user_id: str | None = None
+    relationship_owner_user_id: str | None = None
+    delivery_owner_user_id: str | None = None
+    lead_source: str | None = None
+    routing_status: str | None = None
+    engagement_type: str | None = None
+    expected_start_date: date | None = None
+    actual_start_date: date | None = None
+    expected_end_date: date | None = None
+    actual_end_date: date | None = None
+    description: str | None = None
+    current_pain: str | None = None
+    what_winston_replaces: str | None = None
+    expected_roi_angle: str | None = None
+    marketing_permission_status: str | None = None
+    next_action_task_id: UUID | None = None
+    next_action_text: str | None = None
+    next_action_due_date: date | None = None
+    notes: str | None = None
+    client_name_override: str | None = None
+
+
+class EngagementListItem(BaseModel):
+    id: UUID
+    name: str
+    client_name: str
+    contracting_entity: str
+    routing_status: str
+    engagement_type: str | None = None
+    originated_by_user_id: str | None = None
+    relationship_owner_user_id: str | None = None
+    delivery_owner_user_id: str | None = None
+    expected_start_date: date | None = None
+    expected_end_date: date | None = None
+    next_action_text: str | None = None
+    next_action_due_date: date | None = None
+    next_action_task_id: UUID | None = None
+    routing_health: RoutingHealth
+    contract_status_summary: str | None = None
+    attribution_status_summary: str | None = None
+    billed_amount: Decimal
+    collected_amount: Decimal
+    outstanding_amount: Decimal
+    contract_value: Decimal
+    created_at: datetime
+
+
+class EngagementDetail(BaseModel):
+    engagement: EngagementListItem
+    contracts: list[EngagementContractOut]
+    revenue_streams: list[RevenueStreamOut]
+    invoices: list[InvoiceOut]
+    attribution: list[AttributionOut]
+    events: list[EngagementEventOut]
+    crm_account_id: UUID | None = None
+    crm_account_name: str | None = None
+    crm_contact_id: UUID | None = None
+    source_deal_id: UUID | None = None
+    description: str | None = None
+    current_pain: str | None = None
+    what_winston_replaces: str | None = None
+    expected_roi_angle: str | None = None
+    marketing_permission_status: str
+    notes: str | None = None
+    recommended_next_actions: list[str]
+
+
+class EngagementListResponse(BaseModel):
+    items: list[EngagementListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class EngagementDashboardCounts(BaseModel):
+    green: int = 0
+    yellow: int = 0
+    red: int = 0
+
+
+class EngagementDashboardRevenueByOperator(BaseModel):
+    user_id: str | None = None
+    operator_name: str | None = None
+    contract_value: Decimal
+    billed: Decimal
+    collected: Decimal
+
+
+class EngagementDashboardRevenueByClient(BaseModel):
+    client_name: str
+    contract_value: Decimal
+    billed: Decimal
+    collected: Decimal
+
+
+class RevenueNotYetRoutableItem(BaseModel):
+    engagement_id: UUID
+    name: str
+    client_name: str
+    contracting_entity: str
+    contract_value: Decimal
+    routing_health_status: str
+    reasons: list[str]
+
+
+class EngagementDashboard(BaseModel):
+    total_contract_value: Decimal
+    total_billed: Decimal
+    total_collected: Decimal
+    total_outstanding: Decimal
+    revenue_by_originator: list[EngagementDashboardRevenueByOperator]
+    revenue_by_relationship_owner: list[EngagementDashboardRevenueByOperator]
+    revenue_by_delivery_owner: list[EngagementDashboardRevenueByOperator]
+    revenue_by_client: list[EngagementDashboardRevenueByClient]
+    count_by_routing_health: EngagementDashboardCounts
+    percent_properly_routed: float
+    personal_deal_count: int
+    non_compounding_revenue_amount: Decimal
+    unpaid_invoice_count: int
+    overdue_invoice_count: int
+    engagements_missing_contracts: int
+    engagements_missing_revenue: int
+    engagements_missing_attribution: int
+    next_actions_due_today: int
+    next_actions_overdue: int
+    revenue_not_yet_routable: list[RevenueNotYetRoutableItem]
+
+
+class ConvertDealPreview(BaseModel):
+    source_deal_id: UUID
+    deal_name: str
+    crm_account_id: UUID | None = None
+    crm_account_name: str | None = None
+    crm_contact_id: UUID | None = None
+    suggested_engagement_name: str
+    suggested_client_name: str
+    suggested_contracting_entity: str
+    suggested_routing_status: str
+    suggested_originator_user_id: str | None = None
+    suggested_current_pain: str | None = None
+    suggested_expected_roi_angle: str | None = None
+
+
+class ConvertDealRequest(BaseModel):
+    originated_by_user_id: str | None = None
+    relationship_owner_user_id: str | None = None
+    delivery_owner_user_id: str | None = None
+    create_next_action_task: bool = True
+    next_action_text: str = "Confirm contract path and revenue structure"
+
+
+class ConvertToNovendorRequest(BaseModel):
+    note: str | None = None
+    create_next_action_task: bool = True

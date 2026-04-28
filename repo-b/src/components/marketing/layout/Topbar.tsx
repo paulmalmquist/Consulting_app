@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Menu, Moon, Sun } from 'lucide-react';
 import { InlineSearch } from '../search/InlineSearch';
 import { AccountButton } from './AccountButton';
 
@@ -19,18 +20,59 @@ const topNavLinks = [
   { label: 'Capabilities', href: '/capabilities' },
   { label: 'The Shift', href: '/the-shift' },
   { label: 'About', href: '/about' },
-  { label: 'Contact', href: '/contact' }
+  { label: 'Contact', href: '/contact' },
 ];
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined'
+      ? (localStorage.getItem('nv-theme') as 'dark' | 'light' | null)
+      : null);
+    const initial = saved === 'light' ? 'light' : 'dark';
+    setTheme(initial);
+    document.querySelector('.marketing-shell')?.setAttribute('data-theme', initial);
+  }, []);
+
+  const toggle = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    document.querySelector('.marketing-shell')?.setAttribute('data-theme', next);
+    try {
+      localStorage.setItem('nv-theme', next);
+    } catch {
+      // ignore
+    }
+  };
+
+  const Icon = theme === 'light' ? Moon : Sun;
+  const label = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={label}
+      title={label}
+      className="nv-btn nv-btn-ghost shrink-0"
+      style={{ padding: '8px', borderRadius: 'var(--nv-radius-sm)' }}
+    >
+      <Icon size={16} strokeWidth={1.8} />
+    </button>
+  );
+}
 
 export function Topbar({ setDrawerOpen }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-30 border-b border-[rgba(232,236,242,0.06)] bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8">
+    <header className="sticky top-0 z-30 border-b bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8" style={{ borderColor: 'rgb(var(--nv-hair-soft) / 0.06)' }}>
       <div className="mx-auto flex w-full max-w-none flex-col gap-3">
-        {/* Row 1: search + CTA + account (desktop) / hamburger + account (mobile) */}
+        {/* Row 1: search + CTA + account */}
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-[4px] border border-[rgba(232,236,242,0.10)] p-2 text-nv-muted md:hidden"
+            className="inline-flex items-center justify-center rounded-[4px] p-2 text-nv-muted md:hidden"
+            style={{ boxShadow: 'inset 0 0 0 1px var(--nv-hair-medium-rgba)' }}
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
@@ -40,11 +82,13 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
             <InlineSearch />
             <Link
               href="/operational-assessment"
-              className="shrink-0 rounded-[4px] bg-gradient-to-b from-[#5EC2B7] to-nv-teal px-4 py-1.5 text-xs font-semibold text-[#0B1E1C] shadow-nv-btn-primary transition hover:-translate-y-px"
+              className="nv-btn nv-btn-primary shrink-0"
+              style={{ fontSize: 12, padding: '7px 14px' }}
             >
               See your first use case
             </Link>
           </div>
+          <ThemeToggle />
           <AccountButton />
         </div>
         {/* Row 2: nav links (desktop only) */}
@@ -53,7 +97,8 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-[4px] border border-[rgba(232,236,242,0.08)] px-3 py-1.5 text-xs font-semibold text-nv-muted transition hover:border-[rgba(232,236,242,0.16)] hover:text-nv-text"
+              className="rounded-[4px] px-3 py-1.5 text-xs font-medium text-nv-muted transition hover:text-nv-text"
+              style={{ boxShadow: 'inset 0 0 0 1px var(--nv-hair-medium-rgba)' }}
             >
               {link.label}
             </Link>

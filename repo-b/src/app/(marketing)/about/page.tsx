@@ -1,37 +1,69 @@
-import Link from 'next/link';
-import { SloganBadge } from '@/components/marketing/visual/SloganBadge';
+import { NvHero } from '@/components/marketing/home/NvHero';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { NvButton } from '@/components/marketing/ui/NvButton';
+
+const aboutPanel = [
+  { k: 'FOUNDED', v: '2024' },
+  { k: 'BASE', v: 'NYC · remote' },
+  { k: 'FOCUS', v: 'Operating layer for finance' },
+  { k: 'ENGAGEMENT', v: 'Pilot · Cutover · Own' },
+];
 
 export default function AboutPage() {
   return (
-    <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <SloganBadge />
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-5xl">We built Novendor after watching critical operations run on disconnected tools.</h1>
-        <p className="mt-4 max-w-3xl text-sm text-nv-muted sm:text-base">
-          Teams were forced to manage real risk across spreadsheets, SaaS apps, and manual handoffs. We built Novendor to replace that fragmentation with controlled execution systems companies actually own.
-        </p>
-      </section>
+    <div className="nv-page">
+      <NvHero
+        eyebrow="About Novendor"
+        headline={
+          <>
+            We built Novendor after watching critical operations run on
+            <em> disconnected </em>
+            tools.
+          </>
+        }
+        lede="Teams were forced to manage real risk across spreadsheets, SaaS apps, and manual handoffs. We built Novendor to replace that fragmentation with controlled execution systems companies actually own."
+        panel={aboutPanel}
+        panelTitle="Firm at a glance"
+      />
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-nv-teal">The Shift</p>
-        <h2 className="mt-2 text-2xl font-semibold text-white">Vendor Dependence → Execution Ownership</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-rose-300/25 bg-nv-bg/40 p-4 text-sm text-nv-text">Vendor Dependence: disconnected tools, opaque logic, costly change cycles.</div>
-          <div className="rounded-2xl border border-nv-teal/25 bg-nv-bg/40 p-4 text-sm text-nv-text">Execution Ownership: governed states, explicit rules, auditable outputs.</div>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The Shift</p>
+        </div>
+        <h2 className="nv-h2" style={{ marginBottom: 32 }}>
+          Vendor dependence <em>→</em> execution ownership
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <NvCard>
+            <p className="nv-eyebrow nv-pill nv-pill-risk" style={{ marginBottom: 14 }}>Vendor dependence</p>
+            <p className="nv-body" style={{ margin: 0 }}>
+              Disconnected tools, opaque logic, costly change cycles.
+            </p>
+          </NvCard>
+          <NvCard>
+            <p className="nv-eyebrow nv-pill nv-pill-teal" style={{ marginBottom: 14 }}>Execution ownership</p>
+            <p className="nv-body" style={{ margin: 0 }}>
+              Governed states, explicit rules, auditable outputs.
+            </p>
+          </NvCard>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-teal/25 bg-nv-bg/80 p-6">
-        <h2 className="text-2xl font-semibold text-white">Typical Results</h2>
-        <ul className="mt-3 space-y-2 text-sm text-nv-text">
-          <li>20–35% faster cycle times on redesigned workflows</li>
-          <li>25–40% lower manual rework across handoffs</li>
-          <li>90%+ traceability for control-critical decisions</li>
-        </ul>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/the-shift" className="rounded-full border border-nv-text/12 px-5 py-2.5 text-sm font-semibold text-white">Read The Shift manifesto</Link>
-          <Link href="/contact" className="rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-5 py-2.5 text-sm font-semibold text-nv-teal">Start with one workflow</Link>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow">Typical results</p>
         </div>
+        <NvCard>
+          <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
+            <li>20–35% faster cycle times on redesigned workflows</li>
+            <li>25–40% lower manual rework across handoffs</li>
+            <li>90%+ traceability for control-critical decisions</li>
+          </ul>
+          <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
+            <NvButton variant="secondary" href="/the-shift">Read The Shift manifesto</NvButton>
+            <NvButton variant="primary" href="/contact">Start with one workflow</NvButton>
+          </div>
+        </NvCard>
       </section>
     </div>
   );

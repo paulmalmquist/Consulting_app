@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, DM_Mono } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import { LayoutShell } from '@/components/marketing/layout/LayoutShell';
 import './marketing.css';
 
@@ -18,22 +19,22 @@ export const metadata: Metadata = {
   },
 };
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-marketing-sans',
-  display: 'swap',
-});
-
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  variable: '--font-marketing-mono',
-  display: 'swap',
-  weight: ['400', '500'],
-});
+const noFlashScript = `
+  try {
+    var t = localStorage.getItem('nv-theme');
+    if (t === 'dark' || t === 'light') {
+      document.querySelector('.marketing-shell')?.setAttribute('data-theme', t);
+    }
+  } catch (_) {}
+`;
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`marketing-shell ${inter.variable} ${dmMono.variable}`}>
+    <div
+      data-theme="dark"
+      className={`marketing-shell ${GeistSans.variable} ${GeistMono.variable}`}
+    >
+      <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       <LayoutShell>{children}</LayoutShell>
     </div>
   );

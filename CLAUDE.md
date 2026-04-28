@@ -110,8 +110,9 @@ When a request touches client portability or white-labeling, keep the three-laye
 | repo sync, fetch, pull, dirty-tree checks | `agents/sync.md` |
 | push, deploy, CI, Railway, Vercel, production verification | `agents/deploy.md` |
 | QA, regression, smoke test, validation | `agents/qa.md` |
-| site audit, design review, tour paulmalmquist.com, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
+| site audit, design review, tour novendor.ai, mobile audit, site performance, REPE usefulness, PDS usefulness, AI synchronicity | `skills/site-audit/SKILL.md` |
 | post-deploy verification, smoke test production, verify deploy, check if fix worked, log in and check environments | `skills/winston-post-deploy-verify/SKILL.md` |
+| chatgpt agent mode validation, hand off to chatgpt agent for browser check, produce a chatgpt prompt to verify the build, validate via chatgpt agent, independent visual verification of what we just shipped, give me an agent-mode prompt to verify, browser validation prompt | `skills/chatgpt-agent-validate/SKILL.md` |
 | read Rich's texts, what did Rich say, Rich work, check Rich's messages, Rich iMessage thread | `skills/rich-texts/SKILL.md` |
 | read [name]'s texts, what did [name] say, scrub [name]'s messages, check texts from [name], iMessage thread for [person] | `skills/read-texts/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
@@ -150,6 +151,12 @@ When a request touches client portability or white-labeling, keep the three-laye
 | `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
+
+## Production Surface
+
+- **Public site / app:** `https://novendor.ai` (replaced `paulmalmquist.com` — older docs and `.env.example` may still reference the old domain; update on touch).
+- **Login:** click the person icon in the top-right header on `https://novendor.ai`, or go directly to `https://novendor.ai/login`. Supabase email/password auth — email `info@novendor.ai`, password in `docs/reference/ENV_KEYS.md` field `NOVENDOR_ADMIN_PASSWORD`.
+- **Workspace home after login:** `/app`.
 
 ## Infrastructure CLI Guardrails
 
@@ -359,6 +366,9 @@ This is not optional busywork — these files contain real production data (test
 
 - `verify the deploy landed` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `log in and check if the market intel fix worked` -> `skills/winston-post-deploy-verify/SKILL.md`
+- `give me a chatgpt agent prompt to verify this fix in the browser` -> `skills/chatgpt-agent-validate/SKILL.md`
+- `hand this build off to chatgpt agent mode for visual validation` -> `skills/chatgpt-agent-validate/SKILL.md`
+- `produce a browser validation prompt for what we just shipped` -> `skills/chatgpt-agent-validate/SKILL.md`
 - `push this and watch Railway and Vercel` -> `agents/deploy.md`
 - `sync Winston, stop if the repo is dirty, and summarize incoming commits` -> `agents/sync.md`
 - `run QA on the REPE regression path` -> `agents/qa.md`

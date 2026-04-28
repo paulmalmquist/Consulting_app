@@ -96,7 +96,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} ${mandaloreCommand.variable} ${editorialFont.variable} ${labelFont.variable}`}
     >
-      <body>
+      <body className="min-h-screen bg-bm-bg">
         <RootProviders>{children}</RootProviders>
       </body>
     </html>

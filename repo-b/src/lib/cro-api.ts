@@ -2394,3 +2394,392 @@ export function quickCaptureTask(body: QuickCaptureRequest) {
     body: JSON.stringify(body),
   });
 }
+
+// ── Engagement Routing ──────────────────────────────────────────────────────
+
+export type RoutingHealth = {
+  routing_health_status: "green" | "yellow" | "red";
+  routing_health_reasons: string[];
+  properly_routed: boolean;
+  personal_risk: boolean;
+  novendor_compounding_status: "compounds" | "partial" | "non_compounding";
+};
+
+export type EngagementContract = {
+  id: string;
+  engagement_id: string;
+  contract_type: string;
+  status: string;
+  signed_by_client: boolean;
+  signed_by_novendor: boolean;
+  is_fully_executed: boolean;
+  effective_date: string | null;
+  expiration_date: string | null;
+  file_url: string | null;
+  billing_terms: string | null;
+  legal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RevenueStream = {
+  id: string;
+  engagement_id: string;
+  revenue_type: string;
+  total_contract_value: number | null;
+  hourly_rate: number | null;
+  estimated_hours: number | null;
+  retainer_amount: number | null;
+  billing_frequency: string | null;
+  margin_split_json: Record<string, number>;
+  margin_split_warning: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  revenue_notes: string | null;
+  created_at: string;
+};
+
+export type EngagementInvoice = {
+  id: string;
+  engagement_id: string;
+  revenue_stream_id: string | null;
+  invoice_number: string | null;
+  amount: number;
+  issued_date: string | null;
+  due_date: string | null;
+  paid_date: string | null;
+  status: string;
+  is_overdue: boolean;
+  days_overdue: number;
+  notes: string | null;
+  created_at: string;
+};
+
+export type EngagementAttribution = {
+  id: string;
+  engagement_id: string;
+  user_id: string | null;
+  operator_name: string | null;
+  role: string;
+  credit_percentage: number | null;
+  economics_percentage: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EngagementEvent = {
+  id: string;
+  engagement_id: string;
+  event_type: string;
+  event_date: string;
+  actor_user_id: string | null;
+  summary: string;
+  metadata_json: Record<string, unknown>;
+};
+
+export type RoutingEngagementListItem = {
+  id: string;
+  name: string;
+  client_name: string;
+  contracting_entity: string;
+  routing_status: string;
+  engagement_type: string | null;
+  originated_by_user_id: string | null;
+  relationship_owner_user_id: string | null;
+  delivery_owner_user_id: string | null;
+  expected_start_date: string | null;
+  expected_end_date: string | null;
+  next_action_text: string | null;
+  next_action_due_date: string | null;
+  next_action_task_id: string | null;
+  routing_health: RoutingHealth;
+  contract_status_summary: string | null;
+  attribution_status_summary: string | null;
+  billed_amount: number;
+  collected_amount: number;
+  outstanding_amount: number;
+  contract_value: number;
+  created_at: string;
+};
+
+export type RoutingEngagementDetail = {
+  engagement: RoutingEngagementListItem;
+  contracts: EngagementContract[];
+  revenue_streams: RevenueStream[];
+  invoices: EngagementInvoice[];
+  attribution: EngagementAttribution[];
+  events: EngagementEvent[];
+  crm_account_id: string | null;
+  crm_account_name: string | null;
+  crm_contact_id: string | null;
+  source_deal_id: string | null;
+  description: string | null;
+  current_pain: string | null;
+  what_winston_replaces: string | null;
+  expected_roi_angle: string | null;
+  marketing_permission_status: string;
+  notes: string | null;
+  recommended_next_actions: string[];
+};
+
+export type RoutingEngagementListResponse = {
+  items: RoutingEngagementListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type RevenueByOperator = {
+  user_id: string | null;
+  operator_name: string | null;
+  contract_value: number;
+  billed: number;
+  collected: number;
+};
+
+export type RevenueByClient = {
+  client_name: string;
+  contract_value: number;
+  billed: number;
+  collected: number;
+};
+
+export type RevenueNotYetRoutableItem = {
+  engagement_id: string;
+  name: string;
+  client_name: string;
+  contracting_entity: string;
+  contract_value: number;
+  routing_health_status: string;
+  reasons: string[];
+};
+
+export type RoutingDashboard = {
+  total_contract_value: number;
+  total_billed: number;
+  total_collected: number;
+  total_outstanding: number;
+  revenue_by_originator: RevenueByOperator[];
+  revenue_by_relationship_owner: RevenueByOperator[];
+  revenue_by_delivery_owner: RevenueByOperator[];
+  revenue_by_client: RevenueByClient[];
+  count_by_routing_health: { green: number; yellow: number; red: number };
+  percent_properly_routed: number;
+  personal_deal_count: number;
+  non_compounding_revenue_amount: number;
+  unpaid_invoice_count: number;
+  overdue_invoice_count: number;
+  engagements_missing_contracts: number;
+  engagements_missing_revenue: number;
+  engagements_missing_attribution: number;
+  next_actions_due_today: number;
+  next_actions_overdue: number;
+  revenue_not_yet_routable: RevenueNotYetRoutableItem[];
+};
+
+export type RoutingEngagementCreatePayload = {
+  name: string;
+  client_name: string;
+  crm_account_id?: string | null;
+  crm_contact_id?: string | null;
+  source_deal_id?: string | null;
+  contracting_entity?: string;
+  originated_by_user_id?: string | null;
+  relationship_owner_user_id?: string | null;
+  delivery_owner_user_id?: string | null;
+  lead_source?: string | null;
+  routing_status?: string;
+  engagement_type?: string | null;
+  expected_start_date?: string | null;
+  expected_end_date?: string | null;
+  description?: string | null;
+  current_pain?: string | null;
+  what_winston_replaces?: string | null;
+  expected_roi_angle?: string | null;
+  marketing_permission_status?: string;
+  next_action_text?: string | null;
+  next_action_due_date?: string | null;
+  notes?: string | null;
+};
+
+export type RoutingEngagementPatch = Partial<RoutingEngagementCreatePayload> & {
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
+  next_action_task_id?: string | null;
+  client_name_override?: string | null;
+};
+
+const ER_BASE = `${CRO_BASE}/engagement-routing`;
+
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === "") continue;
+    parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  }
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
+export function fetchRoutingEngagements(args: {
+  envId: string;
+  businessId: string;
+  routing_status?: string;
+  routing_health_status?: string;
+  contracting_entity?: string;
+  originator_user_id?: string;
+  relationship_owner_user_id?: string;
+  delivery_owner_user_id?: string;
+  client_name?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const { envId, businessId, ...rest } = args;
+  return apiFetch<RoutingEngagementListResponse>(
+    `${ER_BASE}/engagements${qs({ env_id: envId, business_id: businessId, ...rest })}`,
+  );
+}
+
+export function fetchRoutingEngagementDetail(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+}) {
+  const { envId, businessId, engagementId } = args;
+  return apiFetch<RoutingEngagementDetail>(
+    `${ER_BASE}/engagements/${engagementId}${qs({ env_id: envId, business_id: businessId })}`,
+  );
+}
+
+export function createRoutingEngagement(args: {
+  envId: string;
+  businessId: string;
+  payload: RoutingEngagementCreatePayload;
+}) {
+  return apiFetch<RoutingEngagementDetail>(
+    `${ER_BASE}/engagements${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.payload) },
+  );
+}
+
+export function patchRoutingEngagement(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+  patch: RoutingEngagementPatch;
+}) {
+  return apiFetch<RoutingEngagementDetail>(
+    `${ER_BASE}/engagements/${args.engagementId}${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "PATCH", body: JSON.stringify(args.patch) },
+  );
+}
+
+export function addRoutingContract(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+  payload: Partial<EngagementContract> & { contract_type: string };
+}) {
+  return apiFetch<EngagementContract>(
+    `${ER_BASE}/engagements/${args.engagementId}/contracts${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.payload) },
+  );
+}
+
+export function addRoutingRevenueStream(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+  payload: Partial<RevenueStream> & { revenue_type: string };
+}) {
+  return apiFetch<RevenueStream>(
+    `${ER_BASE}/engagements/${args.engagementId}/revenue-streams${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.payload) },
+  );
+}
+
+export function addRoutingInvoice(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+  payload: Partial<EngagementInvoice> & { amount: number };
+}) {
+  return apiFetch<EngagementInvoice>(
+    `${ER_BASE}/engagements/${args.engagementId}/invoices${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.payload) },
+  );
+}
+
+export function patchRoutingInvoice(args: {
+  envId: string;
+  invoiceId: string;
+  patch: Partial<EngagementInvoice>;
+}) {
+  return apiFetch<EngagementInvoice>(
+    `${ER_BASE}/invoices/${args.invoiceId}${qs({ env_id: args.envId })}`,
+    { method: "PATCH", body: JSON.stringify(args.patch) },
+  );
+}
+
+export function addRoutingAttribution(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+  payload: Partial<EngagementAttribution> & { role: string };
+}) {
+  return apiFetch<EngagementAttribution>(
+    `${ER_BASE}/engagements/${args.engagementId}/attribution${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.payload) },
+  );
+}
+
+export function patchRoutingAttribution(args: {
+  envId: string;
+  attributionId: string;
+  patch: Partial<EngagementAttribution>;
+}) {
+  return apiFetch<EngagementAttribution>(
+    `${ER_BASE}/attribution/${args.attributionId}${qs({ env_id: args.envId })}`,
+    { method: "PATCH", body: JSON.stringify(args.patch) },
+  );
+}
+
+export function convertEngagementToNovendor(args: {
+  envId: string;
+  businessId: string;
+  engagementId: string;
+}) {
+  return apiFetch<RoutingEngagementDetail>(
+    `${ER_BASE}/engagements/${args.engagementId}/convert-to-novendor${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify({ create_next_action_task: true }) },
+  );
+}
+
+export function fetchRoutingDashboard(args: { envId: string; businessId: string }) {
+  return apiFetch<RoutingDashboard>(
+    `${ER_BASE}/dashboard${qs({ env_id: args.envId, business_id: args.businessId })}`,
+  );
+}
+
+export function previewDealConversion(args: {
+  envId: string;
+  businessId: string;
+  dealId: string;
+}) {
+  return apiFetch(
+    `${ER_BASE}/from-deal/${args.dealId}/preview${qs({ env_id: args.envId, business_id: args.businessId })}`,
+  );
+}
+
+export function convertDealToEngagement(args: {
+  envId: string;
+  businessId: string;
+  dealId: string;
+  body?: { originated_by_user_id?: string | null; relationship_owner_user_id?: string | null; delivery_owner_user_id?: string | null; create_next_action_task?: boolean; next_action_text?: string };
+}) {
+  return apiFetch<RoutingEngagementDetail>(
+    `${ER_BASE}/from-deal/${args.dealId}/convert${qs({ env_id: args.envId, business_id: args.businessId })}`,
+    { method: "POST", body: JSON.stringify(args.body ?? { create_next_action_task: true }) },
+  );
+}

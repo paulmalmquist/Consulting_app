@@ -83,6 +83,20 @@ module.exports = {
         lg: "0.375rem",
         xl: "0.375rem",
         "2xl": "0.375rem",
+        // Marketing v2 — design system radii (scoped meaning by class name).
+        // Don't use rounded-lg/xl/2xl in marketing files; use rounded-nv-* for
+        // the design system's intended radii (4/8/12/18px).
+        "nv-sm": "4px",
+        "nv-md": "8px",
+        "nv-lg": "12px",
+        "nv-xl": "18px",
+      },
+      spacing: {
+        // Marketing v2 — design system spacing rhythm
+        "nv-section": "96px",
+        "nv-page-y": "72px",
+        "nv-page-x": "48px",
+        "nv-page-bottom": "120px",
       },
       backgroundColor: {
         "bm-accent-bg": "var(--bm-accent-bg)",

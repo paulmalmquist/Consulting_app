@@ -1,69 +1,156 @@
 /* Marketing-only styles for the (marketing) route group.
  * Scoped via .marketing-shell wrapper. Font CSS vars namespaced
- * --font-marketing-{sans,display,mono} to avoid collision with Winston's
+ * --font-marketing-{sans,mono} to avoid collision with Winston's
  * --font-{body,display,mono,editorial,label}.
  *
  * Design System v2.0 — "Controlled OS Surface"
  * Abadi (display) + Geist (body) + Geist Mono (labels only)
- * ink → graphite → slate background tiers
+ * ink → graphite → slate background tiers (dark)
+ * porcelain → snow → cloud (light)
  * desaturated teal + copper accents — no neon glow
+ *
+ * Theme is set via data-theme="dark|light" on the .marketing-shell
+ * wrapper. Same token names; different values per theme. Components
+ * never know which theme is active.
  */
 
-/* Abadi — commercial Monotype. local() is checked first; the browser only
-   fetches the WOFF2 if the system font is absent, so no 404 spam when the
-   files have not been deployed yet. Drop the WOFF2 files into
-   repo-b/public/fonts/ when they are licensed and available. */
-@font-face { font-family: 'Abadi'; src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Abadi'; src: local('Abadi Medium'), local('Abadi MT Medium'), url('/fonts/Abadi-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Abadi'; src: local('Abadi Bold'), local('Abadi MT Bold'), url('/fonts/Abadi-Bold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+/* Abadi — local TTFs in public/fonts/. local() is checked first; if
+   the system font is installed, the file fetch is skipped. Only
+   Regular and Bold weights ship; weight 500 (Medium) maps to Regular
+   to avoid browser-synthesized faux-bold (the package has no Medium). */
+@font-face {
+  font-family: 'Abadi';
+  src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Abadi';
+  src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Abadi';
+  src: local('Abadi Bold'), local('Abadi MT Bold'), url('/fonts/Abadi-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
+/* ── DARK (default) ──────────────────────────────────────────── */
 .marketing-shell {
   color-scheme: dark;
 
-  /* ── Background tiers — ink → graphite → slate ──────────── */
-  --nv-bg:              11 14 18;     /* #0B0E12 — deepest ink */
-  --nv-surface:         18 22 28;     /* #12161C — panel */
-  --nv-surface-raised:  24 29 37;     /* #181D25 — card */
-  --nv-surface-overlay: 31 37 48;     /* #1F2530 — overlay / popover */
+  /* Marketing font aliases — point at the Geist CSS vars set by
+     next/font/local in geist/font. Using aliases keeps page-level
+     CSS portable if we ever swap the loader. */
+  --font-marketing-sans: var(--font-geist-sans);
+  --font-marketing-mono: var(--font-geist-mono);
 
-  /* ── Foreground tiers ────────────────────────────────────── */
+  /* Background tiers — ink → graphite → slate */
+  --nv-bg:              11 14 18;     /* #0B0E12 */
+  --nv-surface:         18 22 28;     /* #12161C */
+  --nv-surface-raised:  24 29 37;     /* #181D25 */
+  --nv-surface-overlay: 31 37 48;     /* #1F2530 */
+
+  /* Foreground tiers */
   --nv-text-primary:    231 236 242;  /* #E7ECF2 */
   --nv-text-secondary:  168 177 189;  /* #A8B1BD */
   --nv-text-tertiary:   108 118 132;  /* #6C7684 */
   --nv-text-muted:       74  82  94;  /* #4A525E */
 
-  /* ── Accents — desaturated, same lightness band ─────────── */
-  --nv-accent-teal:      79 179 169;  /* #4FB3A9 — primary */
-  --nv-accent-teal-ink:  30  78  74;  /* #1E4E4A — rail background tint */
-  --nv-accent-copper:   200 137  90;  /* #C8895A — secondary warmth */
+  /* Accents — desaturated, same lightness band */
+  --nv-accent-teal:      79 179 169;  /* #4FB3A9 */
+  --nv-accent-teal-ink:  30  78  74;  /* #1E4E4A */
+  --nv-accent-copper:   200 137  90;  /* #C8895A */
+  --nv-accent-copper-ink: 90  58  36; /* #5A3A24 */
 
-  /* ── Hairlines — always tinted, never pure gray ─────────── */
-  --nv-hair-soft: 232 236 242;        /* use at /0.06 opacity */
-  --nv-edge-top:    rgba(255,255,255,0.06);   /* inset top edge light */
-  --nv-edge-top-hi: rgba(255,255,255,0.10);
+  /* Hairlines — always tinted, never pure gray */
+  --nv-hair-soft:       232 236 242;       /* used at /0.06 via rgb(.. / 0.06) */
+  --nv-hair-medium-rgba: rgba(232,236,242,0.10);
+  --nv-hair-strong-rgba: rgba(232,236,242,0.16);
+  --nv-edge-top:        rgba(255,255,255,0.06);
+  --nv-edge-top-hi:     rgba(255,255,255,0.10);
 
-  /* ── Semantic — share 65-72% L so nothing shouts ────────── */
+  /* Semantic — share 65-72% L */
   --nv-sem-success: 107 174 127;  /* #6BAE7F */
   --nv-sem-warning: 209 161  91;  /* #D1A15B */
   --nv-sem-risk:    212 122 114;  /* #D47A72 */
 
-  /* ── Base ────────────────────────────────────────────────── */
+  /* Radii */
+  --nv-radius-sm: 4px;
+  --nv-radius-md: 8px;
+  --nv-radius-lg: 12px;
+  --nv-radius-xl: 18px;
+
+  /* Shadows */
+  --nv-shadow-card:
+    inset 0 1px 0 0 var(--nv-edge-top),
+    0 1px 0 0 rgba(0,0,0,0.4),
+    0 20px 40px -20px rgba(0,0,0,0.6);
+  --nv-shadow-card-hover:
+    inset 0 1px 0 0 var(--nv-edge-top-hi),
+    0 1px 0 0 rgba(0,0,0,0.4),
+    0 24px 48px -20px rgba(0,0,0,0.7);
+
+  /* Page base */
   background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(79,179,169,0.04), transparent 60%),
-    radial-gradient(900px  500px at 95% 110%, rgba(200,137,90,0.03),  transparent 60%),
+    radial-gradient(1200px 600px at 12% -10%, rgba(79,179,169,0.045), transparent 60%),
+    radial-gradient(900px  500px at 95% 110%, rgba(200,137,90,0.035), transparent 60%),
     rgb(var(--nv-bg));
   color: rgb(var(--nv-text-primary));
   text-rendering: optimizeLegibility;
-  text-wrap: balance;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.marketing-shell h1,
-.marketing-shell h2,
-.marketing-shell h3 {
-  @apply font-semibold tracking-tight;
+/* ── LIGHT — parallel tokens, never inverted ─────────────────── */
+[data-theme="light"].marketing-shell,
+[data-theme="light"] .marketing-shell {
+  color-scheme: light;
+
+  --nv-bg:              250 252 255;  /* #FAFCFF — porcelain */
+  --nv-surface:         255 255 255;  /* white panel */
+  --nv-surface-raised:  245 248 252;  /* #F5F8FC — card */
+  --nv-surface-overlay: 235 240 248;  /* #EBF0F8 — popover */
+
+  --nv-text-primary:     18  22  28;  /* #12161C */
+  --nv-text-secondary:   70  80  95;  /* #46505F */
+  --nv-text-tertiary:   110 120 135;  /* #6E7887 */
+  --nv-text-muted:      150 160 175;  /* #96A0AF */
+
+  --nv-accent-teal:      64 150 145;  /* #409691 — slightly desaturated */
+  --nv-accent-teal-ink:  30  78  74;
+  --nv-accent-copper:   140 100  65;  /* #8C6441 */
+  --nv-accent-copper-ink: 90  58  36;
+
+  --nv-hair-soft:        20  30  50;       /* used at /0.06 */
+  --nv-hair-medium-rgba: rgba(20,30,50,0.08);
+  --nv-hair-strong-rgba: rgba(20,30,50,0.14);
+  --nv-edge-top:        rgba(255,255,255,0.6);
+  --nv-edge-top-hi:     rgba(255,255,255,0.85);
+
+  --nv-sem-success:  56 140  85;
+  --nv-sem-warning: 170 125  55;
+  --nv-sem-risk:    180  75  70;
+
+  --nv-shadow-card:
+    inset 0 1px 0 0 var(--nv-edge-top),
+    0 1px 0 0 rgba(0,0,0,0.04),
+    0 12px 28px -16px rgba(20,30,50,0.10);
+  --nv-shadow-card-hover:
+    inset 0 1px 0 0 var(--nv-edge-top-hi),
+    0 1px 0 0 rgba(0,0,0,0.05),
+    0 16px 36px -16px rgba(20,30,50,0.14);
+
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(64,150,145,0.05), transparent 60%),
+    radial-gradient(900px  500px at 95% 110%, rgba(140,100,65,0.04), transparent 60%),
+    rgb(var(--nv-bg));
 }
 
 .marketing-shell ::selection {
@@ -74,17 +161,17 @@
   @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded-md;
 }
 
-/* ── Typography ────────────────────────────────────────────── */
+/* ── Typography primitives ─────────────────────────────────── */
 
 .nv-brand-font {
   font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
 }
 
 .nv-headline {
-  /* Abadi — humanist sans, warm, editorial, slightly condensed */
   font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
   font-weight: 500;
   letter-spacing: -0.022em;
+  text-wrap: balance;
 }
 
 .nv-subheadline {
@@ -93,16 +180,376 @@
   color: rgb(var(--nv-text-secondary));
 }
 
-/* Accent emphasis — teal, same typeface as surrounding headline */
 .nv-hero-emphasis {
   font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-style: normal;
   font-weight: inherit;
   font-size: inherit;
   line-height: inherit;
   color: rgb(var(--nv-accent-teal));
 }
 
-/* ── Surfaces ──────────────────────────────────────────────── */
+/* H1 — page hero display, Abadi 500 / 84px / -0.025em */
+.nv-h1 {
+  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-weight: 500;
+  font-size: 84px;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  color: rgb(var(--nv-text-primary));
+  max-width: 960px;
+  text-wrap: balance;
+  margin: 0;
+}
+.nv-h1 em {
+  font-style: normal;
+  color: rgb(var(--nv-accent-teal));
+  font-weight: 500;
+}
+
+/* H2 — section header, Abadi 500 / 44px / -0.02em */
+.nv-h2 {
+  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: rgb(var(--nv-text-primary));
+  text-wrap: balance;
+  margin: 0;
+}
+
+/* H3 — UI head, Geist 500 / 20px / -0.01em */
+.nv-h3 {
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: rgb(var(--nv-text-primary));
+  text-transform: none;
+  margin: 0;
+}
+
+/* Eyebrow — Geist Mono 11px / uppercase / 0.14em */
+.nv-eyebrow {
+  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-tertiary));
+  margin: 0;
+}
+.nv-eyebrow .nv-eyebrow-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--nv-accent-teal));
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px rgba(79,179,169,0.5);
+}
+
+/* Lede — intro paragraph, 19px / 1.55 */
+.nv-lede {
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.55;
+  color: rgb(var(--nv-text-secondary));
+  max-width: 680px;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+/* Body — 15px / 1.65 / 54ch */
+.nv-body {
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgb(var(--nv-text-secondary));
+  max-width: 54ch;
+}
+
+/* Small — 13px / 1.5 */
+.nv-small {
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgb(var(--nv-text-tertiary));
+}
+
+/* Mobile typography */
+@media (max-width: 767px) {
+  .nv-h1 { font-size: 44px; line-height: 1.05; }
+  .nv-h2 { font-size: 32px; line-height: 1.15; }
+  .nv-lede { font-size: 17px; }
+}
+
+/* ── Page + section rhythm ──────────────────────────────────── */
+
+.nv-page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 72px 48px 120px;
+}
+
+.nv-section {
+  margin-top: 96px;
+}
+
+.nv-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--nv-hair-medium-rgba);
+  margin-bottom: 36px;
+}
+
+.nv-divider {
+  border: none;
+  border-top: 1px solid var(--nv-hair-medium-rgba);
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .nv-page { padding: 48px 20px 80px; }
+  .nv-section { margin-top: 64px; }
+}
+
+/* ── Hero grid ───────────────────────────────────────────────── */
+
+.nv-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  align-items: end;
+  padding-bottom: 48px;
+  border-bottom: 1px solid var(--nv-hair-medium-rgba);
+}
+@media (min-width: 1024px) {
+  .nv-hero {
+    grid-template-columns: 1.2fr 1fr;
+    gap: 48px;
+  }
+}
+
+.nv-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  margin-top: 40px;
+  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: rgb(var(--nv-text-tertiary));
+  letter-spacing: 0.08em;
+}
+
+.nv-hero-panel {
+  padding: 28px;
+  background:
+    linear-gradient(180deg, rgba(79,179,169,0.04), rgba(79,179,169,0) 50%),
+    rgb(var(--nv-surface));
+  border-radius: var(--nv-radius-lg);
+  box-shadow:
+    inset 0 1px 0 0 var(--nv-edge-top-hi),
+    inset 0 0 0 1px rgb(var(--nv-hair-soft) / 0.06);
+}
+
+[data-theme="light"] .nv-hero-panel {
+  background:
+    linear-gradient(180deg, rgba(64,150,145,0.05), rgba(64,150,145,0) 50%),
+    rgb(var(--nv-surface));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.6),
+    inset 0 0 0 1px var(--nv-hair-medium-rgba);
+}
+
+.nv-hero-panel .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgb(var(--nv-hair-soft) / 0.10);
+  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
+.nv-hero-panel .line:last-child {
+  border-bottom: none;
+}
+.nv-hero-panel .line .k {
+  color: rgb(var(--nv-text-tertiary));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.nv-hero-panel .line .v {
+  color: rgb(var(--nv-text-primary));
+  text-align: right;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.nv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  padding: 10px 18px;
+  border-radius: var(--nv-radius-md);
+  border: none;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, color 140ms ease;
+  text-decoration: none;
+}
+
+.nv-btn-primary {
+  color: #0B1E1C;
+  background: linear-gradient(180deg, #5EC2B7, rgb(var(--nv-accent-teal)));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 1px 0 rgba(0,0,0,0.4),
+    0 8px 20px -8px rgba(79,179,169,0.5);
+}
+.nv-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    0 10px 24px -8px rgba(79,179,169,0.6);
+}
+
+[data-theme="light"] .nv-btn-primary {
+  color: #07201E;
+  background: linear-gradient(180deg, #7AD0C7, rgb(var(--nv-accent-teal)));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    0 1px 0 rgba(0,0,0,0.06),
+    0 6px 16px -4px rgba(64,150,145,0.30);
+}
+[data-theme="light"] .nv-btn-primary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    0 8px 20px -4px rgba(64,150,145,0.40);
+}
+
+.nv-btn-secondary {
+  color: rgb(var(--nv-text-primary));
+  background: rgb(var(--nv-surface-overlay));
+  box-shadow:
+    inset 0 1px 0 var(--nv-edge-top-hi),
+    inset 0 0 0 1px var(--nv-hair-medium-rgba);
+}
+.nv-btn-secondary:hover {
+  background: rgb(var(--nv-surface-raised));
+}
+
+.nv-btn-ghost {
+  color: rgb(var(--nv-text-secondary));
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--nv-hair-medium-rgba);
+}
+.nv-btn-ghost:hover {
+  color: rgb(var(--nv-text-primary));
+  background: rgb(var(--nv-text-primary) / 0.025);
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+
+.nv-card {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0) 30%),
+    rgb(var(--nv-surface-raised));
+  border-radius: var(--nv-radius-lg);
+  box-shadow: var(--nv-shadow-card);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+.nv-card.nv-card-hover-lift:hover {
+  box-shadow: var(--nv-shadow-card-hover);
+}
+.nv-card-pad {
+  padding: 24px;
+}
+
+[data-theme="light"] .nv-card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 30%),
+    rgb(var(--nv-surface-raised));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-card { transition: none; }
+}
+
+/* ── Pills ───────────────────────────────────────────────────── */
+
+.nv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--nv-radius-sm);
+  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.nv-pill-teal    { color: rgb(var(--nv-accent-teal));    background: rgb(var(--nv-accent-teal) / 0.10);    box-shadow: inset 0 0 0 1px rgb(var(--nv-accent-teal) / 0.25); }
+.nv-pill-copper  { color: rgb(var(--nv-accent-copper));  background: rgb(var(--nv-accent-copper) / 0.10);  box-shadow: inset 0 0 0 1px rgb(var(--nv-accent-copper) / 0.25); }
+.nv-pill-success { color: rgb(var(--nv-sem-success));    background: rgb(var(--nv-sem-success) / 0.10);    box-shadow: inset 0 0 0 1px rgb(var(--nv-sem-success) / 0.22); }
+.nv-pill-warning { color: rgb(var(--nv-sem-warning));    background: rgb(var(--nv-sem-warning) / 0.10);    box-shadow: inset 0 0 0 1px rgb(var(--nv-sem-warning) / 0.22); }
+.nv-pill-risk    { color: rgb(var(--nv-sem-risk));       background: rgb(var(--nv-sem-risk) / 0.10);       box-shadow: inset 0 0 0 1px rgb(var(--nv-sem-risk) / 0.22); }
+.nv-pill-muted   { color: rgb(var(--nv-text-tertiary));  background: rgb(var(--nv-text-primary) / 0.03);   box-shadow: inset 0 0 0 1px var(--nv-hair-medium-rgba); }
+
+/* ── KPI / numeric callouts ──────────────────────────────────── */
+
+.nv-kpi {
+  padding: 22px 24px;
+  border-radius: var(--nv-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%),
+    rgb(var(--nv-surface-raised));
+  box-shadow: inset 0 1px 0 var(--nv-edge-top), inset 0 0 0 1px rgb(var(--nv-hair-soft) / 0.06);
+  position: relative;
+  overflow: hidden;
+}
+.nv-klabel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.nv-kvalue {
+  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  color: rgb(var(--nv-text-primary));
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.nv-kdelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  color: rgb(var(--nv-sem-success));
+}
+
+/* ── Surface helper (legacy retained) ────────────────────────── */
 
 .gradient-card {
   background:
@@ -110,7 +557,7 @@
     linear-gradient(145deg, rgba(24,29,37,0.9), rgba(11,14,18,0.97));
 }
 
-/* ── Badges ────────────────────────────────────────────────── */
+/* ── Brand badge (kept) ──────────────────────────────────────── */
 
 .nv-mark-badge {
   display: inline-flex;
@@ -131,26 +578,23 @@
   letter-spacing: 0.08em;
   line-height: 1;
 }
-
 .nv-mark-badge--sm {
   height: 1.75rem;
   width: 1.75rem;
   border-radius: 0.45rem;
   font-size: 0.8rem;
 }
-
 .nv-mark-badge--word {
   font-size: 1.15rem;
   letter-spacing: 0.03em;
 }
 
-/* ── Scroll panels ─────────────────────────────────────────── */
+/* ── Scroll panels (kept) ────────────────────────────────────── */
 
 .nv-snap-flow {
   display: block;
   scroll-snap-type: y mandatory;
 }
-
 .nv-snap-panel {
   min-height: auto;
   display: flex;
@@ -160,7 +604,6 @@
   padding-block: 1.5rem;
 }
 
-/* Edge-lit surface — no border outline */
 .nv-panel-shell {
   width: 100%;
   display: grid;
@@ -180,23 +623,15 @@
   transform: translateY(24px);
   transition: opacity 360ms ease, transform 360ms ease;
 }
-
 .nv-panel-shell--visible {
   opacity: 1;
   transform: translateY(0);
 }
 
 @media (min-width: 768px) {
-  .nv-snap-panel {
-    min-height: auto;
-    padding-block: 1rem;
-  }
-
-  .nv-panel-shell {
-    align-content: start;
-  }
+  .nv-snap-panel { min-height: auto; padding-block: 1rem; }
+  .nv-panel-shell { align-content: start; }
 }
-
 @media (min-width: 1024px) {
   .nv-snap-flow {
     display: grid;
@@ -208,14 +643,12 @@
     height: 100%;
     align-items: stretch;
   }
-
   .nv-snap-panel {
     min-height: auto;
     padding-block: 0;
     height: 100%;
     align-items: stretch;
   }
-
   .nv-panel-shell {
     grid-template-columns: 1fr;
     gap: clamp(0.9rem, 1.4vh, 1.25rem);
@@ -224,8 +657,6 @@
     height: 100%;
   }
 }
-
-/* .nv-hero-scanline + ::before removed — CRT scanline was a terminal artifact */
 
 /* ── Utilities ─────────────────────────────────────────────── */
 
@@ -239,7 +670,6 @@
   stroke: rgb(var(--nv-accent-teal) / 0.40);
   stroke-width: 2.2;
 }
-
 .system-nodes .node-label {
   fill: rgb(var(--nv-text-secondary) / 0.9);
   font-size: 11px;
@@ -248,21 +678,17 @@
   font-weight: 500;
   letter-spacing: 0.02em;
 }
-
 @media (min-width: 1024px) {
   .system-nodes .node-label { font-size: 11.5px; }
 }
-
 @media (max-width: 640px) {
   .system-nodes .node-circle { stroke-width: 2; }
   .system-nodes .node-label  { font-size: 9px; }
 }
-
 .connection-lines .connection-line {
   stroke: rgb(var(--nv-accent-teal) / 0.22);
   stroke-width: 1;
 }
-
 .nv-logo-core .nv-letter {
   fill: none;
   stroke: rgb(var(--nv-accent-teal) / 0.65);
@@ -271,11 +697,29 @@
   stroke-linecap: square;
   filter: drop-shadow(0 0 6px rgb(var(--nv-accent-teal) / 0.28));
 }
-
 .nv-logo-core .nv-glow {
   fill: rgb(var(--nv-accent-teal) / 0.07);
   stroke: none;
 }
+
+/* ── Markdown body (used by MarkdownRenderer) ─────────────── */
+
+.nv-prose h1 { @apply nv-h1; margin-bottom: 24px; }
+.nv-prose h2 { font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif; font-weight: 500; font-size: 44px; line-height: 1.1; letter-spacing: -0.02em; color: rgb(var(--nv-text-primary)); text-wrap: balance; margin: 64px 0 24px; }
+.nv-prose h3 { font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif; font-weight: 500; font-size: 20px; line-height: 1.3; letter-spacing: -0.01em; color: rgb(var(--nv-text-primary)); margin: 32px 0 12px; }
+.nv-prose p  { font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif; font-size: 15px; line-height: 1.65; color: rgb(var(--nv-text-secondary)); max-width: 54ch; margin: 0 0 16px; }
+.nv-prose a  { color: rgb(var(--nv-accent-teal)); text-decoration: underline; text-decoration-color: rgb(var(--nv-accent-teal) / 0.4); text-underline-offset: 2px; }
+.nv-prose a:hover { text-decoration-color: rgb(var(--nv-accent-teal)); }
+.nv-prose em { font-style: normal; color: rgb(var(--nv-accent-teal)); }
+.nv-prose strong { color: rgb(var(--nv-text-primary)); font-weight: 500; }
+.nv-prose ul, .nv-prose ol { font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif; font-size: 15px; line-height: 1.65; color: rgb(var(--nv-text-secondary)); max-width: 54ch; padding-left: 1.25rem; margin: 0 0 16px; }
+.nv-prose li { margin-bottom: 6px; }
+.nv-prose li::marker { color: rgb(var(--nv-text-tertiary)); }
+.nv-prose code { font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace; font-size: 13px; padding: 2px 6px; border-radius: var(--nv-radius-sm); background: rgb(var(--nv-surface)); color: rgb(var(--nv-text-primary)); box-shadow: inset 0 0 0 1px var(--nv-hair-medium-rgba); }
+.nv-prose pre { font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace; font-size: 13px; line-height: 1.55; padding: 16px 20px; border-radius: var(--nv-radius-md); background: rgb(var(--nv-surface)); box-shadow: inset 0 0 0 1px var(--nv-hair-medium-rgba); overflow-x: auto; margin: 0 0 16px; }
+.nv-prose pre code { background: none; padding: 0; box-shadow: none; }
+.nv-prose blockquote { border-left: 2px solid rgb(var(--nv-accent-teal)); padding: 4px 0 4px 20px; margin: 0 0 16px; color: rgb(var(--nv-text-secondary)); font-size: 19px; line-height: 1.55; }
+.nv-prose hr { border: none; border-top: 1px solid var(--nv-hair-medium-rgba); margin: 48px 0; }
 
 /* ── Reduced motion ────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -284,4 +728,5 @@
     transform: none !important;
     transition: none !important;
   }
+  .nv-btn:hover { transform: none; }
 }
