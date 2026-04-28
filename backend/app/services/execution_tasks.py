@@ -143,7 +143,7 @@ def create_task(
 
     with get_cursor() as cur:
         cur.execute(
-            f"""
+            """
             INSERT INTO cro_execution_task
               (env_id, business_id, title, description, expected_outcome,
                next_action, why_now, type, status, linked_deal_id, linked_contact_id,
