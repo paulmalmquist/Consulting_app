@@ -2,14 +2,18 @@
 
 Produces a sequenced execution plan (not a brainstorm list) from either a deal
 or a free-text goal. Output enforces:
+  - at most 6 items total
   - at least one task in 'today'
   - at least one task with due_offset_days >= 2
   - distinct next_action strings across the batch
-  - 5–10 items total
+  - non-empty expected_outcome on every task
+  - title contains a time estimate, e.g. "(15 min)"
+  - no generic-verb-only titles ("Research", "Think", "Plan")
 """
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -22,21 +26,27 @@ from app.services import execution_tasks
 
 
 _MASTER_PROMPT = """You are an execution planner for a consulting/sales operator.
-Your job is to convert a goal or a deal into a SEQUENCED PLAN of 5 to 10 tasks
-that drive revenue, product, or delivery forward.
+Your job is to convert a goal or a deal into a SEQUENCED PLAN of AT MOST 6
+tasks that drive revenue, product, or delivery forward TODAY or THIS WEEK.
 
-Rules:
-- Output a sequence, not a brainstorm. Order matters.
-- Every task MUST have title, next_action, why_now, type, status, impact,
-  revenue_tag, due_offset_days, sequence_position.
+Hard rules — violating any is a failure:
+- Output a sequence, not a brainstorm. Order matters and tasks must build on
+  each other (t2 may depend on t1's result, etc.).
+- Maximum 6 tasks. Fewer is fine. Five sharp tasks beats six padded ones.
+- Every task must be doable in 30 MINUTES OR LESS. Express the estimate in
+  the title in parentheses, e.g. "Find CFO email (15 min)".
+- Every task MUST have a non-empty expected_outcome that is a concrete,
+  measurable result (e.g. "CFO email address recorded in CRM" — NOT
+  "better understanding of the contact").
+- next_action must be a single concrete operator move (one verb, one object).
+- title must include a real action object — never just "Research", "Think",
+  "Plan", "Review", "Reflect", "Consider", "Explore", "Investigate" alone.
 - At least one task with status='today' and due_offset_days=0.
 - At least one task with due_offset_days >= 2.
 - No two tasks may share the same next_action text.
-- next_action must be a single concrete operator move (one verb, one object).
 - why_now must explain urgency, not restate the title.
 - Prefer outreach, follow_up, proof_asset over research/product unless the
   goal explicitly demands the latter.
-- Avoid passive verbs (no "review", "think about", "consider", "explore").
 
 Allowed values:
 - type: outreach | product | proof_asset | research | follow_up
@@ -48,17 +58,19 @@ Allowed values:
 
 _USER_TEMPLATE = """{context}
 
-Generate 5–10 sequenced tasks. Respond as JSON only — no markdown, no prose.
+Generate UP TO 6 sequenced tasks (fewer is fine). Each task must be doable in
+30 minutes or less, with the estimate visible in the title. Respond as JSON
+only — no markdown, no prose.
 
 Schema:
 {{
   "tasks": [
     {{
       "sequence_position": 1,
-      "title": "string",
+      "title": "Find CFO email (15 min)",
       "next_action": "single concrete move",
       "why_now": "urgency reason",
-      "expected_outcome": "what success looks like",
+      "expected_outcome": "concrete measurable result",
       "type": "outreach|product|proof_asset|research|follow_up",
       "status": "today|this_week",
       "impact": 1-5,
@@ -67,6 +79,15 @@ Schema:
     }}
   ]
 }}"""
+
+
+# Title regex helpers for validation.
+_TIME_ESTIMATE_RE = re.compile(r"\(\s*\d+\s*(?:min|m|minute|minutes)\s*\)", re.I)
+_GENERIC_VERB_TITLES = {
+    "research", "think", "plan", "review", "reflect", "consider",
+    "explore", "investigate", "analyze", "brainstorm", "ideate",
+    "study", "evaluate", "assess",
+}
 
 
 def _load_deal_context(*, deal_id: UUID, business_id: UUID) -> dict:
@@ -143,15 +164,31 @@ def _coerce_due_date(offset_days) -> date | None:
 
 
 def _normalize_items(raw_items: list[dict], *, linked_deal_id: UUID | None) -> list[dict]:
-    """Ensure required fields, dedupe next_action, enforce sequence rules."""
+    """Ensure required fields, dedupe next_action, enforce sequence rules.
+
+    Drops items that fail the tightened bar: missing expected_outcome,
+    generic-verb-only title, or no time estimate.
+    """
     items: list[dict] = []
     seen_next: set[str] = set()
     for idx, raw in enumerate(raw_items, start=1):
         title = str(raw.get("title") or "").strip()
         next_action = str(raw.get("next_action") or "").strip()
         why_now = str(raw.get("why_now") or "").strip()
-        if not (title and next_action and why_now):
+        expected_outcome = str(raw.get("expected_outcome") or "").strip()
+        if not (title and next_action and why_now and expected_outcome):
             continue
+
+        # Reject titles that are only a generic verb (case-insensitive,
+        # ignoring trailing punctuation/parens).
+        title_core = re.sub(r"[\s\W_]+", " ", title).strip().lower()
+        if title_core in _GENERIC_VERB_TITLES:
+            continue
+
+        # Require a time estimate. If the model forgot it, append a default.
+        if not _TIME_ESTIMATE_RE.search(title):
+            title = f"{title} (20 min)"
+
         key = next_action.lower()
         if key in seen_next:
             continue
@@ -182,7 +219,7 @@ def _normalize_items(raw_items: list[dict], *, linked_deal_id: UUID | None) -> l
             "title": title[:240],
             "next_action": next_action,
             "why_now": why_now,
-            "expected_outcome": (raw.get("expected_outcome") or None),
+            "expected_outcome": expected_outcome,
             "type": type_,
             "status": status,
             "impact": impact,
@@ -192,7 +229,7 @@ def _normalize_items(raw_items: list[dict], *, linked_deal_id: UUID | None) -> l
         })
 
     items.sort(key=lambda x: x["sequence_position"])
-    items = items[:10]
+    items = items[:6]
     if len(items) < 1:
         return []
 

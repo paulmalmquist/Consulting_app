@@ -1,0 +1,10 @@
+{
+  "from_account": "info@novendor.com",
+  "to": ["sarat@novendor.com"],
+  "cc": ["richard@novendor.com"],
+  "bcc": [],
+  "subject": "Hall Boys — AI Discovery Questionnaire (v2, branded)",
+  "body": "Sarat,\n\nUpdated draft of the Hall Boys AI Discovery questionnaire is attached. Two changes from v1:\n\n1) Plumbing section reframed as project management. Section 2B is now \"Plumbing Project Management (New Construction).\" Q13/Q16/Q18 reframed from foreman-level field execution to PM-level visibility, scope handoff, and multi-trade coordination. Q1 and Q5 swapped foreman language for PM/super loading.\n\n2) Novendor branding applied — header banner, brand colors, Cambria headings, Calibri body. Same content underneath, just dressed up.\n\nTake a pass when you can. Flag anything you want cut or sharpened before we send to Hallboys. The original v1 docx in Drive is untouched if you want to diff.\n\n— Paul",
+  "attachments": ["C:\\Projects\\Consulting_app\\hallboys_ai_discovery_questionnaire_branded.docx"],
+  "html": false
+}

@@ -17,16 +17,45 @@ _ALLOWED_STATUS = {"today", "this_week", "waiting", "done"}
 _ALLOWED_REVENUE_TAG = {"low", "mid", "high"}
 _ALLOWED_OUTCOME = {"moved_deal", "got_response", "no_effect", "blocked", "unknown"}
 
+# Hard ceiling. Above this, drag/create into TODAY is rejected with TodayFullError.
+TODAY_HARD_CAP = 8
+
+
+class TodayFullError(Exception):
+    """Raised when creating or moving into TODAY would exceed TODAY_HARD_CAP.
+
+    Why: TODAY without a cap drifts into THIS WEEK in disguise. The user has
+    explicitly asked for forced prioritization here.
+    """
+
+    def __init__(self, today_count: int):
+        super().__init__(f"TODAY is full ({today_count}/{TODAY_HARD_CAP})")
+        self.today_count = today_count
+
 
 _SELECT_TASK_COLUMNS = """
     t.id, t.env_id, t.business_id, t.title, t.description, t.expected_outcome,
     t.next_action, t.why_now, t.type, t.status, t.linked_deal_id, t.linked_contact_id,
     t.impact, t.revenue_tag, t.due_date, t.auto_source, t.auto_source_ref,
     t.sequence_group, t.sequence_position, t.outcome, t.outcome_note,
-    t.completed_at, t.created_at, t.updated_at,
+    t.completed_at, t.re_engage_at, t.blocked_reason, t.created_at, t.updated_at,
     d.name AS deal_name,
     c.full_name AS contact_name
 """
+
+
+def _today_count(*, env_id: str, business_id: UUID) -> int:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*)::int AS n
+              FROM cro_execution_task
+             WHERE env_id = %s AND business_id = %s AND status = 'today'
+            """,
+            (env_id, str(business_id)),
+        )
+        row = cur.fetchone() or {}
+        return int(row.get("n") or 0)
 
 _FROM_TASK = """
     FROM cro_execution_task t
@@ -141,6 +170,22 @@ def create_task(
     if impact < 1 or impact > 5:
         raise ValueError("impact must be between 1 and 5")
 
+    # Cap TODAY at TODAY_HARD_CAP. The system pressure passes (no_outreach,
+    # stale_3d, etc.) bypass the cap — blocking them would hide pipeline
+    # pressure from the user, which is the opposite of what we want. User-
+    # initiated paths (manual, quick_capture, ai_generated) respect the cap.
+    _SYSTEM_PASSES = {
+        "pipeline_no_next_action",
+        "pipeline_stale_3d",
+        "pipeline_no_outreach",
+        "pipeline_proposal_sent_no_followup",
+        "outreach_no_reply_2d",
+        "proof_backlog_top",
+    }
+    if status == "today" and auto_source not in _SYSTEM_PASSES:
+        if _today_count(env_id=env_id, business_id=business_id) >= TODAY_HARD_CAP:
+            raise TodayFullError(_today_count(env_id=env_id, business_id=business_id))
+
     with get_cursor() as cur:
         cur.execute(
             """
@@ -187,10 +232,26 @@ def update_task(
     impact: int | None = None,
     revenue_tag: str | None = None,
     due_date=None,
+    re_engage_at=None,
+    blocked_reason: str | None = None,
     _due_date_set: bool = False,
     _linked_deal_set: bool = False,
     _linked_contact_set: bool = False,
+    _re_engage_at_set: bool = False,
+    _blocked_reason_set: bool = False,
 ) -> dict | None:
+    # Enforce TODAY cap when moving an existing task INTO today. We need the
+    # current row to know whether it's already in today (no-op) or coming from
+    # another column (counts against the cap).
+    if status == "today":
+        existing = get_task(task_id=task_id)
+        if existing is not None and existing.get("status") != "today":
+            env_id = existing["env_id"]
+            biz_id = existing["business_id"]
+            n = _today_count(env_id=env_id, business_id=biz_id)
+            if n >= TODAY_HARD_CAP:
+                raise TodayFullError(n)
+
     sets: list[str] = []
     params: list = []
 
@@ -246,6 +307,12 @@ def update_task(
     if _due_date_set:
         sets.append("due_date = %s")
         params.append(due_date)
+    if _re_engage_at_set:
+        sets.append("re_engage_at = %s")
+        params.append(re_engage_at)
+    if _blocked_reason_set:
+        sets.append("blocked_reason = %s")
+        params.append(blocked_reason)
 
     if not sets:
         return get_task(task_id=task_id)
@@ -304,7 +371,11 @@ def complete_task(
 
 
 def board_summary(*, env_id: str, business_id: UUID) -> dict:
-    """Counts for the sticky-header pressure indicators."""
+    """Counts for the sticky-header pressure indicators.
+
+    moved_deal_7d / completed_7d back the "Moved deals X/Y" feedback ratio
+    in the top bar — the loop that tells the user which task types pay off.
+    """
     with get_cursor() as cur:
         cur.execute(
             """
@@ -315,7 +386,11 @@ def board_summary(*, env_id: str, business_id: UUID) -> dict:
               SUM(CASE WHEN status = 'done' AND updated_at >= now() - interval '7 days' THEN 1 ELSE 0 END)::int
                                                                          AS done_visible_count,
               SUM(CASE WHEN status IN ('today','this_week') AND due_date IS NOT NULL AND due_date < current_date THEN 1 ELSE 0 END)::int
-                                                                         AS overdue_count
+                                                                         AS overdue_count,
+              SUM(CASE WHEN status = 'done' AND completed_at >= now() - interval '7 days' THEN 1 ELSE 0 END)::int
+                                                                         AS completed_7d,
+              SUM(CASE WHEN status = 'done' AND outcome = 'moved_deal' AND completed_at >= now() - interval '7 days' THEN 1 ELSE 0 END)::int
+                                                                         AS moved_deal_7d
               FROM cro_execution_task
              WHERE env_id = %s AND business_id = %s
             """,
@@ -328,6 +403,8 @@ def board_summary(*, env_id: str, business_id: UUID) -> dict:
         "waiting_count": row.get("waiting_count") or 0,
         "done_visible_count": row.get("done_visible_count") or 0,
         "overdue_count": row.get("overdue_count") or 0,
+        "completed_7d": row.get("completed_7d") or 0,
+        "moved_deal_7d": row.get("moved_deal_7d") or 0,
     }
 
 

@@ -51,6 +51,10 @@ export function ExecutionTaskDrawer({
   const [impact, setImpact] = useState(task.impact);
   const [revenueTag, setRevenueTag] = useState<ExecutionRevenueTag>(task.revenue_tag);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [reEngageAt, setReEngageAt] = useState(
+    task.re_engage_at ? task.re_engage_at.slice(0, 10) : "",
+  );
+  const [blockedReason, setBlockedReason] = useState(task.blocked_reason ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -65,7 +69,9 @@ export function ExecutionTaskDrawer({
     setImpact(task.impact);
     setRevenueTag(task.revenue_tag);
     setDueDate(task.due_date ?? "");
-  }, [task.id, task.title, task.next_action, task.why_now, task.description, task.expected_outcome, task.type, task.status, task.impact, task.revenue_tag, task.due_date]);
+    setReEngageAt(task.re_engage_at ? task.re_engage_at.slice(0, 10) : "");
+    setBlockedReason(task.blocked_reason ?? "");
+  }, [task.id, task.title, task.next_action, task.why_now, task.description, task.expected_outcome, task.type, task.status, task.impact, task.revenue_tag, task.due_date, task.re_engage_at, task.blocked_reason]);
 
   const canSave =
     title.trim().length > 0 &&
@@ -89,6 +95,11 @@ export function ExecutionTaskDrawer({
         impact,
         revenue_tag: revenueTag,
         due_date: dueDate || null,
+        // Only persist re-engage/blocked-reason when status is waiting; clear
+        // them otherwise so the auto-return pass doesn't fire on a non-waiting
+        // task that just happened to carry an old date.
+        re_engage_at: status === "waiting" ? (reEngageAt ? `${reEngageAt}T00:00:00Z` : null) : null,
+        blocked_reason: status === "waiting" ? (blockedReason.trim() || null) : null,
       };
       await updateExecutionTask(task.id, body);
       onUpdated(task.id);
@@ -275,6 +286,38 @@ export function ExecutionTaskDrawer({
               />
             </Field>
           </div>
+
+          {status === "waiting" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field
+                label="Re-engage when"
+                hint="When this card returns to TODAY automatically. Default = +3d."
+              >
+                <input
+                  type="date"
+                  value={reEngageAt}
+                  onChange={(e) => setReEngageAt(e.target.value)}
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label="Why waiting" hint="Reply, info, decision, deliverable, or other.">
+                <input
+                  list="waiting-reasons"
+                  value={blockedReason}
+                  onChange={(e) => setBlockedReason(e.target.value)}
+                  placeholder="waiting_on_reply"
+                  style={inputStyle}
+                />
+                <datalist id="waiting-reasons">
+                  <option value="waiting_on_reply" />
+                  <option value="waiting_on_info" />
+                  <option value="waiting_on_decision" />
+                  <option value="waiting_on_deliverable" />
+                  <option value="other" />
+                </datalist>
+              </Field>
+            </div>
+          ) : null}
 
           {task.linked_deal_id && task.deal_name ? (
             <div style={{ fontSize: 11, color: "rgba(220,230,240,0.55)" }}>

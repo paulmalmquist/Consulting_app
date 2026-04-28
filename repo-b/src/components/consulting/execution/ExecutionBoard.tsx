@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -13,12 +13,10 @@ import {
   fetchExecutionTaskBoard,
   updateExecutionTask,
   completeExecutionTask,
-  createExecutionTask,
+  quickCaptureTask,
   type ExecutionTaskBoard as ExecutionBoardData,
   type ExecutionTask,
   type ExecutionTaskStatus,
-  type ExecutionTaskType,
-  type ExecutionRevenueTag,
   type ExecutionTaskOutcome,
 } from "@/lib/cro-api";
 import { ExecutionColumn } from "./ExecutionColumn";
@@ -35,21 +33,43 @@ const COLUMNS: { key: ColumnKey; label: string }[] = [
   { key: "done", label: "Done" },
 ];
 
-const TYPE_OPTIONS: { value: "" | ExecutionTaskType; label: string }[] = [
-  { value: "", label: "All types" },
-  { value: "outreach", label: "Outreach" },
-  { value: "follow_up", label: "Follow-up" },
-  { value: "proof_asset", label: "Proof asset" },
-  { value: "research", label: "Research" },
-  { value: "product", label: "Product" },
-];
+// Soft warning at 5, hard cap at 8 — server-enforced (returns 422 today_full).
+const TODAY_WARN = 5;
+const TODAY_HARD_CAP = 8;
 
-const REVENUE_OPTIONS: { value: "" | ExecutionRevenueTag; label: string }[] = [
-  { value: "", label: "All revenue" },
-  { value: "high", label: "$$$" },
-  { value: "mid", label: "$$" },
-  { value: "low", label: "$" },
-];
+const REVENUE_RANK: Record<string, number> = { high: 0, mid: 1, low: 2 };
+
+function isOverdue(t: ExecutionTask): boolean {
+  if (!t.due_date) return false;
+  return new Date(t.due_date) < startOfToday();
+}
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isoDay(offset: number): string {
+  const d = startOfToday();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+// User-asked sort: overdue first, revenue=high next, impact desc, auto-source first.
+function sortToday(a: ExecutionTask, b: ExecutionTask): number {
+  const aOver = isOverdue(a) ? 0 : 1;
+  const bOver = isOverdue(b) ? 0 : 1;
+  if (aOver !== bOver) return aOver - bOver;
+  const aRev = REVENUE_RANK[a.revenue_tag] ?? 3;
+  const bRev = REVENUE_RANK[b.revenue_tag] ?? 3;
+  if (aRev !== bRev) return aRev - bRev;
+  if (a.impact !== b.impact) return b.impact - a.impact;
+  const aAuto = a.auto_source && a.auto_source !== "manual" && a.auto_source !== "quick_capture" ? 0 : 1;
+  const bAuto = b.auto_source && b.auto_source !== "manual" && b.auto_source !== "quick_capture" ? 0 : 1;
+  if (aAuto !== bAuto) return aAuto - bAuto;
+  return a.created_at.localeCompare(b.created_at);
+}
 
 export function ExecutionBoard({
   envId,
@@ -63,42 +83,33 @@ export function ExecutionBoard({
   const [data, setData] = useState<ExecutionBoardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<"" | ExecutionTaskType>("");
-  const [revenueFilter, setRevenueFilter] = useState<"" | ExecutionRevenueTag>("");
-  const [showArchived, setShowArchived] = useState(false);
   const [drawerTask, setDrawerTask] = useState<ExecutionTask | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [completionTask, setCompletionTask] = useState<ExecutionTask | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
-  const [autoBanner, setAutoBanner] = useState<string | null>(null);
+  const [quickToast, setQuickToast] = useState<string | null>(null);
   const [highlightSeqGroup, setHighlightSeqGroup] = useState<string | null>(null);
+  const [doneCollapsed, setDoneCollapsed] = useState(true);
+  const toastTimer = useRef<number | null>(null);
+
+  const flashToast = useCallback((msg: string) => {
+    setQuickToast(msg);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setQuickToast(null), 3500);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const next = await fetchExecutionTaskBoard(envId, businessId, {
-        type: typeFilter || undefined,
-        revenue_tag: revenueFilter || undefined,
-        include_archived_done: showArchived,
-      });
+      const next = await fetchExecutionTaskBoard(envId, businessId);
       setData(next);
-      const total =
-        next.auto_report.pipeline_no_next_action +
-        next.auto_report.pipeline_stale_3d +
-        next.auto_report.outreach_no_reply_2d +
-        next.auto_report.proof_backlog_top;
-      if (total > 0) {
-        setAutoBanner(`Auto-added ${total} pressure task${total === 1 ? "" : "s"}`);
-      } else {
-        setAutoBanner(null);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load board");
     } finally {
       setLoading(false);
     }
-  }, [envId, businessId, typeFilter, revenueFilter, showArchived]);
+  }, [envId, businessId]);
 
   useEffect(() => {
     load();
@@ -115,30 +126,96 @@ export function ExecutionBoard({
     for (const t of data.tasks) {
       out[t.status as ColumnKey].push(t);
     }
+    out.today.sort(sortToday);
+    out.this_week.sort((a, b) => {
+      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      return b.impact - a.impact;
+    });
+    out.waiting.sort((a, b) => {
+      if (a.re_engage_at && b.re_engage_at) return a.re_engage_at.localeCompare(b.re_engage_at);
+      if (a.re_engage_at) return -1;
+      if (b.re_engage_at) return 1;
+      return a.created_at.localeCompare(b.created_at);
+    });
+    out.done.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
     return out;
   }, [data]);
+
+  const summary = data?.summary;
+  const todayCount = summary?.today_count ?? 0;
+  const overdueCount = summary?.overdue_count ?? 0;
+  const thisWeekCount = summary?.this_week_count ?? 0;
+  const movedDeals = summary?.moved_deal_7d ?? 0;
+  const completedRecent = summary?.completed_7d ?? 0;
+  const movedPct =
+    completedRecent > 0 ? Math.round((movedDeals / completedRecent) * 100) : null;
+  const todayPressure: "ok" | "warn" | "full" =
+    todayCount >= TODAY_HARD_CAP ? "full" : todayCount >= TODAY_WARN ? "warn" : "ok";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   );
 
+  const handleApiError = useCallback(
+    (err: unknown, fallback: string): string => {
+      const message = err instanceof Error ? err.message : fallback;
+      if (message.toLowerCase().includes("today_full")) {
+        return `TODAY is full (${TODAY_HARD_CAP}). Move something out first.`;
+      }
+      return message;
+    },
+    [],
+  );
+
   const moveTask = useCallback(
     async (task: ExecutionTask, nextStatus: ColumnKey) => {
       if (task.status === nextStatus) return;
 
+      // Drag-to-DONE always opens completion modal — don't mutate yet.
       if (nextStatus === "done") {
-        // Optimistic: keep the card, but open the completion modal.
+        setCompletionTask(task);
+        return;
+      }
+
+      // Drag-to-WAITING: open drawer pre-set to waiting so the user picks
+      // re_engage_at and blocked_reason. We optimistically set the status to
+      // waiting and store re_engage_at = today+3d as the default the user
+      // can override before saving.
+      if (nextStatus === "waiting") {
         setData((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
             tasks: prev.tasks.map((t) =>
-              t.id === task.id ? { ...t, status: "done" as ExecutionTaskStatus } : t,
+              t.id === task.id
+                ? {
+                    ...t,
+                    status: "waiting" as ExecutionTaskStatus,
+                    re_engage_at: t.re_engage_at ?? `${isoDay(3)}T00:00:00Z`,
+                  }
+                : t,
             ),
           };
         });
-        setCompletionTask(task);
+        try {
+          const updated = await updateExecutionTask(task.id, {
+            status: "waiting",
+            re_engage_at: `${isoDay(3)}T00:00:00Z`,
+          });
+          setDrawerTask(updated);
+        } catch (err) {
+          setError(handleApiError(err, "Failed to move task"));
+          load();
+        }
+        return;
+      }
+
+      // Cap guard: don't even try when target is TODAY and already at hard cap.
+      if (nextStatus === "today" && todayCount >= TODAY_HARD_CAP) {
+        setError(`TODAY is full (${TODAY_HARD_CAP}). Move something out first.`);
         return;
       }
 
@@ -154,12 +231,13 @@ export function ExecutionBoard({
 
       try {
         await updateExecutionTask(task.id, { status: nextStatus });
+        load();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update task");
+        setError(handleApiError(err, "Failed to update task"));
         load();
       }
     },
-    [load],
+    [load, todayCount, handleApiError],
   );
 
   const onDragEnd = useCallback(
@@ -188,56 +266,53 @@ export function ExecutionBoard({
         setCompletionTask(null);
         load();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to record completion");
+        setError(handleApiError(err, "Failed to record completion"));
       }
     },
-    [load],
+    [load, handleApiError],
   );
 
-  const onQuickAdd = useCallback(async () => {
-    const title = quickTitle.trim();
-    if (!title) return;
+  const onQuickDone = useCallback((task: ExecutionTask) => {
+    // Outcome capture is mandatory — always open the modal.
+    setCompletionTask(task);
+  }, []);
+
+  const onQuickCapture = useCallback(async () => {
+    const text = quickTitle.trim();
+    if (!text) return;
     try {
-      await createExecutionTask({
+      const result = await quickCaptureTask({
         env_id: envId,
         business_id: businessId,
-        title,
-        next_action: title,
-        why_now: "Captured quickly — refine in the drawer.",
-        type: "outreach",
-        status: "today",
-        impact: 3,
-        revenue_tag: "mid",
+        text,
       });
       setQuickTitle("");
+      const matched = result.matched_entity;
+      const where = result.task.status === "today" ? "TODAY" : "THIS WEEK";
+      flashToast(
+        matched
+          ? `Added to ${where} — linked to ${matched.name}`
+          : `Added to ${where} — no entity match`,
+      );
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add task");
+      setError(handleApiError(err, "Failed to add task"));
     }
-  }, [quickTitle, envId, businessId, load]);
+  }, [quickTitle, envId, businessId, load, flashToast, handleApiError]);
 
   const onTaskUpdated = useCallback(
     async (taskId: string) => {
-      load();
-      // refresh the drawer's view of the task too
       try {
-        const next = await fetchExecutionTaskBoard(envId, businessId, {
-          type: typeFilter || undefined,
-          revenue_tag: revenueFilter || undefined,
-          include_archived_done: showArchived,
-        });
+        const next = await fetchExecutionTaskBoard(envId, businessId);
         const updated = next.tasks.find((t) => t.id === taskId) || null;
         setDrawerTask(updated);
         setData(next);
       } catch {
-        // ignore — board reload above already updates UI
+        load();
       }
     },
-    [envId, businessId, typeFilter, revenueFilter, showArchived, load],
+    [envId, businessId, load],
   );
-
-  const summary = data?.summary;
-  const todayLoaded = (summary?.today_count ?? 0) >= 5;
 
   return (
     <div
@@ -249,97 +324,153 @@ export function ExecutionBoard({
         height: "100%",
       }}
     >
-      {/* Sticky header */}
+      {/* Top bar — leads with TODAY pressure, not generic KPIs */}
       <div
         style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 5,
-          padding: "12px 16px",
+          padding: "10px 16px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           background: "#05070B",
           display: "flex",
           flexWrap: "wrap",
-          alignItems: "center",
-          gap: 8,
+          alignItems: "flex-start",
+          gap: 12,
         }}
       >
-        <CountChip label="Today" value={summary?.today_count ?? 0} pressure={todayLoaded} />
-        <CountChip label="This Week" value={summary?.this_week_count ?? 0} />
-        <CountChip label="Waiting" value={summary?.waiting_count ?? 0} />
-        {summary?.overdue_count ? (
-          <CountChip label="Overdue" value={summary.overdue_count} danger />
-        ) : null}
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 200 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(220,230,240,0.55)",
+                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              }}
+            >
+              Today
+            </span>
+            <span
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color:
+                  todayPressure === "full"
+                    ? "#FCA5A5"
+                    : todayPressure === "warn"
+                      ? "#FB923C"
+                      : "#dce6f0",
+                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              }}
+            >
+              {todayCount}
+              <span style={{ color: "rgba(220,230,240,0.45)", fontWeight: 500, fontSize: 16 }}>
+                {" "}/ {TODAY_WARN}
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: "rgba(220,230,240,0.55)" }}>
+              tasks
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "rgba(220,230,240,0.55)",
+              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              letterSpacing: "0.06em",
+              display: "flex",
+              gap: 12,
+            }}
+          >
+            {overdueCount > 0 ? (
+              <span style={{ color: "#FCA5A5" }}>{overdueCount} overdue</span>
+            ) : null}
+            <span>This week: {thisWeekCount}</span>
+            {movedPct !== null ? (
+              <span>
+                Moved deals {movedDeals}/{completedRecent} ({movedPct}%)
+              </span>
+            ) : null}
+          </div>
+        </div>
 
-        <div style={{ flex: 1 }} />
-
-        <input
-          value={quickTitle}
-          onChange={(e) => setQuickTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onQuickAdd();
-          }}
-          placeholder="Add an action — Enter to save"
-          style={{
-            flex: "1 1 240px",
-            minWidth: 200,
-            padding: "8px 10px",
-            borderRadius: 4,
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(255,255,255,0.03)",
-            color: "#dce6f0",
-            fontSize: 13,
-          }}
-        />
-
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "" | ExecutionTaskType)}
-          style={selectStyle}
-        >
-          {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <select
-          value={revenueFilter}
-          onChange={(e) => setRevenueFilter(e.target.value as "" | ExecutionRevenueTag)}
-          style={selectStyle}
-        >
-          {REVENUE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          onClick={() => setShowArchived((v) => !v)}
-          style={ghostBtn}
-        >
-          {showArchived ? "Hide archived" : "Show archived"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setGenerateOpen(true)}
-          style={primaryBtn}
-        >
-          Generate
-        </button>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 280 }}>
+          <input
+            value={quickTitle}
+            onChange={(e) => setQuickTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onQuickCapture();
+            }}
+            placeholder="Type a task… e.g. Send follow-up to Marcus Partners"
+            style={{
+              flex: 1,
+              minWidth: 240,
+              padding: "9px 12px",
+              borderRadius: 4,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(255,255,255,0.03)",
+              color: "#dce6f0",
+              fontSize: 13,
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setGenerateOpen(true)}
+            style={primaryBtn}
+          >
+            Generate
+          </button>
+        </div>
       </div>
 
-      {autoBanner ? (
+      {todayPressure === "warn" ? (
         <div
           style={{
             padding: "6px 16px",
             fontSize: 12,
-            color: "rgba(0,220,255,0.85)",
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            color: "#FB923C",
+            borderBottom: "1px solid rgba(251,146,60,0.20)",
+            background: "rgba(251,146,60,0.06)",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          You&apos;re at {todayCount}/{TODAY_WARN} for today. Anything more is avoidance — move some to THIS WEEK.
+        </div>
+      ) : null}
+
+      {todayPressure === "full" ? (
+        <div
+          style={{
+            padding: "6px 16px",
+            fontSize: 12,
+            color: "#FCA5A5",
+            borderBottom: "1px solid rgba(239,68,68,0.30)",
+            background: "rgba(239,68,68,0.08)",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          TODAY is full ({todayCount}/{TODAY_HARD_CAP}). New adds land in THIS WEEK until you clear something.
+        </div>
+      ) : null}
+
+      {quickToast ? (
+        <div
+          style={{
+            padding: "6px 16px",
+            fontSize: 12,
+            color: "rgba(0,220,255,0.92)",
+            borderBottom: "1px solid rgba(0,220,255,0.20)",
             background: "rgba(0,220,255,0.04)",
           }}
         >
-          {autoBanner}
+          {quickToast}
         </div>
       ) : null}
 
@@ -356,6 +487,19 @@ export function ExecutionBoard({
           }}
         >
           {error}
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            style={{
+              float: "right",
+              border: 0,
+              background: "transparent",
+              color: "#FCA5A5",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
         </div>
       ) : null}
 
@@ -380,7 +524,12 @@ export function ExecutionBoard({
               tasks={tasksByColumn[col.key]}
               onSelectTask={setDrawerTask}
               onMobileMove={onMobileMove}
+              onQuickDone={col.key !== "done" ? onQuickDone : undefined}
               highlightSeqGroup={highlightSeqGroup}
+              pressureLevel={col.key === "today" ? todayPressure : "ok"}
+              isFull={col.key === "today" && todayPressure === "full"}
+              collapsed={col.key === "done" ? doneCollapsed : false}
+              onToggleCollapsed={col.key === "done" ? () => setDoneCollapsed((v) => !v) : undefined}
             />
           ))}
         </DndContext>
@@ -434,75 +583,14 @@ export function ExecutionBoard({
   );
 }
 
-function CountChip({
-  label,
-  value,
-  pressure,
-  danger,
-}: {
-  label: string;
-  value: number;
-  pressure?: boolean;
-  danger?: boolean;
-}) {
-  const tone = danger
-    ? { color: "#FCA5A5", border: "rgba(239,68,68,0.45)", bg: "rgba(239,68,68,0.10)" }
-    : pressure
-      ? { color: "#FCA5A5", border: "rgba(239,68,68,0.45)", bg: "rgba(239,68,68,0.10)" }
-      : { color: "rgba(220,230,240,0.78)", border: "rgba(255,255,255,0.10)", bg: "transparent" };
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 10px",
-        borderRadius: 3,
-        border: `1px solid ${tone.border}`,
-        background: tone.bg,
-        color: tone.color,
-        fontSize: 11,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-      }}
-    >
-      <span>{label}</span>
-      <span style={{ fontWeight: 700 }}>{value}</span>
-    </div>
-  );
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: "6px 8px",
-  borderRadius: 3,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.03)",
-  color: "#dce6f0",
-  fontSize: 12,
-};
-
-const ghostBtn: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 3,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "transparent",
-  color: "rgba(220,230,240,0.72)",
-  fontSize: 11,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  cursor: "pointer",
-  fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-};
-
 const primaryBtn: React.CSSProperties = {
-  padding: "6px 12px",
+  padding: "8px 14px",
   borderRadius: 3,
   border: "1px solid rgba(0,220,255,0.40)",
   background: "rgba(0,220,255,0.10)",
   color: "rgba(0,220,255,0.95)",
   fontSize: 11,
-  letterSpacing: "0.06em",
+  letterSpacing: "0.08em",
   textTransform: "uppercase",
   cursor: "pointer",
   fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",

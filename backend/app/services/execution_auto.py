@@ -1,7 +1,7 @@
 """Execution Board – auto-generation pressure engine.
 
-Runs on every board load. Five passes, each idempotent via the partial unique
-index uq_cro_execution_task_auto_open:
+Runs on every board load. Eight passes, each idempotent via the partial unique
+index uq_cro_execution_task_auto_open (pass 6 also moves rather than inserts):
 
   1. Promote overdue This Week → Today.
   2. Open deals with no committed next action → Today task.
@@ -9,6 +9,10 @@ index uq_cro_execution_task_auto_open:
      → Today follow-up task.
   4. Outbound outreach sent > 2 days ago with no reply → Today follow-up.
   5. Top of proof backlog → This Week pinned task.
+  6. Waiting tasks whose re_engage_at has hit → flip to Today.
+  7. Open deals never touched (no outreach + created > 12h ago) → Today
+     "send first outreach" pressure.
+  8. Stage = proposal AND last touch > 2d ago → Today "check response".
 
 Returns counts per source so the UI can surface "Auto-added N" pills.
 """
@@ -62,9 +66,12 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
     report = {
         "pipeline_no_next_action": 0,
         "pipeline_stale_3d": 0,
+        "pipeline_no_outreach": 0,
+        "pipeline_proposal_sent_no_followup": 0,
         "outreach_no_reply_2d": 0,
         "proof_backlog_top": 0,
         "promoted_to_today": 0,
+        "waiting_re_engaged": 0,
     }
 
     with get_cursor() as cur:
@@ -258,5 +265,117 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             )
             if inserted:
                 report["proof_backlog_top"] += 1
+
+        # ── 6. Waiting → Today when re_engage_at hits ───────────────────────
+        # The engine that keeps WAITING from becoming a graveyard. When the
+        # date the user picked at drag-to-WAITING arrives, the card returns
+        # to TODAY and re_engage_at is cleared so it doesn't bounce again.
+        cur.execute(
+            """
+            UPDATE cro_execution_task
+               SET status = 'today',
+                   re_engage_at = NULL,
+                   updated_at = now()
+             WHERE env_id = %s AND business_id = %s
+               AND status = 'waiting'
+               AND re_engage_at IS NOT NULL
+               AND re_engage_at <= now()
+            RETURNING id
+            """,
+            (env_id, str(business_id)),
+        )
+        report["waiting_re_engaged"] = len(cur.fetchall())
+
+        # ── 7. Open deals never touched ─────────────────────────────────────
+        # 12h grace before we nag — the user may have just created the deal.
+        cur.execute(
+            """
+            SELECT o.crm_opportunity_id, o.name, a.name AS account_name
+              FROM crm_opportunity o
+         LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
+             WHERE o.business_id = %s
+               AND o.status = 'open'
+               AND o.created_at < now() - interval '12 hours'
+               AND NOT EXISTS (
+                   SELECT 1 FROM cro_outreach_log ol
+                    WHERE ol.crm_account_id = o.crm_account_id
+                      AND ol.business_id = o.business_id
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM crm_activity ca
+                    WHERE ca.crm_opportunity_id = o.crm_opportunity_id
+               )
+            """,
+            (str(business_id),),
+        )
+        for row in cur.fetchall():
+            deal_id = str(row["crm_opportunity_id"])
+            label = row.get("account_name") or row.get("name") or "deal"
+            inserted = _safe_insert_auto(
+                cur,
+                env_id=env_id,
+                business_id=business_id,
+                title=f"Send first outreach to {label}",
+                next_action="Open the contact list and send the first message.",
+                why_now="Deal is open and has never been touched.",
+                type_="outreach",
+                status="today",
+                auto_source="pipeline_no_outreach",
+                auto_source_ref=deal_id,
+                linked_deal_id=deal_id,
+                impact=4,
+                revenue_tag="high",
+            )
+            if inserted:
+                report["pipeline_no_outreach"] += 1
+
+        # ── 8. Stage = proposal AND last touch > 2d → check response ────────
+        # Stage values come from crm_opportunity.stage. The 2-day window matches
+        # the no-reply pass; together they form a tight follow-up loop on the
+        # most-revenue-sensitive part of the funnel.
+        cur.execute(
+            """
+            WITH proposal_deals AS (
+                SELECT o.crm_opportunity_id, o.name, a.name AS account_name,
+                       GREATEST(
+                         o.created_at,
+                         COALESCE((SELECT MAX(activity_at) FROM crm_activity
+                                    WHERE crm_opportunity_id = o.crm_opportunity_id), o.created_at),
+                         COALESCE((SELECT MAX(sent_at) FROM cro_outreach_log
+                                    WHERE crm_account_id = o.crm_account_id
+                                      AND env_id = %s), o.created_at)
+                       ) AS last_touch
+                  FROM crm_opportunity o
+             LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
+                 WHERE o.business_id = %s
+                   AND o.status = 'open'
+                   AND lower(o.stage) = 'proposal'
+            )
+            SELECT crm_opportunity_id, name, account_name, last_touch
+              FROM proposal_deals
+             WHERE last_touch < now() - interval '2 days'
+            """,
+            (env_id, str(business_id)),
+        )
+        for row in cur.fetchall():
+            deal_id = str(row["crm_opportunity_id"])
+            label = row.get("account_name") or row.get("name") or "deal"
+            inserted = _safe_insert_auto(
+                cur,
+                env_id=env_id,
+                business_id=business_id,
+                title=f"Check response on {label} proposal",
+                next_action="Ping the prospect for a decision or schedule a review call.",
+                why_now="Proposal sent, no reply in 2+ days.",
+                type_="follow_up",
+                status="today",
+                auto_source="pipeline_proposal_sent_no_followup",
+                auto_source_ref=deal_id,
+                linked_deal_id=deal_id,
+                impact=5,
+                revenue_tag="high",
+            )
+            if inserted:
+                report["pipeline_proposal_sent_no_followup"] += 1
 
     return report

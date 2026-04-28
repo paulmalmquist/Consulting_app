@@ -34,8 +34,11 @@ const REVENUE_GLYPH: Record<string, string> = {
 const AUTO_LABEL: Record<ExecutionAutoSource, string> = {
   pipeline_no_next_action: "auto: no next move",
   pipeline_stale_3d: "auto: stale 3d",
+  pipeline_no_outreach: "auto: never touched",
+  pipeline_proposal_sent_no_followup: "auto: proposal stalled",
   outreach_no_reply_2d: "auto: no reply 2d",
   proof_backlog_top: "auto: backlog top",
+  quick_capture: "",
   manual: "",
   ai_generated: "ai",
 };
@@ -71,11 +74,13 @@ export function ExecutionCard({
   task,
   onSelect,
   onMobileMove,
+  onQuickDone,
   highlight,
 }: {
   task: ExecutionTask;
   onSelect: (task: ExecutionTask) => void;
   onMobileMove: (task: ExecutionTask, next: ExecutionTaskStatus) => void;
+  onQuickDone?: (task: ExecutionTask) => void;
   highlight: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -226,6 +231,30 @@ export function ExecutionCard({
           </span>
         ) : null}
         <span style={{ flex: 1 }} />
+        {onQuickDone && task.status !== "done" ? (
+          <button
+            type="button"
+            aria-label="Mark done"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickDone(task);
+            }}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 2,
+              border: "1px solid rgba(52,211,153,0.45)",
+              background: "rgba(52,211,153,0.10)",
+              color: "rgba(52,211,153,0.95)",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            }}
+          >
+            ✓
+          </button>
+        ) : null}
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}

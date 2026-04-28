@@ -2186,8 +2186,11 @@ export type ExecutionTaskOutcome =
 export type ExecutionAutoSource =
   | "pipeline_no_next_action"
   | "pipeline_stale_3d"
+  | "pipeline_no_outreach"
+  | "pipeline_proposal_sent_no_followup"
   | "outreach_no_reply_2d"
   | "proof_backlog_top"
+  | "quick_capture"
   | "manual"
   | "ai_generated";
 
@@ -2214,6 +2217,8 @@ export type ExecutionTask = {
   outcome: ExecutionTaskOutcome | null;
   outcome_note: string | null;
   completed_at: string | null;
+  re_engage_at: string | null;
+  blocked_reason: string | null;
   created_at: string;
   updated_at: string;
   deal_name: string | null;
@@ -2226,14 +2231,19 @@ export type ExecutionBoardSummary = {
   waiting_count: number;
   done_visible_count: number;
   overdue_count: number;
+  moved_deal_7d: number;
+  completed_7d: number;
 };
 
 export type ExecutionAutoReport = {
   pipeline_no_next_action: number;
   pipeline_stale_3d: number;
+  pipeline_no_outreach: number;
+  pipeline_proposal_sent_no_followup: number;
   outreach_no_reply_2d: number;
   proof_backlog_top: number;
   promoted_to_today: number;
+  waiting_re_engaged: number;
 };
 
 export type ExecutionTaskBoard = {
@@ -2272,7 +2282,27 @@ export type ExecutionTaskUpdate = Partial<{
   impact: number;
   revenue_tag: ExecutionRevenueTag;
   due_date: string | null;
+  re_engage_at: string | null;
+  blocked_reason: string | null;
 }>;
+
+export type QuickCaptureRequest = {
+  env_id: string;
+  business_id: string;
+  text: string;
+};
+
+export type QuickCaptureMatch = {
+  entity_type: "account" | "contact";
+  entity_id: string;
+  name: string;
+  confidence: number;
+};
+
+export type QuickCaptureResponse = {
+  task: ExecutionTask;
+  matched_entity: QuickCaptureMatch | null;
+};
 
 export type GenerateActionsRequest = {
   env_id: string;
@@ -2353,6 +2383,13 @@ export function completeExecutionTask(taskId: string, body: CompleteTaskRequest)
 
 export function generateExecutionActions(body: GenerateActionsRequest) {
   return apiFetch<GenerateActionsResponse>(`${CRO_BASE}/execution/generate-actions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function quickCaptureTask(body: QuickCaptureRequest) {
+  return apiFetch<QuickCaptureResponse>(`${CRO_BASE}/execution/quick-capture`, {
     method: "POST",
     body: JSON.stringify(body),
   });

@@ -127,6 +127,8 @@ from app.schemas.consulting import (
     GenerateActionsRequest,
     GenerateActionsResponse,
     CompleteTaskRequest,
+    QuickCaptureRequest,
+    QuickCaptureResponse,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -167,6 +169,7 @@ from app.services import (
     execution_tasks as execution_tasks_svc,
     execution_auto,
     execution_actions,
+    execution_quick_capture,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -2313,6 +2316,11 @@ def create_execution_task_route(body: ExecutionTaskCreate):
             revenue_tag=body.revenue_tag,
             due_date=body.due_date,
         )
+    except execution_tasks_svc.TodayFullError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "today_full", "today_count": exc.today_count},
+        )
     except Exception as exc:
         raise _to_http(exc)
 
@@ -2331,10 +2339,19 @@ def update_execution_task_route(
             update_kwargs["_linked_contact_set"] = True
         if "due_date" in update_kwargs:
             update_kwargs["_due_date_set"] = True
+        if "re_engage_at" in update_kwargs:
+            update_kwargs["_re_engage_at_set"] = True
+        if "blocked_reason" in update_kwargs:
+            update_kwargs["_blocked_reason_set"] = True
         result = execution_tasks_svc.update_task(task_id=task_id, **update_kwargs)
         if not result:
             raise HTTPException(404, "Execution task not found")
         return result
+    except execution_tasks_svc.TodayFullError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "today_full", "today_count": exc.today_count},
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -2379,6 +2396,29 @@ def execution_generate_actions_route(body: GenerateActionsRequest):
             business_id=body.business_id,
             deal_id=body.deal_id,
             goal_text=body.goal_text,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/execution/quick-capture", response_model=QuickCaptureResponse, status_code=201)
+def execution_quick_capture_route(body: QuickCaptureRequest):
+    """Free-text → entity-resolved task. Primary add path on the Tasks page.
+
+    Friction kills capture rate; this is the one-line "Send follow-up to
+    Marcus Partners" + Enter flow. Server resolves verb→type, fuzzy-matches
+    entity name, drops the task into TODAY (or THIS_WEEK if TODAY is full).
+    """
+    try:
+        return execution_quick_capture.quick_capture(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            text=body.text,
+        )
+    except execution_tasks_svc.TodayFullError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "today_full", "today_count": exc.today_count},
         )
     except Exception as exc:
         raise _to_http(exc)

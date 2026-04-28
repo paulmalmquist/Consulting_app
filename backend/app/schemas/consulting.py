@@ -1581,6 +1581,8 @@ class ExecutionTask(BaseModel):
     outcome: str | None = None
     outcome_note: str | None = None
     completed_at: datetime | None = None
+    re_engage_at: datetime | None = None
+    blocked_reason: str | None = None
     created_at: datetime
     updated_at: datetime
     deal_name: str | None = None
@@ -1617,6 +1619,8 @@ class ExecutionTaskUpdate(BaseModel):
     impact: int | None = Field(default=None, ge=1, le=5)
     revenue_tag: str | None = None
     due_date: date | None = None
+    re_engage_at: datetime | None = None
+    blocked_reason: str | None = None
 
 
 class ExecutionBoardSummary(BaseModel):
@@ -1625,14 +1629,19 @@ class ExecutionBoardSummary(BaseModel):
     waiting_count: int
     done_visible_count: int
     overdue_count: int
+    moved_deal_7d: int = 0
+    completed_7d: int = 0
 
 
 class AutoGenerateReport(BaseModel):
     pipeline_no_next_action: int = 0
     pipeline_stale_3d: int = 0
+    pipeline_no_outreach: int = 0
+    pipeline_proposal_sent_no_followup: int = 0
     outreach_no_reply_2d: int = 0
     proof_backlog_top: int = 0
     promoted_to_today: int = 0
+    waiting_re_engaged: int = 0
 
 
 class ExecutionBoardOutV2(BaseModel):
@@ -1656,3 +1665,21 @@ class GenerateActionsResponse(BaseModel):
 class CompleteTaskRequest(BaseModel):
     outcome: str = Field(default="unknown")
     outcome_note: str | None = None
+
+
+class QuickCaptureRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    text: str = Field(min_length=1)
+
+
+class QuickCaptureMatch(BaseModel):
+    entity_type: str
+    entity_id: UUID
+    name: str
+    confidence: float
+
+
+class QuickCaptureResponse(BaseModel):
+    task: ExecutionTask
+    matched_entity: QuickCaptureMatch | None = None

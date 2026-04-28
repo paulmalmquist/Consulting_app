@@ -1546,7 +1546,8 @@ export function GroupedBoardView({
             gap: 8,
             padding: "14px 14px 14px",
             minWidth: "max-content",
-            alignItems: "flex-start",
+            minHeight: 0,
+            alignItems: "stretch",
           }}
         >
           {PIPELINE_GROUPS.map((group) => {
