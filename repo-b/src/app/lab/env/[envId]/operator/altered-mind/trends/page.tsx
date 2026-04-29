@@ -1,10 +1,10 @@
-import { AlteredMindTrends } from "@/components/altered-mind/AlteredMindTrends";
+import { redirect } from "next/navigation";
 
-export default async function AlteredMindTrendsPage({
+export default async function AlteredMindOperatorTrendsRedirect({
   params,
 }: {
   params: Promise<{ envId: string }>;
 }) {
   const { envId } = await params;
-  return <AlteredMindTrends envId={envId} />;
+  redirect(`/lab/env/${envId}/altered-mind/trends`);
 }

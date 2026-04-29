@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { Building2, Scale, Stethoscope, Wallet } from 'lucide-react';
 import { INDUSTRY_VERTICALS, type IndustryVertical } from '@content/industry-verticals';
-import { INDUSTRY_THEME_STYLES } from '@/lib/marketing/industryThemes';
+import { INDUSTRY_THEME_STYLES, industryBackgrounds } from '@/lib/marketing/industryThemes';
+import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
 import { cn } from '../ui/cn';
 import { BeforeAfterDiagram } from '../visual/BeforeAfterDiagram';
 import { ControlLayerDiagram } from '../visual/ControlLayerDiagram';
 import { SloganBadge } from '../visual/SloganBadge';
+import { HeroBackground } from '../HeroBackground';
 
 const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Building2; microCase: string }> = {
   'real-estate-private-equity': {
@@ -36,10 +38,12 @@ export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
   const theme = INDUSTRY_THEME_STYLES[industry.themeKey];
   const contactHref = `/contact?industry=${industry.slug}`;
   const industryLabel = labels[industry.slug];
+  const bgPath = industryBackgrounds[industry.slug];
+  const bgSrc = fileExistsInPublic(bgPath) ? bgPath : undefined;
 
   return (
     <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
+      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.6}>
         <SloganBadge />
         <p className="mt-4 text-sm uppercase tracking-[0.2em] text-nv-dim">{industry.label}</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">{industry.heroHeadline} in 12 weeks with a controlled execution layer.</h1>
@@ -47,7 +51,7 @@ export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
         <div className="mt-5 inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">
           <industryLabel.Icon size={14} aria-hidden="true" /> {industryLabel.label}
         </div>
-      </section>
+      </HeroBackground>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
         <h2 className="text-2xl font-semibold text-white">Why It Breaks</h2>

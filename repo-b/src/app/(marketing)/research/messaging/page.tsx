@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getResearchBySlug } from '@/lib/marketing/content';
 import { OnThisPageDesktop, OnThisPageMobile } from '@/components/marketing/research/OnThisPage';
 import { MessagingRulebook } from '@/components/marketing/research/MessagingRulebook';
+import { NvCard } from '@/components/marketing/ui/NvCard';
 
 type CalloutSection = {
   type: 'callout';
@@ -11,35 +12,46 @@ type CalloutSection = {
 
 export const metadata: Metadata = {
   title: 'Messaging Rules',
-  description: 'Rulebook and mini checker for clear, enterprise-safe positioning and website copy.'
+  description: 'Rulebook and mini checker for clear, enterprise-safe positioning and website copy.',
 };
 
 const ON_PAGE_LINKS = [
   { id: 'rules', label: 'Messaging Rules' },
-  { id: 'checker', label: 'Message Checker' }
+  { id: 'checker', label: 'Message Checker' },
 ] as const;
 
 export default function ResearchMessagingPage() {
   const entry = getResearchBySlug('messaging');
-  const callout = entry.sections.find((section) => section.type === 'callout') as CalloutSection | undefined;
+  const callout = entry.sections.find((section) => section.type === 'callout') as
+    | CalloutSection
+    | undefined;
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <section className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Research / Messaging</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{entry.title}</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">{entry.summary}</p>
+    <div className="nv-page">
+      <header style={{ paddingBottom: 48, borderBottom: '1px solid var(--nv-hair-medium-rgba)' }}>
+        <p className="nv-eyebrow">
+          <span className="nv-eyebrow-dot" />
+          Research · Messaging
+        </p>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24, fontSize: 'clamp(44px, 6vw, 68px)' }}>
+          {entry.title}
+        </h1>
+        <p className="nv-lede">{entry.summary}</p>
         {callout && (
-          <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">{callout.title}</p>
-            <p className="mt-1 text-sm text-nv-teal">{callout.body}</p>
-          </div>
+          <NvCard padded style={{ marginTop: 24 }}>
+            <p className="nv-eyebrow" style={{ marginBottom: 8, color: 'rgb(var(--nv-accent-teal))' }}>
+              {callout.title}
+            </p>
+            <p className="nv-body" style={{ margin: 0, color: 'rgb(var(--nv-accent-teal))' }}>
+              {callout.body}
+            </p>
+          </NvCard>
         )}
-      </section>
+      </header>
 
       <OnThisPageMobile links={[...ON_PAGE_LINKS]} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="nv-section grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <MessagingRulebook entry={entry} />
         <OnThisPageDesktop links={[...ON_PAGE_LINKS]} />
       </div>

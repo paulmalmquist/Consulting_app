@@ -132,3 +132,7 @@ job-search/
 # Font source archives
 abadi-font-family.zip
 abadi-font-family/
+
+# Altered Mind: private practice data — never commit
+data/altered-mind/
+Altered Mind Weekly Business Check In.xlsx

@@ -1,0 +1,152 @@
+[
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "desktop/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "desktop/light: bg=rgb(250, 252, 255), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "h1 stack: Abadi @ 44px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "mobile/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "desktop/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "desktop/light: bg=rgb(250, 252, 255), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "h1 stack: Abadi @ 44px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/about",
+    "msg": "mobile/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "desktop/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "desktop/light: bg=rgb(250, 252, 255), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "h1 stack: Abadi @ 44px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/the-shift",
+    "msg": "mobile/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "h1 stack: Abadi @ 68px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "desktop/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "h1 stack: Abadi @ 68px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "desktop/light: bg=rgb(250, 252, 255), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "h1 stack: Abadi @ 44px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/research/messaging",
+    "msg": "mobile/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "h1 stack: Abadi @ 84px/500"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "tablet/dark: bg=rgb(11, 14, 18), no overflow"
+  },
+  {
+    "level": "pass",
+    "route": "/login",
+    "msg": "no marketing-shell leak (font=__Inter_8b3a0b, html theme=light)"
+  },
+  {
+    "level": "pass",
+    "route": "/lab/environments",
+    "msg": "no marketing-shell leak (font=__Inter_8b3a0b, html theme=light)"
+  },
+  {
+    "level": "pass",
+    "route": "theme-persistence",
+    "msg": "light theme persisted across reload"
+  },
+  {
+    "level": "pass",
+    "route": "theme-persistence",
+    "msg": "early data-theme on /about after light persisted: dark"
+  }
+]

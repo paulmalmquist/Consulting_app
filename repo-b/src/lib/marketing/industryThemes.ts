@@ -14,6 +14,27 @@ type IndustryThemeStyles = {
   impactCard: string;
 };
 
+/**
+ * Hero background imagery per industry. Drop a JPEG/WEBP at each path
+ * into repo-b/public/assets/ to enable. When a file is missing,
+ * <HeroBackground> falls back to an on-brand gradient automatically.
+ *
+ * Suggested subjects:
+ *  - bg-repe.jpg        skyline / commercial real estate
+ *  - bg-consumer.jpg    abstract finance / cards / charts
+ *  - bg-medical.jpg     clinical operations / hospital systems
+ *  - bg-legal.jpg       documents / matter intake / orderly office
+ */
+export const industryBackgrounds: Record<IndustryVertical['slug'], string> = {
+  'real-estate-private-equity': '/assets/bg-repe.jpg',
+  'consumer-credit': '/assets/bg-consumer.jpg',
+  medical: '/assets/bg-medical.jpg',
+  legal: '/assets/bg-legal.jpg',
+};
+
+/** Homepage hero background. Same fallback rules apply. */
+export const HOMEPAGE_BACKGROUND = '/assets/bg-home.jpg';
+
 export const INDUSTRY_THEME_STYLES = {
   cyan: {
     eyebrowText: 'text-cyan-200',

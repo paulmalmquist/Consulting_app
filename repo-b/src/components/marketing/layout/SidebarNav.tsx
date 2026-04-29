@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowRightLeft,
+  BarChart3,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -30,6 +31,7 @@ const ALLOWED_NAV_ITEMS = new Set([
   'The Shift',
   'Operational Assessment',
   'AI Concierge',
+  'Comprehensive Data Strategy',
   'Legacy SaaS Migration',
   'About',
   'Contact'
@@ -54,6 +56,7 @@ const NAV_ICON_BY_LABEL: Record<string, LucideIcon> = {
   'AI Concierge': Compass,
   'What We Do': Workflow,
   'The Shift': ArrowRightLeft,
+  'Comprehensive Data Strategy': BarChart3,
   'Legacy SaaS Migration': Layers3,
   Industries: Factory,
   'Operational Assessment': ClipboardCheck,

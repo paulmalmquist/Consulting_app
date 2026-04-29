@@ -1,0 +1,47 @@
+[
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "hero-bg present (image=no, fallback=true)"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "no engagement-model panel"
+  },
+  {
+    "level": "pass",
+    "route": "/",
+    "msg": "lede contains \"practical way\""
+  },
+  {
+    "level": "pass",
+    "route": "/industries/real-estate-private-equity",
+    "msg": "hero-bg present (image=no, fallback=true)"
+  },
+  {
+    "level": "pass",
+    "route": "/industries/consumer-credit",
+    "msg": "hero-bg present (image=no, fallback=true)"
+  },
+  {
+    "level": "pass",
+    "route": "/industries/medical",
+    "msg": "hero-bg present (image=no, fallback=true)"
+  },
+  {
+    "level": "pass",
+    "route": "/industries/legal",
+    "msg": "hero-bg present (image=no, fallback=true)"
+  },
+  {
+    "level": "pass",
+    "route": "/capabilities",
+    "msg": "index has 4 capability cards"
+  },
+  {
+    "level": "pass",
+    "route": "/capabilities/comprehensive-data-strategy",
+    "msg": "capability page Abadi h1 OK"
+  }
+]

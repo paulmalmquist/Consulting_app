@@ -109,8 +109,11 @@
 }
 
 /* ── LIGHT — parallel tokens, never inverted ─────────────────── */
-[data-theme="light"].marketing-shell,
-[data-theme="light"] .marketing-shell {
+/* Scope strictly to the wrapper element itself. The previous form
+   `[data-theme="light"] .marketing-shell` matched when ANY ancestor
+   (e.g. <html data-theme="light"> set globally by Winston) had the
+   attribute, leaking Winston's user-toggled theme into marketing. */
+.marketing-shell[data-theme="light"] {
   color-scheme: light;
 
   --nv-bg:              250 252 255;  /* #FAFCFF — porcelain */
@@ -323,6 +326,67 @@
   .nv-section { margin-top: 64px; }
 }
 
+/* ── Hero background (full-bleed image wrapper) ───────────────── */
+
+.nv-hero-bg {
+  position: relative;
+  width: 100%;
+  /* Full-bleed escape from any constraining parent. The marketing-shell
+     itself spans the viewport, so we only need a left-position trick if
+     a wrapper ever introduces horizontal padding above us. */
+  padding: 96px 48px 72px;
+  overflow: hidden;
+  isolation: isolate;
+}
+@media (max-width: 767px) {
+  .nv-hero-bg { padding: 64px 20px 48px; }
+}
+
+.nv-hero-bg__img {
+  object-fit: cover;
+  object-position: center;
+  z-index: -2;
+}
+
+.nv-hero-bg__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+/* Gradient fallback when no image file ships. Uses the design system
+   accents at low opacity over the base ink so the page still feels
+   composed before real imagery is added. */
+.nv-hero-bg__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(900px 500px at 8% 10%, rgba(79,179,169,0.10), transparent 60%),
+    radial-gradient(700px 420px at 95% 90%, rgba(200,137,90,0.08),  transparent 65%),
+    linear-gradient(180deg, rgb(var(--nv-surface)) 0%, rgb(var(--nv-bg)) 100%);
+}
+.marketing-shell[data-theme="light"] .nv-hero-bg__fallback {
+  background:
+    radial-gradient(900px 500px at 8% 10%, rgba(64,150,145,0.10), transparent 60%),
+    radial-gradient(700px 420px at 95% 90%, rgba(140,100,65,0.08), transparent 65%),
+    linear-gradient(180deg, rgb(var(--nv-surface)) 0%, rgb(var(--nv-bg)) 100%);
+}
+
+.nv-hero-bg__content {
+  position: relative;
+  z-index: 1;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+/* When .nv-hero is rendered inside .nv-hero-bg, drop the bottom border
+   (the image edge already separates the hero from the next section). */
+.nv-hero-bg .nv-hero {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 /* ── Hero grid ───────────────────────────────────────────────── */
 
 .nv-hero {
@@ -362,7 +426,7 @@
     inset 0 0 0 1px rgb(var(--nv-hair-soft) / 0.06);
 }
 
-[data-theme="light"] .nv-hero-panel {
+.marketing-shell[data-theme="light"] .nv-hero-panel {
   background:
     linear-gradient(180deg, rgba(64,150,145,0.05), rgba(64,150,145,0) 50%),
     rgb(var(--nv-surface));
@@ -428,7 +492,7 @@
     0 10px 24px -8px rgba(79,179,169,0.6);
 }
 
-[data-theme="light"] .nv-btn-primary {
+.marketing-shell[data-theme="light"] .nv-btn-primary {
   color: #07201E;
   background: linear-gradient(180deg, #7AD0C7, rgb(var(--nv-accent-teal)));
   box-shadow:
@@ -436,7 +500,7 @@
     0 1px 0 rgba(0,0,0,0.06),
     0 6px 16px -4px rgba(64,150,145,0.30);
 }
-[data-theme="light"] .nv-btn-primary:hover {
+.marketing-shell[data-theme="light"] .nv-btn-primary:hover {
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.7),
     0 8px 20px -4px rgba(64,150,145,0.40);
@@ -481,7 +545,7 @@
   padding: 24px;
 }
 
-[data-theme="light"] .nv-card {
+.marketing-shell[data-theme="light"] .nv-card {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 30%),
     rgb(var(--nv-surface-raised));

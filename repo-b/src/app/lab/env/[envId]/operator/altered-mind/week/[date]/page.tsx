@@ -1,10 +1,10 @@
-import { AlteredMindWeekDetail } from "@/components/altered-mind/AlteredMindWeekDetail";
+import { redirect } from "next/navigation";
 
-export default async function AlteredMindWeekPage({
+export default async function AlteredMindOperatorWeekRedirect({
   params,
 }: {
   params: Promise<{ envId: string; date: string }>;
 }) {
   const { envId, date } = await params;
-  return <AlteredMindWeekDetail envId={envId} date={date} />;
+  redirect(`/lab/env/${envId}/altered-mind/week/${date}`);
 }
