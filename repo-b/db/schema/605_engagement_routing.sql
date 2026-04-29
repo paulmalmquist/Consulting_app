@@ -226,11 +226,13 @@ CREATE INDEX IF NOT EXISTS idx_cro_engagement_attribution_user
 COMMENT ON TABLE cro_engagement_attribution IS
     'Credit attribution and economics splits per engagement. credit_percentage answers "who gets credit"; economics_percentage answers "who gets paid". They can diverge.';
 
--- ── cro_engagement_event ────────────────────────────────────────────────────
+-- ── cro_routing_event ───────────────────────────────────────────────────────
 -- Timeline of routing-relevant events. Powers the right-rail recent-activity
 -- and the detail-page timeline section.
+-- Note: cro_engagement_event (437) is the email-tracking table; this table is
+-- the routing timeline and uses a distinct name to avoid collision.
 
-CREATE TABLE IF NOT EXISTS cro_engagement_event (
+CREATE TABLE IF NOT EXISTS cro_routing_event (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     env_id          text NOT NULL,
     business_id     uuid NOT NULL,
@@ -248,16 +250,16 @@ CREATE TABLE IF NOT EXISTS cro_engagement_event (
     created_at      timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE cro_engagement_event ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cro_routing_event ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
-    CREATE POLICY cro_engagement_event_tenant ON cro_engagement_event
+    CREATE POLICY cro_routing_event_tenant ON cro_routing_event
         USING (env_id = current_setting('app.env_id', true));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX IF NOT EXISTS idx_cro_engagement_event_engagement
-    ON cro_engagement_event (env_id, engagement_id, event_date DESC);
+CREATE INDEX IF NOT EXISTS idx_cro_routing_event_engagement
+    ON cro_routing_event (env_id, engagement_id, event_date DESC);
 
-COMMENT ON TABLE cro_engagement_event IS
+COMMENT ON TABLE cro_routing_event IS
     'Timeline of routing-relevant events per engagement. Powers the detail timeline and right-rail recent-activity. Owned by Engagement Routing module.';
 
 COMMIT;

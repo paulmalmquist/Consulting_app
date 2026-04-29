@@ -267,7 +267,7 @@ def _log_event(
 ) -> None:
     cur.execute(
         """
-        INSERT INTO cro_engagement_event
+        INSERT INTO cro_routing_event
           (env_id, business_id, engagement_id, event_type, actor_user_id,
            summary, metadata_json)
         VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
@@ -476,7 +476,7 @@ def _fetch_events(cur, env_id: str, engagement_id: UUID) -> list[dict]:
         """
         SELECT id, engagement_id, event_type, event_date, actor_user_id,
                summary, metadata_json
-        FROM cro_engagement_event
+        FROM cro_routing_event
         WHERE env_id = %s AND engagement_id = %s
         ORDER BY event_date DESC
         """,
