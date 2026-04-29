@@ -19,7 +19,8 @@ supply_chain_demo/databricks_deploy/
   deploy_notebooks.py      — uploads 8 notebooks via Workspace Import API
   seed_workspace.py        — uploads + runs embedded seeding script via Jobs Submit API
   create_jobs.py           — creates one Workflow job (manual trigger, v1)
-  verify_databricks_seed.py — row-count + business checks via SQL Statement Execution API
+  verify_databricks_seed.py — row-count + business checks; uses SQL Warehouse if
+                              available, falls back to running on the seeding cluster
   verification_queries.sql  — 19 SELECT statements + 5 business-logic spot checks
 ```
 
@@ -54,9 +55,16 @@ All seed data is deterministic (`random.seed(42)`).
    behind `DATABRICKS_ALLOW_NEW_CLUSTER=true` to prevent accidental cluster creation on
    shared workspaces. The error message tells the user exactly what to set.
 
-4. **`verify_databricks_seed.py` exits non-zero on any failure.** Exit 2 if warehouse ID
-   is missing (configuration error), exit 1 if any table is empty or a business check
-   fails (data error). Exit 0 only on full pass. No soft exits.
+4. **`verify_databricks_seed.py` exits non-zero on any failure.** Exit 2 only if neither
+   `DATABRICKS_SQL_WAREHOUSE_ID` nor `DATABRICKS_CLUSTER_ID` is set (config error),
+   exit 1 if any table is empty or a business check fails (data error). Exit 0 only on
+   full pass. No soft exits.
+
+5. **Verifier prefers SQL Warehouse, falls back to cluster.** If a warehouse ID is set,
+   verification runs in ~30s via the SQL Statement Execution API. Otherwise the verifier
+   uploads a temporary `verify_seed` notebook and runs it on the seeding cluster — slower
+   (~2 min) but means a successful seed never gets blocked from verification by a tooling
+   gap. Both paths run identical row-count and business checks.
 
 5. **Semantic schema, not gold.** The `semantic` schema consolidates gold aggregations and
    semantic views in one place, consistent with `04_semantic_views.sql`. No separate `gold`

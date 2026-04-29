@@ -15,7 +15,7 @@ Delta tables in your Databricks workspace within 10–15 minutes.
 | Databricks workspace (Standard or Premium) | https://databricks.com |
 | Personal access token | Workspace → User Settings → Access Tokens |
 | All-purpose cluster (running) | Compute → Create compute |
-| SQL Warehouse | SQL → SQL Warehouses → Create |
+| SQL Warehouse (optional, faster verify) | SQL → SQL Warehouses → Create |
 
 Community Edition note: CE does not support the Jobs API (Runs Submit). See
 [Community Edition](#community-edition) below for the manual path.
@@ -87,6 +87,15 @@ python verify_databricks_seed.py
 
 Exits 0 if all 19 tables pass, non-zero if any table is empty or a
 business check fails.
+
+The verifier picks a path automatically:
+
+1. If `DATABRICKS_SQL_WAREHOUSE_ID` is set → uses the SQL Statement Execution
+   API (fast, ~30 seconds for all 22 checks).
+2. Else if `DATABRICKS_CLUSTER_ID` is set → uploads a verification notebook
+   and runs it on the same cluster used for seeding (slower, but works
+   without a SQL Warehouse).
+3. Else → exits 2 with instructions.
 
 ---
 
@@ -167,7 +176,7 @@ Community Edition does not support the Jobs API. To seed manually:
 | `DATABRICKS_HOST` | Yes | — | Workspace URL (no trailing slash) |
 | `DATABRICKS_TOKEN` | Yes | — | Personal access token |
 | `DATABRICKS_CLUSTER_ID` | Yes* | — | All-purpose cluster ID. *Required unless `DATABRICKS_ALLOW_NEW_CLUSTER=true` |
-| `DATABRICKS_SQL_WAREHOUSE_ID` | Yes for verify | — | SQL Warehouse ID |
+| `DATABRICKS_SQL_WAREHOUSE_ID` | Optional | — | SQL Warehouse ID. If unset, verify falls back to running on `DATABRICKS_CLUSTER_ID`. |
 | `DATABRICKS_CATALOG` | No | `supply_chain_demo` | Unity Catalog name |
 | `DATABRICKS_BRONZE_SCHEMA` | No | `bronze` | Bronze schema name |
 | `DATABRICKS_SILVER_SCHEMA` | No | `silver` | Silver schema name |
@@ -187,9 +196,11 @@ Databricks UI under Compute → your cluster → Configuration → Cluster ID.
 The cluster must be running (not terminated). Start it from the Compute page
 and retry.
 
-**`DATABRICKS_SQL_WAREHOUSE_ID is required`**
-Set it to the ID of a SQL Warehouse (not a cluster). Find it in the
-Databricks UI under SQL → SQL Warehouses → your warehouse → Overview.
+**Verify exits 2 with "neither warehouse nor cluster configured"**
+The verifier needs at least one of `DATABRICKS_SQL_WAREHOUSE_ID` (preferred,
+~30s via SQL Statement Execution) or `DATABRICKS_CLUSTER_ID` (fallback,
+~2 min via uploaded notebook). Set whichever you have. Find a SQL Warehouse
+ID under SQL → SQL Warehouses → your warehouse → Overview.
 
 **Unity Catalog not enabled**
 Set `DATABRICKS_ALLOW_NEW_CLUSTER=true` — the embedded script will fall
