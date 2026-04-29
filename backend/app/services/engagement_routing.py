@@ -9,9 +9,8 @@ displays it; never recomputes.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from app.db import get_cursor

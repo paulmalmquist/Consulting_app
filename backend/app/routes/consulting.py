@@ -129,6 +129,24 @@ from app.schemas.consulting import (
     CompleteTaskRequest,
     QuickCaptureRequest,
     QuickCaptureResponse,
+    AttributionIn,
+    AttributionOut,
+    AttributionPatchRequest,
+    ConvertDealPreview,
+    ConvertDealRequest,
+    ConvertToNovendorRequest,
+    EngagementContractIn,
+    EngagementContractOut,
+    EngagementDashboard,
+    EngagementDetail,
+    EngagementListResponse,
+    InvoiceIn,
+    InvoiceOut,
+    InvoicePatchRequest,
+    RevenueStreamIn,
+    RevenueStreamOut,
+    RoutingEngagementCreateRequest,
+    RoutingEngagementPatchRequest,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -170,6 +188,7 @@ from app.services import (
     execution_auto,
     execution_actions,
     execution_quick_capture,
+    engagement_routing as engagement_routing_svc,
 )
 
 router = APIRouter(prefix="/api/consulting", tags=["consulting-revenue-os"])
@@ -2425,28 +2444,6 @@ def execution_quick_capture_route(body: QuickCaptureRequest):
 
 
 # ── Engagement Routing ─────────────────────────────────────────────────────────
-
-from app.services import engagement_routing as engagement_routing_svc
-from app.schemas.consulting import (
-    AttributionIn,
-    AttributionOut,
-    AttributionPatchRequest,
-    ConvertDealPreview,
-    ConvertDealRequest,
-    ConvertToNovendorRequest,
-    EngagementContractIn,
-    EngagementContractOut,
-    EngagementDashboard,
-    EngagementDetail,
-    EngagementListResponse,
-    InvoiceIn,
-    InvoiceOut,
-    InvoicePatchRequest,
-    RevenueStreamIn,
-    RevenueStreamOut,
-    RoutingEngagementCreateRequest,
-    RoutingEngagementPatchRequest,
-)
 
 
 @router.get("/engagement-routing/engagements", response_model=EngagementListResponse)
