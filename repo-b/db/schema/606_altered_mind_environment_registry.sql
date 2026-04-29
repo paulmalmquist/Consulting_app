@@ -111,8 +111,8 @@ WHERE e.slug = 'altered-mind'
     SELECT 1 FROM app.env_business_bindings ebb WHERE ebb.env_id = e.env_id
   );
 
--- 5) Owner membership for Paul (platform_user_id sourced from existing
--- 'owner' rows on Novendor / Floyorker / Trading — same UUID across all).
+-- 5) Owner membership for Paul — only if the user exists in this environment
+-- (CI databases start empty, so this is a no-op there).
 INSERT INTO app.environment_memberships (
   platform_user_id, env_id, role, status, is_default
 )
@@ -124,6 +124,10 @@ SELECT
   false
 FROM app.environments e
 WHERE e.slug = 'altered-mind'
+  AND EXISTS (
+    SELECT 1 FROM app.platform_users
+    WHERE platform_user_id = 'c2f38ed0-a661-454e-8487-07158a788e90'::uuid
+  )
   AND NOT EXISTS (
     SELECT 1 FROM app.environment_memberships m
     WHERE m.env_id = e.env_id
