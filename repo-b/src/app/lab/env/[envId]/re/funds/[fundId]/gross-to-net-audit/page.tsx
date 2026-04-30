@@ -493,7 +493,7 @@ function WaterfallPanel({ block, nullReasons }: { block: Record<string, unknown>
     <div data-testid="panel-waterfall">
       <div className="flex items-center gap-2 mb-3">
         <TrustBadge trust={trust} />
-        {block["waterfall_status"] && (
+        {Boolean(block["waterfall_status"]) && (
           <span className={badge(block["waterfall_status"] === "computed" ? "bg-emerald-900/40 text-emerald-400" : "bg-amber-900/40 text-amber-400")}>
             {String(block["waterfall_status"])}
           </span>
