@@ -587,7 +587,7 @@ export default function PipelineLaneView({
 
   return (
     <div style={{ background: CP.surface, display: "flex", flexDirection: "column" }}>
-      <div style={{ overflowX: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ overflowX: "auto", overflowY: "hidden", display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",

@@ -775,29 +775,34 @@ export default function PipelinePage({
       style={{
         display: "grid",
         gridTemplateColumns: `240px minmax(0, 1fr) ${railWidth}px`,
-        gridTemplateRows: "52px minmax(0, 1fr)",
-        height: "100%",
-        minHeight: "100%",
+        gridTemplateRows: "52px auto",
+        minHeight: "100dvh",
         background: "#05070B",
         transition: "grid-template-columns 200ms ease",
       }}
     >
-      {/* Row 1, Col 1 — WINSTON brand block */}
-      <LeftSidebar
-        mode="brand"
-        brand={winstonBrand}
-        sections={consultingSidebarSections(params.envId)}
-        activeKey="pipeline"
-      />
+      {/* Row 1, Col 1 — WINSTON brand block (sticky) */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
+        <LeftSidebar
+          mode="brand"
+          brand={winstonBrand}
+          sections={consultingSidebarSections(params.envId)}
+          activeKey="pipeline"
+        />
+      </div>
 
-      {/* Row 1, Col 2 — Search bar (52px) */}
+      {/* Row 1, Col 2 — Search bar (52px, sticky) */}
       <div
         style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
           height: 52,
           display: "flex",
           alignItems: "center",
           padding: "0 16px",
           gap: 8,
+          background: "#05070B",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           flexShrink: 0,
           minWidth: 0,
@@ -842,6 +847,9 @@ export default function PipelinePage({
         }}
         title={railOpen ? "Collapse rail" : "Expand rail"}
         style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
           height: 52,
           width: "100%",
           display: "flex",
@@ -859,15 +867,17 @@ export default function PipelinePage({
         {railOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
-      {/* Row 2, Col 1 — Sidebar nav (aligned with center content row) */}
-      <LeftSidebar
-        mode="nav"
-        sections={consultingSidebarSections(params.envId)}
-        activeKey="pipeline"
-      />
+      {/* Row 2, Col 1 — Sidebar nav (sticky so it stays visible when board scrolls) */}
+      <div style={{ position: "sticky", top: 0, height: "100dvh", overflowY: "auto" }}>
+        <LeftSidebar
+          mode="nav"
+          sections={consultingSidebarSections(params.envId)}
+          activeKey="pipeline"
+        />
+      </div>
 
       {/* Row 2, Col 2 — Banners + command band + board */}
-      <div style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden" }}>
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
         {bannerMessage ? (
           <div className="mx-4 mt-3">
             {isSchemaError(bannerMessage) ? (
@@ -911,7 +921,7 @@ export default function PipelinePage({
         ) : null}
 
         {kanban && !(debouncedQuery && totalVisible === 0) ? (
-          <div style={{ flex: "none", display: "flex", flexDirection: "column", overflowX: "hidden" }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <PipelineCommandBand
               insight={insight}
               industries={industries}
@@ -1013,12 +1023,14 @@ export default function PipelinePage({
         ) : null}
       </div>
 
-      {/* Row 2, Col 3 — Right rail panels (collapsible) */}
+      {/* Row 2, Col 3 — Right rail panels (sticky so it stays visible when board scrolls) */}
       <div
         data-command-desk
         style={{
+          position: "sticky",
+          top: 0,
+          height: "100dvh",
           minWidth: 0,
-          minHeight: 0,
           borderLeft: "1px solid rgba(255,255,255,0.08)",
           background: "rgba(6,9,14,0.98)",
           overflowY: railOpen ? "auto" : "hidden",

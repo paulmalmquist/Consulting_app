@@ -33,7 +33,7 @@ export default function AppShell({
         className={cn(
           "flex-1",
           isPipelineRoute
-            ? "flex h-full min-h-0 flex-col overflow-hidden bg-[#05070B]"
+            ? "flex flex-col overflow-y-auto bg-[#05070B]"
             : isImmersiveRoute
               ? "overflow-y-auto"
               : "p-6 pt-14",
