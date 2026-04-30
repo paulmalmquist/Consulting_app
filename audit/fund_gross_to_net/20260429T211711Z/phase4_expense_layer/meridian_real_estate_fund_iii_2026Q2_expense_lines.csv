@@ -1,0 +1,3 @@
+quarter,kind,amount,currency,basis,basis_amount,rate,source_table,source_id,formula_key,null_reason,warnings
+2026-Q1,management_fee,1875000.0,USD,committed,500000000.0,0.015,repe_fund_term,decf47bf-7662-4068-9c75-72fcdc8ad903,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2026-Q2,management_fee,1875000.0,USD,committed,500000000.0,0.015,repe_fund_term,decf47bf-7662-4068-9c75-72fcdc8ad903,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,

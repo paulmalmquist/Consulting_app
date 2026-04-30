@@ -1,0 +1,125 @@
+[
+  {
+    "fund_label": "Institutional Growth Fund VII",
+    "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+    "quarter": "2026Q2",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:management_fee",
+        "expense_layer_management_fees_null",
+        "bridge_subtraction_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 20,
+        "scope_expected_assets": 30,
+        "scope_exclusion_count": 0,
+        "rollup_irr": -0.076539,
+        "asset_refresh_null_share": 0.015266,
+        "expense_total_management_fees": null,
+        "expense_total_other": 352000.0,
+        "expense_null_reasons": {
+          "management_fee": "partial_management_fee_nulls_in_term"
+        },
+        "waterfall_status": "computed",
+        "waterfall_null_reasons": {
+          "management_fee": "partial_management_fee_nulls_in_term",
+          "net_irr": "out_of_scope_requires_complete_expense_layer"
+        },
+        "waterfall_event_count": 4,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "management_fees": "partial_management_fee_nulls_in_term"
+        }
+      }
+    },
+    "note": "dry-run: snapshot not persisted"
+  },
+  {
+    "fund_label": "Meridian Credit Opportunities Fund I",
+    "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+    "quarter": "2026Q2",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:fund_expense_layer",
+        "expense_layer_other_expenses_null",
+        "waterfall_status:missing_participants",
+        "waterfall_net_irr_null:out_of_scope_requires_complete_expense_layer",
+        "waterfall_carry_null",
+        "bridge_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 8,
+        "scope_expected_assets": 8,
+        "scope_exclusion_count": 0,
+        "rollup_irr": 0.060743,
+        "asset_refresh_null_share": 0.0,
+        "expense_total_management_fees": 2387500.0,
+        "expense_total_other": null,
+        "expense_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+        },
+        "waterfall_status": "missing_participants",
+        "waterfall_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "net_irr": "out_of_scope_requires_complete_expense_layer",
+          "waterfall": "missing_partner_commitments"
+        },
+        "waterfall_event_count": 0,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "fund_expenses": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "carry": "missing_partner_commitments",
+          "net_return_amount": "missing_waterfall_lp_metrics"
+        }
+      }
+    },
+    "note": "dry-run: snapshot not persisted"
+  },
+  {
+    "fund_label": "Meridian Real Estate Fund III",
+    "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+    "quarter": "2026Q2",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:fund_expense_layer",
+        "expense_layer_other_expenses_null",
+        "bridge_subtraction_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 2,
+        "scope_expected_assets": 4,
+        "scope_exclusion_count": 5,
+        "rollup_irr": -0.232867,
+        "asset_refresh_null_share": 0.0,
+        "expense_total_management_fees": 3750000.0,
+        "expense_total_other": null,
+        "expense_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+        },
+        "waterfall_status": "computed",
+        "waterfall_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "net_irr": "out_of_scope_requires_complete_expense_layer"
+        },
+        "waterfall_event_count": 4,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "fund_expenses": "no_other_expense_rows_in_re_fund_expense_qtr"
+        }
+      }
+    },
+    "note": "dry-run: snapshot not persisted"
+  }
+]

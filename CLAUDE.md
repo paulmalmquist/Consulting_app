@@ -118,6 +118,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
+| direct Novendor CRM CRUD via Supabase, fill out the new contact form, add Sarat to Hall Boys, update the deal record, set primary contact, log this in Novendor, fix the CRM record, manipulate Novendor data | `skills/novendor-crm-supabase/SKILL.md` |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
 | pitch deck, build me a deck, presentation for [client], pitch forge, give me 3 iterations, here's an idea for a presentation, Sarat review, run pitch forge | `skills/pitch-forge-deck/SKILL.md` |
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
@@ -334,6 +335,10 @@ This is not optional busywork — these files contain real production data (test
 - `add James Reddington to CRM` -> `skills/winston-sales-intelligence/SKILL.md`
 - `find the CFO of [REPE firm]` -> `skills/winston-sales-intelligence/SKILL.md`
 - `look up [person] at [company]` -> `skills/winston-sales-intelligence/SKILL.md`
+- `grab Sarat's info from my email and fill this out` -> `skills/novendor-crm-supabase/SKILL.md`
+- `add this contact to Hall Boys in the CRM` -> `skills/novendor-crm-supabase/SKILL.md`
+- `set [contact] as the primary on the [account] deal` -> `skills/novendor-crm-supabase/SKILL.md`
+- `update the Novendor CRM directly via Supabase` -> `skills/novendor-crm-supabase/SKILL.md`
 - `generate today's Winston demo ideas` -> `skills/winston-demo-generator/SKILL.md`
 - `what demos should we run for [persona]` -> `skills/winston-demo-generator/SKILL.md`
 - `give me a demo script for the CFO` -> `skills/winston-demo-generator/SKILL.md`

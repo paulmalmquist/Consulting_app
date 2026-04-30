@@ -3,6 +3,9 @@
 Called by the quarter-close fan-out after `compute_fund_rollup` produces a
 FundRollup. Net IRR / carry / gp_share stay null with
 null_reason=out_of_scope_requires_waterfall per SYSTEM_RULES_AUTHORITATIVE_STATE.
+
+For the Phase 4-5 v2 composer (full gross-to-net pipeline), see
+``fund_snapshot_v2.write_fund_authoritative_snapshot_v2``.
 """
 
 from __future__ import annotations

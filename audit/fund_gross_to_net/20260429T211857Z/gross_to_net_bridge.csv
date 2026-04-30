@@ -1,0 +1,18 @@
+fund,quarter,row_index,label,item_type,amount,null_reason,formula_key,source_table
+institutional_growth_fund_vii,2026Q2,0,Gross asset value (asset rollup + ending NAV),starting,943711870.2838461,,gross = sum(fund_gross_cf) + ending_nav,re_asset_cf_series_mat + re_fund_quarter_state
+institutional_growth_fund_vii,2026Q2,1,Less management fees,subtraction,,partial_management_fee_nulls_in_term,mgmt_fees = sum(re_fund_term.basis * rate / 4 over in-term quarters),repe_fund_term + re_partner_commitment / re_cash_event / re_fund_quarter_state
+institutional_growth_fund_vii,2026Q2,2,Less other fund expenses,subtraction,352000.0,,other = sum(re_fund_expense_qtr.amount where expense_type != 'management_fee'),re_fund_expense_qtr
+institutional_growth_fund_vii,2026Q2,3,Less carry / promote,subtraction,242159044.45814976,,carry = Σ(tier_4_carry_split_gp allocation) across distribution events,re_waterfall_definition + re_waterfall_tier + re_capital_ledger_entry
+institutional_growth_fund_vii,2026Q2,4,Net LP return,ending,663617196.2097715,,net_lp = lp_distributions + lp_ending_nav − lp_called,fund_waterfall_layer.FundWaterfallResult
+institutional_growth_fund_vii,2026Q2,5,Memo: gross-to-net IRR spread,memo,-1611.0,,spread_bps = (gross_irr − net_irr) × 10000,
+meridian_credit_opportunities_fund_i,2026Q2,0,Gross asset value (asset rollup + ending NAV),starting,163439356.51,,gross = sum(fund_gross_cf) + ending_nav,re_asset_cf_series_mat + re_fund_quarter_state
+meridian_credit_opportunities_fund_i,2026Q2,1,Less management fees,subtraction,2387500.0,,mgmt_fees = sum(re_fund_term.basis * rate / 4 over in-term quarters),repe_fund_term + re_partner_commitment / re_cash_event / re_fund_quarter_state
+meridian_credit_opportunities_fund_i,2026Q2,2,Less other fund expenses,subtraction,,no_other_expense_rows_in_re_fund_expense_qtr,other = sum(re_fund_expense_qtr.amount where expense_type != 'management_fee'),re_fund_expense_qtr
+meridian_credit_opportunities_fund_i,2026Q2,3,Less carry / promote,subtraction,,missing_partner_commitments,carry = Σ(tier_4_carry_split_gp allocation) across distribution events,re_waterfall_definition + re_waterfall_tier + re_capital_ledger_entry
+meridian_credit_opportunities_fund_i,2026Q2,4,Net LP return,ending,,missing_waterfall_lp_metrics,net_lp = lp_distributions + lp_ending_nav − lp_called,fund_waterfall_layer.FundWaterfallResult
+meridian_real_estate_fund_iii,2026Q2,0,Gross asset value (asset rollup + ending NAV),starting,3722873.1176923076,,gross = sum(fund_gross_cf) + ending_nav,re_asset_cf_series_mat + re_fund_quarter_state
+meridian_real_estate_fund_iii,2026Q2,1,Less management fees,subtraction,3750000.0,,mgmt_fees = sum(re_fund_term.basis * rate / 4 over in-term quarters),repe_fund_term + re_partner_commitment / re_cash_event / re_fund_quarter_state
+meridian_real_estate_fund_iii,2026Q2,2,Less other fund expenses,subtraction,,no_other_expense_rows_in_re_fund_expense_qtr,other = sum(re_fund_expense_qtr.amount where expense_type != 'management_fee'),re_fund_expense_qtr
+meridian_real_estate_fund_iii,2026Q2,3,Less carry / promote,subtraction,0.0,,carry = Σ(tier_4_carry_split_gp allocation) across distribution events,re_waterfall_definition + re_waterfall_tier + re_capital_ledger_entry
+meridian_real_estate_fund_iii,2026Q2,4,Net LP return,ending,-16253512.630358616,,net_lp = lp_distributions + lp_ending_nav − lp_called,fund_waterfall_layer.FundWaterfallResult
+meridian_real_estate_fund_iii,2026Q2,5,Memo: gross-to-net IRR spread,memo,-1334.0,,spread_bps = (gross_irr − net_irr) × 10000,

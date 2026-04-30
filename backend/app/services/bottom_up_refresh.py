@@ -16,7 +16,7 @@ beyond updating `computed_at`.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -321,6 +321,171 @@ def get_asset_cashflow_response(
 
     irr = compute_asset_irr(asset_id, as_of_quarter, series=mat.points)
     return _payload(mat, irr=irr)
+
+
+@dataclass
+class AssetRefreshOutcome:
+    """Per-asset result from ``refresh_all_asset_cf_series``."""
+
+    asset_id: UUID
+    has_acquisition: bool
+    has_inflow: bool
+    null_reason: str | None
+    warnings: list[str]
+    source_hash: str
+    cf_point_count: int
+    acquisition_value: Decimal
+
+
+@dataclass
+class AssetRefreshSummary:
+    """Aggregate result from refreshing a fund's asset CF series.
+
+    ``null_value_share`` = sum(acquisition_value of assets with null_reason)
+    / sum(acquisition_value of all assets in scope). The runner uses this
+    to decide whether the fund's bottom-up IRR can be trusted: more than
+    5% of capital tied up in null-CF assets fails the bottom-up gate.
+    """
+
+    refreshed: list[AssetRefreshOutcome] = field(default_factory=list)
+    failed: list[AssetRefreshOutcome] = field(default_factory=list)
+    null_count: int = 0
+    null_value_share: Decimal = Decimal("0")
+
+    @property
+    def total_assets(self) -> int:
+        return len(self.refreshed) + len(self.failed)
+
+
+def refresh_all_asset_cf_series(
+    asset_ids: set[UUID] | list[UUID],
+    as_of_quarter: str,
+    *,
+    env_default_cap_rate: Decimal | None = None,
+    force: bool = False,
+) -> AssetRefreshSummary:
+    """Refresh the materialized CF series for a set of assets.
+
+    Iterates ``asset_ids`` and calls ``refresh_asset_cf_series_materialized``
+    for each. Catches per-asset failures (missing acquisition, no inflow,
+    invalid cap rate) so the rest of the fund still refreshes — they land
+    in ``failed`` with their ``null_reason``.
+
+    Used by the asset_operating_cf_run runner before fund rollup so the
+    bottom-up engine reads from a freshly materialized series, not stale
+    or missing rows.
+    """
+    summary = AssetRefreshSummary()
+    total_value = Decimal("0")
+    null_value = Decimal("0")
+
+    for asset_id in asset_ids:
+        outcome = _refresh_one_asset_for_summary(
+            asset_id,
+            as_of_quarter,
+            env_default_cap_rate=env_default_cap_rate,
+            force=force,
+        )
+
+        if outcome.acquisition_value > Decimal("0"):
+            total_value += outcome.acquisition_value
+
+        if outcome.null_reason:
+            summary.null_count += 1
+            null_value += outcome.acquisition_value
+            summary.failed.append(outcome)
+        else:
+            summary.refreshed.append(outcome)
+
+    if total_value > Decimal("0"):
+        summary.null_value_share = (null_value / total_value).quantize(Decimal("0.000001"))
+
+    return summary
+
+
+def _refresh_one_asset_for_summary(
+    asset_id: UUID,
+    as_of_quarter: str,
+    *,
+    env_default_cap_rate: Decimal | None,
+    force: bool,
+) -> AssetRefreshOutcome:
+    """Refresh one asset and translate exceptions into structured outcomes."""
+    acquisition_value = _lookup_acquisition_value(asset_id)
+
+    try:
+        series = refresh_asset_cf_series_materialized(
+            asset_id,
+            as_of_quarter,
+            env_default_cap_rate=env_default_cap_rate,
+            force=force,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg:
+            null_reason = "asset_not_found"
+        elif "acquisition" in msg.lower():
+            null_reason = "missing_acquisition"
+        elif "cap rate" in msg.lower() or "cap_rate" in msg.lower():
+            null_reason = "invalid_cap_rate"
+        else:
+            null_reason = "refresh_failed"
+        return AssetRefreshOutcome(
+            asset_id=asset_id,
+            has_acquisition=False,
+            has_inflow=False,
+            null_reason=null_reason,
+            warnings=[msg],
+            source_hash="",
+            cf_point_count=0,
+            acquisition_value=acquisition_value,
+        )
+
+    has_acquisition = any(
+        p.amount < Decimal("0") and p.component_breakdown.get("acquisition")
+        for p in series.points
+    )
+    has_inflow = any(p.amount > Decimal("0") for p in series.points)
+
+    null_reason: str | None = None
+    if not series.points:
+        null_reason = "missing_cf_series"
+    elif not has_acquisition:
+        null_reason = "missing_acquisition"
+    elif not has_inflow:
+        null_reason = "no_inflow"
+
+    warnings: list[str] = []
+    for p in series.points:
+        warnings.extend(p.warnings)
+
+    return AssetRefreshOutcome(
+        asset_id=asset_id,
+        has_acquisition=has_acquisition,
+        has_inflow=has_inflow,
+        null_reason=null_reason,
+        warnings=warnings,
+        source_hash=series.source_hash,
+        cf_point_count=len(series.points),
+        acquisition_value=acquisition_value,
+    )
+
+
+def _lookup_acquisition_value(asset_id: UUID) -> Decimal:
+    """Look up the asset's cost basis, used to weight null-share by capital deployed."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT cost_basis::numeric AS v
+            FROM repe_asset
+            WHERE asset_id = %s
+            """,
+            [str(asset_id)],
+        )
+        row = cur.fetchone()
+        if row and row.get("v") is not None:
+            return Decimal(row["v"])
+    return Decimal("0")
 
 
 def _payload(mat: MaterializedSeries, *, irr: IrrResult) -> dict[str, Any]:

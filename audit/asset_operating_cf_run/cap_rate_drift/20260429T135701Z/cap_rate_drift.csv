@@ -1,0 +1,49 @@
+fund,asset_name,asset_type,deal_type,is_debt,cost_basis,ttm_noi,exit_event_cap_rate,exit_event_quarter,qs_nav_at_asof,implied_cap_at_qs_nav,auth_nav_at_asof,implied_cap_at_auth_nav,runtime_tv_amount,runtime_tv_source,runtime_tv_cap_rate,runtime_tv_cap_rate_source,runtime_tv_implied_cap,rejected_qs_nav,rejected_implied_cap,tv_failure_reason
+Institutional Growth Fund VII,Bayshore Flats,property,equity,False,175000000.0,,,,108187747.5,,,,108187747.5,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Campus Edge Apartments,property,equity,False,39000000.0,1832628.38,,,-3228286.55,,,,28194282.769230768,noi_cap_rate,0.065,env_default_cap_rate,,,,
+Institutional Growth Fund VII,Cascade Multifamily,property,equity,False,52000000.0,4909678.07,,,36405362.18,0.13486139887099455,,,36405362.18,quarter_state_nav,,,0.13486139887099455,,,
+Institutional Growth Fund VII,Cascade Village Phase II,property,equity,False,34000000.0,3207946.08,,,21312592.0,0.15051881441731724,,,49353016.615384616,noi_cap_rate,0.065,env_default_cap_rate,,21312592.0,0.15051881441731724,implied_cap_outside_band
+Institutional Growth Fund VII,Downtown Mixed-Use,property,equity,False,31000000.0,3060628.06,,,5834407.27,0.5245825185597646,,,47086585.538461536,noi_cap_rate,0.065,env_default_cap_rate,,5834407.27,0.5245825185597646,implied_cap_outside_band
+Institutional Growth Fund VII,Gateway Distribution Center,property,equity,False,105000000.0,3536318.11,,,40960814.55,0.08633417447505326,,,40960814.55,quarter_state_nav,,,0.08633417447505326,,,
+Institutional Growth Fund VII,Harbor Industrial Portfolio,property,equity,False,42000000.0,3751246.39,,,34269821.09,0.10946209436426328,,,34269821.09,quarter_state_nav,,,0.10946209436426328,,,
+Institutional Growth Fund VII,Harbor Warehouse Complex,property,equity,False,26000000.0,2321193.6,,,12513120.0,0.1855007863746212,,,35710670.76923077,noi_cap_rate,0.065,env_default_cap_rate,,12513120.0,0.1855007863746212,implied_cap_outside_band
+Institutional Growth Fund VII,Harborview Distribution Center,property,equity,False,22000000.0,2000108.68,,,13977818.18,0.14309162232928688,,,13977818.18,quarter_state_nav,,,0.14309162232928688,,,
+Institutional Growth Fund VII,Harborview Logistics Park,property,equity,False,38000000.0,3446782.68,,,43509019.64,0.079219957344918,,,43509019.64,quarter_state_nav,,,0.079219957344918,,,
+Institutional Growth Fund VII,Heritage Senior Living,property,equity,False,54000000.0,4170320.01,,,51511876.36,0.08095841783853823,,,51511876.36,quarter_state_nav,,,0.08095841783853823,,,
+Institutional Growth Fund VII,Ironworks Mixed-Use,property,equity,False,41000000.0,2682068.2,,,-1779304.0,,,,41262587.692307696,noi_cap_rate,0.065,env_default_cap_rate,,,,
+Institutional Growth Fund VII,Lakeside Senior Living,property,equity,False,33000000.0,3826325.12,,,69274856.0,0.05523396714097825,,,69274856.0,quarter_state_nav,,,0.05523396714097825,,,
+Institutional Growth Fund VII,Lone Star Distribution,property,equity,False,245000000.0,,,,150056042.18,,,,150056042.18,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Meadowview Apartments,property,equity,False,210000000.0,,,,129049336.0,,,,129049336.0,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Meridian Medical Plaza,property,equity,False,56000000.0,3096993.5,,,-11088702.55,,,,47646053.84615385,noi_cap_rate,0.065,env_default_cap_rate,,,,
+Institutional Growth Fund VII,Meridian Office Tower,property,equity,False,45000000.0,4513036.0,,,30022324.36,0.15032267141890276,,,69431323.07692307,noi_cap_rate,0.065,env_default_cap_rate,,30022324.36,0.15032267141890276,implied_cap_outside_band
+Institutional Growth Fund VII,Meridian Office Tower,property,equity,False,37718012.0,,,,-52929986.64,,,,,,,,,,,no_inflow
+Institutional Growth Fund VII,Northwest Commerce Center,property,equity,False,197000000.0,,,,116991131.2,,,,116991131.2,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Oakridge Residences,property,equity,False,137000000.0,,,,84941656.67,,,,84941656.67,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Pacific Gateway Hotel,property,equity,False,36000000.0,2691161.3,,,43957661.82,0.06122166622555813,,,43957661.82,quarter_state_nav,,,0.06122166622555813,,,
+Institutional Growth Fund VII,Parkview Residences,property,equity,False,55000000.0,2928807.35,,,32577200.73,0.08990359160303459,,,32577200.73,quarter_state_nav,,,0.08990359160303459,,,
+Institutional Growth Fund VII,Peachtree Logistics Park,property,equity,False,222000000.0,,,,137155191.43,,,,137155191.43,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Pinehurst Residences,property,equity,False,158000000.0,,,,97767851.91,,,,97767851.91,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Riverfront Apartments,property,equity,False,48000000.0,5002944.56,,,44680034.91,0.11197270928900445,,,44680034.91,quarter_state_nav,,,0.11197270928900445,,,
+Institutional Growth Fund VII,Suburban Office Park,property,equity,False,26000000.0,2304795.37,,,31834630.55,0.0723989985176693,,,31834630.55,quarter_state_nav,,,0.0723989985176693,,,
+Institutional Growth Fund VII,Summit Retail Center,property,equity,False,28000000.0,2804058.3,,,6996336.0,0.40078954184018606,,,43139358.461538464,noi_cap_rate,0.065,env_default_cap_rate,,6996336.0,0.40078954184018606,implied_cap_outside_band
+Institutional Growth Fund VII,Sunbelt Crossing,property,equity,False,188000000.0,,,,116269777.39,,,,116269777.39,quarter_state_nav,,,,,,
+Institutional Growth Fund VII,Tech Campus North,property,equity,False,55000000.0,4907404.45,,,37513609.45,0.13081664286506026,,,37513609.45,quarter_state_nav,,,0.13081664286506026,,,
+Institutional Growth Fund VII,Tech Campus South Building,property,equity,False,35000000.0,3123838.21,,,17829591.27,0.17520526201047346,,,48059049.384615384,noi_cap_rate,0.065,env_default_cap_rate,,17829591.27,0.17520526201047346,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Bellmont Residential – Charlotte NC,cmbs,debt,True,65000000.0,3877575.0,,,19166666.66,0.20230826093993332,,,65000000.0,debt_outstanding_principal_default,,,,19166666.66,0.20230826093993332,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Midtown Towers – Atlanta GA,cmbs,debt,True,82500000.0,5001562.48,,,28600000.0,0.17487980699300698,,,82500000.0,debt_outstanding_principal_default,,,,28600000.0,0.17487980699300698,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Riverdale Multifamily – Dallas TX,cmbs,debt,True,58000000.0,3234950.0,,,17102564.1,0.18915000002835833,,,58000000.0,debt_outstanding_principal_default,,,,17102564.1,0.18915000002835833,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Riverside Park – Miami FL,cmbs,debt,True,92000000.0,5532880.0,,,26068615.0,0.2122429595895294,,,92000000.0,debt_outstanding_principal_default,,,,26068615.0,0.2122429595895294,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Stratford Village – Denver CO,cmbs,debt,True,61000000.0,3461445.0,,,9734787.6,0.3555747841894362,,,61000000.0,debt_outstanding_principal_default,,,,9734787.6,0.3555747841894362,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Summit Heights – Nashville TN,cmbs,debt,True,52500000.0,2953650.0,,,16007751.93,0.1845137289055928,,,52500000.0,debt_outstanding_principal_default,,,,16007751.93,0.1845137289055928,implied_cap_outside_band
+Meridian Credit Opportunities Fund I,Vertex Multifamily – Tampa FL,cmbs,debt,True,49000000.0,2875565.0,,,,,,,49000000.0,debt_outstanding_principal_default,,,,,,
+Meridian Credit Opportunities Fund I,Westridge Commons – Austin TX,cmbs,debt,True,74000000.0,4235020.0,,,,,,,74000000.0,debt_outstanding_principal_default,,,,,,
+Meridian Real Estate Fund III,Ballantyne Corporate Center,property,equity,False,45000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Ellipse Senior Living – Dallas,property,equity,False,17500000.0,1303081.27,,,9807859.9,0.1328609180071995,,,9807859.9,quarter_state_nav,,,0.1328609180071995,,,
+Meridian Real Estate Fund III,Fulton Industrial Warehouse,property,equity,False,33000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Gulch District Mixed-Use,property,equity,False,55000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Highline at Cherry Creek,property,equity,False,95000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Meridian Park Multifamily – Dallas,property,equity,False,68000000.0,4222068.6,,,33044313.6,0.12776989866117236,,,33044313.6,quarter_state_nav,,,0.12776989866117236,,,
+Meridian Real Estate Fund III,Peachtree Distribution Center,property,equity,False,52000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Phoenix Gateway Medical Office,property,equity,False,39500000.0,2240233.39,,,,,,,34465129.07692308,noi_cap_rate,0.065,env_default_cap_rate,,,,
+Meridian Real Estate Fund III,South Lamar Residences,property,equity,False,110000000.0,,,,,,,,,,,,,,,no_inflow
+Meridian Real Estate Fund III,Westgate Student Housing – Tempe,property,equity,False,24000000.0,1452009.99,,,,,,,22338615.230769232,noi_cap_rate,0.065,env_default_cap_rate,,,,

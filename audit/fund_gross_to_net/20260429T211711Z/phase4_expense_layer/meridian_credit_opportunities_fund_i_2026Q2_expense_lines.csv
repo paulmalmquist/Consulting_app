@@ -1,0 +1,11 @@
+quarter,kind,amount,currency,basis,basis_amount,rate,source_table,source_id,formula_key,null_reason,warnings
+2024-Q1,management_fee,100000.0,USD,called,40000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2024-Q2,management_fee,100000.0,USD,called,40000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2024-Q3,management_fee,187500.0,USD,called,75000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2024-Q4,management_fee,250000.0,USD,called,100000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2025-Q1,management_fee,250000.0,USD,called,100000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2025-Q2,management_fee,300000.0,USD,called,120000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2025-Q3,management_fee,300000.0,USD,called,120000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2025-Q4,management_fee,300000.0,USD,called,120000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2026-Q1,management_fee,300000.0,USD,called,120000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,
+2026-Q2,management_fee,300000.0,USD,called,120000000.0,0.01,repe_fund_term,2eec92f8-5e38-4d82-bb8a-10ef80ca69d6,mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term],,

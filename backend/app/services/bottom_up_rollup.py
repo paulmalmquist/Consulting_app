@@ -73,7 +73,12 @@ class FundRollup:
 # ---------------------------------------------------------------------------
 
 
-def _list_investment_assets(cur, investment_id: UUID) -> list[dict[str, Any]]:
+def _list_investment_assets(
+    cur,
+    investment_id: UUID,
+    *,
+    included_asset_ids: set[UUID] | None = None,
+) -> list[dict[str, Any]]:
     cur.execute(
         """
         SELECT asset_id, name, acquisition_date
@@ -83,7 +88,14 @@ def _list_investment_assets(cur, investment_id: UUID) -> list[dict[str, Any]]:
         """,
         [str(investment_id)],
     )
-    return cur.fetchall() or []
+    rows = cur.fetchall() or []
+    if included_asset_ids is None:
+        return rows
+    return [
+        r for r in rows
+        if (UUID(r["asset_id"]) if isinstance(r["asset_id"], str) else r["asset_id"])
+        in included_asset_ids
+    ]
 
 
 def _list_fund_investments(cur, fund_id: UUID) -> list[dict[str, Any]]:
@@ -161,6 +173,7 @@ def compute_investment_rollup(
     as_of_quarter: str,
     *,
     env_default_cap_rate: Decimal | None = None,
+    included_asset_ids: set[UUID] | None = None,
 ) -> InvestmentRollup:
     """Sum ownership-weighted child-asset CFs and compute investment IRR.
 
@@ -168,9 +181,15 @@ def compute_investment_rollup(
     contribute zero CF and are logged in `asset_contributions` with their
     own `asset_null_reason`. Only if **every** child is null (or the summed
     series lacks both positive and negative CFs) does the investment IRR null.
+
+    When ``included_asset_ids`` is provided, only assets in that set are
+    summed into the investment series. If an investment has zero in-scope
+    assets after filtering, a ``no_assets_in_selection`` null is returned.
     """
     with get_cursor() as cur:
-        assets = _list_investment_assets(cur, investment_id)
+        assets = _list_investment_assets(
+            cur, investment_id, included_asset_ids=included_asset_ids
+        )
 
     if not assets:
         return InvestmentRollup(
@@ -178,7 +197,11 @@ def compute_investment_rollup(
             as_of_quarter=as_of_quarter,
             series=[],
             irr=None,
-            null_reason="no_child_assets",
+            null_reason=(
+                "no_assets_in_selection"
+                if included_asset_ids is not None
+                else "no_child_assets"
+            ),
         )
 
     merged: dict[str, CFPoint] = {}
@@ -274,6 +297,7 @@ def compute_fund_rollup(
     env_default_cap_rate: Decimal | None = None,
     compute_contributions: bool = True,
     included_investment_ids: set[UUID] | None = None,
+    included_asset_ids: set[UUID] | None = None,
 ) -> FundRollup:
     """Sum investment series into fund series. Compute gross bottom-up IRR.
 
@@ -282,11 +306,18 @@ def compute_fund_rollup(
     path). Net IRR / carry / gp_share remain out-of-scope and return null with
     null_reason `out_of_scope_requires_waterfall` in the snapshot writer.
 
-    When `included_investment_ids` is provided, only those investments are
+    When ``included_investment_ids`` is provided, only those investments are
     merged into the fund series and the leave-one-out marginal pass runs
     within that selection. This supports the Fund Decomposition overlay; the
     caller is responsible for labeling the result as a derived overlay and
     not displaying it as an authoritative fund metric.
+
+    When ``included_asset_ids`` is provided, the same filter is applied at
+    the asset level inside each investment rollup. Investments whose only
+    in-scope assets are excluded by this filter are skipped with
+    ``null_reason='no_assets_in_selection'``. This is the path used by the
+    asset_operating_cf_run runner once scope discovery has identified the
+    expected active asset set.
     """
     with get_cursor() as cur:
         all_investments = _list_fund_investments(cur, fund_id)
@@ -320,7 +351,10 @@ def compute_fund_rollup(
         if isinstance(iid, str):
             iid = UUID(iid)
         roll = compute_investment_rollup(
-            iid, as_of_quarter, env_default_cap_rate=env_default_cap_rate
+            iid,
+            as_of_quarter,
+            env_default_cap_rate=env_default_cap_rate,
+            included_asset_ids=included_asset_ids,
         )
         inv_rollups.append((iid, inv.get("name") or "(unnamed)", roll))
         if roll.irr is None and roll.null_reason:

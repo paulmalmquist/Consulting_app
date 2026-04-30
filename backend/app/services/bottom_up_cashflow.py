@@ -142,9 +142,11 @@ def _load_asset_context(cur, asset_id: UUID) -> dict[str, Any] | None:
         SELECT a.asset_id,
                a.deal_id,
                a.name,
+               a.asset_type,
                a.acquisition_date,
                a.cost_basis,
-               d.fund_id
+               d.fund_id,
+               d.deal_type
         FROM repe_asset a
         JOIN repe_deal d ON d.deal_id = a.deal_id
         WHERE a.asset_id = %s
@@ -152,6 +154,26 @@ def _load_asset_context(cur, asset_id: UUID) -> dict[str, Any] | None:
         [str(asset_id)],
     )
     return cur.fetchone()
+
+
+# Asset classes that represent debt instruments (credit fund originations,
+# CMBS bridge loans, mezz, preferred-equity-as-debt). For these:
+#   * "acquisition" = principal funded at origination (booked from cost_basis).
+#   * Operating CF = interest income (revenue) - servicing opex.
+#     debt_service is IGNORED — the originator receives borrower's debt
+#     service as revenue, doesn't pay it.
+#   * Terminal value = outstanding principal balance at as_of, defaulting
+#     to cost_basis when no amortization is tracked.
+DEBT_DEAL_TYPES = ("debt",)
+DEBT_ASSET_TYPES = ("cmbs", "mezz", "pref_equity", "loan", "bridge_loan")
+
+
+def _is_debt_asset(ctx: dict[str, Any]) -> bool:
+    if (ctx.get("deal_type") or "").lower() in DEBT_DEAL_TYPES:
+        return True
+    if (ctx.get("asset_type") or "").lower() in DEBT_ASSET_TYPES:
+        return True
+    return False
 
 
 def _load_operating_quarters(cur, asset_id: UUID, as_of_quarter: str) -> list[dict]:
@@ -297,39 +319,120 @@ def _resolve_terminal_value(
     operating_rows: list[dict],
     exit_event: dict | None,
     env_default_cap_rate: Decimal | None = None,
+    asset_ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return {amount, source, cap_rate?, invalid_cap_rate?} or {amount: None, reason}."""
-    # Priority 1: authoritative NAV.
+    """Resolve terminal value with explicit provenance + sanity check.
+
+    Returns dict with at minimum ``{"amount": x, "source": str, ...}``
+    on success, or ``{"amount": None, "reason": str}`` on failure.
+
+    Provenance chain (first valid wins):
+      1. ``authoritative_nav`` — released ``re_authoritative_asset_state_qtr.canonical_metrics.nav``.
+         Considered authoritative; no sanity check applied.
+      2. ``quarter_state_nav`` — ``re_asset_quarter_state.nav``.
+         Sanity-gated by implied cap rate: if NOI > 0 AND implied cap rate
+         (NOI/NAV) is outside ``MIN_EXIT_CAP_RATE..MAX_EXIT_CAP_RATE``, the
+         NAV is rejected and we fall through to the next source. The
+         provenance carries ``rejected_quarter_state_nav`` and the
+         offending implied cap so consumers can flag suspect data.
+      3. ``debt_outstanding_principal_default`` — for debt assets only,
+         defaults to cost_basis when no NAV is available.
+      4. ``noi_cap_rate`` — TTM NOI / cap_rate, with cap_rate from
+         exit_event.projected_cap_rate or env_default_cap_rate.
+    """
     nav, src = _load_nav_for_terminal(cur, asset_id, as_of_quarter)
-    if nav is not None and nav > 0:
+
+    # Priority 1: authoritative NAV. No sanity check — by definition trusted.
+    if nav is not None and nav > 0 and src == "authoritative_nav":
         return {"amount": nav, "source": src}
 
-    # Priority 3: NOI / cap-rate fallback.
+    # Priority 2: quarter_state NAV with implied-cap-rate sanity gate.
+    rejected_nav: dict[str, Any] | None = None
+    if nav is not None and nav > 0 and src == "quarter_state_nav":
+        ttm_noi_check = _last_ttm_noi(operating_rows)
+        if ttm_noi_check is not None and ttm_noi_check > 0:
+            implied_cap = ttm_noi_check / nav
+            if MIN_EXIT_CAP_RATE <= implied_cap <= MAX_EXIT_CAP_RATE:
+                return {
+                    "amount": nav,
+                    "source": src,
+                    "implied_cap_rate": float(implied_cap),
+                }
+            rejected_nav = {
+                "rejected_quarter_state_nav": float(nav),
+                "rejected_implied_cap_rate": float(implied_cap),
+                "reason": "implied_cap_outside_band",
+            }
+        else:
+            # No NOI to sanity-check against; accept the NAV but flag low confidence.
+            return {
+                "amount": nav,
+                "source": src,
+                "implied_cap_rate": None,
+            }
+
+    # Priority 3 (debt assets): outstanding principal balance.
+    if asset_ctx and _is_debt_asset(asset_ctx):
+        cost_basis = asset_ctx.get("cost_basis")
+        if cost_basis is not None and _to_decimal(cost_basis) > 0:
+            result = {
+                "amount": _to_decimal(cost_basis),
+                "source": "debt_outstanding_principal_default",
+            }
+            if rejected_nav:
+                result.update(rejected_nav)
+            return result
+        result = {
+            "amount": None,
+            "reason": "debt_asset_missing_cost_basis",
+        }
+        if rejected_nav:
+            result.update(rejected_nav)
+        return result
+
+    # Priority 4: NOI / cap-rate fallback (equity assets only).
     ttm_noi = _last_ttm_noi(operating_rows)
     if ttm_noi is None or ttm_noi <= 0:
-        return {"amount": None, "reason": "no_inflow"}
+        result = {"amount": None, "reason": "no_inflow"}
+        if rejected_nav:
+            result.update(rejected_nav)
+        return result
 
     cap_rate: Decimal | None = None
+    cap_rate_source: str = "none"
     if exit_event and exit_event.get("projected_cap_rate") is not None:
         cap_rate = _to_decimal(exit_event["projected_cap_rate"])
+        cap_rate_source = "exit_event_projected_cap_rate"
     elif env_default_cap_rate is not None:
         cap_rate = env_default_cap_rate
+        cap_rate_source = "env_default_cap_rate"
 
     if cap_rate is None:
-        return {"amount": None, "reason": "no_inflow"}
+        result = {"amount": None, "reason": "no_cap_rate"}
+        if rejected_nav:
+            result.update(rejected_nav)
+        return result
 
     if cap_rate < MIN_EXIT_CAP_RATE or cap_rate > MAX_EXIT_CAP_RATE:
-        return {
+        result = {
             "amount": None,
             "reason": "invalid_cap_rate",
             "cap_rate": float(cap_rate),
+            "cap_rate_source": cap_rate_source,
         }
+        if rejected_nav:
+            result.update(rejected_nav)
+        return result
 
-    return {
+    result = {
         "amount": ttm_noi / cap_rate,
         "source": "noi_cap_rate",
         "cap_rate": float(cap_rate),
+        "cap_rate_source": cap_rate_source,
     }
+    if rejected_nav:
+        result.update(rejected_nav)
+    return result
 
 
 def build_asset_cf_series(
@@ -411,6 +514,8 @@ def build_asset_cf_series(
         )
         points_by_q[acq_q] = p
 
+    is_debt = _is_debt_asset(ctx)
+
     # 2. Operating actuals.
     for row in operating:
         q = row["quarter"]
@@ -420,7 +525,11 @@ def build_asset_cf_series(
             - _to_decimal(row.get("opex"))
         )
         capex = _to_decimal(row.get("capex"))
-        dbt = _to_decimal(row.get("debt_service"))
+        # Debt-class assets (credit / CMBS / mezz / pref / bridge loans):
+        # the originator RECEIVES borrower debt service via revenue. Any
+        # debt_service value on this row would represent borrower-side debt,
+        # which should not subtract from the originator's operating CF.
+        dbt = Decimal("0") if is_debt else _to_decimal(row.get("debt_service"))
         net_cf = noi - capex - dbt
         p = points_by_q.setdefault(
             q,
@@ -442,9 +551,12 @@ def build_asset_cf_series(
         q = row["quarter"]
         noi = _to_decimal(row.get("revenue")) - _to_decimal(row.get("opex"))
         capex = _to_decimal(row.get("capex"))
-        dbt = _to_decimal(row.get("debt_service_interest")) + _to_decimal(
-            row.get("debt_service_principal")
-        )
+        if is_debt:
+            dbt = Decimal("0")
+        else:
+            dbt = _to_decimal(row.get("debt_service_interest")) + _to_decimal(
+                row.get("debt_service_principal")
+            )
         net_cf = noi - capex - dbt
         p = points_by_q.setdefault(
             q,
@@ -511,6 +623,7 @@ def build_asset_cf_series(
                 operating_rows=operating,
                 exit_event=exit_event,
                 env_default_cap_rate=env_default_cap_rate,
+                asset_ctx=ctx,
             )
         if tv.get("amount") is not None:
             q = as_of_quarter
@@ -530,9 +643,20 @@ def build_asset_cf_series(
                 "source": tv["source"],
                 "amount": float(tv["amount"]),
             }
-            if "cap_rate" in tv:
-                tv_entry["cap_rate"] = tv["cap_rate"]
+            for k in (
+                "cap_rate",
+                "cap_rate_source",
+                "implied_cap_rate",
+                "rejected_quarter_state_nav",
+                "rejected_implied_cap_rate",
+            ):
+                if k in tv:
+                    tv_entry[k] = tv[k]
             p.component_breakdown["terminal_value"] = tv_entry
+            # If we rejected a NAV en route, surface a warning so the
+            # asset rolls up with a provenance breadcrumb.
+            if "rejected_quarter_state_nav" in tv:
+                p.warnings.append("rejected_suspect_quarter_state_nav")
         else:
             # No terminal value achievable — mark the as-of point so the IRR
             # step can emit the right null_reason.

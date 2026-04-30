@@ -1,0 +1,140 @@
+[
+  {
+    "fund_label": "Institutional Growth Fund VII",
+    "fund_id": "a1b2c3d4-0003-0030-0001-000000000001",
+    "quarter": "2026Q2",
+    "snapshot_version": "asset_operating_cf::a1b2c3d4-0003-0030-0001-000000000001::2026Q2::7ca343ae033d",
+    "audit_run_id": "7617cb6c-d05e-48b6-839f-aa882b9bab63",
+    "snapshot_id": "8353a679-2a84-4ca8-9ea2-1d7dd5ad6481",
+    "bridge_id": "dc45bc9a-b7c7-448f-9627-5ae8940ac9f1",
+    "trust_status": "untrusted",
+    "breakpoint_layer": "fund_expenses",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:management_fee",
+        "expense_layer_management_fees_null",
+        "bridge_subtraction_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 20,
+        "scope_expected_assets": 30,
+        "scope_exclusion_count": 0,
+        "rollup_irr": -0.076539,
+        "asset_refresh_null_share": 0.015266,
+        "expense_total_management_fees": null,
+        "expense_total_other": 352000.0,
+        "expense_null_reasons": {
+          "management_fee": "partial_management_fee_nulls_in_term"
+        },
+        "waterfall_status": "computed",
+        "waterfall_null_reasons": {
+          "management_fee": "partial_management_fee_nulls_in_term",
+          "net_irr": "out_of_scope_requires_complete_expense_layer"
+        },
+        "waterfall_event_count": 4,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "management_fees": "partial_management_fee_nulls_in_term"
+        }
+      }
+    }
+  },
+  {
+    "fund_label": "Meridian Credit Opportunities Fund I",
+    "fund_id": "a1b2c3d4-0002-0020-0001-000000000001",
+    "quarter": "2026Q2",
+    "snapshot_version": "asset_operating_cf::a1b2c3d4-0002-0020-0001-000000000001::2026Q2::d2328d942ea8",
+    "audit_run_id": "fa870258-c4ba-46ea-b3d3-540b536095fe",
+    "snapshot_id": "d0a47fc0-9a9e-451c-afeb-c3e147754f2a",
+    "bridge_id": "de20ca2f-78e7-4a09-9300-1a71de62a234",
+    "trust_status": "untrusted",
+    "breakpoint_layer": "fund_expenses",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:fund_expense_layer",
+        "expense_layer_other_expenses_null",
+        "waterfall_status:missing_participants",
+        "waterfall_net_irr_null:out_of_scope_requires_complete_expense_layer",
+        "waterfall_carry_null",
+        "bridge_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 8,
+        "scope_expected_assets": 8,
+        "scope_exclusion_count": 0,
+        "rollup_irr": 0.060743,
+        "asset_refresh_null_share": 0.0,
+        "expense_total_management_fees": 2387500.0,
+        "expense_total_other": null,
+        "expense_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+        },
+        "waterfall_status": "missing_participants",
+        "waterfall_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "net_irr": "out_of_scope_requires_complete_expense_layer",
+          "waterfall": "missing_partner_commitments"
+        },
+        "waterfall_event_count": 0,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "fund_expenses": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "carry": "missing_partner_commitments",
+          "net_return_amount": "missing_waterfall_lp_metrics"
+        }
+      }
+    }
+  },
+  {
+    "fund_label": "Meridian Real Estate Fund III",
+    "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+    "quarter": "2026Q2",
+    "snapshot_version": "asset_operating_cf::a1b2c3d4-0001-0010-0001-000000000001::2026Q2::88cd782e4613",
+    "audit_run_id": "74f9c2b1-ac5b-415b-b13a-823502c4bcf1",
+    "snapshot_id": "4236d70f-dfca-40e8-a3c0-5ee072f2956c",
+    "bridge_id": "1da72d6c-3c35-44c1-9098-844dae71b412",
+    "trust_status": "untrusted",
+    "breakpoint_layer": "fund_expenses",
+    "promotion_releasable": false,
+    "promotion_gate": {
+      "ok": false,
+      "failures": [
+        "expense_layer_blocking_null:fund_expense_layer",
+        "expense_layer_other_expenses_null",
+        "bridge_subtraction_inputs_missing"
+      ],
+      "warnings": [],
+      "decisions": {
+        "scope_expected_investments": 2,
+        "scope_expected_assets": 4,
+        "scope_exclusion_count": 5,
+        "rollup_irr": -0.232867,
+        "asset_refresh_null_share": 0.0,
+        "expense_total_management_fees": 3750000.0,
+        "expense_total_other": null,
+        "expense_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+        },
+        "waterfall_status": "computed",
+        "waterfall_null_reasons": {
+          "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr",
+          "net_irr": "out_of_scope_requires_complete_expense_layer"
+        },
+        "waterfall_event_count": 4,
+        "bridge_identity_holds": false,
+        "bridge_identity_diff": 0.0,
+        "bridge_null_reasons": {
+          "fund_expenses": "no_other_expense_rows_in_re_fund_expense_qtr"
+        }
+      }
+    }
+  }
+]

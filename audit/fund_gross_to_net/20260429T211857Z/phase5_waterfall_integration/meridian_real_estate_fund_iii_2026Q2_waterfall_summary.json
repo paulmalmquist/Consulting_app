@@ -1,0 +1,233 @@
+{
+  "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+  "as_of_quarter": "2026Q2",
+  "waterfall_status": "computed",
+  "pre_waterfall_net_cf_hash": "sha256:5555cd618d92271f714fc2819a0b0560a900ddaa6abc07a1238ae44a64854171",
+  "net_irr": -0.099516,
+  "net_tvpi": 0.8824,
+  "dpi": 0.5879,
+  "rvpi": 0.2945,
+  "carry": 0.0,
+  "gp_share": 21358204.607550923,
+  "lp_share": 81251045.70014139,
+  "pref_distributed": 0.0,
+  "return_of_capital_distributed": 102609250.3076923,
+  "catch_up_distributed": 0.0,
+  "gross_net_spread_bps": -1334,
+  "lp_called": 138214123.1555,
+  "lp_distributions": 81251045.70014139,
+  "lp_ending_nav_share": 40709564.825,
+  "gp_called": 7274427.5345,
+  "gp_distributions": 21358204.607550923,
+  "gp_ending_nav_share": 2142608.675,
+  "waterfall_style": "european",
+  "pref_rate": 0.08,
+  "carry_rate": 0.2,
+  "catchup_rate": 1.0,
+  "definition_id": "0b5f8fc4-31e7-41f1-88ec-1f93f0672499",
+  "definition_version": 1,
+  "null_reasons": {
+    "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr",
+    "net_irr": "out_of_scope_requires_complete_expense_layer"
+  },
+  "warnings": [],
+  "inputs_hash": "sha256:d3d0af5e3ab927bd9ceef24fbc365f648e4e5e8632858f94720850001d3bc902",
+  "event_logs": [
+    {
+      "event_date": "2025-09-30",
+      "quarter": "2025Q3",
+      "distribution_amount": 2212589.0,
+      "lp_share": 1752036.6771567077,
+      "gp_share": 460552.3228432922,
+      "carry_share": 0.0,
+      "pref_share": 0.0,
+      "return_of_capital": 2212589.0,
+      "catch_up": 0.0,
+      "conservation_diff": 0.0,
+      "allocations": [
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "7ea8467e-470b-4f70-8635-1855be510d24",
+          "amount": 460552.3228432922,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "d31a56c6-3d4c-4953-a8dc-a110da50c892",
+          "amount": 460552.3228432922,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0001-000000000001",
+          "amount": 460552.3228432922,
+          "role": "gp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0002-000000000001",
+          "amount": 415466.01573506166,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0003-000000000001",
+          "amount": 415466.01573506166,
+          "role": "lp"
+        }
+      ]
+    },
+    {
+      "event_date": "2025-12-31",
+      "quarter": "2025Q4",
+      "distribution_amount": 2187739.93,
+      "lp_share": 1732359.9626682806,
+      "gp_share": 455379.96733171935,
+      "carry_share": 0.0,
+      "pref_share": 0.0,
+      "return_of_capital": 2187739.93,
+      "catch_up": 0.0,
+      "conservation_diff": 0.0,
+      "allocations": [
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "7ea8467e-470b-4f70-8635-1855be510d24",
+          "amount": 455379.96733171935,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "d31a56c6-3d4c-4953-a8dc-a110da50c892",
+          "amount": 455379.96733171935,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0001-000000000001",
+          "amount": 455379.96733171935,
+          "role": "gp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0002-000000000001",
+          "amount": 410800.014002421,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0003-000000000001",
+          "amount": 410800.014002421,
+          "role": "lp"
+        }
+      ]
+    },
+    {
+      "event_date": "2026-03-31",
+      "quarter": "2026Q1",
+      "distribution_amount": 428003.57,
+      "lp_share": 338914.2550170901,
+      "gp_share": 89089.3149829099,
+      "carry_share": 0.0,
+      "pref_share": 0.0,
+      "return_of_capital": 428003.57,
+      "catch_up": 0.0,
+      "conservation_diff": 0.0,
+      "allocations": [
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "7ea8467e-470b-4f70-8635-1855be510d24",
+          "amount": 89089.3149829099,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "d31a56c6-3d4c-4953-a8dc-a110da50c892",
+          "amount": 89089.3149829099,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0001-000000000001",
+          "amount": 89089.3149829099,
+          "role": "gp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0002-000000000001",
+          "amount": 80367.81252563516,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0003-000000000001",
+          "amount": 80367.81252563515,
+          "role": "lp"
+        }
+      ]
+    },
+    {
+      "event_date": "2026-06-30",
+      "quarter": "2026Q2",
+      "distribution_amount": 97780917.8076923,
+      "lp_share": 77427734.80529931,
+      "gp_share": 20353183.002393004,
+      "carry_share": 0.0,
+      "pref_share": 0.0,
+      "return_of_capital": 97780917.8076923,
+      "catch_up": 0.0,
+      "conservation_diff": 0.0,
+      "allocations": [
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "7ea8467e-470b-4f70-8635-1855be510d24",
+          "amount": 20353183.002393004,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "d31a56c6-3d4c-4953-a8dc-a110da50c892",
+          "amount": 20353183.002393004,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0001-000000000001",
+          "amount": 20353183.002393004,
+          "role": "gp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0002-000000000001",
+          "amount": 18360684.400256652,
+          "role": "lp"
+        },
+        {
+          "tier_code": "tier_1_return_of_capital",
+          "payout_type": "return_of_capital",
+          "participant_id": "e0a10000-0001-0001-0003-000000000001",
+          "amount": 18360684.400256652,
+          "role": "lp"
+        }
+      ]
+    }
+  ]
+}

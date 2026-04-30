@@ -1,0 +1,60 @@
+{
+  "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+  "as_of_quarter": "2026Q2",
+  "schedule_contract_version": "v1",
+  "expense_cf_hash": "sha256:48e0d09fc1c13f4f7e4493c8ee9567d9655e411ed7d614bdad2acd167200208c",
+  "total_management_fees": 3750000.0,
+  "total_other_expenses": null,
+  "total_expenses": null,
+  "expenses_by_type": {
+    "management_fee": 3750000.0
+  },
+  "null_reasons": {
+    "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+  },
+  "lines": [
+    {
+      "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2026-Q1",
+      "quarter_end_date": "2026-03-31",
+      "kind": "management_fee",
+      "amount": 1875000.0,
+      "currency": "USD",
+      "source_table": "repe_fund_term",
+      "source_id": "decf47bf-7662-4068-9c75-72fcdc8ad903",
+      "formula_key": "mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term]",
+      "basis": "committed",
+      "basis_amount": 500000000.0,
+      "rate": 0.015,
+      "null_reason": null,
+      "warnings": []
+    },
+    {
+      "fund_id": "a1b2c3d4-0001-0010-0001-000000000001",
+      "quarter": "2026-Q2",
+      "quarter_end_date": "2026-06-30",
+      "kind": "management_fee",
+      "amount": 1875000.0,
+      "currency": "USD",
+      "source_table": "repe_fund_term",
+      "source_id": "decf47bf-7662-4068-9c75-72fcdc8ad903",
+      "formula_key": "mgmt_fee = basis_amount * annual_rate / 4 [rate_source=repe_fund_term]",
+      "basis": "committed",
+      "basis_amount": 500000000.0,
+      "rate": 0.015,
+      "null_reason": null,
+      "warnings": []
+    }
+  ],
+  "compose_pre_waterfall_cf": {
+    "sum_fund_gross_cf": -39129300.38230769,
+    "sum_fund_expense_cf": -3750000.0,
+    "sum_pre_waterfall_cf": -42879300.38230769,
+    "identity_diff": 0.0,
+    "identity_ok": true,
+    "expense_null_reasons": {
+      "fund_expense_layer": "no_other_expense_rows_in_re_fund_expense_qtr"
+    },
+    "expense_cf_hash": "sha256:48e0d09fc1c13f4f7e4493c8ee9567d9655e411ed7d614bdad2acd167200208c"
+  }
+}
