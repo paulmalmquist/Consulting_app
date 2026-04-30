@@ -24,7 +24,7 @@ function StartHerePanel() {
   return (
     <section className="space-y-3 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-6 xl:sticky xl:top-24">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Start Here</p>
-      <h2 className="text-xl font-semibold tracking-tight text-white">Answer -&gt; Focus -&gt; Differentiate -&gt; Prove -&gt; Publish</h2>
+      <h2 className="text-xl font-semibold tracking-tight text-nv-text">Answer -&gt; Focus -&gt; Differentiate -&gt; Prove -&gt; Publish</h2>
       <div className="space-y-2">
         {START_HERE_STEPS.map((step, index) => (
           <Link
@@ -64,7 +64,7 @@ export default function ResearchPage() {
     <div className="space-y-8 lg:space-y-10">
       <section className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">Research</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">Research</h1>
           <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
             Clear frameworks for building internal execution without vendor dependency.
           </p>
@@ -77,7 +77,7 @@ export default function ResearchPage() {
               href={`/research/${entry.slug}`}
               className="group rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4 transition hover:border-nv-teal/25"
             >
-              <p className="text-base font-semibold text-white">
+              <p className="text-base font-semibold text-nv-text">
                 {entry.slug === 'positioning' ? 'Positioning Questions' : entry.slug === 'messaging' ? 'Messaging Rules' : 'Website Schemes'}
               </p>
               <p className="mt-2 text-sm text-nv-muted">{entry.summary}</p>

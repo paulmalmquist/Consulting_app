@@ -49,7 +49,7 @@ export function QuestionSimulator() {
   return (
     <div className="space-y-4 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-6">
       <div>
-        <h3 className="text-lg font-semibold text-white">Question simulator</h3>
+        <h3 className="text-lg font-semibold text-nv-text">Question simulator</h3>
         <p className="text-sm text-nv-dim">
           This uses local retrieval plus a deterministic template — no hosted LLM calls, with citations preserved.
         </p>
@@ -58,7 +58,7 @@ export function QuestionSimulator() {
         <input
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          className="flex-1 rounded-xl border border-nv-text/10 bg-nv-bg/40 px-4 py-3 text-sm text-white"
+          className="flex-1 rounded-xl border border-nv-text/10 bg-nv-bg/40 px-4 py-3 text-sm text-nv-text"
           aria-label="Ask a demo question"
         />
         <button
@@ -77,7 +77,7 @@ export function QuestionSimulator() {
               {results.length === 0 && <li>No matches yet.</li>}
               {results.map((result) => (
                 <li key={result.item.id}>
-                  <p className="font-semibold text-white">{result.item.title}</p>
+                  <p className="font-semibold text-nv-text">{result.item.title}</p>
                   <p className="text-xs text-nv-dim">{result.item.description}</p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-nv-faint">
                     {result.item.citations.map((citation) => (

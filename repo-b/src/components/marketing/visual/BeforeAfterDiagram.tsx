@@ -16,10 +16,10 @@ export function BeforeAfterDiagram({
 }: BeforeAfterDiagramProps) {
   return (
     <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <h3 className="text-lg font-semibold text-nv-text">{title}</h3>
       <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
         <article className="rounded-2xl border border-rose-300/25 bg-rose-950/20 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-200">{beforeLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-risk">{beforeLabel}</p>
           <ul className="mt-3 space-y-2 text-sm text-nv-text">
             {beforeItems.map((item) => (
               <li key={item} className="rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2">

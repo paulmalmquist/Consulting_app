@@ -18,7 +18,7 @@ export function CategoryMessagingFramework() {
   return (
     <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8">
       <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Category Positioning</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-3xl">Category Creator Messaging Framework</h2>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Category Creator Messaging Framework</h2>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">

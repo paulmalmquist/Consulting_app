@@ -144,7 +144,7 @@ export function InlineSearch() {
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search pages, research, insights..."
-          className="w-full bg-transparent text-sm text-white outline-none placeholder:text-nv-faint"
+          className="w-full bg-transparent text-sm text-nv-text outline-none placeholder:text-nv-faint"
           autoComplete="off"
           aria-label="Search site"
           aria-expanded={open}
@@ -176,7 +176,7 @@ export function InlineSearch() {
                     className="block rounded-xl border border-transparent px-3 py-2 transition hover:border-nv-text/12 hover:bg-nv-surface/70"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-white">{item.title}</p>
+                      <p className="text-sm font-medium text-nv-text">{item.title}</p>
                       <span className="rounded-full border border-nv-text/12 px-2 py-0.5 text-[10px] uppercase text-nv-muted">
                         {item.type}
                       </span>

@@ -41,12 +41,12 @@ export function CredibilitySection({
   return (
     <section className={`rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 ${className}`.trim()}>
       <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Credibility</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-3xl">{headline}</h2>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">{headline}</h2>
       {intro ? <p className="mt-3 max-w-4xl text-sm leading-relaxed text-nv-muted sm:text-base">{intro}</p> : null}
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {pillars.map((block) => (
           <article key={block.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">
-            <h3 className="text-base font-semibold text-white">{block.title}</h3>
+            <h3 className="text-base font-semibold text-nv-text">{block.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-nv-muted">{block.description}</p>
           </article>
         ))}

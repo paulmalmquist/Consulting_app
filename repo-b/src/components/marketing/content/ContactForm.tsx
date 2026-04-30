@@ -145,7 +145,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
               required
               value={form.attendeeName}
               onChange={(event) => setForm((prev) => ({ ...prev, attendeeName: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-nv-text focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
             />
           </label>
           <label className="text-xs text-nv-dim">
@@ -155,7 +155,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
               required
               value={form.attendeeEmail}
               onChange={(event) => setForm((prev) => ({ ...prev, attendeeEmail: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-nv-text focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
             />
           </label>
         </div>
@@ -167,7 +167,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
             rows={4}
             value={form.agenda}
             onChange={(event) => setForm((prev) => ({ ...prev, agenda: event.target.value }))}
-            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-nv-text focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
           />
         </label>
 
@@ -193,7 +193,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
               <input
                 value={form.attendeeCompany}
                 onChange={(event) => setForm((prev) => ({ ...prev, attendeeCompany: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-nv-text focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
               />
             </label>
             <label className="text-xs text-nv-dim">
@@ -201,7 +201,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
               <select
                 value={form.companySize}
                 onChange={(event) => setForm((prev) => ({ ...prev, companySize: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-white focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
+                className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-bg/40 px-3 py-2 text-sm text-nv-text focus:border-nv-teal/18 focus:outline-none focus:ring-1 focus:ring-cyan-200/30"
               >
                 <option value="">Select size</option>
                 {COMPANY_SIZE_OPTIONS.map((size) => (
@@ -286,7 +286,7 @@ export function ContactForm({ defaultIndustry }: ContactFormProps) {
             {status}
           </div>
         )}
-        {error && <p className="text-sm text-rose-200">{error}</p>}
+        {error && <p className="text-sm text-nv-risk">{error}</p>}
       </form>
     </div>
   );

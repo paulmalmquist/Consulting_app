@@ -46,7 +46,7 @@ export function RegimeTimeline() {
     <section aria-labelledby="regime-timeline-title" className="space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6 lg:p-8">
       <div className="space-y-2">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Regime Timeline</p>
-        <h2 id="regime-timeline-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+        <h2 id="regime-timeline-title" className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">
           From tool patching to governed execution.
         </h2>
       </div>
@@ -87,7 +87,7 @@ export function RegimeTimeline() {
                 </span>
                 <span className="text-xs uppercase tracking-[0.08em]">Step {index + 1}</span>
               </div>
-              <p className="mt-3 text-sm font-semibold text-white">{step.title}</p>
+              <p className="mt-3 text-sm font-semibold text-nv-text">{step.title}</p>
               <p className="mt-2 text-xs leading-relaxed text-nv-muted">
                 {step.line}
               </p>

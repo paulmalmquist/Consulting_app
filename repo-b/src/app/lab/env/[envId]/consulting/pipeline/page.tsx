@@ -748,7 +748,7 @@ export default function PipelinePage({
           gridTemplateColumns: "240px minmax(0, 1fr) 40px",
           gridTemplateRows: "52px minmax(0, 1fr)",
           height: "100%",
-          minHeight: 0,
+          minHeight: "100%",
           background: "#05070B",
         }}
       >
@@ -777,7 +777,7 @@ export default function PipelinePage({
         gridTemplateColumns: `240px minmax(0, 1fr) ${railWidth}px`,
         gridTemplateRows: "52px minmax(0, 1fr)",
         height: "100%",
-        minHeight: 0,
+        minHeight: "100%",
         background: "#05070B",
         transition: "grid-template-columns 200ms ease",
       }}

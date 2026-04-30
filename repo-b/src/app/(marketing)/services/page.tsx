@@ -36,7 +36,7 @@ export default function ServicesPage() {
     <div className="space-y-8 lg:space-y-10">
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Services</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">
           Operational Infrastructure, Rebuilt for the AI Era
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
@@ -61,7 +61,7 @@ export default function ServicesPage() {
       <CredibilitySection />
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">We Replace Software Dependence With Internal Capability</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">We Replace Software Dependence With Internal Capability</h2>
         <p className="mt-3 max-w-4xl text-sm leading-relaxed text-nv-muted sm:text-base">
           Most organizations rely on 20-60 tools to operate. We identify where software is creating cost, friction, and operational drag,
           then design AI-native systems that bring those capabilities in-house.
@@ -76,10 +76,10 @@ export default function ServicesPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Core Services</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Core Services</h2>
         <div className="grid gap-4">
           <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-white">1) Executive Operational Assessment</h3>
+            <h3 className="text-xl font-semibold text-nv-text">1) Executive Operational Assessment</h3>
             <p className="mt-3 text-sm text-nv-muted">A deep analysis of your workflows, software stack, and operational bottlenecks.</p>
             <p className="mt-4 text-xs uppercase tracking-[0.12em] text-nv-dim">What we evaluate</p>
             <ul className="mt-2 grid gap-2 md:grid-cols-2">
@@ -101,7 +101,7 @@ export default function ServicesPage() {
           </article>
 
           <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-white">2) AI Infrastructure Design</h3>
+            <h3 className="text-xl font-semibold text-nv-text">2) AI Infrastructure Design</h3>
             <p className="mt-3 text-sm text-nv-muted">We design internal AI systems that replace high-cost tools and streamline operations.</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {['Internal decision-support tools', 'Automated intake workflows', 'Risk evaluation engines', 'Reporting automation'].map((item) => (
@@ -114,7 +114,7 @@ export default function ServicesPage() {
           </article>
 
           <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-white">3) Workflow Automation Deployment</h3>
+            <h3 className="text-xl font-semibold text-nv-text">3) Workflow Automation Deployment</h3>
             <p className="mt-3 text-sm text-nv-muted">
               We implement AI-native workflows that remove manual effort across high-impact functions.
             </p>
@@ -129,7 +129,7 @@ export default function ServicesPage() {
           </article>
 
           <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-white">4) SaaS Consolidation Strategy</h3>
+            <h3 className="text-xl font-semibold text-nv-text">4) SaaS Consolidation Strategy</h3>
             <p className="mt-3 text-sm text-nv-muted">A structured approach to reducing tool sprawl and replacing selected platforms.</p>
             <div className="mt-4 grid gap-2 md:grid-cols-3">
               {['Identify what to keep', 'Identify what to replace', 'Identify what to build internally'].map((item) => (
@@ -144,11 +144,11 @@ export default function ServicesPage() {
       </section>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Built for Speed and Measurable Impact</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Built for Speed and Measurable Impact</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {MODEL_PHASES.map((phase) => (
             <article key={phase.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">
-              <h3 className="text-base font-semibold text-white">{phase.title}</h3>
+              <h3 className="text-base font-semibold text-nv-text">{phase.title}</h3>
               <p className="mt-2 text-sm text-nv-muted">{phase.description}</p>
             </article>
           ))}
@@ -156,7 +156,7 @@ export default function ServicesPage() {
       </section>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Ideal Client Profile</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Ideal Client Profile</h2>
         <ul className="mt-4 grid gap-2 md:grid-cols-2">
           {ICP.map((item) => (
             <li key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
@@ -169,7 +169,7 @@ export default function ServicesPage() {
       <CategoryMessagingFramework />
 
       <section className="rounded-3xl border border-nv-teal/25 bg-gradient-to-r from-nv-surface/80 to-nv-teal/6 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">See Where You&apos;re Overpaying for Software</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">See Where You&apos;re Overpaying for Software</h2>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-nv-text sm:text-base">
           In one session, we identify where internal AI systems can reduce cost and increase speed.
         </p>

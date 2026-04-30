@@ -136,17 +136,17 @@ export function CapabilityScrollPanels({ items }: CapabilityScrollPanelsProps) {
       <div className="nv-snap-flow">
         {panels.map((panel, index) => {
           const isVisible = visiblePanels[index] ?? index === 0;
-          const panelShellClassName = `nv-panel-shell transition duration-200 group-hover:border-white/18 group-focus-visible:border-white/25 ${
+          const panelShellClassName = `nv-panel-shell transition duration-200 group-hover:border-nv-text/18 group-focus-visible:border-nv-teal/30 ${
             isVisible ? 'nv-panel-shell--visible' : ''
           }`;
           const panelContent = (
             <div className={panelShellClassName}>
               <div className="flex flex-col gap-[clamp(0.9rem,1.8vh,1.6rem)]">
-                <div className="rounded-3xl border border-white/8 bg-nv-bg/70 p-[clamp(0.9rem,1.5vh,1.5rem)]">
+                <div className="rounded-3xl border border-nv-text/8 bg-nv-bg/70 p-[clamp(0.9rem,1.5vh,1.5rem)]">
                   {renderGraphic(panel.graphic)}
                 </div>
                 <div className="space-y-[clamp(0.45rem,1vh,0.8rem)]">
-                  <h2 className="text-[clamp(1.05rem,1.15vw,1.55rem)] font-semibold tracking-tight text-white">{panel.title}</h2>
+                  <h2 className="text-[clamp(1.05rem,1.15vw,1.55rem)] font-semibold tracking-tight text-nv-text">{panel.title}</h2>
                   <p className="text-[clamp(0.9rem,0.95vw,1rem)] leading-relaxed text-nv-muted">{panel.sentence}</p>
                 </div>
               </div>
@@ -164,7 +164,7 @@ export function CapabilityScrollPanels({ items }: CapabilityScrollPanelsProps) {
             >
               <Link
                 href={panel.href ?? '#'}
-                className="group block w-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg touch-manipulation cursor-pointer"
+                className="group block w-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nv-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-nv-bg touch-manipulation cursor-pointer"
                 aria-label={`Learn more about ${panel.title}`}
               >
                 {panelContent}

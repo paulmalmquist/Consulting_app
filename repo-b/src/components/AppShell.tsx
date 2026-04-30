@@ -16,7 +16,14 @@ export default function AppShell({
   const isPipelineRoute = /^\/lab\/env\/[^/]+\/consulting\/pipeline(\/|$)/.test(pathname);
 
   return (
-    <div className="min-h-screen bg-bm-bg text-bm-text flex flex-col">
+    <div
+      className={cn(
+        "text-bm-text flex flex-col",
+        isPipelineRoute
+          ? "h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#05070B]"
+          : "min-h-screen bg-bm-bg",
+      )}
+    >
       {!isImmersiveRoute ? (
         <header className="absolute top-0 right-0 z-50 p-4">
           <AccountMenu homePath="/app" />
@@ -26,7 +33,7 @@ export default function AppShell({
         className={cn(
           "flex-1",
           isPipelineRoute
-            ? "flex flex-col overflow-hidden"
+            ? "flex h-full min-h-0 flex-col overflow-hidden bg-[#05070B]"
             : isImmersiveRoute
               ? "overflow-y-auto"
               : "p-6 pt-14",

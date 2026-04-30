@@ -25,7 +25,7 @@ export default function HomePage() {
               Put <em>AI</em> to work.
             </>
           }
-          lede="We work with companies to get their operations, data, and teams ready to use AI in a practical way. That usually starts by fixing the workflows and systems everything depends on."
+          lede="We work with companies to get their operations, data, and teams ready to use AI in a practical way."
           primaryCta={{ label: 'Identify your first fixable workflow in 30 minutes', href: '/operational-assessment' }}
           secondaryCta={{ label: 'Start with one workflow', href: '/what-we-do' }}
         />

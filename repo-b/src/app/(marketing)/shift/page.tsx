@@ -15,7 +15,7 @@ export default function ShiftPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Next Step</p>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">Inventory your current execution</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-nv-text">Inventory your current execution</h2>
             <p className="text-sm text-nv-muted sm:text-base">
               Baseline what should stay, what should automate, and where governance must hold.
             </p>

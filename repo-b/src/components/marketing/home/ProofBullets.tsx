@@ -28,11 +28,11 @@ export function ProofBullets({ items }: ProofBulletsProps) {
   return (
     <ul className="grid gap-6 md:grid-cols-3">
       {items.map((item) => (
-        <li key={item.title} className="rounded-2xl border border-white/8 bg-nv-bg/70 p-8 shadow-sm">
+        <li key={item.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/70 p-8 shadow-sm">
           <div className="mb-4 inline-flex">
             <span className="nv-mark-badge nv-mark-badge--word">{getBadgeLetters(item.title)}</span>
           </div>
-          <div className="text-lg font-semibold uppercase tracking-[0.08em] text-white">{item.title}</div>
+          <div className="text-lg font-semibold uppercase tracking-[0.08em] text-nv-text">{item.title}</div>
         </li>
       ))}
     </ul>

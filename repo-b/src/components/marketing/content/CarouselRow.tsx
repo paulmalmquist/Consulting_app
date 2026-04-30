@@ -22,7 +22,7 @@ export function CarouselRow({
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-white">{title}</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-nv-text">{title}</h2>
           <p className="text-base leading-relaxed text-nv-dim">{description}</p>
         </div>
         <Link
@@ -45,7 +45,7 @@ export function CarouselRow({
         <div className="pointer-events-none absolute inset-y-0 right-2 hidden items-center gap-2 md:flex">
           <button
             type="button"
-            className="pointer-events-auto rounded-full border border-nv-text/20 bg-nv-surface/80 p-2 text-white"
+            className="pointer-events-auto rounded-full border border-nv-text/20 bg-nv-surface/80 p-2 text-nv-text"
             onClick={() => emblaApi?.scrollPrev()}
             aria-label="Scroll left"
           >
@@ -53,7 +53,7 @@ export function CarouselRow({
           </button>
           <button
             type="button"
-            className="pointer-events-auto rounded-full border border-nv-text/20 bg-nv-surface/80 p-2 text-white"
+            className="pointer-events-auto rounded-full border border-nv-text/20 bg-nv-surface/80 p-2 text-nv-text"
             onClick={() => emblaApi?.scrollNext()}
             aria-label="Scroll right"
           >

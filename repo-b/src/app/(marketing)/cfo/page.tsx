@@ -30,7 +30,7 @@ export default function CfoPage() {
     <div className="space-y-8 lg:space-y-10">
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">For CFOs</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">
           Reduce Software Spend Without Slowing the Business
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
@@ -47,7 +47,7 @@ export default function CfoPage() {
       <CredibilitySection />
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Financial Leadership Priorities</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Financial Leadership Priorities</h2>
         <p className="mt-3 text-sm text-nv-muted">You are responsible for measurable financial and operating outcomes.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {CFO_FOCUS.map((item) => (
@@ -59,11 +59,11 @@ export default function CfoPage() {
       </section>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">What CFOs Care About</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">What CFOs Care About</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {CFO_PRIORITIES.map((item) => (
             <article key={item.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">
-              <h3 className="text-base font-semibold text-white">{item.title}</h3>
+              <h3 className="text-base font-semibold text-nv-text">{item.title}</h3>
               <p className="mt-2 text-sm text-nv-muted">{item.description}</p>
             </article>
           ))}
@@ -71,7 +71,7 @@ export default function CfoPage() {
       </section>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Results Framing</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Results Framing</h2>
         <p className="mt-3 text-sm text-nv-muted">Common outcomes include:</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {RESULTS.map((item) => (
@@ -85,7 +85,7 @@ export default function CfoPage() {
       <CategoryMessagingFramework />
 
       <section className="rounded-3xl border border-nv-teal/25 bg-gradient-to-r from-nv-surface/80 to-nv-teal/6 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Find Your Largest Cost-Saving Opportunities</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Find Your Largest Cost-Saving Opportunities</h2>
         <Link
           href="/operational-assessment"
           className="mt-5 inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-6 py-3 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"

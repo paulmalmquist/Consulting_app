@@ -4,7 +4,7 @@ export default function SupportOpsPage() {
   return (
     <div className="space-y-10">
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-white">Intent-First Internal Support</h1>
+        <h1 className="text-3xl font-semibold text-nv-text">Intent-First Internal Support</h1>
         <p className="text-lg text-nv-muted">
           An AI front door for IT, HR, and Ops that captures intent once, routes to the right owner, and logs every
           decision for auditability.
@@ -27,7 +27,7 @@ export default function SupportOpsPage() {
           }
         ].map((item) => (
           <div key={item.title} className="space-y-3 rounded-xl border border-nv-text/10 bg-nv-bg/40 p-4">
-            <p className="text-sm font-semibold text-white">{item.title}</p>
+            <p className="text-sm font-semibold text-nv-text">{item.title}</p>
             <p className="text-sm text-nv-muted">{item.description}</p>
           </div>
         ))}
@@ -35,7 +35,7 @@ export default function SupportOpsPage() {
 
       <section className="grid gap-6 rounded-2xl border border-nv-text/10 bg-nv-surface/60 p-6 md:grid-cols-2">
         <div className="space-y-3">
-          <h2 className="text-2xl font-semibold text-white">Typical metrics we track (examples)</h2>
+          <h2 className="text-2xl font-semibold text-nv-text">Typical metrics we track (examples)</h2>
           <ul className="space-y-2 text-base text-nv-muted">
             <li>• Time-to-first-response</li>
             <li>• Mean time to resolution (MTTR)</li>
@@ -44,7 +44,7 @@ export default function SupportOpsPage() {
           </ul>
         </div>
         <div className="space-y-3">
-          <h2 className="text-2xl font-semibold text-white">Governance &amp; data handling</h2>
+          <h2 className="text-2xl font-semibold text-nv-text">Governance &amp; data handling</h2>
           <ul className="space-y-2 text-base text-nv-muted">
             <li>• Audit logs for every route, response, and approval</li>
             <li>• Human-in-the-loop gates for sensitive actions</li>
@@ -56,7 +56,7 @@ export default function SupportOpsPage() {
 
       <section className="grid gap-6 rounded-2xl border border-nv-text/10 bg-nv-surface/60 p-6 md:grid-cols-3">
         <div className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">Healthcare admin</h2>
+          <h2 className="text-xl font-semibold text-nv-text">Healthcare admin</h2>
           <ul className="space-y-2 text-sm text-nv-muted">
             <li>• Prior auth status questions with cited policy steps</li>
             <li>• Billing exceptions routed with required context</li>
@@ -64,7 +64,7 @@ export default function SupportOpsPage() {
           </ul>
         </div>
         <div className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">Legal ops</h2>
+          <h2 className="text-xl font-semibold text-nv-text">Legal ops</h2>
           <ul className="space-y-2 text-sm text-nv-muted">
             <li>• Intake triage with escalation paths</li>
             <li>• Policy and retention answers with citations</li>
@@ -72,7 +72,7 @@ export default function SupportOpsPage() {
           </ul>
         </div>
         <div className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">Construction / PDS</h2>
+          <h2 className="text-xl font-semibold text-nv-text">Construction / PDS</h2>
           <ul className="space-y-2 text-sm text-nv-muted">
             <li>• Change order intake with required documents</li>
             <li>• Vendor onboarding checklist routing</li>

@@ -90,7 +90,7 @@ export function ResearchHubClient({ entries }: ResearchHubClientProps) {
   return (
     <section className="space-y-6" aria-labelledby="research-library-title">
       <div className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6">
-        <h2 id="research-library-title" className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+        <h2 id="research-library-title" className="text-xl font-semibold tracking-tight text-nv-text sm:text-2xl">
           Research Library
         </h2>
 
@@ -105,7 +105,7 @@ export function ResearchHubClient({ entries }: ResearchHubClientProps) {
               value={query}
               onChange={(event) => updateParams({ q: event.target.value || null })}
               placeholder="Search frameworks, proof, and messaging"
-              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-nv-faint"
+              className="w-full bg-transparent text-sm text-nv-text outline-none placeholder:text-nv-faint"
             />
           </div>
         </div>
@@ -185,7 +185,7 @@ export function ResearchHubClient({ entries }: ResearchHubClientProps) {
       <div className="grid gap-4 md:grid-cols-2">
         {filteredEntries.map((entry) => (
           <article key={entry.id} className="rounded-2xl border border-nv-text/10 bg-nv-surface/60 p-5">
-            <h3 className="text-lg font-semibold text-white">{entry.title}</h3>
+            <h3 className="text-lg font-semibold text-nv-text">{entry.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-nv-muted">{entry.summary}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {entry.tags.slice(0, 3).map((tag) => (

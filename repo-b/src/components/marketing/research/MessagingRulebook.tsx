@@ -105,11 +105,11 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
     <div className="space-y-6">
       {ruleCards && (
         <section id="rules" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{ruleCards.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{ruleCards.title}</h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ruleCards.rules.map((rule) => (
               <article key={rule.id} className="rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4">
-                <h3 className="text-sm font-semibold text-white">{rule.name}</h3>
+                <h3 className="text-sm font-semibold text-nv-text">{rule.name}</h3>
                 <div className="mt-3 space-y-3 text-sm">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Do</p>
@@ -120,7 +120,7 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
                     </ul>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-rose-200">Avoid</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-risk">Avoid</p>
                     <ul className="mt-1 space-y-1 text-nv-muted">
                       {rule.avoid.map((item) => (
                         <li key={item}>{item}</li>
@@ -136,7 +136,7 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
 
       {checker && (
         <section id="checker" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{checker.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{checker.title}</h2>
           <p className="text-sm text-nv-muted">
             Paste draft copy to run quick checks for banned phrasing, jargon density, and readability.
           </p>
@@ -163,7 +163,7 @@ export function MessagingRulebook({ entry }: MessagingRulebookProps) {
                 {result.status === 'ok' ? (
                   <CheckCircle2 size={16} className="mt-0.5 text-nv-teal" aria-hidden="true" />
                 ) : (
-                  <AlertTriangle size={16} className="mt-0.5 text-amber-200" aria-hidden="true" />
+                  <AlertTriangle size={16} className="mt-0.5 text-nv-warning" aria-hidden="true" />
                 )}
                 <div>
                   <p className="font-semibold text-nv-text">{result.label}</p>

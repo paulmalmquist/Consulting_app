@@ -112,7 +112,7 @@ export function ShiftMap() {
     >
       <div className="space-y-2">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Shift Map</p>
-        <h2 id="shift-map-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+        <h2 id="shift-map-title" className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">
           Consolidate execution from fragmented tools to one governed core.
         </h2>
       </div>

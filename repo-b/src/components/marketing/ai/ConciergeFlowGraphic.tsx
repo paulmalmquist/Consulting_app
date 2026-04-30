@@ -20,8 +20,8 @@ const tones = {
   violet: {
     border: 'border-violet-200/25',
     bg: 'bg-violet-300/10',
-    text: 'text-violet-50',
-    icon: 'text-violet-200'
+    text: 'text-nv-text',
+    icon: 'text-nv-copper'
   },
   emerald: {
     border: 'border-nv-teal/18',
@@ -66,7 +66,7 @@ const nodes: Node[] = [
 
 export function ConciergeFlowGraphic() {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-nv-text/10 bg-gradient-to-b from-slate-950/40 via-slate-950/65 to-[#07172e] p-5 sm:p-6">
+    <div className="relative overflow-hidden rounded-3xl border border-nv-text/10 bg-gradient-to-b from-nv-bg/40 via-nv-bg/65 to-[#07172e] p-5 sm:p-6">
       <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-nv-teal/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 left-10 h-72 w-72 rounded-full bg-violet-300/10 blur-3xl" />
 
@@ -82,7 +82,7 @@ export function ConciergeFlowGraphic() {
             <div key={node.title} className="relative">
               {index !== 0 && (
                 <span
-                  className="pointer-events-none absolute -top-2 left-6 h-3 w-px bg-gradient-to-b from-slate-500/0 via-slate-500/60 to-slate-500/0"
+                  className="pointer-events-none absolute -top-2 left-6 h-3 w-px bg-gradient-to-b from-nv-muted/0 via-nv-muted/60 to-nv-muted/0"
                   aria-hidden="true"
                 />
               )}

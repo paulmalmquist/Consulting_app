@@ -14,7 +14,7 @@ export function WhatYouGainGrid() {
     <section aria-labelledby="what-you-gain-title" className="space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-4 sm:p-6 lg:p-8">
       <div className="space-y-2">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">What You Gain</p>
-        <h2 id="what-you-gain-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+        <h2 id="what-you-gain-title" className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">
           Practical outcomes from the new operating model.
         </h2>
       </div>

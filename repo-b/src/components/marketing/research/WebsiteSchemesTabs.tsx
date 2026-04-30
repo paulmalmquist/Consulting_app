@@ -68,7 +68,7 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
 
   return (
     <section id="schemes" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-      <h2 className="text-2xl font-semibold tracking-tight text-white">{schemesSection.title}</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{schemesSection.title}</h2>
 
       <div role="tablist" aria-label="Website narrative schemes" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((item, index) => {
@@ -126,19 +126,19 @@ export function WebsiteSchemesTabs({ entry }: WebsiteSchemesTabsProps) {
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-nv-text/10 bg-nv-surface/55 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Hero example</p>
-              <p className="mt-2 text-sm font-semibold text-white">{activeScheme.hero.headline}</p>
+              <p className="mt-2 text-sm font-semibold text-nv-text">{activeScheme.hero.headline}</p>
               <p className="mt-1 text-sm text-nv-muted">{activeScheme.hero.subhead}</p>
             </div>
             <div className="rounded-xl border border-nv-text/10 bg-nv-surface/55 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">CTA example</p>
-              <p className="mt-2 text-sm font-semibold text-white">{activeScheme.ctaExample}</p>
+              <p className="mt-2 text-sm font-semibold text-nv-text">{activeScheme.ctaExample}</p>
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-amber-300/25 bg-amber-200/10 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-amber-100">Risk</p>
-              <p className="mt-1 text-sm text-amber-50">{activeScheme.risk}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-warning">Risk</p>
+              <p className="mt-1 text-sm text-nv-text">{activeScheme.risk}</p>
             </div>
             <div className="rounded-xl border border-nv-teal/25 bg-nv-teal/8 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">Mitigation</p>

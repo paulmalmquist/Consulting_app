@@ -16,10 +16,10 @@ export function ContentCard({ item }: { item: CardItem }) {
       className="group flex h-full flex-col justify-between rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4 transition duration-200 hover:-translate-y-1 hover:border-nv-text/20 hover:shadow-card"
     >
       <div className="space-y-3">
-        <div className="h-24 w-full rounded-xl bg-gradient-to-br from-cyan-400/10 via-transparent to-slate-800/60" />
+        <div className="h-24 w-full rounded-xl bg-gradient-to-br from-cyan-400/10 via-transparent to-nv-overlay/60" />
         {item.eyebrow && <p className="text-xs uppercase tracking-widest text-nv-teal/80">{item.eyebrow}</p>}
         <div>
-          <h3 className="text-base font-semibold text-white group-hover:text-nv-teal">{item.title}</h3>
+          <h3 className="text-base font-semibold text-nv-text group-hover:text-nv-teal">{item.title}</h3>
           <p className="mt-2 text-sm text-nv-muted">{item.description}</p>
         </div>
       </div>

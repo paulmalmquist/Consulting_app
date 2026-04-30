@@ -586,7 +586,7 @@ export default function PipelineLaneView({
   }, [chartData]);
 
   return (
-    <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+    <div style={{ background: CP.surface, flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0, height: "100%", overflow: "hidden" }}>
       <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div
           style={{
@@ -1538,15 +1538,15 @@ export function GroupedBoardView({
           Collapse all
         </button>
       </div>
-      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: "1 1 auto", overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",
-            flex: 1,
+            flex: "1 1 auto",
             gap: 8,
             padding: "14px 14px 14px",
             minWidth: "max-content",
-            minHeight: 0,
+            minHeight: "100%",
             alignItems: "stretch",
           }}
         >
@@ -1670,6 +1670,7 @@ export function GroupedBoardView({
                   overflow: "hidden",
                   cursor: "pointer",
                   transition: "border-color 0.15s, box-shadow 0.15s",
+                  alignSelf: "stretch",
                 }}
                 onClick={() => handleGroupClick(group.key)}
               >

@@ -20,7 +20,7 @@ export function ContactPageContent() {
         )}
         <h1
           className={
-            selectedIndustry ? 'mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl' : 'text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl'
+            selectedIndustry ? 'mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl' : 'text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl'
           }
         >
           Book a meeting.

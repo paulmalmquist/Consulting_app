@@ -72,7 +72,7 @@ export function OnThisPageDesktop({ links }: OnThisPageProps) {
             <a
               key={link.id}
               href={`#${link.id}`}
-              className="block rounded-lg px-2 py-1 text-nv-muted transition hover:bg-nv-raised/70 hover:text-white"
+              className="block rounded-lg px-2 py-1 text-nv-muted transition hover:bg-nv-raised/70 hover:text-nv-text"
             >
               {link.label}
             </a>

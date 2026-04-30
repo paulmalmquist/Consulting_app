@@ -67,7 +67,7 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8" style={{ borderColor: 'rgb(var(--nv-hair-soft) / 0.06)' }}>
       <div className="mx-auto flex w-full max-w-none flex-col gap-3">
-        {/* Row 1: search + CTA + account */}
+        {/* Row 1: search + account */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -80,13 +80,6 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
           </button>
           <div className="hidden flex-1 items-center gap-3 md:flex">
             <InlineSearch />
-            <Link
-              href="/operational-assessment"
-              className="nv-btn nv-btn-primary shrink-0"
-              style={{ fontSize: 12, padding: '7px 14px' }}
-            >
-              See your first use case
-            </Link>
           </div>
           <ThemeToggle />
           <AccountButton />

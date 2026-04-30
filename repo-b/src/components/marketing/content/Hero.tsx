@@ -13,7 +13,7 @@ export function Hero({
     <section className="grid gap-8 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-8 md:grid-cols-[1.2fr_0.8fr]">
       <div className="space-y-6">
         <p className="text-xs uppercase tracking-[0.4em] text-nv-teal/80">Intent-first internal support</p>
-        <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight text-white md:text-6xl">{headline}</h1>
+        <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight text-nv-text md:text-6xl">{headline}</h1>
         <p className="max-w-prose text-base leading-relaxed text-nv-muted md:text-lg">{subheadline}</p>
         <div className="flex flex-wrap gap-3">
           <Link
@@ -30,7 +30,7 @@ export function Hero({
           </Link>
         </div>
       </div>
-      <div className="space-y-4 rounded-2xl border border-nv-text/10 bg-gradient-to-b from-slate-800/60 to-slate-900/90 p-6">
+      <div className="space-y-4 rounded-2xl border border-nv-text/10 bg-gradient-to-b from-nv-overlay/60 to-nv-bg/90 p-6">
         <p className="text-xs font-semibold uppercase tracking-wide text-nv-dim">Proof points</p>
         <ul className="space-y-3 text-xs tracking-wide text-nv-muted">
           {pillars.map((pillar) => (
@@ -38,7 +38,7 @@ export function Hero({
           ))}
         </ul>
         <div className="rounded-xl border border-nv-text/10 bg-nv-surface/70 p-4 text-xs text-nv-muted">
-          <p className="font-semibold text-white">Operator stance</p>
+          <p className="font-semibold text-nv-text">Operator stance</p>
           <p className="mt-2">
             Systems of record stay. Systems of work get redesigned with governance, auditability, and explicit human
             oversight.

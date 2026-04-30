@@ -27,11 +27,11 @@ export function ProofPatterns({ entry }: ProofPatternsProps) {
 
   return (
     <section id="proof-patterns" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-      <h2 className="text-2xl font-semibold tracking-tight text-white">{section.title}</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{section.title}</h2>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {section.patterns.map((pattern) => (
           <details key={pattern.id} className="rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-white">{pattern.title}</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-nv-text">{pattern.title}</summary>
             <div className="mt-3 space-y-3 text-sm text-nv-muted">
               <p>{pattern.description}</p>
               <div>

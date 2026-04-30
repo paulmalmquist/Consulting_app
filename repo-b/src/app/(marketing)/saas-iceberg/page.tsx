@@ -116,10 +116,10 @@ export default function SaaSIcebergPage() {
 
   return (
     <div className="space-y-10 sm:space-y-14">
-      <section className="relative overflow-hidden rounded-3xl border border-nv-text/8 bg-gradient-to-b from-nv-surface/80 via-slate-950/70 to-[#051022] p-6 sm:p-10">
+      <section className="relative overflow-hidden rounded-3xl border border-nv-text/8 bg-gradient-to-b from-nv-surface/80 via-nv-bg/70 to-[#051022] p-6 sm:p-10">
         <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-nv-teal/10 blur-3xl" />
         <p className="text-xs uppercase tracking-[0.28em] text-nv-dim">The SaaS Iceberg</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">What You&apos;re Really Paying For</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-5xl">What You&apos;re Really Paying For</h1>
         <p className="mt-3 max-w-2xl text-sm text-nv-teal/85 sm:text-base">
           Most SaaS pricing is justified below the waterline.
         </p>
@@ -128,7 +128,7 @@ export default function SaaSIcebergPage() {
           <div className="absolute left-0 h-px w-full bg-nv-teal/10" style={{ top: WATERLINE_TOP }} aria-hidden="true" />
           <div className="absolute left-1/2 top-[17%] h-24 w-32 -translate-x-1/2 rounded-[45%_45%_35%_35%] border border-nv-teal/18 bg-gradient-to-b from-cyan-100/30 to-cyan-200/10  animate-pulse" />
           <div className="absolute left-1/2 top-[33%] h-44 w-72 -translate-x-1/2 rounded-[45%_45%_55%_55%] border border-nv-teal/18 bg-gradient-to-b from-cyan-300/10 to-transparent" />
-          <div className="absolute bottom-0 left-0 h-[60%] w-full bg-gradient-to-b from-cyan-700/20 via-cyan-900/20 to-slate-950/70" />
+          <div className="absolute bottom-0 left-0 h-[60%] w-full bg-gradient-to-b from-cyan-700/20 via-cyan-900/20 to-nv-bg/70" />
 
           <div className="absolute top-5 right-5 left-5 z-20 rounded-2xl border border-nv-teal/18 bg-nv-bg/60 p-4 md:p-5">
             <p className="text-xs uppercase tracking-[0.22em] text-nv-teal/80">Above the water</p>
@@ -148,12 +148,12 @@ export default function SaaSIcebergPage() {
             className="absolute right-5 left-5 z-20 rounded-2xl border border-violet-200/15 bg-nv-bg/60 p-4 md:p-5"
             style={{ top: `calc(${WATERLINE_TOP} + 16px)` }}
           >
-            <p className="text-xs uppercase tracking-[0.22em] text-violet-100/80">Below the water</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-nv-copper">Below the water</p>
             <div className="mt-3 flex min-w-0 flex-wrap justify-end gap-2 overflow-hidden md:flex-nowrap">
               {BELOW_WATER_CHIPS.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-violet-200/30 bg-violet-300/5 px-3 py-1 text-xs text-violet-100 transition hover:border-violet-200/50 md:shrink-0"
+                  className="rounded-full border border-violet-200/30 bg-violet-300/5 px-3 py-1 text-xs text-nv-copper transition hover:border-violet-200/50 md:shrink-0"
                 >
                   {item}
                 </span>
@@ -208,7 +208,7 @@ export default function SaaSIcebergPage() {
             </div>
 
             <div className="rounded-2xl border border-violet-200/20 bg-nv-bg/80 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-violet-100/80">Below water realities</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-nv-copper">Below water realities</p>
               <div className="mt-3 space-y-2">
                 {activeBelow.map((item) => (
                   <button
@@ -217,7 +217,7 @@ export default function SaaSIcebergPage() {
                     onMouseEnter={() => setActiveItem(item)}
                     onFocus={() => setActiveItem(item)}
                     onClick={() => setActiveItem(item)}
-                    className="block w-full rounded-xl border border-violet-200/20 bg-violet-300/5 px-3 py-2 text-left text-sm text-violet-50 transition hover:border-violet-200/50"
+                    className="block w-full rounded-xl border border-violet-200/20 bg-violet-300/5 px-3 py-2 text-left text-sm text-nv-text transition hover:border-violet-200/50"
                   >
                     {item.label}
                   </button>
@@ -228,14 +228,14 @@ export default function SaaSIcebergPage() {
 
           <aside className="rounded-2xl border border-nv-text/12 bg-nv-bg/70 p-5">
             <p className="text-xs uppercase tracking-[0.2em] text-nv-dim">Hover diagnostic</p>
-            <p className="mt-3 text-lg font-semibold text-white">{activeItem.label}</p>
+            <p className="mt-3 text-lg font-semibold text-nv-text">{activeItem.label}</p>
             <p className="mt-2 text-sm text-nv-muted">{activeItem.explainer}</p>
           </aside>
         </div>
       </section>
 
       <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 sm:p-8">
-        <h2 className="text-xl font-semibold text-white sm:text-2xl">Where are you compensating?</h2>
+        <h2 className="text-xl font-semibold text-nv-text sm:text-2xl">Where are you compensating?</h2>
         <p className="mt-2 text-sm text-nv-muted">Mentally check every statement that feels true.</p>
         <ul className="mt-5 grid gap-3 sm:grid-cols-2">
           {selfAssessment.map((statement) => (
@@ -247,30 +247,30 @@ export default function SaaSIcebergPage() {
         </ul>
       </section>
 
-      <section className="space-y-5 rounded-3xl border border-nv-text/10 bg-gradient-to-br from-nv-surface/80 to-slate-950/80 p-6 sm:p-8">
+      <section className="space-y-5 rounded-3xl border border-nv-text/10 bg-gradient-to-br from-nv-surface/80 to-nv-bg/80 p-6 sm:p-8">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-nv-teal/70">Reframe</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">These Are Not Software Problems</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-nv-text sm:text-3xl">These Are Not Software Problems</h2>
           <p className="mt-2 text-base text-nv-teal">They are ownership problems.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-white">Vendors monetize avoidance</p>
+            <p className="text-sm font-semibold text-nv-text">Vendors monetize avoidance</p>
             <div className="mt-3 h-2 rounded-full bg-nv-raised">
               <div className="h-2 w-[82%] rounded-full bg-gradient-to-r from-violet-300/70 to-cyan-300/70" />
             </div>
             <p className="mt-3 text-xs text-nv-muted">Licenses scale with unresolved ambiguity.</p>
           </div>
           <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-white">Internal systems force clarity</p>
+            <p className="text-sm font-semibold text-nv-text">Internal systems force clarity</p>
             <div className="mt-3 h-2 rounded-full bg-nv-raised">
               <div className="h-2 w-[58%] rounded-full bg-gradient-to-r from-cyan-300/60 to-cyan-100/70" />
             </div>
             <p className="mt-3 text-xs text-nv-muted">Rules become explicit and defensible.</p>
           </div>
           <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-white">Ownership lowers total cost</p>
+            <p className="text-sm font-semibold text-nv-text">Ownership lowers total cost</p>
             <div className="mt-3 h-2 rounded-full bg-nv-raised">
               <div className="h-2 w-[34%] rounded-full bg-gradient-to-r from-nv-teal/35 to-cyan-200/70" />
             </div>
@@ -282,7 +282,7 @@ export default function SaaSIcebergPage() {
       <section className="rounded-3xl border border-nv-teal/18 bg-nv-surface/75 p-6 sm:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-white">See What You&apos;re Outsourcing</h2>
+            <h2 className="text-2xl font-semibold text-nv-text">See What You&apos;re Outsourcing</h2>
             <p className="mt-2 text-sm text-nv-muted">Map the submerged cost before your next renewal cycle.</p>
           </div>
           <div className="flex flex-wrap gap-3">

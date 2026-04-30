@@ -20,7 +20,7 @@ export default function DocPage({ params }: { params: { slug: string } }) {
     <div className="space-y-6">
       <section className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-nv-teal/80">Core Research</p>
-        <h1 className="text-3xl font-semibold text-white">{doc.title}</h1>
+        <h1 className="text-3xl font-semibold text-nv-text">{doc.title}</h1>
         <p className="text-lg text-nv-muted">{doc.description}</p>
       </section>
       <MarkdownRenderer content={doc.content} />

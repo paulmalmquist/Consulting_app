@@ -111,7 +111,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
               'group relative flex items-center gap-2 rounded-[4px] px-2 py-1.5 text-sm transition-all duration-120',
               industriesActive
                 ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
-                : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
+                : 'text-nv-muted hover:bg-nv-text/[0.02] hover:text-nv-text'
             )}
           >
             {industriesActive && (
@@ -140,7 +140,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
               type="button"
               onClick={() => setIndustriesOpen((prev) => !prev)}
               className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-nv-dim transition hover:bg-white/[0.03] hover:text-nv-muted',
+                'inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-nv-dim transition hover:bg-nv-text/[0.03] hover:text-nv-muted',
                 isCollapsed && 'hidden'
               )}
               aria-label={industriesOpen ? 'Collapse industries list' : 'Expand industries list'}
@@ -168,7 +168,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
                       'relative block rounded-[4px] px-3 py-2 text-xs transition-all duration-120',
                       childActive
                         ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
-                        : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
+                        : 'text-nv-muted hover:bg-nv-text/[0.02] hover:text-nv-text'
                     )}
                   >
                     {childActive && (
@@ -193,7 +193,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
           'group relative flex items-center gap-3 rounded-[4px] px-3 py-2 text-sm transition-all duration-120',
           active
             ? 'bg-gradient-to-r from-nv-teal/8 to-transparent text-nv-text'
-            : 'text-nv-muted hover:bg-white/[0.02] hover:text-nv-text'
+            : 'text-nv-muted hover:bg-nv-text/[0.02] hover:text-nv-text'
         )}
       >
         {active && (

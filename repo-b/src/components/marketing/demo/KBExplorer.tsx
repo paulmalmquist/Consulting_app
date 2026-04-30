@@ -54,14 +54,14 @@ export function KBExplorer() {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.8fr_1fr_1.2fr]">
       <div className="space-y-4 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4">
-        <h3 className="text-sm font-semibold text-white">Filters</h3>
+        <h3 className="text-sm font-semibold text-nv-text">Filters</h3>
         {(['role', 'workflow', 'system', 'risk'] as const).map((key) => (
           <label key={key} className="block text-xs text-nv-dim">
             {key}
             <select
               value={filters[key]}
               onChange={(event) => setFilters((prev) => ({ ...prev, [key]: event.target.value }))}
-              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-nv-text"
             >
               <option>All</option>
               {options[key].map((value) => {
@@ -81,12 +81,12 @@ export function KBExplorer() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-nv-text/10 bg-nv-surface/60 px-3 py-2 text-sm text-nv-text"
           />
         </label>
       </div>
       <div className="space-y-3 rounded-2xl border border-nv-text/8 bg-nv-surface/60 p-4">
-        <h3 className="text-sm font-semibold text-white">Objects</h3>
+        <h3 className="text-sm font-semibold text-nv-text">Objects</h3>
         <div className="space-y-2">
           {filtered.map((item) => (
             <button
@@ -95,11 +95,11 @@ export function KBExplorer() {
               onClick={() => setSelectedId(item.id)}
               className={`w-full rounded-xl border px-3 py-3 text-left text-sm transition ${
                 selected?.id === item.id
-                  ? 'border-nv-teal/18 bg-nv-teal/10 text-white'
+                  ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-text'
                   : 'border-nv-text/8 bg-nv-bg/40 text-nv-muted hover:border-nv-text/20'
               }`}
             >
-              <p className="font-semibold text-white">{item.title}</p>
+              <p className="font-semibold text-nv-text">{item.title}</p>
               <p className="mt-1 text-xs text-nv-dim">{item.description}</p>
             </button>
           ))}
@@ -109,7 +109,7 @@ export function KBExplorer() {
         {selected ? (
           <>
             <div>
-              <h3 className="text-lg font-semibold text-white">{selected.title}</h3>
+              <h3 className="text-lg font-semibold text-nv-text">{selected.title}</h3>
               <p className="text-sm text-nv-muted">{selected.description}</p>
             </div>
             <TagPills tags={selected.tags} />

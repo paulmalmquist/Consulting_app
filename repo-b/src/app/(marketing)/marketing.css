@@ -51,22 +51,22 @@
   --font-marketing-mono: var(--font-geist-mono);
 
   /* Background tiers — ink → graphite → slate */
-  --nv-bg:              11 14 18;     /* #0B0E12 */
-  --nv-surface:         18 22 28;     /* #12161C */
-  --nv-surface-raised:  24 29 37;     /* #181D25 */
-  --nv-surface-overlay: 31 37 48;     /* #1F2530 */
+  --nv-bg:               3  7 14;     /* #03070E */
+  --nv-surface:          8 13 23;     /* #080D17 */
+  --nv-surface-raised:  13 19 31;     /* #0D131F */
+  --nv-surface-overlay: 22 28 44;     /* #161C2C */
 
   /* Foreground tiers */
-  --nv-text-primary:    231 236 242;  /* #E7ECF2 */
-  --nv-text-secondary:  168 177 189;  /* #A8B1BD */
-  --nv-text-tertiary:   108 118 132;  /* #6C7684 */
-  --nv-text-muted:       74  82  94;  /* #4A525E */
+  --nv-text-primary:    239 246 255;  /* #EFF6FF */
+  --nv-text-secondary:  186 201 219;  /* #BAC9DB */
+  --nv-text-tertiary:   116 132 154;  /* #74849A */
+  --nv-text-muted:       72  84 104;  /* #485468 */
 
   /* Accents — desaturated, same lightness band */
-  --nv-accent-teal:      79 179 169;  /* #4FB3A9 */
-  --nv-accent-teal-ink:  30  78  74;  /* #1E4E4A */
-  --nv-accent-copper:   200 137  90;  /* #C8895A */
-  --nv-accent-copper-ink: 90  58  36; /* #5A3A24 */
+  --nv-accent-teal:      92 213 204;  /* #5CD5CC */
+  --nv-accent-teal-ink:  18  68  70;  /* #124446 */
+  --nv-accent-copper:   198 132 255;  /* #C684FF */
+  --nv-accent-copper-ink: 70  40 118; /* #462876 */
 
   /* Hairlines — always tinted, never pure gray */
   --nv-hair-soft:       232 236 242;       /* used at /0.06 via rgb(.. / 0.06) */
@@ -98,8 +98,9 @@
 
   /* Page base */
   background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(79,179,169,0.045), transparent 60%),
-    radial-gradient(900px  500px at 95% 110%, rgba(200,137,90,0.035), transparent 60%),
+    radial-gradient(1100px 560px at 12% -10%, rgba(92,213,204,0.095), transparent 58%),
+    radial-gradient(900px  520px at 92% 104%, rgba(198,132,255,0.075), transparent 62%),
+    radial-gradient(720px 360px at 70% 12%, rgba(240,74,165,0.04), transparent 68%),
     rgb(var(--nv-bg));
   color: rgb(var(--nv-text-primary));
   text-rendering: optimizeLegibility;
@@ -126,10 +127,10 @@
   --nv-text-tertiary:   110 120 135;  /* #6E7887 */
   --nv-text-muted:      150 160 175;  /* #96A0AF */
 
-  --nv-accent-teal:      64 150 145;  /* #409691 — slightly desaturated */
-  --nv-accent-teal-ink:  30  78  74;
-  --nv-accent-copper:   140 100  65;  /* #8C6441 */
-  --nv-accent-copper-ink: 90  58  36;
+  --nv-accent-teal:      42 145 144;  /* #2A9190 */
+  --nv-accent-teal-ink:  16  70  75;
+  --nv-accent-copper:   126  76 190;  /* #7E4CBE */
+  --nv-accent-copper-ink: 66  38 112;
 
   --nv-hair-soft:        20  30  50;       /* used at /0.06 */
   --nv-hair-medium-rgba: rgba(20,30,50,0.08);
@@ -151,8 +152,8 @@
     0 16px 36px -16px rgba(20,30,50,0.14);
 
   background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(64,150,145,0.05), transparent 60%),
-    radial-gradient(900px  500px at 95% 110%, rgba(140,100,65,0.04), transparent 60%),
+    radial-gradient(1200px 600px at 12% -10%, rgba(42,145,144,0.065), transparent 60%),
+    radial-gradient(900px  500px at 95% 110%, rgba(126,76,190,0.045), transparent 60%),
     rgb(var(--nv-bg));
 }
 
@@ -346,12 +347,23 @@
   object-fit: cover;
   object-position: center;
   z-index: -2;
+  filter: saturate(1.08) contrast(1.08) brightness(0.82);
 }
 
 .nv-hero-bg__overlay {
   position: absolute;
   inset: 0;
   z-index: -1;
+}
+.nv-hero-bg__overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(3,7,14,0.88) 0%, rgba(3,7,14,0.66) 42%, rgba(3,7,14,0.42) 72%, rgba(3,7,14,0.78) 100%),
+    radial-gradient(760px 420px at 18% 18%, rgba(92,213,204,0.18), transparent 68%),
+    radial-gradient(640px 420px at 90% 76%, rgba(198,132,255,0.18), transparent 66%);
+  pointer-events: none;
 }
 
 /* Gradient fallback when no image file ships. Uses the design system
@@ -362,8 +374,8 @@
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(900px 500px at 8% 10%, rgba(79,179,169,0.10), transparent 60%),
-    radial-gradient(700px 420px at 95% 90%, rgba(200,137,90,0.08),  transparent 65%),
+    radial-gradient(900px 500px at 8% 10%, rgba(92,213,204,0.16), transparent 60%),
+    radial-gradient(700px 420px at 95% 90%, rgba(198,132,255,0.14),  transparent 65%),
     linear-gradient(180deg, rgb(var(--nv-surface)) 0%, rgb(var(--nv-bg)) 100%);
 }
 .marketing-shell[data-theme="light"] .nv-hero-bg__fallback {
@@ -372,12 +384,36 @@
     radial-gradient(700px 420px at 95% 90%, rgba(140,100,65,0.08), transparent 65%),
     linear-gradient(180deg, rgb(var(--nv-surface)) 0%, rgb(var(--nv-bg)) 100%);
 }
+.marketing-shell[data-theme="light"] .nv-hero-bg__img {
+  filter: saturate(0.94) contrast(1.02) brightness(0.76);
+}
+.marketing-shell[data-theme="light"] .nv-hero-bg__overlay::after {
+  background:
+    linear-gradient(90deg, rgba(250,252,255,0.94) 0%, rgba(250,252,255,0.82) 42%, rgba(250,252,255,0.62) 72%, rgba(250,252,255,0.88) 100%),
+    radial-gradient(760px 420px at 18% 18%, rgba(42,145,144,0.16), transparent 68%),
+    radial-gradient(640px 420px at 90% 76%, rgba(126,76,190,0.11), transparent 66%);
+}
 
 .nv-hero-bg__content {
   position: relative;
   z-index: 1;
   max-width: 1320px;
   margin: 0 auto;
+}
+.nv-hero-bg .nv-h1,
+.nv-hero-bg h1 {
+  color: rgb(var(--nv-text-primary));
+  text-shadow: 0 2px 24px rgba(0,0,0,0.42);
+}
+.nv-hero-bg .nv-lede,
+.nv-hero-bg p {
+  text-shadow: 0 1px 18px rgba(0,0,0,0.34);
+}
+.marketing-shell[data-theme="light"] .nv-hero-bg .nv-h1,
+.marketing-shell[data-theme="light"] .nv-hero-bg h1,
+.marketing-shell[data-theme="light"] .nv-hero-bg .nv-lede,
+.marketing-shell[data-theme="light"] .nv-hero-bg p {
+  text-shadow: none;
 }
 
 /* When .nv-hero is rendered inside .nv-hero-bg, drop the bottom border
@@ -479,17 +515,19 @@
 
 .nv-btn-primary {
   color: #0B1E1C;
-  background: linear-gradient(180deg, #5EC2B7, rgb(var(--nv-accent-teal)));
+  background: linear-gradient(180deg, #78E7DF, rgb(var(--nv-accent-teal)));
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.25),
     0 1px 0 rgba(0,0,0,0.4),
-    0 8px 20px -8px rgba(79,179,169,0.5);
+    0 8px 20px -8px rgba(92,213,204,0.5),
+    0 0 24px -14px rgba(198,132,255,0.55);
 }
 .nv-btn-primary:hover {
   transform: translateY(-1px);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.3),
-    0 10px 24px -8px rgba(79,179,169,0.6);
+    0 10px 24px -8px rgba(92,213,204,0.6),
+    0 0 28px -14px rgba(198,132,255,0.6);
 }
 
 .marketing-shell[data-theme="light"] .nv-btn-primary {

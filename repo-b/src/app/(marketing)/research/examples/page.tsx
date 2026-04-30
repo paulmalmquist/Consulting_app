@@ -24,7 +24,7 @@ export default function ResearchExamplesPage() {
     <div className="space-y-6 lg:space-y-8">
       <section className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Research / Proof</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{entry.title}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl">{entry.title}</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">{entry.summary}</p>
         {callout && (
           <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">

@@ -5,7 +5,7 @@ export function IndustriesHero() {
   return (
     <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
       <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Industries</p>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">
         Industry Workflows, Visualized
       </h1>
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">

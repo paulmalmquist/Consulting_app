@@ -141,7 +141,7 @@ export function IndustryWorkflowMap() {
     >
       <div className="space-y-2">
         <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Workflows Visualize</p>
-        <h2 id="industry-map-title" className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+        <h2 id="industry-map-title" className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">
           Operational Lifecycles, Reconstructed.
         </h2>
         <p className="max-w-3xl text-sm text-nv-muted sm:text-base">
@@ -189,7 +189,7 @@ export function IndustryWorkflowMap() {
         className="grid gap-4 rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 lg:grid-cols-3"
       >
         <article className="space-y-3 rounded-xl border border-nv-text/8 bg-nv-surface/55 p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-rose-200">Fragmented State</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-nv-risk">Fragmented State</h3>
           <p className="text-sm text-nv-text">{profile.fragmentedState}</p>
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.08em] text-nv-dim">System dependencies</p>

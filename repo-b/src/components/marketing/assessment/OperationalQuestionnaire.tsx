@@ -253,7 +253,7 @@ export function OperationalQuestionnaire({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="text-nv-teal" size={24} />
-            <h2 className="text-2xl font-semibold text-white">Your Operational Assessment</h2>
+            <h2 className="text-2xl font-semibold text-nv-text">Your Operational Assessment</h2>
           </div>
           <p className="text-sm text-nv-muted">
             Based on your responses, here&apos;s your current operational state across key areas.
@@ -271,7 +271,7 @@ export function OperationalQuestionnaire({
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base font-semibold text-white">{result.category}</h3>
+                      <h3 className="text-base font-semibold text-nv-text">{result.category}</h3>
                       {result.level === 'critical' && <AlertCircle className="text-rose-400" size={16} />}
                       {result.level === 'needs-attention' && <AlertCircle className="text-amber-400" size={16} />}
                       {result.level === 'healthy' && <CheckCircle2 className="text-nv-teal" size={16} />}
@@ -294,7 +294,7 @@ export function OperationalQuestionnaire({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-white">{Math.round(percentage)}%</p>
+                    <p className="text-2xl font-bold text-nv-text">{Math.round(percentage)}%</p>
                     <p className="text-xs text-nv-dim capitalize">{result.level.replace('-', ' ')}</p>
                   </div>
                 </div>
@@ -338,7 +338,7 @@ export function OperationalQuestionnaire({
     <div className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">Operational Assessment</h2>
+          <h2 className="text-xl font-semibold text-nv-text">Operational Assessment</h2>
           <span className="text-sm text-nv-dim">
             {currentStep + 1} of {questions.length}
           </span>
@@ -354,7 +354,7 @@ export function OperationalQuestionnaire({
       <div className="space-y-6">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-wide text-nv-teal">{currentQuestion.category}</p>
-          <h3 className="text-lg font-medium text-white">{currentQuestion.text}</h3>
+          <h3 className="text-lg font-medium text-nv-text">{currentQuestion.text}</h3>
         </div>
 
         {currentQuestion.type === 'single' && (

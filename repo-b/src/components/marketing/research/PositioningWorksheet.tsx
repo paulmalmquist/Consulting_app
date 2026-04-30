@@ -94,7 +94,7 @@ export function PositioningWorksheet({ entry }: PositioningWorksheetProps) {
     <div className="space-y-6">
       {accordion && (
         <section id={accordion.id} className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{accordion.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{accordion.title}</h2>
           <div className="space-y-3">
             {accordion.items.map((item, index) => {
               const panelId = `${item.id}-panel`;
@@ -112,7 +112,7 @@ export function PositioningWorksheet({ entry }: PositioningWorksheetProps) {
                       onClick={() => setOpenQuestionId(isOpen ? null : item.id)}
                       className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
                     >
-                      <span className="text-sm font-semibold text-white sm:text-base">
+                      <span className="text-sm font-semibold text-nv-text sm:text-base">
                         {index + 1}. {item.title}
                       </span>
                       <span className="text-xs text-nv-dim">{isOpen ? 'Hide' : 'Expand'}</span>
@@ -151,7 +151,7 @@ export function PositioningWorksheet({ entry }: PositioningWorksheetProps) {
 
       {template && (
         <section id="positioning-template" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{template.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{template.title}</h2>
           <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">
             <p className="text-sm leading-relaxed text-nv-teal">{template.template}</p>
           </div>
@@ -168,7 +168,7 @@ export function PositioningWorksheet({ entry }: PositioningWorksheetProps) {
 
       {consequences && (
         <section id="inaction" className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{consequences.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{consequences.title}</h2>
           <ul className="space-y-2 text-sm text-nv-muted">
             {consequences.items.map((item) => (
               <li key={item} className="rounded-xl border border-nv-text/10 bg-nv-bg/80 px-3 py-2">
@@ -181,11 +181,11 @@ export function PositioningWorksheet({ entry }: PositioningWorksheetProps) {
 
       {followOn && (
         <section id={followOn.id} className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">{followOn.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-nv-text">{followOn.title}</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {followOn.cards.map((card) => (
               <details key={card.id} className="rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-white">{card.title}</summary>
+                <summary className="cursor-pointer text-sm font-semibold text-nv-text">{card.title}</summary>
                 <div className="mt-3 space-y-3 text-sm text-nv-muted">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">What to do</p>
