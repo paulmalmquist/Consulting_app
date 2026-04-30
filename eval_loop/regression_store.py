@@ -482,6 +482,12 @@ class PostgresRegressionStore:
             raise RuntimeError(
                 "PostgresRegressionStore requires DATABASE_URL or explicit dsn"
             )
+        try:
+            from app.db_conninfo import prefer_ipv4_hostaddr
+
+            resolved_dsn = prefer_ipv4_hostaddr(resolved_dsn)
+        except Exception:
+            pass
         self._psycopg = psycopg
         self.conn = psycopg.connect(resolved_dsn, row_factory=dict_row)
         self.conn.autocommit = True

@@ -301,6 +301,12 @@ def _discover_environment_bindings_from_db() -> dict[str, EnvironmentBinding]:
         return {}
 
     try:
+        try:
+            from app.db_conninfo import prefer_ipv4_hostaddr
+
+            database_url = prefer_ipv4_hostaddr(database_url)
+        except Exception:
+            pass
         with psycopg.connect(database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(

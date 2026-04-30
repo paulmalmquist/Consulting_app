@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from psycopg_pool import ConnectionPool
 
 from app.config import require_database_url, DB_PREPARE_THRESHOLD
+from app.db_conninfo import prefer_ipv4_hostaddr
 
 _pool: ConnectionPool | None = None
 
@@ -14,7 +15,7 @@ def _get_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
         _pool = ConnectionPool(
-            require_database_url(),
+            prefer_ipv4_hostaddr(require_database_url()),
             min_size=2,
             max_size=10,
             open=False,

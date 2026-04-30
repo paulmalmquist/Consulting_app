@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 120
 
     env:
-      DATABASE_URL: ${{ secrets.WINSTON_EVAL_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.WINSTON_EVAL_DATABASE_POOLER_URL || secrets.WINSTON_EVAL_DATABASE_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -46,7 +46,7 @@ jobs:
 
       - name: Sanity-check secrets
         run: |
-          if [ -z "$DATABASE_URL" ]; then echo "::error::WINSTON_EVAL_DATABASE_URL missing"; exit 1; fi
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Set WINSTON_EVAL_DATABASE_POOLER_URL or WINSTON_EVAL_DATABASE_URL"; exit 1; fi
           if [ -z "$WINSTON_EVAL_BUSINESS_ID" ]; then echo "::error::WINSTON_EVAL_BUSINESS_ID missing"; exit 1; fi
 
       - name: Run Winston eval (full)
