@@ -498,7 +498,7 @@ function WaterfallPanel({ block, nullReasons }: { block: Record<string, unknown>
             {String(block["waterfall_status"])}
           </span>
         )}
-        {block["waterfall_style"] && <span className="text-xs text-bm-muted2">{String(block["waterfall_style"])}</span>}
+        {Boolean(block["waterfall_style"]) && <span className="text-xs text-bm-muted2">{String(block["waterfall_style"])}</span>}
       </div>
       <MetricGrid pairs={[
         { label: "Net IRR (LP)", val: block["net_irr"] != null ? <span className={value}>{fmtPct(block["net_irr"] as number)}</span> : <Unavail reason={nullReasons["net_irr"]} /> },
