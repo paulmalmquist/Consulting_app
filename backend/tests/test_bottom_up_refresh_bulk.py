@@ -13,11 +13,10 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from app.services.bottom_up_cashflow import CFPoint
 from app.services.bottom_up_refresh import (
-    AssetRefreshOutcome,
     AssetRefreshSummary,
     MaterializedSeries,
     refresh_all_asset_cf_series,

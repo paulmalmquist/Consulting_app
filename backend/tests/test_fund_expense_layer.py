@@ -17,12 +17,11 @@ from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
 from app.services.fund_expense_layer import (
-    FundExpenseLine,
     FundExpenseSchedule,
     _normalize_basis,
     compose_pre_waterfall_cf,
@@ -385,7 +384,7 @@ def test_no_silent_zero_in_any_line_amount(fake_cursor):
             )
         if ln.amount is None:
             assert ln.null_reason is not None, (
-                f"None amount with no null_reason — line is structurally invalid"
+                "None amount with no null_reason — line is structurally invalid"
             )
 
 

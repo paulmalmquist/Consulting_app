@@ -13,11 +13,10 @@ from uuid import uuid4
 
 from app.services.bottom_up_cashflow import CFPoint, quarter_end_date
 from app.services.bottom_up_fund_scope import FundScope
-from app.services.bottom_up_rollup import AssetContribution, FundRollup
+from app.services.bottom_up_rollup import FundRollup
 from app.services.fund_expense_layer import FundExpenseSchedule
 from app.services.fund_gross_to_net import build_gross_to_net_bridge
 from app.services.fund_snapshot_v2 import (
-    PromotionGateResult,
     assert_promotion_preconditions,
 )
 from app.services.fund_waterfall_layer import FundWaterfallResult, WaterfallEventLog

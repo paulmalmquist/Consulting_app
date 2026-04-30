@@ -13,7 +13,6 @@ from uuid import UUID, uuid4
 from app.services.bottom_up_fund_scope import (
     SCOPE_CONTRACT_VERSION,
     FundScope,
-    ScopeExclusion,
     _bucket_scope_rows,
 )
 

@@ -29,7 +29,6 @@ import pytest
 
 from app.services.bottom_up_cashflow import CFPoint, quarter_end_date
 from app.services.fund_waterfall_layer import (
-    FundWaterfallResult,
     compute_fund_waterfall_layer,
 )
 

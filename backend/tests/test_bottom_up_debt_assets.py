@@ -17,15 +17,12 @@ These tests pin down the routing rules added by the credit-asset patch:
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 
-import pytest
 
 from app.services.bottom_up_cashflow import (
     DEBT_ASSET_TYPES,
-    DEBT_DEAL_TYPES,
     _is_debt_asset,
     _resolve_terminal_value,
 )

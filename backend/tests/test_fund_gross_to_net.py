@@ -10,9 +10,8 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from app.services.bottom_up_cashflow import CFPoint, quarter_end_date
 from app.services.fund_expense_layer import FundExpenseSchedule
@@ -138,11 +137,11 @@ def test_complete_bridge_produces_all_rows():
     )
     # 5 main rows + 1 memo (spread) + maybe 1 residual memo
     labels = [r.label for r in bridge.rows]
-    assert any("Gross asset value" in l for l in labels)
-    assert any("Less management fees" in l for l in labels)
-    assert any("Less other fund expenses" in l for l in labels)
-    assert any("Less carry" in l for l in labels)
-    assert any("Net LP return" in l for l in labels)
+    assert any("Gross asset value" in label for label in labels)
+    assert any("Less management fees" in label for label in labels)
+    assert any("Less other fund expenses" in label for label in labels)
+    assert any("Less carry" in label for label in labels)
+    assert any("Net LP return" in label for label in labels)
     # All amounts are populated (no nulls)
     for r in bridge.rows:
         if r.item_type != "memo":
