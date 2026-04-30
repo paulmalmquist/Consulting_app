@@ -847,15 +847,34 @@ async def _run_cycle(
             )
         from eval_loop.postgres_sink import persist_cycle_to_postgres
 
-        postgres_run_summary = persist_cycle_to_postgres(
-            cycle_run_id=run_id,
-            trigger=args.persist_trigger,
-            suite=final_summary["suite"],
-            scenarios=all_scenarios,
-            results=all_results,
-            business_id=args.persist_business_id,
-            env_id=args.persist_env_id,
-        )
+        try:
+            postgres_run_summary = persist_cycle_to_postgres(
+                cycle_run_id=run_id,
+                trigger=args.persist_trigger,
+                suite=final_summary["suite"],
+                scenarios=all_scenarios,
+                results=all_results,
+                business_id=args.persist_business_id,
+                env_id=args.persist_env_id,
+            )
+        except Exception as exc:
+            postgres_run_summary = {
+                "run_id": run_id,
+                "status": "persistence_unavailable",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "suite": final_summary["suite"],
+                "trigger": args.persist_trigger,
+            }
+            print(
+                json.dumps(
+                    {
+                        "warning": "postgres_persistence_unavailable",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    }
+                )
+            )
         (ARTIFACTS_DIR / "postgres_run_summary.json").write_text(
             json.dumps(postgres_run_summary, indent=2) + "\n"
         )
