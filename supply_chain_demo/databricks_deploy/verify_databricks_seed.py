@@ -65,6 +65,8 @@ ALL_TABLES = [
     (SEMANTIC, "demand_supply_gap"),
     (SEMANTIC, "logistics_cost_to_serve"),
     (SEMANTIC, "production_throughput_summary"),
+    (SEMANTIC, "data_quality_results"),
+    (SILVER,   "quarantine_records"),
 ]
 
 BUSINESS_CHECKS = [
@@ -74,9 +76,12 @@ BUSINESS_CHECKS = [
     (SEMANTIC, "inventory_risk_daily",
      "days_of_supply IS NOT NULL OR on_hand_qty = 0",
      "days_of_supply not null (or on_hand=0)"),
-    (SILVER, "fact_shipment_event",
+    (SILVER,   "fact_shipment_event",
      "otif_flag IS NOT NULL",
      "otif_flag not null"),
+    (SEMANTIC, "data_quality_results",
+     "status IN ('PASS', 'FAIL', 'ERROR')",
+     "data_quality_results status is valid"),
 ]
 
 
@@ -409,6 +414,7 @@ def main():
     if WAREHOUSE_ID:
         passes, failures = verify_via_warehouse()
     else:
+        print(f"  [verify] No SQL warehouse detected — falling back to cluster execution ({CLUSTER_ID})")
         passes, failures = verify_via_cluster()
 
     print()

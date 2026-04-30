@@ -71,6 +71,24 @@ FROM supply_chain_demo.semantic.logistics_cost_to_serve;
 SELECT COUNT(*) AS row_count, 'production_throughput_summary' AS table_name
 FROM supply_chain_demo.semantic.production_throughput_summary;
 
+SELECT COUNT(*) AS row_count, 'data_quality_results' AS table_name
+FROM supply_chain_demo.semantic.data_quality_results;
+
+-- Silver quarantine table
+SELECT COUNT(*) AS row_count, 'quarantine_records' AS table_name
+FROM supply_chain_demo.silver.quarantine_records;
+
+-- DQ check summary (what passed and failed)
+SELECT check_name, table_name, pass_count, fail_count, status, run_at
+FROM supply_chain_demo.semantic.data_quality_results
+ORDER BY run_at DESC, status DESC;
+
+-- Quarantine records by issue type
+SELECT issue_type, severity, source_table, COUNT(*) AS record_count
+FROM supply_chain_demo.silver.quarantine_records
+GROUP BY issue_type, severity, source_table
+ORDER BY record_count DESC;
+
 -- ============================================================
 -- Business checks
 -- ============================================================

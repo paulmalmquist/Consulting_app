@@ -38,6 +38,7 @@ NOTEBOOKS = [
     ("05_data_quality.py",     "PYTHON"),
     ("06_ai_layer.py",         "PYTHON"),
     ("07_dashboard.sql",       "SQL"),
+    ("09_cdc_merge.py",        "PYTHON"),
 ]
 
 
