@@ -111,21 +111,8 @@ WHERE e.slug = 'altered-mind'
     SELECT 1 FROM app.env_business_bindings ebb WHERE ebb.env_id = e.env_id
   );
 
--- 5) Owner membership for Paul (platform_user_id sourced from existing
--- 'owner' rows on Novendor / Floyorker / Trading — same UUID across all).
-INSERT INTO app.environment_memberships (
-  platform_user_id, env_id, role, status, is_default
-)
-SELECT
-  'c2f38ed0-a661-454e-8487-07158a788e90'::uuid,
-  e.env_id,
-  'owner',
-  'active',
-  false
-FROM app.environments e
-WHERE e.slug = 'altered-mind'
-  AND NOT EXISTS (
-    SELECT 1 FROM app.environment_memberships m
-    WHERE m.env_id = e.env_id
-      AND m.platform_user_id = 'c2f38ed0-a661-454e-8487-07158a788e90'::uuid
-  );
+-- 5) Owner membership is NOT seeded here.
+-- Memberships depend on a specific platform_users row (FK) that does not exist
+-- in the CI test database. Membership was applied directly to production via:
+--   scripts/seed_altered_mind_membership.sql  (tracked separately)
+-- Re-apply after any production restore using that script.
