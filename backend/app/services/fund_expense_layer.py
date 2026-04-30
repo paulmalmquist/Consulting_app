@@ -7,7 +7,7 @@ Inputs (all read-only):
     - ``re_fee_policy``  — supplemental policy with optional stepdown_rate.
     - ``re_partner_commitment`` — committed-capital basis source.
     - ``re_cash_event``  — called-capital basis source (event_type='CALL').
-    - ``re_fund_quarter_state`` — NAV basis source.
+    - released authoritative fund snapshot — NAV basis source.
     - ``re_fund_expense_qtr`` — manual / imported expense rows
       (admin, audit, legal, tax, financing, organizational, other).
 
@@ -27,7 +27,7 @@ Fail-closed contract:
     - Required inputs (basis-dependent):
         * ``COMMITTED`` basis → at least one ``re_partner_commitment`` with status='active'.
         * ``CALLED``    basis → at least one ``re_cash_event`` (CALL) by quarter end.
-        * ``NAV``       basis → ``re_fund_quarter_state.portfolio_nav`` for the quarter.
+        * ``NAV``       basis → released authoritative fund snapshot NAV for the quarter.
     - When any required input is missing, the corresponding line carries a
       ``null_reason`` and the schedule's top-level ``null_reasons`` dict is
       populated. The amount is left as ``None``, never zero. Callers must
@@ -54,6 +54,7 @@ from app.services.bottom_up_cashflow import (
     _quarters_between,
     quarter_end_date,
 )
+from app.services.re_authoritative_snapshots import get_authoritative_state
 
 
 # Recognized expense kinds. management_fee is computed; the rest read from
@@ -350,19 +351,22 @@ def _resolve_basis_amount(
         return total, None
 
     if basis == "NAV":
-        cur.execute(
-            """
-            SELECT portfolio_nav
-            FROM re_fund_quarter_state
-            WHERE fund_id = %s AND quarter = %s AND scenario_id IS NULL
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (str(fund_id), quarter),
+        auth = get_authoritative_state(
+            entity_type="fund",
+            entity_id=fund_id,
+            quarter=quarter,
         )
-        row = cur.fetchone()
-        if not row or row.get("portfolio_nav") is None:
-            return None, "missing_nav_basis_no_quarter_state"
-        nav = Decimal(str(row["portfolio_nav"]))
+        metrics = ((auth.get("state") or {}).get("canonical_metrics") or {})
+        nav_value = metrics.get("ending_nav") or metrics.get("portfolio_nav")
+        if (
+            auth.get("state_origin") != "authoritative"
+            or auth.get("promotion_state") != "released"
+            or auth.get("period_exact") is not True
+        ):
+            return None, auth.get("null_reason") or "missing_nav_basis_no_authoritative_state"
+        if nav_value is None:
+            return None, "missing_nav_basis_no_authoritative_nav"
+        nav = Decimal(str(nav_value))
         if nav <= 0:
             return None, "missing_nav_basis_zero_or_negative"
         return nav, None

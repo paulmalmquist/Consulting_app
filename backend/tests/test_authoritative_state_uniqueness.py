@@ -38,7 +38,10 @@ def db_conn():
     if not dsn:
         pytest.skip("DATABASE_URL not set")
 
-    conn = psycopg.connect(dsn)
+    try:
+        conn = psycopg.connect(dsn)
+    except psycopg.OperationalError as exc:
+        pytest.skip(f"DATABASE_URL unavailable: {exc}")
     yield conn
     conn.close()
 

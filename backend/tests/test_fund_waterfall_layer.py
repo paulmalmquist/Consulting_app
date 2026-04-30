@@ -254,6 +254,7 @@ def test_single_distribution_routes_through_waterfall(fake_cursor):
         "2026Q4",
         pre_waterfall_cf=pre_wf,
         fund_gross_irr=Decimal("0.08"),
+        ending_nav=Decimal("100000000"),
     )
 
     assert res.waterfall_status == "computed"
@@ -300,7 +301,11 @@ def test_european_style_threads_through_to_contract(fake_cursor):
     )
     pre_wf = [_cfp("2024-Q1", Decimal("-50000000")), _cfp("2025-Q4", Decimal("70000000"))]
     res = compute_fund_waterfall_layer(
-        fund_id, "2025Q4", pre_waterfall_cf=pre_wf, fund_gross_irr=Decimal("0.18")
+        fund_id,
+        "2025Q4",
+        pre_waterfall_cf=pre_wf,
+        fund_gross_irr=Decimal("0.18"),
+        ending_nav=Decimal("60000000"),
     )
     assert res.waterfall_style == "european"
     assert res.waterfall_status == "computed"
@@ -338,7 +343,11 @@ def test_sign_invariants_no_negative_amounts_into_allocator(fake_cursor):
         _cfp("2025-Q4", Decimal("110000000")),  # distribution
     ]
     res = compute_fund_waterfall_layer(
-        fund_id, "2025Q4", pre_waterfall_cf=pre_wf, fund_gross_irr=Decimal("0.05")
+        fund_id,
+        "2025Q4",
+        pre_waterfall_cf=pre_wf,
+        fund_gross_irr=Decimal("0.05"),
+        ending_nav=Decimal("0"),
     )
     # Only one event hit the allocator (the +110M distribution)
     assert len(res.event_logs) == 1
@@ -383,7 +392,11 @@ def test_per_event_conservation(fake_cursor):
         _cfp("2026-Q2", Decimal("70000000")),
     ]
     res = compute_fund_waterfall_layer(
-        fund_id, "2026Q2", pre_waterfall_cf=pre_wf, fund_gross_irr=Decimal("0.10")
+        fund_id,
+        "2026Q2",
+        pre_waterfall_cf=pre_wf,
+        fund_gross_irr=Decimal("0.10"),
+        ending_nav=Decimal("0"),
     )
     assert len(res.event_logs) == 2
     for ev in res.event_logs:
@@ -416,7 +429,11 @@ def test_no_distributions_returns_status_no_distributions(fake_cursor):
     # All negative — no distributable events
     pre_wf = [_cfp("2024-Q1", Decimal("-50000000"))]
     res = compute_fund_waterfall_layer(
-        fund_id, "2024Q1", pre_waterfall_cf=pre_wf, fund_gross_irr=None
+        fund_id,
+        "2024Q1",
+        pre_waterfall_cf=pre_wf,
+        fund_gross_irr=None,
+        ending_nav=Decimal("60000000"),
     )
     assert res.waterfall_status == "no_distributions"
     assert len(res.event_logs) == 0

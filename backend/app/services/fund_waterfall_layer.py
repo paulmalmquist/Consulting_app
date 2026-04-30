@@ -48,6 +48,7 @@ from uuid import UUID
 
 from app.db import get_cursor
 from app.finance.utils import qmoney
+from app.services.re_authoritative_snapshots import get_authoritative_state
 from app.finance.waterfall_engine import (
     AllocationLine,
     ParticipantState,
@@ -510,22 +511,38 @@ def compute_fund_waterfall_layer(
             contributed_total[pid] = sum((a for _, a in contribs), Decimal("0"))
             distributed_total[pid] = sum((a for _, a in dists), Decimal("0"))
 
-    # Compute ending NAV if not supplied: from re_fund_quarter_state at as_of.
+    # Compute ending NAV if not supplied from the released authoritative snapshot.
     if ending_nav is None:
-        with get_cursor() as cur2:
-            cur2.execute(
-                """
-                SELECT portfolio_nav FROM re_fund_quarter_state
-                WHERE fund_id = %s AND quarter = %s AND scenario_id IS NULL
-                ORDER BY created_at DESC LIMIT 1
-                """,
-                (str(fund_id), as_of_quarter),
+        auth = get_authoritative_state(
+            entity_type="fund",
+            entity_id=fund_id,
+            quarter=as_of_quarter,
+        )
+        metrics = ((auth.get("state") or {}).get("canonical_metrics") or {})
+        nav_value = metrics.get("ending_nav") or metrics.get("portfolio_nav")
+        if (
+            auth.get("state_origin") != "authoritative"
+            or auth.get("promotion_state") != "released"
+            or auth.get("period_exact") is not True
+            or nav_value is None
+        ):
+            null_reasons["ending_nav"] = auth.get("null_reason") or "missing_authoritative_ending_nav"
+            null_reasons.setdefault("net_irr", "missing_authoritative_ending_nav")
+            return _empty_result(
+                fund_id,
+                as_of_quarter,
+                "computation_error",
+                pre_hash,
+                null_reasons,
+                warnings,
+                waterfall_style=contract.style,
+                pref_rate=contract.pref_rate,
+                carry_rate=contract.carry_rate,
+                catchup_rate=contract.catchup_rate,
+                definition_id=str(defn["definition_id"]),
+                definition_version=defn.get("version"),
             )
-            row = cur2.fetchone()
-            ending_nav = (
-                Decimal(str(row["portfolio_nav"])) if row and row.get("portfolio_nav")
-                else Decimal("0")
-            )
+        ending_nav = Decimal(str(nav_value))
 
     # Partition pre_waterfall_cf
     distributable_events = [p for p in pre_waterfall_cf if p.amount > 0]

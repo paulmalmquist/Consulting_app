@@ -139,7 +139,7 @@ def build_gross_to_net_bridge(
             amount=gross_return,
             null_reason=("missing_ending_nav" if ending_nav is None else None),
             formula_key="gross = sum(fund_gross_cf) + ending_nav",
-            source_table="re_asset_cf_series_mat + re_fund_quarter_state",
+            source_table="re_asset_cf_series_mat + re_authoritative_fund_state_qtr",
             provenance={
                 "sum_fund_gross_cf": float(sum_gross_cf),
                 "ending_nav": float(ending_nav) if ending_nav is not None else None,
@@ -162,7 +162,7 @@ def build_gross_to_net_bridge(
                 )
             ),
             formula_key="mgmt_fees = sum(re_fund_term.basis * rate / 4 over in-term quarters)",
-            source_table="repe_fund_term + re_partner_commitment / re_cash_event / re_fund_quarter_state",
+            source_table="repe_fund_term + re_partner_commitment / re_cash_event / re_authoritative_fund_state_qtr",
             provenance={
                 "expense_cf_hash": expense_schedule.expense_cf_hash,
                 "in_term_lines": sum(
