@@ -586,8 +586,8 @@ export default function PipelineLaneView({
   }, [chartData]);
 
   return (
-    <div style={{ background: CP.surface, flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0, height: "100%", overflow: "hidden" }}>
-      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div style={{ background: CP.surface, display: "flex", flexDirection: "column" }}>
+      <div style={{ overflowX: "auto", display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",
@@ -1476,7 +1476,7 @@ export function GroupedBoardView({
   const noneExpanded = expandedGroups.size === 0;
 
   return (
-    <div style={{ background: CP.surface, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+    <div style={{ background: CP.surface, display: "flex", flexDirection: "column" }}>
       {/* Expand-all / Collapse-all controls — independent of column flex so they don't shift the board */}
       <div
         style={{
@@ -1538,7 +1538,7 @@ export function GroupedBoardView({
           Collapse all
         </button>
       </div>
-      <div style={{ flex: "1 1 auto", overflowX: "auto", overflowY: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ overflowX: "auto", display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",

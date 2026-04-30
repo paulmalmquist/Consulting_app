@@ -867,7 +867,7 @@ export default function PipelinePage({
       />
 
       {/* Row 2, Col 2 — Banners + command band + board */}
-      <div style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden" }}>
         {bannerMessage ? (
           <div className="mx-4 mt-3">
             {isSchemaError(bannerMessage) ? (
@@ -911,7 +911,7 @@ export default function PipelinePage({
         ) : null}
 
         {kanban && !(debouncedQuery && totalVisible === 0) ? (
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flex: "none", display: "flex", flexDirection: "column", overflowX: "hidden" }}>
             <PipelineCommandBand
               insight={insight}
               industries={industries}
