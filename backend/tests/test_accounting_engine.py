@@ -298,7 +298,7 @@ class TestRollupPortfolioValue:
         assert result["value"]["position_count"] == 1
         assert seeded_fund["price_id"] in [UUID(s) for s in result["input_versions"]["prices"]]
 
-    def test_fail_closed_portfolio_not_found(self):
+    def test_fail_closed_portfolio_not_found(self, db_conn):
         result = rollup_portfolio_value(
             env_id=TEST_ENV,
             portfolio_id=uuid4(),
@@ -377,7 +377,7 @@ class TestCalculateNAV:
         assert v["total_liabilities"] == Decimal("250.00000000")
         assert v["nav"] == Decimal("19750.00000000")
 
-    def test_fail_closed_fund_not_found(self):
+    def test_fail_closed_fund_not_found(self, db_conn):
         result = calculate_nav(
             env_id=TEST_ENV,
             fund_id=uuid4(),
@@ -475,7 +475,7 @@ class TestCalculatePnL:
         assert result["valid"] is False
         assert result["errors"][0]["code"] == ERR_INVALID_PERIOD
 
-    def test_fail_closed_fund_not_found(self):
+    def test_fail_closed_fund_not_found(self, db_conn):
         result = calculate_pnl(
             env_id=TEST_ENV,
             fund_id=uuid4(),
