@@ -235,7 +235,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
             />
           </div>
           {!isCollapsed && (
-            <p className="nv-headline text-base font-semibold uppercase tracking-[0.14em] text-nv-text">Novendor</p>
+            <p className="nv-wordmark text-base text-nv-text">Novendor</p>
           )}
         </div>
         <button

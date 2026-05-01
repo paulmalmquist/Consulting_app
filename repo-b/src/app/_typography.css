@@ -32,6 +32,24 @@
   font-display: swap;
 }
 
+/* Novendor Circuit — custom wordmark face. Only used by .nv-wordmark
+   for the sidebar/topbar logotype. Built from novendor_type_source/. */
+@font-face {
+  font-family: "Novendor Circuit";
+  src: url("/fonts/NovendorCircuit-Regular.woff2") format("woff2"),
+       url("/fonts/NovendorCircuit-Regular.woff") format("woff"),
+       url("/fonts/NovendorCircuit-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.nv-wordmark {
+  font-family: "Novendor Circuit", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 :root,
 .marketing-shell,
 .re-shell {
