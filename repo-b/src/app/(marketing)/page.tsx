@@ -58,12 +58,12 @@ export default function HomePage() {
           <div className="nv-section-head nv-accent-strip">
             <p className="nv-eyebrow"><span className="nv-dot-pink" />Case example · illustrative</p>
           </div>
-          <NvCard>
+          <NvCard className="nv-outline-neon--pink">
             <h2 className="nv-h2" style={{ marginBottom: 16, fontSize: 32 }}>
               From reporting drift to AI-ready fund data
             </h2>
             <p className="nv-body">
-              A mid-market REPE operator pulled the data behind capital calls into one place, captured the approval logic in a workflow, and rebuilt the LP report from the underlying data instead of last quarter&apos;s deck. Capital call errors dropped from 5% to 1.2%. The same data now feeds the LP report, the IC pack, and an AI summary the GP reads on a Sunday night — without anyone tying out a spreadsheet first.
+              A mid-market REPE operator pulled the data behind capital calls into one place, captured the approval logic in a workflow, and rebuilt the LP report from the underlying data instead of last quarter&apos;s deck. Capital call errors dropped from 5% to 1.2%. The same data now feeds the LP report, the IC pack, and an AI summary the GP reads on a Sunday night, without anyone tying out a spreadsheet first.
             </p>
           </NvCard>
         </section>

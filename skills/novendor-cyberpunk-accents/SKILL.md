@@ -37,6 +37,7 @@ Already shipped in `marketing.css`. Use these instead of writing one-off CSS:
 | `.nv-wash-neon` | Subtle radial purple+pink wash. Apply to a section background to add ambient mood without dominating. |
 | `.nv-glow-purple` / `.nv-glow-pink` | Inline text-shadow halo. Use on a single short word inside a hero or pull-quote, never on body text. |
 | `.nv-dot-purple` / `.nv-dot-pink` | Inline 5px halo dot, mirrors `.nv-eyebrow-dot` but in the cyberpunk palette. Use on a section eyebrow when the section is intentionally branded. |
+| `.nv-outline-neon` (purple), `.nv-outline-neon--cyan`, `.nv-outline-neon--pink` | 1px inset hairline outline + soft halo, applied to a panel or `<NvCard>` to give it a brand-mood edge. Use on opt-in cards only — never on every card on a page. Plays nicely with `liftOnHover` (hover override included). |
 
 ## When to use these
 

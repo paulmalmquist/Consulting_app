@@ -1,8 +1,15 @@
 import Link from 'next/link';
-import { INDUSTRY_VERTICALS } from '@content/industry-verticals';
+import { INDUSTRY_VERTICALS, type IndustryVertical } from '@content/industry-verticals';
 import { NvButton } from '@/components/marketing/ui/NvButton';
 import { NvCard } from '@/components/marketing/ui/NvCard';
 import { PageHeader } from '@/components/marketing/ui/PageHeader';
+
+const OUTLINE_BY_THEME: Record<IndustryVertical['themeKey'], string> = {
+  cyan: 'nv-outline-neon--cyan',
+  amber: 'nv-outline-neon--pink',
+  rose: 'nv-outline-neon--pink',
+  violet: 'nv-outline-neon',
+};
 
 export default function IndustriesPage() {
   return (
@@ -21,7 +28,7 @@ export default function IndustriesPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {INDUSTRY_VERTICALS.map((industry) => (
             <Link key={industry.slug} href={`/industries/${industry.slug}`} className="block">
-              <NvCard liftOnHover>
+              <NvCard liftOnHover className={OUTLINE_BY_THEME[industry.themeKey]}>
                 <p className="nv-h3">{industry.label}</p>
                 <p className="nv-body">{industry.teaser}</p>
                 <p className="nv-eyebrow" style={{ marginTop: 16, color: 'rgb(var(--nv-accent-teal))' }}>See the AI-readiness gap →</p>

@@ -492,6 +492,78 @@
     0 12px 28px -10px rgb(var(--nv-accent-teal) / 0.65),
     0 0 22px -8px rgb(var(--nv-accent-teal) / 0.45);
 }
+
+/* 5. Cyberpunk neon outline — visible but restrained 1px hairline
+      accent on opted-in surfaces. Three flavors:
+      .nv-outline-neon          (default, purple-hot)
+      .nv-outline-neon--cyan    (teal accent — for capability/CTA panels)
+      .nv-outline-neon--pink    (pink reflect — for marketing mood)
+   The outline is rendered with inset box-shadow so it sits inside the
+   element's border-radius without affecting layout. A second offset
+   shadow adds a faint glow halo. Pair with .nv-card or hero panels —
+   never on body text or table rows. */
+.nv-outline-neon,
+.nv-outline-neon--cyan,
+.nv-outline-neon--pink {
+  position: relative;
+}
+.nv-outline-neon {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-purple-hot) / 0.55),
+    0 0 18px -6px rgb(var(--nv-purple-hot) / 0.30),
+    var(--nv-shadow-card);
+}
+.nv-outline-neon--cyan {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-accent-teal) / 0.55),
+    0 0 18px -6px rgb(var(--nv-accent-teal) / 0.32),
+    var(--nv-shadow-card);
+}
+.nv-outline-neon--pink {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-pink-reflect) / 0.55),
+    0 0 18px -6px rgb(var(--nv-pink-reflect) / 0.30),
+    var(--nv-shadow-card);
+}
+
+/* When outline is paired with .nv-card-hover-lift, override the hover
+   shadow stack so the outline stays visible and the halo intensifies. */
+.nv-card.nv-card-hover-lift.nv-outline-neon:hover {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-purple-hot) / 0.75),
+    0 0 28px -6px rgb(var(--nv-purple-hot) / 0.45),
+    var(--nv-shadow-card-hover);
+}
+.nv-card.nv-card-hover-lift.nv-outline-neon--cyan:hover {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-accent-teal) / 0.75),
+    0 0 28px -6px rgb(var(--nv-accent-teal) / 0.50),
+    var(--nv-shadow-card-hover);
+}
+.nv-card.nv-card-hover-lift.nv-outline-neon--pink:hover {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-pink-reflect) / 0.75),
+    0 0 28px -6px rgb(var(--nv-pink-reflect) / 0.45),
+    var(--nv-shadow-card-hover);
+}
+
+/* Light-mode taming — drop the halo, keep the hairline at half-opacity
+   so the brand mood reads on white without blaring. */
+.marketing-shell[data-theme="light"] .nv-outline-neon {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-purple-hot) / 0.30),
+    var(--nv-shadow-card);
+}
+.marketing-shell[data-theme="light"] .nv-outline-neon--cyan {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-accent-teal) / 0.30),
+    var(--nv-shadow-card);
+}
+.marketing-shell[data-theme="light"] .nv-outline-neon--pink {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--nv-pink-reflect) / 0.30),
+    var(--nv-shadow-card);
+}
 .nv-hero-bg .nv-h1,
 .nv-hero-bg h1 {
   color: rgb(var(--nv-text-primary));
