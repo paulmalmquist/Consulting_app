@@ -91,6 +91,10 @@ _VISIBLE_METRIC_RE = re.compile(
     r"\b(cap rate|occupancy|noi|dscr|ltv|irr|tvpi|dpi|nav)\b",
     re.IGNORECASE,
 )
+_METRIC_EXPLANATION_RE = re.compile(
+    r"\b(why|explain|blank|missing|down|up|change|changed|variance|vs|versus|compare|trend)\b",
+    re.IGNORECASE,
+)
 _CREATE_ENTITY_RE = re.compile(
     r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?P<entity>fund|deal|asset|property|investment)\b(?:\s+called\s+(?P<name>.+))?",
     re.IGNORECASE,
@@ -327,7 +331,7 @@ def _build_visible_metric_fast_response(
         "nav": "nav",
     }
     match = _VISIBLE_METRIC_RE.search(message or "")
-    if not match:
+    if not match or _METRIC_EXPLANATION_RE.search(message or ""):
         return None
     label = match.group(1).lower()
     key = metric_aliases.get(label)

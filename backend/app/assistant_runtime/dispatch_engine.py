@@ -48,6 +48,10 @@ _VISIBLE_METRIC_RE = re.compile(
     r"\b(cap rate|occupancy|noi|dscr|ltv|irr|tvpi|dpi|nav)\b",
     re.IGNORECASE,
 )
+_METRIC_EXPLANATION_RE = re.compile(
+    r"\b(why|explain|blank|missing|down|up|change|changed|variance|vs|versus|compare|trend)\b",
+    re.IGNORECASE,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # Tiny Router — closed enum schema for domain intent classification
@@ -264,6 +268,7 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
         context.resolution_status == ContextResolutionStatus.RESOLVED
         and context.entity_type in {"asset", "fund", "investment"}
         and _VISIBLE_METRIC_RE.search(normalized_message)
+        and not _METRIC_EXPLANATION_RE.search(normalized_message)
     ):
         return DispatchTrace(raw=None, normalized=DispatchDecision(
             source=DispatchSource.DETERMINISTIC_GUARDRAIL,
