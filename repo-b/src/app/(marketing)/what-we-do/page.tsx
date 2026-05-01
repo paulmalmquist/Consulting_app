@@ -55,7 +55,7 @@ export default function WhatWeDoPage() {
         <h2 className="text-2xl font-semibold text-nv-text">What changes after the cutover</h2>
         <ul className="mt-3 space-y-2 text-sm text-nv-text">
           <li>A data layer your reporting, your AI tools, and your auditors all agree on.</li>
-          <li>A playbook that exists outside someone's head, in a form an agent or a new hire can follow.</li>
+          <li>A playbook that exists outside someone&apos;s head, in a form an agent or a new hire can follow.</li>
           <li>A workflow that runs the same way on a Tuesday in March as it did in December.</li>
           <li>An AI tool that does the work the demo promised — because the inputs are finally real.</li>
         </ul>

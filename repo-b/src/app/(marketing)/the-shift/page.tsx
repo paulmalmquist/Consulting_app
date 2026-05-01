@@ -51,7 +51,7 @@ export default function TheShiftPage() {
         </div>
         <NvCard>
           <h2 className="nv-h3" style={{ marginBottom: 12 }}>Start with one workflow.</h2>
-          <p className="nv-body" style={{ margin: 0 }}>Prove the model on real data before scaling. The AI you adopt next earns its keep — or it doesn't, and you find out cheaply.</p>
+          <p className="nv-body" style={{ margin: 0 }}>Prove the model on real data before scaling. The AI you adopt next earns its keep — or it doesn&apos;t, and you find out cheaply.</p>
           <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
             <NvButton variant="primary" href="/operational-assessment">Get an AI-readiness review</NvButton>
             <NvButton variant="secondary" href="/contact">See where AI is blocked in your workflow</NvButton>

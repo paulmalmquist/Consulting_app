@@ -21,10 +21,9 @@ Caveat on reconstruction:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 from uuid import UUID
 
 from app.db import get_cursor
@@ -32,7 +31,6 @@ from app.services.accounting_engine import (
     EngineError,
     EngineResult,
     calculate_nav,
-    calculate_pnl,
 )
 from app.services.investment_engine_audit import (
     write_audit,
@@ -443,8 +441,11 @@ def _to_jsonb(d: dict) -> str:
     """Serialize for jsonb param; psycopg accepts a json string."""
     import json
     def default(v):
-        if isinstance(v, Decimal): return str(v)
-        if isinstance(v, (date, datetime)): return v.isoformat()
-        if isinstance(v, UUID): return str(v)
+        if isinstance(v, Decimal):
+            return str(v)
+        if isinstance(v, (date, datetime)):
+            return v.isoformat()
+        if isinstance(v, UUID):
+            return str(v)
         return str(v)
     return json.dumps(d, default=default)
