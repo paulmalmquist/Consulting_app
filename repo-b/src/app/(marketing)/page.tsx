@@ -22,10 +22,10 @@ export default function HomePage() {
           eyebrow="AI-Ready"
           headline={
             <>
-              Your <em>AI</em> is only as good as the data underneath it.
+              Executive pressure is not an <em>AI</em> strategy.
             </>
           }
-          lede="We work with operators who are under pressure to ship AI and know their data, process, and playbooks aren't ready for it. We make them ready — one workflow at a time, without a rip-and-replace project."
+          lede="We help you turn urgency into a controlled plan: where to start, what to fix, what to test, and how to govern it as it grows."
           primaryCta={{ label: 'We can help', href: '/contact' }}
         />
       </HeroBackground>
