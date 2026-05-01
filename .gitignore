@@ -137,6 +137,11 @@ job-search/
 abadi-font-family.zip
 abadi-font-family/
 
+# Novendor wordmark source kit — track source files, ignore generated
+# binaries (re-buildable via `python build_font.py`; production copies
+# live in repo-b/public/fonts/)
+novendor_type_source/**/dist/
+
 # Altered Mind: private practice data — never commit
 data/altered-mind/
 Altered Mind Weekly Business Check In.xlsx
