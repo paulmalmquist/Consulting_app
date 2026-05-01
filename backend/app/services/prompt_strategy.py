@@ -431,14 +431,12 @@ def decompose_scope(
             return obj.get(name, default)
         return getattr(obj, name, default)
 
-    env_id = _attr(resolved_scope, "environment_id")
     env_slug = _attr(context_envelope, "environment_slug") or _attr(context_envelope, "env_slug")
     env_name = (
         _attr(context_envelope, "environment_name")
         or _attr(context_envelope, "env_name")
         or env_slug
     )
-    business_id = _attr(resolved_scope, "business_id")
     schema_name = _attr(resolved_scope, "schema_name")
     industry = _attr(resolved_scope, "industry")
 
@@ -468,9 +466,7 @@ def decompose_scope(
 
     environment_text = _nonempty_lines(
         "[environment]",
-        _scope_text_line("env_id", env_id),
         _scope_text_line("env_name", env_name),
-        _scope_text_line("business_id", business_id),
         _scope_text_line("schema", schema_name),
         _scope_text_line("industry", industry),
     )
@@ -488,11 +484,10 @@ def decompose_scope(
         )
 
     entity_text = ""
-    if entity_id or entity_name or entity_type:
+    if entity_name or entity_type:
         entity_text = _nonempty_lines(
             "[active entity]",
             _scope_text_line("type", entity_type),
-            _scope_text_line("id", entity_id),
             _scope_text_line("name", entity_name),
         )
 

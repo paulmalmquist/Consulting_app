@@ -44,6 +44,10 @@ _CREATE_ENTITY_RE = re.compile(
     r"account|opportunity|lead|activity|contact|engagement|proposal)\b",
     re.IGNORECASE,
 )
+_VISIBLE_METRIC_RE = re.compile(
+    r"\b(cap rate|occupancy|noi|dscr|ltv|irr|tvpi|dpi|nav)\b",
+    re.IGNORECASE,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # Tiny Router — closed enum schema for domain intent classification
@@ -254,6 +258,19 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
             needs_retrieval=False, write_intent=False,
             ambiguity_level=DispatchAmbiguity.LOW, confidence=1.0,
             fallback_used=False, notes=["deterministic_identity_guardrail"],
+        ))
+
+    if (
+        context.resolution_status == ContextResolutionStatus.RESOLVED
+        and context.entity_type in {"asset", "fund", "investment"}
+        and _VISIBLE_METRIC_RE.search(normalized_message)
+    ):
+        return DispatchTrace(raw=None, normalized=DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="lookup_entity", lane=Lane.B_LOOKUP,
+            needs_retrieval=False, write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW, confidence=0.96,
+            fallback_used=False, notes=["deterministic_visible_metric_guardrail"],
         ))
 
     # Create / write intent ("create a new fund", "add an opportunity")

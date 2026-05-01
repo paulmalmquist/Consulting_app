@@ -83,6 +83,14 @@ _IDENTITY_PROMPT_RE = re.compile(
     r"\b(what am i looking at|what page|which page|what environment|where am i|which environment|what is this)\b",
     re.IGNORECASE,
 )
+_FUND_CONTEXT_PROMPT_RE = re.compile(
+    r"\b(what|which)\s+fund\b|\bfund\s+is\s+this\b",
+    re.IGNORECASE,
+)
+_VISIBLE_METRIC_RE = re.compile(
+    r"\b(cap rate|occupancy|noi|dscr|ltv|irr|tvpi|dpi|nav)\b",
+    re.IGNORECASE,
+)
 _CREATE_ENTITY_RE = re.compile(
     r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?P<entity>fund|deal|asset|property|investment)\b(?:\s+called\s+(?P<name>.+))?",
     re.IGNORECASE,
@@ -286,6 +294,48 @@ def _build_identity_fast_response(*, resolved_scope: Any, envelope: AssistantCon
         text = f"You are looking at {article} {resolved_scope.entity_type} view for {label}."
     else:
         text = f"You are in {label}."
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _build_fund_context_fast_response(*, resolved_scope: Any, envelope: AssistantContextEnvelope) -> FastResponse | None:
+    if resolved_scope.entity_type == "fund":
+        return _build_identity_fast_response(resolved_scope=resolved_scope, envelope=envelope)
+    label = envelope.ui.active_environment_name or resolved_scope.entity_name or "this context"
+    text = f"No fund is selected or available in {label}."
+    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+
+
+def _build_visible_metric_fast_response(
+    *,
+    message: str,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+) -> FastResponse | None:
+    if resolved_scope.entity_type not in {"asset", "fund", "investment"}:
+        return None
+    visible = envelope.ui.visible_data
+    metrics = visible.metrics if visible and visible.metrics else {}
+    metric_aliases = {
+        "cap rate": "cap_rate",
+        "occupancy": "occupancy",
+        "noi": "noi",
+        "dscr": "dscr",
+        "ltv": "ltv",
+        "irr": "irr",
+        "tvpi": "tvpi",
+        "dpi": "dpi",
+        "nav": "nav",
+    }
+    match = _VISIBLE_METRIC_RE.search(message or "")
+    if not match:
+        return None
+    label = match.group(1).lower()
+    key = metric_aliases.get(label)
+    value = metrics.get(key) if key else None
+    if value is None:
+        return None
+    scope_label = _format_scope_label(resolved_scope=resolved_scope, envelope=envelope)
+    text = f"{scope_label} has {label} of {value} in the current visible context."
     return FastResponse(text=text, response_blocks=[markdown_block(text)])
 
 
@@ -810,6 +860,17 @@ def _deterministic_fast_response(
 
     if skill_id == "create_entity" and lane == Lane.C_ANALYSIS and not retrieval_execution.receipt.used:
         return _build_write_confirmation_fast_response(normalized_message)
+
+    visible_metric = _build_visible_metric_fast_response(
+        message=normalized_message,
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+    )
+    if visible_metric is not None:
+        return visible_metric
+
+    if skill_id == "lookup_entity" and lane == Lane.A_FAST and _FUND_CONTEXT_PROMPT_RE.search(normalized_message):
+        return _build_fund_context_fast_response(resolved_scope=resolved_scope, envelope=envelope)
 
     if skill_id == "lookup_entity" and lane == Lane.A_FAST and _IDENTITY_PROMPT_RE.search(normalized_message):
         return _build_identity_fast_response(resolved_scope=resolved_scope, envelope=envelope)

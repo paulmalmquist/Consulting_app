@@ -9,6 +9,7 @@ pass/fail + baseline record for the autonomous workflow.
 from __future__ import annotations
 
 import subprocess
+import uuid
 from typing import Any
 
 from eval_loop.canonical_assertions import (
@@ -120,10 +121,14 @@ def _trace_summary(result: dict[str, Any]) -> dict[str, Any]:
 def _ai_gateway_log_id(result: dict[str, Any]) -> str | None:
     receipt = result.get("turn_receipt") or {}
     # Known receipt fields that carry the gateway log row id.
-    for key in ("ai_gateway_log_id", "gateway_log_id", "request_id"):
+    for key in ("ai_gateway_log_id", "gateway_log_id"):
         val = receipt.get(key)
-        if val:
-            return str(val)
+        if not val:
+            continue
+        try:
+            return str(uuid.UUID(str(val)))
+        except ValueError:
+            continue
     return None
 
 
@@ -159,16 +164,7 @@ def persist_cycle_to_postgres(
     DB write failure as a loud run failure, per the plan's guardrails.
     """
     store = PostgresRegressionStore(dsn=dsn, business_id=business_id, env_id=env_id)
-    try:
-        run_id = store.create_run(
-            trigger=trigger,
-            suite=suite,
-            git_sha=_git_sha(),
-            run_id=cycle_run_id,  # keep SQLite↔Postgres run_id alignment
-        )
-    except Exception:
-        # Fallback: let Postgres generate a fresh uuid if reuse fails.
-        run_id = store.create_run(trigger=trigger, suite=suite, git_sha=_git_sha())
+    run_id = store.create_run(trigger=trigger, suite=suite, git_sha=_git_sha())
 
     scenarios_by_id = {str(s.get("id")): s for s in scenarios}
 

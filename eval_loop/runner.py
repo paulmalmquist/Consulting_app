@@ -49,6 +49,51 @@ BACKEND_DIR = ROOT / "backend"
 ARTIFACTS_DIR = ROOT / "artifacts" / "eval-loop"
 
 
+def _uuid_or_none(value: Any) -> uuid.UUID | None:
+    if not value:
+        return None
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _ensure_eval_conversation(
+    *,
+    conversation_id: uuid.UUID,
+    envelope: dict[str, Any],
+    scenario: dict[str, Any],
+) -> None:
+    """Seed the synthetic eval conversation so runtime persistence FKs hold."""
+    ui = envelope.get("ui") or {}
+    business_id = _uuid_or_none(ui.get("active_business_id"))
+    env_id = _uuid_or_none(ui.get("active_environment_id"))
+    if business_id is None:
+        return
+    try:
+        from app.db import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_conversations (
+                    conversation_id, business_id, env_id, title, actor
+                ) VALUES (
+                    %s, %s, %s, %s, 'eval_loop'
+                )
+                ON CONFLICT (conversation_id) DO NOTHING
+                """,
+                (
+                    str(conversation_id),
+                    str(business_id),
+                    str(env_id) if env_id else None,
+                    f"Winston eval: {scenario['id']}",
+                ),
+            )
+    except Exception:
+        return
+
+
 def load_env_file(path: Path) -> None:
     if not path.exists():
         return
@@ -133,6 +178,11 @@ async def run_assistant_turn(
         page_type=active.get("page_type"),
     )
     conversation_id = uuid.uuid5(uuid.NAMESPACE_URL, f"winston-eval:{scenario['id']}")
+    _ensure_eval_conversation(
+        conversation_id=conversation_id,
+        envelope=envelope,
+        scenario=scenario,
+    )
 
     with _chaos_exit_stack(chaos_plan):
         parsed = await collect_runtime_turn(
@@ -230,7 +280,12 @@ async def run_tool_engine_case(
             "args": json.dumps(fixture.get("args", {"name": "test"})),
         }
     }
-    resolved_scope = {"environment_id": "env-eval", "business_id": "biz-eval", "entity_type": None, "entity_id": None}
+    resolved_scope = {
+        "environment_id": "00000000-0000-4000-8000-000000000001",
+        "business_id": "00000000-0000-4000-8000-000000000002",
+        "entity_type": None,
+        "entity_id": None,
+    }
     started_at = time.perf_counter()
     executed: list[ExecutedToolCall] = await execute_tool_calls(
         collected_tool_calls=collected,
