@@ -48,6 +48,25 @@
   --nv-accent-copper:   198 132 255;  /* #C684FF */
   --nv-accent-copper-ink: 70  40 118; /* #462876 */
 
+  /* ── Cyberpunk neon accents — DECORATIVE ONLY ────────────────
+   * Hero gradients, ambient panel washes, marketing background
+   * mood. NEVER use these for data state, alerts, KPIs, or table
+   * surfaces — those stay on --nv-sem-* and --nv-accent-teal.
+   *
+   * Purple ramp: sign halo → bright → wet reflect → haze → deep base
+   * Pink scatter: hot magenta + lavender mist
+   * Red taillight: warm anchor only — not for error states. */
+  --nv-purple-glow:      242 224 255;  /* #F2E0FF — sign halo */
+  --nv-purple-neon:      200 150 255;  /* #C896FF — bright */
+  --nv-purple-hot:       176  64 255;  /* #B040FF — wet reflect */
+  --nv-purple-deep:       88  64 255;  /* #5840FF — electric haze */
+  --nv-purple-shadow:     26  19  64;  /* #1A1340 — deep base */
+  --nv-pink-reflect:     255 111 224;  /* #FF6FE0 — hot magenta */
+  --nv-pink-mist:        160 112 255;  /* #A070FF — lavender */
+  --nv-red-taillight:    255  42  77;  /* #FF2A4D — warm anchor */
+  --nv-red-ember:        224  64  96;  /* #E04060 */
+  --nv-red-strip:        110  20  40;  /* #6E1428 — deep */
+
   /* Hairlines — always tinted, never pure gray */
   --nv-hair-soft:       232 236 242;       /* used at /0.06 via rgb(.. / 0.06) */
   --nv-hair-medium-rgba: rgba(232,236,242,0.10);
@@ -111,6 +130,19 @@
   --nv-accent-teal-ink:  16  70  75;
   --nv-accent-copper:   126  76 190;  /* #7E4CBE */
   --nv-accent-copper-ink: 66  38 112;
+
+  /* Cyberpunk accents — light-mode parallels (slightly desaturated
+   * so neons don't blare against white). Same token names. */
+  --nv-purple-glow:      232 215 250;
+  --nv-purple-neon:      168 110 220;
+  --nv-purple-hot:       146  44 220;
+  --nv-purple-deep:       70  40 200;
+  --nv-purple-shadow:     38  28  86;
+  --nv-pink-reflect:     220  90 188;
+  --nv-pink-mist:        140  92 220;
+  --nv-red-taillight:    220  40  72;
+  --nv-red-ember:        180  56  82;
+  --nv-red-strip:         96  20  40;
 
   --nv-hair-soft:        20  30  50;       /* used at /0.06 */
   --nv-hair-medium-rgba: rgba(20,30,50,0.08);
@@ -268,6 +300,108 @@
   z-index: 1;
   max-width: 1320px;
   margin: 0 auto;
+}
+
+/* ── Cyberpunk accent utilities — DECORATIVE ONLY ─────────────────
+ * Use sparingly: hero gradient overlays, ambient panel washes, and
+ * brand-mood section dividers. NEVER on data state, alerts, KPIs,
+ * tables, or anything semantic. See skills/novendor-cyberpunk-accents/
+ * for the full usage policy.
+ */
+
+/* Variant: neon hero overlay. Apply to <HeroBackground overlayOpacity={0}>
+   inside .marketing-shell so the underlying image survives, then layer
+   neon haze on top. */
+.nv-hero-neon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(3,7,14,0.78) 0%, rgba(26,19,64,0.55) 45%, rgba(3,7,14,0.62) 100%),
+    radial-gradient(720px 420px at 14% 16%, rgb(var(--nv-purple-hot) / 0.18), transparent 64%),
+    radial-gradient(620px 380px at 88% 80%, rgb(var(--nv-pink-reflect) / 0.14), transparent 64%),
+    radial-gradient(540px 320px at 60% 8%, rgb(var(--nv-purple-deep) / 0.20), transparent 70%);
+}
+
+/* Thin accent rule — for section dividers, hairline emphasis, hero base.
+   Place inside a relative parent; sits at the bottom by default. */
+.nv-accent-strip {
+  position: relative;
+}
+.nv-accent-strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--nv-purple-hot) / 0.55) 22%,
+    rgb(var(--nv-pink-reflect) / 0.65) 50%,
+    rgb(var(--nv-red-taillight) / 0.45) 78%,
+    transparent 100%
+  );
+  filter: drop-shadow(0 0 6px rgb(var(--nv-purple-hot) / 0.35));
+  pointer-events: none;
+}
+
+/* Glow halos — wrap an inline element to add a subtle neon halo. */
+.nv-glow-purple {
+  text-shadow:
+    0 0 10px rgb(var(--nv-purple-hot) / 0.45),
+    0 0 22px rgb(var(--nv-purple-deep) / 0.30);
+}
+.nv-glow-pink {
+  text-shadow:
+    0 0 10px rgb(var(--nv-pink-reflect) / 0.45),
+    0 0 22px rgb(var(--nv-pink-mist) / 0.28);
+}
+
+/* Soft panel wash — apply to ambient section backgrounds. Low opacity
+   on top of the existing surface so the design system stays dominant. */
+.nv-wash-neon {
+  background-image:
+    radial-gradient(640px 360px at 12% 0%,  rgb(var(--nv-purple-hot) / 0.10), transparent 60%),
+    radial-gradient(540px 340px at 92% 100%, rgb(var(--nv-pink-reflect) / 0.07), transparent 64%);
+  background-repeat: no-repeat;
+}
+
+/* Pin-point dot used inline (analog of .nv-eyebrow-dot but in pink). */
+.nv-dot-pink {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--nv-pink-reflect));
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px rgb(var(--nv-pink-reflect) / 0.55);
+}
+.nv-dot-purple {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--nv-purple-hot));
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px rgb(var(--nv-purple-hot) / 0.55);
+}
+
+/* Light-mode taming — the same utilities use the desaturated tokens
+   automatically (token names are identical). The strip + halos look
+   muddy on white, so reduce to near-zero glow. */
+.marketing-shell[data-theme="light"] .nv-glow-purple,
+.marketing-shell[data-theme="light"] .nv-glow-pink {
+  text-shadow: none;
+}
+.marketing-shell[data-theme="light"] .nv-accent-strip::after {
+  filter: none;
+  opacity: 0.7;
 }
 .nv-hero-bg .nv-h1,
 .nv-hero-bg h1 {

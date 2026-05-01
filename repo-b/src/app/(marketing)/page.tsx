@@ -55,8 +55,8 @@ export default function HomePage() {
         </section>
 
         <section className="nv-section">
-          <div className="nv-section-head">
-            <p className="nv-eyebrow">Case example · illustrative</p>
+          <div className="nv-section-head nv-accent-strip">
+            <p className="nv-eyebrow"><span className="nv-dot-pink" />Case example · illustrative</p>
           </div>
           <NvCard>
             <h2 className="nv-h2" style={{ marginBottom: 16, fontSize: 32 }}>

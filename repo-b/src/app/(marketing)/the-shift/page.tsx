@@ -33,8 +33,8 @@ export default function TheShiftPage() {
       />
 
       <section className="nv-section">
-        <div className="nv-section-head">
-          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Manifesto</p>
+        <div className="nv-section-head nv-accent-strip">
+          <p className="nv-eyebrow"><span className="nv-dot-purple" />Manifesto</p>
         </div>
         <div className="grid gap-4">
           {manifestoPoints.map((point, idx) => (
