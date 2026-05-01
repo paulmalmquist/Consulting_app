@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      suite:
+        description: "Perf suite to run"
+        required: false
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - full
 
 permissions:
   contents: read
@@ -12,6 +21,7 @@ jobs:
   backend-query-perf:
     name: Backend Query Perf Matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     services:
       postgres:
@@ -36,6 +46,7 @@ jobs:
       STORAGE_BUCKET: documents
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       AI_PERF_STUB_ENABLED: "true"
+      PERF_SUITE: ${{ inputs.suite || 'smoke' }}
 
     steps:
       - name: Checkout
@@ -100,7 +111,7 @@ jobs:
           tail -n 120 /tmp/backend.log || true
           exit 1
 
-      - name: Run full nightly perf suite
+      - name: Run perf suite
         run: |
           ./backend/perf/scripts/run_nightly.sh
 

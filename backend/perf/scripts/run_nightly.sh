@@ -93,6 +93,30 @@ run_one_metrics() {
 
 echo "[perf] artifacts: $ARTIFACT_ROOT"
 
+case "${PERF_SUITE:-full}" in
+  smoke)
+    echo "[perf] running smoke suite"
+    run_one_metrics S smoke_5
+    run_one_ai S smoke_5 mixed lookup
+    run_one_ai S smoke_5 repe comparison
+    run_one_metrics S smoke_5 invalid_business_id
+    run_one_metrics S smoke_5 empty_metric_keys
+    run_one_ai S smoke_5 mixed lookup oversized_prompt
+    if [[ -n "${BASE_URL_SIDECAR_DOWN:-}" ]]; then
+      BASE_URL="$BASE_URL_SIDECAR_DOWN" run_one_ai S smoke_5 mixed lookup sidecar_unavailable
+    fi
+    echo "[perf] smoke suite complete"
+    exit 0
+    ;;
+  full)
+    echo "[perf] running full suite"
+    ;;
+  *)
+    echo "Unknown PERF_SUITE '${PERF_SUITE}'. Expected smoke or full." >&2
+    exit 2
+    ;;
+esac
+
 subjects=(repe underwriting legalops mixed)
 actions=(lookup aggregation comparison decision_support)
 tiers=(S M L)
