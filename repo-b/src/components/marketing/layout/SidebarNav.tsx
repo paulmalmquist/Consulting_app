@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { NovendorWordmark } from '@/components/marketing/branding/NovendorWordmark';
 import {
   ArrowRightLeft,
   BarChart3,
@@ -235,7 +236,9 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
             />
           </div>
           {!isCollapsed && (
-            <p className="nv-wordmark text-base text-nv-text">Novendor</p>
+            <span className="novendor-wordmark text-nv-text">
+              <NovendorWordmark height={18} />
+            </span>
           )}
         </div>
         <button

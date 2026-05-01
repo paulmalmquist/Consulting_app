@@ -32,8 +32,13 @@
   font-display: swap;
 }
 
-/* Novendor Circuit — custom wordmark face. Only used by .nv-wordmark
-   for the sidebar/topbar logotype. Built from novendor_type_source/. */
+/* Novendor Circuit — experimental display face built from
+   novendor_type_source/. Declared here for completeness but NOT used
+   in the chrome or body copy. The current geometry reads as a toy
+   font at UI sizes; we use a vector <NovendorWordmark> SVG for the
+   logo treatment instead. Keep the @font-face so future refinement
+   of the source can be picked up by anything explicitly opting into
+   font-family: "Novendor Circuit". */
 @font-face {
   font-family: "Novendor Circuit";
   src: url("/fonts/NovendorCircuit-Regular.woff2") format("woff2"),
@@ -44,10 +49,30 @@
   font-display: swap;
 }
 
-.nv-wordmark {
-  font-family: "Novendor Circuit", system-ui, sans-serif;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+/* Typography utility classes per the wordmark brief.
+ *
+ * .font-ui        — interface text (nav, menus, body labels). Geist.
+ * .font-display   — restrained editorial headings inside marketing
+ *                   surfaces. Abadi 500.
+ * .novendor-wordmark — applied ONLY to the SVG wordmark wrapper. Adds
+ *                   logo-only treatments (drop shadow, optional glow);
+ *                   never use this class on text.
+ */
+.font-ui {
+  font-family: var(--nv-font-sans);
+}
+
+.font-display {
+  font-family: var(--font-abadi);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.novendor-wordmark {
+  /* Reserved for the SVG wrapper. Applies only filter/opacity hints;
+     no font-family override (the wordmark is vector, not text). */
+  color: rgb(var(--nv-text-primary, 239 246 255));
+  -webkit-font-smoothing: antialiased;
 }
 
 :root,
