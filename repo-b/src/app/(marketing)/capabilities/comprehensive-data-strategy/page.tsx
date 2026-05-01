@@ -70,7 +70,7 @@ export default function ComprehensiveDataStrategyPage() {
           <span className="nv-eyebrow-dot" />
           Capability · Data
         </p>
-        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24, fontSize: 'clamp(44px, 6vw, 68px)' }}>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
           Your data strategy is your <em>AI</em> strategy.
         </h1>
         <p className="nv-lede">

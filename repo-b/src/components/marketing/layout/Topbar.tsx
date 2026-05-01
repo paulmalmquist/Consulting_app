@@ -13,7 +13,7 @@ type TopbarProps = {
 
 export function Topbar({ setDrawerOpen }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-30 border-b bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8" style={{ borderColor: 'rgb(var(--nv-hair-soft) / 0.06)' }}>
+    <header className="nv-edge-purple-bottom sticky top-0 z-30 bg-nv-bg/90 px-4 py-3 backdrop-blur md:px-8">
       <div className="mx-auto flex w-full max-w-none flex-col gap-3">
         {/* Row 1: search + account */}
         <div className="flex items-center gap-3">

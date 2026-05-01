@@ -218,7 +218,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r [border-color:rgb(var(--nv-hair-soft)/0.06)] bg-nv-surface/95 backdrop-blur md:static md:translate-x-0',
+        'nv-edge-purple fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-nv-surface/95 backdrop-blur md:static md:translate-x-0',
         drawerOpen ? 'translate-x-0' : '-translate-x-full',
         isCollapsed ? 'md:w-20' : 'md:w-72'
       )}

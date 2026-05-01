@@ -547,6 +547,27 @@
     var(--nv-shadow-card-hover);
 }
 
+/* Chrome edges — electric purple borders bordering sidebar into main
+   content + topbar's bottom edge. Uses --nv-purple-deep (#5840FF)
+   at restrained alpha plus a faint inner glow so the edge reads as
+   intentional brand mood, not a debug outline. */
+.nv-edge-purple {
+  border-right: 1px solid rgb(var(--nv-purple-deep) / 0.45);
+  box-shadow: inset -1px 0 12px -6px rgb(var(--nv-purple-deep) / 0.35);
+}
+.nv-edge-purple-bottom {
+  border-bottom: 1px solid rgb(var(--nv-purple-deep) / 0.40);
+  box-shadow: 0 1px 12px -6px rgb(var(--nv-purple-deep) / 0.35);
+}
+.marketing-shell[data-theme="light"] .nv-edge-purple {
+  border-right-color: rgb(var(--nv-purple-deep) / 0.25);
+  box-shadow: none;
+}
+.marketing-shell[data-theme="light"] .nv-edge-purple-bottom {
+  border-bottom-color: rgb(var(--nv-purple-deep) / 0.22);
+  box-shadow: none;
+}
+
 /* Light-mode taming — drop the halo, keep the hairline at half-opacity
    so the brand mood reads on white without blaring. */
 .marketing-shell[data-theme="light"] .nv-outline-neon {
