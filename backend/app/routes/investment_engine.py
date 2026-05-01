@@ -25,10 +25,10 @@ from __future__ import annotations
 
 from datetime import date as date_type
 from decimal import Decimal
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -284,11 +284,16 @@ def post_run_reconciliation(req: RunReconciliationRequest, request: Request):
     env_id, business_id = _ctx(request, req.env_id, req.business_id)
 
     tol_kwargs: dict = {}
-    if req.qty_abs is not None: tol_kwargs["qty_abs"] = Decimal(req.qty_abs)
-    if req.qty_rel is not None: tol_kwargs["qty_rel"] = Decimal(req.qty_rel)
-    if req.price_abs is not None: tol_kwargs["price_abs"] = Decimal(req.price_abs)
-    if req.price_rel is not None: tol_kwargs["price_rel"] = Decimal(req.price_rel)
-    if req.stale_seconds is not None: tol_kwargs["stale_seconds"] = req.stale_seconds
+    if req.qty_abs is not None:
+        tol_kwargs["qty_abs"] = Decimal(req.qty_abs)
+    if req.qty_rel is not None:
+        tol_kwargs["qty_rel"] = Decimal(req.qty_rel)
+    if req.price_abs is not None:
+        tol_kwargs["price_abs"] = Decimal(req.price_abs)
+    if req.price_rel is not None:
+        tol_kwargs["price_rel"] = Decimal(req.price_rel)
+    if req.stale_seconds is not None:
+        tol_kwargs["stale_seconds"] = req.stale_seconds
     tolerances = reconciliation_engine.Tolerances(**tol_kwargs)
 
     result = reconciliation_engine.run_reconciliation(
@@ -326,11 +331,14 @@ def get_audit_timeline(request: Request,
     where = ["env_id = %s"]
     params: list = [env_id_resolved]
     if entity_type:
-        where.append("entity_type = %s"); params.append(entity_type)
+        where.append("entity_type = %s")
+        params.append(entity_type)
     if entity_id is not None:
-        where.append("entity_id = %s"); params.append(str(entity_id))
+        where.append("entity_id = %s")
+        params.append(str(entity_id))
     if change_type:
-        where.append("change_type = %s"); params.append(change_type)
+        where.append("change_type = %s")
+        params.append(change_type)
 
     sql = f"""
         SELECT id, entity_type, entity_id, change_type,
@@ -418,11 +426,14 @@ def get_breaks(request: Request,
     where = ["env_id = %s"]
     params: list = [env_id_resolved]
     if run_id is not None:
-        where.append("run_id = %s"); params.append(str(run_id))
+        where.append("run_id = %s")
+        params.append(str(run_id))
     if break_type:
-        where.append("break_type = %s"); params.append(break_type)
+        where.append("break_type = %s")
+        params.append(break_type)
     if severity:
-        where.append("severity = %s"); params.append(severity)
+        where.append("severity = %s")
+        params.append(severity)
     if resolved is False:
         where.append("resolved_at IS NULL")
     elif resolved is True:
