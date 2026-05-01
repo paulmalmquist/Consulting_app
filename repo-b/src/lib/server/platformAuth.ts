@@ -570,13 +570,24 @@ export async function rotatePlatformSessionEnvironment(args: {
   session: PlatformSessionClaims;
   target: { envId?: string | null; slug?: EnvironmentSlug | null };
 }) {
-  const slimMembership = args.target.envId
-    ? args.session.memberships.find((item) => item.env_id === args.target.envId && item.status === "active")
+  // Re-bootstrap admin memberships and reload from DB so envs created after
+  // login (not yet in the JWT's slim membership list) are still accessible.
+  const freshMemberships = await withTransaction(async (client) => {
+    await bootstrapOwnerMemberships(
+      client,
+      args.session.platform_user_id,
+      args.session.email,
+    );
+    return loadMemberships(client, args.session.platform_user_id);
+  });
+
+  const matchedMembership = args.target.envId
+    ? freshMemberships.find((item) => item.env_id === args.target.envId && item.status === "active")
     : args.target.slug
-      ? args.session.memberships.find((item) => item.env_slug === args.target.slug && item.status === "active")
+      ? freshMemberships.find((item) => item.env_slug === args.target.slug && item.status === "active")
       : null;
 
-  if (!slimMembership) {
+  if (!matchedMembership) {
     throw new Error("You do not have access to that environment");
   }
 
@@ -585,7 +596,7 @@ export async function rotatePlatformSessionEnvironment(args: {
   // headers. The JWT cookie itself continues to carry only slim rows.
   const richMembership = await loadRichMembershipByEnvId(
     args.session.platform_user_id,
-    slimMembership.env_id,
+    matchedMembership.env_id,
   );
   if (!richMembership) {
     throw new Error("You do not have access to that environment");
@@ -619,6 +630,8 @@ export async function rotatePlatformSessionEnvironment(args: {
 
   const nextClaims: PlatformSessionClaims = {
     ...args.session,
+    memberships: freshMemberships.map(toSlimMembership),
+    platform_admin: derivePlatformAdmin(freshMemberships),
     active_env_id: richMembership.env_id,
     active_env_slug: richMembership.env_slug,
     active_role: richMembership.role,

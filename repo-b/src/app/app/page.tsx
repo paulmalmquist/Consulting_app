@@ -432,7 +432,7 @@ function AppIndexPageInner() {
       </div>
 
       {/* ── Desktop layout ────────────────────────────────────────────── */}
-      <div className="relative z-10 hidden min-h-screen lg:grid lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="relative z-10 mx-auto hidden min-h-screen w-full max-w-[1440px] lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="border-b border-white/10 bg-[rgba(8,10,15,0.86)] px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r">
           <div className="space-y-2">
             <h1 className="font-command text-[2rem] uppercase tracking-[0.08em] text-white">Winston</h1>
@@ -524,7 +524,7 @@ function AppIndexPageInner() {
           </div>
 
           <div className="flex flex-1 items-center">
-            <div className="mx-auto w-full max-w-4xl space-y-6">
+            <div className="w-full max-w-3xl space-y-6">
               {deniedMessage ? (
                 <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                   {deniedMessage}
