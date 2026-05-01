@@ -116,7 +116,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
             )}
           >
             {industriesActive && (
-              <span className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
+              <span className="nv-rail-active absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
             )}
             <Link
               href={item.href}
@@ -198,7 +198,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
         )}
       >
         {active && (
-          <span className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
+          <span className="nv-rail-active absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px] bg-nv-teal" />
         )}
         <span
           className={cn(

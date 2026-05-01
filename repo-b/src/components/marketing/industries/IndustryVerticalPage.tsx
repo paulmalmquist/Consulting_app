@@ -25,13 +25,13 @@ const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Bui
     label: 'AI-Ready Revenue Cycle',
     Icon: Stethoscope,
     microCase:
-      'A multi-site provider pulled denial data out of every payer portal into one queue with one set of rules. Denial rework dropped 27%. The AI denial-prediction tool they had been piloting for six months started catching denials before they happened — because, for the first time, it could see them all.'
+      'A multi-site provider pulled denial data out of every payer portal into one queue with one set of rules. Denial rework dropped 27%. The AI denial-prediction tool they had been piloting for six months started catching denials before they happened, because for the first time, it could see them all.'
   },
   legal: {
     label: 'AI-Ready Matter Data',
     Icon: Scale,
     microCase:
-      'A regional firm rewrote intake for one practice group, captured matter state changes in the system, and tied billing narratives to the underlying events. Intake handoff errors dropped 34%. The drafting AI tool the firm had bought a year earlier finally produced output partners would sign — because the inputs finally matched the firm\'s actual taxonomy.'
+      'A regional firm rewrote intake for one practice group, captured matter state changes in the system, and tied billing narratives to the underlying events. Intake handoff errors dropped 34%. The drafting AI tool the firm had bought a year earlier finally produced output partners would sign, because the inputs finally matched the firm\'s actual taxonomy.'
   }
 };
 

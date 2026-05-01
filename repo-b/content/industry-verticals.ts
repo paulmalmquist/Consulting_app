@@ -53,12 +53,12 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
     label: 'Real Estate Private Equity',
     themeKey: 'amber',
     teaser:
-      'Get fund data, waterfall logic, and LP reporting into one place — so the AI tools you adopt actually work on real fund math.',
+      'Turn fund data into answers LPs can trust.',
     contactLabel: 'Real Estate Private Equity',
     heroImageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1800&q=80',
-    heroHeadline: 'Make your fund data AI-ready before an LP asks what AI you use.',
+    heroHeadline: 'Turn fund data into answers LPs can trust.',
     heroSubheadline:
-      'Your IRRs, your waterfall, your investor reporting — most of it lives in spreadsheets that one person knows how to assemble. No AI tool will help until that changes. We rebuild the data layer that LP reporting, deal screening, and any future AI agent will sit on top of. The model stays yours. The math stays defensible.',
+      'Clean fund, asset, and investor data so answers are traceable from source to output. The model stays yours. The math stays defensible.',
     whyItBreaks: {
       title: 'Why It Breaks',
       intro: 'The model isn\'t the problem. The chain around the model is.',
@@ -195,13 +195,13 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
     label: 'Consumer Credit',
     themeKey: 'cyan',
     teaser:
-      'Get credit policy out of PDFs, decisions out of inboxes, and overrides out of folklore — so the AI you deploy is something you can defend.',
+      'AI-ready credit. Examiner-ready proof.',
     contactLabel: 'Consumer Credit',
     heroImageUrl: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1800&q=80',
     heroHeadline:
-      'Get your credit policy and your decision data into a form an AI can use — and an examiner can read.',
+      'AI-ready credit. Examiner-ready proof.',
     heroSubheadline:
-      'Underwriting AI is only as defensible as the policy it cites and the data it sees. We get your policy out of PDFs and into a system, your decision data out of inboxes and into a pipeline, and your overrides out of folklore and into an audit trail. The AI you deploy after that is something you can put in front of a regulator without flinching.',
+      'Bring policy, decision data, and review evidence into a form AI can use and examiners can follow.',
     whyItBreaks: {
       title: 'Why It Breaks',
       intro: 'Credit policy isn\'t usually wrong. The execution around it is.',
@@ -338,13 +338,13 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
     label: 'Medical',
     themeKey: 'rose',
     teaser:
-      'Pull authorization, denial, and payer reconciliation data into one queue — so the AI tool you bought finally has a chance to work.',
+      'Denials move faster when the data is together.',
     contactLabel: 'Medical',
     heroImageUrl: 'https://images.unsplash.com/photo-1504439468489-c8920d796a29?auto=format&fit=crop&w=1800&q=80',
     heroHeadline:
-      'AI won\'t fix your denial backlog if your prior auth data lives in seven payer portals.',
+      'Denials move faster when the data is together.',
     heroSubheadline:
-      'Every revenue cycle AI vendor pitches the same demo. None of them work until your authorization, denial, and payer reconciliation data land in one place with one set of rules. We do the unglamorous part — pulling the data together, writing down the routing logic, putting the queue in a system. The AI you adopt after that actually moves the cash conversion cycle.',
+      'Bring payer portal data, denial history, and authorization work queues into one controlled workflow.',
     whyItBreaks: {
       title: 'Why It Breaks',
       intro:
@@ -483,13 +483,13 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
     label: 'Legal',
     themeKey: 'violet',
     teaser:
-      'Get matter taxonomy, intake logic, and billing narratives written down — so the legal AI tools you\'ve already bought finally produce work partners will sign.',
+      'Get the legal record straight.',
     contactLabel: 'Legal',
     heroImageUrl: 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=1800&q=80',
     heroHeadline:
-      'Your matter data, your billing narratives, your intake logic — written down in one place, before you turn an AI loose on any of it.',
+      'Get the legal record straight.',
     heroSubheadline:
-      'Legal AI vendors assume you have a clean matter taxonomy, consistent intake fields, and time entries that mean the same thing across the firm. You don\'t. We get you there. So the AI tools you pick — drafting, review, billing — work without three months of cleanup per matter type.',
+      'Bring matter data, billing narratives, and intake logic into one reviewable record.',
     whyItBreaks: {
       title: 'Why It Breaks',
       intro: 'Legal judgment isn\'t the bottleneck. The administrative chain around it is.',

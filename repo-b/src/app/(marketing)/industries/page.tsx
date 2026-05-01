@@ -38,7 +38,7 @@ export default function IndustriesPage() {
         <NvCard>
           <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
             <li>The data your AI tools need lands in one place, with one set of rules.</li>
-            <li>The playbook nobody had written down gets written down — in a form a model can read.</li>
+            <li>The playbook nobody had written down gets written down, in a form a model can read.</li>
             <li>The workflow runs the same way twice, so the AI on top of it has a real chance of helping.</li>
           </ul>
           <div style={{ marginTop: 24 }}>

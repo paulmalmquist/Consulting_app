@@ -403,6 +403,95 @@
   filter: none;
   opacity: 0.7;
 }
+
+/* ── Premium atmospheric refinement ─────────────────────────────
+ * Subtle scanline grain on hero panels; refined card hover edge
+ * glow; sidebar active-rail soft halo; primary-CTA controlled cyan
+ * glow. These layer onto the existing system without changing
+ * structure. Light mode gets reduced/disabled treatment. */
+
+/* 1. Hero panel grain — applied to .nv-hero-bg directly so every
+      hero (with image or fallback) gets the same atmosphere.
+      Uses a fine repeating linear-gradient at <2% opacity. */
+.nv-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+.marketing-shell[data-theme="light"] .nv-hero-bg::before {
+  opacity: 0;
+}
+
+/* 2. Card edge lighting + restrained hover halo. Adds a clearer
+      top-edge highlight (already present, slightly strengthened)
+      and a faint cyan glow on hover for cards opted-in via
+      .nv-card-hover-lift. No glow on default cards (executive-safe).
+      Replaces just the hover rule so static cards stay calm. */
+.nv-card.nv-card-hover-lift {
+  /* Standardize the static state with a more visible top-edge highlight. */
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    var(--nv-shadow-card);
+}
+.nv-card.nv-card-hover-lift:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.09),
+    var(--nv-shadow-card-hover),
+    0 0 28px -10px rgb(var(--nv-accent-teal) / 0.22);
+}
+.marketing-shell[data-theme="light"] .nv-card.nv-card-hover-lift {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55),
+    var(--nv-shadow-card);
+}
+.marketing-shell[data-theme="light"] .nv-card.nv-card-hover-lift:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7),
+    var(--nv-shadow-card-hover),
+    0 0 24px -10px rgb(var(--nv-accent-teal) / 0.18);
+}
+
+/* 3. Sidebar active rail — soft cyan halo to make the active state
+      more clearly branded without being a "gaming UI" effect. Applied
+      via .nv-rail-active in SidebarNav. */
+.nv-rail-active {
+  box-shadow:
+    0 0 6px 0 rgb(var(--nv-accent-teal) / 0.55),
+    0 0 14px 2px rgb(var(--nv-accent-teal) / 0.20);
+}
+.marketing-shell[data-theme="light"] .nv-rail-active {
+  box-shadow:
+    0 0 4px 0 rgb(var(--nv-accent-teal) / 0.35);
+}
+
+/* 4. Primary CTA — already has a cyan/teal gradient + drop. Tighten
+      the resting glow so it reads as intentional rather than as
+      flair, and lift the hover state cleanly. */
+.nv-btn-primary {
+  /* Override resting box-shadow only — keep the gradient + ink color. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 8px 22px -10px rgb(var(--nv-accent-teal) / 0.55);
+}
+.nv-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 12px 28px -10px rgb(var(--nv-accent-teal) / 0.65),
+    0 0 22px -8px rgb(var(--nv-accent-teal) / 0.45);
+}
 .nv-hero-bg .nv-h1,
 .nv-hero-bg h1 {
   color: rgb(var(--nv-text-primary));
