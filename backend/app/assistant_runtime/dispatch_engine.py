@@ -52,6 +52,10 @@ _METRIC_EXPLANATION_RE = re.compile(
     r"\b(why|explain|blank|missing|down|up|change|changed|variance|vs|versus|compare|trend)\b",
     re.IGNORECASE,
 )
+_BROAD_CONTEXT_RE = re.compile(
+    r"\b(what'?s going on here|what is going on here|summarize this|summarize the page|what am i seeing)\b",
+    re.IGNORECASE,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # Tiny Router — closed enum schema for domain intent classification
@@ -262,6 +266,19 @@ def _deterministic_dispatch(*, message: str, context: ContextReceipt) -> Dispatc
             needs_retrieval=False, write_intent=False,
             ambiguity_level=DispatchAmbiguity.LOW, confidence=1.0,
             fallback_used=False, notes=["deterministic_identity_guardrail"],
+        ))
+
+    if (
+        context.resolution_status == ContextResolutionStatus.RESOLVED
+        and context.entity_type in {"asset", "fund", "investment", "deal", "environment"}
+        and _BROAD_CONTEXT_RE.search(normalized_message)
+    ):
+        return DispatchTrace(raw=None, normalized=DispatchDecision(
+            source=DispatchSource.DETERMINISTIC_GUARDRAIL,
+            skill_id="lookup_entity", lane=Lane.A_FAST,
+            needs_retrieval=False, write_intent=False,
+            ambiguity_level=DispatchAmbiguity.LOW, confidence=0.98,
+            fallback_used=False, notes=["deterministic_broad_context_guardrail"],
         ))
 
     if (

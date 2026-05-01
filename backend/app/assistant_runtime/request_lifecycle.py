@@ -95,6 +95,10 @@ _METRIC_EXPLANATION_RE = re.compile(
     r"\b(why|explain|blank|missing|down|up|change|changed|variance|vs|versus|compare|trend)\b",
     re.IGNORECASE,
 )
+_BROAD_CONTEXT_RE = re.compile(
+    r"\b(what'?s going on here|what is going on here|summarize this|summarize the page|what am i seeing)\b",
+    re.IGNORECASE,
+)
 _CREATE_ENTITY_RE = re.compile(
     r"\b(?:create|add|make|set up|register|new)\s+(?:a\s+|an\s+)?(?P<entity>fund|deal|asset|property|investment)\b(?:\s+called\s+(?P<name>.+))?",
     re.IGNORECASE,
@@ -876,7 +880,11 @@ def _deterministic_fast_response(
     if skill_id == "lookup_entity" and lane == Lane.A_FAST and _FUND_CONTEXT_PROMPT_RE.search(normalized_message):
         return _build_fund_context_fast_response(resolved_scope=resolved_scope, envelope=envelope)
 
-    if skill_id == "lookup_entity" and lane == Lane.A_FAST and _IDENTITY_PROMPT_RE.search(normalized_message):
+    if (
+        skill_id == "lookup_entity"
+        and lane == Lane.A_FAST
+        and (_IDENTITY_PROMPT_RE.search(normalized_message) or _BROAD_CONTEXT_RE.search(normalized_message))
+    ):
         return _build_identity_fast_response(resolved_scope=resolved_scope, envelope=envelope)
 
     return None

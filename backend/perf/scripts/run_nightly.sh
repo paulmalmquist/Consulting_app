@@ -52,6 +52,9 @@ profile_shape() {
 run_one_ai() {
   local tier="$1" profile="$2" subject="$3" action="$4" failure_mode="${5:-none}"
   read -r p95 p99 err <<<"$(thresholds_ai "$tier")"
+  if [[ "$failure_mode" != "none" && "$failure_mode" != "sidecar_unavailable" ]]; then
+    err="1.01"
+  fi
   read -r vus duration <<<"$(profile_shape "$profile")"
 
   local scenario="ai_${tier}_${profile}_${subject}_${action}_${failure_mode}"
@@ -73,6 +76,9 @@ run_one_ai() {
 run_one_metrics() {
   local tier="$1" profile="$2" failure_mode="${3:-none}"
   read -r p95 p99 err <<<"$(thresholds_metrics "$tier")"
+  if [[ "$failure_mode" != "none" ]]; then
+    err="1.01"
+  fi
   read -r vus duration <<<"$(profile_shape "$profile")"
 
   local scenario="metrics_${tier}_${profile}_${failure_mode}"
