@@ -1,5 +1,6 @@
 import { getDocBySlug, getAllDocs } from '@/lib/marketing/content';
 import { MarkdownRenderer } from '@/components/marketing/content/MarkdownRenderer';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 
 export async function generateStaticParams() {
   return getAllDocs().map((item) => ({ slug: item.slug }));
@@ -17,13 +18,15 @@ export default function DocPage({ params }: { params: { slug: string } }) {
   const doc = getDocBySlug(params.slug);
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-nv-teal/80">Core Research</p>
-        <h1 className="text-3xl font-semibold text-nv-text">{doc.title}</h1>
-        <p className="text-lg text-nv-muted">{doc.description}</p>
-      </section>
-      <MarkdownRenderer content={doc.content} />
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="Core Research"
+        headline={doc.title}
+        lede={doc.description}
+      />
+      <div className="nv-section">
+        <MarkdownRenderer content={doc.content} />
+      </div>
     </div>
   );
 }

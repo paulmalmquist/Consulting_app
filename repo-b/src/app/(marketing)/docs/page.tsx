@@ -1,27 +1,31 @@
 import Link from 'next/link';
 import { getAllDocs } from '@/lib/marketing/content';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 
 export default function DocsPage() {
   const docs = getAllDocs();
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-nv-text">Core Research</h1>
-        <p className="text-lg text-nv-muted">Detailed guidance on method, engagement structure, and decision controls.</p>
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="Core Research"
+        headline="Core research."
+        lede="Detailed guidance on method, engagement structure, and decision controls."
+      />
+
+      <section className="nv-section">
+        <div className="grid gap-4 md:grid-cols-2">
+          {docs.map((doc) => (
+            <Link key={doc.slug} href={`/docs/${doc.slug}`} className="block">
+              <NvCard liftOnHover>
+                <h2 className="nv-h3">{doc.title}</h2>
+                <p className="nv-body" style={{ margin: 0 }}>{doc.description}</p>
+              </NvCard>
+            </Link>
+          ))}
+        </div>
       </section>
-      <div className="grid gap-4 md:grid-cols-2">
-        {docs.map((doc) => (
-          <Link
-            key={doc.slug}
-            href={`/docs/${doc.slug}`}
-            className="rounded-2xl border border-nv-text/10 bg-nv-surface/60 p-5 transition hover:border-nv-text/20"
-          >
-            <h2 className="text-lg font-semibold text-nv-text">{doc.title}</h2>
-            <p className="mt-2 text-sm text-nv-muted">{doc.description}</p>
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }

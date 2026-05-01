@@ -1,7 +1,7 @@
 import { NvButton } from '@/components/marketing/ui/NvButton';
 import { NvCard } from '@/components/marketing/ui/NvCard';
 import { PageHeader } from '@/components/marketing/ui/PageHeader';
-import { BeforeAfterDiagram } from '@/components/marketing/visual/BeforeAfterDiagram';
+import { SectionHeader } from '@/components/marketing/ui/SectionHeader';
 import { ControlLayerDiagram } from '@/components/marketing/visual/ControlLayerDiagram';
 
 const timeline = [
@@ -25,13 +25,32 @@ const timeline = [
   }
 ];
 
+const valueCase = [
+  {
+    title: 'Hours saved',
+    body: 'Identify recurring manual work, duplicate entry, reporting cycles, approval delays, and handoffs that can be reduced or automated.'
+  },
+  {
+    title: 'Risk avoided',
+    body: 'Find where unsupported AI use, weak approvals, bad data, or unclear ownership can create compliance, reporting, or operating risk.'
+  },
+  {
+    title: 'Technical debt exposed',
+    body: 'Show which legacy tools, spreadsheets, and disconnected systems are slowing progress and what needs to be cleaned up first.'
+  },
+  {
+    title: 'Investment path',
+    body: 'Map quick wins, required fixes, expected effort, and the order of work so the rollout stays controlled.'
+  }
+];
+
 export default function WhatWeDoPage() {
   return (
     <div className="nv-page">
       <PageHeader
         eyebrow="How we engage"
-        headline="Get one workflow AI-ready, end to end, before your next AI vendor evaluation."
-        lede="We rebuild the data layer, write down the playbook, and put the process in a system that runs the same way twice. Then the AI you adopt actually works on real data the first time."
+        headline="We prepare your business to use AI responsibly."
+        lede="We review how work moves through your business, where data and approvals break down, and where AI is already creating risk or value. Then we build a practical path from assessment to controlled rollout."
       >
         <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
           <NvButton variant="primary" href="/operational-assessment">See your first use case</NvButton>
@@ -56,7 +75,19 @@ export default function WhatWeDoPage() {
       </section>
 
       <section className="nv-section">
-        <BeforeAfterDiagram />
+        <SectionHeader
+          eyebrow="Value case"
+          headline="Build the value case before the rollout."
+          description="We quantify the work AI can reduce, the risks better controls can avoid, and the technical debt that needs to be addressed first. You get a practical view of expected value, required effort, and rollout priority."
+        />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {valueCase.map((item) => (
+            <NvCard key={item.title}>
+              <h3 className="nv-h3">{item.title}</h3>
+              <p className="nv-body" style={{ margin: 0 }}>{item.body}</p>
+            </NvCard>
+          ))}
+        </div>
       </section>
 
       <section className="nv-section">

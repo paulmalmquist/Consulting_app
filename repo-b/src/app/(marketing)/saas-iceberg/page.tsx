@@ -117,14 +117,14 @@ export default function SaaSIcebergPage() {
   return (
     <div className="nv-page">
       <section className="relative overflow-hidden rounded-[var(--nv-radius-lg)] bg-gradient-to-b from-[rgb(var(--nv-surface)/0.8)] via-[rgb(var(--nv-bg)/0.7)] to-[#051022] p-6 sm:p-10">
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[rgb(var(--nv-accent-teal)/0.10)] blur-3xl" />
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-[50%] bg-[rgb(var(--nv-accent-teal)/0.10)] blur-3xl" />
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The SaaS Iceberg</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 12 }}>What you&apos;re really paying for.</h1>
         <p className="nv-lede" style={{ color: 'rgb(var(--nv-accent-teal)/0.85)' }}>
           Most SaaS pricing is justified below the waterline.
         </p>
 
-        <div className="relative mt-8 h-[320px] rounded-3xl border border-nv-teal/18 bg-nv-bg/80 p-5 sm:h-[380px]">
+        <div className="relative mt-8 h-[320px] rounded-[var(--nv-radius-lg)] border border-nv-teal/18 bg-nv-bg/80 p-5 sm:h-[380px]">
           <div className="absolute left-0 h-px w-full bg-nv-teal/10" style={{ top: WATERLINE_TOP }} aria-hidden="true" />
           <div className="absolute left-1/2 top-[17%] h-24 w-32 -translate-x-1/2 rounded-[45%_45%_35%_35%] border border-nv-teal/18 bg-gradient-to-b from-cyan-100/30 to-cyan-200/10  animate-pulse" />
           <div className="absolute left-1/2 top-[33%] h-44 w-72 -translate-x-1/2 rounded-[45%_45%_55%_55%] border border-nv-teal/18 bg-gradient-to-b from-cyan-300/10 to-transparent" />
@@ -153,7 +153,7 @@ export default function SaaSIcebergPage() {
               {BELOW_WATER_CHIPS.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-violet-200/30 bg-violet-300/5 px-3 py-1 text-xs text-nv-copper transition hover:border-violet-200/50 md:shrink-0"
+                  className="rounded-[999px] border border-violet-200/30 bg-violet-300/5 px-3 py-1 text-xs text-nv-copper transition hover:border-violet-200/50 md:shrink-0"
                 >
                   {item}
                 </span>
@@ -176,7 +176,7 @@ export default function SaaSIcebergPage() {
                   setActiveMode(mode);
                   setActiveItem(mode.below[0]);
                 }}
-                className={`rounded-[4px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                className={`rounded-[var(--nv-radius-sm)] border px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] transition ${
                   active
                     ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
                     : 'border-nv-text/12 bg-nv-bg/80 text-nv-muted hover:border-nv-teal/18 hover:text-nv-teal'
@@ -268,8 +268,8 @@ export default function SaaSIcebergPage() {
           ].map((item) => (
             <div key={item.title} className="nv-card" style={{ padding: 16 }}>
               <p className="nv-h3">{item.title}</p>
-              <div className="mt-3 h-2 rounded-full bg-[rgb(var(--nv-surface-raised))]">
-                <div className={`h-2 rounded-full bg-gradient-to-r from-violet-300/70 to-cyan-300/70`} style={{ width: item.pct }} />
+              <div className="mt-3 h-2 rounded-[2px] bg-[rgb(var(--nv-surface-raised))]">
+                <div className={`h-2 rounded-[2px] bg-gradient-to-r from-violet-300/70 to-cyan-300/70`} style={{ width: item.pct }} />
               </div>
               <p className="nv-body" style={{ marginTop: 12 }}>{item.note}</p>
             </div>

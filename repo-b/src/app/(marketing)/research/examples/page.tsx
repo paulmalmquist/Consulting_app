@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { getResearchBySlug } from '@/lib/marketing/content';
 import { OnThisPageDesktop, OnThisPageMobile } from '@/components/marketing/research/OnThisPage';
 import { ProofPatterns } from '@/components/marketing/research/ProofPatterns';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 
 type CalloutSection = {
   type: 'callout';
@@ -21,24 +23,26 @@ export default function ResearchExamplesPage() {
   const callout = entry.sections.find((section) => section.type === 'callout') as CalloutSection | undefined;
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <section className="space-y-4 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Research / Proof</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl">{entry.title}</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">{entry.summary}</p>
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="Research / Proof"
+        headline={entry.title}
+        lede={entry.summary}
+      >
         {callout && (
-          <div className="rounded-2xl border border-nv-teal/25 bg-nv-teal/8 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-nv-teal">{callout.title}</p>
-            <p className="mt-1 text-sm text-nv-teal">{callout.body}</p>
-          </div>
+          <NvCard padded={false} className="mt-6 p-4" liftOnHover={false}>
+            <p className="nv-eyebrow" style={{ color: 'rgb(var(--nv-accent-teal))' }}>{callout.title}</p>
+            <p className="nv-body" style={{ marginTop: 4, color: 'rgb(var(--nv-accent-teal))' }}>{callout.body}</p>
+          </NvCard>
         )}
-      </section>
+      </PageHeader>
 
-      <OnThisPageMobile links={[...ON_PAGE_LINKS]} />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <ProofPatterns entry={entry} />
-        <OnThisPageDesktop links={[...ON_PAGE_LINKS]} />
+      <div className="nv-section">
+        <OnThisPageMobile links={[...ON_PAGE_LINKS]} />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <ProofPatterns entry={entry} />
+          <OnThisPageDesktop links={[...ON_PAGE_LINKS]} />
+        </div>
       </div>
     </div>
   );

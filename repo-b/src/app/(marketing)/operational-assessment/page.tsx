@@ -15,8 +15,8 @@ export default function OperationalAssessmentPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="AI-Readiness Review"
-        headline="Identify your highest-friction workflow in four steps."
-        lede="Score your breakdown points before investing in a full rebuild. One workflow, real data, eight weeks."
+        headline="Help your team use AI with context, control, and confidence."
+        lede="We help your team apply AI to real work, using the data, rules, approvals, and records your business already depends on. The goal is simple: better answers, clearer next steps, and fewer unsupported decisions."
       />
 
       <section className="nv-section">
