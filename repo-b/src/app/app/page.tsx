@@ -54,51 +54,44 @@ function CenterModeA({
   isPlatformAdmin: boolean;
 }) {
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Execution layer</p>
-        <h2 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-tight text-white">
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
+          Execution layer
+        </p>
+        <h2 className="text-[clamp(1.75rem,3.2vw,2.4rem)] font-semibold leading-tight tracking-tight text-white">
           Ready
         </h2>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-white/60">
+        <p className="max-w-xl text-sm leading-6 text-white/60">
           {envCount > 0
-            ? `${envCount} workspace${envCount === 1 ? "" : "s"} provisioned. Select one from the left to enter.`
+            ? `${envCount} workspace${envCount === 1 ? "" : "s"} provisioned. Select one from the rail on the left to enter.`
             : "Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left."}
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-white/36">
+      <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
+        <span className="inline-flex items-center gap-2">
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: "rgba(107, 174, 127, 0.95)" }}
+          />
+          AI gateway online
+        </span>
+        <span className="text-white/20">/</span>
         <span>{envCount} environment{envCount === 1 ? "" : "s"}</span>
-        <span className="opacity-40">·</span>
-        <span>AI gateway online</span>
         {isPlatformAdmin && (
           <>
-            <span className="opacity-40">·</span>
-            <span className="text-white/50">Platform admin</span>
+            <span className="text-white/20">/</span>
+            <span style={{ color: "rgba(92, 213, 204, 0.85)" }}>Platform admin</span>
           </>
         )}
       </div>
-
-      {isPlatformAdmin && (
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">System</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {SYSTEM_LINKS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-colors duration-150 hover:bg-white/[0.06]"
-              >
-                <div className="text-sm font-medium text-white">{item.label}</div>
-                <p className="mt-1 text-xs leading-5 text-white/46">{item.detail}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+
+// Novendor action color — teal/cyan, used for primary CTA and selected accents.
+const ACTION_TEAL = "92, 213, 204";
 
 // ── Mode B: workspace preview ─────────────────────────────────────────────────
 function CenterModeB({
@@ -130,26 +123,41 @@ function CenterModeB({
     industry: environment.industry,
   });
 
+  const ctaContent = isOpening ? "Opening…" : capConfig.entryLabel;
+  const ctaClass =
+    "inline-flex h-11 items-center gap-3 rounded-md px-5 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-950 transition-[filter,box-shadow] duration-150 hover:brightness-110 disabled:pointer-events-none disabled:opacity-70";
+  const ctaStyle = {
+    background: `rgba(${ACTION_TEAL}, 0.92)`,
+    boxShadow: `0 0 0 1px rgba(${ACTION_TEAL}, 0.45), 0 12px 24px -16px rgba(${ACTION_TEAL}, 0.55)`,
+  } as const;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">{industryLabel}</p>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
+          {industryLabel}
+        </p>
         <h2
-          className="mt-3 text-[clamp(2rem,4vw,2.8rem)] font-semibold tracking-tight text-white"
-          style={{ textShadow: `0 0 28px rgba(${tone.glow}, 0.12)` }}
+          className="text-[clamp(1.75rem,3.2vw,2.4rem)] font-semibold leading-tight tracking-tight text-white"
+          style={{ textShadow: `0 0 24px rgba(${tone.glow}, 0.10)` }}
         >
           {clientName}
         </h2>
+        <p className="max-w-xl text-sm leading-6 text-white/60">
+          {workspaceDescription(environment.workspace_template_key, environment.industry_type || environment.industry)}
+        </p>
       </div>
 
       <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Capabilities</p>
-        <ul className="space-y-1.5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+          Capabilities
+        </p>
+        <ul className="grid gap-1.5 sm:grid-cols-2">
           {capConfig.capabilities.map((cap) => (
-            <li key={cap} className="flex items-center gap-3 text-sm text-white/72">
+            <li key={cap} className="flex items-center gap-2.5 text-[13px] text-white/75">
               <span
-                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: `rgba(${tone.glow}, 0.85)` }}
+                className="inline-block h-1 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: `rgba(${ACTION_TEAL}, 0.85)` }}
               />
               {cap}
             </li>
@@ -157,46 +165,190 @@ function CenterModeB({
         </ul>
       </div>
 
-      <div
-        className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]"
-        style={{
-          backgroundColor: `rgba(${tone.glow}, 0.10)`,
-          color: `rgba(${tone.glow}, 0.95)`,
-          border: `1px solid rgba(${tone.glow}, 0.22)`,
-        }}
-      >
+      <div className="flex flex-wrap items-center gap-3 pt-1">
         <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: `rgba(${tone.glow}, 0.9)` }}
-        />
-        {capConfig.dataPhrase}
+          className="inline-flex items-center gap-2 rounded-sm px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em]"
+          style={{
+            backgroundColor: `rgba(107, 174, 127, 0.10)`,
+            color: `rgba(140, 200, 158, 0.95)`,
+            border: `1px solid rgba(107, 174, 127, 0.28)`,
+          }}
+        >
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: `rgba(107, 174, 127, 0.95)` }}
+          />
+          {capConfig.dataPhrase}
+        </span>
       </div>
 
-      <div>
+      <div className="pt-2">
         {openPath ? (
-          <Link
-            href={openPath}
-            className="inline-flex h-12 items-center gap-3 rounded-2xl px-6 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105"
-            style={{
-              background: `linear-gradient(135deg, rgba(${tone.glow}, 0.95), rgba(${tone.glow}, 0.80))`,
-            }}
-          >
-            {isOpening ? "Opening…" : capConfig.entryLabel}
+          <Link href={openPath} className={ctaClass} style={ctaStyle}>
+            {ctaContent}
           </Link>
         ) : (
-          <button
-            type="button"
-            onClick={onOpen}
-            disabled={isOpening}
-            className="inline-flex h-12 items-center gap-3 rounded-2xl px-6 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition-[transform,filter] duration-150 hover:-translate-y-[1px] hover:brightness-105 disabled:pointer-events-none disabled:opacity-70"
-            style={{
-              background: `linear-gradient(135deg, rgba(${tone.glow}, 0.95), rgba(${tone.glow}, 0.80))`,
-            }}
-          >
-            {isOpening ? "Opening…" : capConfig.entryLabel}
+          <button type="button" onClick={onOpen} disabled={isOpening} className={ctaClass} style={ctaStyle}>
+            {ctaContent}
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function workspaceDescription(
+  templateKey: string | null | undefined,
+  industryType: string | null | undefined,
+): string {
+  const key = (templateKey || industryType || "").toLowerCase();
+  const map: Record<string, string> = {
+    repe_workspace: "Fund, asset, and capital intelligence for real estate private equity.",
+    trading_platform: "Regime, signals, and execution for systematic trading.",
+    pds_enterprise: "Property data ingestion, AI query, and executive briefings.",
+    credit_risk_hub: "Underwriting policy, decisioning, and audit chain for consumer credit.",
+    ecc_command: "Cross-entity executive command center for the operating group.",
+    legal_ops_command: "Matters, contracts, and outside counsel for legal operations.",
+    consulting_revenue_os: "Pipeline, engagement, and client intelligence for the consulting business.",
+    discovery_lab: "AI-assisted scoping and blueprinting for new engagements.",
+    data_studio: "Ingestion, mapping, and quality for the workspace data layer.",
+  };
+  return map[key] || "Operational workspace for the connected business surface.";
+}
+
+// ── Side panel: workspace metadata strip ──────────────────────────────────────
+function SidePanel({
+  environment,
+  envCount,
+}: {
+  environment: {
+    env_id: string;
+    client_name: string;
+    slug?: string | null;
+    industry?: string | null;
+    industry_type?: string | null;
+    workspace_template_key?: string | null;
+    is_active?: boolean;
+    created_at?: string;
+  } | null;
+  envCount: number;
+}) {
+  const tone = environment ? environmentTone(environment) : { glow: "148, 163, 184" };
+  const capConfig = environment
+    ? getCapabilityConfig(
+        environment.workspace_template_key,
+        environment.industry_type || environment.industry,
+      )
+    : null;
+  const templateLabel = environment?.workspace_template_key
+    ? environment.workspace_template_key.replace(/_/g, " ")
+    : "—";
+
+  return (
+    <aside className="hidden w-[280px] shrink-0 xl:block">
+      <div
+        className="rounded-md border bg-[rgba(8,11,18,0.7)] p-5"
+        style={{
+          borderColor: "rgba(232,236,242,0.10)",
+          boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 20px 40px -28px rgba(0,0,0,0.6)",
+        }}
+      >
+        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+          Workspace
+        </p>
+
+        {environment ? (
+          <div className="mt-4 space-y-4">
+            <SidePanelRow label="Type" value={capConfig?.entryLabel.replace(/^Open\s+/, "") || "—"} />
+            <SidePanelRow label="Template" value={templateLabel} mono />
+            <SidePanelRow
+              label="Industry"
+              value={humanIndustry(environment.industry_type || environment.industry)}
+            />
+            <SidePanelRow
+              label="Status"
+              value={environment.is_active === false ? "Inactive" : "Active"}
+              tone={environment.is_active === false ? "amber" : "teal"}
+            />
+            <SidePanelRow
+              label="Env ID"
+              value={environment.env_id.slice(0, 8)}
+              mono
+            />
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3 text-sm text-white/55">
+            <p>Select a workspace from the rail to see details.</p>
+          </div>
+        )}
+
+        <div
+          className="mt-6 border-t pt-4"
+          style={{ borderColor: "rgba(232,236,242,0.08)" }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+            Session
+          </p>
+          <div className="mt-3 space-y-2 text-[13px] text-white/65">
+            <div className="flex items-center justify-between">
+              <span>Workspaces</span>
+              <span className="text-white/85">{envCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>AI gateway</span>
+              <span className="inline-flex items-center gap-1.5 text-white/85">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: "rgba(107, 174, 127, 0.95)" }}
+                />
+                Online
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {environment ? (
+          <div
+            aria-hidden
+            className="mt-5 h-px w-full"
+            style={{
+              background: `linear-gradient(90deg, transparent, rgba(${tone.glow}, 0.35), transparent)`,
+            }}
+          />
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
+function SidePanelRow({
+  label,
+  value,
+  mono,
+  tone,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  tone?: "teal" | "amber";
+}) {
+  const toneColor =
+    tone === "amber"
+      ? "rgba(209, 161, 91, 0.95)"
+      : tone === "teal"
+        ? "rgba(140, 200, 158, 0.95)"
+        : "rgba(255,255,255,0.85)";
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/42">
+        {label}
+      </span>
+      <span
+        className={cn("truncate text-right text-[13px]", mono && "font-mono text-[12px]")}
+        style={{ color: toneColor }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -265,16 +417,16 @@ function AppIndexPageInner() {
     previewEnvironment === null ? "A" : "B";
 
   return (
-    <div className="min-h-screen bg-[#05070b] text-white">
+    <div className="min-h-screen bg-[#03070e] text-white">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70"
+        className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: [
-            "radial-gradient(circle at 14% 18%, rgba(22,163,74,0.14), transparent 24%)",
-            "radial-gradient(circle at 84% 22%, rgba(59,130,246,0.12), transparent 24%)",
-            "radial-gradient(circle at 72% 82%, rgba(249,115,22,0.12), transparent 22%)",
-            "linear-gradient(180deg, #06070b 0%, #090c12 48%, #05060a 100%)",
+            "radial-gradient(900px 480px at 8% -8%, rgba(92,213,204,0.07), transparent 60%)",
+            "radial-gradient(800px 520px at 92% 12%, rgba(176,64,255,0.05), transparent 62%)",
+            "radial-gradient(700px 500px at 50% 110%, rgba(88,64,255,0.04), transparent 60%)",
+            "linear-gradient(180deg, #04070e 0%, #060a14 50%, #03060c 100%)",
           ].join(", "),
         }}
       />
@@ -432,30 +584,47 @@ function AppIndexPageInner() {
       </div>
 
       {/* ── Desktop layout ────────────────────────────────────────────── */}
-      <div className="relative z-10 mx-auto hidden min-h-screen w-full max-w-[1440px] lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="border-b border-white/10 bg-[rgba(8,10,15,0.86)] px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r">
-          <div className="space-y-2">
-            <h1 className="font-command text-[2rem] uppercase tracking-[0.08em] text-white">Winston</h1>
+      <div className="relative z-10 mx-auto hidden min-h-screen w-full max-w-[1440px] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside
+          className="border-b px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r"
+          style={{
+            borderColor: "rgba(232,236,242,0.08)",
+            background: "rgba(6,9,16,0.78)",
+          }}
+        >
+          <div className="space-y-1">
+            <h1 className="font-command text-[1.7rem] uppercase tracking-[0.08em] text-white">
+              Winston
+            </h1>
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">
+              Workspace console
+            </p>
           </div>
 
-          <div className="mt-8 space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Available workspaces</p>
+          <div className="mt-7 space-y-2.5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+              Workspaces
+            </p>
             {loading ? (
-              <div className="space-y-2">
-                <div className="h-16 rounded-2xl border border-white/10 bg-white/[0.04]" />
-                <div className="h-16 rounded-2xl border border-white/10 bg-white/[0.04]" />
+              <div className="space-y-1.5">
+                <div className="h-14 rounded-md border border-white/[0.08] bg-white/[0.03]" />
+                <div className="h-14 rounded-md border border-white/[0.08] bg-white/[0.03]" />
               </div>
             ) : environments.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/58">
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-[13px] text-white/58">
                 No workspaces are provisioned to this account yet.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {environments.map((environment) => {
                   const isActive = selectedEnvironment?.env_id === environment.env_id;
                   const isOpening = openingEnvId === environment.env_id;
                   const tone = environmentTone(environment);
                   const clientName = assertEnvironmentClientName(environment);
+                  const capConfig = getCapabilityConfig(
+                    environment.workspace_template_key,
+                    environment.industry_type || environment.industry,
+                  );
                   return (
                     <button
                       key={environment.env_id}
@@ -465,31 +634,44 @@ function AppIndexPageInner() {
                       onMouseEnter={() => setHoveredEnvId(environment.env_id)}
                       onMouseLeave={() => setHoveredEnvId(null)}
                       className={cn(
-                        "w-full rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.98]",
+                        "group relative w-full overflow-hidden rounded-md border px-3.5 py-2.5 text-left transition-[border-color,background-color] duration-150",
                         isActive
-                          ? "bg-white/[0.08] text-white"
-                          : "bg-white/[0.03] text-white/78 hover:-translate-y-[1px] hover:bg-white/[0.05]",
+                          ? "bg-white/[0.06] text-white"
+                          : "bg-white/[0.02] text-white/75 hover:bg-white/[0.04] hover:text-white",
                         isOpening && "pointer-events-none opacity-70",
                       )}
                       style={{
-                        borderColor: isActive ? `rgba(${tone.glow}, 0.42)` : "rgba(255,255,255,0.08)",
-                        boxShadow: isActive ? `0 12px 28px -22px rgba(${tone.glow}, 0.55)` : undefined,
+                        borderColor: isActive
+                          ? `rgba(${ACTION_TEAL}, 0.38)`
+                          : "rgba(232,236,242,0.08)",
+                        boxShadow: isActive
+                          ? `inset 0 1px 0 0 rgba(${ACTION_TEAL}, 0.18), 0 0 0 1px rgba(${ACTION_TEAL}, 0.10)`
+                          : undefined,
                       }}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      {isActive ? (
+                        <span
+                          aria-hidden
+                          className="absolute inset-y-1.5 left-0 w-[2px] rounded-r-sm"
+                          style={{ backgroundColor: `rgba(${ACTION_TEAL}, 0.85)` }}
+                        />
+                      ) : null}
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <div className="truncate text-sm font-semibold text-white">
-                              {clientName}
-                            </div>
+                          <div className="truncate text-[13px] font-semibold text-white">
+                            {clientName}
                           </div>
-                          <p className="mt-1 text-xs leading-5 text-white/46">
-                            {humanIndustry(environment.industry_type || environment.industry)}
+                          <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+                            {capConfig.entryLabel.replace(/^Open\s+/, "")}
                           </p>
                         </div>
                         <span
-                          className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: `rgba(${tone.glow}, ${isOpening ? 0.5 : 0.9})` }}
+                          className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor: isActive
+                              ? `rgba(${ACTION_TEAL}, 0.95)`
+                              : `rgba(${tone.glow}, ${isOpening ? 0.4 : 0.7})`,
+                          }}
                         />
                       </div>
                     </button>
@@ -500,17 +682,19 @@ function AppIndexPageInner() {
           </div>
 
           {isPlatformAdmin ? (
-            <div className="mt-8 space-y-3">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">System</p>
-              <div className="space-y-2">
+            <div className="mt-7 space-y-2.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+                System
+              </p>
+              <div className="space-y-1">
                 {SYSTEM_LINKS.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="block rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-colors duration-150 hover:bg-white/[0.05]"
+                    className="block rounded-md border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 transition-colors duration-150 hover:border-white/[0.12] hover:bg-white/[0.04]"
                   >
-                    <div className="text-sm font-medium text-white">{item.label}</div>
-                    <p className="mt-1 text-xs leading-5 text-white/46">{item.detail}</p>
+                    <div className="text-[13px] font-medium text-white">{item.label}</div>
+                    <p className="mt-0.5 text-[11px] leading-4 text-white/46">{item.detail}</p>
                   </Link>
                 ))}
               </div>
@@ -518,45 +702,105 @@ function AppIndexPageInner() {
           ) : null}
         </aside>
 
-        <main className="flex min-h-screen flex-col px-6 py-6 lg:px-10 lg:py-10">
-          <div className="flex items-center justify-end gap-2">
-            <AccountMenu />
+        <main className="flex min-h-screen flex-col">
+          {/* Top system bar */}
+          <div
+            className="flex items-center justify-between gap-4 border-b px-8 py-3"
+            style={{
+              borderColor: "rgba(232,236,242,0.08)",
+              background: "rgba(6,9,16,0.55)",
+            }}
+          >
+            <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: "rgba(107, 174, 127, 0.95)" }}
+                />
+                Console online
+              </span>
+              <span className="text-white/20">/</span>
+              <span>{environments.length} workspace{environments.length === 1 ? "" : "s"}</span>
+              {isPlatformAdmin ? (
+                <>
+                  <span className="text-white/20">/</span>
+                  <span style={{ color: `rgba(${ACTION_TEAL}, 0.85)` }}>Platform admin</span>
+                </>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <AccountMenu />
+            </div>
           </div>
 
-          <div className="flex flex-1 items-center">
-            <div className="w-full max-w-3xl space-y-6">
-              {deniedMessage ? (
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                  {deniedMessage}
-                </div>
-              ) : null}
+          {/* Content area */}
+          <div className="flex flex-1 px-8 pt-10 pb-8 lg:px-10">
+            <div className="flex w-full gap-8">
+              {/* Primary detail panel — anchored top-left */}
+              <div className="flex-1 min-w-0 max-w-3xl space-y-4">
+                {deniedMessage ? (
+                  <div
+                    className="rounded-md border px-4 py-2.5 text-[13px]"
+                    style={{
+                      borderColor: "rgba(209, 161, 91, 0.30)",
+                      background: "rgba(209, 161, 91, 0.08)",
+                      color: "rgba(232, 200, 140, 0.95)",
+                    }}
+                  >
+                    {deniedMessage}
+                  </div>
+                ) : null}
 
-              {error ? (
-                <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                  {error}
-                </div>
-              ) : null}
+                {error ? (
+                  <div
+                    className="rounded-md border px-4 py-2.5 text-[13px]"
+                    style={{
+                      borderColor: "rgba(212, 122, 114, 0.30)",
+                      background: "rgba(212, 122, 114, 0.08)",
+                      color: "rgba(240, 180, 174, 0.95)",
+                    }}
+                  >
+                    {error}
+                  </div>
+                ) : null}
 
-              <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md lg:p-8">
                 <div
-                  key={previewEnvironment?.env_id ?? "mode-a"}
-                  className="transition-opacity duration-200"
+                  className="relative rounded-md border bg-[rgba(8,11,18,0.7)] p-7 backdrop-blur-md"
+                  style={{
+                    borderColor: previewEnvironment
+                      ? `rgba(${ACTION_TEAL}, 0.22)`
+                      : "rgba(232,236,242,0.10)",
+                    boxShadow: previewEnvironment
+                      ? `inset 0 1px 0 0 rgba(${ACTION_TEAL}, 0.16), 0 0 0 1px rgba(${ACTION_TEAL}, 0.06), 0 28px 56px -32px rgba(0,0,0,0.7)`
+                      : "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 28px 56px -32px rgba(0,0,0,0.7)",
+                  }}
                 >
-                  {centerMode === "A" && (
-                    <CenterModeA
-                      envCount={environments.length}
-                      isPlatformAdmin={isPlatformAdmin}
-                    />
-                  )}
-                  {centerMode === "B" && previewEnvironment && (
-                    <CenterModeB
-                      environment={previewEnvironment}
-                      onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
-                      isOpening={openingEnvId === previewEnvironment.env_id}
-                    />
-                  )}
+                  <div
+                    key={previewEnvironment?.env_id ?? "mode-a"}
+                    className="transition-opacity duration-200"
+                  >
+                    {centerMode === "A" && (
+                      <CenterModeA
+                        envCount={environments.length}
+                        isPlatformAdmin={isPlatformAdmin}
+                      />
+                    )}
+                    {centerMode === "B" && previewEnvironment && (
+                      <CenterModeB
+                        environment={previewEnvironment}
+                        onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
+                        isOpening={openingEnvId === previewEnvironment.env_id}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Secondary side panel — workspace metadata */}
+              <SidePanel
+                environment={previewEnvironment}
+                envCount={environments.length}
+              />
             </div>
           </div>
         </main>
