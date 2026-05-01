@@ -112,7 +112,7 @@ export default function AiAuditPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-bm-white">AI Decision Audit Trail</h1>
+        <h1 className="nv-h1 text-bm-white">AI Decision Audit Trail</h1>
         <p className="text-bm-muted2 mt-1">
           Every Winston AI decision is logged and traceable.
         </p>
@@ -142,7 +142,7 @@ export default function AiAuditPage() {
       {/* Accuracy Scorecard */}
       {accuracyStats && accuracyStats.scored_count > 0 && (
         <div className="bg-bm-surface/20 border border-bm-border/30 rounded-lg p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-bm-white uppercase tracking-wider">
+          <h2 className="nv-h3 text-bm-white">
             AI Accuracy Scorecard
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

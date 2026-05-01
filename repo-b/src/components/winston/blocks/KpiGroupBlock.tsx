@@ -11,9 +11,7 @@ export default function KpiGroupBlock({ block }: { block: KpiBlock }) {
 
   return (
     <div className="my-2 rounded-lg border border-bm-border/30 bg-bm-surface/20 p-4">
-      {block.title && (
-        <p className="text-sm font-semibold text-bm-text mb-3">{block.title}</p>
-      )}
+      {block.title && <p className="nv-h3 mb-3 text-bm-text">{block.title}</p>}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {items.map((item, idx) => {
           const label = String(item.label || "");
@@ -25,10 +23,10 @@ export default function KpiGroupBlock({ block }: { block: KpiBlock }) {
               key={idx}
               className="rounded-md border border-bm-border/20 bg-bm-surface/10 px-3 py-2.5"
             >
-              <p className="text-[11px] text-bm-muted uppercase tracking-wider mb-1">
+              <p className="nv-eyebrow mb-1 text-bm-muted">
                 {label}
               </p>
-              <p className="text-lg font-semibold text-bm-text leading-tight">
+              <p className="nv-metric-large text-bm-text">
                 {value}
               </p>
               {delta && (

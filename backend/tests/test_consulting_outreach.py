@@ -226,3 +226,5 @@ class TestOutreachAnalytics:
         assert data["meetings_booked_30d"] == 3
         assert len(data["by_channel"]) == 2
         assert len(data["by_template"]) == 1
+        analytics_sql = "\n".join(sql for sql, _ in fake_cursor.queries)
+        assert "direction = 'outbound'" in analytics_sql

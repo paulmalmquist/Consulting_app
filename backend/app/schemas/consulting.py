@@ -318,6 +318,7 @@ class OutreachLogCreateRequest(BaseModel):
     direction: str = "outbound"
     subject: str | None = None
     body_preview: str | None = None
+    sent_at: datetime | None = None
     meeting_booked: bool = False
     sent_by: str | None = None
 

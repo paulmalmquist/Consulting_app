@@ -158,7 +158,7 @@ export default function InvestorDetailPage() {
           <ArrowLeft className="h-3 w-3" /> All Investors
         </Link>
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-xl font-semibold text-bm-text">{partner.name}</h2>
+          <h2 className="nv-h2 text-bm-text">{partner.name}</h2>
           <span className="rounded-full bg-bm-surface/40 px-2 py-0.5 text-xs text-bm-muted2">
             {partner.partner_type === "lp" ? "LP" : partner.partner_type === "gp" ? "GP" : partner.partner_type}
           </span>
@@ -169,7 +169,7 @@ export default function InvestorDetailPage() {
 
       {/* Commitments Table */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-bm-text">Fund Commitments</h3>
+        <h3 className="nv-h3 mb-2 text-bm-text">Fund Commitments</h3>
         {commitments.length === 0 ? (
           <p className="text-sm text-bm-muted2">No commitments found.</p>
         ) : (

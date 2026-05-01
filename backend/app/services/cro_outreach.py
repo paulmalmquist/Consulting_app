@@ -72,10 +72,12 @@ def log_outreach(
     direction: str = "outbound",
     subject: str | None = None,
     body_preview: str | None = None,
+    sent_at: datetime | None = None,
     meeting_booked: bool = False,
     sent_by: str | None = None,
 ) -> dict:
     """Log an outreach touch. Optionally creates a crm_activity and bumps template use_count."""
+    touch_at = sent_at or datetime.now(timezone.utc)
     with get_cursor() as cur:
         tenant_id = resolve_tenant_id(cur, business_id)
 
@@ -94,7 +96,7 @@ def log_outreach(
                 str(crm_account_id),
                 str(crm_contact_id) if crm_contact_id else None,
                 channel, subject, body_preview,
-                datetime.now(timezone.utc),
+                touch_at,
             ),
         )
         activity_row = cur.fetchone()
@@ -106,9 +108,9 @@ def log_outreach(
             """
             INSERT INTO cro_outreach_log
               (crm_activity_id, env_id, business_id, crm_account_id, crm_contact_id,
-               template_id, channel, direction, subject, body_preview,
+               template_id, channel, direction, subject, body_preview, sent_at,
                meeting_booked, sent_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, crm_activity_id, env_id, business_id, crm_account_id,
                       crm_contact_id, template_id, channel, direction, subject,
                       body_preview, sent_at, replied_at, reply_sentiment,
@@ -120,7 +122,7 @@ def log_outreach(
                 str(crm_account_id),
                 str(crm_contact_id) if crm_contact_id else None,
                 str(template_id) if template_id else None,
-                channel, direction, subject, body_preview, meeting_booked, sent_by,
+                channel, direction, subject, body_preview, touch_at, meeting_booked, sent_by,
             ),
         )
         log_entry = cur.fetchone()
@@ -140,7 +142,7 @@ def log_outreach(
                  WHERE crm_account_id = %s AND business_id = %s::uuid
                 """,
                 (
-                    datetime.now(timezone.utc),
+                    touch_at,
                     sent_by,
                     channel if channel in ("email", "linkedin", "phone", "meeting", "other") else "other",
                     str(crm_account_id),
@@ -165,7 +167,7 @@ def log_outreach(
                 SET last_outreach_at = %s, updated_at = now()
                 WHERE crm_contact_id = %s
                 """,
-                (datetime.now(timezone.utc), str(crm_contact_id)),
+                (touch_at, str(crm_contact_id)),
             )
 
     emit_log(
@@ -317,6 +319,7 @@ def get_outreach_analytics(*, env_id: str, business_id: UUID) -> dict:
                 COUNT(*) FILTER (WHERE meeting_booked = true) AS meetings_booked_30d
             FROM cro_outreach_log
             WHERE env_id = %s AND business_id = %s
+              AND direction = 'outbound'
               AND sent_at >= now() - interval '30 days'
             """,
             (env_id, str(business_id)),
@@ -336,6 +339,7 @@ def get_outreach_analytics(*, env_id: str, business_id: UUID) -> dict:
                    COUNT(*) FILTER (WHERE meeting_booked = true) AS meetings
             FROM cro_outreach_log
             WHERE env_id = %s AND business_id = %s
+              AND direction = 'outbound'
               AND sent_at >= now() - interval '30 days'
             GROUP BY channel ORDER BY sent DESC
             """,
@@ -352,6 +356,7 @@ def get_outreach_analytics(*, env_id: str, business_id: UUID) -> dict:
             FROM cro_outreach_log o
             JOIN cro_outreach_template t ON t.id = o.template_id
             WHERE o.env_id = %s AND o.business_id = %s
+              AND o.direction = 'outbound'
               AND o.sent_at >= now() - interval '30 days'
             GROUP BY t.id, t.name ORDER BY sent DESC
             """,

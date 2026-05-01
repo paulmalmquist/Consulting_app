@@ -21,6 +21,10 @@ import { test, expect, type Page } from "@playwright/test";
 import * as path from "path";
 import * as fs from "fs";
 
+// Serial mode: browser UI tests share a DB connection pool — parallel runs hit
+// the pool limit and cause loading timeouts. API tests are fast and don't block.
+test.describe.configure({ mode: "serial" });
+
 const ENV_ID = "a1b2c3d4-0001-0001-0003-000000000001";
 
 // Three draft funds created by the Phase 4-5 runner

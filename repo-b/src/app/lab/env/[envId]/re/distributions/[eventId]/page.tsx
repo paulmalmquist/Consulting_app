@@ -159,7 +159,7 @@ export default function DistributionDetailPage() {
           <ArrowLeft className="h-3 w-3" /> Distribution Operations
         </Link>
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-xl font-semibold text-bm-text">
+          <h2 className="nv-h2 text-bm-text">
             {EVENT_TYPE_LABELS[event.event_type] || event.event_type} Distribution
           </h2>
           <span className={`rounded-full px-2 py-0.5 text-xs ${EVENT_STATUS_COLORS[event.status] || "bg-bm-surface/40 text-bm-muted2"}`}>
@@ -172,7 +172,7 @@ export default function DistributionDetailPage() {
 
       {/* Event Info */}
       <div className="rounded-xl border border-bm-border/30 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-bm-text">Event Information</h3>
+        <h3 className="nv-h3 mb-3 text-bm-text">Event Information</h3>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs uppercase tracking-wider text-bm-muted2">Fund</dt>
@@ -200,7 +200,7 @@ export default function DistributionDetailPage() {
       {/* Payout Type Breakdown */}
       {Object.keys(byType).length > 0 && (
         <div className="rounded-xl border border-bm-border/30 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-bm-text">Payout Breakdown by Type</h3>
+          <h3 className="nv-h3 mb-3 text-bm-text">Payout Breakdown by Type</h3>
           <div className="flex flex-wrap gap-3">
             {Object.entries(byType).map(([type, amount]) => (
               <div key={type} className="rounded-lg border border-bm-border/20 px-4 py-2">

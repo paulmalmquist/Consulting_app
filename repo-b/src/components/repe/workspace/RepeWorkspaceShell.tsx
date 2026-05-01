@@ -663,7 +663,7 @@ export default function RepeWorkspaceShell({
         className="m-6 border border-bm-border/30 bg-bm-surface/20 p-6 space-y-4"
         data-testid="re-context-error"
       >
-        <h2 className="text-lg font-semibold">Unable to load Real Estate workspace</h2>
+        <h2 className="nv-h2 text-bm-text">Unable to load Real Estate workspace</h2>
         <p className="text-sm text-bm-danger">{error}</p>
         {errorCode  && <p className="text-xs text-bm-muted2 font-mono">Error: {errorCode}</p>}
         {requestId  && <p className="text-xs text-bm-muted2">Request ID: {requestId}</p>}

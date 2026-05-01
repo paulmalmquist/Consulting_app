@@ -90,29 +90,29 @@ export default function ExecutiveView({
   const active = resolved.find((r) => r.key === activeKey) ?? null;
 
   return (
-    <div className="min-h-screen bg-[#f4f4f2] pb-16">
+    <div className="min-h-screen bg-bm-bg pb-16 text-bm-text">
       <div className="mx-auto max-w-7xl px-6 py-10 md:px-10 lg:px-12">
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-[0.26em]" style={{ color: "#1ba6d9" }}>
               NCF Reporting &amp; Stewardship Model
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
+            <h1 className="nv-h1 mt-3 text-bm-text">
               Executive view
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+            <p className="nv-body mt-3 max-w-3xl text-bm-muted2">
               One governed number per card. Click any metric to see what it represents, which reporting lens it uses, and where it came from. Ownership and scope travel with the value.
             </p>
           </div>
           <Link
             href={`/lab/env/${envId}/ncf`}
-            className="hidden shrink-0 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 md:inline-block"
+            className="hidden shrink-0 rounded-md border border-bm-border/50 bg-bm-surface/30 px-4 py-2 text-xs font-medium text-bm-muted2 shadow-sm hover:bg-bm-surface/45 hover:text-bm-text md:inline-block"
           >
             &larr; Back to model overview
           </Link>
         </div>
 
-        <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 shadow-sm">
+        <div className="mt-6 inline-flex items-center gap-3 rounded-md border border-bm-border/45 bg-bm-surface/30 px-4 py-2 text-xs text-bm-muted2 shadow-sm">
           <span
             className="inline-block h-2 w-2 rounded-full"
             style={{ backgroundColor: liveCount > 0 ? "#16a34a" : "#f59e0b" }}
@@ -120,7 +120,7 @@ export default function ExecutiveView({
           <span>
             {liveCount} of {resolved.length} metrics resolved from <span className="font-mono">ncf_metric</span>
           </span>
-          <span className="text-slate-400">&middot;</span>
+          <span className="text-bm-muted2">&middot;</span>
           <span>
             {liveCount === 0
               ? "Environment scaffolded; no metric rows seeded yet."
@@ -138,8 +138,8 @@ export default function ExecutiveView({
                   key={item.key}
                   type="button"
                   onClick={() => setActiveKey(item.key)}
-                  className={`group rounded-[22px] border bg-white p-5 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#1ba6d9]/40 ${
-                    isActive ? "ring-2 ring-[#1ba6d9]/60" : "border-slate-200"
+                  className={`group rounded-lg border bg-bm-surface/30 p-5 text-left shadow-sm transition hover:bg-bm-surface/45 focus:outline-none focus:ring-2 focus:ring-bm-accent/40 ${
+                    isActive ? "ring-2 ring-bm-accent/60" : "border-bm-border/40"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -153,16 +153,16 @@ export default function ExecutiveView({
                       Live
                     </span>
                   </div>
-                  <div className="mt-5 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                  <div className="nv-eyebrow mt-5 text-bm-muted2">
                     {item.label}
                   </div>
-                  <div className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
+                  <div className="nv-metric-large mt-1 text-bm-text">
                     {item.liveValue}
                   </div>
                   {item.periodLabel ? (
-                    <div className="mt-2 text-xs text-slate-500">{item.periodLabel}</div>
+                    <div className="mt-2 text-xs text-bm-muted2">{item.periodLabel}</div>
                   ) : null}
-                  <div className="mt-4 text-[11px] text-slate-400 group-hover:text-slate-600">
+                  <div className="mt-4 text-[11px] text-bm-muted2 group-hover:text-bm-text">
                     Click for provenance &rarr;
                   </div>
                 </button>
@@ -173,7 +173,7 @@ export default function ExecutiveView({
             return (
               <div
                 key={item.key}
-                className="rounded-[22px] border border-dashed border-slate-300 bg-white/60 p-5 text-left shadow-none"
+                className="rounded-lg border border-dashed border-bm-border/45 bg-bm-surface/18 p-5 text-left shadow-none"
               >
                 <div className="flex items-center justify-between">
                   <span
@@ -186,13 +186,13 @@ export default function ExecutiveView({
                     Unwired
                   </span>
                 </div>
-                <div className="mt-5 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                <div className="nv-eyebrow mt-5 text-bm-muted2">
                   {item.label}
                 </div>
-                <div className="mt-1 text-lg font-semibold text-slate-500">
+                <div className="nv-h3 mt-1 text-bm-text">
                   Not available in current context
                 </div>
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-bm-muted2">
                   No row in <span className="font-mono">ncf_metric</span> for this key yet. Fail-closed per design.
                 </div>
               </div>
@@ -200,15 +200,15 @@ export default function ExecutiveView({
           })}
         </div>
 
-        <div className="mt-10 rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500">
+        <div className="mt-10 rounded-lg border border-bm-border/40 bg-bm-surface/25 p-6 shadow-sm md:p-8">
+          <div className="nv-eyebrow text-bm-muted2">
             Why the executive view looks like this
           </div>
-          <div className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
+          <div className="nv-body mt-3 max-w-3xl text-bm-muted2">
             Every number carries a reporting lens and a source path. Financial, operational, and impact lenses answer different questions and are never flattened into a single summary.
             When a leader asks <span className="italic">&ldquo;is this financial or impact?&rdquo;</span> the answer is on the card. When they ask <span className="italic">&ldquo;where did this come from?&rdquo;</span> it is one click away.
           </div>
-          <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-600">
+          <div className="mt-5 flex flex-wrap gap-4 text-xs text-bm-muted2">
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: "#1ba6d9" }} />
               Financial reporting &mdash; audited consolidated view
@@ -226,22 +226,22 @@ export default function ExecutiveView({
       </div>
 
       {active && active.status === "live" ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/40" onClick={() => setActiveKey(null)}>
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/60" onClick={() => setActiveKey(null)}>
           <div
-            className="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
+            className="h-full w-full max-w-xl overflow-y-auto bg-bm-bg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-bm-border/40 px-6 py-4">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                <div className="nv-eyebrow text-bm-muted2">
                   Metric provenance
                 </div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">{active.label}</div>
+                <div className="nv-h3 mt-1 text-bm-text">{active.label}</div>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveKey(null)}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-bm-border/40 px-3 py-1 text-xs text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text"
               >
                 Close
               </button>
@@ -249,7 +249,7 @@ export default function ExecutiveView({
 
             <div className="space-y-6 px-6 py-6">
               <div>
-                <div className="text-4xl font-semibold tracking-tight text-slate-900">{active.liveValue}</div>
+                <div className="nv-metric-large text-bm-text">{active.liveValue}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span
                     className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
@@ -262,56 +262,56 @@ export default function ExecutiveView({
                   </span>
                 </div>
                 {active.periodLabel ? (
-                  <div className="mt-2 text-xs text-slate-500">Period: {active.periodLabel}</div>
+                  <div className="mt-2 text-xs text-bm-muted2">Period: {active.periodLabel}</div>
                 ) : null}
               </div>
 
               <section>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">What it represents</div>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{active.shape.represents}</p>
+                <div className="nv-eyebrow text-bm-muted2">What it represents</div>
+                <p className="nv-body mt-2 max-w-none text-bm-muted2">{active.shape.represents}</p>
               </section>
 
               <section>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Which reporting lens it uses</div>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
+                <div className="nv-eyebrow text-bm-muted2">Which reporting lens it uses</div>
+                <p className="nv-body mt-2 max-w-none text-bm-muted2">
                   This number is governed under the <span className="font-medium">{active.lens.replace("_", " ")}</span> lens.
                   Other lenses may report a different figure for the same underlying activity, and that is deliberate.
                 </p>
               </section>
 
               <section>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Where it came from</div>
-                <div className="mt-3 space-y-3 rounded-xl bg-slate-50 p-4 text-xs text-slate-700">
+                <div className="nv-eyebrow text-bm-muted2">Where it came from</div>
+                <div className="mt-3 space-y-3 rounded-lg bg-bm-surface/35 p-4 text-xs text-bm-muted2">
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Source</div>
-                    <div className="mt-1 font-mono text-[11px] text-slate-800">{active.sourcePath}</div>
+                    <div className="nv-eyebrow text-bm-muted2">Source</div>
+                    <div className="nv-metric mt-1 text-[11px] text-bm-text">{active.sourcePath}</div>
                   </div>
                   {active.sourceQueryHash ? (
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Query hash</div>
-                      <div className="mt-1 font-mono text-[11px] text-slate-800">{active.sourceQueryHash}</div>
+                      <div className="nv-eyebrow text-bm-muted2">Query hash</div>
+                      <div className="nv-metric mt-1 text-[11px] text-bm-text">{active.sourceQueryHash}</div>
                     </div>
                   ) : null}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Owner</div>
-                      <div className="mt-1 text-slate-800">{active.owner}</div>
+                      <div className="nv-eyebrow text-bm-muted2">Owner</div>
+                      <div className="mt-1 text-bm-text">{active.owner}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Scope</div>
-                      <div className="mt-1 text-slate-800">{active.shape.scope}</div>
+                      <div className="nv-eyebrow text-bm-muted2">Scope</div>
+                      <div className="mt-1 text-bm-text">{active.shape.scope}</div>
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Last refreshed</div>
-                    <div className="mt-1 text-slate-800">{new Date(active.liveRefreshedAt).toLocaleString()}</div>
+                    <div className="nv-eyebrow text-bm-muted2">Last refreshed</div>
+                    <div className="mt-1 text-bm-text">{new Date(active.liveRefreshedAt).toLocaleString()}</div>
                   </div>
                 </div>
               </section>
 
               <section>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Lineage notes</div>
-                <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+                <div className="nv-eyebrow text-bm-muted2">Lineage notes</div>
+                <ul className="nv-body mt-2 max-w-none space-y-2 text-bm-muted2">
                   {active.lineageNotes.map((note) => (
                     <li key={note} className="flex gap-2">
                       <span className="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />

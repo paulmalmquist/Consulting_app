@@ -91,7 +91,7 @@ export default function IrReviewPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-bm-white">Investor Relations Review</h1>
+        <h1 className="nv-h1 text-bm-white">Investor Relations Review</h1>
         <p className="text-bm-muted2 mt-1">
           Review and approve AI-drafted LP letters and capital statements.
         </p>

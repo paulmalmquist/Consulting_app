@@ -201,7 +201,7 @@ def _to_http(exc: Exception) -> HTTPException:
             {
                 "error_code": "SCHEMA_NOT_MIGRATED",
                 "message": "Consulting Revenue OS schema not migrated.",
-                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431, 457, 460, 461.",
+                "detail": "Check /bos/api/consulting/health for full status. Required: migrations 260, 280, 281, 302, 311, 431, 457, 460, 461, 606.",
                 "health_check_url": "/bos/api/consulting/health",
             },
         )
@@ -230,6 +230,7 @@ _REQUIRED_TABLES = {
     "457": ["cro_execution_profile", "cro_execution_audit"],
     "460": ["cro_app_inbox_item", "cro_app_record", "cro_app_pattern", "cro_app_pattern_evidence"],
     "461": ["cro_app_opportunity", "cro_app_weekly_memo"],
+    "606": ["cro_email_source_message", "cro_email_sync_subscription"],
 }
 
 
@@ -639,6 +640,7 @@ def log_outreach(body: OutreachLogCreateRequest):
             template_id=body.template_id,
             channel=body.channel, direction=body.direction,
             subject=body.subject, body_preview=body.body_preview,
+            sent_at=body.sent_at,
             meeting_booked=body.meeting_booked, sent_by=body.sent_by,
         )
         _log("cro.outreach.logged", f"Outreach logged: {body.channel}")

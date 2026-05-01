@@ -373,6 +373,36 @@ export type AssistantResponseBlock =
       source_block_id?: string | null;
     }
   | {
+      type: "comparison_result";
+      block_id: string;
+      title?: string | null;
+      metric_key?: string | null;
+      comparison_window_policy?: string | null;
+      ranking_basis?: string | null;
+      included: Array<Record<string, unknown>>;
+      excluded: Array<Record<string, unknown>>;
+      coverage: {
+        total?: number | null;
+        included?: number | null;
+        excluded?: number | null;
+        by_reason?: Record<string, number>;
+      };
+      snapshot_ids_used?: string[];
+      data_snapshot_hash?: string | null;
+      sql_trace?: Array<Record<string, unknown>>;
+    }
+  | {
+      type: "unavailable_with_reason";
+      block_id: string;
+      title?: string | null;
+      reason_code: string;
+      explanation?: string | null;
+      metric_key?: string | null;
+      entity_label?: string | null;
+      data_snapshot_hash?: string | null;
+      sql_trace?: Array<Record<string, unknown>>;
+    }
+  | {
       type: "kpi_group";
       block_id: string;
       title?: string | null;

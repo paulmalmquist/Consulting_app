@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Investment Engine page — Phase 7 acceptance test.
@@ -79,7 +79,7 @@ const NAV_FAIL = {
   input_versions: {},
 };
 
-async function stubEnvAndFunds(page) {
+async function stubEnvAndFunds(page: Page) {
   // Environment registry list (used by admin shell)
   await page.route("**/api/lab/env-context/**", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ENV_FIXTURE) }),

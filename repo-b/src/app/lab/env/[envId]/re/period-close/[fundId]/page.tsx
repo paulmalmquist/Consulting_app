@@ -183,7 +183,7 @@ export default function FundPeriodCloseDetailPage() {
           <ArrowLeft className="h-3 w-3" /> All Period Closes
         </Link>
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-xl font-semibold text-bm-text">{fund.name}</h2>
+          <h2 className="nv-h2 text-bm-text">{fund.name}</h2>
           {fund.strategy && (
             <span className="rounded-full bg-bm-surface/40 px-2 py-0.5 text-xs text-bm-muted2">
               {fund.strategy}

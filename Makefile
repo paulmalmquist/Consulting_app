@@ -163,7 +163,7 @@ verify-backend:  ## Schema + endpoint contract tests
 	cd backend && python -m pytest tests/test_re_env_portfolio.py tests/test_pds_v2_routes.py -x --tb=short -q
 
 verify-finance:  ## Python metric parity unit tests
-	cd backend && python -m pytest tests/ -k "portfolio or fund_table or query_resolver" -x --tb=short -q
+	cd backend && python -m pytest tests/ -k "portfolio or fund_portfolio or query_resolver" -x --tb=short -q
 
 verify-api:  ## Cross-layer SQL vs Python vs API reconciliation
 	python verification/runners/run_spec.py verification/specs/query_resolver.yaml --quarter 2026Q2

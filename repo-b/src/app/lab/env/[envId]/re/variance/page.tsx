@@ -259,7 +259,7 @@ export default function VariancePage() {
     <section className="flex flex-col gap-4" data-testid="budget-variance">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Budget vs Actual Variance</h2>
+          <h2 className="nv-h2 text-bm-text">Budget vs Actual Variance</h2>
           <p className="mt-1 text-sm text-bm-muted2">
             Compare actual NOI performance against underwriting plan by asset and line code.
           </p>

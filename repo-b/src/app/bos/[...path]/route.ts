@@ -31,6 +31,24 @@ function inferUpstreamOrigin(request: NextRequest): string {
   return `https://api.${root}`;
 }
 
+// Synthetic stub responses for Playwright bypass mode (PLAYWRIGHT_BYPASS_AUTH=1).
+// Returned in place of real BOS backend calls so tests don't need a running backend.
+function playwrightStub(upstreamPath: string, envId: string | null): Response | null {
+  if (process.env.PLAYWRIGHT_BYPASS_AUTH !== "1") return null;
+
+  // /api/re/v1/context and /api/re/v1/context/bootstrap
+  if (upstreamPath === "/api/re/v1/context" || upstreamPath === "/api/re/v1/context/bootstrap") {
+    return Response.json({
+      business_id: "b1b2c3d4-0001-0001-0001-000000000001",
+      is_bootstrapped: true,
+      funds_count: 3,
+      env_id: envId,
+    });
+  }
+
+  return null;
+}
+
 async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const start = Date.now();
   const upstreamOrigin = inferUpstreamOrigin(request);
@@ -40,6 +58,10 @@ async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string
 
   // Reconstruct the original path: /bos/api/repe/context → /api/repe/context
   const upstreamPath = `/${(path || []).join("/")}`;
+  const stubEnvId = incomingUrl.searchParams.get("env_id") || null;
+  const stub = playwrightStub(upstreamPath, stubEnvId);
+  if (stub) return stub;
+
   let upstreamUrl: URL;
   if (upstreamOrigin.startsWith("/")) {
     const currentOrigin = new URL(request.url).origin;

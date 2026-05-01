@@ -1,0 +1,269 @@
+/*
+  NOVENDOR TYPOGRAPHY CONTRACT
+  Shared by marketing and Winston operating surfaces.
+
+  Headings must use .nv-h1 / .nv-h2 / .nv-h3.
+  Tables must use .nv-table-header / .nv-table-cell / .nv-metric.
+  Do not use text-3xl, text-4xl, text-[NNpx], font-semibold, font-sans,
+  or font-display to restyle headings inside .marketing-shell or .re-shell.
+*/
+
+@font-face {
+  font-family: "Abadi";
+  src: local("Abadi"), local("Abadi MT"), url("/fonts/Abadi-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Abadi";
+  src: local("Abadi"), local("Abadi MT"), url("/fonts/Abadi-Regular.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Abadi";
+  src: local("Abadi Bold"), local("Abadi MT Bold"), url("/fonts/Abadi-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root,
+.marketing-shell,
+.re-shell {
+  --font-abadi: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
+  --nv-font-sans: var(--font-geist-sans, var(--font-body, "Geist", ui-sans-serif, sans-serif));
+  --nv-font-mono: var(--font-geist-mono, var(--font-mono, "Geist Mono", ui-monospace, monospace));
+}
+
+.re-shell {
+  font-family: var(--nv-font-sans);
+  color-scheme: dark;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.nv-brand-font {
+  font-family: var(--nv-font-sans);
+}
+
+.nv-headline {
+  font-family: var(--font-abadi);
+  font-weight: 500;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+.nv-subheadline {
+  font-family: var(--nv-font-sans);
+  letter-spacing: -0.005em;
+  color: rgb(var(--nv-text-secondary, 186 201 219));
+}
+
+.nv-hero-emphasis {
+  font-family: var(--font-abadi);
+  font-style: normal;
+  font-weight: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: rgb(var(--nv-accent-teal, 92 213 204));
+}
+
+.nv-h1,
+.nv-h2,
+.nv-h3 {
+  font-family: var(--font-abadi);
+  color: rgb(var(--nv-text-primary, 239 246 255));
+  text-wrap: balance;
+  margin: 0;
+}
+
+.nv-h1 {
+  font-weight: 500;
+  font-size: 84px;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  max-width: 960px;
+}
+
+.nv-h1 em {
+  font-style: normal;
+  color: rgb(var(--nv-accent-teal, 92 213 204));
+  font-weight: 500;
+}
+
+.nv-h2 {
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.nv-h3 {
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.nv-eyebrow {
+  font-family: var(--nv-font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-tertiary, 116 132 154));
+  margin: 0;
+}
+
+.nv-eyebrow .nv-eyebrow-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--nv-accent-teal, 92 213 204));
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px rgb(var(--nv-accent-teal, 92 213 204) / 0.5);
+}
+
+.nv-lede {
+  font-family: var(--nv-font-sans);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.55;
+  color: rgb(var(--nv-text-secondary, 186 201 219));
+  max-width: 680px;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.nv-body {
+  font-family: var(--nv-font-sans);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgb(var(--nv-text-secondary, 186 201 219));
+  max-width: 54ch;
+}
+
+.nv-small {
+  font-family: var(--nv-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgb(var(--nv-text-tertiary, 116 132 154));
+}
+
+.nv-table-header {
+  font-family: var(--nv-font-mono);
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: rgb(var(--nv-text-tertiary, 116 132 154));
+}
+
+.nv-table-cell {
+  font-family: var(--nv-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nv-metric {
+  font-family: var(--nv-font-mono);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.nv-metric-large {
+  font-family: var(--font-abadi);
+  font-size: 28px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.re-shell .nv-h1 {
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.re-shell .nv-h2 {
+  font-size: clamp(20px, 2.4vw, 28px);
+  line-height: 1.12;
+}
+
+.re-shell .nv-h3 {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+/*
+  Lab dark guardrail.
+  Some legacy REPE/NCF surfaces still carry light utility classes while they are
+  being migrated to .nv-* primitives. Inside .re-shell, render those known
+  light-only tokens as dark operating-console surfaces.
+*/
+.re-shell [class~="bg-white"],
+.re-shell [class~="bg-white/70"],
+.re-shell [class~="bg-white/85"],
+.re-shell [class~="bg-white/90"],
+.re-shell [class~="bg-gray-50"],
+.re-shell [class~="bg-slate-50"],
+.re-shell [class~="bg-neutral-50"],
+.re-shell [class~="bg-[#F8FAFC]"],
+.re-shell [class~="bg-[#FFFFFF]"] {
+  background-color: rgb(15 23 42 / 0.82) !important;
+}
+
+.re-shell [class~="border-slate-200"],
+.re-shell [class~="border-neutral-200"],
+.re-shell [class~="border-[#E2E8F0]"],
+.re-shell [class~="border-[#E5E7EB]"],
+.re-shell [class~="border-[#CBD5E1]"] {
+  border-color: rgb(255 255 255 / 0.10) !important;
+}
+
+.re-shell [class~="text-slate-900"],
+.re-shell [class~="text-black"],
+.re-shell [class~="text-[#0F172A]"],
+.re-shell [class~="text-[#121826]"] {
+  color: rgb(239 246 255) !important;
+}
+
+.re-shell [class~="text-slate-700"],
+.re-shell [class~="text-slate-600"],
+.re-shell [class~="text-[#475569]"],
+.re-shell [class~="text-[#64748B]"],
+.re-shell [class~="text-[#6B7280]"] {
+  color: rgb(186 201 219) !important;
+}
+
+@media (max-width: 767px) {
+  .nv-h1 {
+    font-size: 44px;
+    line-height: 1.05;
+  }
+
+  .nv-h2 {
+    font-size: 32px;
+    line-height: 1.15;
+  }
+
+  .nv-lede {
+    font-size: 17px;
+  }
+
+  .re-shell .nv-h1 {
+    font-size: 32px;
+  }
+}

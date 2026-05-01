@@ -173,7 +173,7 @@ export default function OutreachPage({
         <div>
           <CardTitle>Leads &amp; Outreach</CardTitle>
           <p className="text-sm text-bm-muted mt-2">
-            Lead qualification, source mix, and recent outbound activity.
+            Lead qualification, source mix, and recent inbound/outbound activity.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -436,11 +436,18 @@ export default function OutreachPage({
                         {entry.contact_name ? `→ ${entry.contact_name}` : ""}
                       </p>
                       <p className="text-xs text-bm-muted2 mt-0.5">
-                        {entry.channel} · {entry.direction} · {" "}
+                        {entry.channel} · {entry.direction === "inbound" ? "Inbound reply" : "Outbound touch"} · {" "}
                         {entry.subject || "No subject"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        entry.direction === "inbound"
+                          ? "bg-bm-warning/10 text-bm-warning"
+                          : "bg-bm-accent/10 text-bm-accent"
+                      }`}>
+                        {entry.direction === "inbound" ? "Inbound" : "Outbound"}
+                      </span>
                       {entry.replied_at ? (
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
                           entry.reply_sentiment === "positive"

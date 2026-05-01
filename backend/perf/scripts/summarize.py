@@ -21,20 +21,24 @@ def _load_json(path: Path) -> dict:
 
 def _metrics_from_summary(payload: dict) -> dict:
     metrics = payload.get("metrics", {})
-    dur = ((metrics.get("http_req_duration") or {}).get("values") or {})
-    failed = ((metrics.get("http_req_failed") or {}).get("values") or {})
+    dur_metric = metrics.get("http_req_duration") or {}
+    fail_metric = metrics.get("http_req_failed") or {}
+    req_metric = metrics.get("http_reqs") or {}
+    dur = dur_metric.get("values") or dur_metric
+    failed = fail_metric.get("values") or fail_metric
 
     def _rate(name: str) -> float:
-        values = ((metrics.get(name) or {}).get("values") or {})
-        return float(values.get("rate", 0.0) or 0.0)
+        metric = metrics.get(name) or {}
+        values = metric.get("values") or metric
+        return float(values.get("rate", values.get("value", 0.0)) or 0.0)
 
     return {
-        "requests": int(dur.get("count", 0) or 0),
+        "requests": int(req_metric.get("count", dur.get("count", 0)) or 0),
         "p50_ms": float(dur.get("med", 0.0) or 0.0),
         "p95_ms": float(dur.get("p(95)", 0.0) or 0.0),
         "p99_ms": float(dur.get("p(99)", 0.0) or 0.0),
         "max_ms": float(dur.get("max", 0.0) or 0.0),
-        "error_rate": float(failed.get("rate", 0.0) or 0.0),
+        "error_rate": float(failed.get("rate", failed.get("value", 0.0)) or 0.0),
         "citation_missing_rate": _rate("citation_missing"),
         "header_missing_rate": _rate("header_missing"),
         "diagnostics_missing_rate": _rate("diagnostics_missing"),

@@ -1145,7 +1145,7 @@ async def run_request_lifecycle(
     )
     if meridian_structured is not None:
         response_text = meridian_structured.text
-        response_blocks = [markdown_block(response_text)]
+        response_blocks = meridian_structured.response_blocks or [markdown_block(response_text)]
         turn_status = TurnStatus.DEGRADED if meridian_structured.receipt.degraded else TurnStatus.SUCCESS
         turn_receipt = TurnReceipt(
             request_id=request_id,
@@ -1426,6 +1426,28 @@ async def run_request_lifecycle(
         yield _sse("response_block", {"block": citation_block})
 
     if degraded_reason is not None:
+        unavailable_reason = None
+        data_snapshot_hash = None
+        if degraded_reason == DegradedReason.RETRIEVAL_EMPTY:
+            unavailable_reason = "unclassified_unavailable"
+            try:
+                from datetime import date
+                from app.assistant_runtime.metric_normalizer import extract_metric
+                from app.services.repe_eval_capabilities import explain_unavailable_metric
+
+                metric_key = extract_metric(message) or routed_skill.selection.skill_id or "unsupported_metric"
+                if resolved_scope.environment_id and resolved_scope.entity_type and resolved_scope.entity_id:
+                    classified = explain_unavailable_metric(
+                        env_id=resolved_scope.environment_id,
+                        metric_key=str(metric_key),
+                        entity_type=resolved_scope.entity_type,
+                        entity_id=resolved_scope.entity_id,
+                        period=date.today().isoformat(),
+                    )
+                    unavailable_reason = classified.get("reason_code") or unavailable_reason
+                    data_snapshot_hash = classified.get("data_snapshot_hash")
+            except Exception:
+                unavailable_reason = "unclassified_unavailable"
         context_blocks, message_text = degraded_blocks_with_context(
             degraded_reason,
             entity_type=resolved_scope.entity_type,
@@ -1433,6 +1455,8 @@ async def run_request_lifecycle(
             entity_name=resolved_scope.entity_name,
             env_id=resolved_scope.environment_id,
             skill_id=routed_skill.selection.skill_id,
+            unavailable_reason=unavailable_reason,
+            data_snapshot_hash=data_snapshot_hash,
         )
         response_blocks = context_blocks + response_blocks
         turn_receipt = TurnReceipt(
@@ -1954,6 +1978,9 @@ async def run_request_lifecycle(
         quality_gates=gate_dicts,
     )
     if final_status == TurnStatus.DEGRADED and not collected_content.strip():
+        late_unavailable_reason = (
+            "unclassified_unavailable" if (final_reason or DegradedReason.TOOL_FAILED) == DegradedReason.RETRIEVAL_EMPTY else None
+        )
         late_blocks, late_msg = degraded_blocks_with_context(
             final_reason or DegradedReason.TOOL_FAILED,
             entity_type=resolved_scope.entity_type,
@@ -1961,6 +1988,7 @@ async def run_request_lifecycle(
             entity_name=resolved_scope.entity_name,
             env_id=resolved_scope.environment_id,
             skill_id=routed_skill.selection.skill_id,
+            unavailable_reason=late_unavailable_reason,
         )
         response_blocks = late_blocks + response_blocks
         yield _sse("token", {"text": late_msg})

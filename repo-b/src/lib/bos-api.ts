@@ -5220,6 +5220,139 @@ export function getPortfolioAuthoritativeStates(
   );
 }
 
+// ── Coherent Fund Portfolio payload ──────────────────────────────────────────
+// Single canonical source for the Fund Portfolio page. Replaces the prior
+// three-call stitch (listReV1Funds + getPortfolioAuthoritativeStates +
+// getReV2EnvironmentPortfolioKpis), which produced incoherent UI state because
+// each endpoint applied a different definition of "included fund". Backed by
+// re_fund_portfolio_included_v / re_fund_portfolio_excluded_v.
+//
+// Plan / gap report: audit/fund_portfolio_coherence/gap_report.md.
+
+export interface NavReconciliation {
+  displayed_fund_nav_sum: string;
+  portfolio_nav: string;
+  rounding_delta: string;
+  tolerance: string;
+  status: "reconciled" | "drift";
+}
+
+export interface MetricWithProvenance {
+  value: string | null;
+  provenance: "authoritative" | "legacy_quarter_state";
+  null_reason: string | null;
+}
+
+export interface CoherentFundRow {
+  fund_id: string;
+  name: string;
+  vintage_year: number | null;
+  fund_type: string | null;
+  strategy: string | null;
+  sub_strategy: string | null;
+  target_size: string | null;
+  status: string | null;
+  base_currency: string | null;
+  inception_date: string | null;
+  env_id: string;
+  quarter: string;
+  snapshot_version: string | null;
+  audit_run_id: string | null;
+  promotion_state: string;
+  trust_status: string;
+  breakpoint_layer: string | null;
+  portfolio_nav: string | null;
+  total_committed: string | null;
+  total_called: string | null;
+  total_distributed: string | null;
+  gross_irr: string | null;
+  net_irr: string | null;
+  dpi: string | null;
+  rvpi: string | null;
+  tvpi: string | null;
+  weighted_dscr: MetricWithProvenance;
+  weighted_ltv: MetricWithProvenance;
+  null_reasons: Record<string, string>;
+  canonical_metrics_excerpt: {
+    asset_count: number | null;
+    investment_count: number | null;
+    scope: Record<string, unknown> | null;
+  };
+}
+
+export type FundExclusionReason =
+  | "quarantined"
+  | "archived"
+  | "draft_only"
+  | "no_released_snapshot"
+  | "scope_incomplete";
+
+export interface FundDiagnosticEntry {
+  fund_id: string;
+  fund_name: string;
+  status: string | null;
+  exclusion_reason: FundExclusionReason | string;
+  latest_quarter: string | null;
+  latest_audit_run_id: string | null;
+  latest_promotion_state: string | null;
+  null_reasons: Record<string, unknown>;
+  source_table: string;
+}
+
+export interface PortfolioSummary {
+  fund_count: number;
+  diagnostics_count: number;
+  total_commitments: string | null;
+  portfolio_nav: string | null;
+  active_assets: number;
+  gross_irr: string | null;
+  net_irr: string | null;
+  weighted_dscr: MetricWithProvenance;
+  nav_reconciliation: NavReconciliation;
+  warnings: string[];
+  null_reasons: Record<string, string>;
+}
+
+export interface PortfolioProvenance {
+  // Locked literal — must always be "nav_weighted_average". Surfaced in the
+  // header `[NAV-weighted, n=N]` badge so the metric is never miscalled
+  // "portfolio IRR".
+  irr_method: "nav_weighted_average";
+  irr_method_n_funds: number;
+  irr_method_denominator_nav: string;
+  source_snapshots: Array<{
+    fund_id: string;
+    audit_run_id: string | null;
+    snapshot_version: string | null;
+    promotion_state: string | null;
+    trust_status: string | null;
+  }>;
+  mixed_release_states: boolean;
+  per_fund_snapshot_version: Record<string, string | null>;
+  weighted_dscr_provenance: string;
+  weighted_ltv_provenance: string;
+}
+
+export interface CoherentPortfolioPayload {
+  env_id: string;
+  business_id: string;
+  quarter: string;
+  portfolio_summary: PortfolioSummary;
+  fund_rows: CoherentFundRow[];
+  diagnostics: FundDiagnosticEntry[];
+  provenance: PortfolioProvenance;
+}
+
+export function getFundPortfolioCoherent(
+  envId: string,
+  quarter: string,
+): Promise<CoherentPortfolioPayload> {
+  return directFetch(
+    `/api/re/v2/environments/${envId}/fund-portfolio`,
+    { params: { quarter } },
+  );
+}
+
 // Fund Decomposition — Gross Contribution Overlay ──────────────────────────
 //
 // NOT a KPI fetcher. Response always carries state_origin:"decomposition_overlay"

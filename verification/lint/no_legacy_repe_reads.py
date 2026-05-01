@@ -145,6 +145,15 @@ ALLOWLIST_FILES = {
     "backend/app/services/re_authoritative_snapshots.py",
     "backend/app/routes/re_authoritative.py",
     "backend/app/schemas/re_authoritative.py",
+    # Winston REPE eval guardrail service references banned table names only
+    # to reject them in capability SQL contracts.
+    "backend/app/services/repe_eval_capabilities.py",
+    # Winston eval runner references banned table names only to grade
+    # legacy_source_violation observations.
+    "backend/app/services/winston_eval_runner.py",
+    # Fund portfolio coherence bridge labels DSCR/LTV legacy provenance;
+    # Winston eval read capabilities remain forbidden from this source.
+    "backend/app/services/re_fund_portfolio_coherent.py",
     # ── Targeted allowlist: non-display usage of restricted fetchers ──
     # Fund detail: getReV2FundQuarterState used ONLY for auto-seed existence
     # check and narrative health summary. All KPI display paths use

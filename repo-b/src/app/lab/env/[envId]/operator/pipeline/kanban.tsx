@@ -223,8 +223,8 @@ function DealCard({
 }) {
   const [hover, setHover] = useState(false);
   const hasNoAction = !card.next_action_description;
-  const isCritical = card.execution_pressure === "critical" || hasNoAction;
-  const glow = hasNoAction || card.risk_flags.includes("stalled_7d");
+  // Missing next action is a soft signal — only true critical pressure paints red.
+  const isCritical = card.execution_pressure === "critical";
   const due = dueLabel(card.next_action_due);
 
   return (
@@ -233,12 +233,6 @@ function DealCard({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key.toLowerCase() === "n" && hasNoAction) {
-          e.preventDefault();
-          onDefineNextAction();
-        }
-      }}
       style={{
         background: active ? "var(--bg-row-active)" : hover ? "var(--bg-row-hover)" : "var(--bg-inset)",
         border: `1px solid ${active ? "var(--neon-cyan)" : "var(--line-2)"}`,
@@ -252,7 +246,7 @@ function DealCard({
         cursor: "pointer",
         fontFamily: "var(--font-sans)",
         fontSize: 11,
-        boxShadow: glow ? "inset 0 0 0 1px rgba(255,31,61,.04)" : "none",
+        boxShadow: "none",
         display: "flex",
         flexDirection: "column",
         gap: 3,
@@ -307,19 +301,18 @@ function DealCard({
           }}
           style={{
             background: "transparent",
-            border: "1px dashed var(--sem-error)",
+            border: "1px solid var(--line-2)",
             borderRadius: 2,
             padding: "3px 6px",
             fontFamily: "var(--font-mono)",
             fontSize: 10,
-            letterSpacing: ".08em",
-            textTransform: "uppercase",
-            color: "var(--sem-down)",
+            letterSpacing: ".06em",
+            color: "var(--fg-3)",
             cursor: "pointer",
             textAlign: "left",
           }}
         >
-          + Define next action →
+          + Action
         </button>
       ) : (
         <>

@@ -97,14 +97,14 @@ export function MetricsStrip({ metrics, className, cols }: MetricsStripProps) {
             )}
           >
             {/* Label — small caps, tracked, muted */}
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-bm-muted2 leading-none mb-1.5">
+            <p className="nv-eyebrow mb-1.5 leading-none text-bm-muted2">
               {label}
             </p>
 
             {/* Primary value */}
             <p
               className={cn(
-                "font-display text-2xl font-semibold tabular-nums leading-none",
+                "nv-metric-large leading-none",
                 valueClass
               )}
             >
@@ -149,7 +149,7 @@ export function PageHeader({ title, subtitle, action, className }: PageHeaderPro
       )}
     >
       <div className="min-w-0">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-bm-text truncate">
+        <h1 className="nv-h1 truncate text-bm-text">
           {title}
         </h1>
         {subtitle && (

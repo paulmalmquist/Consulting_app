@@ -4,6 +4,8 @@ import { ArrowRight } from 'lucide-react';
 import { Suspense } from 'react';
 import { getAllResearchEntries } from '@/lib/marketing/content';
 import { ResearchHubClient } from '@/components/marketing/research/ResearchHubClient';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 
 export const metadata: Metadata = {
   title: 'Research',
@@ -22,24 +24,22 @@ const START_HERE_STEPS = [
 
 function StartHerePanel() {
   return (
-    <section className="space-y-3 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-6 xl:sticky xl:top-24">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">Start Here</p>
-      <h2 className="text-xl font-semibold tracking-tight text-nv-text">Answer -&gt; Focus -&gt; Differentiate -&gt; Prove -&gt; Publish</h2>
+    <NvCard>
+      <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Start here</p>
+      <h2 className="nv-h3" style={{ marginTop: 12, marginBottom: 16 }}>Answer → Focus → Differentiate → Prove → Publish</h2>
       <div className="space-y-2">
         {START_HERE_STEPS.map((step, index) => (
           <Link
             key={step.label}
             href={step.href}
-            className="flex items-center justify-between rounded-xl border border-nv-text/10 bg-nv-bg/80 px-3 py-2 text-sm text-nv-text transition hover:border-nv-teal/25"
+            className="flex items-center justify-between rounded-[4px] border border-[rgb(var(--nv-hair-soft)/0.08)] bg-[rgb(var(--nv-bg)/0.6)] px-3 py-2 text-sm text-[rgb(var(--nv-text-primary))] transition hover:border-[rgb(var(--nv-accent-teal)/0.25)]"
           >
-            <span>
-              {index + 1}. {step.label}
-            </span>
+            <span>{index + 1}. {step.label}</span>
             <ArrowRight size={14} aria-hidden="true" />
           </Link>
         ))}
       </div>
-    </section>
+    </NvCard>
   );
 }
 
@@ -61,53 +61,51 @@ export default function ResearchPage() {
   }));
 
   return (
-    <div className="space-y-8 lg:space-y-10">
-      <section className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">Research</h1>
-          <p className="max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
-            Clear frameworks for building internal execution without vendor dependency.
-          </p>
-        </div>
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="Research"
+        headline="Research"
+        lede="Clear frameworks for building internal execution without vendor dependency."
+      />
 
-        <div className="grid gap-3 md:grid-cols-3">
+      <section className="nv-section">
+        <div className="grid gap-4 md:grid-cols-3">
           {quickEntries.map((entry) => (
-            <Link
-              key={entry.id}
-              href={`/research/${entry.slug}`}
-              className="group rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4 transition hover:border-nv-teal/25"
-            >
-              <p className="text-base font-semibold text-nv-text">
-                {entry.slug === 'positioning' ? 'Positioning Questions' : entry.slug === 'messaging' ? 'Messaging Rules' : 'Website Schemes'}
-              </p>
-              <p className="mt-2 text-sm text-nv-muted">{entry.summary}</p>
-              <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-nv-teal">
-                Open
-                <ArrowRight size={13} aria-hidden="true" />
-              </p>
+            <Link key={entry.id} href={`/research/${entry.slug}`} className="block">
+              <NvCard liftOnHover>
+                <p className="nv-h3">
+                  {entry.slug === 'positioning' ? 'Positioning Questions' : entry.slug === 'messaging' ? 'Messaging Rules' : 'Website Schemes'}
+                </p>
+                <p className="nv-body">{entry.summary}</p>
+                <p className="nv-eyebrow" style={{ marginTop: 16, color: 'rgb(var(--nv-accent-teal))' }}>
+                  Open <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} aria-hidden="true" />
+                </p>
+              </NvCard>
             </Link>
           ))}
         </div>
       </section>
 
-      <div className="xl:hidden">
+      <div className="xl:hidden nv-section">
         <StartHerePanel />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <Suspense
-          fallback={
-            <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 text-sm text-nv-muted">
-              Loading research filters...
-            </section>
-          }
-        >
-          <ResearchHubClient entries={cards} />
-        </Suspense>
-        <div className="hidden xl:block">
-          <StartHerePanel />
+      <section className="nv-section">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <Suspense
+            fallback={
+              <NvCard>
+                <p className="nv-body" style={{ margin: 0 }}>Loading research filters...</p>
+              </NvCard>
+            }
+          >
+            <ResearchHubClient entries={cards} />
+          </Suspense>
+          <div className="hidden xl:block">
+            <StartHerePanel />
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

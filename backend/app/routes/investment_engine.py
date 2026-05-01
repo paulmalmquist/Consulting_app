@@ -33,8 +33,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db import get_cursor
-from app.services import accounting_engine, accounting_snapshot_writer, reconciliation_engine
-from app.services import env_context
+from app.services import (
+    accounting_engine,
+    accounting_snapshot_writer,
+    compliance_engine,
+    env_context,
+    reconciliation_engine,
+    risk_engine,
+)
 
 router = APIRouter(prefix="/api/investment-engine", tags=["investment_engine"])
 
@@ -478,3 +484,293 @@ def get_breaks(request: Request,
         "errors": [],
         "input_versions": {},
     }))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1 — Risk routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CalcVarRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    confidence_pct: str = Field(default="95.00", description="95.00, 97.50, or 99.00")
+    horizon_days: int = 1
+    history_window_days: int = 252
+    ewma_lambda: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/risk/var")
+def post_calc_var(req: CalcVarRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = risk_engine.calculate_var(
+        env_id=env_id, fund_id=req.fund_id, as_of_date=req.as_of_date,
+        confidence_pct=Decimal(req.confidence_pct),
+        horizon_days=req.horizon_days,
+        history_window_days=req.history_window_days,
+        ewma_lambda=Decimal(req.ewma_lambda) if req.ewma_lambda else None,
+    )
+    return _engine_response(result)
+
+
+class ApplyScenarioRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    scenario_id: UUID
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/risk/scenario")
+def post_apply_scenario(req: ApplyScenarioRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = risk_engine.apply_scenario(
+        env_id=env_id, fund_id=req.fund_id,
+        as_of_date=req.as_of_date, scenario_id=req.scenario_id,
+    )
+    return _engine_response(result)
+
+
+class FactorExposureRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    factor_id: Optional[UUID] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/risk/factor-exposure")
+def post_factor_exposure(req: FactorExposureRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = risk_engine.calculate_factor_exposure(
+        env_id=env_id, fund_id=req.fund_id,
+        as_of_date=req.as_of_date, factor_id=req.factor_id,
+    )
+    return _engine_response(result)
+
+
+class SensitivityRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    sensitivity_kind: str  # "dv01" | "beta" | "delta"
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/risk/sensitivity")
+def post_sensitivity(req: SensitivityRequest, request: Request):
+    if req.sensitivity_kind not in ("dv01", "beta", "delta"):
+        return JSONResponse(
+            content={"valid": False, "value": None,
+                     "errors": [{"code": "invalid_input",
+                                  "message": "sensitivity_kind must be dv01, beta, or delta",
+                                  "context": {"got": req.sensitivity_kind}}],
+                     "input_versions": {}},
+            status_code=422,
+        )
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = risk_engine.calculate_sensitivity(
+        env_id=env_id, fund_id=req.fund_id,
+        as_of_date=req.as_of_date, sensitivity_kind=req.sensitivity_kind,
+    )
+    return _engine_response(result)
+
+
+@router.get("/risk/factors")
+def list_factors(request: Request, env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT id, code, name, factor_kind, dimension FROM inv_factor "
+            "WHERE env_id = %s ORDER BY code",
+            (env_id_resolved,),
+        )
+        rows = cur.fetchall()
+    return JSONResponse(content=_jsonify({
+        "valid": True,
+        "value": {"count": len(rows), "factors": rows},
+        "errors": [], "input_versions": {},
+    }))
+
+
+@router.get("/risk/scenarios")
+def list_scenarios(request: Request, env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT id, code, name, kind, shocks, description FROM inv_scenario "
+            "WHERE env_id = %s ORDER BY code",
+            (env_id_resolved,),
+        )
+        rows = cur.fetchall()
+    return JSONResponse(content=_jsonify({
+        "valid": True,
+        "value": {"count": len(rows), "scenarios": rows},
+        "errors": [], "input_versions": {},
+    }))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1 — Compliance routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+class EvaluatePreTradeRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    proposed_trade: dict  # {account_id, security_id, side, qty, price_native, ...}
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/compliance/evaluate/pre-trade")
+def post_eval_pre_trade(req: EvaluatePreTradeRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = compliance_engine.evaluate_pre_trade(
+        env_id=env_id, fund_id=req.fund_id,
+        proposed_trade=req.proposed_trade, as_of_date=req.as_of_date,
+    )
+    return _engine_response(result)
+
+
+class EvaluatePostTradeRequest(_Strict):
+    fund_id: UUID
+    as_of_date: date_type
+    persist: bool = True
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/compliance/evaluate/post-trade")
+def post_eval_post_trade(req: EvaluatePostTradeRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    result = compliance_engine.evaluate_post_trade(
+        env_id=env_id, business_id=business_id, fund_id=req.fund_id,
+        as_of_date=req.as_of_date, persist=req.persist,
+    )
+    return _engine_response(result)
+
+
+@router.get("/compliance/rules")
+def list_compliance_rules(request: Request,
+                            env_id: Optional[str] = Query(default=None),
+                            fund_id: Optional[UUID] = Query(default=None),
+                            as_of: Optional[date_type] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    eff = as_of or date_type.today()
+    result = compliance_engine.list_active_rules(
+        env_id=env_id_resolved, fund_id=fund_id, as_of_date=eff,
+    )
+    return _engine_response(result)
+
+
+class CreateRuleRequest(_Strict):
+    operator: str
+    fund_id: Optional[UUID] = None
+    scope_kind: str = "fund"
+    predicate: dict = Field(default_factory=dict)
+    threshold: Optional[str] = None
+    threshold_list: Optional[list[str]] = None
+    severity: str = "high"
+    reason: Optional[str] = None
+    active_from: date_type
+    active_to: Optional[date_type] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/compliance/rules")
+def post_create_rule(req: CreateRuleRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    result = compliance_engine.create_rule(
+        env_id=env_id, business_id=business_id,
+        rule={
+            "operator": req.operator,
+            "fund_id": req.fund_id,
+            "scope_kind": req.scope_kind,
+            "predicate": req.predicate,
+            "threshold": req.threshold,
+            "threshold_list": req.threshold_list,
+            "severity": req.severity,
+            "reason": req.reason,
+            "active_from": req.active_from,
+            "active_to": req.active_to,
+        },
+    )
+    return _engine_response(result, success_status=201)
+
+
+class DeactivateRuleRequest(_Strict):
+    as_of: date_type
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/compliance/rules/{rule_id}/deactivate")
+def post_deactivate_rule(rule_id: UUID, req: DeactivateRuleRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = compliance_engine.deactivate_rule(
+        env_id=env_id, rule_id=rule_id, as_of=req.as_of,
+    )
+    return _engine_response(result)
+
+
+@router.get("/compliance/violations")
+def get_violations(request: Request,
+                    env_id: Optional[str] = Query(default=None),
+                    fund_id: Optional[UUID] = Query(default=None),
+                    eval_kind: Optional[str] = Query(default=None),
+                    severity: Optional[str] = Query(default=None),
+                    resolved: Optional[bool] = Query(default=None),
+                    limit: int = Query(default=200, ge=1, le=1000)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    where = ["env_id = %s"]
+    params: list = [env_id_resolved]
+    if fund_id is not None:
+        where.append("fund_id = %s")
+        params.append(str(fund_id))
+    if eval_kind:
+        where.append("eval_kind = %s")
+        params.append(eval_kind)
+    if severity:
+        where.append("severity = %s")
+        params.append(severity)
+    if resolved is True:
+        where.append("resolved_at IS NOT NULL")
+    elif resolved is False:
+        where.append("resolved_at IS NULL")
+    sql = f"""
+        SELECT id, rule_id, fund_id, portfolio_id, account_id, proposed_trade_id,
+               eval_kind, severity, snapshot_value, threshold, evidence,
+               evaluated_at, resolved_at, resolved_by, resolution_note
+        FROM inv_compliance_violation
+        WHERE {' AND '.join(where)}
+        ORDER BY severity DESC, evaluated_at DESC
+        LIMIT {int(limit)}
+    """
+    with get_cursor() as cur:
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall()
+    return JSONResponse(content=_jsonify({
+        "valid": True,
+        "value": {"count": len(rows), "violations": rows},
+        "errors": [], "input_versions": {},
+    }))
+
+
+class ResolveViolationRequest(_Strict):
+    resolved_by: str
+    resolution_note: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/compliance/violations/{violation_id}/resolve")
+def post_resolve_violation(violation_id: UUID, req: ResolveViolationRequest, request: Request):
+    env_id, _ = _ctx(request, req.env_id, req.business_id)
+    result = compliance_engine.resolve_violation(
+        env_id=env_id, violation_id=violation_id,
+        resolved_by=req.resolved_by, resolution_note=req.resolution_note,
+    )
+    return _engine_response(result)

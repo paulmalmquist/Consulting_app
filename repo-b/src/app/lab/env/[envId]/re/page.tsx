@@ -1,41 +1,52 @@
 "use client";
 
+/**
+ * REPE Fund Portfolio page.
+ *
+ * Single canonical data source: getFundPortfolioCoherent(envId, quarter), which
+ * returns one payload covering portfolio_summary + fund_rows + diagnostics +
+ * provenance. The previous three-call stitch (listReV1Funds +
+ * getPortfolioAuthoritativeStates + getReV2EnvironmentPortfolioKpis) is gone —
+ * each endpoint defined "included fund" differently, and the resulting UI
+ * showed quarantined orphans in the primary table while header metrics
+ * excluded them.
+ *
+ * Plan / gap report: audit/fund_portfolio_coherence/gap_report.md.
+ *
+ * Contract:
+ *   - fund_rows are released, non-quarantined, scope-complete authoritative
+ *     snapshots. They are the only rows rendered in the primary table.
+ *   - diagnostics are the excluded counterparts (quarantined / archived /
+ *     draft_only / no_released_snapshot / scope_incomplete). They appear ONLY
+ *     in <DiagnosticsPanel>, never in the primary table.
+ *   - portfolio_summary is computed server-side from fund_rows; the page does
+ *     not recompute. NAV reconciliation, IRR weighting, and DSCR provenance
+ *     are all server-authored.
+ */
+
 import React from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Minus } from "lucide-react";
 import {
   deleteRepeFund,
-  getReV2EnvironmentPortfolioKpis,
-  getPortfolioAuthoritativeStates,
   getAssetMapPoints,
-  RepeFund,
-  ReV2EnvironmentPortfolioKpis,
-  ReV2AuthoritativeState,
+  getFundPortfolioCoherent,
   type AssetMapResponse,
+  type CoherentFundRow,
+  type CoherentPortfolioPayload,
 } from "@/lib/bos-api";
-import { listReV1Funds } from "@/lib/bos-api";
 import { FundDeleteDialog } from "@/components/repe/FundDeleteDialog";
-import { useReEnv } from "@/components/repe/workspace/ReEnvProvider";
+import { useMaybeReEnv } from "@/components/repe/workspace/ReEnvProvider";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { fmtMoney, fmtMultiple, fmtPct } from '@/lib/format-utils';
+import { fmtMoney, fmtMultiple, fmtPct } from "@/lib/format-utils";
 import { PortfolioAssetMap } from "@/components/repe/portfolio/PortfolioAssetMap";
 import FundTrendPanel from "@/components/repe/portfolio/FundTrendPanel";
+import DiagnosticsPanel from "@/components/repe/portfolio/DiagnosticsPanel";
 import { UnavailableCell } from "@/components/re/UnavailableTile";
-import { renderAuthoritativeMetric, type MetricCell } from "@/lib/re/assertAuthoritativeMetric";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import { CHART_COLORS, TOOLTIP_STYLE, AXIS_TICK_STYLE, GRID_STYLE, fmtCompact } from "@/components/charts/chart-theme";
 import {
   RepeIndexScaffold,
   reIndexNumericCellClass,
@@ -53,172 +64,66 @@ function pickCurrentQuarter(): string {
   return `${now.getUTCFullYear()}Q${q}`;
 }
 
-function fmtMoneyOrDash(v: string | number | undefined | null): string {
-  if (v == null) return "—";
+function fmtMoneyOrUnavail(v: string | number | undefined | null): string {
+  if (v == null) return "Unavailable";
   return fmtMoney(v);
+}
+
+function fmtPctOrUnavail(v: string | number | undefined | null): string {
+  if (v == null || v === "") return "Unavailable";
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  if (Number.isNaN(n)) return "Unavailable";
+  return fmtPct(n);
+}
+
+function fmtNumOrUnavail(v: string | number | undefined | null, suffix = ""): string {
+  if (v == null || v === "") return "Unavailable";
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  if (Number.isNaN(n)) return "Unavailable";
+  return `${n.toFixed(2)}${suffix}`;
 }
 
 const deleteFundActionClass =
   "h-8 w-8 rounded-full border border-bm-border/55 bg-transparent p-0 text-bm-muted2 transition-[transform,colors,box-shadow] duration-[120ms] hover:border-bm-danger/25 hover:bg-bm-danger/8 hover:text-bm-danger";
 
-type FundRow = RepeFund & { auth?: ReV2AuthoritativeState | null };
-
-type TimeMetric = "ending_nav" | "total_called" | "dpi" | "tvpi";
-const TIME_METRIC_OPTIONS: { value: TimeMetric; label: string }[] = [
-  { value: "ending_nav", label: "NAV" },
-  { value: "total_called", label: "Called Capital" },
-  { value: "dpi", label: "DPI" },
-  { value: "tvpi", label: "TVPI" },
-];
-
-const FUND_COLORS = [
-  CHART_COLORS.revenue,
-  CHART_COLORS.noi,
-  CHART_COLORS.opex,
-  "#a78bfa",
-  "#f97316",
-  "#06b6d4",
-];
-
-function wrapFundLabel(label: string, maxLineLength = 14): [string, string?] {
-  const cleaned = label.trim();
-  if (cleaned.length <= maxLineLength) return [cleaned];
-
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length === 1) {
-    return [cleaned.slice(0, maxLineLength), `${cleaned.slice(maxLineLength, maxLineLength * 2 - 1)}…`];
-  }
-
-  let firstLine = "";
-  const remaining: string[] = [];
-  for (const word of words) {
-    const nextLine = firstLine ? `${firstLine} ${word}` : word;
-    if (nextLine.length <= maxLineLength || !firstLine) {
-      firstLine = nextLine;
-    } else {
-      remaining.push(word);
-    }
-  }
-
-  const secondRaw = remaining.length ? remaining.join(" ") : words.slice(-1)[0];
-  const secondLine = secondRaw.length > maxLineLength ? `${secondRaw.slice(0, maxLineLength - 1)}…` : secondRaw;
-  return [firstLine, secondLine];
-}
-
-function FundComparisonTick(props: {
-  x?: number;
-  y?: number;
-  payload?: { value?: string };
-}) {
-  const { x = 0, y = 0, payload } = props;
-  const [lineOne, lineTwo] = wrapFundLabel(String(payload?.value ?? ""));
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text
-        fill={AXIS_TICK_STYLE.fill}
-        fontSize={9}
-        textAnchor="middle"
-      >
-        <tspan x={0} dy={12}>{lineOne}</tspan>
-        {lineTwo ? <tspan x={0} dy={10}>{lineTwo}</tspan> : null}
-      </text>
-    </g>
-  );
-}
-
-// ── Authoritative metric helpers ────────────────────────────────────────────
-// Every numeric KPI on this page goes through this path.
-// If the authoritative state is unreleased, period-drifted, or carries a
-// null_reason, the metric is rendered as <UnavailableCell> instead of a number.
-
-function isReleased(fund: FundRow): boolean {
-  return fund.auth?.promotion_state === "released" && fund.auth?.state_origin === "authoritative";
-}
-
-function authMetric(fund: FundRow, field: string): MetricCell<string> {
-  return renderAuthoritativeMetric(fund.auth, field, (v) => String(v), {
-    entityLabel: fund.name,
-  });
-}
-
-function authNumeric(fund: FundRow, field: string): number | null {
-  // Gate: avoid dev-mode throws for unreleased/fallback state.
-  if (!isReleased(fund)) return null;
-  const cell = authMetric(fund, field);
-  if (cell.kind !== "value") return null;
-  const n = Number(cell.value);
-  return isNaN(n) ? null : n;
-}
-
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function ReFundListPage() {
-  const { envId, businessId } = useReEnv();
+  // Prefer the workspace-scoped env from ReEnvProvider when present (production path).
+  // Fall back to the URL param when the provider was skipped — currently this
+  // only happens when PLAYWRIGHT_BYPASS_AUTH=1 (re/layout.tsx skips ReEnvProvider
+  // there). The vitest guardrail at re/layout.test.tsx pins this to bypass mode
+  // only, so production always takes the provider path.
+  const reEnv = useMaybeReEnv();
+  const params = useParams<{ envId: string }>();
+  const envId = reEnv?.envId ?? params?.envId ?? "";
   const { push } = useToast();
-  const [funds, setFunds] = useState<FundRow[]>([]);
-  const [portfolioKpis, setPortfolioKpis] = useState<ReV2EnvironmentPortfolioKpis | null>(null);
+  const [payload, setPayload] = useState<CoherentPortfolioPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<FundRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CoherentFundRow | null>(null);
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
 
   const [mapData, setMapData] = useState<AssetMapResponse | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
 
-  const [timeMetric, setTimeMetric] = useState<TimeMetric>("ending_nav");
-
   const quarter = pickCurrentQuarter();
 
-  // ── Data fetch: batched authoritative state for all funds ─────────────
-  // Single round-trip to GET /api/re/v2/environments/{envId}/portfolio-states
-  // replaces the prior per-fund N+1. Funds with no released snapshot are
-  // still shown (auth=null) so the page's existing fail-closed rendering
-  // (assertAuthoritativeMetric / UnavailableCell) handles them unchanged.
-  const refreshFunds = useCallback(async () => {
-    if (!businessId && !envId) return;
+  // ── Data fetch: single coherent payload ──────────────────────────────────
+  const refresh = useCallback(async () => {
+    if (!envId) return;
     setLoading(true);
     try {
-      const rows = await listReV1Funds({ env_id: envId || undefined, business_id: businessId || undefined });
-      let authByFund = new Map<string, ReV2AuthoritativeState>();
-      if (envId) {
-        try {
-          const batched = await getPortfolioAuthoritativeStates(envId, quarter);
-          authByFund = new Map(batched.states.map((s) => [s.entity_id, s]));
-        } catch {
-          authByFund = new Map();
-        }
-      }
-      const enriched: FundRow[] = rows.map((f) => ({
-        ...f,
-        auth: authByFund.get(f.fund_id) ?? null,
-      }));
-      setFunds(enriched);
+      setPayload(await getFundPortfolioCoherent(envId, quarter));
     } catch {
-      setFunds([]);
+      setPayload(null);
     } finally {
       setLoading(false);
-    }
-  }, [businessId, envId, quarter]);
-
-  const refreshPortfolioKpis = useCallback(async () => {
-    if (!envId) {
-      setPortfolioKpis(null);
-      return;
-    }
-    try {
-      setPortfolioKpis(await getReV2EnvironmentPortfolioKpis(envId, quarter));
-    } catch {
-      setPortfolioKpis(null);
     }
   }, [envId, quarter]);
 
   useEffect(() => {
-    void refreshFunds();
-  }, [refreshFunds]);
-
-  useEffect(() => {
-    void refreshPortfolioKpis();
-  }, [refreshPortfolioKpis]);
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     if (!envId) return;
@@ -229,68 +134,34 @@ export default function ReFundListPage() {
       .finally(() => setMapLoading(false));
   }, [envId]);
 
-  const isMultiplier = timeMetric === "dpi" || timeMetric === "tvpi";
+  const fundRows = useMemo(() => payload?.fund_rows ?? [], [payload]);
+  const summary = payload?.portfolio_summary ?? null;
+  const provenance = payload?.provenance ?? null;
+  const diagnostics = useMemo(() => payload?.diagnostics ?? [], [payload]);
 
-  // ── Chart data: only funds with released authoritative state ──────────
-  const comparisonBarData = useMemo(() => {
-    return funds
-      .filter((f) => isReleased(f))
-      .map((f, i) => {
-        const v = authNumeric(f, timeMetric);
-        return v !== null ? { name: f.name, value: v, color: FUND_COLORS[i % FUND_COLORS.length] } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [funds, timeMetric]);
-
-  // ── Aggregated KPIs: NAV-weighted IRR from released funds only ────────
-  function navWeightedAvg(field: "gross_irr" | "net_irr"): string {
-    const valid = funds.filter((f) => {
-      return isReleased(f) && authNumeric(f, field) !== null && authNumeric(f, "ending_nav") !== null;
-    });
-    if (valid.length === 0) return "—";
-    const totalNav = valid.reduce((s, f) => s + (authNumeric(f, "ending_nav") ?? 0), 0);
-    if (totalNav === 0) return "—";
-    const wtd = valid.reduce((s, f) => s + (authNumeric(f, field) ?? 0) * (authNumeric(f, "ending_nav") ?? 0), 0) / totalNav;
-    return fmtPct(wtd);
-  }
-
-  const computedGrossIrr = useMemo(() => navWeightedAvg("gross_irr"), [funds]);
-  const computedNetIrr = useMemo(() => navWeightedAvg("net_irr"), [funds]);
-
-  const computedDscr = useMemo(() => {
-    const withDscr = funds.filter((f) => isReleased(f) && authNumeric(f, "weighted_dscr") !== null && authNumeric(f, "ending_nav") !== null);
-    if (withDscr.length === 0) return "—";
-    const totalNav = withDscr.reduce((s, f) => s + (authNumeric(f, "ending_nav") ?? 0), 0);
-    if (totalNav <= 0) {
-      const avg = withDscr.reduce((s, f) => s + (authNumeric(f, "weighted_dscr") ?? 0), 0) / withDscr.length;
-      return `${avg.toFixed(2)}x`;
-    }
-    const wtd = withDscr.reduce(
-      (s, f) => s + (authNumeric(f, "weighted_dscr") ?? 0) * (authNumeric(f, "ending_nav") ?? 0), 0
-    ) / totalNav;
-    return `${wtd.toFixed(2)}x`;
-  }, [funds]);
-
-  // ── Signal bar: only from released authoritative data ─────────────────
+  // ── Signal bar: derived from server-authored payload ────────────────────
   const signals = useMemo(() => {
-    const released = funds.filter((f) => isReleased(f));
+    if (!payload) return [];
     const items: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }[] = [];
 
-    // Signal 1: Top NAV Driver (released funds only)
-    let topNavFund: FundRow | null = null;
+    // Top NAV driver (already filtered to released/non-quarantined)
+    let topNavFund: CoherentFundRow | null = null;
     let topNavVal = 0;
-    for (const f of released) {
-      const v = authNumeric(f, "ending_nav");
-      if (v !== null && v > topNavVal) { topNavFund = f; topNavVal = v; }
+    for (const f of fundRows) {
+      const v = f.portfolio_nav ? parseFloat(f.portfolio_nav) : null;
+      if (v !== null && !Number.isNaN(v) && v > topNavVal) {
+        topNavFund = f;
+        topNavVal = v;
+      }
     }
     if (topNavFund && topNavVal > 0) {
       items.push({ label: "Top NAV", value: `${topNavFund.name}: ${fmtMoney(topNavVal)}` });
     }
 
-    // Signal 2: IRR Range (gross_irr min–max across released trusted funds, ≥2 required)
-    const irrValues = released
-      .map((f) => authNumeric(f, "gross_irr"))
-      .filter((v): v is number => v !== null);
+    // IRR range across released funds (≥2)
+    const irrValues = fundRows
+      .map((f) => (f.gross_irr ? parseFloat(f.gross_irr) : null))
+      .filter((v): v is number => v !== null && !Number.isNaN(v));
     if (irrValues.length >= 2) {
       const irrMin = Math.min(...irrValues);
       const irrMax = Math.max(...irrValues);
@@ -300,31 +171,17 @@ export default function ReFundListPage() {
       });
     }
 
-    // Signal 3: Data Integrity Alerts — funds with no released snapshot
-    const noSnapshot = funds.filter((f) => !isReleased(f));
-    if (noSnapshot.length > 0) {
+    // Data alerts: server-counted excluded funds
+    if (diagnostics.length > 0) {
       items.push({
         label: "Data Alerts",
-        value: `${noSnapshot.length} fund${noSnapshot.length > 1 ? "s" : ""} without released snapshot`,
-        tone: "negative",
-      });
-    }
-
-    // Signal 4: Funds Requiring Attention — below hurdle or trust issues
-    const needsReview = released.filter((f) => {
-      const hurdleStatus = f.auth?.state?.canonical_metrics?.["hurdle_status"] as string | undefined;
-      return hurdleStatus === "below_hurdle" || f.auth?.trust_status !== "trusted";
-    });
-    if (needsReview.length > 0) {
-      items.push({
-        label: "Attention",
-        value: `${needsReview.length} fund${needsReview.length > 1 ? "s" : ""} require review`,
+        value: `${diagnostics.length} fund${diagnostics.length === 1 ? "" : "s"} excluded — see diagnostics`,
         tone: "negative",
       });
     }
 
     return items;
-  }, [funds]);
+  }, [payload, fundRows, diagnostics]);
 
   const base = `/lab/env/${envId}/re`;
 
@@ -333,10 +190,8 @@ export default function ReFundListPage() {
     setDeletingFundId(deleteTarget.fund_id);
     try {
       const result = await deleteRepeFund(deleteTarget.fund_id);
-      setFunds((current) => current.filter((fund) => fund.fund_id !== deleteTarget.fund_id));
       setDeleteTarget(null);
-      void refreshFunds();
-      void refreshPortfolioKpis();
+      void refresh();
       push({
         title: "Fund deleted",
         description: `Removed ${result.deleted.investments} investments and ${result.deleted.assets} assets.`,
@@ -351,21 +206,30 @@ export default function ReFundListPage() {
     } finally {
       setDeletingFundId(null);
     }
-  }, [deleteTarget, push, refreshFunds, refreshPortfolioKpis]);
+  }, [deleteTarget, push, refresh]);
 
-  // ── Render helpers for table cells ────────────────────────────────────
-  function renderMetricCell(fund: FundRow, field: string, formatter: (v: string | number) => string) {
-    // Gate: avoid dev-mode throws for unreleased/fallback state.
-    if (!isReleased(fund)) return <UnavailableCell nullReason="authoritative_state_not_released" />;
-    const cell = renderAuthoritativeMetric(
-      fund.auth,
-      field,
-      (v) => formatter(v as string | number),
-      { entityLabel: fund.name },
-    );
-    if (cell.kind === "value") return <span>{cell.value}</span>;
-    return <UnavailableCell nullReason={cell.nullReason} />;
+  // ── Render helper for table cells. fund_rows are already authoritative;
+  // null fields render as Unavailable with the carried null_reason.
+  function renderMetric(
+    fund: CoherentFundRow,
+    field: keyof CoherentFundRow,
+    formatter: (v: string) => string,
+  ) {
+    const raw = fund[field];
+    if (raw == null) {
+      const reason = fund.null_reasons?.[field as string] ?? null;
+      return <UnavailableCell nullReason={reason ?? "value_unavailable"} />;
+    }
+    return <span className="nv-metric">{formatter(String(raw))}</span>;
   }
+
+  // ── KPI strip values ────────────────────────────────────────────────────
+  const navReconciliation = summary?.nav_reconciliation;
+  const irrMethodN = provenance?.irr_method_n_funds ?? 0;
+  const irrMethodLabel =
+    provenance && provenance.irr_method === "nav_weighted_average" && irrMethodN > 0
+      ? `NAV-weighted, n=${irrMethodN}`
+      : null;
 
   return (
     <>
@@ -378,36 +242,92 @@ export default function ReFundListPage() {
             kpis={[
               {
                 label: "Funds",
-                value: portfolioKpis ? String(portfolioKpis.fund_count) : "—",
+                value: summary ? String(summary.fund_count) : "—",
+                testId: "kpi-fund-count",
               },
               {
                 label: "Active Assets",
-                value: portfolioKpis ? String(portfolioKpis.active_assets) : "—",
+                value: summary ? String(summary.active_assets) : "—",
               },
-              { label: "Total Commitments", value: fmtMoneyOrDash(portfolioKpis?.total_commitments) },
-              { label: "Portfolio NAV", value: fmtMoneyOrDash(portfolioKpis?.portfolio_nav) },
+              { label: "Total Commitments", value: fmtMoneyOrUnavail(summary?.total_commitments) },
+              { label: "Portfolio NAV", value: fmtMoneyOrUnavail(summary?.portfolio_nav) },
               {
                 label: "Gross IRR",
-                value: portfolioKpis?.gross_irr != null
-                  ? fmtPct(parseFloat(portfolioKpis.gross_irr))
-                  : computedGrossIrr,
+                value: fmtPctOrUnavail(summary?.gross_irr),
+                hint: irrMethodLabel,
+                testId: "kpi-gross-irr",
               },
               {
                 label: "Net IRR",
-                value: portfolioKpis?.net_irr != null
-                  ? fmtPct(parseFloat(portfolioKpis.net_irr))
-                  : computedNetIrr,
+                value: fmtPctOrUnavail(summary?.net_irr),
+                hint: irrMethodLabel,
+                testId: "kpi-net-irr",
               },
-              { label: "Wtd DSCR", value: computedDscr !== "—" ? computedDscr : "Unavailable" },
+              {
+                label: "Wtd DSCR",
+                value: summary?.weighted_dscr?.value
+                  ? fmtNumOrUnavail(summary.weighted_dscr.value, "x")
+                  : "Unavailable",
+                hint: summary?.weighted_dscr?.provenance === "legacy_quarter_state" ? "legacy" : null,
+              },
             ]}
           />
         }
         className="w-full"
       >
+        {/* ── NAV RECONCILIATION STRIP ── */}
+        {navReconciliation && summary?.fund_count ? (
+          <div
+            data-testid="nav-reconciliation"
+            data-status={navReconciliation.status}
+            className={`flex flex-wrap items-center gap-3 rounded-lg border px-4 py-1.5 text-xs ${
+              navReconciliation.status === "reconciled"
+                ? "border-emerald-800/40 bg-emerald-950/10 text-emerald-300"
+                : "border-red-800/40 bg-red-950/10 text-red-300"
+            }`}
+          >
+            <span className="nv-eyebrow text-[9px]">
+              NAV Check
+            </span>
+            <span className="font-mono">
+              Displayed Σ {fmtMoney(parseFloat(navReconciliation.displayed_fund_nav_sum))}
+            </span>
+            <span className="text-bm-border/40">·</span>
+            <span className="font-mono">
+              Portfolio NAV {fmtMoney(parseFloat(navReconciliation.portfolio_nav))}
+            </span>
+            <span className="text-bm-border/40">·</span>
+            <span className="font-mono">
+              Δ {fmtMoney(parseFloat(navReconciliation.rounding_delta))}
+            </span>
+            <span className="ml-auto font-medium">
+              {navReconciliation.status === "reconciled" ? "✓ Reconciled" : "✗ Drift"}
+            </span>
+          </div>
+        ) : null}
+
+        {/* ── IRR METHOD BADGE ── */}
+        {irrMethodLabel ? (
+          <div
+            data-testid="irr-method-badge"
+            className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2 font-mono"
+          >
+            IRR method: <span className="text-bm-text">{irrMethodLabel}</span>
+            {provenance?.mixed_release_states ? (
+              <span className="ml-2 text-amber-400/80">
+                · mixed snapshot_versions — see provenance
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* ── DIAGNOSTICS PANEL ── */}
+        <DiagnosticsPanel diagnostics={diagnostics} />
+
         {/* ── SIGNAL BAR ── */}
         {!loading && signals.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bm-border/20 bg-bm-surface/[0.02] px-4 py-1.5">
-            <span className="text-[9px] uppercase tracking-[0.14em] text-bm-muted2 font-semibold">Signals</span>
+            <span className="nv-eyebrow text-[9px] text-bm-muted2">Signals</span>
             {signals.map((s, i) => (
               <span key={i} className="flex items-center gap-1.5 text-xs">
                 <span className="text-[10px] uppercase tracking-[0.1em] text-bm-muted2">{s.label}:</span>
@@ -422,21 +342,15 @@ export default function ReFundListPage() {
           </div>
         )}
 
-        {/* ── FUND COMPARISON + MAP ── */}
-        {!loading && funds.length > 0 && (
+        {/* ── FUND TREND + ASSET MAP ── */}
+        {!loading && fundRows.length > 0 && (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
-
             <div className="order-1 min-w-0 lg:order-2">
-              {/* Trend-over-time replaces the old point-in-time bar chart.
-                  Answers: how each fund is evolving, which funds are ramping
-                  vs harvesting, whether performance is realized or unrealized. */}
               <FundTrendPanel envId={envId} quarters={12} />
             </div>
-
             <div className="order-2 min-w-0 lg:order-1">
               <PortfolioAssetMap data={mapData} loading={mapLoading} />
             </div>
-
           </div>
         )}
 
@@ -445,92 +359,107 @@ export default function ReFundListPage() {
             <div className="flex items-center justify-center rounded-xl border border-bm-border/70 py-14 text-sm text-bm-muted2">
               Loading funds...
             </div>
-          ) : funds.length === 0 ? (
+          ) : fundRows.length === 0 ? (
             <div className="rounded-xl border border-bm-border/70 bg-bm-surface/10 p-8 text-center">
-              <p className="text-sm text-bm-muted2">No funds yet.</p>
-              <Link href={`${base}/funds/new`} className="mt-3 inline-flex text-sm text-bm-accent hover:text-bm-text">
-                Create your first fund
-              </Link>
+              <p className="text-sm text-bm-muted2">
+                No released authoritative fund snapshots for this period.
+              </p>
+              {diagnostics.length > 0 ? (
+                <p className="mt-2 text-xs text-amber-400/80">
+                  {diagnostics.length} fund{diagnostics.length === 1 ? "" : "s"} excluded
+                  — see diagnostics panel above for reasons.
+                </p>
+              ) : (
+                <Link href={`${base}/funds/new`} className="mt-3 inline-flex text-sm text-bm-accent hover:text-bm-text">
+                  Create your first fund
+                </Link>
+              )}
             </div>
           ) : (
             <div className={reIndexTableShellClass}>
               <table className={`${reIndexTableClass} min-w-[1320px]`}>
                 <thead>
                   <tr className={reIndexTableHeadRowClass}>
-                    <th className="px-4 py-3 font-medium">Fund Name</th>
-                    <th className="px-4 py-3 font-medium">Strategy</th>
-                    <th className="px-4 py-3 font-medium">Vintage</th>
-                    <th className="px-4 py-3 text-right font-medium">AUM</th>
-                    <th className="px-4 py-3 text-right font-medium">NAV</th>
-                    <th className="px-4 py-3 text-right font-medium">Gross IRR</th>
-                    <th className="px-4 py-3 text-right font-medium">Net IRR</th>
-                    <th className="px-4 py-3 text-right font-medium">DPI</th>
-                    <th className="px-4 py-3 text-right font-medium">TVPI</th>
-                    <th className="px-4 py-3 text-right font-medium">% Invested</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                    <th className="nv-table-header px-4 py-3">Fund Name</th>
+                    <th className="nv-table-header px-4 py-3">Strategy</th>
+                    <th className="nv-table-header px-4 py-3">Vintage</th>
+                    <th className="nv-table-header px-4 py-3 text-right">Commitments</th>
+                    <th className="nv-table-header px-4 py-3 text-right">NAV</th>
+                    <th className="nv-table-header px-4 py-3 text-right">Gross IRR</th>
+                    <th className="nv-table-header px-4 py-3 text-right">Net IRR</th>
+                    <th className="nv-table-header px-4 py-3 text-right">DPI</th>
+                    <th className="nv-table-header px-4 py-3 text-right">TVPI</th>
+                    <th className="nv-table-header px-4 py-3 text-right">% Invested</th>
+                    <th className="nv-table-header px-4 py-3">Status</th>
+                    <th className="nv-table-header px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className={reIndexTableBodyClass}>
-                  {funds.map((fund) => {
-                    const committed = authNumeric(fund, "total_committed");
-                    const called = authNumeric(fund, "total_called");
-                    const pctInvested = committed && called ? called / committed : null;
+                  {fundRows.map((fund) => {
+                    const committed = fund.total_committed ? parseFloat(fund.total_committed) : null;
+                    const called = fund.total_called ? parseFloat(fund.total_called) : null;
+                    const pctInvested =
+                      committed && called && committed > 0 ? called / committed : null;
                     return (
-                    <tr key={fund.fund_id} className={reIndexTableRowClass}>
-                      <td className="px-3 py-3 align-middle">
-                        <Link href={`${base}/funds/${fund.fund_id}`} className={reIndexPrimaryCellClass}>
-                          {fund.name}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 align-middle text-[12px] uppercase tracking-[0.04em] text-bm-muted2">
-                        {fund.strategy?.toUpperCase() ?? "—"}
-                      </td>
-                      <td className="px-3 py-3 align-middle text-[12px] tracking-[0.04em] text-bm-muted2">
-                        {fund.vintage_year}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "total_committed", (v) => fmtMoney(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "ending_nav", (v) => fmtMoney(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "gross_irr", (v) => fmtPct(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "net_irr", (v) => fmtPct(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "dpi", (v) => fmtMultiple(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {renderMetricCell(fund, "tvpi", (v) => fmtMultiple(v))}
-                      </td>
-                      <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                        {pctInvested != null ? `${(pctInvested * 100).toFixed(0)}%` : "—"}
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
-                          {fund.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right align-middle">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className={deleteFundActionClass}
-                          onClick={() => setDeleteTarget(fund)}
-                          data-testid={`delete-fund-${fund.fund_id}`}
-                          aria-label={`Delete ${fund.name}`}
-                          title={`Delete ${fund.name}`}
-                        >
-                          <Minus aria-hidden="true" size={14} strokeWidth={2.1} />
-                          <span className="sr-only">Delete {fund.name}</span>
-                        </Button>
-                      </td>
-                    </tr>
+                      <tr
+                        key={fund.fund_id}
+                        className={reIndexTableRowClass}
+                        data-testid="fund-table-row"
+                        data-fund-id={fund.fund_id}
+                      >
+                        <td className="nv-table-cell px-3 py-3 align-middle">
+                          <Link href={`${base}/funds/${fund.fund_id}`} className={reIndexPrimaryCellClass}>
+                            {fund.name}
+                          </Link>
+                        </td>
+                        <td className="nv-table-cell px-3 py-3 align-middle uppercase tracking-[0.04em] text-bm-muted2">
+                          {fund.strategy?.toUpperCase() ?? "—"}
+                        </td>
+                        <td className="nv-table-cell px-3 py-3 align-middle tracking-[0.04em] text-bm-muted2">
+                          {fund.vintage_year ?? "—"}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "total_committed", (v) => fmtMoney(v))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "portfolio_nav", (v) => fmtMoney(v))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "net_irr", (v) => fmtPct(parseFloat(v)))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "dpi", (v) => fmtMultiple(v))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {renderMetric(fund, "tvpi", (v) => fmtMultiple(v))}
+                        </td>
+                        <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
+                          {pctInvested != null ? `${(pctInvested * 100).toFixed(0)}%` : "—"}
+                        </td>
+                        <td className="nv-table-cell px-3 py-3 align-middle">
+                          <span className="inline-flex rounded-full border border-bm-border/60 bg-bm-surface/18 px-2.5 py-1 text-[11px] capitalize text-bm-muted2">
+                            {fund.status ?? "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right align-middle">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className={deleteFundActionClass}
+                            onClick={() => setDeleteTarget(fund)}
+                            data-testid={`delete-fund-${fund.fund_id}`}
+                            aria-label={`Delete ${fund.name}`}
+                            title={`Delete ${fund.name}`}
+                          >
+                            <Minus aria-hidden="true" size={14} strokeWidth={2.1} />
+                            <span className="sr-only">Delete {fund.name}</span>
+                          </Button>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>

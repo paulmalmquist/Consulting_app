@@ -43,7 +43,7 @@ export function RepeSidebarNav({
         aria-label="REPE navigation"
       >
         <div className="rounded-xl border border-bm-border/40 bg-bm-surface/15 px-3.5 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">
+          <p className="nv-eyebrow text-bm-muted2">
             Workspace
           </p>
           <div className="mt-2.5 flex items-center gap-3">
@@ -86,7 +86,7 @@ export function RepeSidebarNav({
                     )}
                   />
                   <span
-                    className="flex-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
+                    className="nv-eyebrow flex-1"
                     data-testid="repe-nav-group-label"
                   >
                     {group.label}
@@ -143,7 +143,7 @@ export function RepeSidebarNav({
         </div>
 
         <div className="mt-6 border-t border-bm-border/[0.08] px-1 pt-4">
-          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-bm-muted2">
+          <p className="nv-eyebrow px-2 text-bm-muted2">
             Create
           </p>
           <div className="mt-2 space-y-1.5">

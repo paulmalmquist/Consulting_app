@@ -82,6 +82,11 @@ const CHANNEL_COLORS: Record<string, string> = {
   phone: "text-emerald-400 border-emerald-400/40 bg-emerald-400/10",
 };
 
+const DIRECTION_COLORS: Record<string, string> = {
+  outbound: "text-sky-400 border-sky-400/40 bg-sky-400/10",
+  inbound: "text-amber-400 border-amber-400/40 bg-amber-400/10",
+};
+
 const ACTIVITY_COLORS: Record<string, string> = {
   call: "text-emerald-400 border-emerald-400/40 bg-emerald-400/10",
   email: "text-blue-400 border-blue-400/40 bg-blue-400/10",
@@ -503,17 +508,16 @@ function SummaryTab({
 
   return (
     <div className="space-y-4">
-      {/* Next action — dominates */}
+      {/* Next action — soft signal, not a wall */}
       {hasNoAction ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1">No next action defined — this deal is stalled</p>
-          <p className="text-xs text-red-400/70 mb-3">You cannot progress this deal without a defined next move.</p>
-          <button
-            onClick={onAddAction}
-            className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10"
-          >
-            + Define Next Action
-          </button>
+        <div className="px-4 py-2">
+          <p className="text-xs text-bm-muted2">
+            No next action set.{" "}
+            <button onClick={onAddAction} className="underline hover:text-bm-text">
+              Add one
+            </button>
+            .
+          </p>
         </div>
       ) : topAction ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
@@ -788,12 +792,17 @@ function OutreachTab({
         <>
           {outreachLog.map((entry) => {
             const chKey = entry.channel?.toLowerCase() ?? "email";
+            const directionKey = entry.direction?.toLowerCase() ?? "outbound";
             return (
               <div key={entry.id} className="rounded-lg border border-bm-border/40 px-3 py-2 space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge
                     label={entry.channel}
                     colorClass={CHANNEL_COLORS[chKey] ?? "text-slate-400 border-slate-400/40 bg-slate-400/10"}
+                  />
+                  <Badge
+                    label={directionKey === "inbound" ? "Inbound" : "Outbound"}
+                    colorClass={DIRECTION_COLORS[directionKey] ?? "text-slate-400 border-slate-400/40 bg-slate-400/10"}
                   />
                   <span className="text-[10px] text-bm-muted2">{fmtDate(entry.sent_at)}</span>
                   {entry.contact_name && <span className="text-[10px] text-bm-muted2">→ {entry.contact_name}</span>}
@@ -992,15 +1001,14 @@ function ExecutionTab({
         />
       ) : null}
       {hasNoAction ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1">This deal is stalled</p>
-          <p className="text-xs text-red-400/70 mb-3">You need one clear next move.</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="px-4 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-bm-muted2">No next action set.</p>
             <button
               onClick={() => setShowAddAction(true)}
-              className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10"
+              className="rounded border border-bm-border/50 px-2 py-1 text-[10px] font-medium text-bm-muted2 hover:text-bm-text"
             >
-              + Add Next Action
+              + Add
             </button>
             <QuickButton label="Draft Outreach" busy={busyAction === "draft"} onClick={() => onQuickAction("draft")} />
           </div>
@@ -1388,4 +1396,3 @@ function FormTextarea({
     </div>
   );
 }
-

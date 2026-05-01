@@ -159,7 +159,7 @@ export function QuickCreateNextAction({
         fontFamily: "var(--font-sans)",
       }}
     >
-      <div style={{ height: 2, background: "linear-gradient(90deg, var(--sem-error), transparent)" }} />
+      <div style={{ height: 2, background: "linear-gradient(90deg, var(--neon-cyan), transparent)" }} />
       <div
         style={{
           padding: "10px 12px",
@@ -171,7 +171,7 @@ export function QuickCreateNextAction({
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <Caps color="var(--sem-error)">DEFINE NEXT ACTION</Caps>
+          <Caps color="var(--fg-2)">ADD NEXT ACTION (OPTIONAL)</Caps>
           <div
             style={{
               fontFamily: "var(--font-sans)",

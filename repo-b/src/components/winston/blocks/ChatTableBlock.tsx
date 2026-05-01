@@ -69,7 +69,7 @@ export default function ChatTableBlock({ block }: { block: TableBlock }) {
     <div className="my-2 rounded-lg border border-bm-border/30 bg-bm-surface/20">
       {(block.title || block.export_name) && (
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          {block.title && <p className="text-sm font-semibold text-bm-text">{block.title}</p>}
+          {block.title && <p className="nv-h3 text-bm-text">{block.title}</p>}
           {block.export_name && (
             <button
               type="button"
@@ -82,11 +82,11 @@ export default function ChatTableBlock({ block }: { block: TableBlock }) {
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px]">
+        <table className="w-full nv-table-cell">
           <thead>
             <tr className="border-b border-bm-border/20">
               {block.ranked && (
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-bm-muted uppercase tracking-wider w-10">
+                <th className="nv-table-header w-10 px-4 py-2 text-left text-bm-muted">
                   #
                 </th>
               )}
@@ -94,7 +94,7 @@ export default function ChatTableBlock({ block }: { block: TableBlock }) {
                 <th
                   key={col}
                   onClick={() => handleSort(col)}
-                  className="px-4 py-2 text-left text-[11px] font-medium text-bm-muted uppercase tracking-wider cursor-pointer hover:text-bm-text transition-colors select-none"
+                  className="nv-table-header cursor-pointer select-none px-4 py-2 text-left text-bm-muted transition-colors hover:text-bm-text"
                 >
                   {col}
                   {sortCol === col && (
@@ -111,10 +111,13 @@ export default function ChatTableBlock({ block }: { block: TableBlock }) {
                 className="border-b border-bm-border/10 hover:bg-bm-surface/30 transition-colors"
               >
                 {block.ranked && (
-                  <td className="px-4 py-2 text-bm-muted font-mono">{idx + 1}</td>
+                  <td className="nv-metric px-4 py-2 text-bm-muted">{idx + 1}</td>
                 )}
                 {block.columns.map((col) => (
-                  <td key={col} className="px-4 py-2 text-bm-text">
+                  <td
+                    key={col}
+                    className={`nv-table-cell px-4 py-2 text-bm-text ${typeof row[col] === "number" ? "nv-metric" : ""}`}
+                  >
                     {formatCellValue(row[col])}
                   </td>
                 ))}

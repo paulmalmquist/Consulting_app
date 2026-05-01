@@ -42,11 +42,18 @@ class ApiAdapter:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode())
 
-    def get_fund_table(self, quarter: str, model_id: str | None = None) -> list[dict]:
-        params = {"quarter": quarter}
-        if model_id:
-            params["model_id"] = model_id
-        return self._get(f"/api/re/v2/environments/{self.env_id}/fund-table", params)
+    def get_fund_portfolio(self, quarter: str) -> dict:
+        """Canonical Fund Portfolio payload.
+
+        Replaces the legacy `get_fund_table()`, which hit /fund-table — that
+        endpoint and its backing function were removed because they returned
+        quarantined orphans. The new endpoint returns the coherent payload
+        consumed by the Fund Portfolio page.
+        """
+        return self._get(
+            f"/api/re/v2/environments/{self.env_id}/fund-portfolio",
+            {"quarter": quarter},
+        )
 
     def get_portfolio_kpis(self, quarter: str, model_id: str | None = None) -> dict:
         params = {"quarter": quarter}

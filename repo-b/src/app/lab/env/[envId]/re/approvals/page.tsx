@@ -153,8 +153,8 @@ export default function ApprovalsPage() {
     <section className="flex flex-col gap-4" data-testid="re-approvals-list">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Approval Gates</h2>
-          <p className="mt-1 text-sm text-bm-muted2">Workflow approval items across the platform.</p>
+          <h2 className="nv-h2 text-bm-text">Approval Gates</h2>
+          <p className="nv-body mt-1 max-w-none text-bm-muted2">Workflow approval items across the platform.</p>
         </div>
       </div>
 
@@ -204,16 +204,16 @@ export default function ApprovalsPage() {
         )
       ) : (
         <div className="overflow-x-auto rounded-xl border border-bm-border/30">
-          <table className="w-full text-sm">
+          <table className="w-full nv-table-cell">
             <thead>
-              <tr className="border-b border-bm-border/20 bg-bm-surface/30 text-left text-xs uppercase tracking-wider text-bm-muted2">
-                <th className="px-4 py-2.5 font-medium">Step</th>
-                <th className="px-4 py-2.5 font-medium">Workflow</th>
-                <th className="px-4 py-2.5 font-medium">Entity</th>
-                <th className="px-4 py-2.5 font-medium">Actor</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Due Date</th>
-                <th className="px-4 py-2.5 font-medium">Created</th>
+              <tr className="border-b border-bm-border/20 bg-bm-surface/30 text-left text-bm-muted2">
+                <th className="nv-table-header px-4 py-2.5">Step</th>
+                <th className="nv-table-header px-4 py-2.5">Workflow</th>
+                <th className="nv-table-header px-4 py-2.5">Entity</th>
+                <th className="nv-table-header px-4 py-2.5">Actor</th>
+                <th className="nv-table-header px-4 py-2.5">Status</th>
+                <th className="nv-table-header px-4 py-2.5">Due Date</th>
+                <th className="nv-table-header px-4 py-2.5">Created</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bm-border/10">

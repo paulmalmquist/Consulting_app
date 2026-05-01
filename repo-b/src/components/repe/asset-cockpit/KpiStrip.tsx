@@ -17,6 +17,10 @@ export type KpiDef = {
     value: React.ReactNode;
     tone?: KpiTone;
   };
+  /** Optional small caption rendered below the value — e.g. method/provenance label. */
+  hint?: React.ReactNode | null;
+  /** Optional data-testid on the value cell. */
+  testId?: string;
   className?: string;
 };
 
@@ -62,7 +66,10 @@ export function KpiStrip({
               {kpi.label}
             </p>
             <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <p className="font-display text-[26px] font-semibold leading-none text-bm-text tabular-nums truncate">
+              <p
+                className="font-display text-[26px] font-semibold leading-none text-bm-text tabular-nums truncate"
+                data-testid={kpi.testId}
+              >
                 {kpi.value}
               </p>
               {kpi.delta ? (
@@ -76,6 +83,11 @@ export function KpiStrip({
                 </span>
               ) : null}
             </div>
+            {kpi.hint ? (
+              <p className="font-mono text-[10px] text-bm-muted2 whitespace-nowrap truncate">
+                {kpi.hint}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

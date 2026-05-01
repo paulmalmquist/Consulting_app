@@ -13,6 +13,23 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  if (process.env.PLAYWRIGHT_BYPASS_AUTH === "1") {
+    return NextResponse.json(
+      {
+        authenticated: true,
+        session: {
+          platformUserId: "playwright-bypass-user",
+          email: "playwright@test.local",
+          displayName: "Playwright Test",
+          platformAdmin: true,
+          activeEnvironment: null,
+          memberships: [],
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const session = await parseSessionFromRequest(request);
 
   if (!session) {

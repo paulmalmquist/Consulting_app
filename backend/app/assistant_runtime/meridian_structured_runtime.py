@@ -21,7 +21,8 @@ from app.assistant_runtime.turn_receipts import StructuredQueryReceipt
 from app.db import get_cursor
 from app.observability.logger import emit_log
 from app.schemas.ai_gateway import AssistantContextEnvelope
-from app.services import re_authoritative_snapshots, re_env_portfolio, repe
+from app.services import re_authoritative_snapshots, re_env_portfolio, repe, repe_eval_capabilities
+from app.services.assistant_blocks import comparison_result_block, unavailable_with_reason_block
 from app.sql_agent.executor import execute_sql
 from app.sql_agent.query_classifier import extract_conditions
 from app.sql_agent.query_templates import render_template
@@ -127,6 +128,7 @@ class MeridianStructuredOutcome:
     receipt: StructuredQueryReceipt
     result_memory: dict[str, Any] | None = None
     structured_query_state: dict[str, Any] | None = None
+    response_blocks: list[dict[str, Any]] | None = None
 
 
 def _to_decimal(value: Any) -> Decimal | None:
@@ -548,6 +550,18 @@ def _execute_contract(
         inventory_contract.fact = "inventory"
         return _fund_inventory_outcome(
             contract=inventory_contract,
+            business_id=business_id,
+            env_id=env_id,
+            memory_used=memory_used,
+        )
+
+    if (
+        contract.entity == "fund"
+        and contract.metric in {"nav", "gross_irr", "net_irr", "tvpi", "dpi"}
+        and contract.transformation == "rank"
+    ):
+        return _fund_metric_change_rank_outcome(
+            contract=contract,
             business_id=business_id,
             env_id=env_id,
             memory_used=memory_used,
@@ -1147,6 +1161,112 @@ def _investment_irr_grain_fallback_outcome(
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+    )
+
+
+def _fund_metric_change_rank_outcome(
+    *,
+    contract: StructuredPortfolioQueryContract,
+    business_id: str,
+    env_id: str,
+    memory_used: bool,
+) -> MeridianStructuredOutcome:
+    metric_key = contract.metric or "nav"
+    result = repe_eval_capabilities.rank_funds_by_metric_change(
+        env_id=env_id,
+        business_id=business_id,
+        metric_key=metric_key,
+        ranking_basis="absolute_change",
+        comparison_window_policy=repe_eval_capabilities.COMPARISON_WINDOW_POLICY,
+    )
+    comparison_result = result["comparison_result"]
+    coverage = comparison_result["coverage"]
+    included = comparison_result["included"]
+
+    lines = [
+        f"I used the registered capability repe.rank_funds_by_metric_change for {metric_key.upper()}.",
+        (
+            f"Funds total: {coverage.get('total', 0)} · Included: {coverage.get('included', 0)} "
+            f"· Excluded: {coverage.get('excluded', 0)}."
+        ),
+    ]
+
+    if included:
+        top = included[0]
+        lines.append(
+            "Top ranked fund: "
+            f"{top.get('fund_name') or top.get('fund_id')} "
+            f"changed by {_format_currency(top.get('absolute_change'))} "
+            f"from {top.get('start_period')} to {top.get('end_period')}."
+        )
+    else:
+        reasons = coverage.get("by_reason") or {}
+        reason_text = ", ".join(f"{count} {reason}" for reason, count in reasons.items()) or "none classified"
+        lines.append(f"No fund met the comparison policy. Exclusion reasons: {reason_text}.")
+
+    scope = build_memory_scope(
+        business_id=business_id,
+        environment_id=env_id,
+        entity_type="environment",
+        entity_id=env_id,
+        entity_name="Meridian Capital Management",
+    )
+    result_memory = build_list_result_memory(
+        scope=scope,
+        query_signature=build_query_signature(
+            result_type="ranked_list",
+            source_name="repe.rank_funds_by_metric_change",
+            scope=scope,
+        ),
+        summary={"total": len(included), "item_label": "included fund(s)"},
+        rows=[
+            {
+                "id": row.get("fund_id"),
+                "name": row.get("fund_name") or row.get("fund_id"),
+                "entity_type": "fund",
+                "metric_key": metric_key,
+                "absolute_change": row.get("absolute_change"),
+                "pct_change": row.get("pct_change"),
+            }
+            for row in included
+        ],
+        result_type="ranked_list",
+    )
+
+    receipt = _build_receipt(
+        contract=contract,
+        execution_path="capability",
+        transformation_applied="rank",
+        memory_used=memory_used,
+        canonical_source="repe.rank_funds_by_metric_change",
+        canonical_check="comparison_window_policy=min_to_max_released_no_gaps;authoritative_snapshots_only",
+        degraded=not bool(included),
+        degradation_reason=None if included else "All candidate funds were excluded by deterministic eligibility.",
+    )
+    structured_state = _build_structured_state(contract=contract, receipt=receipt)
+    structured_state["comparison_result"] = comparison_result
+    structured_state["capability_key"] = "repe.rank_funds_by_metric_change"
+
+    blocks = [
+        comparison_result_block(comparison_result, title=f"{metric_key.upper()} change ranking"),
+    ]
+    if not included:
+        primary_reason = next(iter((coverage.get("by_reason") or {}).keys()), "insufficient_history")
+        blocks.append(
+            unavailable_with_reason_block(
+                reason_code=primary_reason,
+                title="No eligible ranked result",
+                metric_key=metric_key,
+                data_snapshot_hash=comparison_result.get("data_snapshot_hash"),
+            )
+        )
+
+    return MeridianStructuredOutcome(
+        text="\n".join(lines),
+        receipt=receipt,
+        result_memory=result_memory,
+        structured_query_state=structured_state,
+        response_blocks=blocks,
     )
 
 

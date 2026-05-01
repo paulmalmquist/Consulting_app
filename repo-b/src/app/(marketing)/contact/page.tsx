@@ -4,14 +4,16 @@ import { ContactPageContent } from '@/components/marketing/content/ContactPageCo
 
 function ContactPageFallback() {
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <h1 className="text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">Book a meeting.</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
+    <div className="nv-page">
+      <div>
+        <h1 className="nv-h1" style={{ marginBottom: 24 }}>Book a meeting.</h1>
+        <p className="nv-lede">
           You will receive a calendar invite with Google, Outlook, and ICS options after confirmation.
         </p>
-      </section>
-      <ContactForm />
+      </div>
+      <div className="nv-section">
+        <ContactForm />
+      </div>
     </div>
   );
 }

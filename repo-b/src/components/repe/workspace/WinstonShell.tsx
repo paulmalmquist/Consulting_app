@@ -110,7 +110,7 @@ export function WinstonShell({
         {winstonMenu ? (
           <div className="flex-1 min-w-0">{winstonMenu}</div>
         ) : headerLabel ? (
-          <span className="font-display text-sm font-semibold tracking-tight truncate flex-1">
+          <span className="nv-eyebrow truncate flex-1 text-bm-text">
             {headerLabel}
           </span>
         ) : null}
@@ -172,7 +172,7 @@ export function WinstonShell({
           <div className="flex items-center justify-between h-14 px-4
                           border-b border-bm-border/[0.08] shrink-0">
             {headerLabel && (
-              <span className="text-sm font-semibold truncate">{headerLabel}</span>
+              <span className="nv-h3 truncate text-bm-text">{headerLabel}</span>
             )}
             <button
               type="button"
@@ -231,7 +231,7 @@ export function WinstonShell({
             {/* Sheet header */}
             <div className="flex items-center justify-between h-14 px-4
                             border-b border-bm-border/[0.08] shrink-0">
-              <span className="text-sm font-semibold">Context</span>
+              <span className="nv-h3 text-bm-text">Context</span>
               <button
                 type="button"
                 onClick={() => setRailOpen(false)}

@@ -121,7 +121,8 @@ export default function () {
     if (doneEvent && doneEvent.data) {
       try {
         const doneData = JSON.parse(doneEvent.data);
-        hasDiagnostics = typeof doneData.elapsed_ms === 'number';
+        hasDiagnostics = typeof doneData.elapsed_ms === 'number'
+          || (doneData.trace && typeof doneData.trace.elapsed_ms === 'number');
       } catch (_e) {
         hasDiagnostics = false;
       }

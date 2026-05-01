@@ -207,8 +207,8 @@ export default function ReIntelligencePage() {
             <div className="mt-5 space-y-3 rounded-xl border border-bm-border/70 bg-bm-surface/20 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2">Aggregate Probability</p>
-                  <p className="mt-1 text-2xl font-semibold text-bm-text">
+                  <p className="nv-eyebrow text-bm-muted2">Aggregate Probability</p>
+                  <p className="nv-metric-large mt-1 text-bm-text">
                     {fmtPct(activeSignals.aggregate_probability)}
                   </p>
                 </div>

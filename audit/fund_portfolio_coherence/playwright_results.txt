@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ok 1 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:47:7 › REPE Fund Portfolio coherence › header fund count equals primary table row count (7.6s)
+  ok 2 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:65:7 › REPE Fund Portfolio coherence › primary table contains zero rows whose name carries [QUARANTINED] (5.1s)
+  ok 3 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:81:7 › REPE Fund Portfolio coherence › diagnostics panel exists and contains at least one quarantined row (5.2s)
+  ok 4 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:110:7 › REPE Fund Portfolio coherence › NAV reconciliation strip reads ✓ Reconciled (5.0s)
+  ok 5 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:123:7 › REPE Fund Portfolio coherence › IRR method badge is locked to NAV-weighted, n=N (5.3s)
+  ok 6 [chromium] › tests\repe\re-fund-portfolio-coherence.spec.ts:140:7 › REPE Fund Portfolio coherence › full-page screenshot for the audit receipt (5.8s)
+
+  6 passed (38.7s)

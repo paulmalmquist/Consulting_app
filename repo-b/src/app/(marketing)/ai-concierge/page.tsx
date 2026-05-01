@@ -1,54 +1,70 @@
-import Link from 'next/link';
-import { SloganBadge } from '@/components/marketing/visual/SloganBadge';
+import { NvButton } from '@/components/marketing/ui/NvButton';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 
 const safeguards = ['Human approval required', 'Role-based access', 'Trace logging enabled', 'Policy-bound responses only'];
 
 export default function AIConciergePage() {
   return (
-    <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <SloganBadge />
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-nv-text sm:text-5xl">Reduce exception decision latency by 15–35% with a governed AI Concierge.</h1>
-        <p className="mt-4 max-w-3xl text-sm text-nv-muted sm:text-base">Own Your Operating Logic with human-in-the-loop decision support tied to workflow states, rules, and audit evidence.</p>
-      </section>
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="AI Concierge"
+        headline="A governed AI assistant tied to your workflow states, rules, and audit evidence."
+        lede="Decision support for recurring exceptions — the AI recommends, a human approves, and every step is logged. No black-box routing."
+      />
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">Example interaction</h2>
-        <div className="mt-3 rounded-2xl border border-nv-text/10 bg-nv-bg/80 p-4 text-sm text-nv-text">
-          <p><strong>User:</strong> “This capital call exception crossed threshold. Escalate?”</p>
-          <p className="mt-2"><strong>Concierge:</strong> “Escalate to finance approver. Rule 3.2 triggered by variance &gt; 2.5%. Two similar events resolved with owner override in prior quarter. Source records attached.”</p>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Example interaction</p>
         </div>
+        <NvCard>
+          <p className="nv-body"><strong>User:</strong> This capital call exception crossed threshold. Escalate?</p>
+          <p className="nv-body" style={{ marginTop: 12 }}><strong>Concierge:</strong> Escalate to finance approver. Rule 3.2 triggered by variance &gt; 2.5%. Two similar events resolved with owner override in prior quarter. Source records attached.</p>
+        </NvCard>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">Human-in-the-loop control</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {['Input', 'AI Recommendation', 'Human Approval', 'Execution + Audit Log'].map((step) => (
-            <div key={step} className="rounded-2xl border border-nv-text/10 bg-nv-bg/40 p-4 text-sm text-nv-text">{step}</div>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />How it works</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {['Input', 'AI Recommendation', 'Human Approval', 'Execution + Audit Log'].map((step, idx) => (
+            <NvCard key={step}>
+              <p className="nv-eyebrow" style={{ marginBottom: 8 }}>{String(idx + 1).padStart(2, '0')}</p>
+              <p className="nv-h3">{step}</p>
+            </NvCard>
           ))}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">Safeguards</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {safeguards.map((item) => (
-            <span key={item} className="rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-3 py-1.5 text-xs font-semibold text-nv-teal">{item}</span>
-          ))}
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Safeguards</p>
         </div>
+        <NvCard>
+          <div className="flex flex-wrap gap-2">
+            {safeguards.map((item) => (
+              <span key={item} className="nv-pill nv-pill-teal">{item}</span>
+            ))}
+          </div>
+        </NvCard>
       </section>
 
-      <section className="rounded-3xl border border-nv-teal/25 bg-nv-bg/80 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">Typical Results</h2>
-        <ul className="mt-3 space-y-2 text-sm text-nv-text">
-          <li>15–35% reduction in decision latency for recurring exceptions</li>
-          <li>90%+ routing accuracy after rule tuning</li>
-          <li>95%+ response provenance coverage in audit samples</li>
-        </ul>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/contact" className="rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-5 py-2.5 text-sm font-semibold text-nv-teal">Fix your exception workflow</Link>
-          <span className="rounded-full border border-nv-text/12 px-3 py-2 text-xs text-nv-muted">Own Your Operating Logic</span>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What changes</p>
         </div>
+        <NvCard>
+          <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
+            <li>15–35% reduction in decision latency for recurring exceptions</li>
+            <li>90%+ routing accuracy after rule tuning</li>
+            <li>95%+ response provenance coverage in audit samples</li>
+          </ul>
+          <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
+            <NvButton variant="primary" href="/contact">Fix your exception workflow</NvButton>
+            <NvButton variant="secondary" href="/operational-assessment">Get an AI-readiness review</NvButton>
+          </div>
+        </NvCard>
       </section>
     </div>
   );

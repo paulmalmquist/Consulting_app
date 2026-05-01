@@ -1,3 +1,5 @@
+@import "../_typography.css";
+
 /* Marketing-only styles for the (marketing) route group.
  * Scoped via .marketing-shell wrapper. Font CSS vars namespaced
  * --font-marketing-{sans,mono} to avoid collision with Winston's
@@ -18,28 +20,6 @@
    the system font is installed, the file fetch is skipped. Only
    Regular and Bold weights ship; weight 500 (Medium) maps to Regular
    to avoid browser-synthesized faux-bold (the package has no Medium). */
-@font-face {
-  font-family: 'Abadi';
-  src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Abadi';
-  src: local('Abadi'), local('Abadi MT'), url('/fonts/Abadi-Regular.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Abadi';
-  src: local('Abadi Bold'), local('Abadi MT Bold'), url('/fonts/Abadi-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* ── DARK (default) ──────────────────────────────────────────── */
 .marketing-shell {
   color-scheme: dark;
@@ -167,132 +147,21 @@
 
 /* ── Typography primitives ─────────────────────────────────── */
 
-.nv-brand-font {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-}
-
-.nv-headline {
-  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
-  font-weight: 500;
-  letter-spacing: -0.022em;
-  text-wrap: balance;
-}
-
-.nv-subheadline {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-  letter-spacing: -0.005em;
-  color: rgb(var(--nv-text-secondary));
-}
-
-.nv-hero-emphasis {
-  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
-  font-style: normal;
-  font-weight: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: rgb(var(--nv-accent-teal));
-}
-
 /* H1 — page hero display, Abadi 500 / 84px / -0.025em */
-.nv-h1 {
-  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
-  font-weight: 500;
-  font-size: 84px;
-  line-height: 1.02;
-  letter-spacing: -0.025em;
-  color: rgb(var(--nv-text-primary));
-  max-width: 960px;
-  text-wrap: balance;
-  margin: 0;
-}
-.nv-h1 em {
-  font-style: normal;
-  color: rgb(var(--nv-accent-teal));
-  font-weight: 500;
-}
-
 /* H2 — section header, Abadi 500 / 44px / -0.02em */
-.nv-h2 {
-  font-family: "Abadi", "Abadi MT", "Gill Sans", "Gill Sans MT", Verdana, ui-sans-serif, sans-serif;
-  font-weight: 500;
-  font-size: 44px;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: rgb(var(--nv-text-primary));
-  text-wrap: balance;
-  margin: 0;
-}
-
 /* H3 — UI head, Geist 500 / 20px / -0.01em */
-.nv-h3 {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-  font-weight: 500;
-  font-size: 20px;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: rgb(var(--nv-text-primary));
-  text-transform: none;
-  margin: 0;
-}
-
 /* Eyebrow — Geist Mono 11px / uppercase / 0.14em */
-.nv-eyebrow {
-  font-family: var(--font-marketing-mono), "Geist Mono", ui-monospace, monospace;
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgb(var(--nv-text-tertiary));
-  margin: 0;
-}
-.nv-eyebrow .nv-eyebrow-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgb(var(--nv-accent-teal));
-  margin-right: 8px;
-  vertical-align: middle;
-  box-shadow: 0 0 8px rgba(79,179,169,0.5);
-}
-
 /* Lede — intro paragraph, 19px / 1.55 */
-.nv-lede {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-  font-weight: 400;
-  font-size: 19px;
-  line-height: 1.55;
-  color: rgb(var(--nv-text-secondary));
-  max-width: 680px;
-  text-wrap: pretty;
-  margin: 0;
-}
-
 /* Body — 15px / 1.65 / 54ch */
-.nv-body {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  line-height: 1.65;
-  color: rgb(var(--nv-text-secondary));
-  max-width: 54ch;
-}
-
 /* Small — 13px / 1.5 */
-.nv-small {
-  font-family: var(--font-marketing-sans), "Geist", ui-sans-serif, sans-serif;
-  font-size: 13px;
-  line-height: 1.5;
-  color: rgb(var(--nv-text-tertiary));
-}
-
-/* Mobile typography */
-@media (max-width: 767px) {
-  .nv-h1 { font-size: 44px; line-height: 1.05; }
-  .nv-h2 { font-size: 32px; line-height: 1.15; }
-  .nv-lede { font-size: 17px; }
-}
+/*
+  MARKETING TYPOGRAPHY CONTRACT
+  All heading styles belong to .nv-h1 / .nv-h2 / .nv-h3.
+  Never use: text-3xl, text-4xl, text-5xl, font-semibold on headings.
+  Never use: rounded-3xl (use rounded-nv-lg = 12px or NvCard).
+  Never use: rounded-full on CTAs (use NvButton or rounded-nv-sm = 4px).
+  Never add font-sans to .nv-h1 — it overrides Abadi with Geist.
+*/
 
 /* ── Page + section rhythm ──────────────────────────────────── */
 

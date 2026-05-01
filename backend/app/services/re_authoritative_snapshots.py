@@ -147,6 +147,46 @@ def _to_decimal(value: Any) -> Decimal:
         return Decimal("0")
 
 
+def nav_weighted_irr(
+    rows: list[dict[str, Any]],
+    *,
+    irr_key: str,
+    nav_key_primary: str = "ending_nav",
+    nav_key_fallback: str = "portfolio_nav",
+) -> tuple[Decimal | None, Decimal, int]:
+    """Compute NAV-weighted IRR with explicit denominator semantics.
+
+    Returns (weighted_irr, denominator_nav, contributing_fund_count).
+
+    A fund contributes only when both irr and nav are present and nav > 0.
+    Funds with null IRR are excluded (not coerced to zero). The denominator is
+    the sum of NAVs from contributing funds — not portfolio NAV — so the
+    weighting reflects the actual basis of the average.
+
+    Used by both get_released_portfolio_kpis (whole-portfolio) and the coherent
+    fund portfolio service (subset). Single source of truth for the math; the
+    label `provenance.irr_method = "nav_weighted_average"` is locked at the
+    call site.
+    """
+    weighted_sum = Decimal("0")
+    denom = Decimal("0")
+    n = 0
+    for row in rows:
+        metrics = row.get("canonical_metrics") or {}
+        nav_value = _to_decimal(
+            metrics.get(nav_key_primary) or metrics.get(nav_key_fallback)
+        )
+        irr_value = metrics.get(irr_key)
+        if irr_value is None or nav_value <= 0:
+            continue
+        weighted_sum += _to_decimal(irr_value) * nav_value
+        denom += nav_value
+        n += 1
+    if denom <= 0:
+        return None, Decimal("0"), 0
+    return (weighted_sum / denom), denom, n
+
+
 def create_snapshot_run(
     *,
     env_id: str,

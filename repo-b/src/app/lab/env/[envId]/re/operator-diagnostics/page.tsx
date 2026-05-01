@@ -136,10 +136,10 @@ export default function OperatorDiagnosticsPage() {
       <header className="border-b border-bm-border/40 px-8 py-5">
         <div className="flex items-baseline justify-between gap-6">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-bm-foreground-muted">
+            <div className="nv-eyebrow text-bm-foreground-muted">
               REPE · Analytics
             </div>
-            <h1 className="mt-1 text-2xl font-semibold text-bm-foreground">
+            <h1 className="nv-h1 mt-1 text-bm-foreground">
               Operator Diagnostics
             </h1>
             <p className="mt-1 text-sm text-bm-foreground-muted">

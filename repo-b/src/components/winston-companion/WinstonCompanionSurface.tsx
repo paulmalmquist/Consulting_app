@@ -98,7 +98,7 @@ function ThreadViewport({
                   : "max-w-5xl border border-bm-border/30 bg-bm-surface/20",
               )}
             >
-              <div className={cn("text-[10px] font-medium uppercase tracking-[0.14em]", isUser ? "text-bm-accent" : "text-bm-muted2")}>
+              <div className={cn("nv-eyebrow", isUser ? "text-bm-accent" : "text-bm-muted2")}>
                 {isUser ? "You" : "Winston"}
               </div>
               {!isUser && message.responseBlocks?.length ? (
@@ -114,11 +114,11 @@ function ThreadViewport({
                     />
                   ))}
                   {message.content && !hasMarkdownBlock(message.responseBlocks) ? (
-                    <div className="whitespace-pre-wrap text-sm leading-7 text-bm-text">{message.content}</div>
+                    <div className="nv-body max-w-none whitespace-pre-wrap text-bm-text">{message.content}</div>
                   ) : null}
                 </div>
               ) : (
-                <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-bm-text">{message.content}</div>
+                <div className="nv-body mt-3 max-w-none whitespace-pre-wrap text-bm-text">{message.content}</div>
               )}
             </article>
           );
@@ -354,7 +354,7 @@ function RecentConversations() {
     <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/14 p-4">
       <div className="flex items-center gap-2">
         <History size={15} className="text-bm-muted2" />
-        <p className="text-sm font-semibold text-bm-text">Recent threads</p>
+        <p className="nv-h3 text-bm-text">Recent threads</p>
       </div>
       <div className="mt-3 space-y-2">
         {recentConversations.length ? recentConversations.slice(0, 8).map((conversation) => {
@@ -385,7 +385,7 @@ function RecentConversations() {
                 </div>
               </button>
               <div className="mt-3 flex items-center justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-[0.14em] text-bm-muted2">
+                <span className="nv-eyebrow text-bm-muted2">
                   {conversation.message_count} messages
                 </span>
                 <button
@@ -418,7 +418,7 @@ function ExplorePanel() {
     <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/14 p-4">
       <div className="flex items-center gap-2">
         <Compass size={15} className="text-bm-muted2" />
-        <p className="text-sm font-semibold text-bm-text">Explore</p>
+        <p className="nv-h3 text-bm-text">Explore</p>
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-2xl border border-bm-border/50 bg-bm-bg/70 px-3 py-2">
         <input
@@ -457,10 +457,10 @@ function AdvancedPanel() {
 
   return (
     <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-bm-text">Advanced / Dev</summary>
+      <summary className="nv-h3 cursor-pointer text-bm-text">Advanced / Dev</summary>
       <div className="mt-4 space-y-4">
         <div className="rounded-2xl border border-bm-border/50 bg-bm-bg/70 p-3 text-xs text-bm-muted2">
-          <p className="font-semibold text-bm-text">Latest trace</p>
+          <p className="nv-h3 text-bm-text">Latest trace</p>
           <p className="mt-2">Request ID: {activeState.trace?.requestId || "n/a"}</p>
           <p>Endpoint: {activeState.trace?.endpoint || "n/a"}</p>
           <p>Duration: {activeState.trace?.durationMs ? `${activeState.trace.durationMs}ms` : "n/a"}</p>
@@ -513,7 +513,7 @@ function WorkspaceContent({
           <div className="flex items-center gap-2 min-w-0">
             {drawer ? null : <Bot size={15} className="text-bm-muted2" />}
             {!drawer ? (
-              <p className="text-sm font-semibold text-bm-text">
+              <p className="nv-h3 text-bm-text">
                 {activeLane === "contextual" ? "Contextual thread" : "General thread"}
               </p>
             ) : null}
@@ -530,7 +530,7 @@ function WorkspaceContent({
               "rounded-[28px] border border-dashed border-bm-border/50 bg-bm-bg/45",
               drawer ? "p-4" : "p-6",
             )}>
-              <h2 className={cn("font-semibold text-bm-text", drawer ? "text-sm" : "mt-2 text-lg")}>
+              <h2 className={cn("nv-h2 text-bm-text", drawer ? "" : "mt-2")}>
                 {greeting}
               </h2>
               {!drawer ? (
@@ -695,7 +695,7 @@ export function WinstonCompanionRoot() {
               <div className="flex items-center gap-3 min-w-0">
                 <WinstonAvatar className="h-9 w-9 shrink-0 border-bm-border/50 bg-bm-surface" priority />
                 <div className="min-w-0">
-                  <h1 className="text-sm font-semibold text-bm-text">Ask Winston</h1>
+                  <h1 className="nv-h3 text-bm-text">Ask Winston</h1>
                   {scopeSubtitle ? (
                     <p className="truncate text-xs text-bm-muted2">{scopeSubtitle}</p>
                   ) : null}
@@ -754,8 +754,8 @@ export function WinstonCompanionWorkspace() {
           <div className="flex items-center gap-4 min-w-0">
             <WinstonAvatar className="h-14 w-14 border-bm-border/50 bg-bm-surface" priority />
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-bm-text">Ask Winston</h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-bm-muted">
+              <h1 className="nv-h2 text-bm-text">Ask Winston</h1>
+              <p className="nv-body mt-1 max-w-2xl text-bm-muted">
                 Context-aware threads pinned to your current page.
               </p>
             </div>
@@ -775,13 +775,13 @@ export function WinstonCompanionWorkspace() {
 
       <div className="space-y-3 xl:hidden">
         <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4" open>
-          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Recent threads</summary>
+          <summary className="nv-h3 cursor-pointer text-bm-text">Recent threads</summary>
           <div className="mt-4">
             <RecentConversations />
           </div>
         </details>
         <details className="rounded-[24px] border border-bm-border/50 bg-bm-surface/12 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-bm-text">Explore</summary>
+          <summary className="nv-h3 cursor-pointer text-bm-text">Explore</summary>
           <div className="mt-4 space-y-4">
             <ExplorePanel />
             <AdvancedPanel />

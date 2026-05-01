@@ -17,6 +17,26 @@ SUPABASE_URL: str = _clean_env_value(os.getenv("SUPABASE_URL", ""))
 SUPABASE_SERVICE_ROLE_KEY: str = _clean_env_value(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
 STORAGE_BUCKET: str = _clean_env_value(os.getenv("STORAGE_BUCKET", "documents")) or "documents"
 
+# Novendor outreach mailbox sync / Microsoft Graph hooks
+NOVENDOR_OUTREACH_ENV_ID: str = _clean_env_value(os.getenv("NOVENDOR_OUTREACH_ENV_ID", "62cfd59c-a171-4224-ad1e-fffc35bd1ef4"))
+NOVENDOR_OUTREACH_BUSINESS_ID: str = _clean_env_value(os.getenv("NOVENDOR_OUTREACH_BUSINESS_ID", "225f52ca-cdf4-4af9-a973-d1d310ddcba1"))
+NOVENDOR_OUTREACH_MAILBOX: str = _clean_env_value(os.getenv("NOVENDOR_OUTREACH_MAILBOX", "info@novendor.ai"))
+NOVENDOR_OUTREACH_OWN_EMAILS: list[str] = [
+    item.strip().lower()
+    for item in os.getenv(
+        "NOVENDOR_OUTREACH_OWN_EMAILS",
+        "info@novendor.ai,paulmalmquist@gmail.com,paulmalmquist@novendor.ai",
+    ).split(",")
+    if item.strip()
+]
+
+MSGRAPH_TENANT_ID: str = _clean_env_value(os.getenv("MSGRAPH_TENANT_ID", ""))
+MSGRAPH_CLIENT_ID: str = _clean_env_value(os.getenv("MSGRAPH_CLIENT_ID", ""))
+MSGRAPH_CLIENT_SECRET: str = _clean_env_value(os.getenv("MSGRAPH_CLIENT_SECRET", ""))
+MSGRAPH_NOTIFICATION_URL: str = _clean_env_value(os.getenv("MSGRAPH_NOTIFICATION_URL", ""))
+MSGRAPH_LIFECYCLE_NOTIFICATION_URL: str = _clean_env_value(os.getenv("MSGRAPH_LIFECYCLE_NOTIFICATION_URL", ""))
+MSGRAPH_WEBHOOK_CLIENT_STATE: str = _clean_env_value(os.getenv("MSGRAPH_WEBHOOK_CLIENT_STATE", ""))
+
 
 def _expand_localhost_origins(origins_csv: str) -> list[str]:
     # Keep CORS deterministic while tolerating localhost/127.0.0.1 dev host aliases.
@@ -76,6 +96,7 @@ OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-mini")
 OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 AI_GATEWAY_ENABLED: bool = OPENAI_API_KEY != ""
+AI_PERF_STUB_ENABLED: bool = os.getenv("AI_PERF_STUB_ENABLED", "false").lower() == "true"
 AI_MAX_TOOL_ROUNDS: int = int(os.getenv("AI_MAX_TOOL_ROUNDS", "5"))
 RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "5"))
 RAG_CHUNK_TOKENS: int = int(os.getenv("RAG_CHUNK_TOKENS", "400"))

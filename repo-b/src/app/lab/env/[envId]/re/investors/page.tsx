@@ -140,7 +140,7 @@ export default function InvestorsPage() {
     <section className="flex flex-col gap-4" data-testid="re-investors-list">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Investors</h2>
+          <h2 className="nv-h2 text-bm-text">Investors</h2>
           <p className="mt-1 text-sm text-bm-muted2">Limited partners and co-investors across funds.</p>
         </div>
       </div>

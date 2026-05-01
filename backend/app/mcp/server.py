@@ -39,6 +39,8 @@ def _register_all_tools():
     from app.mcp.tools.repe_analysis_tools import register_repe_analysis_tools
     from app.mcp.tools.repe_platform_tools import register_repe_platform_tools
     from app.mcp.tools.query_tools import register_query_tools
+    from app.mcp.tools.repe_eval_tools import register_repe_eval_tools
+    from app.mcp.tools.repe_change_tools import register_repe_change_tools
     from app.mcp.tools.credit_tools import register_credit_tools
     from app.mcp.tools.covenant_tools import register_covenant_tools
     from app.mcp.tools.lp_report_tools import register_lp_report_tools
@@ -78,6 +80,8 @@ def _register_all_tools():
     register_repe_analysis_tools()
     register_repe_platform_tools()
     register_query_tools()
+    register_repe_eval_tools()
+    register_repe_change_tools()
     register_credit_tools()
     register_covenant_tools()
     register_lp_report_tools()

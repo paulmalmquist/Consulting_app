@@ -1,97 +1,91 @@
-import Link from 'next/link';
+import { NvButton } from '@/components/marketing/ui/NvButton';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 import { CredibilitySection } from '@/components/marketing/marketing/CredibilitySection';
 import { CategoryMessagingFramework } from '@/components/marketing/marketing/CategoryMessagingFramework';
 
 const CFO_FOCUS = ['Cost discipline', 'ROI visibility', 'Operational efficiency', 'Scalable infrastructure'];
 
 const CFO_PRIORITIES = [
-  {
-    title: 'Lower Fixed Costs',
-    description: 'Consolidate tools.'
-  },
-  {
-    title: 'Higher Productivity',
-    description: 'Automate manual workflows.'
-  },
-  {
-    title: 'Clear ROI',
-    description: 'Tie AI deployment to financial outcomes.'
-  },
-  {
-    title: 'Better Data Control',
-    description: 'Reduce dependence on third-party platforms.'
-  }
+  { title: 'Lower Fixed Costs', description: 'Consolidate tools.' },
+  { title: 'Higher Productivity', description: 'Automate manual workflows.' },
+  { title: 'Clear ROI', description: 'Tie AI deployment to financial outcomes.' },
+  { title: 'Better Data Control', description: 'Reduce dependence on third-party platforms.' }
 ];
 
 const RESULTS = ['Reduced SaaS budgets', 'Faster reporting cycles', 'Lower operational overhead', 'Improved team productivity'];
 
 export default function CfoPage() {
   return (
-    <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">For CFOs</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">
-          Reduce Software Spend Without Slowing the Business
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
-          We help CFOs identify where internal AI systems can replace high-cost tools and improve operational efficiency.
-        </p>
-        <Link
-          href="/operational-assessment"
-          className="mt-6 inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-5 py-2.5 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"
-        >
-          Request a Cost Reduction Assessment
-        </Link>
-      </section>
-
-      <CredibilitySection />
-
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Financial Leadership Priorities</h2>
-        <p className="mt-3 text-sm text-nv-muted">You are responsible for measurable financial and operating outcomes.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {CFO_FOCUS.map((item) => (
-            <article key={item} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 text-sm text-nv-text">
-              {item}
-            </article>
-          ))}
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="For CFOs"
+        headline="Reduce software spend without slowing the business."
+        lede="We help CFOs identify where internal AI systems can replace high-cost tools and improve operational efficiency."
+      >
+        <div style={{ marginTop: 24 }}>
+          <NvButton variant="primary" href="/operational-assessment">Request a cost reduction assessment</NvButton>
         </div>
+      </PageHeader>
+
+      <section className="nv-section">
+        <CredibilitySection />
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">What CFOs Care About</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Financial leadership priorities</p>
+        </div>
+        <NvCard>
+          <p className="nv-body">You are responsible for measurable financial and operating outcomes.</p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" style={{ marginTop: 16 }}>
+            {CFO_FOCUS.map((item) => (
+              <div key={item} className="nv-pill nv-pill-teal">{item}</div>
+            ))}
+          </div>
+        </NvCard>
+      </section>
+
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What CFOs care about</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {CFO_PRIORITIES.map((item) => (
-            <article key={item.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">
-              <h3 className="text-base font-semibold text-nv-text">{item.title}</h3>
-              <p className="mt-2 text-sm text-nv-muted">{item.description}</p>
-            </article>
+            <NvCard key={item.title}>
+              <h3 className="nv-h3">{item.title}</h3>
+              <p className="nv-body" style={{ margin: 0 }}>{item.description}</p>
+            </NvCard>
           ))}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Results Framing</h2>
-        <p className="mt-3 text-sm text-nv-muted">Common outcomes include:</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Common outcomes</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {RESULTS.map((item) => (
-            <article key={item} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 text-sm text-nv-text">
-              {item}
-            </article>
+            <NvCard key={item}>
+              <p className="nv-body" style={{ margin: 0 }}>{item}</p>
+            </NvCard>
           ))}
         </div>
       </section>
 
-      <CategoryMessagingFramework />
+      <section className="nv-section">
+        <CategoryMessagingFramework />
+      </section>
 
-      <section className="rounded-3xl border border-nv-teal/25 bg-gradient-to-r from-nv-surface/80 to-nv-teal/6 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Find Your Largest Cost-Saving Opportunities</h2>
-        <Link
-          href="/operational-assessment"
-          className="mt-5 inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-6 py-3 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"
-        >
-          Schedule a CFO Assessment
-        </Link>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Find your largest cost-saving opportunities</p>
+        </div>
+        <NvCard>
+          <div style={{ marginTop: 0 }}>
+            <NvButton variant="primary" href="/operational-assessment">Schedule a CFO assessment</NvButton>
+          </div>
+        </NvCard>
       </section>
     </div>
   );

@@ -273,8 +273,8 @@ export default function DashboardBuilderPage({
       <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
         {/* Header */}
         <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">AI Dashboard Builder</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-bm-text">Dashboards</h1>
+          <p className="nv-eyebrow text-bm-muted2">AI Dashboard Builder</p>
+          <h1 className="nv-h1 mt-1 text-bm-text">Dashboards</h1>
           <p className="mt-2 text-sm text-bm-muted2">
             Describe what you want to see and let AI compose a professional dashboard from approved metrics.
           </p>
@@ -289,7 +289,7 @@ export default function DashboardBuilderPage({
 
         {/* Layout archetype cards */}
         <div>
-          <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-medium mb-3">
+          <p className="nv-eyebrow mb-3 text-bm-muted2">
             Or start from a layout
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -298,9 +298,9 @@ export default function DashboardBuilderPage({
                 key={arch.key}
                 type="button"
                 onClick={() => handleGenerate(`Build a ${arch.name.toLowerCase()} dashboard`)}
-                className="group rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-bm-accent/50 hover:shadow-md dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)]"
+                className="group rounded-xl border border-white/10 bg-[rgba(15,23,42,0.82)] p-4 text-left transition-all hover:border-bm-accent/50"
               >
-                <p className="text-sm font-semibold text-bm-text group-hover:text-bm-accent transition-colors">
+                <p className="nv-h3 text-bm-text transition-colors group-hover:text-bm-accent">
                   {arch.name}
                 </p>
                 <p className="mt-1 text-xs text-bm-muted2 leading-relaxed">{arch.description}</p>
@@ -313,7 +313,7 @@ export default function DashboardBuilderPage({
         {/* Saved dashboards */}
         {savedDashboards.length > 0 && (
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-bm-muted2 font-medium mb-3">
+            <p className="nv-eyebrow mb-3 text-bm-muted2">
               Saved Dashboards
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -321,7 +321,7 @@ export default function DashboardBuilderPage({
                 <Link
                   key={d.id}
                   href={`/lab/env/${params.envId}/re/dashboards/${d.id}`}
-                  className="group relative rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-bm-accent/50 hover:shadow-md dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)]"
+                  className="group relative rounded-xl border border-white/10 bg-[rgba(15,23,42,0.82)] p-4 transition-all hover:border-bm-accent/50"
                 >
                   <button
                     type="button"
@@ -333,7 +333,7 @@ export default function DashboardBuilderPage({
                       <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                     </svg>
                   </button>
-                  <p className="text-sm font-semibold text-bm-text group-hover:text-bm-accent">
+                  <p className="nv-h3 text-bm-text group-hover:text-bm-accent">
                     {d.name}
                   </p>
                   {d.prompt_text && (
@@ -393,7 +393,7 @@ export default function DashboardBuilderPage({
                 className={`rounded px-2.5 py-0.5 text-xs font-medium transition-colors ${
                   density === d
                     ? "bg-indigo-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
+                    : "bg-white/10 text-slate-300 hover:bg-white/20"
                 }`}
               >
                 {d}
@@ -421,7 +421,7 @@ export default function DashboardBuilderPage({
 
         {/* Intelligence panel — measure suggestions + behavior mode */}
         {intelligence && isEditing && (
-          <div className="rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[rgba(15,23,42,0.82)] p-4 space-y-3">
+          <div className="space-y-3 rounded-xl border border-white/10 bg-[rgba(15,23,42,0.82)] p-4">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
                 {(intelligence.behavior_mode || "").replace(/_/g, " ")}
@@ -437,7 +437,7 @@ export default function DashboardBuilderPage({
             </div>
             {intelligence.measure_suggestions && (
               <div className="space-y-1.5">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-bm-muted2 font-medium">Measure suggestions</p>
+                <p className="nv-eyebrow text-bm-muted2">Measure suggestions</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(intelligence.measure_suggestions.required || []).map((m: { metric_key: string; reason: string }) => (
                     <span key={m.metric_key} title={m.reason}
@@ -502,7 +502,7 @@ export default function DashboardBuilderPage({
 
       {/* Config panel (right rail) */}
       {configWidget && !isMobileViewport ? (
-        <div className="w-80 shrink-0 border-l border-slate-200 bg-white dark:border-white/10 dark:bg-[rgba(15,23,42,0.92)]">
+        <div className="w-80 shrink-0 border-l border-white/10 bg-[rgba(15,23,42,0.92)]">
           <WidgetConfigPanel
             widget={configWidget}
             onUpdate={handleUpdateWidget}

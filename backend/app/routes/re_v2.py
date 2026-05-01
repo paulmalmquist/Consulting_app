@@ -76,6 +76,7 @@ from app.schemas.re_institutional import (
     ReScenarioCompareV2Out,
 )
 from app.services import (
+    re_fund_portfolio_coherent,
     re_investment,
     re_jv,
     re_partner,
@@ -206,18 +207,26 @@ def get_environment_portfolio_readiness(
         raise _to_http(exc)
 
 
-# ── Fund Table (enriched rows with quarter state) ────────────────────────────
+# ── Fund Portfolio (single canonical payload — released, non-quarantined) ────
 
-@router.get("/environments/{env_id}/fund-table")
-def get_environment_fund_table(
+@router.get("/environments/{env_id}/fund-portfolio")
+def get_environment_fund_portfolio(
     env_id: UUID,
     request: Request,
     quarter: str = Query(...),
-    model_id: UUID | None = Query(None),
 ):
-    """
-    Returns enriched fund rows with performance metrics from re_fund_quarter_state.
-    Supports model overlay via optional model_id parameter.
+    """Single coherent payload for the REPE Fund Portfolio page.
+
+    Returns portfolio_summary + fund_rows (investor-facing) + diagnostics
+    (excluded with reasons) + provenance from one query against the
+    re_fund_portfolio_included_v / re_fund_portfolio_excluded_v views.
+
+    Replaces the previous three-call stitch (listReV1Funds +
+    getPortfolioAuthoritativeStates + getReV2EnvironmentPortfolioKpis) and the
+    legacy /fund-table endpoint, both of which used different definitions of
+    "included" and produced incoherent UI state.
+
+    Plan: audit/fund_portfolio_coherence/gap_report.md.
     """
     try:
         resolved = repe_context.resolve_repe_business_context(
@@ -225,11 +234,12 @@ def get_environment_fund_table(
             env_id=str(env_id),
             allow_create=True,
         )
-        return re_env_portfolio.get_fund_table_rows(
+        payload = re_fund_portfolio_coherent.get_coherent_fund_portfolio(
+            env_id=str(env_id),
             business_id=resolved.business_id,
             quarter=quarter,
-            model_id=model_id,
         )
+        return re_fund_portfolio_coherent.payload_to_dict(payload)
     except Exception as exc:
         raise _to_http(exc)
 
@@ -344,27 +354,31 @@ def get_environment_fund_trend(
         }[metric]
 
         with get_cursor() as cur:
-            # Single authoritative query: released snapshots only, no quarantined
-            # funds, no legacy re_fund_quarter_state fallback. Quarters with no
-            # released snapshot produce null gaps in the chart (never coerced).
+            # Canonical fund set: re_fund_portfolio_included_funds_v defines
+            # "which funds belong on the chart". The chart's series set is
+            # therefore identical-by-construction to the primary table's row
+            # set on the Fund Portfolio page (and to the reconciliation set).
+            # Per-quarter values come from the same released snapshots the
+            # included view reads. Quarters with no released snapshot for a
+            # fund produce null gaps (never coerced to zero).
             cur.execute(
                 """
                 SELECT
-                    f.fund_id::text AS fund_id,
-                    f.name,
+                    inc.fund_id::text AS fund_id,
+                    inc.name,
                     a.quarter,
                     NULLIF(a.canonical_metrics->>%s, '')::numeric AS metric_value
-                FROM repe_fund f
+                FROM re_fund_portfolio_included_funds_v inc
                 JOIN re_authoritative_fund_state_qtr a
-                  ON a.fund_id = f.fund_id
-                 AND a.env_id = %s
-                 AND a.business_id = %s::uuid
+                  ON a.fund_id = inc.fund_id
+                 AND a.env_id = inc.env_id
+                 AND a.business_id = inc.business_id
                  AND a.promotion_state = 'released'
-                WHERE f.business_id = %s
-                  AND f.name NOT ILIKE '%%[QUARANTINED]%%'
-                ORDER BY f.fund_id, a.quarter DESC
+                WHERE inc.env_id = %s
+                  AND inc.business_id = %s::uuid
+                ORDER BY inc.fund_id, a.quarter DESC
                 """,
-                (metric_key, str(env_id), str(resolved.business_id), str(resolved.business_id)),
+                (metric_key, str(env_id), str(resolved.business_id)),
             )
             rows = cur.fetchall() or []
 

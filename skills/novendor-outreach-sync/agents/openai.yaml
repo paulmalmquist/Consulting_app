@@ -1,0 +1,4 @@
+interface:
+  display_name: "Novendor Outreach Sync"
+  short_description: "Import and hook Novendor outreach email"
+  default_prompt: "Use $novendor-outreach-sync to import Hall Boys outreach email into the Novendor CRM."

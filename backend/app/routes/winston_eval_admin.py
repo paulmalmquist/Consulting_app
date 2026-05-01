@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
+from psycopg.types.json import Json
 
 from app.db import get_cursor
 from app.services.winston_eval_runner import (
@@ -91,6 +92,43 @@ class TriggerRunRequest(BaseModel):
     env_id: Optional[str] = None
     environment: Optional[str] = Field(None, description="eval scenario environment slug, e.g. meridian or novendor")
     trigger: str = Field("manual", description=f"one of {VALID_TRIGGERS}")
+
+
+class EvalScenarioRow(BaseModel):
+    id: str
+    env_id: str
+    business_id: str
+    domain: str
+    scenario_key: str
+    prompt: str
+    expected_capability: Optional[str] = None
+    expected_params_shape: dict[str, Any] = Field(default_factory=dict)
+    expected_source_tables: list[Any] = Field(default_factory=list)
+    expected_metric_keys: list[Any] = Field(default_factory=list)
+    expected_period_policy: Optional[str] = None
+    expected_failure_mode: Optional[str] = None
+    deterministic_expected_result: Optional[dict[str, Any]] = None
+    tolerance_json: dict[str, Any] = Field(default_factory=dict)
+    tags: list[Any] = Field(default_factory=list)
+    active: bool
+
+
+class UpsertEvalScenarioRequest(BaseModel):
+    env_id: str
+    business_id: str
+    domain: str = "repe"
+    scenario_key: str
+    prompt: str
+    expected_capability: Optional[str] = None
+    expected_params_shape: dict[str, Any] = Field(default_factory=dict)
+    expected_source_tables: list[Any] = Field(default_factory=list)
+    expected_metric_keys: list[Any] = Field(default_factory=list)
+    expected_period_policy: Optional[str] = None
+    expected_failure_mode: Optional[str] = None
+    deterministic_expected_result: Optional[dict[str, Any]] = None
+    tolerance_json: dict[str, Any] = Field(default_factory=dict)
+    tags: list[Any] = Field(default_factory=list)
+    active: bool = True
 
 
 # ── Routes ──────────────────────────────────────────────────────────
@@ -230,6 +268,130 @@ def list_baselines(
             tuple(params),
         )
         return [EvalBaselineRow(**dict(row)) for row in cur.fetchall()]
+
+
+@router.get("/scenarios", response_model=list[EvalScenarioRow])
+def list_scenarios(
+    domain: Optional[str] = Query("repe"),
+    env_id: Optional[str] = Query(None),
+    active: Optional[bool] = Query(None),
+) -> list[EvalScenarioRow]:
+    conditions: list[str] = []
+    params: list[Any] = []
+    if domain:
+        conditions.append("domain = %s")
+        params.append(domain)
+    if env_id:
+        conditions.append("env_id = %s")
+        params.append(env_id)
+    if active is not None:
+        conditions.append("active = %s")
+        params.append(active)
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT id, env_id, business_id, domain, scenario_key, prompt,
+                   expected_capability, expected_params_shape, expected_source_tables,
+                   expected_metric_keys, expected_period_policy, expected_failure_mode,
+                   deterministic_expected_result, tolerance_json, tags, active
+              FROM winston_eval_scenarios
+              {where}
+             ORDER BY domain, scenario_key
+            """,
+            tuple(params),
+        )
+        return [EvalScenarioRow(**{**dict(row), "id": str(row["id"]), "business_id": str(row["business_id"])}) for row in cur.fetchall()]
+
+
+@router.post("/scenarios", response_model=EvalScenarioRow)
+def upsert_scenario(req: UpsertEvalScenarioRequest) -> EvalScenarioRow:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO winston_eval_scenarios (
+              env_id, business_id, domain, scenario_key, prompt, expected_capability,
+              expected_params_shape, expected_source_tables, expected_metric_keys,
+              expected_period_policy, expected_failure_mode, deterministic_expected_result,
+              tolerance_json, tags, active
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (scenario_key) DO UPDATE SET
+              env_id = EXCLUDED.env_id,
+              business_id = EXCLUDED.business_id,
+              domain = EXCLUDED.domain,
+              prompt = EXCLUDED.prompt,
+              expected_capability = EXCLUDED.expected_capability,
+              expected_params_shape = EXCLUDED.expected_params_shape,
+              expected_source_tables = EXCLUDED.expected_source_tables,
+              expected_metric_keys = EXCLUDED.expected_metric_keys,
+              expected_period_policy = EXCLUDED.expected_period_policy,
+              expected_failure_mode = EXCLUDED.expected_failure_mode,
+              deterministic_expected_result = EXCLUDED.deterministic_expected_result,
+              tolerance_json = EXCLUDED.tolerance_json,
+              tags = EXCLUDED.tags,
+              active = EXCLUDED.active,
+              updated_at = now()
+            RETURNING id, env_id, business_id, domain, scenario_key, prompt,
+                      expected_capability, expected_params_shape, expected_source_tables,
+                      expected_metric_keys, expected_period_policy, expected_failure_mode,
+                      deterministic_expected_result, tolerance_json, tags, active
+            """,
+            (
+                req.env_id,
+                req.business_id,
+                req.domain,
+                req.scenario_key,
+                req.prompt,
+                req.expected_capability,
+                Json(req.expected_params_shape),
+                Json(req.expected_source_tables),
+                Json(req.expected_metric_keys),
+                req.expected_period_policy,
+                req.expected_failure_mode,
+                Json(req.deterministic_expected_result),
+                Json(req.tolerance_json),
+                Json(req.tags),
+                req.active,
+            ),
+        )
+        row = dict(cur.fetchone())
+    row["id"] = str(row["id"])
+    row["business_id"] = str(row["business_id"])
+    return EvalScenarioRow(**row)
+
+
+@router.get("/observations")
+def list_observations(
+    run_id: Optional[str] = Query(None),
+    scenario_id: Optional[str] = Query(None),
+    env_id: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    conditions: list[str] = []
+    params: list[Any] = []
+    if run_id:
+        conditions.append("run_id = %s")
+        params.append(run_id)
+    if scenario_id:
+        conditions.append("scenario_id = %s")
+        params.append(scenario_id)
+    if env_id:
+        conditions.append("env_id = %s")
+        params.append(env_id)
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    params.append(limit)
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT *
+              FROM winston_eval_observations
+              {where}
+             ORDER BY created_at DESC
+             LIMIT %s
+            """,
+            tuple(params),
+        )
+        return [dict(row) for row in cur.fetchall()]
 
 
 @router.post("/baselines/invalidate")

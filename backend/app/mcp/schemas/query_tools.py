@@ -23,3 +23,14 @@ class NlQueryInput(BaseModel):
         default=None,
         description="Quarter context (e.g. '2025Q4'). Defaults to latest available.",
     )
+
+
+class ReadonlySqlWithContractInput(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    sql_text: str = Field(..., description="Readonly SELECT SQL to execute")
+    declared_purpose: str = Field(..., description="Why this SQL is needed")
+    capability_key: str = Field(..., description="Registered REPE capability key")
+    env_id: str | None = Field(default=None, description="Active environment id")
+    business_id: UUID | None = Field(default=None, description="Business/tenant UUID")
+    timeout_ms: int = Field(default=10_000, ge=100, le=60_000)

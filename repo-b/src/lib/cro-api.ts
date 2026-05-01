@@ -534,6 +534,7 @@ export function logOutreach(body: {
   direction?: string;
   subject?: string;
   body_preview?: string;
+  sent_at?: string;
   meeting_booked?: boolean;
   sent_by?: string;
 }) {

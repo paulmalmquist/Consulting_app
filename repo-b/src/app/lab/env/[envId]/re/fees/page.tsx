@@ -191,7 +191,7 @@ export default function FeesPage() {
     <section className="flex flex-col gap-4" data-testid="re-fees-page">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Fee Management</h2>
+          <h2 className="nv-h2 text-bm-text">Fee Management</h2>
           <p className="mt-1 text-sm text-bm-muted2">Management fee policies and quarterly accruals.</p>
         </div>
       </div>
@@ -229,7 +229,7 @@ export default function FeesPage() {
 
       {/* Fee Policies Table */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-bm-text">Fee Policies</h3>
+        <h3 className="nv-h3 mb-2 text-bm-text">Fee Policies</h3>
         {filteredPolicies.length === 0 && !error ? (
           <StateCard
             state="empty"

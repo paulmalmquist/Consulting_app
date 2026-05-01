@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.assistant_runtime.turn_receipts import DegradedReason, StructuredPrecheckReceipt
-from app.services.assistant_blocks import error_block, markdown_block, navigation_suggestion_block
+from app.services.assistant_blocks import (
+    error_block,
+    markdown_block,
+    navigation_suggestion_block,
+    unavailable_with_reason_block,
+)
 
 
 # ── Static fallback messages (last resort) ────────────────────────────
@@ -125,6 +130,7 @@ def _build_context_message(
     entity_type: str | None = None,
     entity_name: str | None = None,
     skill_id: str | None = None,
+    unavailable_reason: str | None = None,
     prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> str:
     """Build a human-readable degraded message with entity context and investigation note."""
@@ -133,11 +139,12 @@ def _build_context_message(
     suffix = f" {note}" if note else ""
 
     if reason == DegradedReason.RETRIEVAL_EMPTY:
+        classified_reason = unavailable_reason or "unclassified_unavailable"
         if entity_label and skill_id:
             skill_display = skill_id.replace("_", " ")
             return (
                 f"The data needed to {skill_display} for {entity_label} "
-                f"is not available in the environment data.{suffix}"
+                f"is not available in the environment data (reason: {classified_reason}).{suffix}"
             )
         if entity_label:
             return (
@@ -173,6 +180,8 @@ def degraded_blocks_with_context(
     entity_name: str | None = None,
     env_id: str | None = None,
     skill_id: str | None = None,
+    unavailable_reason: str | None = None,
+    data_snapshot_hash: str | None = None,
     prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """Generate context-aware degraded blocks with suggestions.
@@ -184,12 +193,24 @@ def degraded_blocks_with_context(
         entity_type=entity_type,
         entity_name=entity_name,
         skill_id=skill_id,
+        unavailable_reason=unavailable_reason,
         prechecks=prechecks,
     )
 
     blocks: list[dict[str, Any]] = [
         markdown_block(message_text),
     ]
+
+    if reason == DegradedReason.RETRIEVAL_EMPTY:
+        blocks.append(
+            unavailable_with_reason_block(
+                title="Unavailable",
+                reason_code=unavailable_reason or "unclassified_unavailable",
+                metric_key=skill_id,
+                entity_label=_entity_label(entity_type, entity_name) or None,
+                data_snapshot_hash=data_snapshot_hash,
+            )
+        )
 
     nav_suggestions = _navigation_suggestions_for_reason(
         reason,
@@ -216,6 +237,8 @@ def empty_response_fallback(
     entity_id: str | None = None,
     entity_name: str | None = None,
     env_id: str | None = None,
+    unavailable_reason: str | None = None,
+    data_snapshot_hash: str | None = None,
     prechecks: list[StructuredPrecheckReceipt] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """Safety-net fallback when the LLM produces empty content and no response blocks."""
@@ -226,5 +249,31 @@ def empty_response_fallback(
         entity_name=entity_name,
         env_id=env_id,
         skill_id=skill_id,
+        unavailable_reason=unavailable_reason,
+        data_snapshot_hash=data_snapshot_hash,
+        prechecks=prechecks,
+    )
+
+
+def classified_retrieval_empty_blocks(
+    *,
+    unavailable_reason: str,
+    skill_id: str | None = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    entity_name: str | None = None,
+    env_id: str | None = None,
+    data_snapshot_hash: str | None = None,
+    prechecks: list[StructuredPrecheckReceipt] | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    return degraded_blocks_with_context(
+        DegradedReason.RETRIEVAL_EMPTY,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        env_id=env_id,
+        skill_id=skill_id,
+        unavailable_reason=unavailable_reason,
+        data_snapshot_hash=data_snapshot_hash,
         prechecks=prechecks,
     )

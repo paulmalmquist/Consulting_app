@@ -27,6 +27,7 @@ ALTER TABLE cro_execution_task
         'pipeline_no_outreach',
         'pipeline_proposal_sent_no_followup',
         'outreach_no_reply_2d',
+        'email_inbound_reply',
         'proof_backlog_top',
         'quick_capture',
         'manual',

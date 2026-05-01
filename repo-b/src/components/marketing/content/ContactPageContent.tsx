@@ -13,23 +13,21 @@ export function ContactPageContent() {
       : undefined;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
+    <div className="nv-page">
+      <div>
         {selectedIndustry && (
-          <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Industry context: {selectedIndustry.label}</p>
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />{selectedIndustry.label}</p>
         )}
-        <h1
-          className={
-            selectedIndustry ? 'mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl' : 'text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl'
-          }
-        >
+        <h1 className="nv-h1" style={{ marginTop: selectedIndustry ? 18 : 0, marginBottom: 24 }}>
           Book a meeting.
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
+        <p className="nv-lede">
           You will receive a calendar invite with Google, Outlook, and ICS options after confirmation.
         </p>
-      </section>
-      <ContactForm key={selectedIndustry?.slug ?? 'generic'} defaultIndustry={selectedIndustry?.contactLabel} />
+      </div>
+      <div className="nv-section">
+        <ContactForm key={selectedIndustry?.slug ?? 'generic'} defaultIndustry={selectedIndustry?.contactLabel} />
+      </div>
     </div>
   );
 }

@@ -161,7 +161,7 @@ export default function SavedAnalysesPage() {
     <section className="flex flex-col gap-4" data-testid="re-saved-analyses-list">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Saved Analyses</h2>
+          <h2 className="nv-h2 text-bm-text">Saved Analyses</h2>
           <p className="mt-1 text-sm text-bm-muted2">Queries and visualizations saved from Winston analytics.</p>
         </div>
       </div>

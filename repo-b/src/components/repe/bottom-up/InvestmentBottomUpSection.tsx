@@ -85,7 +85,7 @@ export default function InvestmentBottomUpSection({
   if (loading) return <div className="text-sm text-bm-muted2">Loading bottom-up rollup…</div>;
   if (err)
     return (
-      <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
         {err}
       </div>
     );
@@ -100,14 +100,14 @@ export default function InvestmentBottomUpSection({
     <section className="space-y-4">
       <header className="flex items-end justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
+          <div className="nv-eyebrow text-bm-muted2">
             Bottom-up IRR
           </div>
-          <div className="mt-1 text-2xl font-semibold text-bm-text">
+          <div className="nv-metric-large mt-1 text-bm-text">
             {pct(data.irr)}
           </div>
           {data.null_reason ? (
-            <div className="mt-1 text-xs text-rose-600">
+            <div className="mt-1 text-xs text-rose-300">
               {nullReasonBadge(data.null_reason)}
             </div>
           ) : (
@@ -122,8 +122,8 @@ export default function InvestmentBottomUpSection({
       </header>
 
       {data.series.length ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
-          <div className="mb-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
+        <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-4">
+          <div className="nv-eyebrow mb-2 text-bm-muted2">
             Aggregated quarterly CF (ownership-weighted)
           </div>
           <QuarterlyBarChart
@@ -135,13 +135,13 @@ export default function InvestmentBottomUpSection({
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
-        <div className="border-b border-slate-200 p-3 text-xs uppercase tracking-[0.14em] text-bm-muted2 dark:border-bm-border/[0.08]">
+      <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85]">
+        <div className="nv-eyebrow border-b border-bm-border/[0.08] p-3 text-bm-muted2">
           Asset contributions
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2 dark:border-bm-border/[0.08]">
+            <tr className="nv-table-header border-b border-bm-border/[0.08] text-left text-bm-muted2">
               <th className="px-3 py-2">Asset</th>
               <th className="px-3 py-2 text-right">Ownership %</th>
               <th className="px-3 py-2 text-right">Asset IRR</th>
@@ -152,9 +152,9 @@ export default function InvestmentBottomUpSection({
             {data.asset_contributions.map((c) => (
               <tr
                 key={c.asset_id}
-                className="border-b border-slate-100 dark:border-bm-border/[0.06]"
+                className="border-b border-bm-border/[0.06]"
               >
-                <td className="px-3 py-2">
+                <td className="nv-table-cell px-3 py-2">
                   <Link
                     href={`/lab/env/${envId}/re/assets/${c.asset_id}`}
                     className="font-medium text-bm-text hover:underline"
@@ -162,13 +162,13 @@ export default function InvestmentBottomUpSection({
                     {c.name}
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">
+                <td className="nv-table-cell nv-metric px-3 py-2 text-right">
                   {(c.ownership_pct_as_of * 100).toFixed(1)}%
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">
+                <td className="nv-table-cell nv-metric px-3 py-2 text-right">
                   {pct(c.asset_irr)}
                 </td>
-                <td className="px-3 py-2 text-xs text-bm-muted2">
+                <td className="nv-table-cell px-3 py-2 text-xs text-bm-muted2">
                   {c.asset_null_reason ? nullReasonBadge(c.asset_null_reason) : "—"}
                 </td>
               </tr>
@@ -178,8 +178,8 @@ export default function InvestmentBottomUpSection({
       </div>
 
       {auditMode ? (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 text-sm dark:border-indigo-700/40 dark:bg-indigo-950/20">
-          <div className="mb-2 text-xs uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-300">
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-sm">
+          <div className="nv-eyebrow mb-2 text-indigo-200">
             Investment derivation
           </div>
           <div className="font-mono text-xs">

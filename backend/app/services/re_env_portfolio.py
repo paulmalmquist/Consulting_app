@@ -418,101 +418,16 @@ def get_portfolio_readiness(
 
 
 # =============================================================================
-# Fund Table — enriched fund rows with quarter-state performance metrics
+# Fund Table — REMOVED 2026-04-30
+# -----------------------------------------------------------------------------
+# get_fund_table_rows() was deleted. It read legacy re_fund_quarter_state without
+# any [QUARANTINED] / promotion_state filtering and produced incoherent rows on
+# the Fund Portfolio page (header reported 3 funds, table rendered 5 including
+# quarantined orphans). The page now consumes the canonical payload from
+# backend/app/services/re_fund_portfolio_coherent.py via /api/re/v2/environments/
+# {env_id}/fund-portfolio.
+# Plan: audit/fund_portfolio_coherence/gap_report.md.
 # =============================================================================
-
-_DECIMAL_KEYS = (
-    "target_size", "portfolio_nav", "total_committed", "total_called",
-    "total_distributed", "dpi", "rvpi", "tvpi", "gross_irr", "net_irr",
-    "weighted_dscr", "weighted_ltv", "pct_invested",
-)
-
-
-def get_fund_table_rows(
-    *,
-    business_id: UUID | str,
-    quarter: str,
-    model_id: UUID | str | None = None,
-) -> list[dict]:
-    """
-    Returns enriched fund rows joining repe_fund with re_fund_quarter_state.
-
-    When model_id is set, joins on scenario_id = model_id instead of
-    scenario_id IS NULL, enabling model overlay from the same endpoint.
-
-    Uses DISTINCT ON + ORDER BY created_at DESC (latest row wins).
-    TODO: When period locking is added, prefer is_locked = true rows.
-    """
-    business_text = str(business_id)
-
-    if model_id:
-        scenario_clause = "sq.scenario_id = %s::uuid"
-        scenario_params: list[Any] = [str(model_id)]
-    else:
-        scenario_clause = "sq.scenario_id IS NULL"
-        scenario_params = []
-
-    params: list[Any] = [quarter] + scenario_params + [business_text]
-
-    with get_cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT
-              f.fund_id,
-              f.business_id,
-              f.name,
-              f.vintage_year,
-              f.fund_type,
-              f.strategy,
-              f.sub_strategy,
-              f.target_size,
-              f.status,
-              f.base_currency,
-              f.inception_date,
-              f.created_at,
-              s.portfolio_nav,
-              s.total_committed,
-              s.total_called,
-              s.total_distributed,
-              s.dpi,
-              s.rvpi,
-              s.tvpi,
-              s.gross_irr,
-              s.net_irr,
-              s.weighted_dscr,
-              s.weighted_ltv,
-              CASE
-                WHEN s.total_committed IS NOT NULL AND s.total_committed > 0
-                THEN s.total_called / s.total_committed
-                ELSE NULL
-              END AS pct_invested
-            FROM repe_fund f
-            LEFT JOIN LATERAL (
-              SELECT *
-              FROM re_fund_quarter_state sq
-              WHERE sq.fund_id = f.fund_id
-                AND sq.quarter = %s
-                AND {scenario_clause}
-              ORDER BY sq.created_at DESC
-              LIMIT 1
-            ) s ON true
-            WHERE f.business_id = %s::uuid
-            ORDER BY f.name
-            """,
-            params,
-        )
-        rows = cur.fetchall()
-
-    return [
-        {
-            **_row_to_str(dict(r), *_DECIMAL_KEYS),
-            "fund_id": str(r["fund_id"]),
-            "business_id": str(r["business_id"]),
-            "inception_date": r["inception_date"].isoformat() if r.get("inception_date") else None,
-            "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
-        }
-        for r in rows
-    ]
 
 
 # =============================================================================

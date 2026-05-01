@@ -197,7 +197,7 @@ export default function DocumentsPage() {
     <section className="flex flex-col gap-4" data-testid="re-documents-list">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Document Library</h2>
+          <h2 className="nv-h2 text-bm-text">Document Library</h2>
           <p className="mt-1 text-sm text-bm-muted2">
             Fund documents, subscription agreements, side letters, and loan documents.
           </p>

@@ -188,7 +188,7 @@ function DealRow({
               {deal.next_action_due ? ` (due ${deal.next_action_due})` : ""}
             </p>
           ) : (
-            <p className="mt-0.5 text-[11px] text-red-400">No next action defined</p>
+            <p className="mt-0.5 text-[11px] text-bm-muted2">No next action set</p>
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0 ml-2">

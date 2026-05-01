@@ -209,7 +209,7 @@ export function ExecutionTaskDrawer({
             />
           </Field>
 
-          <Field label="Next action" required hint="One concrete move. The card lives or dies on this.">
+          <Field label="Next action" hint="Optional — one concrete move if you have one.">
             <textarea
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value)}
@@ -218,7 +218,7 @@ export function ExecutionTaskDrawer({
             />
           </Field>
 
-          <Field label="Why now" required hint="What makes this urgent — not what the task is.">
+          <Field label="Why now" hint="Optional — what makes this urgent.">
             <textarea
               value={whyNow}
               onChange={(e) => setWhyNow(e.target.value)}

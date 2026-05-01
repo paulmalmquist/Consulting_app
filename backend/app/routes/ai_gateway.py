@@ -10,6 +10,7 @@ Requires OPENAI_API_KEY env var. AI_GATEWAY_ENABLED is set automatically when th
 from __future__ import annotations
 
 import logging
+import json
 import time
 from typing import AsyncGenerator
 
@@ -17,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth.platform import require_authenticated_request, require_environment_access
-from app.config import AI_GATEWAY_ENABLED, OPENAI_CHAT_MODEL, OPENAI_EMBEDDING_MODEL
+from app.config import AI_GATEWAY_ENABLED, AI_PERF_STUB_ENABLED, OPENAI_CHAT_MODEL, OPENAI_EMBEDDING_MODEL
 from app.schemas.ai_gateway import (
     GatewayAskRequest,
     GatewayHealthResponse,
@@ -89,6 +90,51 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
     new_conversation_created = (
         request.headers.get("x-bm-conversation-created", "").lower() == "true"
     )
+
+    if AI_PERF_STUB_ENABLED and actor == "perf-runner":
+        async def perf_event_stream() -> AsyncGenerator[bytes, None]:
+            started = time.time()
+            citation = {
+                "chunk_id": "perf-stub",
+                "doc_id": "perf-harness",
+                "title": "Performance harness deterministic stub",
+                "score": 1.0,
+            }
+            text = f"Perf stub response for {len(payload.message)} characters."
+            elapsed_ms = int((time.time() - started) * 1000)
+            done = {
+                "session_id": payload.session_id,
+                "elapsed_ms": elapsed_ms,
+                "trace": {
+                    "elapsed_ms": elapsed_ms,
+                    "execution_path": "perf_stub",
+                    "tool_call_count": 0,
+                },
+                "response_blocks": [
+                    {"type": "markdown_text", "content": text},
+                    {"type": "citations", "items": [citation]},
+                ],
+                "resolved_scope": {
+                    "environment_id": str(payload.env_id) if payload.env_id else None,
+                    "business_id": str(payload.business_id) if payload.business_id else None,
+                },
+            }
+            for event, data in (
+                ("token", {"text": text}),
+                ("citation", citation),
+                ("done", done),
+            ):
+                yield f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
+
+        return StreamingResponse(
+            perf_event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     async def event_stream() -> AsyncGenerator[bytes, None]:
         async for sse_line in run_gateway_stream(

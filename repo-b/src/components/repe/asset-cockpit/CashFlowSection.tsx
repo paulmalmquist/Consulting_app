@@ -87,7 +87,7 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-bm-muted2 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
+      <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-6 text-sm text-bm-muted2">
         Loading bottom-up cash flows…
       </div>
     );
@@ -95,7 +95,7 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
 
   if (error) {
     return (
-      <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700">
+      <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-300">
         Failed to load cash flow: {error}
       </div>
     );
@@ -114,15 +114,15 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
     <section className="space-y-4">
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
+        <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-4">
           <div className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
             Asset IRR (bottom-up)
           </div>
-          <div className="mt-1 text-2xl font-semibold text-bm-text">
+          <div className="nv-metric-large mt-1 text-bm-text">
             {toPctDisplay(data.irr)}
           </div>
           {data.null_reason ? (
-            <div className="mt-1 text-xs text-rose-600">
+            <div className="mt-1 text-xs text-rose-300">
               {nullReasonLabel(data.null_reason)}
             </div>
           ) : (
@@ -138,11 +138,11 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
+        <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-4">
           <div className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
             Terminal value
           </div>
-          <div className="mt-1 text-2xl font-semibold text-bm-text">
+          <div className="nv-metric-large mt-1 text-bm-text">
             {data.terminal_value
               ? fmtMoneyCompact(data.terminal_value.amount)
               : "—"}
@@ -158,11 +158,11 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
+        <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-4">
           <div className="text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
             Data freshness
           </div>
-          <div className="mt-1 text-2xl font-semibold text-bm-text">
+          <div className="nv-metric-large mt-1 text-bm-text">
             {data.is_stale ? "Stale" : "Fresh"}
           </div>
           <div className="mt-1 text-xs text-bm-muted2">
@@ -175,14 +175,14 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
 
       {/* ── Warnings ── */}
       {hasDominanceWarning ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-sm text-amber-200">
           <strong>Terminal value dominant.</strong> More than 80% of positive cash
           flow comes from the unrealized mark. The IRR is heavily driven by the
           NAV / cap-rate assumption — treat with caution.
         </div>
       ) : null}
       {data.is_stale && !data.null_reason ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-sm text-amber-200">
           <strong>Stale data — recomputing.</strong> The cached series diverges
           from current sources. Refresh the materialization job to update.
         </div>
@@ -190,7 +190,7 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
 
       {/* ── Chart ── */}
       {data.series.length ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
+        <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85] p-4">
           <div className="mb-2 text-xs uppercase tracking-[0.14em] text-bm-muted2">
             Quarterly net cash flow
           </div>
@@ -204,19 +204,19 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
       ) : null}
 
       {/* ── Statement table ── */}
-      <div className="rounded-xl border border-slate-200 bg-white dark:border-bm-border/[0.08] dark:bg-bm-surface/[0.85]">
-        <div className="border-b border-slate-200 p-3 text-xs uppercase tracking-[0.14em] text-bm-muted2 dark:border-bm-border/[0.08]">
+      <div className="rounded-xl border border-bm-border/[0.08] bg-bm-surface/[0.85]">
+        <div className="nv-table-header border-b border-bm-border/[0.08] p-3 text-bm-muted2">
           Cash flow series
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full nv-table-cell">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-[10px] uppercase tracking-[0.12em] text-bm-muted2 dark:border-bm-border/[0.08]">
-                <th className="px-3 py-2">Quarter</th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Amount</th>
-                <th className="px-3 py-2">Kind</th>
-                <th className="px-3 py-2">Notes</th>
+              <tr className="border-b border-bm-border/[0.08] text-left text-bm-muted2">
+                <th className="nv-table-header px-3 py-2">Quarter</th>
+                <th className="nv-table-header px-3 py-2">Date</th>
+                <th className="nv-table-header px-3 py-2">Amount</th>
+                <th className="nv-table-header px-3 py-2">Kind</th>
+                <th className="nv-table-header px-3 py-2">Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -230,15 +230,15 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
                 return (
                   <tr
                     key={p.quarter}
-                    className="border-b border-slate-100 dark:border-bm-border/[0.06]"
+                    className="border-b border-bm-border/[0.06]"
                   >
-                    <td className="px-3 py-2 font-medium">{p.quarter}</td>
+                    <td className="nv-table-cell px-3 py-2 font-medium">{p.quarter}</td>
                     <td className="px-3 py-2 text-bm-muted2">
                       {p.quarter_end_date}
                     </td>
                     <td
-                      className={`px-3 py-2 tabular-nums ${
-                        p.amount < 0 ? "text-rose-600" : "text-emerald-700"
+                      className={`nv-metric px-3 py-2 ${
+                        p.amount < 0 ? "text-rose-300" : "text-emerald-300"
                       }`}
                     >
                       {fmtMoneyCompact(p.amount)}
@@ -259,8 +259,8 @@ export default function CashFlowSection({ assetId, quarter, auditMode }: Props) 
 
       {/* ── Audit Drawer section (inline when ?audit_mode=1) ── */}
       {auditMode ? (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 text-sm dark:border-indigo-700/40 dark:bg-indigo-950/20">
-          <div className="mb-2 text-xs uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-300">
+        <div className="rounded-xl border border-indigo-700/40 bg-indigo-950/20 p-4 text-sm">
+          <div className="nv-table-header mb-2 text-indigo-300">
             Bottom-up derivation
           </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">

@@ -155,15 +155,13 @@ def create_task(
     sequence_group: UUID | None = None,
     sequence_position: int | None = None,
 ) -> dict:
+    # Next action / why-now are surfaced as card-health signals, never enforced as gates.
+    # Title is the only hard requirement on a task.
     title = (title or "").strip()
     next_action = (next_action or "").strip()
     why_now = (why_now or "").strip()
     if not title:
         raise ValueError("title is required")
-    if not next_action:
-        raise ValueError("next_action is required")
-    if not why_now:
-        raise ValueError("why_now is required")
     _validate_type(type)
     _validate_status(status)
     _validate_revenue_tag(revenue_tag)
@@ -180,6 +178,7 @@ def create_task(
         "pipeline_no_outreach",
         "pipeline_proposal_sent_no_followup",
         "outreach_no_reply_2d",
+        "email_inbound_reply",
         "proof_backlog_top",
     }
     if status == "today" and auto_source not in _SYSTEM_PASSES:
@@ -268,15 +267,13 @@ def update_task(
         sets.append("expected_outcome = %s")
         params.append(expected_outcome)
     if next_action is not None:
+        # Empty next_action is allowed — it's a soft signal, not a gate.
         next_action = next_action.strip()
-        if not next_action:
-            raise ValueError("next_action cannot be empty")
         sets.append("next_action = %s")
         params.append(next_action)
     if why_now is not None:
+        # Empty why_now is allowed — same reason.
         why_now = why_now.strip()
-        if not why_now:
-            raise ValueError("why_now cannot be empty")
         sets.append("why_now = %s")
         params.append(why_now)
     if type is not None:

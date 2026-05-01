@@ -186,6 +186,49 @@ def navigation_suggestion_block(
     }
 
 
+def comparison_result_block(
+    comparison_result: dict[str, Any],
+    *,
+    title: str | None = None,
+    block_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "type": "comparison_result",
+        "block_id": block_id or _block_id("cmp"),
+        "title": title,
+        "metric_key": comparison_result.get("metric_key"),
+        "comparison_window_policy": comparison_result.get("comparison_window_policy"),
+        "ranking_basis": comparison_result.get("ranking_basis"),
+        "included": comparison_result.get("included") or [],
+        "excluded": comparison_result.get("excluded") or [],
+        "coverage": comparison_result.get("coverage") or {},
+        "snapshot_ids_used": comparison_result.get("snapshot_ids_used") or [],
+        "data_snapshot_hash": comparison_result.get("data_snapshot_hash"),
+    }
+
+
+def unavailable_with_reason_block(
+    *,
+    reason_code: str,
+    title: str | None = None,
+    explanation: str | None = None,
+    metric_key: str | None = None,
+    entity_label: str | None = None,
+    data_snapshot_hash: str | None = None,
+    block_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "type": "unavailable_with_reason",
+        "block_id": block_id or _block_id("unavail"),
+        "title": title,
+        "reason_code": reason_code,
+        "explanation": explanation,
+        "metric_key": metric_key,
+        "entity_label": entity_label,
+        "data_snapshot_hash": data_snapshot_hash,
+    }
+
+
 def _summary_from_card(card: dict[str, Any], result_type: str) -> str:
     summary_parts: list[str] = []
     subtitle = card.get("subtitle")

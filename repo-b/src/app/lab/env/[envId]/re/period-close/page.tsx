@@ -208,7 +208,7 @@ export default function PeriodClosePage() {
     <section className="flex flex-col gap-4" data-testid="re-period-close-list">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-semibold text-bm-text">Period Close</h2>
+          <h2 className="nv-h2 text-bm-text">Period Close</h2>
           <p className="mt-1 text-sm text-bm-muted2">Quarter-end close runs and fund state snapshots.</p>
         </div>
       </div>

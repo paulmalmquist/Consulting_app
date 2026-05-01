@@ -1,4 +1,6 @@
-import Link from 'next/link';
+import { NvButton } from '@/components/marketing/ui/NvButton';
+import { NvCard } from '@/components/marketing/ui/NvCard';
+import { PageHeader } from '@/components/marketing/ui/PageHeader';
 import { CredibilitySection } from '@/components/marketing/marketing/CredibilitySection';
 import { CategoryMessagingFramework } from '@/components/marketing/marketing/CategoryMessagingFramework';
 
@@ -33,152 +35,136 @@ const ICP = [
 
 export default function ServicesPage() {
   return (
-    <div className="space-y-8 lg:space-y-10">
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-6 sm:p-8 lg:p-10">
-        <p className="text-sm uppercase tracking-[0.2em] text-nv-teal">Services</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-4xl md:text-5xl">
-          Operational Infrastructure, Rebuilt for the AI Era
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-nv-muted sm:text-base">
-          We help companies reduce software spend, automate workflows, and build internal AI systems that improve speed, control, and margins.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/operational-assessment"
-            className="inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-5 py-2.5 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"
-          >
-            Book an Executive Assessment
-          </Link>
-          <Link
-            href="/what-we-do"
-            className="inline-flex items-center justify-center rounded-full border border-nv-text/16 bg-nv-bg/80 px-5 py-2.5 text-sm font-semibold text-nv-text transition hover:border-nv-text/20 hover:bg-nv-surface/70"
-          >
-            View Engagement Model
-          </Link>
+    <div className="nv-page">
+      <PageHeader
+        eyebrow="Services"
+        headline="Operational infrastructure, rebuilt for the AI era."
+        lede="We help companies reduce software spend, automate workflows, and build internal AI systems that improve speed, control, and margins."
+      >
+        <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
+          <NvButton variant="primary" href="/operational-assessment">Book an executive assessment</NvButton>
+          <NvButton variant="secondary" href="/what-we-do">View engagement model</NvButton>
         </div>
+      </PageHeader>
+
+      <section className="nv-section">
+        <CredibilitySection />
       </section>
 
-      <CredibilitySection />
-
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">We Replace Software Dependence With Internal Capability</h2>
-        <p className="mt-3 max-w-4xl text-sm leading-relaxed text-nv-muted sm:text-base">
-          Most organizations rely on 20-60 tools to operate. We identify where software is creating cost, friction, and operational drag,
-          then design AI-native systems that bring those capabilities in-house.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {VALUE_FOCUS.map((item) => (
-            <article key={item} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4 text-sm text-nv-text">
-              {item}
-            </article>
-          ))}
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Replace software dependence with internal capability</p>
         </div>
+        <NvCard>
+          <p className="nv-body">
+            Most organizations rely on 20–60 tools to operate. We identify where software is creating cost, friction, and operational drag, then design AI-native systems that bring those capabilities in-house.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" style={{ marginTop: 20 }}>
+            {VALUE_FOCUS.map((item) => (
+              <div key={item} className="nv-pill nv-pill-teal">{item}</div>
+            ))}
+          </div>
+        </NvCard>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Core Services</h2>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Core services</p>
+        </div>
         <div className="grid gap-4">
-          <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-nv-text">1) Executive Operational Assessment</h3>
-            <p className="mt-3 text-sm text-nv-muted">A deep analysis of your workflows, software stack, and operational bottlenecks.</p>
-            <p className="mt-4 text-xs uppercase tracking-[0.12em] text-nv-dim">What we evaluate</p>
-            <ul className="mt-2 grid gap-2 md:grid-cols-2">
+          <NvCard>
+            <h3 className="nv-h3">Executive Operational Assessment</h3>
+            <p className="nv-body">A deep analysis of your workflows, software stack, and operational bottlenecks.</p>
+            <p className="nv-eyebrow" style={{ marginTop: 16 }}>What we evaluate</p>
+            <div className="grid gap-2 md:grid-cols-2" style={{ marginTop: 8 }}>
               {ASSESSMENT_EVALUATION.map((item) => (
-                <li key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
-                  {item}
-                </li>
+                <div key={item} className="nv-pill nv-pill-muted">{item}</div>
               ))}
-            </ul>
-            <p className="mt-4 text-xs uppercase tracking-[0.12em] text-nv-dim">Outcome</p>
-            <p className="mt-2 text-sm text-nv-muted">A prioritized roadmap tied to:</p>
-            <ul className="mt-2 grid gap-2 md:grid-cols-3">
+            </div>
+            <p className="nv-eyebrow" style={{ marginTop: 16 }}>Outcome — a prioritized roadmap tied to</p>
+            <div className="grid gap-2 md:grid-cols-3" style={{ marginTop: 8 }}>
               {ASSESSMENT_ROADMAP.map((item) => (
-                <li key={item} className="rounded-xl border border-nv-teal/25 bg-nv-bg/80 p-3 text-sm text-nv-text">
-                  {item}
-                </li>
+                <div key={item} className="nv-pill nv-pill-teal">{item}</div>
               ))}
-            </ul>
-          </article>
+            </div>
+          </NvCard>
 
-          <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-nv-text">2) AI Infrastructure Design</h3>
-            <p className="mt-3 text-sm text-nv-muted">We design internal AI systems that replace high-cost tools and streamline operations.</p>
-            <div className="mt-4 grid gap-2 md:grid-cols-2">
+          <NvCard>
+            <h3 className="nv-h3">AI Infrastructure Design</h3>
+            <p className="nv-body">We design internal AI systems that replace high-cost tools and streamline operations.</p>
+            <div className="grid gap-2 md:grid-cols-2" style={{ marginTop: 16 }}>
               {['Internal decision-support tools', 'Automated intake workflows', 'Risk evaluation engines', 'Reporting automation'].map((item) => (
-                <div key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
-                  {item}
-                </div>
+                <div key={item} className="nv-pill nv-pill-muted">{item}</div>
               ))}
             </div>
-            <p className="mt-4 text-sm text-nv-text">Outcome: A blueprint for a more scalable operating model.</p>
-          </article>
+            <p className="nv-body" style={{ marginTop: 16 }}>Outcome: a blueprint for a more scalable operating model.</p>
+          </NvCard>
 
-          <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-nv-text">3) Workflow Automation Deployment</h3>
-            <p className="mt-3 text-sm text-nv-muted">
-              We implement AI-native workflows that remove manual effort across high-impact functions.
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <NvCard>
+            <h3 className="nv-h3">Workflow Automation Deployment</h3>
+            <p className="nv-body">We implement AI-native workflows that remove manual effort across high-impact functions.</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" style={{ marginTop: 16 }}>
               {WORKFLOW_TARGETS.map((item) => (
-                <div key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
-                  {item}
-                </div>
+                <div key={item} className="nv-pill nv-pill-muted">{item}</div>
               ))}
             </div>
-            <p className="mt-4 text-sm text-nv-text">Outcome: Immediate productivity gains and reduced execution friction.</p>
-          </article>
+            <p className="nv-body" style={{ marginTop: 16 }}>Outcome: immediate productivity gains and reduced execution friction.</p>
+          </NvCard>
 
-          <article className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-            <h3 className="text-xl font-semibold text-nv-text">4) SaaS Consolidation Strategy</h3>
-            <p className="mt-3 text-sm text-nv-muted">A structured approach to reducing tool sprawl and replacing selected platforms.</p>
-            <div className="mt-4 grid gap-2 md:grid-cols-3">
+          <NvCard>
+            <h3 className="nv-h3">SaaS Consolidation Strategy</h3>
+            <p className="nv-body">A structured approach to reducing tool sprawl and replacing selected platforms.</p>
+            <div className="grid gap-2 md:grid-cols-3" style={{ marginTop: 16 }}>
               {['Identify what to keep', 'Identify what to replace', 'Identify what to build internally'].map((item) => (
-                <div key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
-                  {item}
-                </div>
+                <div key={item} className="nv-pill nv-pill-muted">{item}</div>
               ))}
             </div>
-            <p className="mt-4 text-sm text-nv-text">Outcome: Lower cost + greater operational control.</p>
-          </article>
+            <p className="nv-body" style={{ marginTop: 16 }}>Outcome: lower cost + greater operational control.</p>
+          </NvCard>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Built for Speed and Measurable Impact</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Engagement model</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {MODEL_PHASES.map((phase) => (
-            <article key={phase.title} className="rounded-2xl border border-nv-text/8 bg-nv-bg/80 p-4">
-              <h3 className="text-base font-semibold text-nv-text">{phase.title}</h3>
-              <p className="mt-2 text-sm text-nv-muted">{phase.description}</p>
-            </article>
+            <NvCard key={phase.title}>
+              <h3 className="nv-h3">{phase.title}</h3>
+              <p className="nv-body" style={{ margin: 0 }}>{phase.description}</p>
+            </NvCard>
           ))}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-7">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">Ideal Client Profile</h2>
-        <ul className="mt-4 grid gap-2 md:grid-cols-2">
-          {ICP.map((item) => (
-            <li key={item} className="rounded-xl border border-nv-text/8 bg-nv-bg/80 p-3 text-sm text-nv-text">
-              {item}
-            </li>
-          ))}
-        </ul>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Ideal client profile</p>
+        </div>
+        <NvCard>
+          <div className="grid gap-2 md:grid-cols-2">
+            {ICP.map((item) => (
+              <div key={item} className="nv-pill nv-pill-muted">{item}</div>
+            ))}
+          </div>
+        </NvCard>
       </section>
 
-      <CategoryMessagingFramework />
+      <section className="nv-section">
+        <CategoryMessagingFramework />
+      </section>
 
-      <section className="rounded-3xl border border-nv-teal/25 bg-gradient-to-r from-nv-surface/80 to-nv-teal/6 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">See Where You&apos;re Overpaying for Software</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-nv-text sm:text-base">
-          In one session, we identify where internal AI systems can reduce cost and increase speed.
-        </p>
-        <Link
-          href="/operational-assessment"
-          className="mt-5 inline-flex items-center justify-center rounded-[4px] border border-nv-teal/25 bg-nv-bg/70 px-6 py-3 text-sm font-semibold text-nv-teal transition hover:border-nv-teal/18 hover:bg-nv-teal/8"
-        >
-          Schedule Executive Assessment
-        </Link>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />See where you&apos;re overpaying</p>
+        </div>
+        <NvCard>
+          <p className="nv-body">In one session, we identify where internal AI systems can reduce cost and increase speed.</p>
+          <div style={{ marginTop: 24 }}>
+            <NvButton variant="primary" href="/operational-assessment">Schedule executive assessment</NvButton>
+          </div>
+        </NvCard>
       </section>
     </div>
   );

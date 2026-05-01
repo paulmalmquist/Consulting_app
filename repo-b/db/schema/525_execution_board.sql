@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS cro_execution_task (
     auto_source         text CHECK (auto_source IN (
         'pipeline_no_next_action', 'pipeline_stale_3d',
         'outreach_no_reply_2d', 'proof_backlog_top',
+        'email_inbound_reply',
         'pipeline_no_outreach', 'pipeline_proposal_sent_no_followup',
         'manual', 'ai_generated', 'quick_capture'
     )),

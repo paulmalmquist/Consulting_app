@@ -75,7 +75,7 @@ export function RailSection({
 }) {
   return (
     <section className={cn("px-4 py-4 space-y-3", className)}>
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+      <p className="nv-eyebrow text-bm-muted2">
         {label}
       </p>
       {children}
@@ -118,7 +118,7 @@ export function RailPortfolioSnapshot({
         {metrics.map(({ label, value }) => (
           <div key={label} className="flex items-baseline justify-between gap-2">
             <dt className="text-[11px] text-bm-muted2 truncate">{label}</dt>
-            <dd className="font-display text-sm font-semibold text-bm-text tabular-nums shrink-0">
+            <dd className="nv-metric text-sm text-bm-text shrink-0">
               {value}
             </dd>
           </div>
@@ -167,7 +167,7 @@ export function RailAssetHealth({ metrics }: { metrics: RailHealthMetric[] }) {
             <div key={label}>
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-[11px] text-bm-muted2 truncate">{label}</dt>
-                <dd className={cn("flex items-center gap-1 font-display text-sm font-semibold tabular-nums shrink-0", toneClass)}>
+                <dd className={cn("nv-metric flex items-center gap-1 text-sm shrink-0", toneClass)}>
                   {TrendIcon && (
                     <TrendIcon size={12} className="opacity-80" aria-hidden="true" />
                   )}
@@ -327,12 +327,12 @@ export function RailModelSummary({
       <dl className="mt-2 space-y-2">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-[11px] text-bm-muted2">Base IRR</dt>
-          <dd className="font-display text-sm font-semibold text-bm-success tabular-nums">{baseIrr}</dd>
+          <dd className="nv-metric text-sm text-bm-success">{baseIrr}</dd>
         </div>
         {stressIrr && (
           <div className="flex items-baseline justify-between gap-2">
             <dt className="text-[11px] text-bm-muted2">Stress IRR</dt>
-            <dd className="font-display text-sm font-semibold text-bm-warning tabular-nums">{stressIrr}</dd>
+            <dd className="nv-metric text-sm text-bm-warning">{stressIrr}</dd>
           </div>
         )}
         <div className="flex items-center gap-1.5 pt-1">
@@ -416,7 +416,7 @@ export function RailWinstonPanel({
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-3">
         <Sparkles size={12} className="text-bm-accent" aria-hidden="true" />
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+        <p className="nv-eyebrow text-bm-muted2">
           Winston AI
         </p>
       </div>

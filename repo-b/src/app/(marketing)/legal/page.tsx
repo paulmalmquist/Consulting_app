@@ -5,12 +5,14 @@ export default function LegalPage() {
   const page = getPage('legal');
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-nv-text">{page.title}</h1>
-        <p className="text-lg text-nv-muted">{page.description}</p>
-      </section>
-      <MarkdownRenderer content={page.content} />
+    <div className="nv-page">
+      <div>
+        <h1 className="nv-h1" style={{ marginBottom: 24 }}>{page.title}</h1>
+        <p className="nv-lede">{page.description}</p>
+      </div>
+      <div className="nv-section">
+        <MarkdownRenderer content={page.content} />
+      </div>
     </div>
   );
 }

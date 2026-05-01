@@ -115,12 +115,12 @@ export default function SaaSIcebergPage() {
   const activeBelow = useMemo(() => activeMode.below, [activeMode]);
 
   return (
-    <div className="space-y-10 sm:space-y-14">
-      <section className="relative overflow-hidden rounded-3xl border border-nv-text/8 bg-gradient-to-b from-nv-surface/80 via-nv-bg/70 to-[#051022] p-6 sm:p-10">
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-nv-teal/10 blur-3xl" />
-        <p className="text-xs uppercase tracking-[0.28em] text-nv-dim">The SaaS Iceberg</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-5xl">What You&apos;re Really Paying For</h1>
-        <p className="mt-3 max-w-2xl text-sm text-nv-teal/85 sm:text-base">
+    <div className="nv-page">
+      <section className="relative overflow-hidden rounded-[var(--nv-radius-lg)] bg-gradient-to-b from-[rgb(var(--nv-surface)/0.8)] via-[rgb(var(--nv-bg)/0.7)] to-[#051022] p-6 sm:p-10">
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[rgb(var(--nv-accent-teal)/0.10)] blur-3xl" />
+        <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The SaaS Iceberg</p>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 12 }}>What you&apos;re really paying for.</h1>
+        <p className="nv-lede" style={{ color: 'rgb(var(--nv-accent-teal)/0.85)' }}>
           Most SaaS pricing is justified below the waterline.
         </p>
 
@@ -163,8 +163,9 @@ export default function SaaSIcebergPage() {
         </div>
       </section>
 
-      <section className="space-y-5 rounded-3xl border border-nv-text/10 bg-nv-surface/55 p-5 sm:p-8">
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="nv-section">
+        <div className="nv-card" style={{ padding: '20px 24px' }}>
+        <div className="flex flex-wrap items-center gap-2" style={{ marginBottom: 20 }}>
           {modes.map((mode) => {
             const active = activeMode.key === mode.key;
             return (
@@ -175,7 +176,7 @@ export default function SaaSIcebergPage() {
                   setActiveMode(mode);
                   setActiveItem(mode.below[0]);
                 }}
-                className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                className={`rounded-[4px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
                   active
                     ? 'border-nv-teal/18 bg-nv-teal/10 text-nv-teal'
                     : 'border-nv-text/12 bg-nv-bg/80 text-nv-muted hover:border-nv-teal/18 hover:text-nv-teal'
@@ -226,78 +227,70 @@ export default function SaaSIcebergPage() {
             </div>
           </div>
 
-          <aside className="rounded-2xl border border-nv-text/12 bg-nv-bg/70 p-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-nv-dim">Hover diagnostic</p>
-            <p className="mt-3 text-lg font-semibold text-nv-text">{activeItem.label}</p>
-            <p className="mt-2 text-sm text-nv-muted">{activeItem.explainer}</p>
+          <aside className="nv-card" style={{ padding: 20 }}>
+            <p className="nv-eyebrow">Hover diagnostic</p>
+            <p className="nv-h3" style={{ marginTop: 12 }}>{activeItem.label}</p>
+            <p className="nv-body" style={{ margin: 0 }}>{activeItem.explainer}</p>
           </aside>
+        </div>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 sm:p-8">
-        <h2 className="text-xl font-semibold text-nv-text sm:text-2xl">Where are you compensating?</h2>
-        <p className="mt-2 text-sm text-nv-muted">Mentally check every statement that feels true.</p>
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-          {selfAssessment.map((statement) => (
-            <li key={statement} className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4 text-sm text-nv-text">
-              <span className="mr-2 text-nv-teal">☐</span>
-              {statement}
-            </li>
-          ))}
-        </ul>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Where are you compensating?</p>
+        </div>
+        <div className="nv-card" style={{ padding: '20px 24px' }}>
+          <p className="nv-body" style={{ marginBottom: 20 }}>Mentally check every statement that feels true.</p>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {selfAssessment.map((statement) => (
+              <li key={statement} className="rounded-[var(--nv-radius-md)] border border-[rgb(var(--nv-hair-soft)/0.10)] bg-[rgb(var(--nv-bg)/0.8)] p-4 text-sm text-[rgb(var(--nv-text-primary))]">
+                <span className="mr-2 text-[rgb(var(--nv-accent-teal))]">☐</span>
+                {statement}
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
-      <section className="space-y-5 rounded-3xl border border-nv-text/10 bg-gradient-to-br from-nv-surface/80 to-nv-bg/80 p-6 sm:p-8">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-nv-teal/70">Reframe</p>
-          <h2 className="mt-2 text-2xl font-semibold text-nv-text sm:text-3xl">These Are Not Software Problems</h2>
-          <p className="mt-2 text-base text-nv-teal">They are ownership problems.</p>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Reframe</p>
+          <h2 className="nv-h2">These are not software problems.</h2>
+          <p className="nv-lede" style={{ color: 'rgb(var(--nv-accent-teal))' }}>They are ownership problems.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-nv-text">Vendors monetize avoidance</p>
-            <div className="mt-3 h-2 rounded-full bg-nv-raised">
-              <div className="h-2 w-[82%] rounded-full bg-gradient-to-r from-violet-300/70 to-cyan-300/70" />
+          {[
+            { title: 'Vendors monetize avoidance', pct: '82%', note: 'Licenses scale with unresolved ambiguity.' },
+            { title: 'Internal systems force clarity', pct: '58%', note: 'Rules become explicit and defensible.' },
+            { title: 'Ownership lowers total cost', pct: '34%', note: 'Fewer tools. Fewer escalations. Better memory.' }
+          ].map((item) => (
+            <div key={item.title} className="nv-card" style={{ padding: 16 }}>
+              <p className="nv-h3">{item.title}</p>
+              <div className="mt-3 h-2 rounded-full bg-[rgb(var(--nv-surface-raised))]">
+                <div className={`h-2 rounded-full bg-gradient-to-r from-violet-300/70 to-cyan-300/70`} style={{ width: item.pct }} />
+              </div>
+              <p className="nv-body" style={{ marginTop: 12 }}>{item.note}</p>
             </div>
-            <p className="mt-3 text-xs text-nv-muted">Licenses scale with unresolved ambiguity.</p>
-          </div>
-          <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-nv-text">Internal systems force clarity</p>
-            <div className="mt-3 h-2 rounded-full bg-nv-raised">
-              <div className="h-2 w-[58%] rounded-full bg-gradient-to-r from-cyan-300/60 to-cyan-100/70" />
-            </div>
-            <p className="mt-3 text-xs text-nv-muted">Rules become explicit and defensible.</p>
-          </div>
-          <div className="rounded-2xl border border-nv-text/12 bg-nv-bg/80 p-4">
-            <p className="text-sm font-semibold text-nv-text">Ownership lowers total cost</p>
-            <div className="mt-3 h-2 rounded-full bg-nv-raised">
-              <div className="h-2 w-[34%] rounded-full bg-gradient-to-r from-nv-teal/35 to-cyan-200/70" />
-            </div>
-            <p className="mt-3 text-xs text-nv-muted">Fewer tools. Fewer escalations. Better memory.</p>
-          </div>
+          ))}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-nv-teal/18 bg-nv-surface/75 p-6 sm:p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-nv-text">See What You&apos;re Outsourcing</h2>
-            <p className="mt-2 text-sm text-nv-muted">Map the submerged cost before your next renewal cycle.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/operational-assessment"
-              className="rounded-[4px] border border-nv-teal/18 bg-nv-teal/10 px-5 py-3 text-sm font-semibold text-nv-teal transition hover:bg-nv-teal/10"
-            >
-              See What You&apos;re Outsourcing
-            </Link>
-            <Link
-              href="/contact"
-              className="rounded-full border border-nv-text/16 bg-nv-bg/70 px-5 py-3 text-sm font-semibold text-nv-text transition hover:border-nv-teal/18 hover:text-nv-teal"
-            >
-              Build What You Actually Need
-            </Link>
+      <section className="nv-section">
+        <div className="nv-section-head">
+          <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Next step</p>
+        </div>
+        <div className="nv-card" style={{ padding: '20px 24px' }}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="nv-h3">See what you&apos;re outsourcing.</h2>
+              <p className="nv-body">Map the submerged cost before your next renewal cycle.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/operational-assessment" className="nv-btn nv-btn-primary">See What You&apos;re Outsourcing</Link>
+              <Link href="/contact" className="nv-btn nv-btn-secondary">Build What You Actually Need</Link>
+            </div>
           </div>
         </div>
       </section>

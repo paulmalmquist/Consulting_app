@@ -44,7 +44,7 @@ export function Dialog({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[1.45rem] font-semibold leading-tight tracking-[-0.01em]">{title}</h2>
+            <h2 className="nv-h2">{title}</h2>
             {description ? (
               <p className="text-sm text-bm-muted mt-2">{description}</p>
             ) : null}

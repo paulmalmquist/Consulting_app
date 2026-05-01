@@ -549,17 +549,21 @@ def build_environment_reconciliation(
     business_id_s = str(business_id)
     rows: list[dict] = []
 
-    # ── 1. Load fund + investment topology (non-quarantined funds only) ──
+    # ── 1. Load fund + investment topology ───────────────────────────────
+    # Canonical fund set: re_fund_portfolio_included_funds_v. This is the same
+    # predicate the Fund Portfolio page consumes (released, non-quarantined,
+    # non-archived, scope-complete authoritative snapshots), so reconciliation
+    # cannot disagree with the primary table's fund set by construction.
     with get_cursor() as cur:
         cur.execute(
             """
             SELECT fund_id::text AS fund_id, name
-            FROM repe_fund
-            WHERE business_id = %s::uuid
-              AND name NOT ILIKE '%%[QUARANTINED]%%'
+            FROM re_fund_portfolio_included_funds_v
+            WHERE env_id = %s
+              AND business_id = %s::uuid
             ORDER BY name
             """,
-            (business_id_s,),
+            (env_id_s, business_id_s),
         )
         funds = cur.fetchall() or []
 

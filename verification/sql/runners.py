@@ -17,43 +17,65 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"
 from app.db import get_cursor
 
 
-def run_fund_table_query(
+def run_fund_portfolio_included_query(
+    env_id: str,
     business_id: str,
     quarter: str,
-    model_id: str | None = None,
 ) -> list[dict]:
-    """
-    Execute the fund table query — same SQL as get_fund_table_rows().
-    Returns raw rows for verification comparison.
-    """
-    if model_id:
-        scenario_clause = "sq.scenario_id = %s::uuid"
-        scenario_params: list[Any] = [model_id]
-    else:
-        scenario_clause = "sq.scenario_id IS NULL"
-        scenario_params = []
+    """Execute the canonical fund portfolio query.
 
-    params: list[Any] = [quarter] + scenario_params + [business_id]
+    Reads the re_fund_portfolio_included_v view (defined in
+    repo-b/db/schema/535_re_fund_portfolio_included_view.sql), which is the
+    single source of truth for investor-facing rows on the Fund Portfolio page.
 
+    Replaces the prior `run_fund_table_query` which mirrored
+    `get_fund_table_rows` SQL — both are deleted in the same change. Plan:
+    audit/fund_portfolio_coherence/gap_report.md.
+    """
     with get_cursor() as cur:
         cur.execute(
-            f"""
+            """
             SELECT
-              f.fund_id, f.name, f.vintage_year, f.strategy, f.status, f.target_size,
-              s.portfolio_nav, s.total_committed, s.total_called, s.total_distributed,
-              s.dpi, s.rvpi, s.tvpi, s.gross_irr, s.net_irr,
-              s.weighted_dscr, s.weighted_ltv,
-              CASE WHEN s.total_committed > 0 THEN s.total_called / s.total_committed ELSE NULL END AS pct_invested
-            FROM repe_fund f
-            LEFT JOIN LATERAL (
-              SELECT * FROM re_fund_quarter_state sq
-              WHERE sq.fund_id = f.fund_id AND sq.quarter = %s AND {scenario_clause}
-              ORDER BY sq.created_at DESC LIMIT 1
-            ) s ON true
-            WHERE f.business_id = %s::uuid
-            ORDER BY f.name
+              env_id, business_id, fund_id, name, vintage_year, strategy, status,
+              target_size, snapshot_version, audit_run_id, promotion_state,
+              trust_status, breakpoint_layer,
+              canonical_metrics, null_reasons,
+              legacy_weighted_dscr, legacy_weighted_ltv
+            FROM re_fund_portfolio_included_v
+            WHERE env_id = %s
+              AND business_id = %s::uuid
+              AND quarter = %s
+            ORDER BY name
             """,
-            params,
+            [env_id, business_id, quarter],
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def run_fund_portfolio_excluded_query(
+    env_id: str,
+    business_id: str,
+) -> list[dict]:
+    """Execute the canonical fund portfolio diagnostics query.
+
+    Reads re_fund_portfolio_excluded_v env-scoped to (env_id, business_id).
+    Returns one row per fund excluded from the investor-facing view, with
+    `exclusion_reason` in {quarantined, archived, draft_only,
+    no_released_snapshot, scope_incomplete}.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              env_id, business_id, fund_id, name, status,
+              latest_quarter, latest_audit_run_id, latest_promotion_state,
+              latest_null_reasons, exclusion_reason
+            FROM re_fund_portfolio_excluded_v
+            WHERE env_id = %s
+              AND business_id = %s::uuid
+            ORDER BY name
+            """,
+            [env_id, business_id],
         )
         return [dict(r) for r in cur.fetchall()]
 

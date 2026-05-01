@@ -137,7 +137,7 @@ export default function CapitalCallDetailPage() {
           <ArrowLeft className="h-3 w-3" /> Capital Call Operations
         </Link>
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-xl font-semibold text-bm-text">
+          <h2 className="nv-h2 text-bm-text">
             Capital Call #{call.call_number}
           </h2>
           <span className={`rounded-full px-2 py-0.5 text-xs ${CALL_STATUS_COLORS[call.status] || "bg-bm-surface/40 text-bm-muted2"}`}>
@@ -150,7 +150,7 @@ export default function CapitalCallDetailPage() {
 
       {/* Call Info */}
       <div className="rounded-xl border border-bm-border/30 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-bm-text">Call Information</h3>
+        <h3 className="nv-h3 mb-3 text-bm-text">Call Information</h3>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs uppercase tracking-wider text-bm-muted2">Fund</dt>

@@ -47,8 +47,8 @@ jobs:
       STORAGE_BUCKET: documents
       ALLOWED_ORIGINS: http://127.0.0.1:3000
       WINSTON_EVAL_ENVIRONMENT: ${{ matrix.target.environment }}
-      WINSTON_EVAL_BUSINESS_ID: ${{ secrets[matrix.target.business_secret] }}
-      WINSTON_EVAL_ENV_ID: ${{ secrets[matrix.target.env_secret] }}
+      WINSTON_EVAL_BUSINESS_ID: ${{ secrets[matrix.target.business_secret] || secrets.WINSTON_EVAL_BUSINESS_ID }}
+      WINSTON_EVAL_ENV_ID: ${{ secrets[matrix.target.env_secret] || secrets.WINSTON_EVAL_ENV_ID }}
       AI_GATEWAY_ENABLED: "true"
 
     steps:
