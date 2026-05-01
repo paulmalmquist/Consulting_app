@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import { Building2, Scale, Stethoscope, Wallet } from 'lucide-react';
 import { INDUSTRY_VERTICALS, type IndustryVertical } from '@content/industry-verticals';
-import { INDUSTRY_THEME_STYLES, industryBackgrounds } from '@/lib/marketing/industryThemes';
+import { industryBackgrounds } from '@/lib/marketing/industryThemes';
 import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
-import { cn } from '../ui/cn';
-import { BeforeAfterDiagram } from '../visual/BeforeAfterDiagram';
 import { ControlLayerDiagram } from '../visual/ControlLayerDiagram';
-import { SloganBadge } from '../visual/SloganBadge';
 import { HeroBackground } from '../HeroBackground';
+import { NvButton } from '../ui/NvButton';
+import { NvCard } from '../ui/NvCard';
 
 const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Building2; microCase: string }> = {
   'real-estate-private-equity': {
@@ -39,82 +38,105 @@ const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Bui
 type IndustryVerticalPageProps = { industry: IndustryVertical };
 
 export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
-  const theme = INDUSTRY_THEME_STYLES[industry.themeKey];
   const contactHref = `/contact?industry=${industry.slug}`;
   const industryLabel = labels[industry.slug];
   const bgPath = industryBackgrounds[industry.slug];
   const bgSrc = fileExistsInPublic(bgPath) ? bgPath : undefined;
 
   return (
-    <div className="space-y-8 lg:space-y-10">
+    <>
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.6}>
-        <SloganBadge />
-        <p className="mt-4 text-sm uppercase tracking-[0.2em] text-nv-dim">{industry.label}</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-nv-text sm:text-5xl">{industry.heroHeadline}</h1>
-        <p className="mt-4 max-w-3xl text-sm text-nv-muted sm:text-base">{industry.heroSubheadline}</p>
-        <div className="mt-5 inline-flex items-center gap-2 rounded-[4px] border border-nv-teal/25 bg-nv-teal/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-nv-teal">
+        <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />{industry.label}</p>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>{industry.heroHeadline}</h1>
+        <p className="nv-lede">{industry.heroSubheadline}</p>
+        <div className="nv-pill nv-pill-teal" style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <industryLabel.Icon size={14} aria-hidden="true" /> {industryLabel.label}
         </div>
       </HeroBackground>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">Why It Breaks</h2>
-        {industry.whyItBreaks.intro ? (
-          <p className="mt-3 text-sm text-nv-muted">{industry.whyItBreaks.intro}</p>
-        ) : null}
-        <ul className="mt-4 space-y-2 text-sm text-nv-text">
-          {industry.whyItBreaks.items.slice(0, 4).map((item) => (
-            <li key={item} className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-3">{item}</li>
-          ))}
-        </ul>
-      </section>
+      <div className="nv-page" style={{ paddingTop: 0 }}>
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Why it breaks</p>
+          </div>
+          <NvCard>
+            {industry.whyItBreaks.intro ? (
+              <p className="nv-body">{industry.whyItBreaks.intro}</p>
+            ) : null}
+            <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
+              {industry.whyItBreaks.items.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </NvCard>
+        </section>
 
-      <BeforeAfterDiagram title={`${industry.label}: Before → After`} />
-      <ControlLayerDiagram title={`${industry.label} Control Layer`} />
+        <section className="nv-section">
+          <ControlLayerDiagram title={`${industry.label} Control Layer`} />
+        </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <h2 className="text-2xl font-semibold text-nv-text">What We Change</h2>
-        {industry.whatWeChange.intro ? (
-          <p className="mt-3 text-sm text-nv-muted">{industry.whatWeChange.intro}</p>
-        ) : null}
-        <ul className="mt-4 space-y-2 text-sm text-nv-text">
-          {industry.whatWeChange.items.slice(0, 4).map((item) => (
-            <li key={item} className="rounded-xl border border-nv-text/10 bg-nv-bg/40 p-3">{item}</li>
-          ))}
-        </ul>
-      </section>
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What we change</p>
+          </div>
+          <NvCard>
+            {industry.whatWeChange.intro ? (
+              <p className="nv-body">{industry.whatWeChange.intro}</p>
+            ) : null}
+            <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
+              {industry.whatWeChange.items.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </NvCard>
+        </section>
 
-      <section className="rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-nv-teal">What changed in practice</p>
-        <p className="mt-2 text-sm text-nv-muted">{industryLabel.microCase}</p>
-      </section>
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What changed in practice</p>
+          </div>
+          <NvCard>
+            <p className="nv-body" style={{ margin: 0 }}>{industryLabel.microCase}</p>
+          </NvCard>
+        </section>
 
-      <section className={cn('rounded-3xl border p-6', theme.impactSection)}>
-        <SloganBadge className="mb-4" />
-        <h2 className="text-2xl font-semibold text-nv-text">What changes for the team</h2>
-        <ul className="mt-3 space-y-2 text-sm text-nv-text">
-          {industry.typicalResults.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        {industry.controlStatement ? (
-          <p className="mt-5 text-sm italic text-nv-muted">{industry.controlStatement}</p>
-        ) : null}
-      </section>
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What changes for the team</p>
+          </div>
+          <NvCard>
+            <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
+              {industry.typicalResults.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {industry.controlStatement ? (
+              <p className="nv-body" style={{ marginTop: 16, fontStyle: 'normal', color: 'rgb(var(--nv-text-tertiary))' }}>{industry.controlStatement}</p>
+            ) : null}
+          </NvCard>
+        </section>
 
-      <section className="rounded-3xl border border-nv-text/8 bg-nv-bg/80 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-nv-text md:text-3xl">{industry.pageEndCta}</h2>
-        <p className="mt-2 text-sm text-nv-muted sm:text-base">Start with one workflow. Prove it on real data. Scale from there.</p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href={contactHref} className={theme.primaryCta}>Talk to us about {industry.label}</Link>
-          <Link href="/operational-assessment" className="rounded-full border border-nv-text/12 px-5 py-2.5 text-sm font-semibold text-nv-text">Get an AI-readiness review</Link>
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {INDUSTRY_VERTICALS.filter((item) => item.slug !== industry.slug).map((item) => (
-            <Link key={item.slug} href={`/industries/${item.slug}`} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold', theme.quickSwitchInactive)}>{item.label}</Link>
-          ))}
-        </div>
-      </section>
-    </div>
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Next step</p>
+          </div>
+          <NvCard>
+            <h2 className="nv-h3">{industry.pageEndCta}</h2>
+            <p className="nv-body">Start with one workflow. Prove it on real data. Scale from there.</p>
+            <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
+              <NvButton variant="primary" href={contactHref}>Talk to us about {industry.label}</NvButton>
+              <NvButton variant="secondary" href="/operational-assessment">Get an AI-readiness review</NvButton>
+            </div>
+            <div className="flex flex-wrap gap-2" style={{ marginTop: 24 }}>
+              {INDUSTRY_VERTICALS.filter((item) => item.slug !== industry.slug).map((item) => (
+                <Link key={item.slug} href={`/industries/${item.slug}`} className="nv-pill nv-pill-muted">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </NvCard>
+        </section>
+      </div>
+    </>
   );
 }
