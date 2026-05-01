@@ -75,6 +75,7 @@ class RegressionStore:
               run_id text not null,
               cycle integer not null,
               suite text not null,
+              environment text,
               scenario_count integer not null,
               passed_count integer not null,
               failed_count integer not null,
@@ -139,6 +140,7 @@ class RegressionStore:
             "dispatch_code_disagreement": "integer default 0",
         }
         summary_columns = {
+            "environment": "text",
             "receipt_completeness_avg": "real",
             "trace_fidelity_avg": "real",
             "fallback_rate": "real",
@@ -259,10 +261,10 @@ class RegressionStore:
             """
             insert into scenario_summaries (
               run_id, cycle, suite, scenario_count, passed_count, failed_count,
-              median_latency_ms, p95_latency_ms, degraded_rate, hallucination_rate,
+              environment, median_latency_ms, p95_latency_ms, degraded_rate, hallucination_rate,
               contamination_rate, receipt_completeness_avg, trace_fidelity_avg,
               fallback_rate, low_confidence_dispatch_rate, invalid_dispatch_rate, dispatch_code_disagreement_rate
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 summary["run_id"],
@@ -271,6 +273,7 @@ class RegressionStore:
                 summary["scenario_count"],
                 summary["passed_count"],
                 summary["failed_count"],
+                summary.get("environment"),
                 summary.get("median_latency_ms"),
                 summary.get("p95_latency_ms"),
                 summary.get("degraded_rate"),
@@ -353,24 +356,37 @@ class RegressionStore:
         ).fetchall()
         return [dict(row) for row in rows]
 
-    def latest_run_id(self, *, suite: str | None = None) -> str | None:
-        if suite:
-            row = self.conn.execute(
-                "select run_id from scenario_summaries where suite = ? order by id desc limit 1",
-                (suite,),
-            ).fetchone()
-        else:
-            row = self.conn.execute(
-                "select run_id from scenario_summaries order by id desc limit 1"
-            ).fetchone()
-        return str(row["run_id"]) if row else None
-
-    def last_good_run_id(self, *, suite: str | None = None, exclude_run_id: str | None = None) -> str | None:
+    def latest_run_id(self, *, suite: str | None = None, environment: str | None = None) -> str | None:
         filters: list[str] = []
         params: list[Any] = []
         if suite:
             filters.append("suite = ?")
             params.append(suite)
+        if environment:
+            filters.append("environment = ?")
+            params.append(environment)
+        where_clause = f"where {' and '.join(filters)}" if filters else ""
+        row = self.conn.execute(
+            f"select run_id from scenario_summaries {where_clause} order by id desc limit 1",
+            tuple(params),
+        ).fetchone()
+        return str(row["run_id"]) if row else None
+
+    def last_good_run_id(
+        self,
+        *,
+        suite: str | None = None,
+        environment: str | None = None,
+        exclude_run_id: str | None = None,
+    ) -> str | None:
+        filters: list[str] = []
+        params: list[Any] = []
+        if suite:
+            filters.append("suite = ?")
+            params.append(suite)
+        if environment:
+            filters.append("environment = ?")
+            params.append(environment)
         if exclude_run_id:
             filters.append("run_id != ?")
             params.append(exclude_run_id)

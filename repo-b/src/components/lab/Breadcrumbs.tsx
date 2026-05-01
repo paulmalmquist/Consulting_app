@@ -38,6 +38,7 @@ const VERTICAL_LABELS: Record<string, string> = {
   resume: "Resume",
   markets: "Markets",
   ncf: "NCF Reporting",
+  "investment-engine": "Investment Engine",
   legal: "Legal",
   medical: "Medical",
   content: "Content",

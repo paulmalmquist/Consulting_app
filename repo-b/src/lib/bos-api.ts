@@ -12974,3 +12974,213 @@ export function getConsultingPipelineOutreachBrief(
     params: { env_id: envId, business_id: businessId },
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Investment Engine (Aladdin-class) — Phase 6 frontend
+// Backend: backend/app/routes/investment_engine.py
+// Every endpoint returns the structured EngineResult envelope:
+//   { valid: bool, value: any | null, errors: [{code, message, context}], input_versions: {} }
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InvEngineError = { code: string; message: string; context: Record<string, unknown> };
+
+export type InvEngineResult<T = unknown> = {
+  valid: boolean;
+  value: T | null;
+  errors: InvEngineError[];
+  input_versions: Record<string, unknown>;
+};
+
+export type InvNavValue = {
+  fund_id: string;
+  as_of_date: string;
+  total_assets: string;
+  total_liabilities: string;
+  nav: string;
+  currency: string;
+};
+
+export type InvPnlValue = {
+  fund_id: string;
+  start_date: string;
+  end_date: string;
+  realized_pnl: string;
+  unrealized_pnl: string | null;
+  unrealized_pnl_reason?: string;
+  fx_pnl: string | null;
+  fx_pnl_reason?: string;
+  income: string;
+  fees: string;
+  total_pnl: string;
+  currency: string;
+};
+
+export type InvSnapshotProduceValue = {
+  snapshot_id: string;
+  version: number;
+  status: string;
+  nav: string;
+  currency: string;
+  total_assets: string;
+  total_liabilities: string;
+};
+
+export type InvReconBreak = {
+  id: string;
+  run_id: string;
+  break_type: string;
+  severity: string;
+  account_id: string | null;
+  security_id: string | null;
+  source_a_value: Record<string, unknown> | null;
+  source_b_value: Record<string, unknown> | null;
+  evidence: Record<string, unknown>;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
+  created_at: string;
+};
+
+export type InvReconReportValue = {
+  run: {
+    id: string;
+    fund_id: string;
+    effective_date: string;
+    source_a: string;
+    source_b: string;
+    status: string;
+    started_at: string | null;
+    completed_at: string | null;
+  };
+  summary: {
+    breaks_total: number;
+    open_count: number;
+    by_type: Record<string, number>;
+    by_severity: Record<string, number>;
+  };
+  breaks: InvReconBreak[];
+};
+
+const INV_BASE = "/api/investment-engine";
+
+export function calcNav(envId: string, fundId: string, effectiveDate: string, businessId?: string): Promise<InvEngineResult<InvNavValue>> {
+  return bosFetch(`${INV_BASE}/calculate/nav`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId,
+      effective_date: effectiveDate,
+      env_id: envId,
+      business_id: businessId,
+    }),
+  });
+}
+
+export function calcPnl(envId: string, fundId: string, startDate: string, endDate: string, businessId?: string): Promise<InvEngineResult<InvPnlValue>> {
+  return bosFetch(`${INV_BASE}/calculate/pnl`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId,
+      start_date: startDate,
+      end_date: endDate,
+      env_id: envId,
+      business_id: businessId,
+    }),
+  });
+}
+
+export function produceNavSnapshot(envId: string, fundId: string, effectiveDate: string, businessId?: string, actor = "ui"): Promise<InvEngineResult<InvSnapshotProduceValue>> {
+  return bosFetch(`${INV_BASE}/snapshots/nav/produce`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId,
+      effective_date: effectiveDate,
+      env_id: envId,
+      business_id: businessId,
+      actor,
+    }),
+  });
+}
+
+export function lockNavSnapshot(envId: string, snapshotId: string, businessId?: string, actor = "ui"): Promise<InvEngineResult<unknown>> {
+  return bosFetch(`${INV_BASE}/snapshots/nav/${snapshotId}/lock`, {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId, actor }),
+  });
+}
+
+export function releaseNavSnapshot(envId: string, snapshotId: string, businessId?: string, actor = "ui", reason?: string): Promise<InvEngineResult<unknown>> {
+  return bosFetch(`${INV_BASE}/snapshots/nav/${snapshotId}/release`, {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, business_id: businessId, actor, reason }),
+  });
+}
+
+export function reconstructNavSnapshot(envId: string, snapshotId: string): Promise<InvEngineResult<{ equal: boolean; divergences: unknown[]; stored: unknown; recomputed: unknown }>> {
+  return bosFetch(`${INV_BASE}/snapshots/nav/${snapshotId}/reconstruct`, {
+    params: { env_id: envId },
+  });
+}
+
+export function getReleasedNav(envId: string, fundId: string, effDate: string, asOf?: string): Promise<InvEngineResult<unknown>> {
+  return bosFetch(`${INV_BASE}/nav/${fundId}/${effDate}`, {
+    params: { env_id: envId, as_of: asOf },
+  });
+}
+
+export function runReconciliation(envId: string, runId: string, businessId?: string): Promise<InvEngineResult<{ run_id: string; breaks_count: number; summary: Record<string, unknown> }>> {
+  return bosFetch(`${INV_BASE}/reconciliation/run`, {
+    method: "POST",
+    body: JSON.stringify({ run_id: runId, env_id: envId, business_id: businessId }),
+  });
+}
+
+export function getReconciliationReport(envId: string, runId: string): Promise<InvEngineResult<InvReconReportValue>> {
+  return bosFetch(`${INV_BASE}/reconciliation/runs/${runId}`, {
+    params: { env_id: envId },
+  });
+}
+
+export function listReconciliationBreaks(envId: string, opts: { runId?: string; breakType?: string; severity?: string; resolved?: boolean | null; limit?: number } = {}): Promise<InvEngineResult<{ count: number; breaks: InvReconBreak[] }>> {
+  const params: Record<string, string | undefined> = { env_id: envId };
+  if (opts.runId) params.run_id = opts.runId;
+  if (opts.breakType) params.break_type = opts.breakType;
+  if (opts.severity) params.severity = opts.severity;
+  if (opts.resolved === true) params.resolved = "true";
+  if (opts.resolved === false) params.resolved = "false";
+  if (opts.limit) params.limit = String(opts.limit);
+  return bosFetch(`${INV_BASE}/reconciliation/breaks`, { params });
+}
+
+export type InvFund = {
+  id: string;
+  name: string;
+  inception_date: string;
+  base_currency: string;
+  lot_relief_method: "fifo" | "spec_id";
+  status: string;
+};
+
+export function listInvFunds(envId: string): Promise<InvEngineResult<{ count: number; funds: InvFund[] }>> {
+  return bosFetch(`${INV_BASE}/funds`, { params: { env_id: envId } });
+}
+
+export type InvAuditRow = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  change_type: string;
+  previous_state: Record<string, unknown> | null;
+  new_state: Record<string, unknown> | null;
+  actor: string;
+  reason: string | null;
+  created_at: string;
+};
+
+export function listInvAuditTimeline(envId: string, opts: { entityType?: string; entityId?: string; changeType?: string; limit?: number } = {}): Promise<InvEngineResult<{ count: number; events: InvAuditRow[] }>> {
+  const params: Record<string, string | undefined> = { env_id: envId };
+  if (opts.entityType) params.entity_type = opts.entityType;
+  if (opts.entityId) params.entity_id = opts.entityId;
+  if (opts.changeType) params.change_type = opts.changeType;
+  if (opts.limit) params.limit = String(opts.limit);
+  return bosFetch(`${INV_BASE}/audit/timeline`, { params });
+}

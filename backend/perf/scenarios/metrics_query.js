@@ -89,7 +89,8 @@ export default function () {
     dimension: c.dimension,
     date_from: yyyymmdd(c.rangeDays),
     date_to: yyyymmdd(0),
-    refresh: false
+    refresh: false,
+    include_source_fact_ids: false
   };
 
   const res = http.post(`${BASE_URL}/api/metrics/query`, JSON.stringify(payload), {

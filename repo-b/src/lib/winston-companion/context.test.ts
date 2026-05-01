@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCompanionContext,
+  shouldBootWinstonCompanion,
   shouldRaiseWinstonLauncher,
   shouldShowWinstonCompanion,
 } from "@/lib/winston-companion/context";
@@ -82,6 +83,39 @@ describe("winston companion context", () => {
     expect(shouldRaiseWinstonLauncher("/lab/env/env_1/ecc")).toBe(true);
     expect(shouldRaiseWinstonLauncher("/lab/env/env_1/consulting")).toBe(true);
     expect(shouldRaiseWinstonLauncher("/app/winston")).toBe(false);
+  });
+
+  it("boots only on lab routes with resolved env and business scope", () => {
+    expect(shouldBootWinstonCompanion("/lab/env/env_1/re", {
+      businessId: "biz_1",
+      envId: "env_1",
+      scopeId: "env_1",
+      scopeType: "environment",
+    })).toBe(true);
+    expect(shouldBootWinstonCompanion("/lab/env/env_1/consulting", {
+      businessId: "biz_1",
+      envId: "env_1",
+      scopeId: "env_1",
+      scopeType: "environment",
+    })).toBe(true);
+    expect(shouldBootWinstonCompanion("/lab/env/env_1/re", {
+      businessId: null,
+      envId: "env_1",
+      scopeId: "env_1",
+      scopeType: "environment",
+    })).toBe(false);
+    expect(shouldBootWinstonCompanion("/lab/env/env_1/re", {
+      businessId: "biz_1",
+      envId: "env_2",
+      scopeId: "env_2",
+      scopeType: "environment",
+    })).toBe(false);
+    expect(shouldBootWinstonCompanion("/", {
+      businessId: "biz_1",
+      envId: "env_1",
+      scopeId: "env_1",
+      scopeType: "environment",
+    })).toBe(false);
   });
 
   it("builds a grounded fund context with narrative and suggestions", () => {

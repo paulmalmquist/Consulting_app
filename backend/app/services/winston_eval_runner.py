@@ -36,6 +36,7 @@ def trigger_eval_run(
     suite: str,
     business_id: str,
     env_id: str | None = None,
+    environment: str | None = None,
     trigger: str = "manual",
     write_docs_report: bool = True,
     timeout_seconds: int = 1800,
@@ -67,6 +68,8 @@ def trigger_eval_run(
         "--persist-trigger", trigger,
         "--regressions-out", str(regressions_out),
     ]
+    if environment:
+        cmd.extend(["--environment", environment])
     if env_id:
         cmd.extend(["--persist-env-id", env_id])
     if write_docs_report:
@@ -76,10 +79,12 @@ def trigger_eval_run(
     env.setdefault("WINSTON_EVAL_BUSINESS_ID", business_id)
     if env_id:
         env.setdefault("WINSTON_EVAL_ENV_ID", env_id)
+    if environment:
+        env.setdefault("WINSTON_EVAL_ENVIRONMENT", environment)
 
     logger.info(
-        "winston eval run starting: suite=%s trigger=%s business_id=%s env_id=%s",
-        suite, trigger, business_id, env_id,
+        "winston eval run starting: suite=%s trigger=%s environment=%s business_id=%s env_id=%s",
+        suite, trigger, environment, business_id, env_id,
     )
 
     try:
@@ -126,6 +131,7 @@ def trigger_eval_run(
         "status": status,
         "returncode": proc.returncode,
         "run_id": (summary or {}).get("run_id"),
+        "environment": environment,
         "summary": summary,
         "stdout_tail": stdout_tail,
         "stderr_tail": stderr_tail,

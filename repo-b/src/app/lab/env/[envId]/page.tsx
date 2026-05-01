@@ -309,6 +309,7 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
       { label: "Create Fund", href: `/lab/env/${envId}/re/funds/new` },
       { label: "Start Underwriting", href: `/lab/env/${envId}/re/deals` },
       { label: "Run Waterfall", href: `/lab/env/${envId}/re/waterfalls` },
+      { label: "Investment Engine", href: `/lab/env/${envId}/investment-engine` },
     ];
   }
   if (isPdsEnvironment(industry)) {

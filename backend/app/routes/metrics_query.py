@@ -32,9 +32,16 @@ def query_metrics(req: MetricsQueryRequest):
             date_from=req.date_from,
             date_to=req.date_to,
             refresh=req.refresh,
+            include_source_fact_ids=req.include_source_fact_ids,
         )
         return MetricsQueryResponse(**payload)
     except Exception as exc:
         if isinstance(exc, LookupError):
-            raise HTTPException(status_code=404, detail=str(exc))
-        raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(
+                status_code=404,
+                detail={"error_code": "NOT_FOUND", "message": str(exc)},
+            )
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": "VALIDATION_ERROR", "message": str(exc)},
+        )

@@ -53,6 +53,7 @@ import {
 import { cn } from "@/lib/cn";
 import {
   buildCompanionContext,
+  shouldBootWinstonCompanion,
   shouldRaiseWinstonLauncher,
   shouldShowWinstonCompanion,
   type WinstonCompanionContext,
@@ -592,12 +593,12 @@ export function WinstonCompanionProvider({
     });
   }, []);
 
-  const shouldRender = shouldShowWinstonCompanion(pathname);
+  const pathAllowsRender = shouldShowWinstonCompanion(pathname);
   const launcherRaised = shouldRaiseWinstonLauncher(pathname);
 
   useEffect(() => {
-    if (!shouldRender) setOpen(false);
-  }, [shouldRender]);
+    if (!pathAllowsRender) setOpen(false);
+  }, [pathAllowsRender]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -607,7 +608,7 @@ export function WinstonCompanionProvider({
       }
 
       const shortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
-      if (!shortcut || !shouldRender) return;
+      if (!shortcut || !pathAllowsRender) return;
 
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
@@ -620,10 +621,11 @@ export function WinstonCompanionProvider({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shouldRender]);
+  }, [pathAllowsRender]);
 
   useEffect(() => {
     const onPrefillPrompt = (event: Event) => {
+      if (!pathAllowsRender) return;
       const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt?.trim() || "";
       setOpen(true);
       setActiveLane((current) => (current === "general" ? "general" : "contextual"));
@@ -634,7 +636,7 @@ export function WinstonCompanionProvider({
 
     window.addEventListener("winston-prefill-prompt", onPrefillPrompt as EventListener);
     return () => window.removeEventListener("winston-prefill-prompt", onPrefillPrompt as EventListener);
-  }, []);
+  }, [pathAllowsRender]);
 
   useEffect(() => {
     let cancelled = false;
@@ -670,6 +672,12 @@ export function WinstonCompanionProvider({
     () => buildCompanionContext({ envelope: rawEnvelope, snapshot: contextSnapshot }),
     [rawEnvelope, contextSnapshot],
   );
+
+  const shouldRender = shouldBootWinstonCompanion(pathname, currentContext);
+
+  useEffect(() => {
+    if (!shouldRender) setOpen(false);
+  }, [shouldRender]);
 
   const contextualBinding = contextualState.binding || laneBindingFromContext(currentContext);
   const generalBinding = generalState.binding || generalBindingFromContext(currentContext);
@@ -859,6 +867,16 @@ export function WinstonCompanionProvider({
     const envId = binding?.envId || currentContext.envId;
 
     if (!message) return;
+    if (!shouldBootWinstonCompanion(pathname, currentContext)) {
+      setLaneState(lane, (current) => ({
+        ...current,
+        messages: [
+          ...current.messages,
+          makeMessage("assistant", "Winston needs a resolved environment and business context before this conversation can start."),
+        ],
+      }));
+      return;
+    }
     if (!businessId) {
       setLaneState(lane, (current) => ({
         ...current,

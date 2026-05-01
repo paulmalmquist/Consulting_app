@@ -58,6 +58,7 @@ def query_metrics(
     date_from: date | None,
     date_to: date | None,
     refresh: bool,
+    include_source_fact_ids: bool = True,
 ) -> dict:
     if not metric_keys:
         raise ValueError("At least one metric key is required")
@@ -104,13 +105,19 @@ def query_metrics(
             dimension_select = "COALESCE(fm.dimension_value, 'unknown') AS dimension_value"
             dimension_group = ", fm.dimension_value"
 
+        source_fact_ids_select = (
+            "ARRAY_AGG(fm.fact_measurement_id) AS source_fact_ids"
+            if include_source_fact_ids
+            else "ARRAY[]::uuid[] AS source_fact_ids"
+        )
+
         cur.execute(
             f"""
             SELECT
               fm.metric_id,
               {dimension_select},
               SUM(fm.value)::numeric AS value,
-              ARRAY_AGG(fm.fact_measurement_id) AS source_fact_ids
+              {source_fact_ids_select}
             FROM fact_measurement fm
             {where_sql}
             GROUP BY fm.metric_id{dimension_group}
@@ -144,6 +151,7 @@ def query_metrics(
             "dimension": dimension,
             "date_from": str(date_from) if date_from else None,
             "date_to": str(date_to) if date_to else None,
+            "include_source_fact_ids": include_source_fact_ids,
         }
     )
 

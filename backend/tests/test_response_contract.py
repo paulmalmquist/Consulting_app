@@ -263,6 +263,40 @@ class TestGoldenSequences:
         cats = {v["category"] for v in result["violations"]}
         assert "raw_id_leakage" in cats
 
+    def test_missing_runtime_identity_flagged_when_required(self):
+        events = [
+            {"event": "token", "data": {"text": "ok"}},
+            {
+                "event": "done",
+                "data": {
+                    "turn_receipt": {"response_text": "ok"},
+                    "trace": {"lane": "A", "execution_path": "chat"},
+                },
+            },
+        ]
+        result = validate_turn(
+            events,
+            scenario_expectations={
+                "runtime_identity_required": True,
+                "runtime_path": "canonical",
+            },
+        )
+        cats = {v["category"] for v in result["violations"]}
+        assert "missing_runtime_identity" in cats
+        assert not result["valid"]
+
+    def test_runtime_path_mismatch_flagged(self):
+        events = _load_fixture("lane_f_fallback.json")
+        result = validate_turn(
+            events,
+            scenario_expectations={
+                "runtime_identity_required": True,
+                "runtime_path": "canonical",
+            },
+        )
+        cats = {v["category"] for v in result["violations"]}
+        assert "runtime_path_mismatch" in cats
+
     def test_latency_regression_flagged(self):
         events = _load_fixture("canonical_a_fast.json")
         baseline = {"last_pass_latency_ms": 300}

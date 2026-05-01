@@ -218,6 +218,14 @@ _(This section is appended by the research-architect after each successful inges
 
 - When reading or editing Next.js route files with shell commands, quote paths like `'repo-b/src/app/lab/env/[envId]/page.tsx'`. Unquoted brackets will be globbed by `zsh` and the command will fail before it reaches the file.
 - Run backend tests with `python3.11 -m pytest ...` in this repo. A bare `pytest` invocation may bind to an older interpreter and fail inside existing files before your feature code is even imported.
+
+## Winston Eval + Surfacing Lessons (2026-04-30)
+
+- Env-scoped Winston evals must run separately per environment (`--environment meridian`, `--environment novendor`) so baselines and regressions do not mix. Do not include environment-less fixtures unless they are explicitly marked global.
+- Canonical assistant evals require `runtime_identity`; a good-looking answer from the wrong runtime path is a fail.
+- Contract validation must be part of eval scoring, not just Postgres persistence. Missing terminal states, post-terminal events, contract-enforced fallback, empty dashboard shells, and raw ID leakage are hard failures.
+- `/lab` can mount the Winston companion provider only with fail-closed context guards. Hide the launcher and refuse conversation boot until env id, business id, and scope agree.
+- The managed-agent/operator route must fail visibly. Never fall back from `/api/ai/operator/*` to the gateway path.
 - On mobile workspace cards (`repo-b/src/app/app/page.tsx`), treat the title row as `min-w-0` + `truncate` + chip `shrink-0` whenever a badge/chip sits next to a long client name. Without that trio, long names can clip a lifecycle pill into a tiny colored artifact.
 - OpenClaw now routes Telegram DMs from user `8672815280` to `dispatcher-winston`, not the legacy `winston` agent. The default `main` agent still stays on `~/.openclaw/workspace`.
 - OpenClaw is now Codex-first for non-Claude control agents: `agents.defaults.model.primary`, `dispatcher-winston`, `commander-winston`, `data-winston`, and the new Novendor business agents all use `codex-cli/gpt-5.4` instead of the OpenAI API-backed default.

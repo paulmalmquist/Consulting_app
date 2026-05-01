@@ -6,14 +6,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
   eval:
-    name: Run Winston eval (full)
+    name: Run Winston eval full (${{ matrix.target.environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - environment: meridian
+            business_secret: WINSTON_EVAL_MERIDIAN_BUSINESS_ID
+            env_secret: WINSTON_EVAL_MERIDIAN_ENV_ID
+          - environment: novendor
+            business_secret: WINSTON_EVAL_NOVENDOR_BUSINESS_ID
+            env_secret: WINSTON_EVAL_NOVENDOR_ENV_ID
 
     env:
       DATABASE_URL: ${{ secrets.WINSTON_EVAL_DATABASE_POOLER_URL || secrets.WINSTON_EVAL_DATABASE_URL }}
@@ -23,8 +33,9 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       STORAGE_BUCKET: documents
       ALLOWED_ORIGINS: http://127.0.0.1:3000
-      WINSTON_EVAL_BUSINESS_ID: ${{ secrets.WINSTON_EVAL_BUSINESS_ID }}
-      WINSTON_EVAL_ENV_ID: ${{ secrets.WINSTON_EVAL_ENV_ID }}
+      WINSTON_EVAL_ENVIRONMENT: ${{ matrix.target.environment }}
+      WINSTON_EVAL_BUSINESS_ID: ${{ secrets[matrix.target.business_secret] }}
+      WINSTON_EVAL_ENV_ID: ${{ secrets[matrix.target.env_secret] }}
       AI_GATEWAY_ENABLED: "true"
 
     steps:
@@ -47,17 +58,19 @@ jobs:
       - name: Sanity-check secrets
         run: |
           if [ -z "$DATABASE_URL" ]; then echo "::error::Set WINSTON_EVAL_DATABASE_POOLER_URL or WINSTON_EVAL_DATABASE_URL"; exit 1; fi
-          if [ -z "$WINSTON_EVAL_BUSINESS_ID" ]; then echo "::error::WINSTON_EVAL_BUSINESS_ID missing"; exit 1; fi
+          if [ -z "$WINSTON_EVAL_BUSINESS_ID" ]; then echo "::error::${{ matrix.target.business_secret }} missing"; exit 1; fi
+          if [ -z "$WINSTON_EVAL_ENV_ID" ]; then echo "::error::${{ matrix.target.env_secret }} missing"; exit 1; fi
 
-      - name: Run Winston eval (full)
+      - name: Run Winston eval full (${{ matrix.target.environment }})
         run: |
           set -o pipefail
           mkdir -p artifacts/eval-loop
           python -m eval_loop.runner \
             --full \
+            --environment "$WINSTON_EVAL_ENVIRONMENT" \
             --persist-postgres \
             --persist-business-id "$WINSTON_EVAL_BUSINESS_ID" \
-            ${WINSTON_EVAL_ENV_ID:+--persist-env-id "$WINSTON_EVAL_ENV_ID"} \
+            --persist-env-id "$WINSTON_EVAL_ENV_ID" \
             --persist-trigger schedule \
             --regressions-out artifacts/eval-loop/regressions.json \
             --write-docs-report \
@@ -67,7 +80,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: winston-eval-weekly-${{ github.run_id }}
+          name: winston-eval-weekly-${{ matrix.target.environment }}-${{ github.run_id }}
           path: |
             artifacts/eval-loop/
             docs/ai-testing/reports/
@@ -81,7 +94,7 @@ jobs:
           python scripts/eval_regressions_to_issues.py \
             --input artifacts/eval-loop/regressions.json \
             --repo "$GITHUB_REPOSITORY" \
-            --suite full \
+            --suite full-${{ matrix.target.environment }} \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Commit docs report
@@ -91,7 +104,7 @@ jobs:
           git config user.email "winston-eval@users.noreply.github.com"
           if [ -n "$(git status --porcelain docs/ai-testing/reports/ docs/LATEST.md 2>/dev/null)" ]; then
             git add docs/ai-testing/reports/ docs/LATEST.md || true
-            git commit -m "chore(winston-eval): weekly report ${{ github.run_id }}" || true
+            git commit -m "chore(winston-eval): weekly ${{ matrix.target.environment }} report ${{ github.run_id }}" || true
             git push || echo "::warning::Push failed (likely branch protection). Report is still in artifacts."
           else
             echo "No docs report changes to commit."

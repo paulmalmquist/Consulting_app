@@ -122,6 +122,10 @@ RUNTIME_FAILURE_CATEGORIES: tuple[str, ...] = (
     "clarification_without_done",
     "invalid_event_payload",
     "unknown_event_type",
+    "missing_runtime_identity",
+    "runtime_path_mismatch",
+    "runtime_lane_mismatch",
+    "contract_enforced_fallback",
 )
 
 RUNTIME_SEVERITY_BY_CATEGORY: dict[str, Severity] = {
@@ -138,6 +142,10 @@ RUNTIME_SEVERITY_BY_CATEGORY: dict[str, Severity] = {
     "clarification_without_done": "high",
     "invalid_event_payload": "high",
     "unknown_event_type": "medium",
+    "missing_runtime_identity": "critical",
+    "runtime_path_mismatch": "critical",
+    "runtime_lane_mismatch": "high",
+    "contract_enforced_fallback": "critical",
 }
 
 RUNTIME_CRITICAL_CATEGORIES: frozenset[str] = frozenset(

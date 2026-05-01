@@ -272,6 +272,9 @@ def main() -> int:
             "UPDATE dataset_version SET row_count = %s, checksum = %s WHERE dataset_version_id = %s",
             (rows_target, f"perf:{args.tier}:{args.dataset_version}:{rows_target}", dataset_version_id),
         )
+        cur.execute("ANALYZE fact_measurement")
+        cur.execute("ANALYZE metric")
+        cur.execute("ANALYZE business")
 
     fixture_path = Path(
         args.fixture_output

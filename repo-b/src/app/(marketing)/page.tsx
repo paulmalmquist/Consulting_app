@@ -19,15 +19,15 @@ export default function HomePage() {
     <>
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.6}>
         <NvHero
-          eyebrow="Own your operating logic"
+          eyebrow="AI-Ready"
           headline={
             <>
-              Put <em>AI</em> to work.
+              Your <em>AI</em> is only as good as the data underneath it.
             </>
           }
-          lede="We work with companies to get their operations, data, and teams ready to use AI in a practical way."
-          primaryCta={{ label: 'Identify your first fixable workflow in 30 minutes', href: '/operational-assessment' }}
-          secondaryCta={{ label: 'Start with one workflow', href: '/what-we-do' }}
+          lede="We work with operators who are under pressure to ship AI and know their data, process, and playbooks aren't ready for it. We make them ready — one workflow at a time, without a rip-and-replace project."
+          primaryCta={{ label: 'See where your data is blocking your AI roadmap', href: '/operational-assessment' }}
+          secondaryCta={{ label: 'How we engage', href: '/what-we-do' }}
         />
       </HeroBackground>
 
@@ -61,11 +61,10 @@ export default function HomePage() {
           </div>
           <NvCard>
             <h2 className="nv-h2" style={{ marginBottom: 16, fontSize: 32 }}>
-              From reporting drift to controlled fund operations
+              From reporting drift to AI-ready fund data
             </h2>
             <p className="nv-body">
-              A synthetic REPE scenario: a mid-market operator replaced spreadsheet-driven capital call handoffs
-              with state-based approvals and reduced capital call errors from 5% to 1.2% in 8 weeks.
+              A mid-market REPE operator pulled the data behind capital calls into one place, captured the approval logic in a workflow, and rebuilt the LP report from the underlying data instead of last quarter's deck. Capital call errors dropped from 5% to 1.2%. The same data now feeds the LP report, the IC pack, and an AI summary the GP reads on a Sunday night — without anyone tying out a spreadsheet first.
             </p>
           </NvCard>
         </section>

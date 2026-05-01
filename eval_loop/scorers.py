@@ -132,6 +132,37 @@ def _append_mismatch(
     )
 
 
+def _contract_mismatches(
+    *,
+    scenario: dict[str, Any],
+    result: dict[str, Any],
+) -> list[dict[str, Any]]:
+    try:
+        from eval_loop.canonical_assertions import detect_canonical_failures
+
+        failures = detect_canonical_failures(scenario=scenario, result=result, baseline=None)
+    except Exception as exc:  # noqa: BLE001
+        failures = [
+            {
+                "category": "regression_failure",
+                "evidence": {
+                    "reason": "contract_validation_unavailable",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            }
+        ]
+    return [
+        {
+            "category": failure.get("category") or "regression_failure",
+            "field": "response_contract",
+            "expected": "valid canonical Winston turn",
+            "actual": failure.get("evidence", failure),
+        }
+        for failure in failures
+    ]
+
+
 _GENERIC_DEGRADED_PHRASES = [
     "not available in the current context",
     "context not available",
@@ -473,6 +504,9 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
             actual=result.get("first_token_ms"),
         )
 
+    contract_mismatches = _contract_mismatches(scenario=scenario, result=result)
+    mismatches.extend(contract_mismatches)
+
     receipt_completeness = _receipt_completeness(receipt if isinstance(receipt, dict) else None)
     trace_fidelity = _trace_fidelity("assistant_turn", result)
     if receipt_completeness < 1.0:
@@ -488,6 +522,7 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     final_score = max(0.0, base_score - ((1.0 - receipt_completeness) * 20.0) - ((1.0 - trace_fidelity) * 10.0))
     hallucination_proxy = 1 if must_not and not _contains_none(response_text, must_not) else 0
     anti_smoothness_failed = bool(response_text and answer_ok and (receipt_completeness < 1.0 or failure_category))
+    contract_failed = bool(contract_mismatches)
     critical_failure = any(is_critical_failure(mismatch.get("category")) for mismatch in mismatches)
     fallback_reason = receipt.get("fallback_reason") or dispatch.get("fallback_reason")
     fallback_used = bool(dispatch.get("fallback_used"))
@@ -513,6 +548,7 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
     passed = (
         final_score >= 85.0
         and not critical_failure
+        and not contract_failed
         and not anti_smoothness_failed
         and receipt_completeness >= 1.0
     )
@@ -529,6 +565,7 @@ def score_assistant_scenario(*, scenario: dict[str, Any], result: dict[str, Any]
         "product_mismatches": product_result["product_mismatches"],
         "failure_category": failure_category,
         "mismatches": mismatches,
+        "contract_failures": contract_mismatches,
         "tool_count": len(tool_names),
         "retrieval_count": retrieval.get("result_count", 0) or 0,
         "hallucination_proxy": hallucination_proxy,
@@ -657,5 +694,72 @@ def score_frontend_scenario(*, scenario: dict[str, Any], result: dict[str, Any])
         "trace_fidelity": trace_fidelity,
         "latency_bucket": _latency_bucket(result.get("duration_ms"), passed, scenario.get("expected", {}).get("max_duration_ms")),
         "trace_summary": {},
+        "anti_smoothness_failed": False,
+    }
+
+
+def score_operator_readiness_scenario(*, scenario: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    expected = scenario.get("expected", {})
+    status = result.get("operator_status")
+    health = result.get("operator_health") or {}
+    allowed_statuses = expected.get("allowed_statuses") or []
+    mismatches: list[dict[str, Any]] = []
+
+    if allowed_statuses and status not in allowed_statuses:
+        _append_mismatch(
+            mismatches,
+            category="operator_unavailable",
+            field="operator_status",
+            expected=allowed_statuses,
+            actual=status,
+        )
+
+    if "enabled" in expected and bool(health.get("enabled")) != bool(expected["enabled"]):
+        _append_mismatch(
+            mismatches,
+            category="operator_unavailable",
+            field="enabled",
+            expected=bool(expected["enabled"]),
+            actual=bool(health.get("enabled")),
+        )
+
+    runtime_identity = (result.get("trace") or {}).get("runtime_identity") or {}
+    expected_path = expected.get("runtime_path")
+    if expected_path and runtime_identity.get("path") != expected_path:
+        _append_mismatch(
+            mismatches,
+            category="runtime_path_mismatch",
+            field="runtime_identity.path",
+            expected=expected_path,
+            actual=runtime_identity.get("path"),
+        )
+
+    if health.get("fallback_used"):
+        _append_mismatch(
+            mismatches,
+            category="contract_enforced_fallback",
+            field="fallback_used",
+            expected=False,
+            actual=True,
+        )
+
+    failure_category = primary_failure_category(mismatches)
+    passed = failure_category is None
+    return {
+        "score": 100.0 if passed else 0.0,
+        "passed": passed,
+        "failure_category": failure_category,
+        "mismatches": mismatches,
+        "tool_count": 0,
+        "retrieval_count": 0,
+        "hallucination_proxy": 0,
+        "cross_environment_contamination": 0,
+        "receipt_completeness": 1.0,
+        "trace_fidelity": 1.0 if runtime_identity else 0.0,
+        "latency_bucket": _latency_bucket(result.get("duration_ms"), passed, expected.get("max_duration_ms")),
+        "trace_summary": {
+            "runtime_path": runtime_identity.get("path"),
+            "operator_status": status,
+        },
         "anti_smoothness_failed": False,
     }

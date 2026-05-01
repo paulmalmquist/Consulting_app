@@ -43,6 +43,8 @@ export type IndustryVertical = {
   };
   controlStatement: string;
   outcomeCards: IndustryCard[];
+  typicalResults: string[];
+  pageEndCta: string;
 };
 
 export const INDUSTRY_VERTICALS: IndustryVertical[] = [
@@ -50,518 +52,571 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
     slug: 'real-estate-private-equity',
     label: 'Real Estate Private Equity',
     themeKey: 'amber',
-    teaser: 'Stabilize investor reporting, waterfall logic, and portfolio controls without rebuilding the entire investment stack.',
+    teaser:
+      'Get fund data, waterfall logic, and LP reporting into one place — so the AI tools you adopt actually work on real fund math.',
     contactLabel: 'Real Estate Private Equity',
     heroImageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1800&q=80',
-    heroHeadline: 'Make Fund Math Deterministic',
+    heroHeadline: 'Make your fund data AI-ready before an LP asks what AI you use.',
     heroSubheadline:
-      'Replace spreadsheet-dependent fund operations with controlled execution across underwriting, waterfall logic, capital activity, and investor reporting. The objective is continuity across the capital stack, with calculations, approvals, and reporting outputs that remain reviewable under scrutiny.',
+      'Your IRRs, your waterfall, your investor reporting — most of it lives in spreadsheets that one person knows how to assemble. No AI tool will help until that changes. We rebuild the data layer that LP reporting, deal screening, and any future AI agent will sit on top of. The model stays yours. The math stays defensible.',
     whyItBreaks: {
       title: 'Why It Breaks',
-      intro: 'The model is not the problem. The operating chain around it is.',
+      intro: 'The model isn\'t the problem. The chain around the model is.',
       items: [
-        'Underwriting assumptions drift across analyst versions before investment committee review.',
-        'Waterfall logic is defended from spreadsheets instead of governed from a controlled source.',
-        'Capital call and distribution workflows depend on manual tie-outs.',
-        'Portfolio rollups arrive too late to support timely decisions.',
-        'Investor reporting is rebuilt each cycle from disconnected asset data.'
+        'Underwriting assumptions drift between analyst versions before IC sees the deal.',
+        'The waterfall is defended out of one spreadsheet and one person\'s memory.',
+        'Capital calls and distributions get tied out by hand every quarter.',
+        'LP reporting is rebuilt from scratch each cycle because the inputs never settle.'
       ],
       closing: [
-        'The breakdown is not in financial intent.',
-        'It is in version drift, weak ownership, and reporting logic that cannot be traced end to end.'
+        'The breakdown isn\'t in the math.',
+        'It\'s that no two people on the team would build the same number twice.'
       ]
     },
     whatWeChange: {
       title: 'What We Change',
       intro:
-        'We turn fund operations into a governed execution layer that preserves calculation integrity from deal evaluation through reporting.',
+        'We get the fund data into one place, the waterfall logic out of the spreadsheet, and the reporting cycle into a system that runs the same way twice. Then AI — yours or a vendor\'s — can do something useful with it.',
       items: [
-        'Version-controlled underwriting assumptions and approval checkpoints',
-        'Deterministic waterfall logic with explicit rule governance',
-        'Capital activity workflows with auditable state transitions',
-        'Portfolio-level covenant and reporting controls across assets',
-        'Investor reporting assembled from workflow-native data instead of manual reconsolidation'
+        'One source of truth for fund-level data, version-controlled and ownership-clear.',
+        'Waterfall logic written down in a system the team can read, audit, and change without breaking IRRs.',
+        'Capital activity that flows through a workflow with named owners and an audit trail, not an inbox.',
+        'LP reporting assembled from the underlying data, not from last quarter\'s deck plus a few overrides.'
       ],
       closing: [
-        'No uncontrolled model forks.',
-        'No last-mile reporting reconstruction.',
-        'Fund math becomes repeatable, reviewable, and operational.'
+        'No silent forks of the model.',
+        'No reporting rebuilt from memory.',
+        'The math is the same on Tuesday as it was on Friday.'
       ]
     },
     buyerProfile: [
-      'Fund operations and portfolio teams managing LP reporting pressure across multiple assets.',
-      'CFO, COO, finance, and investor relations leaders accountable for reporting integrity.',
-      'Firms with spreadsheet-dependent waterfalls, capital events, and covenant workflows.',
-      'Teams that need audit-ready controls before adding more automation.'
+      'CFOs and COOs at REPE firms whose LP reporting still depends on one analyst with a folder of spreadsheets.',
+      'IR leaders who get asked about AI in every LP meeting and don\'t have a serious answer yet.',
+      'Operating partners watching deal screening eat partner hours that should go to underwriting.',
+      'Firms that want AI on top of their fund data without giving up control of the model.'
     ],
-    buyerSentence: 'Built for operators who need cleaner fund execution without disrupting the full investment stack.',
+    buyerSentence: 'Built for REPE operators who want the data right before the AI goes on top.',
     reconstructCards: [
       {
-        title: 'LP Reporting System',
+        title: 'Fund Data Layer',
         description:
-          'Automate LP reporting package assembly with documented logic, approval checkpoints, and version traceability.',
-        outcome: 'Defensible performance reporting with lower manual reconciliation load.'
+          'One source of truth for asset, fund, and investor data. Pulled from Yardi, MRI, the asset team\'s Excel, and the IR portal — landed in a place every report can read.',
+        outcome: 'The same number shows up in the LP report, the IC pack, and the GP dashboard.'
       },
       {
-        title: 'Standardized Waterfall Engine',
+        title: 'Waterfall Out of Excel',
         description:
-          'Replace spreadsheet drift with controlled waterfall calculations and explicit model governance.',
-        outcome: 'Standardized waterfall logic and improved IRR integrity controls.'
+          'Waterfall logic written down in a system, version-controlled, with the math the audit team can read.',
+        outcome: 'A waterfall change takes an hour and an approval, not a week and a panic.'
       },
       {
-        title: 'Capital Activity Control Layer',
+        title: 'Capital Activity Workflow',
         description:
-          'Structure capital call, notice, and capital account statement workflows around auditable state transitions.',
-        outcome: 'Reduced capital call errors and cleaner investor communication trails.'
+          'Capital calls and distributions move through a workflow with owners, approvals, and a trail. The inbox stops being the system.',
+        outcome: 'Capital call errors drop into the noise. The IR team stops apologizing.'
       },
       {
-        title: 'Audit-Ready Portfolio Reporting Infrastructure',
+        title: 'AI-Ready LP Reporting',
         description:
-          'Build portfolio-level data consistency checks across asset updates, debt covenants, and IC materials.',
-        outcome: 'Portfolio-level data consistency with traceable, audit-ready reporting outputs.'
+          'The LP report assembles itself from the underlying data. What used to take a week of analyst time becomes a day of review — and an AI agent can draft the cover letter.',
+        outcome: 'The GP gets back the week the analyst used to lose to reporting.'
       }
     ],
     engagementModel: {
       intro:
-        'Execution systems are designed to produce measurable outcomes: traceable logic, governed approvals, and audit-ready reporting evidence.',
+        'One workflow at a time. Fixed scope. Fixed fee. Parallel run before anything cuts over. The team that owns it after we leave is your team.',
       principles: [
-        'Fixed scope tied to one high-friction workflow.',
-        'Fixed fee with explicit acceptance criteria.',
-        'Parallel run before cutover to verify output integrity.',
-        'Documented logic and transfer of operational control to the client.'
+        'We pick the workflow with the most reporting pain and the most AI upside.',
+        'We build alongside the current process. Nothing breaks while we work.',
+        'We hand back a runbook your analyst can run and your auditor can read.',
+        'The data layer we build is yours. No platform lock-in. No SaaS subscription with our logo on it.'
       ]
     },
     credibility: {
       intro:
-        'Operational performance in real estate private equity depends on reporting integrity, model discipline, and controlled execution across asset-level workflows. We work at the point where LP expectations, investment committee cadence, and portfolio operations intersect.',
+        'REPE operations live or die on whether the same number means the same thing to the GP, the LP, and the audit team. We work where those three views meet.',
       pillars: [
         {
-          title: 'Investment Operations Fluency',
+          title: 'Fund Operations Fluency',
           description:
-            'Asset management reporting, capital events, and investment committee preparation are treated as one operating system, not disconnected tasks.'
+            'Asset reporting, capital events, and IC prep treated as one operating system, not four spreadsheets.'
         },
         {
-          title: 'Financial Model Integrity',
+          title: 'Model Integrity',
           description:
-            'Waterfall modeling logic, IRR sensitivity assumptions, and allocation pathways remain controlled, versioned, and reviewable.'
+            'Waterfall, IRR, and allocation math kept controlled, versioned, and reviewable — not stored in a sheet only one person can open.'
         },
         {
-          title: 'Audit-Ready Reporting',
+          title: 'LP-Grade Reporting',
           description:
-            'LP reporting packages, capital account statements, and covenant compliance outputs are built for traceability under scrutiny.'
+            'LP packages, capital account statements, and covenant outputs built so an LP\'s analyst can tie them out without a phone call.'
         },
         {
-          title: 'Workflow Reconstruction',
+          title: 'AI on a Real Foundation',
           description:
-            'Spreadsheet-dependent reporting chains are replaced with structured execution layers that reduce reconciliation risk across asset classes.'
+            'The AI tools you adopt — copilots, agents, summarizers — work because the data underneath them is real, not because the demo was good.'
         }
       ]
     },
     controlStatement:
-      'AI that improves IRR modeling is useful. AI that produces defensible LP reporting is strategic.',
+      'An AI that can\'t read your fund data without a human in the middle isn\'t going to help you raise the next fund.',
     outcomeCards: [
       {
-        title: 'Defensible Performance Reporting',
-        description: 'Improve LP and IC confidence with documented controls, evidence trails, and reproducible portfolio reporting outputs.'
+        title: 'One Source of Truth for Fund Data',
+        description:
+          'The number in the LP report, the IC pack, and the GP dashboard is the same number, sourced the same way, every time.'
       },
       {
-        title: 'Standardized Waterfall Logic',
-        description: 'Reduce review friction by enforcing governed waterfall calculations and explicit change control.'
+        title: 'A Waterfall the Audit Team Can Read',
+        description:
+          'Logic out of Excel, into a system, with a change history. IRR doesn\'t move because someone bumped a cell.'
       },
       {
-        title: 'Reduced Capital Call Errors',
-        description: 'Lower manual exceptions through controlled capital activity workflows and traceable approval states.'
+        title: 'Capital Activity Without the Email Chain',
+        description:
+          'Calls and distributions through a workflow with owners and an audit trail. Errors drop. IR stops apologizing.'
       },
       {
-        title: 'Audit-Ready Reporting Infrastructure',
-        description: 'Strengthen governance with portfolio-level traceability, documented logic, and clear control ownership.'
+        title: 'AI That Works the First Time',
+        description:
+          'The agent, copilot, or summary tool you pick has clean inputs. It does what the demo promised.'
       }
-    ]
+    ],
+    typicalResults: [
+      'Quarterly LP reporting cycle cut from a week of analyst time to a day of review.',
+      'One source of truth for fund-level data — the same numbers in the LP report, the IC pack, and the GP dashboard.',
+      'Waterfall logic the audit team can read without opening Excel.',
+      'An AI summary on the GP\'s phone Sunday night that the CFO is willing to put their name on.'
+    ],
+    pageEndCta: 'See where the fund data is blocking the AI strategy.'
   },
   {
     slug: 'consumer-credit',
     label: 'Consumer Credit',
     themeKey: 'cyan',
-    teaser: 'Tighten underwriting, servicing, and compliance workflows so throughput improves without losing control.',
+    teaser:
+      'Get credit policy out of PDFs, decisions out of inboxes, and overrides out of folklore — so the AI you deploy is something you can defend.',
     contactLabel: 'Consumer Credit',
     heroImageUrl: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1800&q=80',
-    heroHeadline: 'Make Credit Logic Operational',
+    heroHeadline:
+      'Get your credit policy and your decision data into a form an AI can use — and an examiner can read.',
     heroSubheadline:
-      'Embed underwriting discipline, servicing controls, segmentation logic, and regulatory documentation directly into observable workflows. Credit risk management improves when portfolio risk monitoring, covenant tracking, and underwriting exception management operate inside the same controlled system.',
+      'Underwriting AI is only as defensible as the policy it cites and the data it sees. We get your policy out of PDFs and into a system, your decision data out of inboxes and into a pipeline, and your overrides out of folklore and into an audit trail. The AI you deploy after that is something you can put in front of a regulator without flinching.',
     whyItBreaks: {
       title: 'Why It Breaks',
-      intro: 'Credit policy is rarely the issue. Execution is.',
+      intro: 'Credit policy isn\'t usually wrong. The execution around it is.',
       items: [
-        'Exception queues grow without visibility.',
-        'Risk overrides lose audit clarity.',
-        'Segmentation remains static when portfolio conditions change.',
-        'Servicing handoffs create exposure gaps between teams.',
-        'Documentation is assembled after the fact instead of generated from workflow state.'
+        'The policy lives in a PDF nobody reads cover to cover.',
+        'Exception queues grow in inboxes nobody owns end to end.',
+        'Overrides happen in chat and never make it back into the data.',
+        'Servicing handoffs lose context between teams. The borrower notices.'
       ],
       closing: [
-        'The risk is not bad intent.',
-        'It is invisible breakdown across credit exposure aggregation, counterparty risk review, and day-to-day execution.'
+        'The risk isn\'t bad intent.',
+        'It\'s that your decision history isn\'t actually a history. It\'s a story people tell from memory.'
       ]
     },
     whatWeChange: {
       title: 'What We Change',
       intro:
-        'We embed credit logic directly into execution systems so control survives volume, handoffs, and review.',
+        'We get the policy machine-readable, the decisions captured, and the overrides traceable. Then the AI underwriter, the AI assist, or the AI servicing tool you pick can do its job without inventing answers.',
       items: [
-        'Dynamic portfolio segmentation tied to live workflow states',
-        'Rule-based exposure triggers for portfolio risk monitoring',
-        'Real-time covenant tracking and concentration monitoring',
-        'Structured underwriting exception management with explicit queue ownership',
-        'Workflow-native documentation generation for audits, examinations, and stress testing support'
+        'Policy in a structured form an AI can cite, line by line.',
+        'Exception queues in a workflow with an owner, a clock, and a reason code.',
+        'Overrides recorded against the rule they overrode, with the rationale attached.',
+        'Servicing handoffs that carry context — borrower notes, prior decisions, exception flags — instead of dropping it.'
       ],
       closing: [
-        'No parallel spreadsheets.',
-        'No shadow tracking systems.',
-        'Credit discipline becomes operational.'
+        'No more shadow spreadsheets.',
+        'No more "ask Maria, she remembers that one."',
+        'The decision an AI makes is one a human can defend.'
       ]
     },
     buyerProfile: [
-      'Lenders running high-volume exception queues across underwriting and servicing.',
-      'Risk, compliance, and operations leaders under pressure to prove decision integrity.',
-      'Teams managing delinquency, documentation, and handoff drift across multiple systems.',
-      'Organizations that need explainable automation before broader AI rollout.'
+      'Chief Risk and Chief Credit officers at lenders whose policy is in a PDF and whose decisions are in inboxes.',
+      'Heads of Underwriting watching exception volume grow faster than headcount.',
+      'Compliance and audit leaders who don\'t want to be surprised by what an AI tool decided last quarter.',
+      'Lenders evaluating credit AI vendors and noticing that the demo data looks nothing like their own.'
     ],
-    buyerSentence: 'Built for credit teams that need faster throughput and stronger evidence at the same time.',
+    buyerSentence: 'Built for credit teams that want AI in the decision loop without losing the audit trail.',
     reconstructCards: [
       {
-        title: 'Documented Credit Decision Engine',
-        description: 'Embed decision support with explicit rule lineage, approval states, and exception evidence.',
-        outcome: 'Shortened underwriting decision cycles with documented decision logic.'
+        title: 'Policy in a Form a Machine Can Read',
+        description:
+          'Your underwriting and servicing policy out of PDFs, into a structured corpus an AI can cite — line by line, version by version.',
+        outcome: 'Every AI-assisted decision comes with the policy section it relied on.'
       },
       {
-        title: 'Underwriting and Servicing Workflow Controls',
-        description: 'Standardize handoffs, queue ownership, and escalation thresholds across the credit lifecycle.',
-        outcome: 'Servicing workflow traceability and reduced reconciliation drift.'
+        title: 'Exception Queue With an Owner',
+        description:
+          'Exceptions move through a workflow. One owner. One clock. One reason code. No more inbox triage.',
+        outcome: 'Routing delays drop. Nothing sits unowned for a week.'
       },
       {
-        title: 'Portfolio Stratification and Risk Layer',
-        description: 'Unify delinquency tracking, loss forecasting, and cohort-level performance visibility.',
-        outcome: 'Audit-aligned portfolio reporting and clearer risk governance.'
+        title: 'Override Trail',
+        description:
+          'Every override captured against the rule it overrode, with the rationale, the analyst, and the outcome.',
+        outcome: 'The override pattern shows up in monthly review instead of in a regulator letter.'
       },
       {
-        title: 'Regulatory Documentation Pipeline',
-        description: 'Generate reproducible compliance artifacts from workflow states instead of manual backfill.',
-        outcome: 'Reduced compliance friction and stronger control defensibility.'
+        title: 'Servicing Handoff That Carries Context',
+        description:
+          'Borrower notes, prior decisions, and exception flags travel with the file. The next team starts where the last one left off.',
+        outcome: 'Borrower complaints about "I told the last person already" drop sharply.'
       }
     ],
     engagementModel: {
       intro:
-        'AI-native workflows with measurable operational impact require evidence-first execution: controls, documentation, and reviewable logic at each decision point.',
+        'One workflow at a time. The first one is usually the policy corpus or the exception queue, because both unblock everything else.',
       principles: [
-        'Fixed scope aligned to one workflow with quantifiable throughput and control metrics.',
-        'Fixed fee and explicit stage-gate deliverables.',
-        'Parallel run before cutover to validate underwriting and servicing integrity.',
-        'Documented logic and transfer of operational control to internal owners.'
+        'Pick the workflow with the most decision pain and the most regulatory exposure.',
+        'Build alongside the current process so nothing breaks while we work.',
+        'Hand back a system your analysts run and your compliance team signs off on.',
+        'No black boxes. Every AI-assisted decision is traceable to policy and data.'
       ]
     },
     credibility: {
       intro:
-        'Credit operations fail at handoffs between underwriting, servicing, and compliance when decision logic is not observable. We build systems around explainable decisions, queue integrity, and documentation readiness.',
+        'Credit operations fail at the seam between underwriting, servicing, and compliance — usually because the policy, the data, and the override history don\'t live in the same place. We work at that seam.',
       pillars: [
         {
           title: 'Credit Logic Awareness',
           description:
-            'Underwriting exception queues, risk score overrides, and adjudication pathways are mapped to where failures actually occur.'
+            'We\'ve sat through enough exception queues to know where the failure modes hide.'
         },
         {
-          title: 'Explainability & Traceability',
+          title: 'Explainability by Design',
           description:
-            'Decision systems are structured so credit logic, overrides, and portfolio stratification outcomes can be reviewed and defended.'
+            'Every AI-assisted decision in the systems we build comes with the policy section, the data point, and the rule that produced it.'
         },
         {
-          title: 'Servicing Workflow Reconstruction',
+          title: 'Servicing Handoffs That Hold',
           description:
-            'Fragmented servicing handoffs and delinquency tracking loops are rebuilt into measurable operational chains with clear ownership.'
+            'The handoff is the failure point. We rebuild it to carry context, not lose it.'
         },
         {
-          title: 'Compliance Alignment',
+          title: 'Audit-Ready by Default',
           description:
-            'Regulatory documentation is generated from workflow states and control events, not assembled late through manual backfill.'
+            'Documentation is generated from the workflow, not assembled before the exam.'
         }
       ]
     },
     controlStatement:
-      'Automation is only valuable when it can be measured and defended.',
+      'An AI underwriter you can\'t defend in an exam is one you shouldn\'t deploy.',
     outcomeCards: [
       {
-        title: 'Shortened Underwriting Decision Cycles',
-        description: 'Reduce exception latency with controlled routing and documented adjudication paths.'
+        title: 'Policy a Machine Can Cite',
+        description:
+          'AI-assisted decisions come with the policy section they used. The examiner can follow the chain.'
       },
       {
-        title: 'Documented Decision Logic',
-        description: 'Maintain traceable credit logic that can be reviewed during internal and external audits.'
+        title: 'Exception Queue Under Control',
+        description:
+          'One owner per item, one clock per decision. Routing delays drop, queue ages stop sneaking up on the team.'
       },
       {
-        title: 'Reduced Compliance Friction',
-        description: 'Lower audit prep burden through continuously generated regulatory documentation.'
+        title: 'Override History That Exists',
+        description:
+          'Every override captured against the rule. Patterns surface in monthly review, not in a regulator letter.'
       },
       {
-        title: 'Audit-Aligned Portfolio Reporting',
-        description: 'Improve governance with portfolio stratification outputs tied to reconciled operational data.'
+        title: 'AI That Earns Its Seat at the Table',
+        description:
+          'Underwriting AI you can put in front of an examiner without rehearsing the answer.'
       }
-    ]
+    ],
+    typicalResults: [
+      'Credit policy in a form an AI can cite, an analyst can search, and an examiner can read.',
+      'Exception queue with one owner per item and a clock on every decision.',
+      'Override history that ties back to the rule, the reason, and the analyst — every time.',
+      'An AI underwriter or assistant whose answer comes with sources you can defend.'
+    ],
+    pageEndCta: 'See where the policy and the data aren\'t AI-ready yet.'
   },
   {
     slug: 'medical',
     label: 'Medical',
     themeKey: 'rose',
-    teaser: 'Reduce revenue-cycle leakage across prior auth, denial management, and payer reconciliation with governed workflow control.',
+    teaser:
+      'Pull authorization, denial, and payer reconciliation data into one queue — so the AI tool you bought finally has a chance to work.',
     contactLabel: 'Medical',
     heroImageUrl: 'https://images.unsplash.com/photo-1504439468489-c8920d796a29?auto=format&fit=crop&w=1800&q=80',
-    heroHeadline: 'Make Clinical Operations Observable',
+    heroHeadline:
+      'AI won\'t fix your denial backlog if your prior auth data lives in seven payer portals.',
     heroSubheadline:
-      'Create operational control across prior authorization, denial management, payer reconciliation, and reimbursement workflows without adding compliance risk. The goal is observable execution, cleaner handoffs, and measurable financial continuity across care delivery administration.',
+      'Every revenue cycle AI vendor pitches the same demo. None of them work until your authorization, denial, and payer reconciliation data land in one place with one set of rules. We do the unglamorous part — pulling the data together, writing down the routing logic, putting the queue in a system. The AI you adopt after that actually moves the cash conversion cycle.',
     whyItBreaks: {
       title: 'Why It Breaks',
       intro:
-        'Clinical and revenue-cycle workflows do not usually fail because teams lack effort. They fail because operational state disappears between steps.',
+        'Revenue cycle workflows don\'t usually fail for lack of effort. They fail because the data and the queue sit in different places — and nobody can see the whole picture in one screen.',
       items: [
-        'Authorization status changes are lost between payer portals and internal teams.',
-        'Denials are triaged late, after avoidable backlog has already formed.',
-        'Coding, billing, and reconciliation rely on repeated manual tie-outs.',
-        'Ownership blurs across intake, clinical support, and billing operations.',
-        'Reporting is assembled from fragmented systems instead of live workflow evidence.'
+        'Authorization status changes get lost between payer portals and the team that needs to act on them.',
+        'Denials are triaged days late, after the backlog has already formed.',
+        'Coding and reconciliation rely on tie-outs nobody documented.',
+        'Ownership blurs between intake, clinical, and billing. The owner of the work is whoever happens to look at the queue today.'
       ],
       closing: [
-        'The exposure is not abstract inefficiency.',
-        'It is reimbursement leakage, delayed cash, and limited visibility into where care-adjacent operations are actually breaking.'
+        'The exposure isn\'t abstract.',
+        'It\'s reimbursement leakage, delayed cash, and a finance team that can\'t tell you why this month is worse than last.'
       ]
     },
     whatWeChange: {
       title: 'What We Change',
       intro:
-        'We build an execution layer that keeps operational state visible across administrative care workflows and ties every exception to an owner, a rule, and an audit trail.',
+        'We pull the revenue cycle data into one place, write down the routing logic in a form an AI can use, and put the queue in a system with owners and clocks. Then the AI tools you\'ve been pitched can actually move the needle.',
       items: [
-        'Prior authorization workflows with governed status transitions',
-        'Denial management routed through controlled exception states',
-        'Payer reconciliation and coding checks tied to documented control points',
-        'Queue ownership and escalation logic across reimbursement handoffs',
-        'Reporting generated from workflow evidence instead of retrospective assembly'
+        'One queue across payers, owners, and aging — not seven portals and a download.',
+        'Authorization, denial, and payer reconciliation data landing in one place with one set of rules.',
+        'Coding logic written down in a form an AI can cite, not a binder a coder remembers.',
+        'Ownership and escalation logic that survives someone going on PTO.'
       ],
       closing: [
-        'No hidden queue drift.',
-        'No reconciliation by folklore.',
-        'Operational control stays visible from intake through reimbursement.'
+        'No more queue-by-folklore.',
+        'No more reconciliation-by-spreadsheet.',
+        'The AI vendor\'s demo finally runs on your data.'
       ]
     },
     buyerProfile: [
-      'Provider groups and MSOs with margin pressure tied to administrative execution.',
-      'Revenue cycle, finance, and operations leaders responsible for reimbursement continuity.',
-      'Teams buried in prior auth, denial, and reconciliation queues across payer touchpoints.',
-      'Organizations that need audit-ready process improvement without destabilizing billing operations.'
+      'CFOs and VPs of Revenue Cycle at multi-site providers and MSOs whose margin depends on denial recovery.',
+      'Operations leaders running prior auth and denial queues across more payer portals than they can count.',
+      'Practice administrators who have evaluated three revenue cycle AI tools and walked away from all three.',
+      'Providers who want AI to help, not add another login and another queue.'
     ],
-    buyerSentence: 'Built for healthcare operators who need cleaner reimbursement workflows without adding compliance risk.',
+    buyerSentence:
+      'Built for revenue cycle teams who want AI to actually shorten the cash conversion cycle, not extend the demo.',
     reconstructCards: [
       {
-        title: 'Revenue Cycle Exception Control',
-        description: 'Detect and route high-risk claim exceptions before downstream denial accumulation.',
-        outcome: 'Reduced claim denials and fewer manual correction loops.'
+        title: 'One Queue Across Payers',
+        description:
+          'Authorization, denial, and follow-up work in one queue with one set of rules — instead of seven payer portals and a daily download.',
+        outcome: 'The team works from one screen. Denials get triaged the same day, not the same week.'
       },
       {
-        title: 'Prior Auth and Denial Workflow System',
-        description: 'Structure lifecycle states, owner accountability, and escalation logic across payer touchpoints.',
-        outcome: 'Faster reimbursement cycles with stronger traceability.'
+        title: 'Denial Pattern Visibility',
+        description:
+          'Denial reasons coded, aggregated, and surfaced where finance can see the trend forming.',
+        outcome: 'The denial AI vendor\'s tool starts working — because the inputs are finally clean.'
       },
       {
-        title: 'Payer Reconciliation and Coding Alignment',
-        description: 'Standardize payer reconciliation and CPT coding control checks under documented governance.',
-        outcome: 'Clean payer reporting trails and lower compliance documentation friction.'
+        title: 'Coding Logic Written Down',
+        description:
+          'CPT and payer-specific coding rules in a form an AI assist can cite and a new coder can learn from.',
+        outcome: 'First-pass clean claim rate goes up. New coder ramp time drops.'
       },
       {
-        title: 'Structured Operational Dashboards',
-        description: 'Publish practice-level reporting tied directly to workflow states and evidence-ready metrics.',
-        outcome: 'Lower administrative overhead and clearer leadership control.'
+        title: 'Reimbursement Reporting From Real Data',
+        description:
+          'Reporting assembled from the actual queue, not from a manually reconciled spreadsheet.',
+        outcome: 'The finance team explains the month before the close call, not after it.'
       }
     ],
     engagementModel: {
       intro:
-        'AI embedded in controlled operational systems creates value only when outputs are measurable, traceable, and defensible in compliance review.',
+        'One workflow at a time. Usually the denial queue first — it\'s where the cash leaks loudest.',
       principles: [
-        'Fixed scope and fixed fee centered on one operational workflow.',
-        'Parallel run before cutover to protect continuity and reimbursement timing.',
-        'Documented logic across authorization, denial, and reconciliation steps.',
-        'Transfer of operational control to internal leaders with governance artifacts.'
+        'Start where the cash leaks. Usually denials. Sometimes prior auth.',
+        'Build alongside the current process so nothing in the billing cycle breaks while we work.',
+        'Hand back a system the team uses every day and a runbook the new hire can follow.',
+        'The data we land in your warehouse is yours. The AI tools you pick can read it directly.'
       ]
     },
     credibility: {
       intro:
-        'Healthcare operating margin is heavily influenced by administrative execution quality in revenue cycle workflows. We work inside prior authorization, denial management, and payer reconciliation realities where leakage occurs.',
+        'Revenue cycle margin lives in the cracks between intake, clinical, billing, and the payer. We work in those cracks.',
       pillars: [
         {
           title: 'Revenue Cycle Depth',
           description:
-            'Denial rates, payer reconciliation variance, and reimbursement timing are handled as operational control issues with financial impact.'
+            'Denial rates, payer reconciliation variance, and reimbursement timing handled as the financial issues they are.'
         },
         {
           title: 'Workflow Before AI',
           description:
-            'Broken prior authorization, scheduling, and billing chains are stabilized first so automation improves throughput instead of amplifying noise.'
+            'Broken queues get fixed first. AI on top of a broken queue just makes the noise faster.'
         },
         {
-          title: 'Compliance-Conscious Design',
+          title: 'Compliance-Conscious by Default',
           description:
-            'CPT coding alignment, reporting obligations, and documentation controls are embedded into workflow logic from day one.'
+            'CPT alignment, reporting obligations, and documentation controls embedded in the workflow from day one.'
         },
         {
           title: 'Operational Visibility',
           description:
-            'Practice-level dashboards are tied to actual workflow state and exception ownership, not delayed spreadsheet rollups.'
+            'Practice-level dashboards tied to the actual queue, not to a spreadsheet a manager rebuilds Monday morning.'
         }
       ]
     },
     controlStatement:
-      'If your AI strategy lives in slide decks, it is not operational.',
+      'The cash conversion cycle is the only AI metric that matters in revenue cycle. Anything else is a demo.',
     outcomeCards: [
       {
-        title: 'Reduced Claim Denials',
-        description: 'Increase first-pass quality with standardized controls and traceable exception handling.'
+        title: 'One Queue, One Screen',
+        description:
+          'Authorization, denial, and follow-up work consolidated. The team stops switching portals all day.'
       },
       {
-        title: 'Faster Reimbursement Cycles',
-        description: 'Accelerate payment timelines by reducing state drift across prior auth and denial workflows.'
+        title: 'Denial Recovery That Compounds',
+        description:
+          'Patterns visible early. The same denial doesn\'t happen 200 times before someone notices.'
       },
       {
-        title: 'Lower Administrative Overhead',
-        description: 'Decrease manual reconciliation effort with structured workflows and governed data states.'
+        title: 'Coding That Survives Turnover',
+        description:
+          'Rules out of the binder, into a system. New coders ramp faster, AI assists cite the right rule.'
       },
       {
-        title: 'Clean Payer Reporting Trails',
-        description: 'Improve audit readiness through reproducible reporting, documentation, and control evidence.'
+        title: 'Cash Conversion Cycle That Shortens',
+        description:
+          'The number that matters moves the right direction every month, with the receipts to show why.'
       }
-    ]
+    ],
+    typicalResults: [
+      'One queue across payers, with owners, clocks, and aging in one screen.',
+      'Denial rework down sharply because the team sees the pattern before it accumulates.',
+      'Coding rules in a form an AI assist can cite, not a binder.',
+      'Cash conversion cycle that gets shorter every month, not noisier.'
+    ],
+    pageEndCta: 'See where the queue is blocking the cash conversion cycle.'
   },
   {
     slug: 'legal',
     label: 'Legal',
     themeKey: 'violet',
-    teaser: 'Reduce administrative drag across intake, matter tracking, and billing while preserving partner-level visibility.',
+    teaser:
+      'Get matter taxonomy, intake logic, and billing narratives written down — so the legal AI tools you\'ve already bought finally produce work partners will sign.',
     contactLabel: 'Legal',
     heroImageUrl: 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=1800&q=80',
-    heroHeadline: 'Turn Legal Workflow Into Measurable Execution',
+    heroHeadline:
+      'Your matter data, your billing narratives, your intake logic — written down in one place, before you turn an AI loose on any of it.',
     heroSubheadline:
-      'Reduce administrative drag across intake, matter progression, document handling, and billing by embedding control directly into legal operations. The result is cleaner execution, better matter visibility, and measurable operational discipline without interfering with legal judgment.',
+      'Legal AI vendors assume you have a clean matter taxonomy, consistent intake fields, and time entries that mean the same thing across the firm. You don\'t. We get you there. So the AI tools you pick — drafting, review, billing — work without three months of cleanup per matter type.',
     whyItBreaks: {
       title: 'Why It Breaks',
-      intro: 'Legal judgment is not the bottleneck. Workflow inconsistency is.',
+      intro: 'Legal judgment isn\'t the bottleneck. The administrative chain around it is.',
       items: [
-        'Intake criteria are applied differently across teams and matter types.',
-        'Matter status changes are tracked informally instead of through governed states.',
-        'Document triage creates avoidable delay before substantive work can proceed.',
-        'Billing narratives and time reconciliation require repeated manual cleanup.',
-        'Partners and operators rebuild status visibility from disconnected systems.'
+        'Intake criteria mean different things in different practice groups.',
+        'Matter status updates happen in email and never make it back into the system.',
+        'Document triage adds days before the substantive work even starts.',
+        'Billing narratives get cleaned up at the last minute, every cycle, by someone whose job that isn\'t.'
       ],
       closing: [
-        'The problem is not expertise.',
-        'It is administrative drift that expands non-billable load and weakens operational visibility.'
+        'The problem isn\'t expertise.',
+        'It\'s that the firm\'s data isn\'t structured the way the firm actually works.'
       ]
     },
     whatWeChange: {
       title: 'What We Change',
       intro:
-        'We structure legal operations as a controlled execution chain so intake, matter movement, document handling, and billing progress can be measured and defended.',
+        'We get the matter taxonomy, the intake logic, and the billing narrative format written down — in one place, in a form an AI tool can actually use. Then the AI you adopt does the work without a three-month cleanup per matter type.',
       items: [
-        'Standardized intake qualification and routing logic',
-        'Governed matter states with explicit ownership and escalation',
-        'Controlled document triage with review checkpoints',
-        'Time entry and billing reconciliation tied to workflow events',
-        'Status reporting generated from matter-state evidence instead of manual reconstruction'
+        'Intake criteria standardized across practice groups, with a decision logic an AI can follow.',
+        'Matter states governed in the system instead of tracked in side conversations.',
+        'Document triage with controlled checkpoints so the substantive work starts sooner.',
+        'Time entries and billing narratives tied to the matter event, captured at the time, not reconstructed at the end of the month.'
       ],
       closing: [
-        'No invisible handoffs.',
-        'No status reporting built from memory.',
-        'Legal workflow becomes measurable without reducing professional judgment to software theater.'
+        'No more "ask the partner what this matter actually is."',
+        'No more last-minute narrative cleanup.',
+        'The firm\'s data finally looks like the firm\'s work.'
       ]
     },
     buyerProfile: [
-      'Firms and in-house legal operations teams with matter progression bottlenecks.',
-      'Partners, COOs, and legal operations leaders accountable for realization and reporting.',
-      'Teams losing billable capacity to manual intake, triage, and reconciliation work.',
-      'Organizations that need structured workflow control without disrupting legal judgment.'
+      'COOs and Directors of Legal Ops at firms whose AI investments aren\'t producing the results the marketing promised.',
+      'Managing partners watching non-billable time grow faster than the matter book.',
+      'In-house legal ops leaders responsible for matter visibility across business units that don\'t speak the same way.',
+      'Firms that have bought a drafting AI and quietly found it doesn\'t work on real matters.'
     ],
-    buyerSentence: 'Built for legal operators who need less non-billable friction and clearer matter visibility.',
+    buyerSentence:
+      'Built for legal operators who want AI tools to actually save partner time, not generate first drafts no one will sign.',
     reconstructCards: [
       {
-        title: 'Intake Qualification Engine',
-        description: 'Standardize intake logic, routing controls, and acceptance criteria across matter types.',
-        outcome: 'Reduced intake bottlenecks and cleaner qualification evidence.'
+        title: 'Intake That Means the Same Thing',
+        description:
+          'Intake forms, qualification logic, and routing standardized across practice groups, in a form an AI can apply consistently.',
+        outcome: 'The same matter type means the same thing on every desk. Intake AI starts working.'
       },
       {
-        title: 'Matter Lifecycle Visibility Layer',
-        description: 'Define governed matter states, owner accountability, and exception escalation.',
-        outcome: 'Matter-level visibility with auditable execution control.'
+        title: 'Matter State in the System',
+        description:
+          'Status changes captured at the moment they happen, in the matter management system, not in email.',
+        outcome: 'Partners and clients see the same status. Updates stop being a side project.'
       },
       {
-        title: 'Document Triage Workflow',
-        description: 'Accelerate document classification with controlled review checkpoints and traceability.',
-        outcome: 'Document triage acceleration and reduced operational drag.'
+        title: 'Billing Narratives Tied to Events',
+        description:
+          'Time entries captured against the underlying work event, with the narrative written at the time, not the end of the month.',
+        outcome: 'Realization goes up. End-of-month cleanup goes down. Client write-offs drop.'
       },
       {
-        title: 'Billing Reconciliation and Reporting System',
-        description: 'Automate time entry reconciliation, client billing narratives, and case status reporting outputs.',
-        outcome: 'Cleaner billing documentation and improved client reporting transparency.'
+        title: 'AI Drafting on Real Inputs',
+        description:
+          'Templates, prior matters, and firm-specific style fed to drafting AI tools in a form they can use.',
+        outcome: 'First drafts that partners actually sign. Review time drops without losing voice.'
       }
     ],
     engagementModel: {
       intro:
-        'Execution systems designed to produce audit-ready outcomes reduce non-billable load while improving matter-level governance and reporting consistency.',
+        'Pick one practice group. Get the data and the workflow right for that group. Move to the next.',
       principles: [
-        'Fixed scope and fixed fee for one high-friction legal operations workflow.',
-        'Parallel run before cutover to validate matter continuity and billing integrity.',
-        'Documented logic across intake, matter tracking, and reporting steps.',
-        'Transfer of operational control with governance checkpoints and evidence standards.'
+        'Start with the practice group whose AI tools have failed loudest. The cleanup pays back fastest there.',
+        'Build alongside the current matter system. Nothing in the billing cycle breaks while we work.',
+        'Hand back a runbook the legal ops team owns and a partner-level summary the managing partner reads on a Sunday.',
+        'No black boxes. The AI\'s output is traceable to the firm\'s own templates and prior matters.'
       ]
     },
     credibility: {
       intro:
-        'Legal operations performance depends on clean matter progression, disciplined documentation, and reliable billing workflows. We focus on where administrative friction accumulates and non-billable load expands.',
+        'Legal operations performance lives in the seam between intake, the matter system, the timekeeper, and the bill. We work in that seam.',
       pillars: [
         {
-          title: 'Matter-Level Operational Insight',
+          title: 'Matter-Level Insight',
           description:
-            'Matter lifecycle tracking, intake qualification gaps, and status handoffs are analyzed where execution drift begins.'
+            'We trace where intake quality drops and where matter status starts disagreeing with reality.'
         },
         {
           title: 'Non-Billable Time Reduction',
           description:
-            'Administrative drag is reduced by structuring workflow states, ownership, and reconciliation steps around measurable control points.'
+            'Administrative drag attacked through workflow, not through asking the team to try harder.'
         },
         {
-          title: 'Document Workflow Control',
+          title: 'Document Workflow Without Theater',
           description:
-            'Document classification and triage are designed for assistive speed while preserving process clarity and legal review integrity.'
+            'Document classification and triage built for partner speed, not for a vendor\'s screenshot.'
         },
         {
-          title: 'Reporting & Transparency',
+          title: 'Reporting That Holds Up With Clients',
           description:
-            'Time entry reconciliation, billing narrative assembly, and client reporting are aligned to improve internal and external visibility.'
+            'Time entry, billing narrative, and client reporting aligned so what the client sees matches what the partner billed.'
         }
       ]
     },
     controlStatement:
-      'AI without operational control creates noise. We build signal.',
+      'A drafting AI is only as good as the templates and matters you\'ve actually written down.',
     outcomeCards: [
       {
-        title: 'Reduced Intake Bottlenecks',
-        description: 'Improve intake throughput with controlled qualification logic and clear owner handoffs.'
+        title: 'Intake That Holds Up Across Practice Groups',
+        description: 'One definition per matter type. AI applies it the same way every time.'
       },
       {
-        title: 'Matter-Level Visibility',
-        description: 'Increase case status transparency through governed lifecycle tracking and documented state changes.'
+        title: 'Matter Status That Matches Reality',
+        description: 'Status in the system equals status the partner would tell you. The client sees one truth.'
       },
       {
-        title: 'Cleaner Billing Documentation',
-        description: 'Reduce reconciliation friction with traceable time entry and narrative generation controls.'
+        title: 'Realization That Goes Up',
+        description: 'Time and narrative captured at the moment, not the month-end. Write-offs drop.'
       },
       {
-        title: 'Improved Client Reporting Transparency',
-        description: 'Deliver defensible client-facing reporting from structured, audit-aligned operational workflows.'
+        title: 'AI Drafts Worth Signing',
+        description: 'Templates and prior matters in a form drafting AI can use. First drafts that don\'t get rewritten.'
       }
-    ]
+    ],
+    typicalResults: [
+      'Intake that means the same thing in every practice group.',
+      'Matter state changes captured in the system, not in side email.',
+      'Billing narratives written at the time of the work, not the end of the month.',
+      'AI drafting and review tools that produce output partners will sign without rewriting.'
+    ],
+    pageEndCta: 'See where the matter data is blocking the AI tools you\'ve already bought.'
   }
 ];
 

@@ -103,6 +103,8 @@ def _trace_summary(result: dict[str, Any]) -> dict[str, Any]:
     trace = result.get("trace") or {}
     summary = {
         "lane": trace.get("lane") or trace.get("route_lane"),
+        "runtime_identity": trace.get("runtime_identity"),
+        "runtime_path": (trace.get("runtime_identity") or {}).get("path") if isinstance(trace.get("runtime_identity"), dict) else None,
         "duration_ms": result.get("duration_ms"),
         "first_token_ms": result.get("first_token_ms"),
         "tool_count": result.get("tool_count") or len(trace.get("tools") or []),

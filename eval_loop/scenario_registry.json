@@ -725,6 +725,19 @@
       }
     },
     {
+      "id": "operator_readiness_novendor",
+      "family": "operator_pilot",
+      "suite": ["smoke", "full"],
+      "kind": "operator_readiness",
+      "environment": "novendor",
+      "message": "Check managed-agent operator readiness.",
+      "expected": {
+        "allowed_statuses": ["disabled", "misconfigured", "unavailable", "available"],
+        "runtime_path": "managed_agent",
+        "max_duration_ms": 5000
+      }
+    },
+    {
       "id": "tool_unknown_name",
       "family": "tool_engine",
       "suite": ["smoke", "full"],

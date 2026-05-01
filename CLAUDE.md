@@ -116,6 +116,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | read Rich's texts, what did Rich say, Rich work, check Rich's messages, Rich iMessage thread | `skills/rich-texts/SKILL.md` |
 | read [name]'s texts, what did [name] say, scrub [name]'s messages, check texts from [name], iMessage thread for [person] | `skills/read-texts/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
+| apply migration, apply the migration, run pending migrations, migration is all that's left, push the schema | `skills/apply-pending-migrations/SKILL.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | direct Novendor CRM CRUD via Supabase, fill out the new contact form, add Sarat to Hall Boys, update the deal record, set primary contact, log this in Novendor, fix the CRM record, manipulate Novendor data | `skills/novendor-crm-supabase/SKILL.md` |
@@ -126,6 +127,9 @@ When a request touches client portability or white-labeling, keep the three-laye
 | clean the tree, tidy up before deploy, commit and deploy, file away loose files, update gitignore and push | `skills/clean-tree/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
 | trade decision, position sizing, allocation, execution layer, regime call, daily decision build, paper trading ledger, trading routine, morning book | `skills/historyrhymes-execution-layer/SKILL.md` with `skills/historyrhymes/SKILL.md` as support |
+| investment engine module, accounting engine, risk engine, compliance engine, OMS, EMS, workflow engine for investments, NAV calculation, P&L calculation, fund accounting, calculate NAV, build the investment engine, scaffold investment-engine module | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
+| NAV snapshot, P&L snapshot, PnL snapshot, position valuation snapshot, risk snapshot, performance snapshot, snapshot lifecycle, lock snapshot, release snapshot, reconstruct snapshot, snapshot reproducibility, authoritative snapshot for investment engine | `skills/winston-investment-snapshot/SKILL.md` |
+| reconciliation engine, position reconciliation, source position breaks, reconciliation breaks, reconciliation runs | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
 | portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.MD` as reference |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
@@ -149,6 +153,8 @@ When a request touches client portability or white-labeling, keep the three-laye
 | `orchestration/`, `scripts/` | operational tooling and agent workflows | `commander-winston`, `sync-winston`, `deploy-winston`, `feature-dev` |
 | `skills/historyrhymes/`, Databricks notebooks, `novendor_1.historyrhymes.*` | Financial ML, feature engineering, model training, backtesting | `historyrhymes`, `market-rotation-engine` |
 | `skills/historyrhymes-execution-layer/`, `backend/app/services/hr_decision_runner.py`, `backend/app/routes/hr.py`, `scripts/hr_daily_decision.py`, `scripts/hr_weekly_brief.py`, `repo-b/src/app/lab/env/[envId]/historyrhymes/`, `repo-b/src/components/historyrhymes/`, `repo-b/src/lib/historyrhymes/` | History Rhymes execution loop (research → decision → display) | `historyrhymes-execution-layer`, `historyrhymes` |
+| `backend/app/services/accounting_engine.py`, `backend/app/services/risk_engine.py`, `backend/app/services/reconciliation_engine.py`, `backend/app/services/compliance_engine.py`, `backend/app/services/oms*.py`, `backend/app/services/ems*.py`, `backend/app/services/workflow_engine.py`, `backend/app/routes/investment_engine.py`, `repo-b/src/app/lab/env/[envId]/investment-engine/` | Winston Investment Engine (Aladdin-class) — all 9 modules | `winston-investment-engine-module`, `winston-investment-snapshot`, `data-winston` |
+| `docs/adr/investment-engine/`, `docs/plans/investment-engine/`, `docs/plans/INVESTMENT_ENGINE_PLAN.md` | Investment Engine ADRs and per-module plans | `winston-investment-engine-module`, `architect-winston` |
 | `PDS_*.md`, `docs/plans/PDS_*` | PDS staged delivery prompt set | `winston-pds-delivery`, `architect-winston` |
 | `docs/` | normalized skills, prompt references, and playbooks | matching skill, explicit prompt reference, or `architect-winston` |
 | external Novendor workspaces | business-side workstreams | `operations`, `outreach`, `proposals`, `content`, `demo` |
@@ -358,6 +364,20 @@ This is not optional busywork — these files contain real production data (test
 - `run the daily decision build` -> `skills/historyrhymes-execution-layer/SKILL.md`
 - `open the trading routine page` -> `skills/historyrhymes-execution-layer/SKILL.md`
 - `append to the paper trading ledger` -> `skills/historyrhymes-execution-layer/SKILL.md`
+
+- `build the investment engine accounting service` -> `skills/winston-investment-engine-module/SKILL.md`
+- `scaffold the risk engine module` -> `skills/winston-investment-engine-module/SKILL.md`
+- `add the compliance engine to the investment platform` -> `skills/winston-investment-engine-module/SKILL.md`
+- `wire the reconciliation engine and breaks table` -> `skills/winston-investment-engine-module/SKILL.md`
+- `build the OMS pre-trade compliance check` -> `skills/winston-investment-engine-module/SKILL.md`
+- `calculate NAV for fund X on date Y` -> `skills/winston-investment-engine-module/SKILL.md`
+- `add a new authoritative snapshot table for risk` -> `skills/winston-investment-snapshot/SKILL.md`
+- `release the NAV snapshot for Q1` -> `skills/winston-investment-snapshot/SKILL.md`
+- `reconstruct snapshot ID abc-123 to verify it reproduces` -> `skills/winston-investment-snapshot/SKILL.md`
+- `lock and release the P&L snapshot` -> `skills/winston-investment-snapshot/SKILL.md`
+- `decide FIFO vs spec-id for our lot accounting` -> `docs/adr/investment-engine/001-lot-accounting-method.md` (already decided — read as reference)
+- `how do we handle currency translation in the investment engine` -> `docs/adr/investment-engine/002-currency-model.md`
+- `explain the bi-temporal time model` -> `docs/adr/investment-engine/003-bi-temporal-time-model.md`
 
 - `Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo` -> `agents/architect.md`
 - `Implement a loading fix in repo-b/src/app/lab/env/[envId]/page.tsx` -> `.skills/feature-dev/SKILL.md` with `agents/builder.md` as support

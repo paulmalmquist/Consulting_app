@@ -40,6 +40,31 @@ def test_metrics_query_route(client, monkeypatch):
     assert len(payload["points"]) == 1
 
 
+def test_metrics_query_validation_error_shape(client, monkeypatch):
+    business_id = str(uuid4())
+
+    def _mock_query_metrics(**kwargs):
+        raise ValueError("At least one metric key is required")
+
+    monkeypatch.setattr("app.services.metrics_semantic.query_metrics", _mock_query_metrics)
+
+    resp = client.post(
+        "/api/metrics/query",
+        json={
+            "business_id": business_id,
+            "metric_keys": ["repe_distribution_total"],
+            "dimension": "scope",
+            "refresh": False,
+        },
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == {
+        "error_code": "VALIDATION_ERROR",
+        "message": "At least one metric key is required",
+    }
+
+
 def test_reports_create_run_explain(client, monkeypatch):
     business_id = str(uuid4())
     report_id = str(uuid4())

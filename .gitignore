@@ -97,8 +97,11 @@ deal-opportunities-*.md
 *.xlsx
 *.lock
 
-# Brand assets (large binaries — stored in docs/assets/ but not committed)
+# Brand assets and loose media — stored in docs/assets/ or ignored at root
 docs/assets/*.png
+*.HEIC
+*.heic
+Hall Boys*
 docs/assets/*.html
 
 # Generated/synthetic data
@@ -113,6 +116,7 @@ audit/meridian_hierarchy_trace/meridian-*/
 audit/meridian_hierarchy_trace/authoritative_period_state.*.json
 audit/backfill/
 audit/verification_run_*/
+audit/ui_gross_to_net/
 
 # Pitch Forge generated iteration outputs — critique JSON and final deck are
 # produced on each run; committed intentionally only when curated.

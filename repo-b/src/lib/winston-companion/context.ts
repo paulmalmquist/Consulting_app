@@ -262,6 +262,22 @@ export function shouldRaiseWinstonLauncher(pathname: string | null) {
   return MOBILE_NAV_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
 }
 
+function labRouteEnvId(pathname: string | null) {
+  return pathname?.match(/^\/lab\/env\/([^/]+)/)?.[1] || null;
+}
+
+export function shouldBootWinstonCompanion(
+  pathname: string | null,
+  context: Pick<WinstonCompanionContext, "businessId" | "envId" | "scopeId" | "scopeType"> | null,
+) {
+  if (!shouldShowWinstonCompanion(pathname)) return false;
+  const routeEnvId = labRouteEnvId(pathname);
+  if (!routeEnvId) return true;
+  if (!context?.businessId || !context.envId || !context.scopeId) return false;
+  if (context.envId !== routeEnvId) return false;
+  return context.scopeType !== "global";
+}
+
 /** Merge widget adapter captures into the visible_data envelope. */
 function _mergeWidgetContexts(
   visibleData: AssistantVisibleData | null,

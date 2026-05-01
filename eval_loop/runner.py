@@ -34,7 +34,12 @@ from eval_loop.regression_store import RegressionStore
 from eval_loop.reporters import summarize_run, write_reports
 from eval_loop.retest_scheduler import schedule_retests
 from eval_loop.scenario_loader import load_scenarios
-from eval_loop.scorers import score_assistant_scenario, score_frontend_scenario, score_tool_engine_scenario
+from eval_loop.scorers import (
+    score_assistant_scenario,
+    score_frontend_scenario,
+    score_operator_readiness_scenario,
+    score_tool_engine_scenario,
+)
 from eval_loop.suspect_mapper import build_suspect_heatmap, map_suspects
 from eval_loop.forever_controller import ForeverConfig, run_forever
 
@@ -310,6 +315,75 @@ async def run_frontend_contract_case(
     return result
 
 
+async def run_operator_readiness_case(
+    scenario: dict[str, Any],
+    *,
+    chaos_plan: ChaosPlan | None = None,
+) -> dict[str, Any]:
+    started_at = time.perf_counter()
+    try:
+        from app import config as backend_config
+        from app.services import operator_agent_gateway
+
+        snapshot = operator_agent_gateway.operator_health_snapshot()
+        enabled = bool(getattr(backend_config, "WINSTON_OPERATOR_ENABLED", False))
+        status = "available"
+        if not enabled:
+            status = "disabled"
+        elif not snapshot.get("anthropic_key_present"):
+            status = "misconfigured"
+        elif not snapshot.get("profile_loaded"):
+            status = "runtime_error"
+        else:
+            preflight = snapshot.get("mcp_preflight")
+            if isinstance(preflight, dict) and preflight.get("ok") is False:
+                status = "unavailable"
+        health = {
+            "enabled": enabled,
+            "fallback_used": False,
+            **snapshot,
+        }
+    except Exception as exc:  # noqa: BLE001
+        status = "runtime_error"
+        health = {
+            "enabled": None,
+            "fallback_used": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+
+    duration_ms = int((time.perf_counter() - started_at) * 1000)
+    result = {
+        "response_text": json.dumps({"operator_status": status, "health": health}, default=str),
+        "operator_status": status,
+        "operator_health": health,
+        "turn_receipt": None,
+        "trace": {
+            "runtime_identity": {
+                "path": "managed_agent",
+                "lane": "operator_readiness",
+                "execution_path": "operator_health",
+            },
+            "operator_health": health,
+        },
+        "events": [],
+        "duration_ms": duration_ms,
+        "first_token_ms": None,
+        "frontend_result": None,
+        "latency_breakdown": {
+            "total_duration_ms": duration_ms,
+            "time_to_first_token_ms": None,
+            "context_resolution_ms": None,
+            "retrieval_time_ms": None,
+            "tool_time_ms": None,
+            "render_completion_ms": duration_ms,
+        },
+    }
+    if chaos_plan:
+        result = apply_post_run_chaos(result=result, scenario=scenario, plan=chaos_plan, bindings={})
+    return result
+
+
 async def execute_scenario(
     scenario: dict[str, Any],
     bindings: dict[str, Any],
@@ -323,6 +397,8 @@ async def execute_scenario(
         return await run_tool_engine_case(scenario, chaos_plan=chaos_plan)
     if kind == "frontend_contract":
         return await run_frontend_contract_case(scenario, chaos_plan=chaos_plan)
+    if kind == "operator_readiness":
+        return await run_operator_readiness_case(scenario, chaos_plan=chaos_plan)
     raise ValueError(f"Unknown scenario kind: {kind}")
 
 
@@ -332,6 +408,8 @@ def score_result(scenario: dict[str, Any], raw_result: dict[str, Any]) -> dict[s
         scoring = score_assistant_scenario(scenario=scenario, result=raw_result)
     elif kind == "tool_engine":
         scoring = score_tool_engine_scenario(scenario=scenario, result=raw_result)
+    elif kind == "operator_readiness":
+        scoring = score_operator_readiness_scenario(scenario=scenario, result=raw_result)
     else:
         scoring = score_frontend_scenario(scenario=scenario, result=raw_result)
     if scoring.get("passed"):
@@ -344,6 +422,7 @@ def _comparison_target_records(
     store: RegressionStore,
     current_run_id: str | None,
     suite: str,
+    environment: str | None = None,
     compare_baseline: str | None,
     compare_last_good: bool,
 ) -> tuple[str | None, list[dict[str, Any]]]:
@@ -358,9 +437,13 @@ def _comparison_target_records(
                 return str(candidate), payload.get("results", [])
         baseline_source = compare_baseline
     elif compare_last_good:
-        baseline_source = store.last_good_run_id(suite=suite, exclude_run_id=current_run_id)
+        baseline_source = store.last_good_run_id(
+            suite=suite,
+            environment=environment,
+            exclude_run_id=current_run_id,
+        )
     else:
-        latest = store.latest_run_id(suite=suite)
+        latest = store.latest_run_id(suite=suite, environment=environment)
         if latest and latest != current_run_id:
             baseline_source = latest
 
@@ -645,6 +728,13 @@ async def run_suite(
                 store.insert_regression(regression)
 
     summary = summarize_run(run_id=run_id, cycle=cycle, suite=suite, results=results)
+    result_environments = {
+        str(result.get("environment"))
+        for result in results
+        if result.get("environment")
+    }
+    if len(result_environments) == 1:
+        summary["environment"] = next(iter(result_environments))
     store.insert_summary(summary)
     return results, summary, regressions, receipt_diffs
 
@@ -653,6 +743,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Continuous local validation loop for Winston.")
     parser.add_argument("--smoke", action="store_true", help="Run the smoke suite.")
     parser.add_argument("--full", action="store_true", help="Run the full suite.")
+    parser.add_argument("--environment", default=None, help="Run only scenarios for one environment slug, e.g. meridian or novendor. Explicit global scenarios are included.")
     parser.add_argument("--watch", action="store_true", help="Repeat smoke cycles until interrupted.")
     parser.add_argument("--forever", action="store_true", help="Run the forever controller.")
     parser.add_argument("--chaos", action="store_true", help="Run a dedicated chaos suite.")
@@ -697,6 +788,21 @@ def _should_compare(args: argparse.Namespace) -> bool:
     return bool(args.compare_baseline or args.compare_last_good or args.compare_safe_mode or args.include_comparisons)
 
 
+def _resolve_persist_scope(
+    *,
+    args: argparse.Namespace,
+    bindings: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    business_id = args.persist_business_id
+    env_id = args.persist_env_id
+    if args.environment:
+        binding = bindings.get(args.environment)
+        if binding is not None:
+            business_id = business_id or binding.business_id
+            env_id = env_id or binding.env_id
+    return business_id, env_id
+
+
 async def _run_cycle(
     *,
     cycle: int,
@@ -709,9 +815,24 @@ async def _run_cycle(
     active_mutations_mode = args.mutations
     if args.include_mutations and active_mutations_mode == "disabled":
         active_mutations_mode = "auto"
-    base_smoke = load_scenarios(mode="smoke", mutations_mode="disabled", mutation_limit=None)
-    base_full = load_scenarios(mode="full", mutations_mode="disabled", mutation_limit=None)
-    expanded_full = load_scenarios(mode="full", mutations_mode=active_mutations_mode, mutation_limit=_mutation_limit(args))
+    base_smoke = load_scenarios(
+        mode="smoke",
+        mutations_mode="disabled",
+        mutation_limit=None,
+        environment=args.environment,
+    )
+    base_full = load_scenarios(
+        mode="full",
+        mutations_mode="disabled",
+        mutation_limit=None,
+        environment=args.environment,
+    )
+    expanded_full = load_scenarios(
+        mode="full",
+        mutations_mode=active_mutations_mode,
+        mutation_limit=_mutation_limit(args),
+        environment=args.environment,
+    )
 
     suites_to_run: list[tuple[str, list[dict[str, Any]], bool]] = [("smoke", base_smoke, False)]
     if mode == "full":
@@ -763,6 +884,7 @@ async def _run_cycle(
             store=store,
             current_run_id=run_id,
             suite=final_summary["suite"],
+            environment=getattr(args, "environment", None),
             compare_baseline=args.compare_baseline,
             compare_last_good=args.compare_last_good or args.include_comparisons,
         )
@@ -841,7 +963,8 @@ async def _run_cycle(
 
     postgres_run_summary: dict[str, Any] | None = None
     if getattr(args, "persist_postgres", False):
-        if not args.persist_business_id:
+        persist_business_id, persist_env_id = _resolve_persist_scope(args=args, bindings=bindings)
+        if not persist_business_id:
             raise SystemExit(
                 "--persist-postgres requires --persist-business-id (or WINSTON_EVAL_BUSINESS_ID env var)."
             )
@@ -854,8 +977,8 @@ async def _run_cycle(
                 suite=final_summary["suite"],
                 scenarios=all_scenarios,
                 results=all_results,
-                business_id=args.persist_business_id,
-                env_id=args.persist_env_id,
+                business_id=persist_business_id,
+                env_id=persist_env_id,
             )
         except Exception as exc:
             postgres_run_summary = {
@@ -888,6 +1011,7 @@ async def _run_cycle(
                 run_id=run_id,
                 suite=final_summary["suite"],
                 trigger=getattr(args, "persist_trigger", "manual"),
+                environment=getattr(args, "environment", None),
                 summary=final_summary,
                 results=all_results,
                 regressions=all_regressions,
@@ -918,6 +1042,7 @@ async def _run_cycle(
                 "run_id": run_id,
                 "cycle": cycle,
                 "suite": final_summary["suite"],
+                "environment": args.environment,
                 "passed": final_summary["passed_count"],
                 "failed": final_summary["failed_count"],
                 "median_latency_ms": final_summary["median_latency_ms"],
@@ -938,8 +1063,8 @@ async def _run_cycle(
 
 
 async def _run_compare_only(args: argparse.Namespace, store: RegressionStore) -> int:
-    suite = "full" if store.latest_run_id(suite="full") else "smoke"
-    current_run_id = store.latest_run_id(suite=suite)
+    suite = "full" if store.latest_run_id(suite="full", environment=args.environment) else "smoke"
+    current_run_id = store.latest_run_id(suite=suite, environment=args.environment)
     if not current_run_id:
         raise SystemExit("No prior runs available to compare.")
     current_records = store.run_records(current_run_id, suite=suite)
@@ -947,11 +1072,15 @@ async def _run_compare_only(args: argparse.Namespace, store: RegressionStore) ->
         store=store,
         current_run_id=current_run_id,
         suite=suite,
+        environment=args.environment,
         compare_baseline=args.compare_baseline,
         compare_last_good=args.compare_last_good,
     )
     if not baseline_records and args.compare_last_good:
-        baseline_label = store.last_good_run_id(exclude_run_id=current_run_id)
+        baseline_label = store.last_good_run_id(
+            environment=args.environment,
+            exclude_run_id=current_run_id,
+        )
         if baseline_label:
             baseline_records = store.run_records(baseline_label)
     if not baseline_records:
@@ -1017,7 +1146,9 @@ async def main() -> int:
             print(json.dumps({"stop_reason": forever_summary["stop_reason"], "elapsed_hours": forever_summary["elapsed_hours"], "cycles": len(forever_summary["cycles"])}))
             return 0
 
-        await _run_cycle(cycle=1, args=args, bindings=bindings, store=store)
+        cycle_result = await _run_cycle(cycle=1, args=args, bindings=bindings, store=store)
+        if int(cycle_result.get("failed_count") or 0) > 0 or cycle_result.get("critical_regression"):
+            return 2
         return 0
     finally:
         store.close()

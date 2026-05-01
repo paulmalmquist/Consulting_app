@@ -118,6 +118,7 @@ from app.routes import operator
 from app.routes import site_risk
 from app.routes import pipeline_integrity
 from app.routes.winston_contract_admin import router as winston_contract_admin_router
+from app.routes import investment_engine as investment_engine_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -473,4 +474,5 @@ app.include_router(unified_metrics.router)
 app.include_router(analytics.router)
 app.include_router(sql_agent_routes.router)
 app.include_router(capability_routes.router)
+app.include_router(investment_engine_routes.router)
 app.include_router(mcp_http_router)

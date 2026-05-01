@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
 import {
   getPdsCommandCenter,
@@ -21,27 +21,19 @@ import { AccountRollupTable } from "./AccountRollupTable";
 import { CloseLoopStrip } from "./CloseLoopStrip";
 import { DataHealthBar } from "./DataHealthBar";
 import { DataHealthDrawer } from "./DataHealthDrawer";
+import { ExecutionHeader } from "./ExecutionHeader";
 import { GlobalSearchAndFilterBar } from "./GlobalSearchAndFilterBar";
 import { GrainToggleBar, type PdsGrain } from "./GrainToggleBar";
 import { InterventionQueueTable } from "./InterventionQueueTable";
 import { LandingHeroPulse } from "./LandingHeroPulse";
 import { MarketRollupTable } from "./MarketRollupTable";
 import { MetricDefinitionPanel } from "./MetricDefinitionPanel";
-import { OperatingPostureBadgeStrip } from "./OperatingPostureBadgeStrip";
+import { PdsOperatingRail } from "./PdsOperatingRail";
+import { PostureNarrative } from "./PostureNarrative";
 import { RiskSummaryPanel } from "./RiskSummaryPanel";
 import { RollupToggleBar } from "./RollupToggleBar";
-import { SuppressedDataChip } from "./SuppressedDataChip";
 import { TopFiveActionsStrip } from "./TopFiveActionsStrip";
 import { deriveLandingModels } from "./utils";
-
-const HERO_METRIC_KEYS: Array<
-  { key: "totalExposure" | "variance" | "directional" | "atRisk"; metric: string; label: string }
-> = [
-  { key: "totalExposure", metric: "total_managed", label: "Total managed" },
-  { key: "variance", metric: "net_variance", label: "Net variance" },
-  { key: "directional", metric: "directional_delta", label: "Directional" },
-  { key: "atRisk", metric: "accounts_at_risk", label: "Accounts at risk" },
-];
 
 export function PdsExecutiveLandingPage() {
   const { envId, businessId } = useDomainEnv();
@@ -60,6 +52,8 @@ export function PdsExecutiveLandingPage() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
+  const queueRef = useRef<HTMLDivElement>(null);
+
   const loadQueue = useCallback(async () => {
     if (!envId) return;
     try {
@@ -70,7 +64,7 @@ export function PdsExecutiveLandingPage() {
       setQueueRows(rows as PdsExecutiveQueueItem[]);
       setQueueMetrics(metrics);
     } catch (err) {
-      // Queue is additive to the existing command-center surface; never block render.
+      // Queue is additive; never block render.
       // eslint-disable-next-line no-console
       console.warn("PDS queue fetch failed:", err);
     }
@@ -80,7 +74,6 @@ export function PdsExecutiveLandingPage() {
     loadQueue();
   }, [loadQueue]);
 
-  // Governed overview + data health — additive to the existing command-center payload.
   useEffect(() => {
     if (!envId) return;
     getPdsExecutiveOverview(envId, businessId || undefined, grain)
@@ -171,125 +164,114 @@ export function PdsExecutiveLandingPage() {
       )
     : 0;
 
+  const openActionCount = queueRows.filter(
+    (r) => r.status !== "closed" && r.status !== "resolved",
+  ).length;
+
   return (
     <div className="space-y-4">
-      <DataHealthBar
-        summary={dataHealth}
-        onOpenDrawer={() => setOpenDrawer(true)}
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">
-            Grain
-          </p>
-          <p className="text-xs text-bm-muted2">
-            Every governed metric re-resolves when grain changes; receipts carry
-            the grain they were computed at.
-          </p>
-        </div>
-        <GrainToggleBar value={grain} onChange={setGrain} />
-      </div>
-
-      {totalSuppressed ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <SuppressedDataChip
-            metric={{
-              suppressed_count: totalSuppressed,
-              suppression_reasons: Array.from(
-                new Set(
-                  Object.values(overview?.metrics || {}).flatMap(
-                    (m) => m?.suppression_reasons || [],
-                  ),
-                ),
-              ),
-            }}
-            onClick={() => setOpenDrawer(true)}
-          />
-        </div>
-      ) : null}
-
-      <LandingHeroPulse
-        metrics={models.hero}
-        onMetricClick={(key) => {
-          if (key === "atRisk") {
-            setStatusFilter("critical");
-            setRollupView("account");
-          }
-          if (key === "variance") {
-            setRollupView("market");
-          }
-          const match = HERO_METRIC_KEYS.find((m) => m.key === key);
-          if (match) setSelectedMetric(match.metric);
-        }}
-      />
-
-      {overview ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-bm-muted2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
-            Definition
-          </span>
-          {HERO_METRIC_KEYS.map((m) => (
-            <button
-              key={m.metric}
-              type="button"
-              onClick={() => setSelectedMetric(m.metric)}
-              className="rounded-full border border-bm-border/60 bg-bm-surface/20 px-2 py-0.5 hover:text-bm-text"
-            >
-              {m.label} — definition
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setSelectedMetric("posture")}
-            className="rounded-full border border-bm-border/60 bg-bm-surface/20 px-2 py-0.5 hover:text-bm-text"
-          >
-            Posture — definition
-          </button>
-        </div>
-      ) : null}
-
-      <GlobalSearchAndFilterBar
-        search={search}
-        onSearchChange={setSearch}
-        status={statusFilter}
-        onStatusChange={setStatusFilter}
-        industry={industryFilter}
-        onIndustryChange={setIndustryFilter}
-      />
-
-      <RiskSummaryPanel summary={models.riskSummary} />
-
-      <section className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Rollups</p>
-            <h3 className="text-xl font-semibold text-bm-text">Where pressure is coming from</h3>
-          </div>
-          <RollupToggleBar value={rollupView} onChange={setRollupView} />
-        </div>
-        {rollupView === "account" ? <AccountRollupTable rows={accountRows} /> : <MarketRollupTable rows={marketRows} />}
-      </section>
-
-      <OperatingPostureBadgeStrip posture={models.hero.posture} />
-
-      <CloseLoopStrip metrics={queueMetrics} />
-
-      <TopFiveActionsStrip items={queueMetrics?.top_five_actions ?? []} />
-
-      <InterventionQueueTable
-        rows={queueRows}
+      <ExecutionHeader
         envId={envId}
-        businessId={businessId || undefined}
-        onRowChange={(updated) => {
-          setQueueRows((prev) =>
-            prev.map((row) =>
-              row.queue_item_id === updated.queue_item_id ? updated : row,
-            ),
-          );
-          loadQueue();
-        }}
+        hero={models.hero}
+        riskSummary={models.riskSummary}
+        openActionCount={openActionCount}
+        onScrollToQueue={() => queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
       />
+
+      <PostureNarrative
+        hero={models.hero}
+        riskSummary={models.riskSummary}
+        openActionCount={openActionCount}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-4 min-w-0">
+          <DataHealthBar
+            summary={dataHealth}
+            onOpenDrawer={() => setOpenDrawer(true)}
+          />
+
+          {totalSuppressed ? (
+            <button
+              type="button"
+              onClick={() => setOpenDrawer(true)}
+              className="rounded-full border border-bm-border/60 bg-bm-surface/20 px-3 py-1 text-xs text-bm-muted2 hover:text-bm-text"
+            >
+              {totalSuppressed} suppressed records — view details
+            </button>
+          ) : null}
+
+          <div ref={queueRef}>
+            <InterventionQueueTable
+              rows={queueRows}
+              envId={envId}
+              businessId={businessId || undefined}
+              onRowChange={(updated) => {
+                setQueueRows((prev) =>
+                  prev.map((row) =>
+                    row.queue_item_id === updated.queue_item_id ? updated : row,
+                  ),
+                );
+                loadQueue();
+              }}
+            />
+          </div>
+
+          <LandingHeroPulse
+            metrics={models.hero}
+            riskSummary={models.riskSummary}
+            onMetricClick={(key) => {
+              if (key === "atRisk") {
+                setStatusFilter("critical");
+                setRollupView("account");
+              }
+              if (key === "variance") {
+                setRollupView("market");
+              }
+            }}
+          />
+
+          <RiskSummaryPanel summary={models.riskSummary} />
+
+          <GlobalSearchAndFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            status={statusFilter}
+            onStatusChange={setStatusFilter}
+            industry={industryFilter}
+            onIndustryChange={setIndustryFilter}
+          />
+
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-bm-muted2">Rollups</p>
+                <h3 className="text-xl font-semibold text-bm-text">Where pressure is coming from</h3>
+              </div>
+              <RollupToggleBar value={rollupView} onChange={setRollupView} />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <GrainToggleBar value={grain} onChange={setGrain} />
+              <p className="text-xs text-bm-muted2">
+                Every governed metric re-resolves when grain changes.
+              </p>
+            </div>
+            {rollupView === "account" ? <AccountRollupTable rows={accountRows} /> : <MarketRollupTable rows={marketRows} />}
+          </section>
+
+          <TopFiveActionsStrip items={queueMetrics?.top_five_actions ?? []} />
+
+          <CloseLoopStrip metrics={queueMetrics} />
+        </div>
+
+        <PdsOperatingRail
+          envId={envId}
+          hero={models.hero}
+          grain={grain}
+          hasDefinitions={!!overview}
+          onMetricClick={setSelectedMetric}
+        />
+      </div>
 
       <MetricDefinitionPanel
         metricName={selectedMetric}

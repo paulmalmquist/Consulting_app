@@ -89,6 +89,7 @@ class TriggerRunRequest(BaseModel):
     suite: str = Field(..., description=f"one of {VALID_SUITES}")
     business_id: str
     env_id: Optional[str] = None
+    environment: Optional[str] = Field(None, description="eval scenario environment slug, e.g. meridian or novendor")
     trigger: str = Field("manual", description=f"one of {VALID_TRIGGERS}")
 
 
@@ -270,6 +271,7 @@ def trigger_run(
         suite=req.suite,
         business_id=req.business_id,
         env_id=req.env_id,
+        environment=req.environment,
         trigger=req.trigger,
     )
     return {
@@ -278,5 +280,6 @@ def trigger_run(
         "trigger": req.trigger,
         "business_id": req.business_id,
         "env_id": req.env_id,
+        "environment": req.environment,
         "note": "Eval run dispatched in background. Poll GET /api/admin/eval/runs for completion.",
     }

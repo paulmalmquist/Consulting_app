@@ -42,6 +42,13 @@ function nextOperatorRequestId(): string {
   return `op-${Date.now().toString(36)}-${_opRequestSeq.toString(36)}`;
 }
 
+function operatorError(message: string, status?: number) {
+  const err = new Error(message) as Error & { status?: number; errorCode?: string };
+  err.status = status;
+  err.errorCode = "WINSTON_OPERATOR_UNAVAILABLE";
+  return err;
+}
+
 export type StreamOperatorInput = {
   message: string;
   business_id?: string;
@@ -136,7 +143,7 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
       summary: `Operator fetch failed: ${message}`,
     });
     input.onError?.(message);
-    return { answer: "", blocks: [], trace, debug };
+    throw operatorError(`Operator fetch failed: ${message}`);
   }
 
   trace.status = response.status;
@@ -156,19 +163,13 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
       summary: `Operator unavailable: ${response.status}`,
     });
     input.onError?.(message, { status: response.status });
-    return {
-      answer: "Operator runtime is not available right now.",
-      blocks: [],
-      trace,
-      debug,
-      conversation_id: conversationIdHeader,
-    };
+    throw operatorError(message, response.status);
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
     trace.durationMs = Date.now() - startedAt;
-    return { answer, blocks: [], trace, debug, conversation_id: conversationIdHeader };
+    throw operatorError("Operator response did not include a stream.", response.status);
   }
 
   winstonLoader.aiStart();
@@ -177,6 +178,8 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
   let currentEvent = "";
   let sseSeq = 0;
   const sseStartMs = Date.now();
+  let sawTerminal = false;
+  let streamError: string | null = null;
 
   const onAbort = () => reader.cancel();
   input.signal?.addEventListener("abort", onAbort, { once: true });
@@ -277,6 +280,7 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
             break;
           }
           case "done": {
+            sawTerminal = true;
             debug.done = parsed;
             const incomingTrace = parsed.trace as WinstonTrace | undefined;
             if (incomingTrace) debug.trace = incomingTrace;
@@ -285,7 +289,9 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
             break;
           }
           case "error": {
+            sawTerminal = true;
             const message = String(parsed.message || "operator_error");
+            streamError = message;
             log("error", parsed, `error: ${message}`);
             input.onError?.(message, parsed);
             break;
@@ -302,6 +308,12 @@ export async function streamOperator(input: StreamOperatorInput): Promise<Stream
   }
 
   trace.durationMs = Date.now() - startedAt;
+  if (streamError) {
+    throw operatorError(streamError, trace.status);
+  }
+  if (!sawTerminal) {
+    throw operatorError("Operator stream ended without a terminal event.", trace.status);
+  }
   return {
     answer,
     blocks: debug.responseBlocks ?? [],

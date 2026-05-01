@@ -3,17 +3,17 @@ import { NvCard } from '@/components/marketing/ui/NvCard';
 import { NvButton } from '@/components/marketing/ui/NvButton';
 
 const shiftPanel = [
-  { k: 'OLD', v: 'Software dependence' },
-  { k: 'NEW', v: 'Execution ownership' },
-  { k: 'UNIT', v: 'One workflow' },
-  { k: 'TIMEFRAME', v: '12 weeks' },
-  { k: 'PROOF', v: 'Traceable to rule + state' },
+  { k: 'OLD', v: 'Buy more AI software' },
+  { k: 'NEW', v: 'Get your data and process AI-ready first' },
+  { k: 'UNIT', v: 'One workflow at a time' },
+  { k: 'WORKING ORDER', v: 'Data, then playbook, then AI' },
+  { k: 'PROOF', v: 'AI output traceable to data and rule' },
 ];
 
 const manifestoPoints = [
-  'Your core workflows should be governed by your team, not hidden in vendor logic.',
-  'Automation without state control creates speed without accountability.',
-  'Execution ownership means every output can be traced to a rule, a state, and an approver.',
+  'Most AI projects don\'t fail at the model. They fail at the data and the process underneath it.',
+  'A workflow that doesn\'t run the same way twice can\'t be automated. Fix that first.',
+  'AI is useful when the data it sees is real and the rules it follows are written down. Otherwise it\'s a demo.',
 ];
 
 export default function TheShiftPage() {
@@ -23,10 +23,10 @@ export default function TheShiftPage() {
         eyebrow="Manifesto"
         headline={
           <>
-            From software dependence to <em>execution ownership</em>.
+            Get your data, your playbook, and your process <em>AI-ready</em>.
           </>
         }
-        lede="The next operating model is not 'more tools'. It is owning the states, rules, and outputs that run your business. Own Your Operating Logic."
+        lede="The next operating model isn't 'more AI tools.' It's getting your data, your written-down playbook, and your process to the point where the AI you adopt — yours or a vendor's — actually works on real inputs. Own Your Operating Logic."
         panel={shiftPanel}
         panelTitle="The shift, in one frame"
       />
@@ -51,10 +51,10 @@ export default function TheShiftPage() {
         </div>
         <NvCard>
           <h2 className="nv-h3" style={{ marginBottom: 12 }}>Start with one workflow.</h2>
-          <p className="nv-body" style={{ margin: 0 }}>Prove the model in 12 weeks.</p>
+          <p className="nv-body" style={{ margin: 0 }}>Prove the model on real data before scaling. The AI you adopt next earns its keep — or it doesn't, and you find out cheaply.</p>
           <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
-            <NvButton variant="primary" href="/operational-assessment">See your first use case</NvButton>
-            <NvButton variant="secondary" href="/contact">Fix your workflow</NvButton>
+            <NvButton variant="primary" href="/operational-assessment">Get an AI-readiness review</NvButton>
+            <NvButton variant="secondary" href="/contact">See where AI is blocked in your workflow</NvButton>
           </div>
         </NvCard>
       </section>

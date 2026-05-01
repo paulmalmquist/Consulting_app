@@ -43,6 +43,7 @@ async def collect_runtime_turn(stream) -> ParsedRun:
         events.append(
             {
                 "event": event,
+                "data": payload,
                 "payload": payload,
                 "event_time_ms": int((time.perf_counter() - started_at) * 1000),
             }

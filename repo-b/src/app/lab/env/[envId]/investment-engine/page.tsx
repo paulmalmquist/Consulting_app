@@ -1,0 +1,699 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
+import {
+  calcNav,
+  calcPnl,
+  produceNavSnapshot,
+  lockNavSnapshot,
+  releaseNavSnapshot,
+  reconstructNavSnapshot,
+  runReconciliation,
+  listReconciliationBreaks,
+  listInvFunds,
+  listInvAuditTimeline,
+  type InvEngineError,
+  type InvFund,
+  type InvNavValue,
+  type InvPnlValue,
+  type InvReconBreak,
+  type InvAuditRow,
+} from "@/lib/bos-api";
+
+type Tab = "nav" | "reconciliation" | "audit";
+
+// "Unavailable" placeholder per project_instructions: never show a fake number
+function Unavailable({ reason }: { reason?: string }) {
+  return (
+    <span className="text-amber-500 italic" title={reason || "Unavailable"}>
+      Unavailable
+    </span>
+  );
+}
+
+function ErrorList({ errors }: { errors: InvEngineError[] }) {
+  if (!errors.length) return null;
+  return (
+    <div className="rounded border border-red-500/40 bg-red-500/10 p-3 text-sm">
+      <div className="font-semibold text-red-600 mb-1">Calculation rejected:</div>
+      <ul className="list-disc list-inside space-y-1">
+        {errors.map((e, i) => (
+          <li key={i}>
+            <code className="text-xs bg-red-500/15 px-1 rounded">{e.code}</code>{" "}
+            {e.message}
+            {Object.keys(e.context).length > 0 && (
+              <details className="ml-4 mt-1">
+                <summary className="text-xs text-red-700/70 cursor-pointer">context</summary>
+                <pre className="text-xs mt-1 whitespace-pre-wrap">
+                  {JSON.stringify(e.context, null, 2)}
+                </pre>
+              </details>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StatusBadge({ valid }: { valid: boolean | null }) {
+  if (valid === null) return null;
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+        valid
+          ? "bg-emerald-500/15 text-emerald-700"
+          : "bg-red-500/15 text-red-700"
+      }`}
+    >
+      {valid ? "valid" : "invalid"}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function NavPanel({ envId, businessId, funds }: { envId: string; businessId?: string; funds: InvFund[] }) {
+  const [fundId, setFundId] = useState<string>("");
+  const [effDate, setEffDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [loading, setLoading] = useState(false);
+  const [valid, setValid] = useState<boolean | null>(null);
+  const [value, setValue] = useState<InvNavValue | null>(null);
+  const [errors, setErrors] = useState<InvEngineError[]>([]);
+  const [snapshotId, setSnapshotId] = useState<string | null>(null);
+  const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
+  const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (funds.length > 0 && !fundId) setFundId(funds[0].id);
+  }, [funds, fundId]);
+
+  async function onCalculate(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setSnapshotMsg(null);
+    setSnapshotId(null);
+    setSnapshotStatus(null);
+    try {
+      const res = await calcNav(envId, fundId, effDate, businessId);
+      setValid(res.valid);
+      setValue(res.valid ? res.value : null);
+      setErrors(res.errors);
+    } catch (err) {
+      setValid(false);
+      setValue(null);
+      setErrors([{ code: "network_error", message: err instanceof Error ? err.message : String(err), context: {} }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onProduce() {
+    setLoading(true);
+    setSnapshotMsg(null);
+    try {
+      const res = await produceNavSnapshot(envId, fundId, effDate, businessId);
+      if (res.valid && res.value) {
+        setSnapshotId(res.value.snapshot_id);
+        setSnapshotStatus(res.value.status);
+        setSnapshotMsg(`Draft snapshot created (v${res.value.version}).`);
+      } else {
+        setSnapshotMsg(`Produce failed: ${res.errors.map(e => e.code).join(", ")}`);
+      }
+    } catch (err) {
+      setSnapshotMsg(`Produce error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onLock() {
+    if (!snapshotId) return;
+    setLoading(true);
+    try {
+      const res = await lockNavSnapshot(envId, snapshotId, businessId);
+      if (res.valid) {
+        setSnapshotStatus("locked");
+        setSnapshotMsg("Snapshot locked. Reconstruct verified equal.");
+      } else {
+        setSnapshotMsg(`Lock failed: ${res.errors.map(e => e.code).join(", ")}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onRelease() {
+    if (!snapshotId) return;
+    setLoading(true);
+    try {
+      const res = await releaseNavSnapshot(envId, snapshotId, businessId, "ui", "period close");
+      if (res.valid) {
+        setSnapshotStatus("released");
+        setSnapshotMsg("Snapshot released as the authoritative NAV for this (fund, date).");
+      } else {
+        setSnapshotMsg(`Release failed: ${res.errors.map(e => e.code).join(", ")}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onReconstruct() {
+    if (!snapshotId) return;
+    setLoading(true);
+    try {
+      const res = await reconstructNavSnapshot(envId, snapshotId);
+      if (res.valid) {
+        setSnapshotMsg(
+          res.value?.equal
+            ? "Reconstruct equal — payload reproduces from pinned inputs."
+            : `Reconstruct DIVERGED — ${res.value?.divergences.length} field(s) differ. See diagnostics.`,
+        );
+      } else {
+        setSnapshotMsg(`Reconstruct failed: ${res.errors.map(e => e.code).join(", ")}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-border p-4">
+        <h2 className="text-lg font-semibold mb-3">NAV calculation</h2>
+        <form onSubmit={onCalculate} className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Fund</label>
+            <select
+              value={fundId}
+              onChange={(e) => setFundId(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm min-w-[16rem]"
+              required
+            >
+              <option value="" disabled>Select fund…</option>
+              {funds.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name} ({f.base_currency} · {f.lot_relief_method})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Effective date</label>
+            <input
+              type="date"
+              value={effDate}
+              onChange={(e) => setEffDate(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !fundId}
+            className="rounded bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? "Calculating…" : "Run calculation"}
+          </button>
+        </form>
+      </div>
+
+      {(valid !== null) && (
+        <div className="rounded border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium">Result</h3>
+            <StatusBadge valid={valid} />
+          </div>
+          <ErrorList errors={errors} />
+          {valid && value && (
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground">NAV</dt>
+                <dd className="font-mono text-base">
+                  {value.nav} {value.currency}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Total assets</dt>
+                <dd className="font-mono">{value.total_assets}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Total liabilities</dt>
+                <dd className="font-mono">{value.total_liabilities}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">As of</dt>
+                <dd className="font-mono">{value.as_of_date}</dd>
+              </div>
+            </dl>
+          )}
+
+          {valid && value && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <h4 className="text-sm font-medium mb-2">Snapshot lifecycle</h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={onProduce}
+                  disabled={loading}
+                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  Produce draft
+                </button>
+                <button
+                  onClick={onLock}
+                  disabled={loading || !snapshotId || snapshotStatus !== "draft"}
+                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  Lock
+                </button>
+                <button
+                  onClick={onRelease}
+                  disabled={loading || !snapshotId || snapshotStatus !== "locked"}
+                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  Release
+                </button>
+                <button
+                  onClick={onReconstruct}
+                  disabled={loading || !snapshotId}
+                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  Reconstruct
+                </button>
+              </div>
+              {snapshotId && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Snapshot: <code className="font-mono">{snapshotId}</code>{" "}
+                  · status: <code className="font-mono">{snapshotStatus}</code>
+                </div>
+              )}
+              {snapshotMsg && (
+                <div className="mt-2 text-sm">{snapshotMsg}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECONCILIATION PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ReconciliationPanel({ envId, businessId }: { envId: string; businessId?: string }) {
+  const [runId, setRunId] = useState<string>("");
+  const [breakTypeFilter, setBreakTypeFilter] = useState<string>("");
+  const [severityFilter, setSeverityFilter] = useState<string>("");
+  const [resolvedFilter, setResolvedFilter] = useState<"" | "open" | "resolved">("");
+  const [breaks, setBreaks] = useState<InvReconBreak[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [errors, setErrors] = useState<InvEngineError[]>([]);
+
+  async function onRun(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMsg(null);
+    setErrors([]);
+    try {
+      const res = await runReconciliation(envId, runId, businessId);
+      if (res.valid && res.value) {
+        setMsg(`Run completed. ${res.value.breaks_count} break(s) detected.`);
+      } else {
+        setErrors(res.errors);
+      }
+      await refreshBreaks();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshBreaks() {
+    const res = await listReconciliationBreaks(envId, {
+      runId: runId || undefined,
+      breakType: breakTypeFilter || undefined,
+      severity: severityFilter || undefined,
+      resolved:
+        resolvedFilter === "" ? null
+        : resolvedFilter === "resolved" ? true
+        : false,
+      limit: 200,
+    });
+    if (res.valid && res.value) setBreaks(res.value.breaks);
+  }
+
+  useEffect(() => {
+    refreshBreaks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breakTypeFilter, severityFilter, resolvedFilter]);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-border p-4">
+        <h2 className="text-lg font-semibold mb-3">Run reconciliation</h2>
+        <form onSubmit={onRun} className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[20rem]">
+            <label className="block text-xs text-muted-foreground mb-1">
+              Run ID (must already exist in inv_reconciliation_run)
+            </label>
+            <input
+              type="text"
+              value={runId}
+              onChange={(e) => setRunId(e.target.value)}
+              placeholder="UUID of the run to execute"
+              className="w-full rounded border border-border bg-background px-2 py-1 text-sm font-mono"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !runId}
+            className="rounded bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? "Running…" : "Execute"}
+          </button>
+        </form>
+        {msg && <div className="mt-3 text-sm">{msg}</div>}
+        <ErrorList errors={errors} />
+      </div>
+
+      <div className="rounded border border-border p-4">
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Break type</label>
+            <select
+              value={breakTypeFilter}
+              onChange={(e) => setBreakTypeFilter(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+            >
+              <option value="">All</option>
+              <option value="quantity_mismatch">Quantity mismatch</option>
+              <option value="price_mismatch">Price mismatch</option>
+              <option value="missing_in_a">Missing in A</option>
+              <option value="missing_in_b">Missing in B</option>
+              <option value="stale_data">Stale data</option>
+              <option value="identifier_unmapped">Identifier unmapped</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Severity</label>
+            <select
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+            >
+              <option value="">All</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Status</label>
+            <select
+              value={resolvedFilter}
+              onChange={(e) => setResolvedFilter(e.target.value as "" | "open" | "resolved")}
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+            >
+              <option value="">All</option>
+              <option value="open">Open only</option>
+              <option value="resolved">Resolved only</option>
+            </select>
+          </div>
+          <button
+            onClick={refreshBreaks}
+            className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="py-2 pr-3">Type</th>
+                <th className="py-2 pr-3">Severity</th>
+                <th className="py-2 pr-3">Account</th>
+                <th className="py-2 pr-3">Security</th>
+                <th className="py-2 pr-3">A</th>
+                <th className="py-2 pr-3">B</th>
+                <th className="py-2 pr-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breaks.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                    No breaks match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                breaks.map((b) => (
+                  <tr key={b.id} className="border-b border-border/50">
+                    <td className="py-2 pr-3 font-mono text-xs">{b.break_type}</td>
+                    <td className="py-2 pr-3">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${
+                          b.severity === "critical" ? "bg-red-500/15 text-red-700"
+                          : b.severity === "high" ? "bg-orange-500/15 text-orange-700"
+                          : b.severity === "medium" ? "bg-yellow-500/15 text-yellow-700"
+                          : "bg-slate-500/15 text-slate-700"
+                        }`}
+                      >
+                        {b.severity}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {b.account_id ? b.account_id.slice(0, 8) : <Unavailable />}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {b.security_id ? b.security_id.slice(0, 8) : <Unavailable />}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {b.source_a_value ? JSON.stringify(b.source_a_value) : "—"}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {b.source_b_value ? JSON.stringify(b.source_b_value) : "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">
+                      {b.resolved_at ? "resolved" : "open"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT VIEWER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AuditViewer({ envId }: { envId: string }) {
+  const [entityType, setEntityType] = useState<string>("");
+  const [entityId, setEntityId] = useState<string>("");
+  const [events, setEvents] = useState<InvAuditRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const res = await listInvAuditTimeline(envId, {
+        entityType: entityType || undefined,
+        entityId: entityId || undefined,
+        limit: 200,
+      });
+      if (res.valid && res.value) setEvents(res.value.events);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const changeColors: Record<string, string> = useMemo(() => ({
+    insert: "bg-emerald-500/15 text-emerald-700",
+    update: "bg-blue-500/15 text-blue-700",
+    delete: "bg-red-500/15 text-red-700",
+    release: "bg-purple-500/15 text-purple-700",
+    supersede: "bg-amber-500/15 text-amber-700",
+    void: "bg-slate-500/15 text-slate-700",
+    lock: "bg-indigo-500/15 text-indigo-700",
+  }), []);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-border p-4">
+        <h2 className="text-lg font-semibold mb-3">Audit timeline</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Entity type</label>
+            <select
+              value={entityType}
+              onChange={(e) => setEntityType(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+            >
+              <option value="">All</option>
+              <option value="inv_nav_snapshot">NAV snapshot</option>
+              <option value="inv_pnl_snapshot">P&amp;L snapshot</option>
+              <option value="inv_position_valuation">Position valuation</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[16rem]">
+            <label className="block text-xs text-muted-foreground mb-1">Entity ID (optional)</label>
+            <input
+              type="text"
+              value={entityId}
+              onChange={(e) => setEntityId(e.target.value)}
+              placeholder="UUID"
+              className="w-full rounded border border-border bg-background px-2 py-1 text-sm font-mono"
+            />
+          </div>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="rounded bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Load"}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded border border-border p-4">
+        {events.length === 0 ? (
+          <div className="py-6 text-center text-muted-foreground">No audit events.</div>
+        ) : (
+          <ul className="space-y-2">
+            {events.map((e) => {
+              const isOpen = !!expanded[e.id];
+              return (
+                <li key={e.id} className="border-b border-border/50 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((p) => ({ ...p, [e.id]: !p[e.id] }))}
+                    className="w-full text-left flex items-center gap-3 text-sm hover:bg-accent/50 rounded px-2 py-1"
+                  >
+                    <span className="text-xs text-muted-foreground font-mono w-44 shrink-0">
+                      {new Date(e.created_at).toLocaleString()}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${changeColors[e.change_type] || "bg-slate-500/15 text-slate-700"}`}>
+                      {e.change_type}
+                    </span>
+                    <span className="font-mono text-xs">{e.entity_type}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{e.entity_id.slice(0, 8)}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">{e.actor}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="ml-6 mt-2 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <div className="text-muted-foreground mb-1">Previous</div>
+                        <pre className="bg-muted rounded p-2 overflow-auto whitespace-pre-wrap break-all">
+                          {e.previous_state ? JSON.stringify(e.previous_state, null, 2) : "—"}
+                        </pre>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground mb-1">New</div>
+                        <pre className="bg-muted rounded p-2 overflow-auto whitespace-pre-wrap break-all">
+                          {e.new_state ? JSON.stringify(e.new_state, null, 2) : "—"}
+                        </pre>
+                      </div>
+                      {e.reason && (
+                        <div className="col-span-2 text-muted-foreground">
+                          Reason: {e.reason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function InvestmentEnginePage() {
+  const { envId, businessId } = useDomainEnv();
+  const [tab, setTab] = useState<Tab>("nav");
+  const [funds, setFunds] = useState<InvFund[]>([]);
+  const [fundsError, setFundsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await listInvFunds(envId);
+        if (res.valid && res.value) setFunds(res.value.funds);
+        else setFundsError(res.errors[0]?.message ?? "Failed to load funds");
+      } catch (err) {
+        setFundsError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, [envId]);
+
+  return (
+    <div className="p-6 space-y-4">
+      <header>
+        <h1 className="text-2xl font-semibold">Investment Engine</h1>
+        <p className="text-sm text-muted-foreground">
+          Authoritative NAV, reconciliation, and audit lineage for Aladdin-class fund accounting.
+        </p>
+      </header>
+
+      {fundsError && (
+        <div className="rounded border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
+          {fundsError}
+        </div>
+      )}
+
+      <div className="border-b border-border">
+        <nav className="flex gap-1">
+          {([
+            ["nav", "NAV"],
+            ["reconciliation", "Reconciliation"],
+            ["audit", "Audit"],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${
+                tab === k
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div>
+        {tab === "nav" && <NavPanel envId={envId} businessId={businessId || undefined} funds={funds} />}
+        {tab === "reconciliation" && <ReconciliationPanel envId={envId} businessId={businessId || undefined} />}
+        {tab === "audit" && <AuditViewer envId={envId} />}
+      </div>
+    </div>
+  );
+}

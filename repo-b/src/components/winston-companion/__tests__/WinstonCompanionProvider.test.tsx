@@ -207,6 +207,33 @@ describe("WinstonCompanionProvider first-mile continuity", () => {
     expect(mockStreamAi).not.toHaveBeenCalled();
   });
 
+  it("fails closed on lab routes until business context is resolved", async () => {
+    delete (window as any).__APP_CONTEXT__;
+    mockFetchContextSnapshot.mockResolvedValueOnce({
+      snapshot: {
+        route: "/lab/env/env_1/re",
+        environments: [],
+        selectedEnv: {
+          env_id: "env_1",
+          client_name: "Meridian Capital Management",
+          business_id: null,
+        },
+        business: null,
+        modulesAvailable: ["re"],
+        recentRuns: [],
+      },
+    });
+    mockPathname.mockReturnValue("/lab/env/env_1/re");
+
+    mountCompanion();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("global-commandbar-toggle")).toBeNull();
+    });
+    expect(mockCreateConversation).not.toHaveBeenCalled();
+    expect(mockStreamAi).not.toHaveBeenCalled();
+  });
+
   it("shows the response error when streaming fails after bootstrap succeeds", async () => {
     mockCreateConversation.mockResolvedValue({
       conversation_id: "convo_1",

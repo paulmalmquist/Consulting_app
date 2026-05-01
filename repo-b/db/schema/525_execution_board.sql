@@ -52,13 +52,16 @@ CREATE TABLE IF NOT EXISTS cro_execution_task (
     auto_source         text CHECK (auto_source IN (
         'pipeline_no_next_action', 'pipeline_stale_3d',
         'outreach_no_reply_2d', 'proof_backlog_top',
-        'manual', 'ai_generated'
+        'pipeline_no_outreach', 'pipeline_proposal_sent_no_followup',
+        'manual', 'ai_generated', 'quick_capture'
     )),
     auto_source_ref     uuid,
     sequence_group      uuid,
     sequence_position   int,
     outcome             cro_execution_outcome,
     outcome_note        text,
+    re_engage_at        timestamptz,
+    blocked_reason      text,
     completed_at        timestamptz,
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now()

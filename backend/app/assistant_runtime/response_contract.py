@@ -495,6 +495,36 @@ def _has_tokens(events: Iterable[dict[str, Any]]) -> bool:
     return any(_coerce_event_type(_event_name(ev)) == EventType.TOKEN for ev in events)
 
 
+def _expected_runtime_paths(expectations: dict[str, Any]) -> set[str]:
+    allowed = expectations.get("allowed_runtime_paths")
+    if isinstance(allowed, list):
+        return {str(path) for path in allowed if path}
+    expected = (
+        expectations.get("runtime_path")
+        or expectations.get("expected_runtime_path")
+        or expectations.get("runtime_identity_path")
+    )
+    return {str(expected)} if expected else set()
+
+
+def _expected_runtime_lanes(expectations: dict[str, Any]) -> set[str]:
+    lane = expectations.get("lane")
+    if lane:
+        return {_normalize_lane(str(lane))}
+    allowed_lanes = expectations.get("allowed_lanes")
+    if isinstance(allowed_lanes, list):
+        return {_normalize_lane(str(item)) for item in allowed_lanes if item}
+    return set()
+
+
+def _requires_runtime_identity(expectations: dict[str, Any]) -> bool:
+    return bool(
+        expectations.get("runtime_identity_required")
+        or _expected_runtime_paths(expectations)
+        or _expected_runtime_lanes(expectations)
+    )
+
+
 def validate_turn(
     events: list[dict[str, Any]],
     *,
@@ -584,6 +614,25 @@ def validate_turn(
         )
 
     # 4. Unavailable masquerade — visible response text is an unavailable phrase.
+    for idx, ev in enumerate(events):
+        data = _event_data(ev)
+        contract = data.get("contract") if isinstance(data, dict) else None
+        if (
+            data.get("type") == "contract_enforced_error"
+            or (isinstance(contract, dict) and contract.get("enforced") is True)
+        ):
+            violations.append(
+                _violation(
+                    category="contract_enforced_fallback",
+                    event_index=idx,
+                    detail={
+                        "event": _event_name(ev),
+                        "code": data.get("code") or (contract or {}).get("fallback_code"),
+                    },
+                )
+            )
+            break
+
     response_text = _extract_response_text(events)
     lower = response_text.lower()
     for phrase in _UNAVAILABLE_PHRASES:
@@ -685,9 +734,11 @@ def validate_turn(
     # Runtime identity — read from the stream or synthesize from observed lane.
     runtime_identity: RuntimeIdentity | None = None
     done_data = _done_event_data(events)
+    stamped_identity_present = False
     if done_data:
         trace = done_data.get("trace") or {}
         if isinstance(trace, dict) and isinstance(trace.get("runtime_identity"), dict):
+            stamped_identity_present = True
             stamped = trace["runtime_identity"]
             # Trust the runtime's stamp when present; this is the authoritative value.
             try:
@@ -704,6 +755,44 @@ def validate_turn(
         if runtime_identity is None:
             runtime_identity = build_runtime_identity(
                 lane=normalized_observed, execution_path=execution_path
+            )
+
+    if _requires_runtime_identity(expectations):
+        if not stamped_identity_present:
+            violations.append(
+                _violation(
+                    category="missing_runtime_identity",
+                    event_index=-1,
+                    detail={
+                        "terminal_event": terminal_event.value if terminal_event else None,
+                    },
+                )
+            )
+
+        expected_paths = _expected_runtime_paths(expectations)
+        if runtime_identity and expected_paths and runtime_identity["path"] not in expected_paths:
+            violations.append(
+                _violation(
+                    category="runtime_path_mismatch",
+                    event_index=-1,
+                    detail={
+                        "expected": sorted(expected_paths),
+                        "actual": runtime_identity["path"],
+                    },
+                )
+            )
+
+        expected_lanes = _expected_runtime_lanes(expectations)
+        if runtime_identity and expected_lanes and runtime_identity["lane"] not in expected_lanes:
+            violations.append(
+                _violation(
+                    category="runtime_lane_mismatch",
+                    event_index=-1,
+                    detail={
+                        "expected": sorted(expected_lanes),
+                        "actual": runtime_identity["lane"],
+                    },
+                )
             )
 
     valid = all(

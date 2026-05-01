@@ -37,6 +37,7 @@ _LEGACY_CATEGORIES: tuple[str, ...] = (
     "tool_execution_failure",
     "degraded_mode_failure",
     "rendering_failure",
+    "operator_unavailable",
     "performance_failure",
     "regression_failure",
 )
@@ -51,6 +52,7 @@ _LEGACY_SEVERITY: dict[str, str] = {
     "tool_execution_failure": "high",
     "degraded_mode_failure": "high",
     "rendering_failure": "high",
+    "operator_unavailable": "high",
     "performance_failure": "medium",
     "regression_failure": "high",
 }
@@ -61,6 +63,7 @@ _LEGACY_CRITICAL: set[str] = {
     "tool_policy_failure",
     "degraded_mode_failure",
     "rendering_failure",
+    "operator_unavailable",
 }
 
 
@@ -104,6 +107,10 @@ def _load_runtime_categories() -> tuple[tuple[str, ...], dict[str, str], set[str
             "clarification_without_done",
             "invalid_event_payload",
             "unknown_event_type",
+            "missing_runtime_identity",
+            "runtime_path_mismatch",
+            "runtime_lane_mismatch",
+            "contract_enforced_fallback",
         )
         severity = {
             "no_terminal_state": "critical",
@@ -119,6 +126,10 @@ def _load_runtime_categories() -> tuple[tuple[str, ...], dict[str, str], set[str
             "clarification_without_done": "high",
             "invalid_event_payload": "high",
             "unknown_event_type": "medium",
+            "missing_runtime_identity": "critical",
+            "runtime_path_mismatch": "critical",
+            "runtime_lane_mismatch": "high",
+            "contract_enforced_fallback": "critical",
         }
         critical = {cat for cat, sev in severity.items() if sev == "critical"}
         return runtime, severity, critical
@@ -137,7 +148,7 @@ def _dedupe(*groups: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(seen.keys())
 
 
-FAILURE_CATEGORIES: tuple[str, ...] = _dedupe(_LEGACY_CATEGORIES, _RUNTIME_CATEGORIES)
+FAILURE_CATEGORIES: tuple[str, ...] = _dedupe(_RUNTIME_CATEGORIES, _LEGACY_CATEGORIES)
 FAILURE_PRIORITY: list[str] = list(FAILURE_CATEGORIES)
 
 SEVERITY_BY_CATEGORY: dict[str, str] = {**_LEGACY_SEVERITY, **_RUNTIME_SEVERITY}

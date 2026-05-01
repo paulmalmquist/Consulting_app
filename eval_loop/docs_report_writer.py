@@ -86,6 +86,7 @@ def write_docs_report(
     run_id: str,
     suite: str,
     trigger: str,
+    environment: str | None = None,
     summary: dict[str, Any],
     results: list[dict[str, Any]],
     regressions: list[dict[str, Any]],
@@ -96,7 +97,8 @@ def write_docs_report(
     stamp = now.strftime("%Y-%m-%d_%H%M")
     reports_dir = repo_root / "docs" / "ai-testing" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    out_path = reports_dir / f"{stamp}.md"
+    env_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", environment.strip()) if environment else None
+    out_path = reports_dir / f"{stamp}_{env_slug}.md" if env_slug else reports_dir / f"{stamp}.md"
 
     passed = summary.get("passed_count", 0)
     failed = summary.get("failed_count", 0)
@@ -109,10 +111,13 @@ def write_docs_report(
     lane_dist = _lane_distribution(results)
 
     lines: list[str] = []
-    lines.append(f"# Winston eval report — {stamp} UTC")
+    title_env = f" - {environment}" if environment else ""
+    lines.append(f"# Winston eval report{title_env} - {stamp} UTC")
     lines.append("")
     lines.append(f"- **Run ID:** `{run_id}`")
     lines.append(f"- **Suite:** `{suite}`")
+    if environment:
+        lines.append(f"- **Environment:** `{environment}`")
     lines.append(f"- **Trigger:** `{trigger}`")
     lines.append(f"- **Status:** {status_line}")
     lines.append(f"- **Latency:** {_latency_line(summary)}")
@@ -189,7 +194,14 @@ def write_docs_report(
     lines.append("")
 
     out_path.write_text("\n".join(lines))
-    _update_latest_manifest(repo_root=repo_root, stamp=stamp, out_path=out_path, summary=summary, suite=suite)
+    _update_latest_manifest(
+        repo_root=repo_root,
+        stamp=stamp,
+        out_path=out_path,
+        summary=summary,
+        suite=suite,
+        environment=environment,
+    )
     return out_path
 
 
@@ -200,6 +212,7 @@ def _update_latest_manifest(
     out_path: Path,
     summary: dict[str, Any],
     suite: str,
+    environment: str | None = None,
 ) -> None:
     """
     Update docs/LATEST.md so the morning digest surfaces this report.
@@ -213,14 +226,15 @@ def _update_latest_manifest(
     passed = summary.get("passed_count", 0)
     failed = summary.get("failed_count", 0)
     rel_path = out_path.relative_to(repo_root)
-    status_icon = "✅" if failed == 0 else "❌"
+    status_icon = "pass" if failed == 0 else "fail"
+    label = f"Winston eval {environment} ({suite})" if environment else f"Winston eval ({suite})"
     line = (
-        f"- **Winston eval ({suite})** — {status_icon} {passed} pass / {failed} fail · "
+        f"- **{label}** - {status_icon}: {passed} pass / {failed} fail · "
         f"[{stamp}](./{rel_path.as_posix()})  _updated {stamp} UTC_"
     )
 
     text = latest_path.read_text()
-    pattern = re.compile(r"^- \*\*Winston eval.*$", re.MULTILINE)
+    pattern = re.compile(rf"^- \*\*{re.escape(label)}\*\*.*$", re.MULTILINE)
     if pattern.search(text):
         new_text = pattern.sub(line, text, count=1)
     else:

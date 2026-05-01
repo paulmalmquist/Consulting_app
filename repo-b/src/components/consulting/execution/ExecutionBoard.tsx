@@ -19,6 +19,7 @@ import {
   type ExecutionTaskStatus,
   type ExecutionTaskOutcome,
 } from "@/lib/cro-api";
+import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
 import { ExecutionColumn } from "./ExecutionColumn";
 import { ExecutionTaskDrawer } from "./ExecutionTaskDrawer";
 import { GenerateActionsModal } from "./GenerateActionsModal";
@@ -73,13 +74,15 @@ function sortToday(a: ExecutionTask, b: ExecutionTask): number {
 
 export function ExecutionBoard({
   envId,
-  businessId,
+  businessId: businessIdProp,
   onReload,
 }: {
   envId: string;
-  businessId: string;
+  businessId?: string;
   onReload?: () => void;
 }) {
+  const { businessId: ctxBusinessId } = useConsultingEnv();
+  const businessId = businessIdProp ?? ctxBusinessId ?? "";
   const [data, setData] = useState<ExecutionBoardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

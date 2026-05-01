@@ -56,6 +56,9 @@ CREATE INDEX IF NOT EXISTS insight_tenant_business_idx
 -- fact_measurement: the primary analytical query surface
 CREATE INDEX IF NOT EXISTS fact_measurement_tenant_business_metric_idx
   ON fact_measurement (tenant_id, business_id, metric_id);
+CREATE INDEX IF NOT EXISTS fact_measurement_query_cover_idx
+  ON fact_measurement (tenant_id, business_id, metric_id, date_key)
+  INCLUDE (value, dimension_value, fact_measurement_id);
 CREATE INDEX IF NOT EXISTS fact_measurement_tenant_date_idx
   ON fact_measurement (tenant_id, date_key);
 CREATE INDEX IF NOT EXISTS fact_measurement_run_idx

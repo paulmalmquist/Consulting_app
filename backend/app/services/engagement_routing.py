@@ -533,11 +533,8 @@ def create_engagement(
     if routing_status not in ROUTING_STATUSES:
         raise ValueError(f"Invalid routing_status: {routing_status}")
 
-    if routing_status in {"active", "routing_review", "renewal_risk"}:
-        if not payload.get("next_action_text") and not payload.get("next_action_task_id"):
-            raise ValueError(
-                "Active engagements require a next_action_text or next_action_task_id"
-            )
+    # Next action is treated as a card-health signal, not a gate. Engagements
+    # can be created and moved across routing states without one.
 
     with get_cursor() as cur:
         crm_account_id, client_id = _ensure_client(

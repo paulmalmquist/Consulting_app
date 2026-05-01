@@ -161,19 +161,15 @@ export function EngagementCreateDrawer({
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const isActive = form.routing_status === "active" || form.routing_status === "routing_review";
-  const requiresNextAction = isActive && !form.next_action_text.trim();
-
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!form.client_name.trim() || !form.name.trim()) {
       setError("Client and engagement name required.");
       return;
     }
-    if (requiresNextAction) {
-      setError("Active engagements require a next action.");
-      return;
-    }
+    // Next action is encouraged but never required — operators can move
+    // engagements without it. Missing next action shows as a health signal
+    // on the card instead.
     setSubmitting(true);
     setError(null);
     try {

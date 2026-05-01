@@ -14,6 +14,7 @@ class MetricsQueryRequest(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     refresh: bool = True
+    include_source_fact_ids: bool = True
 
 
 class MetricsQueryPoint(BaseModel):
