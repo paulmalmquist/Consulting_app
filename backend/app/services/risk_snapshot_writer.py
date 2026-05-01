@@ -59,9 +59,12 @@ ERR_RECONSTRUCT_DIVERGED = "reconstruct_diverged"
 
 def _to_jsonb(d: Any) -> str:
     def default(v):
-        if isinstance(v, Decimal): return str(v)
-        if isinstance(v, (date, datetime)): return v.isoformat()
-        if isinstance(v, UUID): return str(v)
+        if isinstance(v, Decimal):
+            return str(v)
+        if isinstance(v, (date, datetime)):
+            return v.isoformat()
+        if isinstance(v, UUID):
+            return str(v)
         return str(v)
     return json.dumps(d, default=default)
 

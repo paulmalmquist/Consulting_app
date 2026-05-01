@@ -11,7 +11,6 @@ Companion to audit/fund_portfolio_coherence/inclusion_selectors_audit.md.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 

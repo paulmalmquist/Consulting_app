@@ -49,6 +49,7 @@ DECLARE
   v_target_rows   int;
   v_rows_updated  int;
 BEGIN
+  PERFORM set_config('app.change_set_committing', 'schema_migration_466_repair', true);
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- 0. CI-safe pre-check: if the target table has no IGF VII 2026Q2 rows,

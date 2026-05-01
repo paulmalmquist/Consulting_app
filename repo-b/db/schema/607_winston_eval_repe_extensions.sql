@@ -227,17 +227,34 @@ CREATE TABLE IF NOT EXISTS re_change_audit_receipts (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE winston_eval_observations
-  ADD CONSTRAINT fk_winston_eval_observations_staged_change_set
-  FOREIGN KEY (staged_change_set_id) REFERENCES re_change_sets(change_set_id)
-  ON DELETE SET NULL
-  NOT VALID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fk_winston_eval_observations_staged_change_set'
+      AND conrelid = 'winston_eval_observations'::regclass
+  ) THEN
+    ALTER TABLE winston_eval_observations
+      ADD CONSTRAINT fk_winston_eval_observations_staged_change_set
+      FOREIGN KEY (staged_change_set_id) REFERENCES re_change_sets(change_set_id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
 
-ALTER TABLE winston_eval_observations
-  ADD CONSTRAINT fk_winston_eval_observations_committed_change_set
-  FOREIGN KEY (committed_change_set_id) REFERENCES re_change_sets(change_set_id)
-  ON DELETE SET NULL
-  NOT VALID;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fk_winston_eval_observations_committed_change_set'
+      AND conrelid = 'winston_eval_observations'::regclass
+  ) THEN
+    ALTER TABLE winston_eval_observations
+      ADD CONSTRAINT fk_winston_eval_observations_committed_change_set
+      FOREIGN KEY (committed_change_set_id) REFERENCES re_change_sets(change_set_id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- RLS and comments

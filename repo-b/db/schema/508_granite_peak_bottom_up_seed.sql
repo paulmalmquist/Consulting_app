@@ -19,6 +19,8 @@ DECLARE
   v_asset3_id     uuid := '11111111-1111-4111-8111-000000000003'::uuid;
   v_env_id        text;
 BEGIN
+  PERFORM set_config('app.change_set_committing', 'schema_migration_508_seed', true);
+
   FOR v_fund_row IN
     SELECT fund_id, business_id
     FROM repe_fund

@@ -8,27 +8,56 @@ const mockListReV1Funds = vi.fn();
 const mockGetPortfolioAuthoritativeStates = vi.fn();
 const mockGetReV2EnvironmentPortfolioKpis = vi.fn();
 const mockGetEnvironmentFundTrend = vi.fn();
+const mockGetFundPortfolioCoherent = vi.fn();
 const mockDeleteRepeFund = vi.fn();
 
 vi.mock("@/components/repe/workspace/ReEnvProvider", () => ({
   useReEnv: (...args: unknown[]) => mockUseReEnv(...args),
+  useMaybeReEnv: (...args: unknown[]) => mockUseReEnv(...args),
 }));
 
 vi.mock("@/components/ui/Toast", () => ({
   useToast: () => ({ push: mockPushToast }),
 }));
 
-vi.mock("@/lib/bos-api", () => ({
-  listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
-  getPortfolioAuthoritativeStates: (...args: unknown[]) =>
-    mockGetPortfolioAuthoritativeStates(...args),
-  getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
-    mockGetReV2EnvironmentPortfolioKpis(...args),
-  getEnvironmentFundTrend: (...args: unknown[]) =>
-    mockGetEnvironmentFundTrend(...args),
-  deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
-  getAssetMapPoints: vi.fn().mockResolvedValue([]),
-}));
+vi.mock("@/lib/bos-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/bos-api")>("@/lib/bos-api");
+  return {
+    ...actual,
+    listReV1Funds: (...args: unknown[]) => mockListReV1Funds(...args),
+    getPortfolioAuthoritativeStates: (...args: unknown[]) =>
+      mockGetPortfolioAuthoritativeStates(...args),
+    getReV2EnvironmentPortfolioKpis: (...args: unknown[]) =>
+      mockGetReV2EnvironmentPortfolioKpis(...args),
+    getEnvironmentFundTrend: (...args: unknown[]) =>
+      mockGetEnvironmentFundTrend(...args),
+    getFundPortfolioCoherent: (...args: unknown[]) =>
+      mockGetFundPortfolioCoherent(...args),
+    deleteRepeFund: (...args: unknown[]) => mockDeleteRepeFund(...args),
+    getAssetMapPoints: vi.fn().mockResolvedValue([]),
+  };
+});
+
+function coherentPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    env_id: "env-1",
+    business_id: "biz-1",
+    quarter: "2026Q2",
+    portfolio_summary: {
+      fund_count: 3,
+      total_commitments: "490000000",
+      portfolio_nav: null,
+      active_assets: 12,
+      gross_irr: null,
+      net_irr: null,
+      weighted_dscr: null,
+    },
+    fund_rows: [],
+    diagnostics: [],
+    provenance: { irr_method: "nav_weighted_average", irr_method_n_funds: 0 },
+    ...overrides,
+  };
+}
 
 describe("RE environment portfolio page", () => {
   beforeEach(() => {
@@ -66,13 +95,14 @@ describe("RE environment portfolio page", () => {
       count: 0,
       states: [],
     });
+    mockGetFundPortfolioCoherent.mockResolvedValue(coherentPayload());
   });
 
-  test("renders portfolio NAV as dash when quarter state is missing", async () => {
+  test("renders portfolio NAV as unavailable when quarter state is missing", async () => {
     render(<ReFundListPage />);
 
     await waitFor(() =>
-      expect(mockGetReV2EnvironmentPortfolioKpis).toHaveBeenCalledWith(
+      expect(mockGetFundPortfolioCoherent).toHaveBeenCalledWith(
         "env-1",
         expect.stringMatching(/^\d{4}Q[1-4]$/)
       )
@@ -83,14 +113,14 @@ describe("RE environment portfolio page", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create your first fund" })).toBeInTheDocument();
     const navCard = screen.getByText("Portfolio NAV").closest("div");
-    expect(navCard?.textContent).toContain("—");
+    expect(navCard?.textContent).toContain("Unavailable");
   });
 
   test("DSCR KPI always renders — shows 'Unavailable' when no DSCR data", async () => {
     render(<ReFundListPage />);
 
     await waitFor(() =>
-      expect(mockGetReV2EnvironmentPortfolioKpis).toHaveBeenCalled()
+      expect(mockGetFundPortfolioCoherent).toHaveBeenCalled()
     );
 
     // The KPI strip must always include the DSCR tile, even when no funds have DSCR data.
@@ -139,10 +169,54 @@ describe("RE environment portfolio page", () => {
         },
       ],
     });
+    mockGetFundPortfolioCoherent.mockResolvedValue(coherentPayload({
+      portfolio_summary: {
+        fund_count: 2,
+        total_commitments: "300000000",
+        portfolio_nav: "300000000",
+        active_assets: 0,
+        gross_irr: "0.19",
+        net_irr: null,
+        weighted_dscr: null,
+      },
+      fund_rows: [
+        {
+          fund_id: "fund-1",
+          name: "Alpha Fund",
+          vintage_year: 2022,
+          strategy: "equity",
+          status: "investing",
+          total_committed: "100000000",
+          total_called: null,
+          portfolio_nav: "100000000",
+          gross_irr: "0.15",
+          net_irr: null,
+          dpi: null,
+          tvpi: null,
+          null_reasons: {},
+        },
+        {
+          fund_id: "fund-2",
+          name: "Beta Fund",
+          vintage_year: 2023,
+          strategy: "equity",
+          status: "investing",
+          total_committed: "200000000",
+          total_called: null,
+          portfolio_nav: "200000000",
+          gross_irr: "0.22",
+          net_irr: null,
+          dpi: null,
+          tvpi: null,
+          null_reasons: {},
+        },
+      ],
+      provenance: { irr_method: "nav_weighted_average", irr_method_n_funds: 2 },
+    }));
 
     render(<ReFundListPage />);
 
-    await waitFor(() => expect(mockGetPortfolioAuthoritativeStates).toHaveBeenCalled());
+    await waitFor(() => expect(mockGetFundPortfolioCoherent).toHaveBeenCalled());
     expect(await screen.findByText(/IRR Range/i)).toBeInTheDocument();
   });
 
@@ -165,10 +239,28 @@ describe("RE environment portfolio page", () => {
         },
       ],
     });
+    mockGetFundPortfolioCoherent.mockResolvedValue(coherentPayload({
+      portfolio_summary: {
+        fund_count: 0,
+        total_commitments: null,
+        portfolio_nav: null,
+        active_assets: 0,
+        gross_irr: null,
+        net_irr: null,
+        weighted_dscr: null,
+      },
+      diagnostics: [
+        {
+          fund_id: "fund-1",
+          name: "Unreleased Fund",
+          exclusion_reason: "authoritative_state_not_released",
+        },
+      ],
+    }));
 
     render(<ReFundListPage />);
 
-    await waitFor(() => expect(mockGetPortfolioAuthoritativeStates).toHaveBeenCalled());
+    await waitFor(() => expect(mockGetFundPortfolioCoherent).toHaveBeenCalled());
     expect(await screen.findByText(/Data Alerts/i)).toBeInTheDocument();
   });
 
@@ -222,6 +314,34 @@ describe("RE environment portfolio page", () => {
         },
       ],
     });
+    mockGetFundPortfolioCoherent.mockResolvedValue(coherentPayload({
+      portfolio_summary: {
+        fund_count: 1,
+        total_commitments: "500000000",
+        portfolio_nav: "425000000",
+        active_assets: 0,
+        gross_irr: null,
+        net_irr: null,
+        weighted_dscr: null,
+      },
+      fund_rows: [
+        {
+          fund_id: "fund-1",
+          name: "Meridian Growth Fund",
+          vintage_year: 2024,
+          strategy: "equity",
+          status: "investing",
+          total_committed: "500000000",
+          total_called: null,
+          portfolio_nav: "425000000",
+          gross_irr: null,
+          net_irr: null,
+          dpi: "0.21",
+          tvpi: "1.33",
+          null_reasons: {},
+        },
+      ],
+    }));
 
     render(<ReFundListPage />);
 

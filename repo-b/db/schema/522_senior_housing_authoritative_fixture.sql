@@ -35,6 +35,7 @@ DECLARE
   v_oakwood   uuid := 'c0000001-0000-0000-0000-000000000013';
 
 BEGIN
+  PERFORM set_config('app.change_set_committing', 'schema_migration_522_fixture', true);
 
   -- ── 0. Snapshot run record (FK on audit_run_id) ───────────────────────────
   INSERT INTO re_authoritative_snapshot_run (
