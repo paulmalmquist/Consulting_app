@@ -19,22 +19,12 @@ export const metadata: Metadata = {
   },
 };
 
-const noFlashScript = `
-  try {
-    var t = localStorage.getItem('nv-theme');
-    if (t === 'dark' || t === 'light') {
-      document.querySelector('.marketing-shell')?.setAttribute('data-theme', t);
-    }
-  } catch (_) {}
-`;
-
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div
       data-theme="dark"
       className={`marketing-shell ${GeistSans.variable} ${GeistMono.variable}`}
     >
-      <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       <LayoutShell>{children}</LayoutShell>
     </div>
   );

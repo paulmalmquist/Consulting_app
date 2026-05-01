@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Menu, Moon, Sun } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { InlineSearch } from '../search/InlineSearch';
 import { AccountButton } from './AccountButton';
 
@@ -12,56 +10,6 @@ type TopbarProps = {
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
 };
-
-const topNavLinks = [
-  { label: 'Home', href: '/' },
-  { label: 'What We Do', href: '/what-we-do' },
-  { label: 'Industries', href: '/industries' },
-  { label: 'Capabilities', href: '/capabilities' },
-  { label: 'The Shift', href: '/the-shift' },
-  { label: 'About', href: '/about' },
-  { label: 'Contact', href: '/contact' },
-];
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  useEffect(() => {
-    const saved = (typeof window !== 'undefined'
-      ? (localStorage.getItem('nv-theme') as 'dark' | 'light' | null)
-      : null);
-    const initial = saved === 'light' ? 'light' : 'dark';
-    setTheme(initial);
-    document.querySelector('.marketing-shell')?.setAttribute('data-theme', initial);
-  }, []);
-
-  const toggle = () => {
-    const next = theme === 'light' ? 'dark' : 'light';
-    setTheme(next);
-    document.querySelector('.marketing-shell')?.setAttribute('data-theme', next);
-    try {
-      localStorage.setItem('nv-theme', next);
-    } catch {
-      // ignore
-    }
-  };
-
-  const Icon = theme === 'light' ? Moon : Sun;
-  const label = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={label}
-      title={label}
-      className="nv-btn nv-btn-ghost shrink-0"
-      style={{ padding: '8px', borderRadius: 'var(--nv-radius-sm)' }}
-    >
-      <Icon size={16} strokeWidth={1.8} />
-    </button>
-  );
-}
 
 export function Topbar({ setDrawerOpen }: TopbarProps) {
   return (
@@ -81,23 +29,9 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
           <div className="hidden flex-1 items-center gap-3 md:flex">
             <InlineSearch />
           </div>
-          <ThemeToggle />
           <AccountButton />
         </div>
-        {/* Row 2: nav links (desktop only) */}
-        <nav className="hidden flex-wrap items-center gap-2 md:flex">
-          {topNavLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-[4px] px-3 py-1.5 text-xs font-medium text-nv-muted transition hover:text-nv-text"
-              style={{ boxShadow: 'inset 0 0 0 1px var(--nv-hair-medium-rgba)' }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        {/* Row 1 mobile: search below hamburger row */}
+        {/* Mobile-only search row */}
         <div className="md:hidden">
           <InlineSearch />
         </div>
