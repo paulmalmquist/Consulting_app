@@ -420,7 +420,6 @@ def rollup_portfolio_value(
     for pos in positions:
         account_id = pos["account_id"]
         security_id = pos["security_id"]
-        security_currency = pos["security_currency"]
 
         open_qty = _fetch_position_qty(env_id, account_id, security_id, as_of_date)
         if open_qty == 0:

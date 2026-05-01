@@ -245,7 +245,7 @@ export function EngagementCreateDrawer({
           </div>
         </div>
         <div>
-          <Label>Next Action {isActive && "*"}</Label>
+          <Label>Next Action</Label>
           <input style={inputStyle} value={form.next_action_text} onChange={(e) => set("next_action_text", e.target.value)} placeholder="What needs to happen next?" />
         </div>
         <div>
