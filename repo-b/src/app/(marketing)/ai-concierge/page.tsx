@@ -50,11 +50,10 @@ export default function AIConciergePage() {
           Help your team use AI with context, control, and confidence.
         </h1>
         <p className="nv-lede">
-          We help your team apply AI to real work, using the data, rules, approvals, and records your business already depends on. The goal is simple: better answers, clearer next steps, and fewer unsupported decisions.
+          We work alongside your team to evaluate AI use cases, answer practical questions, review risks, and guide adoption. You get expert support before AI experiments spread across the business without control.
         </p>
-        <div className="flex flex-wrap gap-3" style={{ marginTop: 28 }}>
+        <div style={{ marginTop: 28 }}>
           <NvButton variant="primary" href="/contact">Talk through your AI use</NvButton>
-          <NvButton variant="secondary" href="/operational-assessment">Get an AI-readiness review</NvButton>
         </div>
       </HeroBackground>
 

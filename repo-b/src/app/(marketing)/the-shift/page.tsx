@@ -27,6 +27,7 @@ export default function TheShiftPage() {
           </>
         }
         lede="The next operating model isn't 'more AI tools.' It's getting your data, your written-down playbook, and your process to the point where the AI you adopt — yours or a vendor's — actually works on real inputs. Own Your Operating Logic."
+        primaryCta={{ label: 'See the operating model', href: '/what-we-do' }}
         panel={shiftPanel}
         panelTitle="The shift, in one frame"
       />

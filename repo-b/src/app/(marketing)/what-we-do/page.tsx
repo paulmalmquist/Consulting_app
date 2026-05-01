@@ -52,9 +52,8 @@ export default function WhatWeDoPage() {
         headline="We prepare your business to use AI responsibly."
         lede="We review how work moves through your business, where data and approvals break down, and where AI is already creating risk or value. Then we build a practical path from assessment to controlled rollout."
       >
-        <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
-          <NvButton variant="primary" href="/operational-assessment">See your first use case</NvButton>
-          <NvButton variant="secondary" href="/contact">Fix your workflow</NvButton>
+        <div style={{ marginTop: 24 }}>
+          <NvButton variant="primary" href="/contact">See how we help</NvButton>
         </div>
       </PageHeader>
 

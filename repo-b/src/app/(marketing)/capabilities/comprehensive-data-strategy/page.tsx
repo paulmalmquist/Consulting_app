@@ -71,18 +71,15 @@ export default function ComprehensiveDataStrategyPage() {
           Capability · Data
         </p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24, fontSize: 'clamp(44px, 6vw, 68px)' }}>
-          Comprehensive Data Strategy.
+          Your data strategy is your <em>AI</em> strategy.
         </h1>
         <p className="nv-lede">
           We design and build the data systems your business actually runs on. From source systems to
           executive reporting, everything is structured, governed, and tied to decisions.
         </p>
-        <div className="flex flex-wrap gap-3" style={{ marginTop: 28 }}>
+        <div style={{ marginTop: 28 }}>
           <NvButton variant="primary" href="/contact?capability=data-strategy">
             Talk through your data stack
-          </NvButton>
-          <NvButton variant="secondary" href="/operational-assessment">
-            See your first use case
           </NvButton>
         </div>
       </header>

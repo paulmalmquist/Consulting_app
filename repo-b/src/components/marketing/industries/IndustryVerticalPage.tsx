@@ -45,12 +45,15 @@ export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
 
   return (
     <>
-      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.6}>
+      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />{industry.label}</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>{industry.heroHeadline}</h1>
         <p className="nv-lede">{industry.heroSubheadline}</p>
         <div className="nv-pill nv-pill-teal" style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <industryLabel.Icon size={14} aria-hidden="true" /> {industryLabel.label}
+        </div>
+        <div style={{ marginTop: 28 }}>
+          <NvButton variant="primary" href={contactHref}>Discuss your use case</NvButton>
         </div>
       </HeroBackground>
 

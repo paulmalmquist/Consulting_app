@@ -11,7 +11,11 @@ export default function IndustriesPage() {
         eyebrow="Industries"
         headline="The AI-readiness problem looks different in every vertical."
         lede="In REPE, the fund data lives in a spreadsheet only one person can open. In consumer credit, the policy lives in a PDF and the overrides live in chat. In medical, the queue lives in seven payer portals. In legal, the matter taxonomy means three different things to three different practice groups. The fix is the same: get the data, the playbook, and the process ready before the AI goes on top."
-      />
+      >
+        <div style={{ marginTop: 24 }}>
+          <NvButton variant="primary" href="/contact">Discuss your use case</NvButton>
+        </div>
+      </PageHeader>
 
       <section className="nv-section">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

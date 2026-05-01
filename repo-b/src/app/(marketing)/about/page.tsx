@@ -22,6 +22,7 @@ export default function AboutPage() {
           </>
         }
         lede="Teams were forced to manage real risk across spreadsheets, SaaS apps, and manual handoffs. We built Novendor to replace that fragmentation with controlled execution systems companies actually own."
+        primaryCta={{ label: 'Talk with us', href: '/contact' }}
         panel={aboutPanel}
         panelTitle="Firm at a glance"
       />

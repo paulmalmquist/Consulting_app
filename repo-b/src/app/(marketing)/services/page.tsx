@@ -41,9 +41,8 @@ export default function ServicesPage() {
         headline="Operational infrastructure, rebuilt for the AI era."
         lede="We help companies reduce software spend, automate workflows, and build internal AI systems that improve speed, control, and margins."
       >
-        <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
-          <NvButton variant="primary" href="/operational-assessment">Book an executive assessment</NvButton>
-          <NvButton variant="secondary" href="/what-we-do">View engagement model</NvButton>
+        <div style={{ marginTop: 24 }}>
+          <NvButton variant="primary" href="/contact">Book an executive assessment</NvButton>
         </div>
       </PageHeader>
 

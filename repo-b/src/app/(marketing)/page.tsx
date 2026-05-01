@@ -26,8 +26,7 @@ export default function HomePage() {
             </>
           }
           lede="We work with operators who are under pressure to ship AI and know their data, process, and playbooks aren't ready for it. We make them ready — one workflow at a time, without a rip-and-replace project."
-          primaryCta={{ label: 'See where your data is blocking your AI roadmap', href: '/operational-assessment' }}
-          secondaryCta={{ label: 'How we engage', href: '/what-we-do' }}
+          primaryCta={{ label: 'We can help', href: '/contact' }}
         />
       </HeroBackground>
 
