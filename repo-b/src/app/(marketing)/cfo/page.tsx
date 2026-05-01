@@ -20,7 +20,7 @@ export default function CfoPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="For CFOs"
-        headline="Reduce software spend without slowing the business."
+        headline={<>Reduce software spend without <em>slowing</em> the business.</>}
         lede="We help CFOs identify where internal AI systems can replace high-cost tools and improve operational efficiency."
       >
         <div style={{ marginTop: 24 }}>

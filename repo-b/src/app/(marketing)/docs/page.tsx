@@ -10,7 +10,7 @@ export default function DocsPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="Core Research"
-        headline="Core research."
+        headline={<>Core <em>research</em>.</>}
         lede="Detailed guidance on method, engagement structure, and decision controls."
       />
 

@@ -6,7 +6,7 @@ function ContactPageFallback() {
   return (
     <div className="nv-page">
       <div>
-        <h1 className="nv-h1" style={{ marginBottom: 24 }}>Book a meeting.</h1>
+        <h1 className="nv-h1" style={{ marginBottom: 24 }}>Book a <em>meeting</em>.</h1>
         <p className="nv-lede">
           You will receive a calendar invite with Google, Outlook, and ICS options after confirmation.
         </p>

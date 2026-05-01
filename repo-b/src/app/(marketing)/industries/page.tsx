@@ -9,7 +9,7 @@ export default function IndustriesPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="Industries"
-        headline="The AI-readiness problem looks different in every vertical."
+        headline={<>The AI-readiness problem looks <em>different</em> in every vertical.</>}
         lede="In REPE, the fund data lives in a spreadsheet only one person can open. In consumer credit, the policy lives in a PDF and the overrides live in chat. In medical, the queue lives in seven payer portals. In legal, the matter taxonomy means three different things to three different practice groups. The fix is the same: get the data, the playbook, and the process ready before the AI goes on top."
       >
         <div style={{ marginTop: 24 }}>

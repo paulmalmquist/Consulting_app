@@ -119,7 +119,7 @@ export default function SaaSIcebergPage() {
       <section className="relative overflow-hidden rounded-[var(--nv-radius-lg)] bg-gradient-to-b from-[rgb(var(--nv-surface)/0.8)] via-[rgb(var(--nv-bg)/0.7)] to-[#051022] p-6 sm:p-10">
         <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-[50%] bg-[rgb(var(--nv-accent-teal)/0.10)] blur-3xl" />
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The SaaS Iceberg</p>
-        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 12 }}>What you&apos;re really paying for.</h1>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 12 }}>What you&apos;re <em>really</em> paying for.</h1>
         <p className="nv-lede" style={{ color: 'rgb(var(--nv-accent-teal)/0.85)' }}>
           Most SaaS pricing is justified below the waterline.
         </p>

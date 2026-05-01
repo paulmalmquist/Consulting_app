@@ -47,7 +47,7 @@ export default function AIConciergePage() {
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />AI Concierge</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
-          Help your team use AI with context, control, and confidence.
+          Help your team use AI with context, control, and <em>confidence</em>.
         </h1>
         <p className="nv-lede">
           We work alongside your team to evaluate AI use cases, answer practical questions, review risks, and guide adoption. You get expert support before AI experiments spread across the business without control.

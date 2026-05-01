@@ -7,7 +7,7 @@ export default function LegacySaaSPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="Legacy SaaS"
-        headline="Legacy SaaS migration."
+        headline={<>Legacy SaaS <em>migration</em>.</>}
         lede="SaaS sprawl creates duplicated logic, fragmented workflows, and expensive change requests. We replace it with one controlled execution layer."
       >
         <div style={{ marginTop: 24 }}>

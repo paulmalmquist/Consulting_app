@@ -38,7 +38,7 @@ export default function ServicesPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="Services"
-        headline="Operational infrastructure, rebuilt for the AI era."
+        headline={<>Operational infrastructure, <em>rebuilt</em> for the AI era.</>}
         lede="We help companies reduce software spend, automate workflows, and build internal AI systems that improve speed, control, and margins."
       >
         <div style={{ marginTop: 24 }}>

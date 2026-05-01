@@ -7,7 +7,7 @@ export default function SupportOpsPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="Support Ops"
-        headline="Intent-first internal support."
+        headline={<><em>Intent-first</em> internal support.</>}
         lede="An AI front door for IT, HR, and Ops that captures intent once, routes to the right owner, and logs every decision for auditability."
       />
 

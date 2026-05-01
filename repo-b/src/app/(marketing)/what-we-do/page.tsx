@@ -49,7 +49,7 @@ export default function WhatWeDoPage() {
     <div className="nv-page">
       <PageHeader
         eyebrow="How we engage"
-        headline="We prepare your business to use AI responsibly."
+        headline={<>We prepare your business to use AI <em>responsibly</em>.</>}
         lede="We review how work moves through your business, where data and approvals break down, and where AI is already creating risk or value. Then we build a practical path from assessment to controlled rollout."
       >
         <div style={{ marginTop: 24 }}>

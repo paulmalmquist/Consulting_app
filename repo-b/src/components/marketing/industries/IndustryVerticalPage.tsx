@@ -37,17 +37,36 @@ const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Bui
 
 type IndustryVerticalPageProps = { industry: IndustryVertical };
 
+/**
+ * Wrap the first occurrence of `token` in <em> so the design system's
+ * `.nv-h1 em` rule renders it in teal. Falls back to the raw string if
+ * the token isn't present.
+ */
+function highlight(headline: string, token: string) {
+  const idx = headline.indexOf(token);
+  if (idx === -1) return headline;
+  return (
+    <>
+      {headline.slice(0, idx)}
+      <em>{token}</em>
+      {headline.slice(idx + token.length)}
+    </>
+  );
+}
+
 export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
   const contactHref = `/contact?industry=${industry.slug}`;
   const industryLabel = labels[industry.slug];
   const bgPath = industryBackgrounds[industry.slug];
   const bgSrc = fileExistsInPublic(bgPath) ? bgPath : undefined;
+  // Pick the first matching token: "AI-ready" if present, else "AI".
+  const heroHighlightToken = industry.heroHeadline.includes('AI-ready') ? 'AI-ready' : 'AI';
 
   return (
     <>
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />{industry.label}</p>
-        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>{industry.heroHeadline}</h1>
+        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>{highlight(industry.heroHeadline, heroHighlightToken)}</h1>
         <p className="nv-lede">{industry.heroSubheadline}</p>
         <div className="nv-pill nv-pill-teal" style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <industryLabel.Icon size={14} aria-hidden="true" /> {industryLabel.label}

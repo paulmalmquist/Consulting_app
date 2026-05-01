@@ -21,7 +21,7 @@ export default function OperationalAssessmentPage() {
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Operational Assessment</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
-          Identify your friction.
+          Identify your <em>friction</em>.
         </h1>
         <p className="nv-lede">
           We review how work moves through your business, where handoffs slow down, where data breaks, and where approvals lose clarity. The result is a practical map of what needs to be fixed before AI or automation can help.
