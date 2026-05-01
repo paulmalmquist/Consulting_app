@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { HeroBackground } from '@/components/marketing/HeroBackground';
 
 type DiagnosticMode = {
   key: string;
@@ -82,30 +83,6 @@ const selfAssessment = [
   'Our process lives in heroics, not systems.'
 ];
 
-const WATERLINE_TOP = '40%';
-const ABOVE_WATER_CHIPS = [
-  'Features',
-  'UI',
-  'Convenience',
-  'Onboarding',
-  'Templates',
-  'Integrations',
-  'Automations',
-  'Dashboards',
-  'Reporting'
-];
-
-const BELOW_WATER_CHIPS = [
-  'Conflict avoidance',
-  'Process ownership',
-  'Blame absorption',
-  'Institutional memory',
-  'Accountability',
-  'Exception handling',
-  'Audit trails',
-  'Change control',
-  'Role clarity'
-];
 
 export default function SaaSIcebergPage() {
   const [activeMode, setActiveMode] = useState<DiagnosticMode>(modes[0]);
@@ -115,53 +92,20 @@ export default function SaaSIcebergPage() {
   const activeBelow = useMemo(() => activeMode.below, [activeMode]);
 
   return (
-    <div className="nv-page">
-      <section className="relative overflow-hidden rounded-[var(--nv-radius-lg)] bg-gradient-to-b from-[rgb(var(--nv-surface)/0.8)] via-[rgb(var(--nv-bg)/0.7)] to-[#051022] p-6 sm:p-10">
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-[50%] bg-[rgb(var(--nv-accent-teal)/0.10)] blur-3xl" />
+    <>
+      <HeroBackground imageSrc="/assets/bg-saas-iceberg.jpg" imageAlt="" overlayOpacity={0.5}>
         <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The SaaS Iceberg</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 12 }}>What you&apos;re <em>really</em> paying for.</h1>
-        <p className="nv-lede" style={{ color: 'rgb(var(--nv-accent-teal)/0.85)' }}>
+        <p className="nv-lede">
           Most SaaS pricing is justified below the waterline.
         </p>
-
-        <div className="relative mt-8 h-[320px] rounded-[var(--nv-radius-lg)] border border-nv-teal/18 bg-nv-bg/80 p-5 sm:h-[380px]">
-          <div className="absolute left-0 h-px w-full bg-nv-teal/10" style={{ top: WATERLINE_TOP }} aria-hidden="true" />
-          <div className="absolute left-1/2 top-[17%] h-24 w-32 -translate-x-1/2 rounded-[45%_45%_35%_35%] border border-nv-teal/18 bg-gradient-to-b from-cyan-100/30 to-cyan-200/10  animate-pulse" />
-          <div className="absolute left-1/2 top-[33%] h-44 w-72 -translate-x-1/2 rounded-[45%_45%_55%_55%] border border-nv-teal/18 bg-gradient-to-b from-cyan-300/10 to-transparent" />
-          <div className="absolute bottom-0 left-0 h-[60%] w-full bg-gradient-to-b from-cyan-700/20 via-cyan-900/20 to-nv-bg/70" />
-
-          <div className="absolute top-5 right-5 left-5 z-20 rounded-2xl border border-nv-teal/18 bg-nv-bg/60 p-4 md:p-5">
-            <p className="text-xs uppercase tracking-[0.22em] text-nv-teal/80">Above the water</p>
-            <div className="mt-3 flex min-w-0 flex-wrap gap-2 overflow-hidden md:flex-nowrap">
-              {ABOVE_WATER_CHIPS.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-[4px] border border-nv-teal/18 bg-nv-teal/10 px-3 py-1 text-xs text-nv-teal transition hover:border-nv-teal/18 md:shrink-0"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="absolute right-5 left-5 z-20 rounded-2xl border border-violet-200/15 bg-nv-bg/60 p-4 md:p-5"
-            style={{ top: `calc(${WATERLINE_TOP} + 16px)` }}
-          >
-            <p className="text-xs uppercase tracking-[0.22em] text-nv-copper">Below the water</p>
-            <div className="mt-3 flex min-w-0 flex-wrap justify-end gap-2 overflow-hidden md:flex-nowrap">
-              {BELOW_WATER_CHIPS.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-[999px] border border-violet-200/30 bg-violet-300/5 px-3 py-1 text-xs text-nv-copper transition hover:border-violet-200/50 md:shrink-0"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
+          <span className="nv-pill nv-pill-teal">Above water · features &amp; UI</span>
+          <span className="nv-pill" style={{ color: 'rgb(var(--nv-accent-copper))', borderColor: 'rgb(var(--nv-accent-copper) / 0.35)', background: 'rgb(var(--nv-accent-copper) / 0.08)' }}>Below water · ownership &amp; control</span>
         </div>
-      </section>
+      </HeroBackground>
+
+      <div className="nv-page" style={{ paddingTop: 0 }}>
 
       <section className="nv-section">
         <div className="nv-card" style={{ padding: '20px 24px' }}>
@@ -294,6 +238,7 @@ export default function SaaSIcebergPage() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

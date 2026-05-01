@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import { NvCard } from '@/components/marketing/ui/NvCard';
 import { NvButton } from '@/components/marketing/ui/NvButton';
+import { DataPipelineFlow } from '@/components/marketing/visual/DataPipelineFlow';
+import { HeroBackground } from '@/components/marketing/HeroBackground';
+import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
+
+const HERO_BG = '/assets/bg-data-strategy.jpg';
 
 export const metadata: Metadata = {
   title: 'Comprehensive Data Strategy | Novendor',
@@ -8,29 +13,6 @@ export const metadata: Metadata = {
     'We design and build the data systems your business actually runs on — from source systems to executive reporting, structured, governed, and tied to decisions.',
   alternates: { canonical: '/capabilities/comprehensive-data-strategy' },
 };
-
-const coverage = [
-  {
-    title: 'Data warehouse design',
-    detail: 'Modern lakehouse and warehouse on Databricks, Snowflake, or Azure. Modeled around the questions leadership actually asks.',
-  },
-  {
-    title: 'System integration',
-    detail: 'Pull from the systems where the work lives — Yardi, MRI, Salesforce, internal tools — with explicit ownership and freshness contracts.',
-  },
-  {
-    title: 'Semantic layer + reporting',
-    detail: 'Governed metrics in Power BI so every number on a slide ties back to a definition the team agreed on.',
-  },
-  {
-    title: 'Pipeline automation',
-    detail: 'ETL/ELT in Python and SQL with state, retries, and observability. No more "the report is late because something failed overnight".',
-  },
-  {
-    title: 'Data governance',
-    detail: 'Validation, access control, and lineage as part of the build, not as a later cleanup project.',
-  },
-];
 
 const outcomes = [
   'One source of truth across the systems that matter.',
@@ -63,9 +45,11 @@ const surfaces = [
 ];
 
 export default function ComprehensiveDataStrategyPage() {
+  const bgSrc = fileExistsInPublic(HERO_BG) ? HERO_BG : undefined;
+
   return (
-    <div className="nv-page">
-      <header style={{ paddingBottom: 48, borderBottom: '1px solid var(--nv-hair-medium-rgba)' }}>
+    <>
+      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
         <p className="nv-eyebrow">
           <span className="nv-eyebrow-dot" />
           Capability · Data
@@ -82,20 +66,14 @@ export default function ComprehensiveDataStrategyPage() {
             Talk through your data stack
           </NvButton>
         </div>
-      </header>
+      </HeroBackground>
 
-      <section className="nv-section">
+      <div className="nv-page" style={{ paddingTop: 0 }}>
+        <section className="nv-section">
         <div className="nv-section-head">
           <p className="nv-eyebrow">What this covers</p>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          {coverage.map((item) => (
-            <NvCard key={item.title}>
-              <h3 className="nv-h3" style={{ marginBottom: 8 }}>{item.title}</h3>
-              <p className="nv-body" style={{ margin: 0 }}>{item.detail}</p>
-            </NvCard>
-          ))}
-        </div>
+        <DataPipelineFlow />
       </section>
 
       <section className="nv-section">
@@ -160,6 +138,7 @@ export default function ComprehensiveDataStrategyPage() {
           </div>
         </NvCard>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
