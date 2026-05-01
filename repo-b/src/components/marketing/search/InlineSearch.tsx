@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import MiniSearch from 'minisearch';
-import { Search } from 'lucide-react';
+import { IconSearch } from '../ui/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractSnippet, SearchDocument } from '@/lib/marketing/search';
 
@@ -133,7 +133,7 @@ export function InlineSearch() {
         Search site
       </label>
       <div className="flex w-full items-center gap-3 rounded-full border border-nv-text/10 bg-nv-surface/60 px-4 py-2 text-sm text-nv-muted transition hover:border-nv-text/20">
-        <Search size={16} className="text-nv-dim" />
+        <IconSearch size={16} className="text-nv-dim" />
         <input
           id="site-search"
           ref={inputRef}

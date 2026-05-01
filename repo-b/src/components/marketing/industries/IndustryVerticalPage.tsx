@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Scale, Stethoscope, Wallet } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { INDUSTRY_VERTICALS, type IndustryVertical } from '@content/industry-verticals';
 import { industryBackgrounds } from '@/lib/marketing/industryThemes';
 import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
@@ -7,29 +7,38 @@ import { ControlLayerDiagram } from '../visual/ControlLayerDiagram';
 import { HeroBackground } from '../HeroBackground';
 import { NvButton } from '../ui/NvButton';
 import { NvCard } from '../ui/NvCard';
+import {
+  IconBuilding,
+  IconScales,
+  IconStethoscope,
+  IconWallet,
+  type NvIconProps,
+} from '../ui/icons';
 
-const labels: Record<IndustryVertical['slug'], { label: string; Icon: typeof Building2; microCase: string }> = {
+type IconType = ComponentType<NvIconProps>;
+
+const labels: Record<IndustryVertical['slug'], { label: string; Icon: IconType; microCase: string }> = {
   'real-estate-private-equity': {
     label: 'AI-Ready Fund Data',
-    Icon: Building2,
+    Icon: IconBuilding,
     microCase:
       'A mid-market PE firm rebuilt the data flow behind their capital calls. Errors dropped from 5% to 1%. The same data now feeds the LP report, the IC pack, and the AI summary the GP reads on a Sunday night.'
   },
   'consumer-credit': {
     label: 'AI-Ready Credit Decisions',
-    Icon: Wallet,
+    Icon: IconWallet,
     microCase:
       'A mid-market lender pulled their credit policy out of PDF, captured every override against the rule that triggered it, and rebuilt the exception queue as a workflow. Routing delays dropped 29%. The first AI assist they deployed cited policy by section number. The compliance team stopped asking what the model was doing.'
   },
   medical: {
     label: 'AI-Ready Revenue Cycle',
-    Icon: Stethoscope,
+    Icon: IconStethoscope,
     microCase:
       'A multi-site provider pulled denial data out of every payer portal into one queue with one set of rules. Denial rework dropped 27%. The AI denial-prediction tool they had been piloting for six months started catching denials before they happened, because for the first time, it could see them all.'
   },
   legal: {
     label: 'AI-Ready Matter Data',
-    Icon: Scale,
+    Icon: IconScales,
     microCase:
       'A regional firm rewrote intake for one practice group, captured matter state changes in the system, and tied billing narratives to the underlying events. Intake handoff errors dropped 34%. The drafting AI tool the firm had bought a year earlier finally produced output partners would sign, because the inputs finally matched the firm\'s actual taxonomy.'
   }

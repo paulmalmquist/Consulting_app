@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu } from 'lucide-react';
+import { IconMenu } from '../ui/icons';
 import { InlineSearch } from '../search/InlineSearch';
 import { AccountButton } from './AccountButton';
 
@@ -24,7 +24,7 @@ export function Topbar({ setDrawerOpen }: TopbarProps) {
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
-            <Menu size={18} />
+            <IconMenu size={18} />
           </button>
           <div className="hidden flex-1 items-center gap-3 md:flex">
             <InlineSearch />

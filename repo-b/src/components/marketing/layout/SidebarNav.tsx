@@ -6,22 +6,23 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NovendorWordmark } from '@/components/marketing/branding/NovendorWordmark';
 import {
-  ArrowRightLeft,
-  BarChart3,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardCheck,
-  Compass,
-  Factory,
-  House,
-  Layers3,
-  Mail,
-  UserRound,
-  Workflow,
-  X
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+  IconBarChart,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconClipboard,
+  IconClose,
+  IconCompass,
+  IconHome,
+  IconIndustries,
+  IconMail,
+  IconShift,
+  IconStack,
+  IconUser,
+  IconWorkflow,
+  type NvIconProps,
+} from '../ui/icons';
+import type { ComponentType } from 'react';
 import navigation from '@content/navigation.json';
 import { cn } from '../ui/cn';
 
@@ -52,17 +53,19 @@ const VISIBLE_NAV_GROUPS = navigation.groups
   }))
   .filter((group) => group.items.length > 0);
 
-const NAV_ICON_BY_LABEL: Record<string, LucideIcon> = {
-  Home: House,
-  'AI Concierge': Compass,
-  'What We Do': Workflow,
-  'The Shift': ArrowRightLeft,
-  'Comprehensive Data Strategy': BarChart3,
-  'Legacy SaaS Migration': Layers3,
-  Industries: Factory,
-  'Operational Assessment': ClipboardCheck,
-  About: UserRound,
-  Contact: Mail
+type NvIcon = ComponentType<NvIconProps>;
+
+const NAV_ICON_BY_LABEL: Record<string, NvIcon> = {
+  Home: IconHome,
+  'AI Concierge': IconCompass,
+  'What We Do': IconWorkflow,
+  'The Shift': IconShift,
+  'Comprehensive Data Strategy': IconBarChart,
+  'Legacy SaaS Migration': IconStack,
+  Industries: IconIndustries,
+  'Operational Assessment': IconClipboard,
+  About: IconUser,
+  Contact: IconMail
 };
 
 type LayoutState = {
@@ -133,7 +136,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
                 role="img"
                 aria-label={`${item.label} icon`}
               >
-                <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
+                <Icon aria-hidden="true" />
               </span>
               <span className={cn('truncate', isCollapsed && 'sr-only')}>{item.label}</span>
             </Link>
@@ -147,7 +150,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
               aria-label={industriesOpen ? 'Collapse industries list' : 'Expand industries list'}
               aria-expanded={industriesOpen}
             >
-              <ChevronDown size={14} className={cn('transition-transform duration-300', industriesOpen ? 'rotate-0' : '-rotate-90')} />
+              <IconChevronDown size={14} className={cn('transition-transform duration-300', industriesOpen ? 'rotate-0' : '-rotate-90')} />
             </button>
           </div>
 
@@ -247,7 +250,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
           onClick={toggleCollapsed}
           aria-label="Toggle sidebar"
         >
-          {isCollapsed ? <ChevronRight size={16} strokeWidth={1.8} /> : <ChevronLeft size={16} strokeWidth={1.8} />}
+          {isCollapsed ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
         </button>
         <button
           type="button"
@@ -255,7 +258,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
           onClick={() => setDrawerOpen(false)}
           aria-label="Close menu"
         >
-          <X size={18} />
+          <IconClose size={18} />
         </button>
       </div>
 
@@ -269,7 +272,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
               aria-expanded={openGroups[group.title]}
             >
               <span className={cn(isCollapsed && 'sr-only')}>{group.title}</span>
-              <ChevronDown
+              <IconChevronDown
                 size={14}
                 className={cn('transition', openGroups[group.title] ? 'rotate-0' : '-rotate-90', isCollapsed && 'hidden')}
               />
