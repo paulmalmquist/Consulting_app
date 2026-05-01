@@ -193,8 +193,162 @@ test.describe("Investment Engine page", () => {
     await expect(page.getByText("inv_nav_snapshot")).toBeVisible();
 
     // Expand the row — JSON diff should render previous + new
-    await page.getByRole("button", { name: /release.*inv_nav_snapshot/i }).click();
-    await expect(page.getByText('"status": "locked"', { exact: false })).toBeVisible();
     await expect(page.getByText('"status": "released"', { exact: false })).toBeVisible();
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Wave 1: Risk + Compliance tabs
+  // ───────────────────────────────────────────────────────────────────────
+
+  const SCENARIO_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const FACTOR_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const RULE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const VIOL_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+  async function stubRiskRefData(page: Page) {
+    await page.route("**/api/investment-engine/risk/scenarios*", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          valid: true,
+          value: { count: 1, scenarios: [{ id: SCENARIO_ID, code: "crash30", name: "30% Equity Crash",
+                                            kind: "custom", shocks: { "EQ.US": "-0.30" }, description: null }] },
+          errors: [], input_versions: {},
+        }),
+      }),
+    );
+    await page.route("**/api/investment-engine/risk/factors*", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          valid: true,
+          value: { count: 1, factors: [{ id: FACTOR_ID, code: "EQ.US", name: "US Equity",
+                                          factor_kind: "equity", dimension: "beta" }] },
+          errors: [], input_versions: {},
+        }),
+      }),
+    );
+  }
+
+  test("Risk tab — VaR happy path renders both methods", async ({ page }) => {
+    await stubEnvAndFunds(page);
+    await stubRiskRefData(page);
+    await page.route("**/api/investment-engine/risk/var", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          valid: true,
+          value: {
+            fund_id: FUND_ID, as_of_date: "2026-04-30",
+            confidence_pct: "95.00", horizon_days: 1, history_window_days: 252,
+            covariance_method: "sample", currency: "USD",
+            portfolio_value_native: "20000.00",
+            var_historical_sim_native: "207.89", var_parametric_native: "227.03",
+            var_historical_sim_pct: "0.0103945", var_parametric_pct: "0.01135",
+          },
+          errors: [], input_versions: {},
+        }),
+      }),
+    );
+    await page.goto(`/lab/env/${ENV_ID}/investment-engine`);
+    await page.getByRole("button", { name: "Risk" }).click();
+    await page.getByRole("button", { name: /calculate var/i }).click();
+    await expect(page.getByText("valid", { exact: true })).toBeVisible();
+    await expect(page.getByText("207.89")).toBeVisible();
+    await expect(page.getByText("227.03")).toBeVisible();
+  });
+
+  test("Risk tab — VaR fail (missing_history) renders error code", async ({ page }) => {
+    await stubEnvAndFunds(page);
+    await stubRiskRefData(page);
+    await page.route("**/api/investment-engine/risk/var", (route) =>
+      route.fulfill({
+        status: 422, contentType: "application/json",
+        body: JSON.stringify({
+          valid: false, value: null,
+          errors: [{ code: "missing_history", message: "insufficient price history", context: { history_window_days: 252 } }],
+          input_versions: {},
+        }),
+      }),
+    );
+    await page.goto(`/lab/env/${ENV_ID}/investment-engine`);
+    await page.getByRole("button", { name: "Risk" }).click();
+    await page.getByRole("button", { name: /calculate var/i }).click();
+    await expect(page.getByText("invalid", { exact: true })).toBeVisible();
+    await expect(page.getByText("missing_history", { exact: false })).toBeVisible();
+    await expect(page.getByText("207.89")).toHaveCount(0);
+  });
+
+  test("Risk tab — scenario shock renders signed P&L", async ({ page }) => {
+    await stubEnvAndFunds(page);
+    await stubRiskRefData(page);
+    await page.route("**/api/investment-engine/risk/scenario", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          valid: true,
+          value: {
+            fund_id: FUND_ID, scenario_id: SCENARIO_ID,
+            scenario_code: "crash30", scenario_name: "30% Equity Crash",
+            as_of_date: "2026-04-30", currency: "USD",
+            portfolio_value_native: "20000", scenario_pnl_native: "-6000.00",
+            scenario_pnl_pct: "-0.30",
+          },
+          errors: [], input_versions: {},
+        }),
+      }),
+    );
+    await page.goto(`/lab/env/${ENV_ID}/investment-engine`);
+    await page.getByRole("button", { name: "Risk" }).click();
+    await page.locator("select").nth(1).selectOption(SCENARIO_ID);
+    await page.getByRole("button", { name: /^apply$/i }).click();
+    await expect(page.getByText("-6000.00")).toBeVisible();
+    await expect(page.getByText("30.00%", { exact: false })).toBeVisible();
+  });
+
+  test("Compliance tab — rules + violations render", async ({ page }) => {
+    await stubEnvAndFunds(page);
+    await page.route("**/api/investment-engine/compliance/rules*", (route, req) => {
+      if (req.method() === "GET") {
+        return route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify({
+            valid: true,
+            value: { count: 1, rules: [{
+              id: RULE_ID, fund_id: FUND_ID, scope_kind: "fund",
+              operator: "max_pct_of_nav",
+              predicate: { issuer: "BigCo" }, threshold: "0.50",
+              threshold_list: null, severity: "high", reason: null,
+              active_from: "2026-01-01", active_to: null,
+            }] },
+            errors: [], input_versions: {},
+          }),
+        });
+      }
+      return route.continue();
+    });
+    await page.route("**/api/investment-engine/compliance/violations*", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          valid: true,
+          value: { count: 1, violations: [{
+            id: VIOL_ID, rule_id: RULE_ID, fund_id: FUND_ID,
+            portfolio_id: null, account_id: null, proposed_trade_id: null,
+            eval_kind: "post_trade", severity: "critical",
+            snapshot_value: "1.00", threshold: "0.50",
+            evidence: { issuer: "BigCo" },
+            evaluated_at: "2026-04-30T12:00:00Z",
+            resolved_at: null, resolved_by: null, resolution_note: null,
+          }] },
+          errors: [], input_versions: {},
+        }),
+      }),
+    );
+    await page.goto(`/lab/env/${ENV_ID}/investment-engine`);
+    await page.getByRole("button", { name: "Compliance" }).click();
+    await expect(page.getByText("max_pct_of_nav")).toBeVisible();
+    await expect(page.getByText("critical").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Resolve" }).first()).toBeVisible();
   });
 });

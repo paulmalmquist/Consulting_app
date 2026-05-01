@@ -774,3 +774,295 @@ def post_resolve_violation(violation_id: UUID, req: ResolveViolationRequest, req
         resolved_by=req.resolved_by, resolution_note=req.resolution_note,
     )
     return _engine_response(result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 2 — OMS + EMS routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+from app.services import oms_engine, ems_engine
+
+
+# ── Order lifecycle ──────────────────────────────────────────────────────────
+
+class CreateOrderIdeaRequest(_Strict):
+    fund_id: UUID
+    portfolio_id: Optional[UUID] = None
+    account_id: Optional[UUID] = None
+    security_id: UUID
+    side: str
+    qty: str
+    order_type: str = "market"
+    limit_price: Optional[str] = None
+    stop_price: Optional[str] = None
+    time_in_force: str = "day"
+    proposed_by: str
+    correlation_id: Optional[str] = None
+    metadata: Optional[dict] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/ideas")
+def post_create_idea(req: CreateOrderIdeaRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    result = oms_engine.create_idea(
+        env_id=env_id, business_id=business_id,
+        fund_id=req.fund_id, portfolio_id=req.portfolio_id,
+        account_id=req.account_id, security_id=req.security_id,
+        side=req.side, qty=Decimal(req.qty),
+        order_type=req.order_type,
+        limit_price=Decimal(req.limit_price) if req.limit_price else None,
+        stop_price=Decimal(req.stop_price) if req.stop_price else None,
+        time_in_force=req.time_in_force,
+        proposed_by=req.proposed_by,
+        correlation_id=req.correlation_id,
+        metadata=req.metadata,
+    )
+    return _engine_response(result, success_status=201)
+
+
+class OrderActorRequest(_Strict):
+    actor: str
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/{order_id}/submit")
+def post_submit_order(order_id: UUID, req: OrderActorRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(oms_engine.submit_order(
+        env_id=env_id, business_id=business_id,
+        order_id=order_id, actor=req.actor, correlation_id=req.correlation_id,
+    ))
+
+
+class EvaluatePreTradeOrderRequest(_Strict):
+    actor: str
+    as_of_date: date_type
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/{order_id}/evaluate-pre-trade")
+def post_evaluate_pre_trade(order_id: UUID, req: EvaluatePreTradeOrderRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(oms_engine.evaluate_pre_trade_compliance(
+        env_id=env_id, business_id=business_id, order_id=order_id,
+        as_of_date=req.as_of_date, actor=req.actor,
+        correlation_id=req.correlation_id,
+    ))
+
+
+class ApproveOrderRequest(_Strict):
+    actor: str
+    override_reason: Optional[str] = None
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/{order_id}/approve")
+def post_approve_order(order_id: UUID, req: ApproveOrderRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(oms_engine.approve_order(
+        env_id=env_id, business_id=business_id, order_id=order_id,
+        actor=req.actor, override_reason=req.override_reason,
+        correlation_id=req.correlation_id,
+    ))
+
+
+class RouteOrderRequest(_Strict):
+    actor: str
+    routed_to: str
+    routing_metadata: Optional[dict] = None
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/{order_id}/route")
+def post_route_order(order_id: UUID, req: RouteOrderRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(oms_engine.route_order(
+        env_id=env_id, business_id=business_id, order_id=order_id,
+        routed_to=req.routed_to, actor=req.actor,
+        routing_metadata=req.routing_metadata,
+        correlation_id=req.correlation_id,
+    ))
+
+
+class CancelOrderRequest(_Strict):
+    actor: str
+    cancel_reason: Optional[str] = None
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/orders/{order_id}/cancel")
+def post_cancel_order(order_id: UUID, req: CancelOrderRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(oms_engine.cancel_order(
+        env_id=env_id, business_id=business_id, order_id=order_id,
+        actor=req.actor, cancel_reason=req.cancel_reason,
+        correlation_id=req.correlation_id,
+    ))
+
+
+@router.get("/orders/{order_id}")
+def get_order_route(order_id: UUID, request: Request,
+                     env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    return _engine_response(oms_engine.get_order(
+        env_id=env_id_resolved, order_id=order_id,
+    ))
+
+
+@router.get("/orders/{order_id}/events")
+def get_order_events(order_id: UUID, request: Request,
+                      env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    return _engine_response(oms_engine.list_order_events(
+        env_id=env_id_resolved, order_id=order_id,
+    ))
+
+
+@router.get("/orders")
+def list_orders(request: Request,
+                 env_id: Optional[str] = Query(default=None),
+                 fund_id: Optional[UUID] = Query(default=None),
+                 status: Optional[str] = Query(default=None),
+                 limit: int = Query(default=200, ge=1, le=1000)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    where = ["env_id = %s"]
+    params: list = [env_id_resolved]
+    if fund_id is not None:
+        where.append("fund_id = %s"); params.append(str(fund_id))
+    if status:
+        where.append("status = %s"); params.append(status)
+    sql = f"""
+        SELECT id, fund_id, portfolio_id, account_id, security_id,
+               side, qty, order_type, limit_price, stop_price, status,
+               pre_trade_compliance_state, pre_trade_violation_count,
+               filled_qty, avg_fill_price_native, fill_currency,
+               proposed_by, approved_by, created_at, updated_at
+        FROM inv_order
+        WHERE {' AND '.join(where)}
+        ORDER BY created_at DESC
+        LIMIT {int(limit)}
+    """
+    with get_cursor() as cur:
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall()
+    return JSONResponse(content=_jsonify({
+        "valid": True,
+        "value": {"count": len(rows), "orders": rows},
+        "errors": [], "input_versions": {},
+    }))
+
+
+# ── Executions + allocations ─────────────────────────────────────────────────
+
+class RecordExecutionRequest(_Strict):
+    order_id: UUID
+    qty: str
+    price_native: str
+    price_currency: str
+    broker: str
+    venue: Optional[str] = None
+    external_exec_id: Optional[str] = None
+    fee_native: Optional[str] = None
+    fee_currency: Optional[str] = None
+    actor: str = "ems"
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/executions")
+def post_record_execution(req: RecordExecutionRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(ems_engine.record_execution(
+        env_id=env_id, business_id=business_id,
+        order_id=req.order_id, qty=Decimal(req.qty),
+        price_native=Decimal(req.price_native),
+        price_currency=req.price_currency,
+        broker=req.broker, venue=req.venue,
+        external_exec_id=req.external_exec_id,
+        fee_native=Decimal(req.fee_native) if req.fee_native else Decimal("0"),
+        fee_currency=req.fee_currency,
+        actor=req.actor, correlation_id=req.correlation_id,
+    ), success_status=201)
+
+
+class AllocateExecutionRequest(_Strict):
+    allocations: list[dict]   # [{account_id, qty}]
+    actor: str = "ems"
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/executions/{execution_id}/allocate")
+def post_allocate_execution(execution_id: UUID, req: AllocateExecutionRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    # Coerce qty to Decimal
+    allocations = [{"account_id": a["account_id"], "qty": Decimal(str(a["qty"]))}
+                    for a in req.allocations]
+    return _engine_response(ems_engine.allocate_execution(
+        env_id=env_id, business_id=business_id,
+        execution_id=execution_id, allocations=allocations,
+        actor=req.actor, correlation_id=req.correlation_id,
+    ))
+
+
+class UpdateSettlementRequest(_Strict):
+    new_state: str   # settled | failed | cancelled
+    settlement_date: Optional[date_type] = None
+    failure_reason: Optional[str] = None
+    actor: str = "ops"
+    correlation_id: Optional[str] = None
+    env_id: Optional[str] = None
+    business_id: Optional[UUID] = None
+
+
+@router.post("/executions/{execution_id}/settlement")
+def post_update_settlement(execution_id: UUID, req: UpdateSettlementRequest, request: Request):
+    env_id, business_id = _ctx(request, req.env_id, req.business_id)
+    return _engine_response(ems_engine.update_settlement_state(
+        env_id=env_id, business_id=business_id,
+        execution_id=execution_id, new_state=req.new_state,
+        settlement_date=req.settlement_date,
+        failure_reason=req.failure_reason,
+        actor=req.actor, correlation_id=req.correlation_id,
+    ))
+
+
+@router.get("/executions/{execution_id}")
+def get_execution_route(execution_id: UUID, request: Request,
+                         env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    return _engine_response(ems_engine.get_execution(
+        env_id=env_id_resolved, execution_id=execution_id,
+    ))
+
+
+@router.get("/executions/{execution_id}/allocations")
+def get_allocations(execution_id: UUID, request: Request,
+                     env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    return _engine_response(ems_engine.list_allocations(
+        env_id=env_id_resolved, execution_id=execution_id,
+    ))
+
+
+@router.get("/orders/{order_id}/executions")
+def list_order_executions(order_id: UUID, request: Request,
+                           env_id: Optional[str] = Query(default=None)):
+    env_id_resolved, _ = _ctx(request, env_id, None)
+    return _engine_response(ems_engine.list_executions_for_order(
+        env_id=env_id_resolved, order_id=order_id,
+    ))

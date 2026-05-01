@@ -13234,6 +13234,7 @@ export function produceNavSnapshot(envId: string, fundId: string, effectiveDate:
   });
 }
 
+
 export function lockNavSnapshot(envId: string, snapshotId: string, businessId?: string, actor = "ui"): Promise<InvEngineResult<unknown>> {
   return bosFetch(`${INV_BASE}/snapshots/nav/${snapshotId}/lock`, {
     method: "POST",
@@ -13316,4 +13317,209 @@ export function listInvAuditTimeline(envId: string, opts: { entityType?: string;
   if (opts.changeType) params.change_type = opts.changeType;
   if (opts.limit) params.limit = String(opts.limit);
   return bosFetch(`${INV_BASE}/audit/timeline`, { params });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 1 — Risk Engine clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InvFactor = { id: string; code: string; name: string; factor_kind: string; dimension: string };
+export type InvScenario = {
+  id: string; code: string; name: string; kind: string;
+  shocks: Record<string, string>; description: string | null;
+};
+
+export type InvVarValue = {
+  fund_id: string;
+  as_of_date: string;
+  confidence_pct: string;
+  horizon_days: number;
+  history_window_days: number;
+  covariance_method: string;
+  currency: string;
+  portfolio_value_native: string;
+  var_historical_sim_native: string;
+  var_parametric_native: string;
+  var_historical_sim_pct: string;
+  var_parametric_pct: string;
+};
+
+export type InvScenarioValue = {
+  fund_id: string;
+  scenario_id: string;
+  scenario_code: string;
+  scenario_name: string;
+  as_of_date: string;
+  currency: string;
+  portfolio_value_native: string;
+  scenario_pnl_native: string;
+  scenario_pnl_pct: string;
+};
+
+export type InvFactorExposureValue = {
+  fund_id: string;
+  as_of_date: string;
+  portfolio_value_native: string;
+  exposures: Record<string, { factor_id: string; factor_name: string; exposure_native: string }>;
+};
+
+export function listInvFactors(envId: string): Promise<InvEngineResult<{ count: number; factors: InvFactor[] }>> {
+  return bosFetch(`${INV_BASE}/risk/factors`, { params: { env_id: envId } });
+}
+
+export function listInvScenarios(envId: string): Promise<InvEngineResult<{ count: number; scenarios: InvScenario[] }>> {
+  return bosFetch(`${INV_BASE}/risk/scenarios`, { params: { env_id: envId } });
+}
+
+export function calcVar(
+  envId: string, fundId: string, asOfDate: string,
+  opts: { confidencePct?: string; horizonDays?: number; historyWindowDays?: number; ewmaLambda?: string } = {},
+  businessId?: string,
+): Promise<InvEngineResult<InvVarValue>> {
+  return bosFetch(`${INV_BASE}/risk/var`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId, as_of_date: asOfDate,
+      confidence_pct: opts.confidencePct ?? "95.00",
+      horizon_days: opts.horizonDays ?? 1,
+      history_window_days: opts.historyWindowDays ?? 252,
+      ewma_lambda: opts.ewmaLambda,
+      env_id: envId, business_id: businessId,
+    }),
+  });
+}
+
+export function applyScenario(
+  envId: string, fundId: string, asOfDate: string, scenarioId: string, businessId?: string,
+): Promise<InvEngineResult<InvScenarioValue>> {
+  return bosFetch(`${INV_BASE}/risk/scenario`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId, as_of_date: asOfDate, scenario_id: scenarioId,
+      env_id: envId, business_id: businessId,
+    }),
+  });
+}
+
+export function calcFactorExposure(
+  envId: string, fundId: string, asOfDate: string, factorId?: string, businessId?: string,
+): Promise<InvEngineResult<InvFactorExposureValue>> {
+  return bosFetch(`${INV_BASE}/risk/factor-exposure`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId, as_of_date: asOfDate, factor_id: factorId,
+      env_id: envId, business_id: businessId,
+    }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 1 — Compliance clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InvComplianceRule = {
+  id: string; fund_id: string | null; scope_kind: string; operator: string;
+  predicate: Record<string, unknown>; threshold: string | null;
+  threshold_list: string[] | null; severity: string; reason: string | null;
+  active_from: string; active_to: string | null;
+};
+
+export type InvComplianceViolation = {
+  id: string; rule_id: string; fund_id: string | null; portfolio_id: string | null;
+  account_id: string | null; proposed_trade_id: string | null;
+  eval_kind: string; severity: string;
+  snapshot_value: string | null; threshold: string | null;
+  evidence: Record<string, unknown>;
+  evaluated_at: string; resolved_at: string | null;
+  resolved_by: string | null; resolution_note: string | null;
+};
+
+export function listComplianceRules(
+  envId: string, fundId?: string, asOf?: string,
+): Promise<InvEngineResult<{ rules: InvComplianceRule[]; count: number }>> {
+  const params: Record<string, string | undefined> = { env_id: envId };
+  if (fundId) params.fund_id = fundId;
+  if (asOf) params.as_of = asOf;
+  return bosFetch(`${INV_BASE}/compliance/rules`, { params });
+}
+
+export function createComplianceRule(envId: string, body: {
+  operator: string;
+  fund_id?: string;
+  scope_kind?: string;
+  predicate?: Record<string, unknown>;
+  threshold?: string;
+  threshold_list?: string[];
+  severity?: string;
+  reason?: string;
+  active_from: string;
+  active_to?: string;
+  business_id?: string;
+}): Promise<InvEngineResult<{ id: string }>> {
+  return bosFetch(`${INV_BASE}/compliance/rules`, {
+    method: "POST",
+    body: JSON.stringify({ env_id: envId, ...body }),
+  });
+}
+
+export function deactivateComplianceRule(
+  envId: string, ruleId: string, asOf: string, businessId?: string,
+): Promise<InvEngineResult<{ id: string; active_to: string }>> {
+  return bosFetch(`${INV_BASE}/compliance/rules/${ruleId}/deactivate`, {
+    method: "POST",
+    body: JSON.stringify({ as_of: asOf, env_id: envId, business_id: businessId }),
+  });
+}
+
+export function evaluatePostTrade(
+  envId: string, fundId: string, asOfDate: string,
+  persist = true, businessId?: string,
+): Promise<InvEngineResult<{ violations: unknown[]; summary: Record<string, unknown>; eval_kind: string }>> {
+  return bosFetch(`${INV_BASE}/compliance/evaluate/post-trade`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId, as_of_date: asOfDate, persist,
+      env_id: envId, business_id: businessId,
+    }),
+  });
+}
+
+export function evaluatePreTrade(
+  envId: string, fundId: string, asOfDate: string,
+  proposedTrade: Record<string, unknown>, businessId?: string,
+): Promise<InvEngineResult<{ violations: unknown[]; summary: Record<string, unknown> }>> {
+  return bosFetch(`${INV_BASE}/compliance/evaluate/pre-trade`, {
+    method: "POST",
+    body: JSON.stringify({
+      fund_id: fundId, as_of_date: asOfDate,
+      proposed_trade: proposedTrade,
+      env_id: envId, business_id: businessId,
+    }),
+  });
+}
+
+export function listComplianceViolations(
+  envId: string, opts: { fundId?: string; evalKind?: string; severity?: string; resolved?: boolean | null; limit?: number } = {},
+): Promise<InvEngineResult<{ count: number; violations: InvComplianceViolation[] }>> {
+  const params: Record<string, string | undefined> = { env_id: envId };
+  if (opts.fundId) params.fund_id = opts.fundId;
+  if (opts.evalKind) params.eval_kind = opts.evalKind;
+  if (opts.severity) params.severity = opts.severity;
+  if (opts.resolved === true) params.resolved = "true";
+  if (opts.resolved === false) params.resolved = "false";
+  if (opts.limit) params.limit = String(opts.limit);
+  return bosFetch(`${INV_BASE}/compliance/violations`, { params });
+}
+
+export function resolveComplianceViolation(
+  envId: string, violationId: string, resolvedBy: string,
+  resolutionNote?: string, businessId?: string,
+): Promise<InvEngineResult<{ id: string; resolved: true }>> {
+  return bosFetch(`${INV_BASE}/compliance/violations/${violationId}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({
+      resolved_by: resolvedBy, resolution_note: resolutionNote,
+      env_id: envId, business_id: businessId,
+    }),
+  });
 }

@@ -23,7 +23,7 @@ export function HeroBackground({
   imageAlt = '',
   className,
   contentClassName,
-  overlayOpacity = 0.55,
+  overlayOpacity = 0.65,
   children,
 }: HeroBackgroundProps) {
   return (
