@@ -277,16 +277,13 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
       </nav>
 
       <div className="px-4 pb-5">
-        <div className="rounded-[8px] shadow-nv-surface bg-nv-raised/80 p-4 text-xs text-nv-muted">
-          <p className={cn(isCollapsed && 'sr-only')}>Ready to talk?</p>
-          <Link
-            href="/contact"
-            onClick={() => setDrawerOpen(false)}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-[4px] bg-gradient-to-b from-[#5EC2B7] to-nv-teal px-3 py-2 text-xs font-semibold text-[#0B1E1C] shadow-nv-btn-primary transition hover:-translate-y-px"
-          >
-            Start with one workflow
-          </Link>
-        </div>
+        <Link
+          href="/contact"
+          onClick={() => setDrawerOpen(false)}
+          className="inline-flex w-full items-center justify-center rounded-[4px] bg-gradient-to-b from-[#5EC2B7] to-nv-teal px-3 py-2 text-xs font-medium text-[#0B1E1C] shadow-nv-btn-primary transition hover:-translate-y-px"
+        >
+          <span className={cn(isCollapsed && 'sr-only')}>Ready to talk</span>
+        </Link>
       </div>
     </aside>
   );

@@ -45,7 +45,7 @@ export default function AboutPage() {
             <p className="nv-eyebrow" style={{ marginBottom: 8 }}>Co-founder</p>
             <h3 className="nv-h3" style={{ marginBottom: 12 }}>Richard de Oliveira</h3>
             <p className="nv-body">
-              Richard brings operating, client, and execution experience that helps translate business problems into practical rollout plans. His focus is making sure AI adoption stays grounded in real workflows, clear ownership, and measurable business value.
+              Richard brings two decades of credit risk and analytics leadership across private credit and consumer lending — running origination, policy, scorecards, and portfolio reporting at scale. He turns lending policy into systems operators can run: clear states, documented rules, and decisions tied back to the data behind them. His focus at Novendor is making sure AI adoption stays grounded in real workflows, clear ownership, and measurable business value.
             </p>
             <div style={{ marginTop: 24 }}>
               <NvButton variant="secondary" href="/richard">View Richard&apos;s resume</NvButton>
