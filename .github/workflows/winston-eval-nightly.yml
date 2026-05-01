@@ -27,6 +27,20 @@ jobs:
     name: Run Winston eval (${{ matrix.target.environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +53,7 @@ jobs:
             env_secret: WINSTON_EVAL_NOVENDOR_ENV_ID
 
     env:
-      DATABASE_URL: ${{ secrets.WINSTON_EVAL_DATABASE_POOLER_URL || secrets.WINSTON_EVAL_DATABASE_URL }}
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/app
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -50,6 +64,7 @@ jobs:
       WINSTON_EVAL_BUSINESS_ID: ${{ secrets[matrix.target.business_secret] || secrets.WINSTON_EVAL_BUSINESS_ID }}
       WINSTON_EVAL_ENV_ID: ${{ secrets[matrix.target.env_secret] || secrets.WINSTON_EVAL_ENV_ID }}
       AI_GATEWAY_ENABLED: "true"
+      NODE_ENV: test
 
     steps:
       - name: Checkout
@@ -62,16 +77,43 @@ jobs:
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: repo-b/package-lock.json
+
       - name: Install backend dependencies
         run: |
           cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install repo-b dependencies
+        run: |
+          cd repo-b
+          npm ci
+
+      - name: Bootstrap pgvector in PostGIS container
+        run: |
+          POSTGIS_CID=$(docker ps -q --filter ancestor=postgis/postgis:16-3.5 | head -n 1)
+          if [ -z "$POSTGIS_CID" ]; then
+            echo "No running PostGIS container found"
+            exit 1
+          fi
+          docker exec "$POSTGIS_CID" bash -lc "apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app -At -c "SELECT extname FROM pg_extension WHERE extname = 'vector';" | grep -qx "vector"
+          echo "pgvector bootstrap complete - vector extension confirmed in pg_extension"
+
+      - name: Apply database schema
+        run: make db:migrate
+
       - name: Sanity-check DATABASE_URL
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "::error::Set WINSTON_EVAL_DATABASE_POOLER_URL or WINSTON_EVAL_DATABASE_URL"
+            echo "::error::DATABASE_URL is not set"
             exit 1
           fi
           if [ -z "$WINSTON_EVAL_BUSINESS_ID" ]; then
