@@ -23,6 +23,7 @@ export const workspaceTemplateRegistry = {
   engagement_output: { label: "Engagement Output Center", openPath: "outputs" },
   visual_resume: { label: "Visual Resume", openPath: "resume" },
   multi_entity_operator: { label: "Multi-Entity Operator", openPath: "operator" },
+  altered_mind: { label: "Altered Mind Practice Tracker", openPath: "altered-mind" },
 } as const;
 
 export type KnownWorkspaceTemplateKey = keyof typeof workspaceTemplateRegistry;
@@ -66,6 +67,7 @@ export function resolveWorkspaceTemplateKey(input: WorkspaceTemplateInput): stri
   if (industryKey === "engagement_output") return "engagement_output";
   if (industryKey === "visual_resume" || industryKey === "resume") return "visual_resume";
   if (industryKey === "multi_entity_operator" || industryKey === "operator") return "multi_entity_operator";
+  if (industryKey === "altered_mind" || industryKey === "therapy_practice" || industryKey === "therapy") return "altered_mind";
   if (["trading_platform", "trading", "market_rotation", "market_intelligence", "msa_rotation", "financial_markets"].includes(industryKey)) return "trading_platform";
   return null;
 }
