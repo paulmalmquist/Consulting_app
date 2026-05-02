@@ -5,8 +5,7 @@
       "items": [
         { "label": "Home", "href": "/", "icon": "🏠" },
         { "label": "What We Do", "href": "/what-we-do", "icon": "⚙️" },
-        { "label": "Industries", "href": "/industries", "icon": "🏗️" },
-        { "label": "The Shift", "href": "/the-shift", "icon": "↗️" }
+        { "label": "Industries", "href": "/industries", "icon": "🏗️" }
       ]
     },
     {

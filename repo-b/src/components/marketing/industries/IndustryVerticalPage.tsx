@@ -63,13 +63,23 @@ function highlight(headline: string, token: string) {
   );
 }
 
+/**
+ * Per-industry word that gets the teal accent on the hero h1.
+ * Picked to land on the most concept-loaded word in each finalized line.
+ */
+const HERO_HIGHLIGHT_BY_SLUG: Record<IndustryVertical['slug'], string> = {
+  'real-estate-private-equity': 'trust',
+  'consumer-credit': 'Examiner-ready',
+  medical: 'faster',
+  legal: 'straight',
+};
+
 export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {
   const contactHref = `/contact?industry=${industry.slug}`;
   const industryLabel = labels[industry.slug];
   const bgPath = industryBackgrounds[industry.slug];
   const bgSrc = fileExistsInPublic(bgPath) ? bgPath : undefined;
-  // Pick the first matching token: "AI-ready" if present, else "AI".
-  const heroHighlightToken = industry.heroHeadline.includes('AI-ready') ? 'AI-ready' : 'AI';
+  const heroHighlightToken = HERO_HIGHLIGHT_BY_SLUG[industry.slug];
 
   return (
     <>

@@ -14,8 +14,6 @@ const STATIC_ROUTES = [
   '/services',
   '/what-we-do',
   '/proof',
-  '/shift',
-  '/the-shift',
   '/ai-concierge',
   '/cfo',
   '/operational-assessment',
