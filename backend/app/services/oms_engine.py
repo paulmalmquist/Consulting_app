@@ -77,12 +77,18 @@ NON_TERMINAL = frozenset({"idea", "order", "approved", "routed", "partially_fill
 
 
 def _serialize(value: Any) -> Any:
-    if value is None: return None
-    if isinstance(value, Decimal): return str(value)
-    if isinstance(value, (date, datetime)): return value.isoformat()
-    if isinstance(value, UUID): return str(value)
-    if isinstance(value, dict): return {k: _serialize(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)): return [_serialize(v) for v in value]
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _serialize(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_serialize(v) for v in value]
     return value
 
 

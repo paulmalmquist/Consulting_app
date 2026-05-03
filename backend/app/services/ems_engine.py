@@ -22,7 +22,6 @@ Pure compute helper: split_qty_by_weights — testable in isolation.
 """
 from __future__ import annotations
 
-import json
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional, TypedDict
@@ -77,12 +76,18 @@ VALID_SETTLEMENT_TRANSITIONS = {
 
 
 def _serialize(v: Any) -> Any:
-    if v is None: return None
-    if isinstance(v, Decimal): return str(v)
-    if isinstance(v, (date, datetime)): return v.isoformat()
-    if isinstance(v, UUID): return str(v)
-    if isinstance(v, dict): return {k: _serialize(x) for k, x in v.items()}
-    if isinstance(v, (list, tuple)): return [_serialize(x) for x in v]
+    if v is None:
+        return None
+    if isinstance(v, Decimal):
+        return str(v)
+    if isinstance(v, (date, datetime)):
+        return v.isoformat()
+    if isinstance(v, UUID):
+        return str(v)
+    if isinstance(v, dict):
+        return {k: _serialize(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_serialize(x) for x in v]
     return v
 
 
