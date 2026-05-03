@@ -93,7 +93,7 @@ export function DataPipelineFlow() {
               </li>
             ))}
           </ul>
-          <CardFoot>All your data lives somewhere.</CardFoot>
+          <CardFoot>Your data already lives somewhere.</CardFoot>
         </PipelineCard>
 
         <PipelineCard index={2} title="Data modeling & warehouse">
@@ -126,7 +126,7 @@ export function DataPipelineFlow() {
             ]}
           />
           <CardFoot>
-            Data moves. Reliably.
+            Data moves reliably.
             <br />
             Owned end to end.
           </CardFoot>
@@ -162,7 +162,7 @@ export function DataPipelineFlow() {
         </PipelineCard>
 
         <PipelineCard index={5} title="End users">
-          <ul className="nv-pipeline__rows nv-pipeline__rows--users">
+          <ul className="nv-pipeline__rows">
             {users.map((u) => (
               <li key={u.name} className="nv-pipeline__row" style={{ clipPath: clipRow }}>
                 <span className="nv-pipeline__row-icon" aria-hidden>
@@ -209,12 +209,32 @@ function PipelineCard({
   title: string;
   children: ReactNode;
 }) {
+  // Split children so the <CardFoot> always renders in the footer slot,
+  // pushed to the bottom of the card. Everything else fills the body and
+  // aligns the divider at the same baseline across all five columns.
+  const childArray = Array.isArray(children) ? children : [children];
+  const foot: ReactNode[] = [];
+  const body: ReactNode[] = [];
+  for (const child of childArray) {
+    if (
+      child &&
+      typeof child === "object" &&
+      "type" in child &&
+      (child as { type?: unknown }).type === CardFoot
+    ) {
+      foot.push(child);
+    } else {
+      body.push(child);
+    }
+  }
+
   return (
     <article className="nv-pipeline__card" style={{ clipPath: clipCard }}>
       <h3 className="nv-pipeline__card-title">
         <span>{index}.</span> {title}
       </h3>
-      {children}
+      <div className="nv-pipeline__card-body">{body}</div>
+      {foot}
     </article>
   );
 }
@@ -636,8 +656,8 @@ function PipelineStyles() {
 
       .nv-pipeline__card {
         position: relative;
-        min-height: 460px;
-        padding: 22px 22px 72px;
+        min-height: 520px;
+        padding: 28px 26px 26px;
         border: 1px solid var(--nv-line-strong);
         background:
           linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0) 36%),
@@ -646,7 +666,9 @@ function PipelineStyles() {
         box-shadow:
           inset 0 1px 0 rgba(255,255,255,0.05),
           0 24px 56px rgba(0,0,0,0.32);
-        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
       }
 
       .nv-pipeline__card::after {
@@ -665,16 +687,26 @@ function PipelineStyles() {
 
       .nv-pipeline__card-title {
         font-family: var(--font-marketing-mono), ui-monospace, monospace;
-        font-size: 12.5px;
+        font-size: 12px;
         line-height: 1.35;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.10em;
         text-transform: uppercase;
         color: rgb(var(--nv-text-primary));
         margin: 0 0 22px;
         font-weight: 500;
+        min-height: 32px;
       }
       .nv-pipeline__card-title span {
         color: rgb(var(--nv-accent-teal));
+        margin-right: 4px;
+      }
+
+      .nv-pipeline__card-body {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
       }
 
       .nv-pipeline__rows {
@@ -684,19 +716,18 @@ function PipelineStyles() {
         display: grid;
         gap: 8px;
       }
-      .nv-pipeline__rows--users { margin-top: 36px; }
 
       .nv-pipeline__row {
         position: relative;
         display: grid;
-        grid-template-columns: 28px 1fr;
+        grid-template-columns: 28px minmax(0, 1fr);
         gap: 12px;
         align-items: center;
-        padding: 11px 12px;
-        min-height: 48px;
+        padding: 12px 14px;
+        min-height: 50px;
         border: 1px solid var(--nv-line);
         background: rgb(var(--nv-bg) / 0.55);
-        overflow: hidden;
+        min-width: 0;
       }
       .nv-pipeline__row::before {
         content: "";
@@ -713,10 +744,12 @@ function PipelineStyles() {
         display: grid;
         place-items: center;
       }
+      .nv-pipeline__row > div { min-width: 0; }
       .nv-pipeline__row strong {
         display: block;
         font-size: 13px;
         font-weight: 500;
+        line-height: 1.35;
         color: rgb(var(--nv-text-primary));
       }
       .nv-pipeline__row small {
@@ -728,8 +761,7 @@ function PipelineStyles() {
       }
 
       .nv-pipeline__visual {
-        height: 144px;
-        margin: 6px 0 18px;
+        height: 168px;
         display: grid;
         place-items: center;
         color: rgb(var(--nv-accent-teal));
@@ -737,62 +769,81 @@ function PipelineStyles() {
 
       .nv-pipeline__govern {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin: 4px auto 18px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0;
       }
       .nv-pipeline__gov-tile {
+        position: relative;
         display: grid;
-        grid-template-columns: 28px 1fr;
-        gap: 9px;
+        grid-template-columns: 26px minmax(0, 1fr);
+        gap: 10px;
         align-items: center;
-        padding: 10px;
-        min-height: 60px;
-        border: 1px solid var(--nv-line);
-        background: rgb(var(--nv-bg) / 0.45);
+        padding: 14px 12px;
+        min-width: 0;
+        min-height: 64px;
+        border: 1px solid var(--nv-line-strong);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%),
+          rgb(var(--nv-surface-raised));
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.06),
+          0 6px 14px rgba(0,0,0,0.18);
+      }
+      .nv-pipeline__gov-tile::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--nv-tile-tone), transparent);
+        opacity: 0.55;
       }
       .nv-pipeline__gov-icon {
         color: var(--nv-tile-tone);
+        opacity: 0.85;
         display: grid;
         place-items: center;
       }
       .nv-pipeline__gov-tile strong {
-        font-size: 11.5px;
-        line-height: 1.25;
+        font-size: 12px;
+        line-height: 1.3;
         font-weight: 500;
         color: rgb(var(--nv-text-primary));
+        min-width: 0;
+        overflow-wrap: break-word;
       }
 
       .nv-pipeline__bullets {
         list-style: none;
-        margin: 0 0 8px;
+        margin: 0;
         padding: 0;
         display: grid;
-        gap: 11px;
+        gap: 12px;
       }
       .nv-pipeline__bullets li {
         display: grid;
-        grid-template-columns: 18px 1fr;
-        gap: 8px;
+        grid-template-columns: 16px minmax(0, 1fr);
+        gap: 10px;
         font-size: 13px;
         line-height: 1.45;
         color: rgb(var(--nv-text-secondary));
+        max-width: 32ch;
       }
       .nv-pipeline__check {
         color: rgb(var(--nv-accent-teal));
         display: grid;
         place-items: center;
+        margin-top: 2px;
       }
 
       .nv-pipeline__card-foot {
-        position: absolute;
-        left: 22px;
-        right: 22px;
-        bottom: 18px;
-        padding-top: 12px;
+        margin-top: 22px;
+        padding-top: 14px;
         border-top: 1px solid var(--nv-line);
         font-size: 12.5px;
-        line-height: 1.4;
+        line-height: 1.45;
         color: rgb(var(--nv-text-secondary));
         text-align: center;
       }

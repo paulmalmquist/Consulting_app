@@ -1,5 +1,6 @@
 import { BeforeAfterDiagram } from '@/components/marketing/visual/BeforeAfterDiagram';
 import { ControlLayerDiagram } from '@/components/marketing/visual/ControlLayerDiagram';
+import { BusinessToAIFlow } from '@/components/marketing/home/BusinessToAIFlow';
 import { NvHero } from '@/components/marketing/home/NvHero';
 import { NvCard } from '@/components/marketing/ui/NvCard';
 import { HeroBackground } from '@/components/marketing/HeroBackground';
@@ -44,6 +45,10 @@ export default function HomePage() {
               </NvCard>
             ))}
           </div>
+        </section>
+
+        <section className="nv-section">
+          <BusinessToAIFlow />
         </section>
 
         <section className="nv-section">
