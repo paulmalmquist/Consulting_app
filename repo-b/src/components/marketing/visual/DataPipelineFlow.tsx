@@ -47,8 +47,10 @@ const flowStrip = ["Source", "Model", "Automate", "Govern", "Deliver"] as const;
 export function DataPipelineFlow() {
   return (
     <section aria-label="Data strategy execution flow" className="nv-pipeline">
-      <div className="nv-pipeline__rail">
-        <div className="nv-pipeline__ai" style={{ clipPath: clipCard }}>
+      <div className="nv-pipeline__scroll">
+        <div className="nv-pipeline__board">
+          <div className="nv-pipeline__rail">
+            <div className="nv-pipeline__ai" style={{ clipPath: clipCard }}>
           <div className="nv-pipeline__ai-mark" aria-hidden>
             <AiGlyph />
           </div>
@@ -133,7 +135,7 @@ export function DataPipelineFlow() {
         </PipelineCard>
 
         <PipelineCard index={4} title="Semantic layer & governance">
-          <div className="nv-pipeline__govern">
+          <ul className="nv-pipeline__govern">
             <GovTile label="Metrics & definitions" tone="teal">
               <GovIconMetrics />
             </GovTile>
@@ -146,7 +148,7 @@ export function DataPipelineFlow() {
             <GovTile label="Data quality" tone="success">
               <GovIconCheck />
             </GovTile>
-          </div>
+          </ul>
           <Bullets
             items={[
               "Governed metrics in Power BI",
@@ -183,12 +185,14 @@ export function DataPipelineFlow() {
         </PipelineCard>
       </div>
 
-      <div className="nv-pipeline__strip" style={{ clipPath: clipPill }} aria-label="Pipeline stages">
-        {flowStrip.map((step, i) => (
-          <span key={step} className="nv-pipeline__strip-step" data-position={i}>
-            {step}
-          </span>
-        ))}
+          <div className="nv-pipeline__strip" style={{ clipPath: clipPill }} aria-label="Pipeline stages">
+            {flowStrip.map((step, i) => (
+              <span key={step} className="nv-pipeline__strip-step" data-position={i}>
+                {step}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
       <p className="nv-pipeline__control">Control · continuity · auditability</p>
@@ -276,7 +280,7 @@ function GovTile({
     success: "rgb(var(--nv-sem-success))",
   };
   return (
-    <div
+    <li
       className="nv-pipeline__gov-tile"
       style={{ clipPath: clipRow, ["--nv-tile-tone" as string]: toneVar[tone] } as CSSProperties}
     >
@@ -284,7 +288,7 @@ function GovTile({
         {children}
       </span>
       <strong>{label}</strong>
-    </div>
+    </li>
   );
 }
 
@@ -526,8 +530,35 @@ function PipelineStyles() {
       .nv-pipeline {
         --nv-line: rgba(232,236,242,0.10);
         --nv-line-strong: rgba(232,236,242,0.18);
+        --nv-pipeline-col-min: 220px;
+        --nv-pipeline-col-gap: 16px;
         position: relative;
         color: rgb(var(--nv-text-primary));
+      }
+
+      /* Horizontal-scroll container. The board inside it is sized to whichever
+         is larger: 100% of the available space, or the natural width of five
+         min-width columns plus their gaps. That stops the columns from ever
+         compressing past readable, and trades layout breakage for a clean
+         scroll surface when the viewport is too narrow. */
+      .nv-pipeline__scroll {
+        position: relative;
+        margin: 0 -8px;
+        padding: 4px 8px 12px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--nv-accent-teal) / 0.35) transparent;
+        -webkit-overflow-scrolling: touch;
+      }
+      .nv-pipeline__scroll::-webkit-scrollbar { height: 8px; }
+      .nv-pipeline__scroll::-webkit-scrollbar-track { background: transparent; }
+      .nv-pipeline__scroll::-webkit-scrollbar-thumb {
+        background: rgb(var(--nv-accent-teal) / 0.30);
+        border-radius: 4px;
+      }
+      .nv-pipeline__board {
+        width: max(100%, calc(5 * var(--nv-pipeline-col-min) + 4 * var(--nv-pipeline-col-gap)));
       }
 
       .nv-pipeline__rail {
@@ -649,8 +680,8 @@ function PipelineStyles() {
 
       .nv-pipeline__cards {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(5, minmax(var(--nv-pipeline-col-min), 1fr));
+        gap: var(--nv-pipeline-col-gap);
         align-items: stretch;
       }
 
@@ -768,20 +799,21 @@ function PipelineStyles() {
       }
 
       .nv-pipeline__govern {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+        list-style: none;
         margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
       }
       .nv-pipeline__gov-tile {
         position: relative;
         display: grid;
-        grid-template-columns: 26px minmax(0, 1fr);
-        gap: 10px;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 12px;
         align-items: center;
-        padding: 14px 12px;
+        padding: 12px 14px;
         min-width: 0;
-        min-height: 64px;
+        min-height: 50px;
         border: 1px solid var(--nv-line-strong);
         background:
           linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%),
@@ -798,7 +830,7 @@ function PipelineStyles() {
         width: 2px;
         height: 100%;
         background: linear-gradient(180deg, var(--nv-tile-tone), transparent);
-        opacity: 0.55;
+        opacity: 0.6;
       }
       .nv-pipeline__gov-icon {
         color: var(--nv-tile-tone);
@@ -807,12 +839,14 @@ function PipelineStyles() {
         place-items: center;
       }
       .nv-pipeline__gov-tile strong {
-        font-size: 12px;
-        line-height: 1.3;
+        font-size: 13px;
+        line-height: 1.35;
         font-weight: 500;
         color: rgb(var(--nv-text-primary));
         min-width: 0;
-        overflow-wrap: break-word;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .nv-pipeline__bullets {
@@ -893,19 +927,18 @@ function PipelineStyles() {
         color: rgb(var(--nv-text-tertiary));
       }
 
-      /* Tablet — collapse 5 cards into 2 columns, AI rail still spans */
-      @media (max-width: 1180px) {
-        .nv-pipeline__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .nv-pipeline__rail { height: auto; margin-bottom: 24px; }
-        .nv-pipeline__ai { width: 100%; }
-        .nv-pipeline__ai-line,
-        .nv-pipeline__ai-drop { display: none; }
-      }
-
-      /* Mobile — single column, AI layer collapses to its panel only */
+      /* Mobile — drop the wide-column scroller and stack vertically. Five
+         220px columns on a phone is just sideways scroll for its own sake;
+         a single column reads better. AI rail and arrows lose their meaning
+         when the cards stack, so they collapse too. */
       @media (max-width: 720px) {
-        .nv-pipeline__cards { grid-template-columns: minmax(0, 1fr); }
+        .nv-pipeline__board { width: 100%; }
+        .nv-pipeline__cards {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .nv-pipeline__rail { height: auto; margin-bottom: 24px; }
         .nv-pipeline__ai {
+          width: 100%;
           grid-template-columns: auto 1fr;
           padding: 14px;
         }
@@ -913,6 +946,8 @@ function PipelineStyles() {
           grid-column: 2;
           justify-self: start;
         }
+        .nv-pipeline__ai-line,
+        .nv-pipeline__ai-drop { display: none; }
         .nv-pipeline__strip {
           grid-template-columns: minmax(0, 1fr);
           gap: 6px;
