@@ -37,7 +37,9 @@ from app.services import (
     accounting_engine,
     accounting_snapshot_writer,
     compliance_engine,
+    ems_engine,
     env_context,
+    oms_engine,
     reconciliation_engine,
     risk_engine,
 )
@@ -780,8 +782,6 @@ def post_resolve_violation(violation_id: UUID, req: ResolveViolationRequest, req
 # Wave 2 — OMS + EMS routes
 # ─────────────────────────────────────────────────────────────────────────────
 
-from app.services import oms_engine, ems_engine
-
 
 # ── Order lifecycle ──────────────────────────────────────────────────────────
 
@@ -940,9 +940,11 @@ def list_orders(request: Request,
     where = ["env_id = %s"]
     params: list = [env_id_resolved]
     if fund_id is not None:
-        where.append("fund_id = %s"); params.append(str(fund_id))
+        where.append("fund_id = %s")
+        params.append(str(fund_id))
     if status:
-        where.append("status = %s"); params.append(status)
+        where.append("status = %s")
+        params.append(status)
     sql = f"""
         SELECT id, fund_id, portfolio_id, account_id, security_id,
                side, qty, order_type, limit_price, stop_price, status,
