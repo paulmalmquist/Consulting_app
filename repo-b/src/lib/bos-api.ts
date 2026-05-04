@@ -3607,6 +3607,117 @@ export function listLegalLitigation(envId: string, businessId?: string): Promise
   });
 }
 
+// ── Phase 1: Knowledge Base + Legal Memory ──────────────────────────────
+
+export interface LegalPlaybook {
+  playbook_id: string;
+  env_id: string;
+  business_id: string;
+  name: string;
+  contract_type: string;
+  jurisdiction: string | null;
+  owner: string | null;
+  status: string;
+  effective_from: string | null;
+  effective_to: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalPlaybookPosition {
+  position_id: string;
+  env_id: string;
+  business_id: string;
+  playbook_id: string;
+  clause_key: string;
+  clause_label: string;
+  preferred_text: string | null;
+  fallback_text: string | null;
+  deal_breaker_text: string | null;
+  sample_external_comment: string | null;
+  internal_escalation_note: string | null;
+  approval_required_if: Record<string, unknown>;
+  severity: string;
+  source_reference: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalClause {
+  clause_id: string;
+  clause_key: string;
+  clause_label: string;
+  canonical_text: string | null;
+  tags_json: unknown;
+  jurisdiction: string | null;
+  created_at: string;
+}
+
+export interface LegalApprovalRule {
+  rule_id: string;
+  rule_name: string;
+  contract_type: string | null;
+  trigger_json: Record<string, unknown>;
+  required_approver: string;
+  escalation_level: string;
+  created_at: string;
+}
+
+export interface LegalApprover {
+  approver_id: string;
+  role_label: string;
+  person_name: string | null;
+  contact: string | null;
+  scope_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface LegalPriorDecision {
+  decision_id: string;
+  matter_id: string | null;
+  contract_type: string | null;
+  clause_key: string | null;
+  accepted_text: string | null;
+  rejected_text: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  rationale: string | null;
+  outside_counsel_guidance: string | null;
+  created_at: string;
+}
+
+export interface LegalPolicySource {
+  policy_id: string;
+  title: string;
+  source_url: string | null;
+  document_id: string | null;
+  effective_from: string | null;
+  version_history: unknown;
+  created_at: string;
+}
+
+export function listLegalPlaybooks(envId: string, businessId?: string): Promise<LegalPlaybook[]> {
+  return bosFetch("/api/legalops/v1/playbooks", { params: { env_id: envId, business_id: businessId } });
+}
+export function listLegalClauses(envId: string, businessId?: string): Promise<LegalClause[]> {
+  return bosFetch("/api/legalops/v1/clauses", { params: { env_id: envId, business_id: businessId } });
+}
+export function listLegalApprovalRules(envId: string, businessId?: string): Promise<LegalApprovalRule[]> {
+  return bosFetch("/api/legalops/v1/approval-rules", { params: { env_id: envId, business_id: businessId } });
+}
+export function listLegalApprovers(envId: string, businessId?: string): Promise<LegalApprover[]> {
+  return bosFetch("/api/legalops/v1/approvers", { params: { env_id: envId, business_id: businessId } });
+}
+export function listLegalPriorDecisions(envId: string, businessId?: string, params?: { contract_type?: string; clause_key?: string }): Promise<LegalPriorDecision[]> {
+  return bosFetch("/api/legalops/v1/prior-decisions", { params: { env_id: envId, business_id: businessId, ...(params ?? {}) } });
+}
+export function listLegalPolicySources(envId: string, businessId?: string): Promise<LegalPolicySource[]> {
+  return bosFetch("/api/legalops/v1/policy-sources", { params: { env_id: envId, business_id: businessId } });
+}
+export function seedLegalKb(envId: string, businessId?: string): Promise<{ ok: boolean; seeded: boolean; reason?: string; playbooks?: string[] }> {
+  return bosFetch("/api/legalops/v1/seed-kb", { method: "POST", params: { env_id: envId, business_id: businessId } });
+}
+
 // ── Medical Office Backoffice ────────────────────────────────────────
 
 export interface MedOfficeProperty {

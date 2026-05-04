@@ -7,6 +7,12 @@ from fastapi import APIRouter, Query, Request
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.legal_ops import (
     LegalApprovalCreateRequest,
+    LegalApprovalRuleCreateRequest,
+    LegalApprovalRuleOut,
+    LegalApproverCreateRequest,
+    LegalApproverOut,
+    LegalClauseCreateRequest,
+    LegalClauseOut,
     LegalContractCreateRequest,
     LegalContractOut,
     LegalDeadlineCreateRequest,
@@ -17,6 +23,14 @@ from app.schemas.legal_ops import (
     LegalMatterCreateRequest,
     LegalMatterOut,
     LegalOpsContextOut,
+    LegalPlaybookCreateRequest,
+    LegalPlaybookOut,
+    LegalPlaybookPositionCreateRequest,
+    LegalPlaybookPositionOut,
+    LegalPolicySourceCreateRequest,
+    LegalPolicySourceOut,
+    LegalPriorDecisionCreateRequest,
+    LegalPriorDecisionOut,
     LegalRegulatoryItemOut,
     LegalSpendEntryCreateRequest,
     LegalSpendEntryOut,
@@ -244,3 +258,205 @@ def list_litigation(request: Request, env_id: str = Query(...), business_id: UUI
     except Exception as exc:
         status, code = classify_domain_error(exc)
         return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.litigation.list_failed")
+
+
+# ── Phase 1: Knowledge Base + Legal Memory ─────────────────────────────────
+
+
+@router.get("/playbooks", response_model=list[LegalPlaybookOut])
+def list_playbooks(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [LegalPlaybookOut(**r) for r in legal_ops_svc.list_playbooks(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.playbooks.list_failed")
+
+
+@router.post("/playbooks", response_model=LegalPlaybookOut)
+def create_playbook(req: LegalPlaybookCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_playbook(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalPlaybookOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.playbooks.create_failed")
+
+
+@router.get("/playbooks/{playbook_id}/positions", response_model=list[LegalPlaybookPositionOut])
+def list_playbook_positions(playbook_id: UUID, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        rows = legal_ops_svc.list_playbook_positions(env_id=resolved_env_id, business_id=resolved_business_id, playbook_id=playbook_id)
+        return [LegalPlaybookPositionOut(**r) for r in rows]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.playbook_positions.list_failed")
+
+
+@router.post("/playbooks/{playbook_id}/positions", response_model=LegalPlaybookPositionOut)
+def create_playbook_position(playbook_id: UUID, req: LegalPlaybookPositionCreateRequest, request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        row = legal_ops_svc.create_playbook_position(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            playbook_id=playbook_id,
+            payload=req.model_dump(),
+        )
+        return LegalPlaybookPositionOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.playbook_positions.create_failed")
+
+
+@router.get("/clauses", response_model=list[LegalClauseOut])
+def list_clauses(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [LegalClauseOut(**r) for r in legal_ops_svc.list_clauses(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.clauses.list_failed")
+
+
+@router.post("/clauses", response_model=LegalClauseOut)
+def create_clause(req: LegalClauseCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_clause(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalClauseOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.clauses.create_failed")
+
+
+@router.get("/approval-rules", response_model=list[LegalApprovalRuleOut])
+def list_approval_rules(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [LegalApprovalRuleOut(**r) for r in legal_ops_svc.list_approval_rules(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.approval_rules.list_failed")
+
+
+@router.post("/approval-rules", response_model=LegalApprovalRuleOut)
+def create_approval_rule(req: LegalApprovalRuleCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_approval_rule(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalApprovalRuleOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.approval_rules.create_failed")
+
+
+@router.get("/approvers", response_model=list[LegalApproverOut])
+def list_approvers(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [LegalApproverOut(**r) for r in legal_ops_svc.list_approvers(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.approvers.list_failed")
+
+
+@router.post("/approvers", response_model=LegalApproverOut)
+def create_approver(req: LegalApproverCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_approver(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalApproverOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.approvers.create_failed")
+
+
+@router.get("/prior-decisions", response_model=list[LegalPriorDecisionOut])
+def list_prior_decisions(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    contract_type: str | None = Query(default=None),
+    clause_key: str | None = Query(default=None),
+):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        rows = legal_ops_svc.list_prior_decisions(
+            env_id=resolved_env_id, business_id=resolved_business_id,
+            contract_type=contract_type, clause_key=clause_key,
+        )
+        return [LegalPriorDecisionOut(**r) for r in rows]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.prior_decisions.list_failed")
+
+
+@router.post("/prior-decisions", response_model=LegalPriorDecisionOut)
+def create_prior_decision(req: LegalPriorDecisionCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_prior_decision(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalPriorDecisionOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.prior_decisions.create_failed")
+
+
+@router.get("/policy-sources", response_model=list[LegalPolicySourceOut])
+def list_policy_sources(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return [LegalPolicySourceOut(**r) for r in legal_ops_svc.list_policy_sources(env_id=resolved_env_id, business_id=resolved_business_id)]
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.policy_sources.list_failed")
+
+
+@router.post("/policy-sources", response_model=LegalPolicySourceOut)
+def create_policy_source(req: LegalPolicySourceCreateRequest, request: Request):
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, req.env_id, req.business_id)
+        row = legal_ops_svc.create_policy_source(
+            env_id=resolved_env_id,
+            business_id=resolved_business_id,
+            payload=req.model_dump(exclude={"env_id", "business_id"}),
+        )
+        return LegalPolicySourceOut(**row)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.policy_sources.create_failed")
+
+
+@router.post("/seed-kb")
+def seed_kb_workspace(request: Request, env_id: str = Query(...), business_id: UUID | None = Query(default=None)):
+    """Phase 1: idempotent seed of playbooks, clauses, approval rules,
+    approvers, Legal Memory entries, and policy sources for demo."""
+    try:
+        resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
+        return {"ok": True, **legal_ops_svc.seed_kb_demo(env_id=resolved_env_id, business_id=resolved_business_id)}
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(request=request, status_code=status, code=code, detail=str(exc), action="legalops.seed_kb.failed")

@@ -1,5 +1,6 @@
 import { DomainEnvProvider } from "@/components/domain/DomainEnvProvider";
 import DomainWorkspaceShell from "@/components/domain/DomainWorkspaceShell";
+import ReferenceImplementationRibbon from "@/components/legal/ReferenceImplementationRibbon";
 
 export default async function DomainLayout({
   children,
@@ -13,6 +14,7 @@ export default async function DomainLayout({
   return (
     <DomainEnvProvider domain={domain} envId={envId}>
       <DomainWorkspaceShell envId={envId} domain={domain}>
+        <ReferenceImplementationRibbon />
         {children}
       </DomainWorkspaceShell>
     </DomainEnvProvider>
