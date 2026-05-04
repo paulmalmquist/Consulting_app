@@ -16,14 +16,6 @@ type HeroBackgroundProps = {
   children: ReactNode;
 };
 
-/**
- * Full-bleed hero wrapper. Image (if provided) is rendered with next/image
- * fill mode and dimmed by a configurable overlay so headline text stays
- * readable. Falls back to an on-brand abstract panel when imageSrc is absent;
- * `fallbackTone` selects a page-specific composition (e.g. an operating-console
- * grid for AI Concierge) so the fallback can carry the page's read instead of
- * being a generic placeholder.
- */
 export function HeroBackground({
   imageSrc,
   imageAlt = '',
