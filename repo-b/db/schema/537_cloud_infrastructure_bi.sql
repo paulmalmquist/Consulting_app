@@ -61,8 +61,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_customer (
 COMMENT ON TABLE dim_cloud_customer IS
   'Vultr Cloud Intelligence OS: customer / account master. Owned by cloud_infra environment template.';
 ALTER TABLE dim_cloud_customer ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_customer ON dim_cloud_customer
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_customer ON dim_cloud_customer
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Product family master
 CREATE TABLE IF NOT EXISTS dim_cloud_product (
@@ -80,8 +82,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_product (
 COMMENT ON TABLE dim_cloud_product IS
   'Vultr Cloud Intelligence OS: product family master.';
 ALTER TABLE dim_cloud_product ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_product ON dim_cloud_product
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_product ON dim_cloud_product
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Per-SKU detail
 CREATE TABLE IF NOT EXISTS dim_cloud_sku (
@@ -104,8 +108,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_sku (
 COMMENT ON TABLE dim_cloud_sku IS
   'Vultr Cloud Intelligence OS: per-SKU detail (price, cost, hardware shape).';
 ALTER TABLE dim_cloud_sku ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_sku ON dim_cloud_sku
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_sku ON dim_cloud_sku
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Region / geo master
 CREATE TABLE IF NOT EXISTS dim_cloud_region (
@@ -124,8 +130,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_region (
 COMMENT ON TABLE dim_cloud_region IS
   'Vultr Cloud Intelligence OS: region / geographic master.';
 ALTER TABLE dim_cloud_region ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_region ON dim_cloud_region
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_region ON dim_cloud_region
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Data center facility
 CREATE TABLE IF NOT EXISTS dim_cloud_data_center (
@@ -144,8 +152,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_data_center (
 COMMENT ON TABLE dim_cloud_data_center IS
   'Vultr Cloud Intelligence OS: data center facility detail.';
 ALTER TABLE dim_cloud_data_center ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_data_center ON dim_cloud_data_center
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_data_center ON dim_cloud_data_center
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Provisioned resource instance
 CREATE TABLE IF NOT EXISTS dim_cloud_resource (
@@ -165,8 +175,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_resource (
 COMMENT ON TABLE dim_cloud_resource IS
   'Vultr Cloud Intelligence OS: provisioned resource instance (VM, GPU, storage).';
 ALTER TABLE dim_cloud_resource ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_resource ON dim_cloud_resource
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_resource ON dim_cloud_resource
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS dim_cloud_resource_env_customer_idx
   ON dim_cloud_resource (env_id, customer_id);
 
@@ -184,8 +196,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_sales_rep (
 COMMENT ON TABLE dim_cloud_sales_rep IS
   'Vultr Cloud Intelligence OS: sales rep master (Salesforce-style).';
 ALTER TABLE dim_cloud_sales_rep ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_sales_rep ON dim_cloud_sales_rep
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_sales_rep ON dim_cloud_sales_rep
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Marketing campaign master
 CREATE TABLE IF NOT EXISTS dim_cloud_campaign (
@@ -204,8 +218,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_campaign (
 COMMENT ON TABLE dim_cloud_campaign IS
   'Vultr Cloud Intelligence OS: marketing campaign master.';
 ALTER TABLE dim_cloud_campaign ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_campaign ON dim_cloud_campaign
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_campaign ON dim_cloud_campaign
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Customer contract / commitment
 CREATE TABLE IF NOT EXISTS dim_cloud_contract (
@@ -225,8 +241,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_contract (
 COMMENT ON TABLE dim_cloud_contract IS
   'Vultr Cloud Intelligence OS: customer contract / commitment.';
 ALTER TABLE dim_cloud_contract ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_contract ON dim_cloud_contract
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_contract ON dim_cloud_contract
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS dim_cloud_contract_env_customer_idx
   ON dim_cloud_contract (env_id, customer_id);
 
@@ -248,8 +266,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_invoice (
 COMMENT ON TABLE dim_cloud_invoice IS
   'Vultr Cloud Intelligence OS: invoice header.';
 ALTER TABLE dim_cloud_invoice ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_invoice ON dim_cloud_invoice
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_invoice ON dim_cloud_invoice
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS dim_cloud_invoice_env_customer_period_idx
   ON dim_cloud_invoice (env_id, customer_id, period_start);
 
@@ -268,8 +288,10 @@ CREATE TABLE IF NOT EXISTS dim_cloud_support_category (
 COMMENT ON TABLE dim_cloud_support_category IS
   'Vultr Cloud Intelligence OS: support ticket taxonomy.';
 ALTER TABLE dim_cloud_support_category ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_dim_cloud_support_category ON dim_cloud_support_category
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_dim_cloud_support_category ON dim_cloud_support_category
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- FACT TABLES
@@ -295,8 +317,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_resource_usage_hourly (
 COMMENT ON TABLE fact_cloud_resource_usage_hourly IS
   'Vultr Cloud Intelligence OS: hourly resource usage fact (resource × hour grain).';
 ALTER TABLE fact_cloud_resource_usage_hourly ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_resource_usage_hourly ON fact_cloud_resource_usage_hourly
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_resource_usage_hourly ON fact_cloud_resource_usage_hourly
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_resource_usage_hourly_env_customer_hour_idx
   ON fact_cloud_resource_usage_hourly (env_id, customer_id, usage_hour);
 CREATE INDEX IF NOT EXISTS fact_cloud_resource_usage_hourly_env_region_hour_idx
@@ -323,8 +347,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_billing_line_item (
 COMMENT ON TABLE fact_cloud_billing_line_item IS
   'Vultr Cloud Intelligence OS: rated billing line items.';
 ALTER TABLE fact_cloud_billing_line_item ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_billing_line_item ON fact_cloud_billing_line_item
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_billing_line_item ON fact_cloud_billing_line_item
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_billing_line_item_env_customer_period_idx
   ON fact_cloud_billing_line_item (env_id, customer_id, period_start);
 CREATE INDEX IF NOT EXISTS fact_cloud_billing_line_item_env_region_period_idx
@@ -351,8 +377,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_invoice (
 COMMENT ON TABLE fact_cloud_invoice IS
   'Vultr Cloud Intelligence OS: invoice line fact (monthly).';
 ALTER TABLE fact_cloud_invoice ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_invoice ON fact_cloud_invoice
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_invoice ON fact_cloud_invoice
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_invoice_env_customer_period_idx
   ON fact_cloud_invoice (env_id, customer_id, period_start);
 
@@ -374,8 +402,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_payment (
 COMMENT ON TABLE fact_cloud_payment IS
   'Vultr Cloud Intelligence OS: payment events.';
 ALTER TABLE fact_cloud_payment ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_payment ON fact_cloud_payment
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_payment ON fact_cloud_payment
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_payment_env_customer_paid_idx
   ON fact_cloud_payment (env_id, customer_id, paid_at);
 
@@ -396,8 +426,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_revenue_recognition (
 COMMENT ON TABLE fact_cloud_revenue_recognition IS
   'Vultr Cloud Intelligence OS: NetSuite-style monthly revenue recognition.';
 ALTER TABLE fact_cloud_revenue_recognition ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_revenue_recognition ON fact_cloud_revenue_recognition
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_revenue_recognition ON fact_cloud_revenue_recognition
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_revenue_recognition_env_customer_period_idx
   ON fact_cloud_revenue_recognition (env_id, customer_id, period_month);
 
@@ -422,8 +454,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_sales_pipeline (
 COMMENT ON TABLE fact_cloud_sales_pipeline IS
   'Vultr Cloud Intelligence OS: sales opportunity snapshot (Salesforce-style).';
 ALTER TABLE fact_cloud_sales_pipeline ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_sales_pipeline ON fact_cloud_sales_pipeline
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_sales_pipeline ON fact_cloud_sales_pipeline
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_sales_pipeline_env_customer_idx
   ON fact_cloud_sales_pipeline (env_id, customer_id, snapshot_date);
 
@@ -444,8 +478,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_customer_daily_snapshot (
 COMMENT ON TABLE fact_cloud_customer_daily_snapshot IS
   'Vultr Cloud Intelligence OS: customer × day snapshot (rev, AR, support, risk).';
 ALTER TABLE fact_cloud_customer_daily_snapshot ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_customer_daily_snapshot ON fact_cloud_customer_daily_snapshot
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_customer_daily_snapshot ON fact_cloud_customer_daily_snapshot
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Region × SKU × day capacity
 CREATE TABLE IF NOT EXISTS fact_cloud_capacity_daily (
@@ -463,8 +499,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_capacity_daily (
 COMMENT ON TABLE fact_cloud_capacity_daily IS
   'Vultr Cloud Intelligence OS: region × SKU × day capacity fact.';
 ALTER TABLE fact_cloud_capacity_daily ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_capacity_daily ON fact_cloud_capacity_daily
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_capacity_daily ON fact_cloud_capacity_daily
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_capacity_daily_env_region_date_idx
   ON fact_cloud_capacity_daily (env_id, region_key, capacity_date);
 
@@ -485,8 +523,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_gpu_utilization (
 COMMENT ON TABLE fact_cloud_gpu_utilization IS
   'Vultr Cloud Intelligence OS: GPU utilization fact (region × GPU SKU × hour). Drives GPU Command Graph.';
 ALTER TABLE fact_cloud_gpu_utilization ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_gpu_utilization ON fact_cloud_gpu_utilization
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_gpu_utilization ON fact_cloud_gpu_utilization
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_gpu_utilization_grid_idx
   ON fact_cloud_gpu_utilization (env_id, region_key, sku_key, usage_hour DESC);
 
@@ -510,8 +550,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_support_ticket (
 COMMENT ON TABLE fact_cloud_support_ticket IS
   'Vultr Cloud Intelligence OS: support ticket fact.';
 ALTER TABLE fact_cloud_support_ticket ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_support_ticket ON fact_cloud_support_ticket
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_support_ticket ON fact_cloud_support_ticket
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_support_ticket_env_customer_opened_idx
   ON fact_cloud_support_ticket (env_id, customer_id, opened_at);
 
@@ -532,8 +574,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_incident (
 COMMENT ON TABLE fact_cloud_incident IS
   'Vultr Cloud Intelligence OS: infrastructure incident fact.';
 ALTER TABLE fact_cloud_incident ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_incident ON fact_cloud_incident
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_incident ON fact_cloud_incident
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_incident_env_region_started_idx
   ON fact_cloud_incident (env_id, region_key, started_at);
 
@@ -554,8 +598,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_marketing_attribution (
 COMMENT ON TABLE fact_cloud_marketing_attribution IS
   'Vultr Cloud Intelligence OS: marketing attribution (customer × campaign).';
 ALTER TABLE fact_cloud_marketing_attribution ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_marketing_attribution ON fact_cloud_marketing_attribution
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_marketing_attribution ON fact_cloud_marketing_attribution
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_marketing_attribution_env_customer_idx
   ON fact_cloud_marketing_attribution (env_id, customer_id);
 
@@ -572,8 +618,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_product_activation (
 COMMENT ON TABLE fact_cloud_product_activation IS
   'Vultr Cloud Intelligence OS: customer × product first-use activation.';
 ALTER TABLE fact_cloud_product_activation ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_product_activation ON fact_cloud_product_activation
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_product_activation ON fact_cloud_product_activation
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Reconciliation exception
 CREATE TABLE IF NOT EXISTS fact_cloud_reconciliation_exception (
@@ -597,8 +645,10 @@ CREATE TABLE IF NOT EXISTS fact_cloud_reconciliation_exception (
 COMMENT ON TABLE fact_cloud_reconciliation_exception IS
   'Vultr Cloud Intelligence OS: reconciliation exception (6-stage bridge breaks).';
 ALTER TABLE fact_cloud_reconciliation_exception ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation_fact_cloud_reconciliation_exception ON fact_cloud_reconciliation_exception
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  CREATE POLICY tenant_isolation_fact_cloud_reconciliation_exception ON fact_cloud_reconciliation_exception
+    USING (env_id = current_setting('app.env_id', true));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS fact_cloud_reconciliation_exception_env_customer_period_idx
   ON fact_cloud_reconciliation_exception (env_id, customer_id, period_start);
 
