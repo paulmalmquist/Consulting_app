@@ -42,7 +42,7 @@ const aiStages = [
   { id: "act", label: "act" },
 ] as const;
 
-const flowStrip = ["Source", "Model", "Automate", "Govern", "Deliver"] as const;
+const flowStrip = ["Source", "Integrate", "Model", "Govern", "Deliver"] as const;
 
 export function DataPipelineFlow() {
   return (
@@ -98,25 +98,7 @@ export function DataPipelineFlow() {
           <CardFoot>Your data already lives somewhere.</CardFoot>
         </PipelineCard>
 
-        <PipelineCard index={2} title="Data modeling & warehouse">
-          <div className="nv-pipeline__visual">
-            <WarehouseGlyph />
-          </div>
-          <Bullets
-            items={[
-              "Data warehouse design",
-              "Modern lakehouse on Databricks, Snowflake, or Azure",
-              "Modeled around the questions leadership asks",
-            ]}
-          />
-          <CardFoot>
-            Structured. Modeled.
-            <br />
-            Built for decisions.
-          </CardFoot>
-        </PipelineCard>
-
-        <PipelineCard index={3} title="Pipeline & integration">
+        <PipelineCard index={2} title="Pipeline & integration">
           <div className="nv-pipeline__visual">
             <PipelineGlyph />
           </div>
@@ -131,6 +113,24 @@ export function DataPipelineFlow() {
             Data moves reliably.
             <br />
             Owned end to end.
+          </CardFoot>
+        </PipelineCard>
+
+        <PipelineCard index={3} title="Data modeling & warehouse">
+          <div className="nv-pipeline__visual">
+            <WarehouseGlyph />
+          </div>
+          <Bullets
+            items={[
+              "Data warehouse design",
+              "Modern lakehouse on Databricks, Snowflake, or Azure",
+              "Modeled around the questions leadership asks",
+            ]}
+          />
+          <CardFoot>
+            Structured. Modeled.
+            <br />
+            Built for decisions.
           </CardFoot>
         </PipelineCard>
 
