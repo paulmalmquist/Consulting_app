@@ -130,12 +130,16 @@ type OperationalQuestionnaireProps = {
   variant?: 'public' | 'detailed';
   isAuthenticated?: boolean;
   onComplete?: (results: AssessmentResult[]) => void;
+  /** When true, suppresses the outer card border/background so the component
+   *  can be embedded inside a parent panel without double-framing. */
+  embedded?: boolean;
 };
 
 export function OperationalQuestionnaire({
   variant = 'public',
   isAuthenticated = false,
-  onComplete
+  onComplete,
+  embedded = false,
 }: OperationalQuestionnaireProps) {
   const questions = variant === 'public' ? PUBLIC_QUESTIONS : DETAILED_QUESTIONS;
   const [currentStep, setCurrentStep] = useState(0);
@@ -249,7 +253,7 @@ export function OperationalQuestionnaire({
 
   if (results) {
     return (
-      <div className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8">
+      <div className={embedded ? 'space-y-6' : 'space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8'}>
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="text-nv-teal" size={24} />
@@ -335,14 +339,23 @@ export function OperationalQuestionnaire({
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8">
+    <div className={embedded ? 'space-y-6' : 'space-y-6 rounded-3xl border border-nv-text/10 bg-nv-surface/60 p-6 lg:p-8'}>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-nv-text">Operational Assessment</h2>
-          <span className="text-sm text-nv-dim">
-            {currentStep + 1} of {questions.length}
-          </span>
-        </div>
+        {!embedded && (
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-nv-text">Operational Assessment</h2>
+            <span className="text-sm text-nv-dim">
+              {currentStep + 1} of {questions.length}
+            </span>
+          </div>
+        )}
+        {embedded && (
+          <div className="flex items-center justify-end">
+            <span className="text-sm text-nv-dim">
+              {currentStep + 1} of {questions.length}
+            </span>
+          </div>
+        )}
         <div className="h-2 w-full rounded-full bg-nv-raised">
           <div
             className="h-2 rounded-full bg-nv-teal/10 transition-all duration-300"

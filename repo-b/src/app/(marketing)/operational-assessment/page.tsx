@@ -1,85 +1,133 @@
-import { HeroBackground } from '@/components/marketing/HeroBackground';
-import { NvButton } from '@/components/marketing/ui/NvButton';
-import { NvCard } from '@/components/marketing/ui/NvCard';
+import { SignalMap } from '@/components/marketing/operational-assessment/SignalMap';
 import { OperationalQuestionnaire } from '@/components/marketing/assessment/OperationalQuestionnaire';
-import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
+import { NvButton } from '@/components/marketing/ui/NvButton';
+import styles from './scan-console.module.css';
 
-const HERO_BG = '/assets/bg-operational-assessment.jpg';
+const STEPS = [
+  'Tool sprawl',
+  'Handoff clarity',
+  'Approval process',
+  'Data fragmentation',
+  'Exception handling',
+  'Evidence trail',
+  'Automation maturity',
+  'Control readiness',
+];
 
-const steps = [
-  { title: 'Inventory', detail: 'Map tools, owners, and handoffs for one workflow.' },
-  { title: 'Measure', detail: 'Baseline delays, rework rates, and exception volume.' },
-  { title: 'Redesign', detail: 'Define states, rules, and evidence requirements.' },
-  { title: 'Certify', detail: 'Validate outputs, governance, and rollback readiness.' }
+const METRICS: { label: string; value: number; amber?: boolean }[] = [
+  { label: 'Tool sprawl',          value: 72 },
+  { label: 'Handoff clarity',      value: 56 },
+  { label: 'Approval clarity',     value: 64, amber: true },
+  { label: 'Evidence trail',       value: 31 },
+  { label: 'Automation readiness', value: 58 },
 ];
 
 export default function OperationalAssessmentPage() {
-  const bgSrc = fileExistsInPublic(HERO_BG) ? HERO_BG : undefined;
-
   return (
     <>
-      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
-        <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Operational Assessment</p>
-        <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
-          Identify your <em>friction</em>.
-        </h1>
-        <p className="nv-lede">
-          We review how work moves through your business, where handoffs slow down, where data breaks, and where approvals lose clarity. The result is a practical map of what needs to be fixed before AI or automation can help.
-        </p>
-        <div style={{ marginTop: 28 }}>
-          <NvButton variant="primary" href="/contact">Start an assessment</NvButton>
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className={styles.hero}>
+        <div className={styles.copy}>
+          <div className={styles.eyebrow}>Operational Assessment</div>
+          <div className={styles.rule} />
+          <h1 className={styles.headline}>
+            You can&apos;t fix what you can&apos;t see.
+            <span className={styles.headlineSpan}>We make it visible.</span>
+          </h1>
+          <p className={styles.lede}>
+            Novendor maps how work actually moves through your business, exposes friction,
+            and shows where control breaks and value leaks.
+          </p>
+          <div className={styles.ctaRow}>
+            <NvButton variant="primary" href="#assessment">Start assessment</NvButton>
+            <span className={styles.timeNote}>~ 3 minutes</span>
+          </div>
+          <div className={styles.trace}>
+            <strong>Actions leave a trace</strong><br />
+            Workflow ownership, approval clarity, evidence gaps, and automation readiness
+            are scored into one operating profile.
+          </div>
         </div>
-      </HeroBackground>
 
-      <div className="nv-page" style={{ paddingTop: 0 }}>
-        <section className="nv-section">
-          <div className="nv-section-head">
-            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />The four steps</p>
+        <SignalMap />
+      </section>
+
+      {/* ── Assessment console ───────────────────────────────────── */}
+      <div className={styles.consoleLabel}>Actions leave a trace</div>
+
+      <section className={styles.console} id="assessment">
+        {/* Progress rail — decorative chrome */}
+        <aside className={styles.rail}>
+          <div className={styles.panelTitle}>
+            Assessment progress{' '}
+            <span style={{ float: 'right', color: 'rgb(var(--nv-text-muted))' }}>
+              Step 1 of 8
+            </span>
           </div>
-          <div className="grid gap-4 md:grid-cols-4">
-            {steps.map((step, index) => (
-              <NvCard key={step.title}>
-                <p className="nv-eyebrow" style={{ marginBottom: 8 }}>Step {index + 1}</p>
-                <h2 className="nv-h3">{step.title}</h2>
-                <p className="nv-body" style={{ margin: 0 }}>{step.detail}</p>
-              </NvCard>
+          <div className={styles.progressBar}><span /></div>
+          <ul className={styles.stepList}>
+            {STEPS.map((s, i) => (
+              <li key={s} className={i === 0 ? styles.stepActive : styles.step}>
+                {s}
+              </li>
             ))}
+          </ul>
+          <div className={styles.privateNote}>
+            Your answers are never stored.<br />
+            <strong>Anonymous · private · secure</strong>
           </div>
-        </section>
+        </aside>
 
-        <section className="nv-section">
-          <div className="nv-section-head">
-            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Sample output</p>
-          </div>
-          <NvCard>
-            <p className="nv-body" style={{ margin: 0 }}>
-              Workflow: Capital call approvals · Friction score: 78/100 (High) · Primary break: owner handoff between fund accounting and investor relations · First fix: state-based approval queue with rule-linked evidence.
-            </p>
-          </NvCard>
-        </section>
+        {/* Question panel — live assessment questionnaire */}
+        <div className={styles.questionPanel}>
+          <OperationalQuestionnaire variant="public" embedded />
+        </div>
 
-        <section className="nv-section">
-          <div className="nv-section-head">
-            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Assessment (returns a score)</p>
-          </div>
-          <OperationalQuestionnaire variant="public" />
-        </section>
-
-        <section className="nv-section">
-          <div className="nv-section-head">
-            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />What changes</p>
-          </div>
-          <NvCard>
-            <ul className="nv-body" style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
-              <li>Top workflow prioritized in under one week</li>
-              <li>25–40% reduction in manual interventions after redesign</li>
-              <li>90%+ traceability once control points are certified</li>
-            </ul>
-            <div style={{ marginTop: 24 }}>
-              <NvButton variant="primary" href="/contact">Start an assessment</NvButton>
+        {/* Live friction profile — static display */}
+        <aside className={styles.profile}>
+          <div className={styles.profileHead}>
+            <div className={styles.panelTitle} style={{ color: 'rgb(var(--nv-accent-teal))' }}>
+              Live friction profile
             </div>
-          </NvCard>
-        </section>
+          </div>
+          <div className={styles.scoreGrid}>
+            <div>
+              <div className={styles.panelTitle}>Current friction score</div>
+              <div className={styles.scoreNum}>68 <span>/ 100</span></div>
+            </div>
+            <div>
+              <div className={styles.riskLabel}>Moderate risk</div>
+              <p className={styles.riskText}>
+                Material friction detected. Focus on the top 2–3 breakpoints.
+              </p>
+            </div>
+          </div>
+          {METRICS.map(m => (
+            <div key={m.label} className={styles.metricRow}>
+              <span>{m.label}</span>
+              <div className={m.amber ? styles.barAmber : styles.bar}>
+                <span style={{ width: `${m.value}%` }} />
+              </div>
+              <b className={styles.metricValue}>{m.value}</b>
+            </div>
+          ))}
+          <p className={styles.fine}>Score updates in real time as you answer</p>
+        </aside>
+      </section>
+
+      {/* ── Proof strip ──────────────────────────────────────────── */}
+      <div className={styles.proofStrip}>
+        <div className={styles.proofLogos}>
+          <strong>Diagnose. Prioritize. Prove.</strong>
+          <span>Control under pressure.</span>
+        </div>
+        <div className={styles.proofQuote}>
+          Assessment output: workflow map · friction score · control plan
+        </div>
+        <div className={styles.proofDetail}>
+          <strong>Novendor</strong><br />
+          Operational intelligence for teams that move fast and need evidence to back it up.
+        </div>
       </div>
     </>
   );
