@@ -118,7 +118,7 @@ describe("winston companion context", () => {
     })).toBe(false);
   });
 
-  it("builds a grounded fund context with narrative and suggestions", () => {
+  it("builds a grounded fund context with narrative and quick links", () => {
     const context = buildCompanionContext({
       envelope: makeEnvelope(),
       snapshot,
@@ -128,10 +128,9 @@ describe("winston companion context", () => {
     expect(context.scopeLabel).toBe("Institutional Growth Fund VII");
     expect(context.currentNarrative).toBe("Institutional Growth Fund VII");
     expect(context.quickLinks.some((item) => item.href.endsWith("/capital-calls"))).toBe(true);
-    expect(context.suggestions.some((item) => item.prompt.includes("Institutional Growth Fund VII"))).toBe(true);
   });
 
-  it("builds a grounded resume context with resume-specific quick links and suggestions", () => {
+  it("builds a grounded resume context with resume-specific quick links", () => {
     const context = buildCompanionContext({
       envelope: makeEnvelope({
         ui: {
@@ -161,6 +160,5 @@ describe("winston companion context", () => {
     expect(context.routeLabel).toBe("Resume");
     expect(context.currentNarrative).toBe("Paul Malmquist");
     expect(context.quickLinks.some((item) => item.href.endsWith("/resume"))).toBe(true);
-    expect(context.suggestions.some((item) => item.label.includes("Explain this resume"))).toBe(true);
   });
 });

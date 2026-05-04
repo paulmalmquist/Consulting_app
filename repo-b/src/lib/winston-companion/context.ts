@@ -10,12 +10,6 @@ export type WinstonQuickLink = {
   description: string;
 };
 
-export type WinstonSuggestion = {
-  id: string;
-  label: string;
-  prompt: string;
-};
-
 export type WinstonCompanionContext = {
   businessId: string | null;
   businessName: string | null;
@@ -33,7 +27,6 @@ export type WinstonCompanionContext = {
   selectedEntities: AssistantSelectedEntity[];
   visibleData: AssistantVisibleData | null;
   quickLinks: WinstonQuickLink[];
-  suggestions: WinstonSuggestion[];
   searchPlaceholder: string;
 };
 
@@ -166,92 +159,6 @@ function buildQuickLinks(envelope: AssistantContextEnvelope): WinstonQuickLink[]
   return [];
 }
 
-function buildSuggestions(envelope: AssistantContextEnvelope, routeLabel: string, scopeLabel: string): WinstonSuggestion[] {
-  const activeModule = envelope.ui.active_module;
-  const selected = primaryEntityLabel(envelope.ui.selected_entities);
-
-  if (activeModule === "re") {
-    if (routeLabel.toLowerCase().includes("operator diagnostics")) {
-      return [
-        { id: "op-diag-why", label: "Explain underperformance", prompt: `For the current selection in ${routeLabel}, explain whether the weakness is operator-driven or market-driven. Use labor intensity, occupancy, and peer margin delta to argue one side.` },
-        { id: "op-diag-op-vs-mkt", label: "Operator vs market", prompt: `Decompose the NOI margin gap for the selected operator into labor, occupancy, and rent contributions. Call out whether peers at the same acuity + region + size band show the same issue.` },
-        { id: "op-diag-acuity", label: "Acuity mix risk", prompt: "Which acuity types carry the most risk right now, and which operators are over-exposed? Recommend a review order." },
-      ];
-    }
-    if (envelope.ui.page_entity_type === "fund") {
-      return [
-        { id: "fund-summary", label: "Summarize this fund", prompt: `Summarize ${scopeLabel} and flag the biggest operating and capital risks.` },
-        { id: "fund-assets", label: "Related assets", prompt: `From ${scopeLabel}, show the assets and investments I should inspect next.` },
-        { id: "fund-scenarios", label: "Compare scenarios", prompt: `Compare the key scenarios, assumptions, and valuation sensitivities for ${scopeLabel}.` },
-      ];
-    }
-    if (envelope.ui.page_entity_type === "asset" || envelope.ui.page_entity_type === "investment") {
-      return [
-        { id: "asset-summary", label: "Explain this asset", prompt: `Explain the current status, risks, and next actions for ${scopeLabel}.` },
-        { id: "asset-related", label: "Related fund context", prompt: `From ${scopeLabel}, take me to the related fund and summarize the connection.` },
-        { id: "asset-scenarios", label: "Assumption checks", prompt: `Show the scenarios and assumptions that matter most for ${scopeLabel}.` },
-      ];
-    }
-    if (envelope.ui.page_entity_type === "model" || routeLabel.toLowerCase().includes("model")) {
-      return [
-        { id: "model-scenarios", label: "Scenario compare", prompt: `Compare the active scenarios and key assumption changes for ${scopeLabel}.` },
-        { id: "model-assets", label: "Linked assets", prompt: `Which assets and funds are linked to ${scopeLabel}, and where should I drill next?` },
-        { id: "model-risks", label: "Model risks", prompt: `What is stale, missing, or risky in ${scopeLabel}?` },
-      ];
-    }
-    if (routeLabel.toLowerCase().includes("capital")) {
-      return [
-        { id: "call-status", label: "Call status", prompt: `Summarize the outstanding capital call exposure and the investors that need attention.` },
-        { id: "call-investors", label: "Inspect an investor", prompt: "Help me inspect a specific investor or contribution exception from this capital call context." },
-        { id: "call-docs", label: "Related docs", prompt: "Show the related documents, approvals, and context I should review next." },
-      ];
-    }
-    return [
-      { id: "re-summary", label: "Summarize page", prompt: `Summarize what matters on the ${routeLabel} page.` },
-      { id: "re-next", label: "Next actions", prompt: `What should I inspect next from the ${routeLabel} context?` },
-      { id: "re-entities", label: "Explore elsewhere", prompt: `From ${selected || routeLabel}, show related entities and the best next drill paths.` },
-    ];
-  }
-
-  if (activeModule === "pds") {
-    return [
-      { id: "pds-summary", label: "Summarize operations", prompt: `Summarize the current PDS operating picture from ${routeLabel}.` },
-      { id: "pds-risks", label: "Delivery risks", prompt: "Show the biggest delivery, staffing, and revenue risks from this PDS context." },
-      { id: "pds-next", label: "Next actions", prompt: "What should leadership inspect next from this PDS page?" },
-    ];
-  }
-
-  if (activeModule === "consulting") {
-    return [
-      { id: "consulting-summary", label: "Summarize CRM", prompt: `Summarize the consulting workspace from ${routeLabel}.` },
-      { id: "consulting-events", label: "Upcoming events", prompt: "What events, contacts, and follow-ups need attention next?" },
-      { id: "consulting-explore", label: "Explore elsewhere", prompt: "Take me from this consulting page to the most relevant events, contacts, or reports." },
-    ];
-  }
-
-  if (activeModule === "resume") {
-    return [
-      { id: "resume-summary", label: "Explain this resume", prompt: `Summarize what matters on the ${routeLabel} page and explain the active resume story.` },
-      { id: "resume-modules", label: "Best module to open", prompt: "Which visual resume module should I open next, and why?" },
-      { id: "resume-narrative", label: "Translate for executives", prompt: "Translate this visual resume into a concise executive narrative with the most important systems and business outcomes." },
-    ];
-  }
-
-  if (activeModule === "operator") {
-    return [
-      { id: "operator-wrong", label: "What’s going wrong?", prompt: "What’s going wrong this month across Hall Boys?" },
-      { id: "operator-money", label: "Where money is lost", prompt: "Where are we losing money right now, and why?" },
-      { id: "operator-focus", label: "What to focus on", prompt: "What should I focus on today?" },
-    ];
-  }
-
-  return [
-    { id: "general-summary", label: "Summarize page", prompt: `Summarize the current context from ${routeLabel}.` },
-    { id: "general-next", label: "Next actions", prompt: "What should I do next from this page?" },
-    { id: "general-explore", label: "Explore elsewhere", prompt: "Help me navigate to the most relevant related areas from here." },
-  ];
-}
-
 export function shouldShowWinstonCompanion(pathname: string | null) {
   if (!pathname) return false;
   return !SUPPRESSED_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
@@ -321,7 +228,6 @@ export function buildCompanionContext(params: {
     selectedEntities: envelope.ui.selected_entities,
     visibleData: _mergeWidgetContexts(envelope.ui.visible_data || null, adapters),
     quickLinks: buildQuickLinks(envelope),
-    suggestions: buildSuggestions(envelope, routeLabel, scopeLabel),
     searchPlaceholder: `Search beyond ${scopeLabel === "General" ? routeLabel : scopeLabel}...`,
   };
 }

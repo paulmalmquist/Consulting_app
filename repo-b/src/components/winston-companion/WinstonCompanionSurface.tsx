@@ -238,58 +238,42 @@ function ConversationComposer({
   );
 }
 
-function SuggestionStrip({ compact = false, hideWhenActive = false }: { compact?: boolean; hideWhenActive?: boolean }) {
-  const { currentContext, activeLane, activeState, setDraft, sendPrompt } = useWinstonCompanion();
+/**
+ * Renders backend-generated suggested actions (post-response only).
+ *
+ * Static pre-turn chips were intentionally removed — they trained users to click pills
+ * instead of working with their own material. The dynamic post-response action rows
+ * are kept because the assistant has actually read context before suggesting them.
+ */
+function PostResponseActions({ compact = false }: { compact?: boolean }) {
+  const { activeLane, activeState, setDraft, sendPrompt } = useWinstonCompanion();
   const router = useRouter();
 
-  // Prefer backend-generated suggested_actions after a turn completes
   const backendActions = activeState.suggestedActions || [];
-  const staticSuggestions = currentContext?.suggestions || [];
-  const hasBackendActions = backendActions.length > 0 && activeState.messages.length > 0;
-
-  if (!hasBackendActions && !staticSuggestions.length) return null;
-  // In compact/drawer mode, hide static suggestions once conversation has messages
-  if (!hasBackendActions && hideWhenActive && activeState.messages.length > 0) return null;
-
-  if (hasBackendActions) {
-    return (
-      <div className={cn("flex flex-wrap gap-2", compact ? "px-4 pb-2" : "px-6 pb-2")}>
-        {backendActions.slice(0, 4).map((action, idx) => (
-          <button
-            key={`sa-${idx}`}
-            type="button"
-            onClick={() => {
-              if (action.type === "navigate" && action.path) {
-                router.push(action.path);
-              } else if (action.message) {
-                setDraft(activeLane, action.message);
-                void sendPrompt(activeLane, action.message);
-              }
-            }}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-xs transition",
-              action.type === "navigate"
-                ? "border-bm-accent/30 bg-bm-accent/8 text-bm-accent hover:bg-bm-accent/15"
-                : "border-bm-border/50 bg-bm-surface/12 text-bm-muted hover:border-bm-accent/35 hover:text-bm-text"
-            )}
-          >
-            {action.type === "navigate" ? "→ " : ""}{action.label}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  if (backendActions.length === 0 || activeState.messages.length === 0) return null;
 
   return (
     <div className={cn("flex flex-wrap gap-2", compact ? "px-4 pb-2" : "px-6 pb-2")}>
-      {staticSuggestions.map((suggestion) => (
+      {backendActions.slice(0, 4).map((action, idx) => (
         <button
-          key={suggestion.id}
+          key={`sa-${idx}`}
           type="button"
-          onClick={() => setDraft(activeLane, suggestion.prompt)}
-          className="rounded-full border border-bm-border/50 bg-bm-surface/12 px-3 py-1.5 text-xs text-bm-muted transition hover:border-bm-accent/35 hover:text-bm-text"
+          onClick={() => {
+            if (action.type === "navigate" && action.path) {
+              router.push(action.path);
+            } else if (action.message) {
+              setDraft(activeLane, action.message);
+              void sendPrompt(activeLane, action.message);
+            }
+          }}
+          className={cn(
+            "rounded-full border px-3 py-1.5 text-xs transition",
+            action.type === "navigate"
+              ? "border-bm-accent/30 bg-bm-accent/8 text-bm-accent hover:bg-bm-accent/15"
+              : "border-bm-border/50 bg-bm-surface/12 text-bm-muted hover:border-bm-accent/35 hover:text-bm-text"
+          )}
         >
-          {suggestion.label}
+          {action.type === "navigate" ? "→ " : ""}{action.label}
         </button>
       ))}
     </div>
@@ -542,7 +526,7 @@ function WorkspaceContent({
           </div>
         ) : null}
 
-        <SuggestionStrip compact={drawer} hideWhenActive={drawer} />
+        <PostResponseActions compact={drawer} />
         <ThreadViewport
           messages={activeState.messages}
           thinking={activeState.thinking}
@@ -723,7 +707,6 @@ export function WinstonCompanionRoot() {
             }
             explorePane={
               <div className="px-4 pb-3 space-y-2">
-                <SuggestionStrip compact hideWhenActive={false} />
                 <ExplorePanel />
               </div>
             }
