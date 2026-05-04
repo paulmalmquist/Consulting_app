@@ -35,6 +35,7 @@ class SeedPack(Protocol):
 
 from . import (  # noqa: E402  (import after protocol for circular-safety)
     client_delivery_starter,
+    cloud_infra_starter,
     empty,
     internal_ops_minimal,
     repe_starter,
@@ -50,6 +51,7 @@ SEED_PACKS: dict[str, SeedPack] = {
     "repe_starter": repe_starter,  # type: ignore[dict-item]
     "trading_research_starter": trading_research_starter,  # type: ignore[dict-item]
     "supply_chain_starter": supply_chain_starter,  # type: ignore[dict-item]
+    "cloud_infra_starter": cloud_infra_starter,  # type: ignore[dict-item]
 }
 
 

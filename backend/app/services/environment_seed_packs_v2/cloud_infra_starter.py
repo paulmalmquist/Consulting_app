@@ -232,16 +232,20 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
     today = date.today()
     asof_dt = _now()
 
-    # Pipeline stages (cloud-ops shape)
+    # Pipeline stages (cloud-ops shape).
+    # Wrapped in a SAVEPOINT so a failure here (e.g. v1.environments FK miss,
+    # or env_id not castable to uuid) doesn't poison the parent transaction
+    # and silently skip the rest of the pack.
+    stages = [
+        ("prospect",  "Prospect",  0, "slate"),
+        ("trial",     "Trial",     1, "blue"),
+        ("activated", "Activated", 2, "amber"),
+        ("growing",   "Growing",   3, "green"),
+        ("at_risk",   "At Risk",   4, "rose"),
+        ("churned",   "Churned",   5, "zinc"),
+    ]
+    cur.execute("SAVEPOINT pipeline_stages_seed")
     try:
-        stages = [
-            ("prospect",  "Prospect",  0, "slate"),
-            ("trial",     "Trial",     1, "blue"),
-            ("activated", "Activated", 2, "amber"),
-            ("growing",   "Growing",   3, "green"),
-            ("at_risk",   "At Risk",   4, "rose"),
-            ("churned",   "Churned",   5, "zinc"),
-        ]
         for key, label, sort_order, color in stages:
             cur.execute(
                 """
@@ -251,8 +255,10 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
                 """,
                 (env_id, key, label, sort_order, color),
             )
+        cur.execute("RELEASE SAVEPOINT pipeline_stages_seed")
         rows["v1.pipeline_stages"] = len(stages)
     except Exception as exc:
+        cur.execute("ROLLBACK TO SAVEPOINT pipeline_stages_seed")
         notes.append(f"skipped pipeline_stages seed: {exc}")
 
     # Regions
@@ -429,11 +435,13 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
             gpus_in_region = int(gpus_in_region * (0.6 + (hash((rk, sk)) % 100) / 100.0))
             capacity_by_region_sku[(rk, sk)] = float(gpus_in_region)
 
-    # Insert GPU utilization
+    # Build GPU utilization rows in memory, then batch-insert via executemany.
+    # Per-row execute() against a remote DB is dominated by RTT — batching cuts
+    # ~65k inserts from minutes-to-hours down to seconds.
     days = 90
+    gpu_util_batch: list[tuple] = []
     for d in range(days):
         day_dt = (asof_dt - timedelta(days=days - 1 - d)).replace(hour=0)
-        # Daily growth curve so utilization climbs over the 90-day window
         growth = 0.55 + 0.35 * (d / max(1, days - 1))
         for region in REGIONS:
             rk = region[0]
@@ -444,56 +452,56 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
                 avail = capacity_by_region_sku[(rk, sk)]
                 for h in range(24):
                     ts = day_dt.replace(hour=h)
-                    # Diurnal: peak 10:00-22:00 local-ish
                     diurnal = 0.85 + 0.15 * math.sin((h - 6) / 24 * math.pi * 2)
                     region_factor = 1.05 if rk == "fra" else 1.02 if rk == "nyc" else 0.95
-                    util = avail * growth * diurnal * region_factor
-                    util = min(avail * 0.99, max(0.0, util))
+                    util = min(avail * 0.99, max(0.0, avail * growth * diurnal * region_factor))
                     realized = listp * (0.92 + (hash((rk, sk, d, h)) % 17) / 200.0)
-                    cur.execute(
-                        """
-                        INSERT INTO fact_cloud_gpu_utilization
-                          (env_id, business_id, region_key, sku_key, usage_hour,
-                           available_gpu_hours, utilized_gpu_hours, reserved_gpu_hours,
-                           realized_price_per_hour_usd, cost_per_hour_usd)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (env_id, region_key, sku_key, usage_hour) DO NOTHING
-                        """,
+                    gpu_util_batch.append(
                         (env_id, business_id, rk, sk, ts, avail, util,
-                         avail * 0.05, realized, costp),
+                         avail * 0.05, realized, costp)
                     )
-                    gpu_util_count += 1
-    rows["fact_cloud_gpu_utilization"] = gpu_util_count
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_gpu_utilization
+          (env_id, business_id, region_key, sku_key, usage_hour,
+           available_gpu_hours, utilized_gpu_hours, reserved_gpu_hours,
+           realized_price_per_hour_usd, cost_per_hour_usd)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, region_key, sku_key, usage_hour) DO NOTHING
+        """,
+        gpu_util_batch,
+    )
+    rows["fact_cloud_gpu_utilization"] = len(gpu_util_batch)
 
-    # Daily capacity rollups (region × SKU × day)
-    cap_rows = 0
+    # Daily capacity rollups (region × SKU × day) — batched
+    cap_batch: list[tuple] = []
     for d in range(days):
         cap_date = today - timedelta(days=days - 1 - d)
         growth = 0.55 + 0.35 * (d / max(1, days - 1))
         for (rk, sk), avail in capacity_by_region_sku.items():
             util = avail * 24 * growth * 0.95
-            cur.execute(
-                """
-                INSERT INTO fact_cloud_capacity_daily
-                  (env_id, business_id, region_key, sku_key, capacity_date,
-                   available_units, utilized_units, reserved_units, oversubscription_ratio)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, region_key, sku_key, capacity_date) DO NOTHING
-                """,
+            cap_batch.append(
                 (env_id, business_id, rk, sk, cap_date,
-                 avail * 24, util, avail * 24 * 0.05, util / (avail * 24) if avail else 0),
+                 avail * 24, util, avail * 24 * 0.05,
+                 util / (avail * 24) if avail else 0)
             )
-            cap_rows += 1
-    rows["fact_cloud_capacity_daily"] = cap_rows
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_capacity_daily
+          (env_id, business_id, region_key, sku_key, capacity_date,
+           available_units, utilized_units, reserved_units, oversubscription_ratio)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, region_key, sku_key, capacity_date) DO NOTHING
+        """,
+        cap_batch,
+    )
+    rows["fact_cloud_capacity_daily"] = len(cap_batch)
 
-    # Customer × hourly resource usage — sample 12 hourly rows/day for top 30 customers
-    # (full hourly per customer would explode row counts). 30 × 90 × 12 = 32,400.
+    # Customer × hourly resource usage — batched
     top_customers = customers[:30]
-    usage_rows = 0
+    usage_batch: list[tuple] = []
     for cid, _name, segment, _ctype, _rep in top_customers:
-        # Each customer pinned to 1-2 regions
         cust_regions = rng.sample([r[0] for r in REGIONS], k=rng.choice([1, 2]))
-        # Each customer prefers 1-3 SKUs
         cust_skus = rng.sample([s[0] for s in gpu_skus], k=rng.choice([1, 2, 3]))
         for d in range(days):
             day_dt = (asof_dt - timedelta(days=days - 1 - d)).replace(hour=0)
@@ -502,29 +510,25 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
                 rk = rng.choice(cust_regions)
                 sk = rng.choice(cust_skus)
                 qty = float(rng.randint(2, 80))
-                cur.execute(
-                    """
-                    INSERT INTO fact_cloud_resource_usage_hourly
-                      (env_id, business_id, resource_key, customer_id, sku_key, region_key,
-                       usage_hour, usage_quantity, usage_unit, source_system, source_record_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
+                usage_batch.append(
                     (env_id, business_id, _u(env_id, "resource", cid, sk, rk),
                      cid, sk, rk, ts, qty, "gpu_hour", "platform_telemetry_demo",
-                     _u(env_id, "usagerec", cid, str(d), str(h))),
+                     _u(env_id, "usagerec", cid, str(d), str(h)))
                 )
-                usage_rows += 1
-    rows["fact_cloud_resource_usage_hourly"] = usage_rows
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_resource_usage_hourly
+          (env_id, business_id, resource_key, customer_id, sku_key, region_key,
+           usage_hour, usage_quantity, usage_unit, source_system, source_record_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        usage_batch,
+    )
+    rows["fact_cloud_resource_usage_hourly"] = len(usage_batch)
 
-    # Billing line items — monthly aggregation per customer × SKU for the trailing 3 months
-    bill_count = 0
-    inv_header_count = 0
-    inv_line_count = 0
-    pay_count = 0
-    revrec_count = 0
+    # Billing / invoice / payment / revenue recognition — collected then batched.
     months = []
     for m in range(3):
-        # Walk back m months
         d = today.replace(day=1)
         for _ in range(m):
             d = (d - timedelta(days=1)).replace(day=1)
@@ -536,9 +540,16 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
     excepted_invoice_no_usage     = {customers[i][0] for i in (5,)}             # invoice_no_usage
     excepted_recognition_lag      = {customers[i][0] for i in (8, 22)}          # recognition_lag
     excepted_cash_not_collected   = {customers[i][0] for i in (15,)}            # cash_not_collected
+    excepted_contract_mismatch    = {customers[i][0] for i in (19,)}            # contract_mismatch
+    excepted_discount_mismatch    = {customers[i][0] for i in (33,)}            # discount_mismatch
+
+    bill_batch: list[tuple] = []
+    inv_header_batch: list[tuple] = []
+    inv_line_batch: list[tuple] = []
+    pay_batch: list[tuple] = []
+    revrec_batch: list[tuple] = []
 
     for period_start in months:
-        # Period end = last day of month
         if period_start.month == 12:
             period_end = period_start.replace(year=period_start.year + 1, month=1, day=1) - timedelta(days=1)
         else:
@@ -552,106 +563,113 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
                 qty = float(rng.randint(400, 6000))
                 rated = qty * listp
                 disc = rated * (rng.choice([0, 0, 0.05, 0.10, 0.15]))
-                # Skip billing for usage_not_invoiced exceptions
                 if cid in excepted_customers_no_invoice and period_start == months[-1]:
                     continue
-                cur.execute(
-                    """
-                    INSERT INTO fact_cloud_billing_line_item
-                      (env_id, business_id, line_id, customer_id, sku_key, region_key,
-                       period_start, period_end, rated_amount_usd, quantity, unit_price_usd,
-                       discount_amount_usd, source_system, source_record_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (env_id, line_id) DO NOTHING
-                    """,
+                bill_batch.append(
                     (env_id, business_id, _u(env_id, "billline", cid, sk, str(period_start)),
                      cid, sk, rng.choice([r[0] for r in REGIONS]),
                      period_start, period_end, rated - disc, qty, listp, disc,
-                     "billing_engine_demo", _u(env_id, "billrec", cid, sk, str(period_start))),
+                     "billing_engine_demo", _u(env_id, "billrec", cid, sk, str(period_start)))
                 )
-                bill_count += 1
                 invoice_total += rated - disc
 
-            # Invoice header + line — even invoice_no_usage customers get one (with no backing usage)
             if cid in excepted_invoice_no_usage and period_start == months[-1]:
-                invoice_total = float(rng.randint(8000, 22000))  # phantom invoice
+                invoice_total = float(rng.randint(8000, 22000))
             if invoice_total <= 0:
                 continue
             invoice_key = _u(env_id, "inv", cid, str(period_start))
-            cur.execute(
-                """
-                INSERT INTO dim_cloud_invoice
-                  (env_id, business_id, invoice_key, customer_id, invoice_number,
-                   period_start, period_end, currency, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, invoice_key) DO NOTHING
-                """,
+            inv_header_batch.append(
                 (env_id, business_id, invoice_key, cid,
                  f"INV-{period_start.strftime('%Y%m')}-{cid[5:9].upper()}",
                  period_start, period_end, "USD",
-                 "paid" if rng.random() > 0.15 else "issued"),
+                 "paid" if rng.random() > 0.15 else "issued")
             )
-            inv_header_count += 1
 
             tax = invoice_total * 0.0
             issued = datetime.combine(period_end + timedelta(days=2), datetime.min.time(), tzinfo=timezone.utc)
             paid_at = issued + timedelta(days=rng.randint(7, 35)) if rng.random() > 0.15 else None
             if cid in excepted_cash_not_collected and period_start == months[-1]:
                 paid_at = None
-            cur.execute(
-                """
-                INSERT INTO fact_cloud_invoice
-                  (env_id, business_id, invoice_line_id, invoice_key, customer_id,
-                   period_start, invoice_amount_usd, tax_usd, currency, issued_at,
-                   paid_at, status, source_system, source_record_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, invoice_line_id) DO NOTHING
-                """,
+            inv_line_batch.append(
                 (env_id, business_id, _u(env_id, "invline", invoice_key),
                  invoice_key, cid, period_start, invoice_total, tax, "USD",
                  issued, paid_at, "paid" if paid_at else "issued",
-                 "netsuite_demo", _u(env_id, "nsrec", invoice_key)),
+                 "netsuite_demo", _u(env_id, "nsrec", invoice_key))
             )
-            inv_line_count += 1
 
             if paid_at:
-                cur.execute(
-                    """
-                    INSERT INTO fact_cloud_payment
-                      (env_id, business_id, payment_id, invoice_key, customer_id,
-                       paid_at, amount_usd, method)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (env_id, payment_id) DO NOTHING
-                    """,
+                pay_batch.append(
                     (env_id, business_id, _u(env_id, "pay", invoice_key),
                      invoice_key, cid, paid_at, invoice_total,
-                     rng.choice(["wire", "ach", "credit_card"])),
+                     rng.choice(["wire", "ach", "credit_card"]))
                 )
-                pay_count += 1
 
-            # Revenue recognition (NetSuite) — lagged for excepted customers
             recog_amount = invoice_total
             if cid in excepted_recognition_lag and period_start == months[-1]:
-                recog_amount = invoice_total * 0.40  # 60% lagged
-            cur.execute(
-                """
-                INSERT INTO fact_cloud_revenue_recognition
-                  (env_id, business_id, recognition_id, customer_id, period_month,
-                   recognized_revenue_usd, deferred_revenue_usd, source_system, source_record_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, recognition_id) DO NOTHING
-                """,
+                recog_amount = invoice_total * 0.40
+            revrec_batch.append(
                 (env_id, business_id, _u(env_id, "revrec", cid, str(period_start)),
                  cid, period_start, recog_amount, invoice_total - recog_amount,
-                 "netsuite_demo", _u(env_id, "nsrevrec", cid, str(period_start))),
+                 "netsuite_demo", _u(env_id, "nsrevrec", cid, str(period_start)))
             )
-            revrec_count += 1
 
-    rows["fact_cloud_billing_line_item"] = bill_count
-    rows["dim_cloud_invoice"] = inv_header_count
-    rows["fact_cloud_invoice"] = inv_line_count
-    rows["fact_cloud_payment"] = pay_count
-    rows["fact_cloud_revenue_recognition"] = revrec_count
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_billing_line_item
+          (env_id, business_id, line_id, customer_id, sku_key, region_key,
+           period_start, period_end, rated_amount_usd, quantity, unit_price_usd,
+           discount_amount_usd, source_system, source_record_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, line_id) DO NOTHING
+        """,
+        bill_batch,
+    )
+    cur.executemany(
+        """
+        INSERT INTO dim_cloud_invoice
+          (env_id, business_id, invoice_key, customer_id, invoice_number,
+           period_start, period_end, currency, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, invoice_key) DO NOTHING
+        """,
+        inv_header_batch,
+    )
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_invoice
+          (env_id, business_id, invoice_line_id, invoice_key, customer_id,
+           period_start, invoice_amount_usd, tax_usd, currency, issued_at,
+           paid_at, status, source_system, source_record_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, invoice_line_id) DO NOTHING
+        """,
+        inv_line_batch,
+    )
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_payment
+          (env_id, business_id, payment_id, invoice_key, customer_id,
+           paid_at, amount_usd, method)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, payment_id) DO NOTHING
+        """,
+        pay_batch,
+    )
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_revenue_recognition
+          (env_id, business_id, recognition_id, customer_id, period_month,
+           recognized_revenue_usd, deferred_revenue_usd, source_system, source_record_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, recognition_id) DO NOTHING
+        """,
+        revrec_batch,
+    )
+    rows["fact_cloud_billing_line_item"] = len(bill_batch)
+    rows["dim_cloud_invoice"] = len(inv_header_batch)
+    rows["fact_cloud_invoice"] = len(inv_line_batch)
+    rows["fact_cloud_payment"] = len(pay_batch)
+    rows["fact_cloud_revenue_recognition"] = len(revrec_batch)
 
     # Sales pipeline — ~25 opportunities, snapshot today
     pipeline_count = 0
@@ -774,8 +792,8 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
             pa_count += 1
     rows["fact_cloud_product_activation"] = pa_count
 
-    # Customer × day snapshot — 30 days × top 30 customers
-    snap_count = 0
+    # Customer × day snapshot — batched
+    snap_batch: list[tuple] = []
     for cid, _n, segment, _ct, _rep in top_customers:
         for d in range(30):
             sd = today - timedelta(days=29 - d)
@@ -786,19 +804,21 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
             ar = max(0.0, usage_rev * rng.uniform(0.0, 1.5))
             tickets = rng.choice([0, 0, 0, 1, 1, 2, 3])
             risk = rng.uniform(5, 35) if "delinquent" not in segment else rng.uniform(50, 90)
-            cur.execute(
-                """
-                INSERT INTO fact_cloud_customer_daily_snapshot
-                  (env_id, business_id, customer_id, snapshot_date,
-                   daily_usage_revenue_usd, daily_recognized_revenue_usd,
-                   outstanding_ar_usd, support_tickets_open, churn_risk_score)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (env_id, customer_id, snapshot_date) DO NOTHING
-                """,
-                (env_id, business_id, cid, sd, usage_rev, recog, ar, tickets, round(risk, 2)),
+            snap_batch.append(
+                (env_id, business_id, cid, sd, usage_rev, recog, ar, tickets, round(risk, 2))
             )
-            snap_count += 1
-    rows["fact_cloud_customer_daily_snapshot"] = snap_count
+    cur.executemany(
+        """
+        INSERT INTO fact_cloud_customer_daily_snapshot
+          (env_id, business_id, customer_id, snapshot_date,
+           daily_usage_revenue_usd, daily_recognized_revenue_usd,
+           outstanding_ar_usd, support_tickets_open, churn_risk_score)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, customer_id, snapshot_date) DO NOTHING
+        """,
+        snap_batch,
+    )
+    rows["fact_cloud_customer_daily_snapshot"] = len(snap_batch)
 
     # Reconciliation exceptions — engineered to match the breaks above
     excs: list[tuple[str, str, str, str, float, str]] = []
@@ -819,6 +839,14 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
         excs.append((f"exc_cnc_{cid}", cid, "cash_not_collected", "critical",
                      float(rng.randint(40, 220) * 1000),
                      "Invoice issued and recognized but no payment received past due date. Customer flagged for AR review."))
+    for cid in excepted_contract_mismatch:
+        excs.append((f"exc_cmm_{cid}", cid, "contract_mismatch", "warning",
+                     float(rng.randint(12, 65) * 1000),
+                     "Customer billed at list price for one or more SKUs despite an active committed contract. Contract terms not applied by billing engine."))
+    for cid in excepted_discount_mismatch:
+        excs.append((f"exc_dmm_{cid}", cid, "discount_mismatch", "warning",
+                     float(rng.randint(8, 30) * 1000),
+                     "Discount applied on billing line does not match the contract discount_pct. Likely manual override outside the rate card."))
 
     exc_count = 0
     for exc_id, cid, etype, sev, amount, note in excs:
