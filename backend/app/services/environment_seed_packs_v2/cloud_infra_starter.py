@@ -421,7 +421,6 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
     # To keep row counts sane: hourly per region × GPU SKU but only for SKUs that
     # belong to a GPU product. 5 regions × 6 GPU SKUs × 90 days × 24h = 64,800 rows.
     gpu_skus = [s for s in SKUS if s[1].startswith("gpu_")]
-    gpu_util_count = 0
     capacity_by_region_sku: dict[tuple[str, str], float] = {}
     for region in REGIONS:
         rk = region[0]
