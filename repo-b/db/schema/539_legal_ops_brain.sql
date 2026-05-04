@@ -350,6 +350,8 @@ CREATE INDEX IF NOT EXISTS idx_legal_outside_counsel_packets_matter
 
 -- ── FK linkage (now that all tables exist) ───────────────────────────────────
 
-ALTER TABLE legal_prior_decisions
-  ADD CONSTRAINT fk_legal_prior_decisions_disposition
-  FOREIGN KEY (attorney_disposition_id) REFERENCES legal_attorney_dispositions(disposition_id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE legal_prior_decisions
+    ADD CONSTRAINT fk_legal_prior_decisions_disposition
+    FOREIGN KEY (attorney_disposition_id) REFERENCES legal_attorney_dispositions(disposition_id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
