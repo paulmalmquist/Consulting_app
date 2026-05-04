@@ -689,7 +689,7 @@ const Infographic = () => (
 
 export default function WhatWeDoPage() {
   return (
-    <div className={`nv-page ${styles.shell}`}>
+    <div className={styles.shell}>
       <div className={styles.scaler}>
         <div className={styles.canvas}>
           <Infographic />
