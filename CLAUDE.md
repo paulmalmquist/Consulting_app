@@ -277,6 +277,7 @@ Read `docs/CAPABILITY_INVENTORY.md` before suggesting new features or builds. It
 | `docs/ops-reports/digests/` | Daily 7:30 AM | Consolidated morning digest of all overnight results | Quick situational check at start of any session |
 | `docs/ai-testing/` | Daily 11 PM | Winston AI feature test pass/fail report with screenshots | Before touching any AI gateway or chat code |
 | `docs/ai-test-cases/` | As needed | Structured test fixtures with prompts, rubrics, and pass criteria | When writing new AI features or fixing AI bugs |
+| `docs/deal-opportunities/` | Daily | Detailed target profiles with pain hypotheses, AUM, team size, and outreach angles | Before any sales call prep, proposal, or demo build |
 | `docs/sales-signals/` | Daily 4 PM | Qualified prospects with outreach angles | Before outreach or proposal work |
 | `docs/sales-positioning/` | Daily 8 AM | Sharp counter-positioning angles vs. each competitor | Before any sales call, email, or deck |
 | `docs/site-improvements/` | Daily 11 AM | Page-by-page website positioning audit with suggested copy | Before any frontend marketing changes |
