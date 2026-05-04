@@ -1,0 +1,58 @@
+/* Local token + class shims so the imported infographic can render
+   inside the dark marketing shell without polluting global .nv-* rules. */
+
+.shell {
+  --neon-cyan: rgb(var(--nv-accent-teal));
+  --neon-magenta: rgb(var(--nv-pink-reflect));
+  --neon-amber: rgb(var(--nv-amber));
+  --fg-1: rgb(var(--nv-text-primary));
+  --fg-2: rgb(var(--nv-text-secondary));
+  --fg-3: rgb(var(--nv-text-tertiary));
+  --line-2: rgb(var(--nv-hair-soft) / 0.16);
+  color: var(--fg-1);
+}
+
+.shell :global(.nv-label) {
+  font-family: var(--font-marketing-mono), 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.shell :global(.nv-panel) {
+  background: rgb(var(--nv-surface-raised));
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+}
+
+.shell :global(.nv-art) {
+  color: var(--fg-1);
+  background: transparent;
+}
+
+.scaler {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas {
+  width: 1400px;
+  height: 1000px;
+  flex-shrink: 0;
+  transform-origin: top center;
+  transform: scale(min(1, calc(100vw / 1480)));
+}
+
+/* When scaled, the surrounding flex parent still reserves the un-scaled height.
+   Pull the visible footprint back in proportionally so the CTA below sits flush. */
+.scaler {
+  height: calc(1000px * min(1, 100vw / 1480));
+}
+
+.cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}

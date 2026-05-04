@@ -47,6 +47,7 @@
   --nv-accent-teal-ink:  18  68  70;  /* #124446 */
   --nv-accent-copper:   198 132 255;  /* #C684FF */
   --nv-accent-copper-ink: 70  40 118; /* #462876 */
+  --nv-amber:           255 176  32;  /* #FFB020 */
 
   /* ── Cyberpunk neon accents — DECORATIVE ONLY ────────────────
    * Hero gradients, ambient panel washes, marketing background
@@ -130,6 +131,7 @@
   --nv-accent-teal-ink:  16  70  75;
   --nv-accent-copper:   126  76 190;  /* #7E4CBE */
   --nv-accent-copper-ink: 66  38 112;
+  --nv-amber:           200 130  20;  /* #C88214 — desaturated for porcelain bg */
 
   /* Cyberpunk accents — light-mode parallels (slightly desaturated
    * so neons don't blare against white). Same token names. */
