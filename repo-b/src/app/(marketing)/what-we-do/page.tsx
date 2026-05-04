@@ -581,7 +581,7 @@ const GrowthViz = () => (
 );
 
 const Infographic = () => (
-  <div className="nv-art" style={{ width: 1400, height: 1000, position: 'relative', overflow: 'hidden', padding: '40px 48px' }}>
+  <div className="nv-art" style={{ width: 1400, height: 1000, position: 'relative', overflow: 'hidden', padding: '44px 56px 40px' }}>
     <div style={{
       position: 'absolute', inset: 0,
       background:
@@ -591,11 +591,13 @@ const Infographic = () => (
       pointerEvents: 'none',
     }} />
 
-    <div style={{ display: 'grid', gridTemplateColumns: '0.85fr 1.5fr', gap: 28, position: 'relative', zIndex: 2 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 40, position: 'relative', zIndex: 2 }}>
       <div>
         <h1 style={{
-          margin: 0, fontFamily: 'Manrope, "DM Sans", system-ui, sans-serif', fontWeight: 700,
-          fontSize: 40, lineHeight: 1.08, letterSpacing: '-0.025em',
+          margin: 0,
+          fontFamily: 'var(--font-abadi, "Abadi", "Abadi MT", "Gill Sans", Verdana, sans-serif)',
+          fontWeight: 500,
+          fontSize: 72, lineHeight: 1.03, letterSpacing: '-0.025em',
           textTransform: 'none',
           color: 'var(--fg-1)',
         }}>
@@ -606,13 +608,13 @@ const Infographic = () => (
           <span style={{ color: '#9DD9C4' }}>advantage</span>.
         </h1>
         <p style={{
-          fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 14, lineHeight: 1.55,
-          color: 'var(--fg-2)', marginTop: 18, maxWidth: 420,
+          fontFamily: 'var(--nv-font-sans, "Geist", ui-sans-serif, sans-serif)', fontSize: 16, lineHeight: 1.55,
+          color: 'var(--fg-2)', marginTop: 22, maxWidth: 480,
         }}>
           Novendor discovers how AI is being used across your business, turns scattered activity into governed workflows, and scales what works — safely — across your organization.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 32 }}>
           <Pillar icon={<EyeIcon />} k="SEE" tone="cyan" d="Uncover AI usage across teams and tools." />
           <Pillar icon={<ShieldIcon />} k="GOVERN" tone="cyan" d="Apply controls, data rules, and human oversight." />
           <Pillar icon={<NodesIcon />} k="STANDARDIZE" tone="magenta" d="Turn proven patterns into approved workflows." />
@@ -620,7 +622,7 @@ const Infographic = () => (
         </div>
       </div>
 
-      <div style={{ position: 'relative', height: 480 }}>
+      <div style={{ position: 'relative', height: 500 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'absolute', top: 0, left: 0, right: 0, padding: '0 8px' }}>
           <div>
             <div className="nv-label" style={{ color: 'var(--neon-amber)', letterSpacing: '0.16em', fontWeight: 700 }}>UNSEEN. UNGOVERNED.</div>

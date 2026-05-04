@@ -10,7 +10,7 @@
   --fg-3: rgb(var(--nv-text-tertiary));
   --line-2: rgb(var(--nv-hair-soft) / 0.16);
   color: var(--fg-1);
-  padding: 48px 0 80px;
+  padding: 0 0 64px;
 }
 
 .shell :global(.nv-label) {
