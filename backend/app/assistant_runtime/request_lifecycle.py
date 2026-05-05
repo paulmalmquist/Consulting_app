@@ -46,6 +46,7 @@ from app.assistant_runtime.turn_receipts import (
     ToolStatus,
     TurnReceipt,
     TurnStatus,
+    build_concept_receipt,
     legacy_code_to_lane,
 )
 from app.config import AI_MAX_TOOL_ROUNDS, OPENAI_API_KEY
@@ -1544,6 +1545,7 @@ async def run_request_lifecycle(
             pending_action=pending_action_state,
             status=TurnStatus.DEGRADED,
             degraded_reason=degraded_reason,
+            concept=build_concept_receipt(plan, compiled),
         )
         yield _sse("token", {"text": message_text})
         yield _sse(
@@ -1638,6 +1640,7 @@ async def run_request_lifecycle(
             pending_action=pending_action_state,
             status=TurnStatus.SUCCESS,
             degraded_reason=None,
+            concept=build_concept_receipt(plan, compiled),
         )
         elapsed_ms = int((time.time() - started_at) * 1000)
         timings["render_completion_ms"] = elapsed_ms
@@ -1859,6 +1862,7 @@ async def run_request_lifecycle(
                 pending_action=pending_action_state,
                 status=TurnStatus.FAILED,
                 degraded_reason=DegradedReason.TOOL_FAILED,
+                concept=build_concept_receipt(plan, compiled),
             )
             yield _sse(
                 "done",
@@ -2049,6 +2053,7 @@ async def run_request_lifecycle(
         status=final_status,
         degraded_reason=final_reason,
         quality_gates=gate_dicts,
+        concept=build_concept_receipt(plan, compiled),
     )
     if final_status == TurnStatus.DEGRADED and not collected_content.strip():
         late_unavailable_reason = (

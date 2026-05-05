@@ -379,3 +379,130 @@ def test_derive_intent_hint_combines_skill_and_message_keywords():
 
 def test_derive_intent_hint_none_when_no_signal():
     assert derive_intent_hint(router_skill_id=None, message="hello") is None
+
+
+# ── 9. concept matching integration ─────────────────────────────────────────
+
+
+def _asset_scope(label: str = "Austin West") -> _ShimScope:
+    return _ShimScope(
+        environment_id="env-1",
+        business_id="biz-1",
+        entity_type="asset",
+        entity_id="asset-austin-west",
+        entity_name=label,
+    )
+
+
+def test_strategize_matches_noi_variance_on_obvious_prompt():
+    plan = strategize(
+        router_lane="C",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(page_title="Asset Detail"),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="Why is NOI off plan this quarter?",
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.concept_match is not None
+    assert plan.concept_match.confidence >= 0.6
+    assert plan.concept_object_summary is not None
+    assert "Driver taxonomy:" in plan.concept_object_summary
+    assert plan.diagnostics.get("concept_id") == "repe.noi_variance"
+
+
+def test_strategize_no_concept_match_on_definition_question():
+    plan = strategize(
+        router_lane="B",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="What is NOI?",
+    )
+    assert plan.concept_id is None
+    assert plan.concept_match is None
+    assert plan.concept_object_summary is None
+    assert plan.diagnostics.get("concept_profile_bias_applied") is False
+
+
+def test_strategize_concept_match_biases_default_profile_to_entity_question():
+    plan = strategize(
+        router_lane="B",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(page_title="Asset Detail"),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="Walk Q1 to Q2 NOI for this asset",
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.profile.name == "entity_question"
+    assert plan.diagnostics.get("concept_profile_bias_applied") is True
+
+
+def test_strategize_referential_followup_inherits_concept():
+    plan = strategize(
+        router_lane="C",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="What about underwriting?",
+        prior_concept_id="repe.noi_variance",
+        prior_concept_confidence=0.9,
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.concept_match is not None
+    assert plan.concept_match.match_reason.value == "referential_inheritance"
+    assert plan.concept_match.confidence == 0.9
+
+
+def test_strategize_low_confidence_match_includes_extended_summary():
+    # Contextual trigger → ~0.5 confidence → should compile tier 2 too
+    plan = strategize(
+        router_lane="C",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="What's going on with this asset?",
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.concept_match.confidence < 0.7
+    assert plan.concept_object_extended_summary is not None
+    assert "Failure modes" in plan.concept_object_extended_summary
+
+
+def test_strategize_high_confidence_lane_b_skips_extended_summary():
+    # "NOI walk" is a high-confidence alias hit without triggering the existing
+    # `variance`/`analyze`/`compare` keyword rules that force lane C.
+    plan = strategize(
+        router_lane="B",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_asset_scope(),
+        context_envelope=_envelope(),
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="Give me the NOI walk for Q2",
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.concept_match.confidence >= 0.8
+    assert plan.lane == "B"
+    assert plan.concept_object_extended_summary is None

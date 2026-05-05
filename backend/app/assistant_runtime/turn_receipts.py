@@ -242,6 +242,41 @@ class StructuredQueryReceipt(BaseModel):
     degradation_reason: str | None = None
 
 
+class ConceptReceipt(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    concept_id: str
+    concept_version: str
+    matched_alias: str | None = None
+    confidence: float
+    match_reason: str
+    behavior_tier: str
+    concept_object_included: bool
+    concept_object_extended_included: bool = False
+    concept_object_tokens: int = 0
+    concept_object_extended_tokens: int = 0
+    required_context_present: list[str] = Field(default_factory=list)
+    required_context_missing: list[str] = Field(default_factory=list)
+    output_contract_sections_expected: list[str] = Field(default_factory=list)
+    failure_modes_available: list[str] = Field(default_factory=list)
+
+
+class SourceDisciplineReceipt(BaseModel):
+    """Source-discipline plumbing. v1 fields are mostly None until the data
+    layer exposes per-source as-of dates and conflict summaries. Scorers gate
+    on `applicable: bool` so missing fields skip rather than fail.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    source_inventory: list[str] | None = None
+    source_as_of_dates: dict[str, str] | None = None
+    freshness_status: str | None = None
+    conflict_summary: list[dict[str, Any]] | None = None
+    basis_rule_applied: str | None = None
+    scope_rule_applied: str | None = None
+
+
 class TurnReceipt(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -258,6 +293,53 @@ class TurnReceipt(BaseModel):
     status: TurnStatus
     degraded_reason: DegradedReason | None = None
     quality_gates: list[dict[str, Any]] | None = None
+    concept: ConceptReceipt | None = None
+    source_discipline: SourceDisciplineReceipt | None = None
+
+
+def build_concept_receipt(plan: Any, compiled: Any) -> ConceptReceipt | None:
+    """Assemble a ConceptReceipt from a CompositionPlan + CompiledContext.
+
+    Returns None when no concept matched. Reads diagnostics already populated
+    by prompt_receipts.build_receipt_from_compiled — keeps the lifecycle
+    assembly logic to a single call.
+    """
+    match = getattr(plan, "concept_match", None)
+    if match is None:
+        return None
+
+    concept_obj_item = compiled.item("concept_object") if compiled else None
+    concept_ext_item = compiled.item("concept_object_extended") if compiled else None
+
+    output_sections: list[str] = []
+    failure_codes: list[str] = []
+    required_missing: list[str] = []
+    try:
+        from app.assistant_runtime.concepts import load_concept
+
+        concept = load_concept(match.concept_id)
+        output_sections = concept.output_contract.all_section_names()
+        failure_codes = [fm.code for fm in concept.failure_modes]
+        required_missing = concept.required_context.required_field_names()
+    except Exception:
+        pass
+
+    return ConceptReceipt(
+        concept_id=match.concept_id,
+        concept_version=match.version,
+        matched_alias=match.matched_alias,
+        confidence=match.confidence,
+        match_reason=match.match_reason.value,
+        behavior_tier=match.behavior_tier.value,
+        concept_object_included=bool(concept_obj_item and concept_obj_item.included),
+        concept_object_extended_included=bool(concept_ext_item and concept_ext_item.included),
+        concept_object_tokens=(concept_obj_item.tokens if concept_obj_item and concept_obj_item.included else 0),
+        concept_object_extended_tokens=(concept_ext_item.tokens if concept_ext_item and concept_ext_item.included else 0),
+        required_context_present=[],
+        required_context_missing=required_missing,
+        output_contract_sections_expected=output_sections,
+        failure_modes_available=failure_codes,
+    )
 
 
 _PERMISSION_ORDER: dict[PermissionMode, int] = {

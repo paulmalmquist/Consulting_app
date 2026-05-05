@@ -24,6 +24,11 @@ import re
 from dataclasses import dataclass, asdict, field
 from typing import Any
 
+from app.assistant_runtime.concepts import BehaviorTier, ConceptMatch
+from app.assistant_runtime.concepts.registry import (
+    load_concept_summary,
+    match_with_inheritance,
+)
 from app.assistant_runtime.prompt_registry import SKILL_PROMPT_FILES, load_prompt
 from app.services.lane_policy import LanePolicy, get_policy
 
@@ -588,6 +593,10 @@ class CompositionPlan:
     strategy_version: str = STRATEGY_VERSION
     diagnostics: dict[str, Any] = field(default_factory=dict)
     policy: LanePolicy = field(default_factory=lambda: get_policy("B"))
+    concept_id: str | None = None
+    concept_match: ConceptMatch | None = None
+    concept_object_summary: str | None = None
+    concept_object_extended_summary: str | None = None
 
 
 def strategize(
@@ -601,8 +610,16 @@ def strategize(
     summary_text: str | None,
     summary_version: int | None,
     user_message: str,
+    prior_concept_id: str | None = None,
+    prior_concept_confidence: float | None = None,
 ) -> CompositionPlan:
-    """Produce a deterministic ``CompositionPlan`` ready for the compiler."""
+    """Produce a deterministic ``CompositionPlan`` ready for the compiler.
+
+    ``prior_concept_id`` and ``prior_concept_confidence`` enable referential
+    follow-up inheritance — when the user says "what about underwriting?" on
+    turn 3, we reuse the concept matched on turn 2 instead of letting the
+    matcher silently drop it.
+    """
 
     # Derive an intent string if the router didn't give us one.
     intent_hint = router_intent or derive_intent_hint(
@@ -630,6 +647,46 @@ def strategize(
         "scope_downgrade_applied": False,
         "intent_hint_source": "router" if router_intent else ("derived" if intent_hint else "none"),
     }
+
+    # Concept matching runs after profile classification but before the
+    # entity-required downgrade. A concept match can promote an otherwise
+    # "default" profile into something stronger.
+    environment = (scope.environment_text or "").lower() or None
+    if environment:
+        for token in ("meridian", "novendor", "stone", "resume", "floyorker"):
+            if token in environment:
+                environment = token
+                break
+    concept_match = match_with_inheritance(
+        user_message,
+        prior_concept_id=prior_concept_id,
+        prior_confidence=prior_concept_confidence,
+        environment=environment,
+        entity_type=scope.entity_type,
+        has_active_entity=bool(scope.entity_label),
+    )
+
+    if concept_match is not None:
+        # Profile bias: if a concept matched and we're on a generic profile,
+        # upgrade to entity_question (or analysis when scope and confidence
+        # both warrant it). Concept match takes precedence over keyword rules.
+        if profile.name in ("default", "simple_lookup"):
+            if scope.entity_label and concept_match.confidence >= 0.7:
+                profile = COMPOSITION_PROFILES["entity_question"]
+            elif concept_match.confidence >= 0.5:
+                profile = COMPOSITION_PROFILES["entity_question"]
+            effective_lane = profile.force_lane or _normalize_lane(router_lane)
+            policy = get_policy(effective_lane)
+        diagnostics["concept_id"] = concept_match.concept_id
+        diagnostics["concept_version"] = concept_match.version
+        diagnostics["concept_confidence"] = concept_match.confidence
+        diagnostics["concept_match_reason"] = concept_match.match_reason.value
+        diagnostics["concept_behavior_tier"] = concept_match.behavior_tier.value
+        diagnostics["concept_matched_alias"] = concept_match.matched_alias
+        diagnostics["concept_profile_bias_applied"] = True
+    else:
+        diagnostics["concept_id"] = None
+        diagnostics["concept_profile_bias_applied"] = False
 
     # Fail closed: if the profile requires an entity but scope doesn't have
     # one, fall back to the default profile rather than producing a
@@ -675,6 +732,28 @@ def strategize(
 
     is_minimal = profile.force_lane == "A" and effective_lane == "A"
 
+    concept_object_summary: str | None = None
+    concept_object_extended_summary: str | None = None
+    if concept_match is not None:
+        concept_object_summary = load_concept_summary(
+            concept_match.concept_id,
+            tier=1,
+            behavior_tier=concept_match.behavior_tier,
+        )
+        # Tier 2 is gated: deeper lanes, low-confidence matches, or any case
+        # where the model needs the full failure-mode menu.
+        gate_tier_2 = (
+            effective_lane in ("C", "D")
+            or concept_match.confidence < 0.7
+            or concept_match.behavior_tier != BehaviorTier.PROCEED
+        )
+        if gate_tier_2:
+            concept_object_extended_summary = load_concept_summary(
+                concept_match.concept_id,
+                tier=2,
+                behavior_tier=concept_match.behavior_tier,
+            )
+
     return CompositionPlan(
         profile=profile,
         lane=effective_lane,
@@ -693,6 +772,10 @@ def strategize(
         strategy_version=STRATEGY_VERSION,
         diagnostics=diagnostics,
         policy=policy,
+        concept_id=concept_match.concept_id if concept_match else None,
+        concept_match=concept_match,
+        concept_object_summary=concept_object_summary,
+        concept_object_extended_summary=concept_object_extended_summary,
     )
 
 

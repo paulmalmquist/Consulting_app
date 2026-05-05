@@ -248,6 +248,50 @@ def build_receipt_from_compiled(
         "excluded_items": compiled.diagnostics.get("item_keys_excluded", []),
     }
 
+    # Concept diagnostics — populated whenever a concept matched, so eval scorers
+    # can check route correctness, alias normalization, context completeness, and
+    # output-contract compliance. Source-discipline fields are intentionally None
+    # until the data layer exposes per-source as-of dates.
+    if plan.concept_match is not None:
+        concept_obj_item = compiled.item("concept_object")
+        concept_ext_item = compiled.item("concept_object_extended")
+        try:
+            from app.assistant_runtime.concepts import load_concept
+
+            concept = load_concept(plan.concept_match.concept_id)
+            output_sections_expected = concept.output_contract.all_section_names()
+            failure_modes_available = [fm.code for fm in concept.failure_modes]
+            required_field_names = concept.required_context.required_field_names()
+        except Exception:
+            output_sections_expected = []
+            failure_modes_available = []
+            required_field_names = []
+
+        notes["concept_diagnostics"] = {
+            "concept_id": plan.concept_match.concept_id,
+            "concept_version": plan.concept_match.version,
+            "matched_alias": plan.concept_match.matched_alias,
+            "concept_confidence": plan.concept_match.confidence,
+            "match_reason": plan.concept_match.match_reason.value,
+            "behavior_tier": plan.concept_match.behavior_tier.value,
+            "concept_object_included": bool(concept_obj_item and concept_obj_item.included),
+            "concept_object_extended_included": bool(
+                concept_ext_item and concept_ext_item.included
+            ),
+            "concept_object_tokens": tok("concept_object"),
+            "concept_object_extended_tokens": tok("concept_object_extended"),
+            "required_context_present": [],
+            "required_context_missing": list(required_field_names),
+            "output_contract_sections_expected": output_sections_expected,
+            "failure_modes_available": failure_modes_available,
+            "source_inventory": None,
+            "source_as_of_dates": None,
+            "freshness_status": None,
+            "conflict_summary": None,
+            "basis_rule_applied": None,
+            "scope_rule_applied": None,
+        }
+
     # Evaluate inline diagnostic flags.
     flag_candidate = {
         "total_prompt_tokens": compiled.post_enforcement_tokens or 0,

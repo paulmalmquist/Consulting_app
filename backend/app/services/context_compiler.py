@@ -41,7 +41,9 @@ PRIORITY: dict[str, int] = {
     "skill_instructions": 5,
     "thread_goal": 8,
     "scope_entity": 8,
+    "concept_object": 9,
     "scope_page": 10,
+    "concept_object_extended": 11,
     "scope_environment": 12,
     "scope_filters": 14,
     "thread_summary": 15,
@@ -58,7 +60,9 @@ CUT_STRATEGY: dict[str, str] = {
     "skill_instructions": "trim_to_cap",
     "thread_goal": "never",
     "scope_entity": "never",
+    "concept_object": "trim",
     "scope_page": "compress",
+    "concept_object_extended": "compress",
     "scope_environment": "compress",
     "scope_filters": "drop",
     "thread_summary": "compress",
@@ -210,6 +214,32 @@ def compile_context(
     # 4. Structured scope (entity is never dropped; the rest are separately
     # compressible or droppable).
     add("scope_entity", plan.scope.entity_text, {"entity_id": plan.scope.entity_id})
+
+    # 4b. Concept object (Tier 1 always when concept matches; Tier 2 gated).
+    if plan.concept_id and plan.concept_object_summary:
+        add(
+            "concept_object",
+            plan.concept_object_summary,
+            {
+                "concept_id": plan.concept_id,
+                "concept_version": plan.concept_match.version if plan.concept_match else None,
+                "matched_alias": plan.concept_match.matched_alias if plan.concept_match else None,
+                "confidence": plan.concept_match.confidence if plan.concept_match else None,
+                "behavior_tier": plan.concept_match.behavior_tier.value if plan.concept_match else None,
+                "match_reason": plan.concept_match.match_reason.value if plan.concept_match else None,
+                "tier": 1,
+            },
+        )
+    if plan.concept_id and plan.concept_object_extended_summary:
+        add(
+            "concept_object_extended",
+            plan.concept_object_extended_summary,
+            {
+                "concept_id": plan.concept_id,
+                "tier": 2,
+            },
+        )
+
     if plan.lane != "A":
         add("scope_page", plan.scope.page_text)
         add("scope_environment", plan.scope.environment_text)
@@ -353,6 +383,9 @@ _REDUNDANCY_PAIRS: list[tuple[str, str]] = [
     ("scope_entity", "history"),
     ("thread_goal", "thread_summary"),
     ("skill_instructions", "rag"),
+    ("thread_goal", "concept_object"),
+    ("skill_instructions", "concept_object"),
+    ("concept_object", "concept_object_extended"),
 ]
 
 

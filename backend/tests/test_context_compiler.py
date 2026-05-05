@@ -303,3 +303,116 @@ def test_rag_policy_drops_below_min_score_and_dedupes():
     assert stats["dropped_below_min_score"] >= 1
     assert stats["deduped"] >= 1
     assert stats["chunks_kept"] <= LANE_POLICY["C"].max_rag_chunks
+
+
+# ── 7. Concept object inclusion ──────────────────────────────────────────
+
+
+def _plan_with_concept(
+    *,
+    lane: str = "C",
+    confidence: float = 0.9,
+    extended: bool = False,
+):
+    from app.assistant_runtime.concepts import (
+        BehaviorTier,
+        ConceptMatch,
+        MatchReason,
+    )
+    from app.assistant_runtime.concepts.registry import load_concept_summary
+
+    plan = _plan(lane=lane, profile="entity_question")
+    behavior = ConceptMatch.behavior_tier_for_confidence(confidence)
+    plan.concept_id = "repe.noi_variance"
+    plan.concept_match = ConceptMatch(
+        concept_id="repe.noi_variance",
+        version="0.1.0",
+        matched_alias="NOI variance",
+        confidence=confidence,
+        match_reason=MatchReason.EXACT_ALIAS if confidence >= 1.0 else MatchReason.SUBSTRING_ALIAS,
+        behavior_tier=behavior,
+    )
+    plan.concept_object_summary = load_concept_summary(
+        "repe.noi_variance", tier=1, behavior_tier=behavior
+    )
+    if extended:
+        plan.concept_object_extended_summary = load_concept_summary(
+            "repe.noi_variance", tier=2, behavior_tier=behavior
+        )
+    return plan
+
+
+def test_concept_object_included_when_concept_id_set():
+    plan = _plan_with_concept(lane="C", confidence=0.9)
+    compiled = compile_context(
+        plan=plan,
+        model="gpt-4o-mini",
+        history_messages=[],
+        raw_rag_chunks=[],
+        workflow_augmentation="",
+    )
+    item = compiled.item("concept_object")
+    assert item is not None
+    assert item.included
+    assert "Driver taxonomy:" in item.text
+    assert item.metadata["concept_id"] == "repe.noi_variance"
+    assert item.metadata["confidence"] == 0.9
+
+
+def test_concept_object_extended_included_when_low_confidence():
+    plan = _plan_with_concept(lane="C", confidence=0.5, extended=True)
+    compiled = compile_context(
+        plan=plan,
+        model="gpt-4o-mini",
+        history_messages=[],
+        raw_rag_chunks=[],
+        workflow_augmentation="",
+    )
+    ext = compiled.item("concept_object_extended")
+    assert ext is not None
+    assert ext.included
+    assert "Failure modes" in ext.text
+
+
+def test_concept_object_not_included_when_no_match():
+    plan = _plan(lane="C", profile="default")
+    assert plan.concept_id is None
+    compiled = compile_context(
+        plan=plan,
+        model="gpt-4o-mini",
+        history_messages=[],
+        raw_rag_chunks=[],
+        workflow_augmentation="",
+    )
+    assert compiled.item("concept_object") is None
+
+
+def test_concept_object_survives_budget_pressure():
+    # Tiny budget — concept_object cut_strategy is "trim", not "drop", so it
+    # shrinks but should remain included as long as the concept matched.
+    plan = _plan_with_concept(lane="C", confidence=0.9)
+    tiny_policy = LanePolicy(
+        total_budget=400,
+        include_rag=False,
+        max_history_turns=2,
+        max_rag_chunks=0,
+        rag_min_score=0.1,
+        use_thread_summary=False,
+        use_visible_context=False,
+        use_domain_blocks=False,
+        use_visible_records=False,
+    )
+    plan.policy = tiny_policy
+    compiled = compile_context(
+        plan=plan,
+        model="gpt-4o-mini",
+        history_messages=[
+            {"role": "user", "content": "y" * 400, "message_id": "m0"},
+            {"role": "user", "content": "y" * 400, "message_id": "m1"},
+        ],
+        raw_rag_chunks=[],
+        workflow_augmentation="",
+    )
+    item = compiled.item("concept_object")
+    assert item is not None
+    assert item.included, "concept_object must not be silently dropped under budget pressure"
