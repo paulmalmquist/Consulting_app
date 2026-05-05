@@ -1,0 +1,267 @@
+{
+  "concept_id": "repe.noi_variance",
+  "version": "0.1.0",
+  "canonical_question": "Why did NOI move versus a stated comparison set?",
+  "aliases": [
+    "NOI variance",
+    "net operating income variance",
+    "property NOI variance",
+    "net property income variance",
+    "same-property NOI",
+    "same-property NOI variance",
+    "same-store NOI",
+    "same-store NOI variance",
+    "SSNOI",
+    "SPNOI",
+    "NOI miss",
+    "NOI off plan",
+    "NOI down",
+    "NOI bridge",
+    "NOI walk",
+    "explain NOI",
+    "NOI versus underwriting",
+    "NOI vs underwriting",
+    "NOI versus budget",
+    "NOI vs budget",
+    "NOI versus forecast",
+    "NOI vs forecast"
+  ],
+  "environment": ["meridian"],
+  "entity_types": ["asset", "fund", "property", "portfolio"],
+  "required_context": {
+    "fields": [
+      {
+        "name": "entity",
+        "description": "The asset, property, fund, or portfolio the variance is being explained for",
+        "data_source": "scope_entity from prompt strategy",
+        "required": true
+      },
+      {
+        "name": "period",
+        "description": "Reporting period for the current value (quarter, month, YTD, T-12)",
+        "data_source": "scope_filters or explicit user input",
+        "required": true
+      },
+      {
+        "name": "comparison_set",
+        "description": "What the current value is being compared to (prior quarter, prior year, budget, forecast, underwritten)",
+        "data_source": "explicit user input or default per concept",
+        "required": true
+      },
+      {
+        "name": "scope",
+        "description": "Pool rule (total portfolio, same-property, stabilized, excludes redevelopments, etc.)",
+        "data_source": "explicit user input or pool membership data",
+        "required": true
+      },
+      {
+        "name": "basis",
+        "description": "Cash basis or GAAP/straight-line basis for revenue and concessions",
+        "data_source": "explicit user input or default basis for the entity",
+        "required": true
+      },
+      {
+        "name": "currency",
+        "description": "Reporting currency for all values",
+        "data_source": "entity reporting currency",
+        "required": true
+      },
+      {
+        "name": "sources",
+        "description": "Source documents and their as-of dates",
+        "data_source": "source_inventory from data layer",
+        "required": true
+      }
+    ]
+  },
+  "preferred_sources": [
+    "property_pnl",
+    "rent_roll",
+    "underwriting_memo",
+    "approved_budget",
+    "latest_forecast",
+    "general_ledger"
+  ],
+  "driver_taxonomy": {
+    "buckets": [
+      {
+        "name": "rate",
+        "definition": "Pricing effect on revenue from achieved rents (in-place rent change net of mix)",
+        "aliases": ["lease rates", "achieved rents", "rent growth", "pricing effect", "rent-rate effect"]
+      },
+      {
+        "name": "occupancy",
+        "definition": "Physical or economic occupancy change versus the comparison period",
+        "aliases": ["physical occupancy", "economic occupancy", "vacancy gain", "vacancy loss"]
+      },
+      {
+        "name": "mix",
+        "definition": "Change in unit mix, tenant mix, or product mix that shifts revenue independent of rate or occupancy",
+        "aliases": ["customer mix", "product mix", "lease mix", "unit mix"]
+      },
+      {
+        "name": "concessions",
+        "definition": "Free rent, abatements, and giveaways that reduce effective revenue",
+        "aliases": ["leasing concessions", "free rent", "abatements", "giveaways"]
+      },
+      {
+        "name": "vacancy",
+        "definition": "Vacancy loss or gain attributable to downtime between leases",
+        "aliases": ["downtime", "vacancy drag", "vacancy gain"]
+      },
+      {
+        "name": "bad_debt",
+        "definition": "Net bad debt: collection loss or credit loss net of recoveries and reserve movement",
+        "aliases": ["bad debt, net", "collection loss", "credit loss", "bad debt reserve"]
+      },
+      {
+        "name": "recoveries",
+        "definition": "CAM, tax, insurance, and utility recoveries from tenants under net leases",
+        "aliases": ["reimbursements", "CAM recoveries", "tax recoveries", "insurance recoveries", "utility recoveries", "RUBS"]
+      },
+      {
+        "name": "taxes",
+        "definition": "Real estate taxes (assessment changes, reassessments, abatements)",
+        "aliases": ["real estate taxes", "property taxes", "RE taxes"]
+      },
+      {
+        "name": "insurance",
+        "definition": "Property insurance premium changes",
+        "aliases": ["property insurance", "premiums"]
+      },
+      {
+        "name": "payroll",
+        "definition": "Onsite labor and personnel costs",
+        "aliases": ["onsite payroll", "labor", "personnel"]
+      },
+      {
+        "name": "repairs_maintenance",
+        "definition": "Repairs and maintenance expense",
+        "aliases": ["R&M", "repairs", "maintenance"]
+      },
+      {
+        "name": "other",
+        "definition": "Items that do not fit the above buckets, including lease termination fees and one-time non-recurring items",
+        "aliases": ["one-time", "non-recurring", "termination fees", "cancellation fees"]
+      }
+    ]
+  },
+  "reasoning_steps": [
+    {
+      "name": "anchor_the_compare",
+      "description": "State the entity, period, comparison set, scope, and basis before computing anything"
+    },
+    {
+      "name": "compute_total_variance",
+      "description": "Compute the absolute and percentage variance of NOI versus the comparison set"
+    },
+    {
+      "name": "decompose_revenue",
+      "description": "Decompose revenue change into rate, occupancy, mix, concessions, vacancy, and bad_debt"
+    },
+    {
+      "name": "decompose_expenses",
+      "description": "Decompose expense change into taxes, insurance, payroll, repairs_maintenance, recoveries, and other"
+    },
+    {
+      "name": "classify_timing_vs_recurring",
+      "description": "Mark each material driver as timing (one-time) or recurring (run-rate)"
+    },
+    {
+      "name": "tie_back",
+      "description": "Verify that the sum of driver components closes on the total variance within tolerance"
+    },
+    {
+      "name": "cite_sources",
+      "description": "Attach the source document and as-of date for every numeric claim"
+    }
+  ],
+  "output_contract": {
+    "sections": [
+      {"name": "direct_answer", "required": true, "description": "One sentence stating the variance and the dominant driver"},
+      {"name": "metric_block", "required": true, "description": "Current, comparison, absolute delta, percent delta, with basis label"},
+      {"name": "driver_bridge", "required": true, "description": "Closure-shaped list of drivers with sign, magnitude, and bucket name"},
+      {"name": "reconciliation", "required": true, "description": "Sum of drivers tied back to total variance within tolerance"},
+      {"name": "provenance", "required": true, "description": "Source documents and their as-of dates"},
+      {"name": "caveats", "required": true, "description": "Timing-vs-recurring classification, scope/basis caveats, missing data flags"},
+      {"name": "confidence", "required": true, "description": "Confidence label calibrated against source freshness, completeness, and conflict count"}
+    ]
+  },
+  "failure_modes": [
+    {"code": "missing_context", "description": "A required_context field is absent"},
+    {"code": "mixed_basis", "description": "The answer mixes cash and GAAP basis without disclosure"},
+    {"code": "stale_source", "description": "A primary source is older than the freshness policy allows"},
+    {"code": "conflicting_source", "description": "Two preferred sources disagree on a primary value"},
+    {"code": "scope_mismatch", "description": "The pool rule applied does not match what was requested"},
+    {"code": "double_count", "description": "A value is counted in two driver buckets"},
+    {"code": "unsupported_claim", "description": "A claim has no source in source_inventory"},
+    {"code": "out_of_scope_requires_waterfall", "description": "Metric requires waterfall calculation that is not in scope for v1"}
+  ],
+  "cannot_compute_rules": [
+    {"precondition": "comparison_set is absent", "failure_mode_code": "missing_context"},
+    {"precondition": "scope is same-property and pool membership data is unavailable", "failure_mode_code": "missing_context"},
+    {"precondition": "basis is cash and only GAAP data is available", "failure_mode_code": "missing_context"},
+    {"precondition": "primary source as-of date exceeds freshness_policy.primary_source_max_age_days", "failure_mode_code": "stale_source"},
+    {"precondition": "two preferred sources disagree on a primary value", "failure_mode_code": "conflicting_source"},
+    {"precondition": "metric requires carry, promote, or gp_share computation", "failure_mode_code": "out_of_scope_requires_waterfall"}
+  ],
+  "freshness_policy": {
+    "default_max_age_days": 30,
+    "primary_source_max_age_days": 30,
+    "notes": "Rent roll and property P&L within 30 days. Underwriting and approved budget have no age limit (immutable references)."
+  },
+  "file_requirements": {
+    "files": [
+      {
+        "name": "property_pnl",
+        "required_columns": ["period", "actual_noi", "revenue", "opex"],
+        "optional_columns": ["occupancy", "rent", "concessions", "bad_debt", "recoveries", "taxes", "insurance", "payroll", "repairs_maintenance"],
+        "normalization_rules": [
+          "period must align to a reporting-period grain (month or quarter)",
+          "currency must match the entity reporting currency",
+          "opex line items must be classifiable into the driver taxonomy"
+        ]
+      },
+      {
+        "name": "rent_roll",
+        "required_columns": ["unit_id", "lease_start", "lease_end", "contract_rent", "occupancy_status"],
+        "optional_columns": ["concessions", "market_rent", "tenant_name", "lease_type"],
+        "normalization_rules": [
+          "occupancy_status must be one of {occupied, vacant, notice}",
+          "currency must match the entity reporting currency"
+        ]
+      },
+      {
+        "name": "underwriting",
+        "required_columns": ["period", "underwritten_noi", "underwritten_revenue", "underwritten_opex"],
+        "optional_columns": ["underwritten_occupancy", "underwritten_concessions", "underwritten_taxes"],
+        "normalization_rules": [
+          "period must align to a reporting-period grain (month or quarter)",
+          "currency must match the entity reporting currency"
+        ]
+      }
+    ]
+  },
+  "diagnostics_contract": {
+    "emit_compilation_receipt": true,
+    "emit_answer_receipt": true,
+    "receipt_fields": [
+      "concept_id",
+      "concept_version",
+      "matched_alias",
+      "concept_confidence",
+      "behavior_tier",
+      "match_reason",
+      "required_context_present",
+      "required_context_missing",
+      "output_contract_sections_expected",
+      "failure_modes_available",
+      "source_inventory",
+      "source_as_of_dates",
+      "freshness_status",
+      "conflict_summary",
+      "basis_rule_applied",
+      "scope_rule_applied"
+    ]
+  }
+}
