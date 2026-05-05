@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SaaS Iceberg — Image-backed Preview</title>
+<style>
+  :root{
+    --bg:#05070A;
+    --line:#263243;
+    --fg:#E6EDF7;
+    --muted:#6B7891;
+    --cyan:#00E5FF;
+    --font-mono: JetBrains Mono, SFMono-Regular, Consolas, Menlo, monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+
+  body{
+    display:grid;
+    place-items:center;
+    background:
+      radial-gradient(900px 520px at 62% 35%, rgba(0,229,255,.07), transparent 64%),
+      radial-gradient(900px 520px at 66% 70%, rgba(176,124,255,.08), transparent 70%),
+      #05070A;
+  }
+
+  .stage{
+    width:min(100vw, calc(100vh * 1.5426));
+    height:min(100vh, calc(100vw / 1.5426));
+    position:relative;
+    background:#05070A;
+    overflow:hidden;
+    box-shadow:0 0 0 1px var(--line), 0 0 80px rgba(0,0,0,.75);
+  }
+
+  .art{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    display:block;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+
+  .scale-note{
+    position:absolute;
+    right:14px;
+    bottom:12px;
+    z-index:3;
+    font:10px var(--font-mono);
+    letter-spacing:.12em;
+    color:rgba(230,237,247,.58);
+    background:rgba(5,7,10,.56);
+    border:1px solid rgba(38,50,67,.72);
+    padding:6px 8px;
+    backdrop-filter:blur(3px);
+  }
+
+  .fallback{
+    position:absolute;
+    inset:0;
+    display:grid;
+    place-items:center;
+    padding:40px;
+    text-align:center;
+    font:12px/1.6 var(--font-mono);
+    color:var(--muted);
+    letter-spacing:.04em;
+  }
+
+  .fallback b{color:var(--cyan)}
+</style>
+</head>
+<body>
+  <main class="stage">
+    <div class="fallback"><div><b>IMAGE ART LAYER</b><br>If the preview image does not appear in Canvas, open the exported HTML file. The production version should store this asset in /public/assets/marketing/saas-iceberg-art.webp and reference it from the page.</div></div>
+    <img class="art" src="sandbox:/mnt/data/saas_iceberg_art_1200_q76.webp" alt="Novendor SaaS iceberg visual concept with waterline, invoice, and hidden operational cost layer" />
+    <div class="scale-note">IMAGE-BACKED ART LAYER · ASPECT LOCKED</div>
+  </main>
+</body>
+</html>

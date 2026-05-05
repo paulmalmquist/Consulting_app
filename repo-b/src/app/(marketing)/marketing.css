@@ -205,6 +205,10 @@
   padding: 72px 48px 120px;
 }
 
+.nv-page--wide {
+  max-width: 1560px;
+}
+
 .nv-section {
   margin-top: 96px;
 }

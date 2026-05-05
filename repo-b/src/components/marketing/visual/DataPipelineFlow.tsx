@@ -570,7 +570,7 @@ function PipelineStyles() {
       .nv-pipeline__ai {
         position: relative;
         z-index: 2;
-        width: min(620px, 60%);
+        width: min(820px, 78%);
         margin: 0 auto;
         padding: 14px 18px;
         display: grid;
@@ -953,6 +953,12 @@ function PipelineStyles() {
           gap: 6px;
         }
         .nv-pipeline__strip-step::after { display: none; }
+      }
+
+      @media (min-width: 1400px) {
+        .nv-pipeline {
+          --nv-pipeline-col-gap: 20px;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {

@@ -68,7 +68,7 @@ export default function ComprehensiveDataStrategyPage() {
         </div>
       </HeroBackground>
 
-      <div className="nv-page" style={{ paddingTop: 0 }}>
+      <div className="nv-page nv-page--wide" style={{ paddingTop: 0 }}>
         <section className="nv-section">
         <div className="nv-section-head">
           <p className="nv-eyebrow">What this covers</p>
