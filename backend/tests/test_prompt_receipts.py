@@ -230,6 +230,99 @@ def test_update_upstream_usage_no_op_when_value_none():
     update_upstream_usage("req_nope", 0, None)
 
 
+# ── Concept required-context derivation from scope ───────────────────────
+
+
+def _build_receipt_with_match(plan: CompositionPlan):
+    compiled = compile_context(
+        plan=plan, model="gpt-4o-mini", history_messages=[],
+        raw_rag_chunks=[], workflow_augmentation="",
+    )
+    return build_receipt_from_compiled(
+        compiled=compiled, system_base="SYS", request_id="req-test",
+        round_index=0, capture_point="initial", conversation_id="c-1",
+        session_id="s-1", env_id="env-1", business_id="biz-1",
+        actor="test@example.com", model="gpt-4o-mini", fallback_used=False,
+        active_scope_type="fund", active_scope_id="fund-1",
+        active_scope_label="Fund", resolved_entity_state={},
+        continuity_notes={"prior_messages_found": 0, "prior_messages_included": 0},
+    )
+
+
+def _make_concept_match():
+    """Build a real ConceptMatch by calling the matcher so we don't drift
+    from the production confidence/behavior_tier mapping."""
+    from app.assistant_runtime.concepts import match_concept
+    m = match_concept(
+        "Why is NOI off plan for this fund?",
+        environment="meridian", entity_type="fund", has_active_entity=True,
+    )
+    assert m is not None
+    return m
+
+
+def test_receipt_required_context_full_scope_marks_entity_period_scope_present():
+    # Full scope: entity_id + entity_label + quarter + page_title — should
+    # mark entity, period, and scope as present; the 4 source-discipline
+    # fields stay missing because the data layer doesn't populate them yet.
+    plan = _plan(concept_match=_make_concept_match(), concept_id="repe.noi_variance")
+    row = _build_receipt_with_match(plan)
+    diag = row.notes_json.get("concept_diagnostics")
+    assert diag is not None
+    assert set(diag["required_context_present"]) == {"entity", "period", "scope"}
+    assert set(diag["required_context_missing"]) == {
+        "comparison_set", "basis", "currency", "sources",
+    }
+
+
+def test_receipt_required_context_missing_quarter_marks_period_missing():
+    plan = _plan(concept_match=_make_concept_match(), concept_id="repe.noi_variance")
+    plan.scope.quarter = None
+    row = _build_receipt_with_match(plan)
+    diag = row.notes_json["concept_diagnostics"]
+    assert "entity" in diag["required_context_present"]
+    assert "scope" in diag["required_context_present"]
+    assert "period" not in diag["required_context_present"]
+    assert "period" in diag["required_context_missing"]
+
+
+def test_receipt_required_context_missing_entity_marks_entity_missing():
+    plan = _plan(concept_match=_make_concept_match(), concept_id="repe.noi_variance")
+    plan.scope.entity_id = None
+    plan.scope.entity_label = None
+    row = _build_receipt_with_match(plan)
+    diag = row.notes_json["concept_diagnostics"]
+    assert "entity" not in diag["required_context_present"]
+    assert "entity" in diag["required_context_missing"]
+    # period + scope should still be present
+    assert "period" in diag["required_context_present"]
+    assert "scope" in diag["required_context_present"]
+
+
+def test_receipt_no_concept_diagnostics_when_no_match():
+    # plan.concept_match is None (default) → no diagnostics block at all.
+    plan = _plan()
+    assert plan.concept_match is None
+    row = _build_receipt_with_match(plan)
+    assert "concept_diagnostics" not in (row.notes_json or {})
+
+
+def test_receipt_does_not_fake_source_discipline_completeness():
+    # Even with full scope, sources/basis/currency/comparison_set must NOT
+    # be marked present. PR 3 scorers depend on this honesty.
+    plan = _plan(concept_match=_make_concept_match(), concept_id="repe.noi_variance")
+    row = _build_receipt_with_match(plan)
+    diag = row.notes_json["concept_diagnostics"]
+    for fake_present_field in ("sources", "basis", "currency", "comparison_set"):
+        assert fake_present_field not in diag["required_context_present"], (
+            f"{fake_present_field} must stay missing until the data layer populates it"
+        )
+    # Source-discipline placeholders stay None
+    for placeholder in ("source_inventory", "source_as_of_dates", "freshness_status",
+                        "conflict_summary", "basis_rule_applied", "scope_rule_applied"):
+        assert diag[placeholder] is None
+
+
 # ── Admin endpoint auth gate ─────────────────────────────────────────────
 
 

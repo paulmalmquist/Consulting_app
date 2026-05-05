@@ -95,3 +95,27 @@ Concept-object system delivers:
 - Pydantic schema (ConceptObject, RequiredContext, OutputContract, FailureMode, FreshnessPolicy, FileRequirements, CannotComputeRule, DiagnosticsContract, ConceptMatch)
 - Tiered concept_object payload (Tier 1 always, Tier 2 gated on lane / missing context / low confidence)
 - First concept: `repe.noi_variance` v0.1.0
+
+## Addendum — known limits surfaced by post-PR-2 sanity check
+
+A live end-to-end check (strategize → compile_context → build_receipt_from_compiled, against the seeded `repe.noi_variance` concept) on 2026-05-05 confirmed three of four expected scenarios pass. Two real limits remain. **Both must be resolved before concept eval scoring (PR 3) can be trusted** — the scorers grade against receipt fields that today either silently miss legitimate matches or report stale provisional values.
+
+### Limit 1 — contextual trigger reads the message but not page context
+
+The matcher's contextual_trigger tier requires entity + (metric_hint OR soft-language phrase from a small allowlist) + directional_phrase. The allowlist (`looks light`, `feels off`, `going on`, `what happened`) covers the obvious operator phrasings — `"This looks light, why?"` matches today at confidence 0.4 with `match_reason=contextual_trigger`. Existing tests at `backend/tests/test_concepts.py:147-180` and `backend/tests/test_prompt_strategy.py:472-488` confirm both the matcher and the full strategize pipeline route these prompts correctly.
+
+The gap is everything off the allowlist. `"Why is this fund off?"`, `"Something doesn't add up here"`, or `"This is below where I expected"` all have an active entity + directional language but no metric word and no allowlist hit, so they fall through to no-match. The fix isn't tightening or loosening the gate — it's adding a third metric-inference channel: when `page_title` or `visible_widgets` mention NOI / revenue / expense / variance / occupancy / operating performance, the page context fills the metric slot.
+
+**Resolution:** Plumb `page_title` and `visible_widgets` from scope through `match_concept` and `match_with_inheritance`. When an active entity + directional phrase exists and page context implies an NOI-family metric, fire contextual_trigger at the existing 0.4 confidence floor. Real-world coverage improvement, not a bug fix to existing behavior.
+
+### Limit 2 — `required_context_missing` is provisional and over-reports
+
+The receipt-builder today initializes `required_context_present: []` and `required_context_missing: list(required_field_names)` for every concept-matched receipt. Every receipt reports all 7 NOI variance required fields as missing, even when scope clearly resolves entity, period, and page.
+
+The plan flagged this as deferred ("Defer population logic to PR 2; many will be `None` in v1"), but PR 3's `context_completeness_score` grades pass/fail on whether `required_context_missing` is empty. Without real population, every concept-matched scenario will either fail context_completeness or PR 3's scorer will need to be artificially relaxed — both bad outcomes.
+
+**Resolution:** Populate the present/missing split from `plan.scope` for fields the system can actually know today: entity (from scope.entity_id or scope.entity_label), period (from scope.quarter), scope/page (from scope.page_title). Leave source-discipline fields (sources, basis, currency, comparison_set) as missing — PR 3 scorers should treat those as not-yet-available rather than failing a context gate the data layer cannot satisfy.
+
+### Status
+
+Both limits are blockers for PR 3 release gates and are scheduled to be resolved before PR 3 work begins. Once fixed, the contextual matcher and the receipt's required-context block become trustable signals for `concept_match_score` and `context_completeness_score` respectively.

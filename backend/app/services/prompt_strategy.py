@@ -657,6 +657,14 @@ def strategize(
             if token in environment:
                 environment = token
                 break
+    # Page context — page_title plus visible widget names — gives the matcher
+    # a third metric-inference channel for contextual_trigger. An operator
+    # saying "why is this off?" on a fund detail page with NOI widgets in
+    # view should match repe.noi_variance even though the message itself
+    # doesn't name a metric.
+    page_context_parts = [scope.page_title, scope.page_text]
+    page_context = " ".join(p for p in page_context_parts if p) or None
+
     concept_match = match_with_inheritance(
         user_message,
         prior_concept_id=prior_concept_id,
@@ -664,6 +672,7 @@ def strategize(
         environment=environment,
         entity_type=scope.entity_type,
         has_active_entity=bool(scope.entity_label),
+        page_context=page_context,
     )
 
     if concept_match is not None:

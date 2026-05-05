@@ -184,6 +184,41 @@ def _has_metric_hint(message_low: str) -> bool:
     return any(_word_boundary_pattern(m).search(message_low) for m in _METRIC_HINTS)
 
 
+# Page-context tokens that imply an NOI-family metric is in view. Includes the
+# user-message metric hints plus widget/page-title shorthand the UI emits.
+_PAGE_METRIC_TOKENS = _METRIC_HINTS + (
+    "operating performance",
+    "operating_performance",
+    "variance",
+    "noi_strip",
+    "noi_bridge",
+    "noi_walk",
+    "rent_roll",
+    "p&l",
+    "pnl",
+    "p_and_l",
+    "income_statement",
+    "operating_summary",
+    "fund_detail",
+    "asset_detail",
+    "property_detail",
+)
+
+
+def _page_implies_metric(page_context: str | None) -> bool:
+    """True when page context (page_title + visible_widgets) names an NOI-family metric.
+
+    The matcher uses this as a third metric-inference channel alongside the
+    user-message metric hints and the soft-language allowlist. When an
+    operator on a fund detail page with NOI widgets in view says "why is
+    this off?", page context fills the metric slot the message doesn't.
+    """
+    if not page_context:
+        return False
+    page_low = page_context.lower()
+    return any(token in page_low for token in _PAGE_METRIC_TOKENS)
+
+
 def _has_directional(message_low: str) -> bool:
     for phrase in _DIRECTIONAL_PHRASES:
         if " " in phrase:
@@ -246,6 +281,7 @@ def match_concept(
     environment: str | None = None,
     entity_type: str | None = None,
     has_active_entity: bool = False,
+    page_context: str | None = None,
 ) -> ConceptMatch | None:
     """Deterministic four-tier concept matcher.
 
@@ -257,6 +293,12 @@ def match_concept(
 
     Bare definition questions ("What is NOI?") never match — they need the
     intent qualifier or directional language to pass.
+
+    ``page_context`` is an optional string (typically page_title + visible
+    widget names joined together) that supplies a third metric-inference
+    channel for the contextual_trigger tier. When the user's message is
+    directional but lacks an explicit metric word, page context can fill
+    the metric slot.
     """
 
     if not message or not message.strip():
@@ -315,9 +357,19 @@ def match_concept(
             )
 
     if has_active_entity and _has_directional(message_low):
-        implied_metric = _has_metric_hint(message_low) or "going on" in message_low or "looks light" in message_low or "feels off" in message_low
-        if implied_metric:
-            confidence = 0.5 if _has_metric_hint(message_low) else 0.4
+        message_metric = _has_metric_hint(message_low)
+        soft_language = (
+            "going on" in message_low
+            or "looks light" in message_low
+            or "feels off" in message_low
+        )
+        page_metric = _page_implies_metric(page_context)
+        # Three independent channels that satisfy the metric-present test.
+        # Confidence stays at 0.5 only when the message itself names the
+        # metric — page-implied or soft-language inferences land at 0.4
+        # because the routing is less direct.
+        if message_metric or soft_language or page_metric:
+            confidence = 0.5 if message_metric else 0.4
             for concept in candidates:
                 return ConceptMatch(
                     concept_id=concept.concept_id,
@@ -339,6 +391,7 @@ def match_with_inheritance(
     environment: str | None = None,
     entity_type: str | None = None,
     has_active_entity: bool = False,
+    page_context: str | None = None,
 ) -> ConceptMatch | None:
     """Apply follow-up inheritance: referential messages reuse the prior concept.
 
@@ -366,6 +419,7 @@ def match_with_inheritance(
         environment=environment,
         entity_type=entity_type,
         has_active_entity=has_active_entity,
+        page_context=page_context,
     )
 
 

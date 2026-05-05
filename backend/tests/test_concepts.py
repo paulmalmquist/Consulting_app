@@ -180,6 +180,69 @@ def test_contextual_trigger_requires_active_entity() -> None:
     assert match is None
 
 
+def test_contextual_trigger_uses_page_context_for_metric_inference() -> None:
+    # Directional message with no metric word and no soft-language allowlist
+    # phrase. Page context names NOI directly (visible widget) — should match
+    # at the page-implied confidence floor (0.4).
+    match = match_concept(
+        "Why is this fund off?",
+        environment="meridian",
+        entity_type="fund",
+        has_active_entity=True,
+        page_context="Fund Detail noi_strip kpi_strip quarterly_metrics",
+    )
+    assert match is not None
+    assert match.concept_id == "repe.noi_variance"
+    assert match.match_reason == MatchReason.CONTEXTUAL_TRIGGER
+    assert match.confidence == 0.4
+    assert match.behavior_tier in {BehaviorTier.CLARIFY, BehaviorTier.CONFIRM}
+
+
+def test_contextual_trigger_page_context_via_page_title_words() -> None:
+    # Page title alone (no widgets) carries enough metric signal. The message
+    # has a directional phrase ("below") but no metric word.
+    match = match_concept(
+        "Why is this below where I expected?",
+        environment="meridian",
+        entity_type="fund",
+        has_active_entity=True,
+        page_context="Operating Performance Summary",
+    )
+    assert match is not None
+    assert match.match_reason == MatchReason.CONTEXTUAL_TRIGGER
+    assert match.confidence == 0.4
+
+
+def test_contextual_trigger_unrelated_page_does_not_match() -> None:
+    # Same directional-but-vague message, but page context is irrelevant
+    # (legal review page) — should NOT match. Page context isn't a free pass;
+    # it must actually imply an NOI-family metric.
+    match = match_concept(
+        "Why is this off?",
+        environment="meridian",
+        entity_type="fund",
+        has_active_entity=True,
+        page_context="Legal Review legal_clauses approval_queue",
+    )
+    assert match is None
+
+
+def test_contextual_trigger_message_metric_outranks_page_inference() -> None:
+    # When the message itself names the metric, confidence stays at 0.5
+    # regardless of page context. Page-implied is the weaker signal.
+    match = match_concept(
+        "Why is NOI off?",
+        environment="meridian",
+        entity_type="fund",
+        has_active_entity=True,
+        page_context="Fund Detail noi_strip",
+    )
+    assert match is not None
+    # "NOI" + directional ("off") triggers the keyword_cluster tier first
+    # at 0.6, before contextual_trigger is even consulted.
+    assert match.confidence >= 0.5
+
+
 # ── Negative: bare definition, no scope, wrong env ────────────────────────
 
 

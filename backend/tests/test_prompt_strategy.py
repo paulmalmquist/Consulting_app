@@ -506,3 +506,63 @@ def test_strategize_high_confidence_lane_b_skips_extended_summary():
     assert plan.concept_match.confidence >= 0.8
     assert plan.lane == "B"
     assert plan.concept_object_extended_summary is None
+
+
+def test_strategize_page_context_lets_vague_directional_match():
+    # "Why is this fund off?" has no metric word and is not in the soft-language
+    # allowlist, but the page is a Fund Detail with NOI widgets visible — page
+    # context fills the metric slot. Should match contextual_trigger at 0.4.
+    page = _ShimPage(
+        title="Fund Detail",
+        route="/lab/env/x/re/funds/1",
+        visible_widgets=["noi_strip", "kpi_strip"],
+    )
+    envelope = _ShimEnvelope(
+        page=page,
+        filters=_ShimFilters(quarter="2025Q4"),
+        environment_name="Meridian Capital Management",
+        visible_records=None,
+    )
+    plan = strategize(
+        router_lane="C",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_fund_scope(),
+        context_envelope=envelope,
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="Why is this fund off?",
+    )
+    assert plan.concept_id == "repe.noi_variance"
+    assert plan.concept_match.match_reason.value == "contextual_trigger"
+    assert plan.concept_match.confidence == 0.4
+
+
+def test_strategize_unrelated_page_does_not_match_vague_directional():
+    # Same vague directional message, but the page is a legal review surface —
+    # no metric implied. Should NOT match. Page context is not a free pass.
+    page = _ShimPage(
+        title="Legal Review",
+        route="/lab/env/x/legal",
+        visible_widgets=["legal_clauses", "approval_queue"],
+    )
+    envelope = _ShimEnvelope(
+        page=page,
+        filters=None,
+        environment_name="Meridian Capital Management",
+        visible_records=None,
+    )
+    plan = strategize(
+        router_lane="C",
+        router_skill_id=None,
+        router_intent=None,
+        resolved_scope=_fund_scope(),
+        context_envelope=envelope,
+        history_messages=[],
+        summary_text=None,
+        summary_version=None,
+        user_message="Why is this fund off?",
+    )
+    assert plan.concept_id is None
+    assert plan.concept_match is None

@@ -174,6 +174,32 @@ class ReceiptRow:
     notes_json: dict[str, Any] = field(default_factory=dict)
 
 
+def _derive_scope_present_fields(scope: Any) -> set[str]:
+    """Return the set of concept required-context field names that the scope
+    actually supplies today.
+
+    Maps StructuredScope attributes onto concept required_context field names:
+      entity → present if scope.entity_id or scope.entity_label is set
+      period → present if scope.quarter is set
+      scope  → present if scope.page_title is set (page implies the slicing scope)
+
+    Source-discipline fields (sources, basis, currency, comparison_set) are
+    intentionally NOT marked present here. The data layer doesn't yet expose
+    per-source as-of dates or basis declarations; faking completeness would
+    mask real gaps from PR 3 scorers.
+    """
+    present: set[str] = set()
+    if scope is None:
+        return present
+    if getattr(scope, "entity_id", None) or getattr(scope, "entity_label", None):
+        present.add("entity")
+    if getattr(scope, "quarter", None):
+        present.add("period")
+    if getattr(scope, "page_title", None):
+        present.add("scope")
+    return present
+
+
 def build_receipt_from_compiled(
     *,
     compiled: Any,                              # CompiledContext
@@ -267,6 +293,15 @@ def build_receipt_from_compiled(
             failure_modes_available = []
             required_field_names = []
 
+        # Derive required-context present/missing from plan.scope for the
+        # fields the system can know today. The rest stay missing — we do
+        # NOT fake source-discipline completeness. PR 3 scorers should treat
+        # source/basis/currency/comparison_set fields as "not yet plumbed"
+        # rather than failing a context gate the data layer can't satisfy.
+        scope_present_fields = _derive_scope_present_fields(plan.scope)
+        present = [f for f in required_field_names if f in scope_present_fields]
+        missing = [f for f in required_field_names if f not in scope_present_fields]
+
         notes["concept_diagnostics"] = {
             "concept_id": plan.concept_match.concept_id,
             "concept_version": plan.concept_match.version,
@@ -280,8 +315,8 @@ def build_receipt_from_compiled(
             ),
             "concept_object_tokens": tok("concept_object"),
             "concept_object_extended_tokens": tok("concept_object_extended"),
-            "required_context_present": [],
-            "required_context_missing": list(required_field_names),
+            "required_context_present": present,
+            "required_context_missing": missing,
             "output_contract_sections_expected": output_sections_expected,
             "failure_modes_available": failure_modes_available,
             "source_inventory": None,
