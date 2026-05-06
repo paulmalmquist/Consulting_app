@@ -1,3 +1,2 @@
 Explain the metric or concept using the provided context and retrieved evidence.
-If the user asks for a definition, answer directly before adding narrow context.
-
+If the user asks for a definition, answer in one sentence first; add context only when it sharpens the definition.

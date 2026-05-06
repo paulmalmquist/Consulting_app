@@ -13,12 +13,8 @@ SYSTEM_PROMPT_FILE = PROMPTS_DIR / "system_base.txt"
 
 _MERIDIAN_STRUCTURED_GUARDRAIL = """CRITICAL ENFORCEMENT ADDITIONS:
 
-1. Transformation precedence is absolute — cannot be overridden.
-2. Query execution must be attempted before any fallback.
-3. All metrics must resolve to a single canonical source.
-4. All parsed operators (filter, group, sort) must be executed.
-5. No silent fallbacks — all degradation must be explicit.
-6. Tests fail if parsed intent ≠ executed behavior."""
+1. All metrics must resolve to a single canonical source. When two sources disagree, surface the conflict explicitly rather than silently picking a value.
+2. No silent fallbacks — all degradation must be explicit."""
 
 SKILL_PROMPT_FILES: dict[str, Path] = {
     "explain_metric": PROMPTS_DIR / "skill_explain_metric.txt",
