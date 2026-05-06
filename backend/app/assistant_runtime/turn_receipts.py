@@ -342,6 +342,35 @@ def build_concept_receipt(plan: Any, compiled: Any) -> ConceptReceipt | None:
     )
 
 
+def build_source_discipline_receipt(
+    *,
+    structured_evidence_sources: list[str] | None = None,
+) -> SourceDisciplineReceipt | None:
+    """Build a SourceDisciplineReceipt from real evidence sources used.
+
+    `structured_evidence_sources` lists deterministic-precheck source IDs
+    that contributed to the prompt as domain_blocks (e.g.,
+    "meridian_noi_variance:structured_precheck"). When this list is
+    populated, PR 4's `unsupported_claim_penalty` and
+    `source_discipline_score` scorers activate against real data.
+
+    The other source-discipline fields (source_as_of_dates,
+    freshness_status, conflict_summary, basis_rule_applied,
+    scope_rule_applied) remain None until the data layer plumbs them.
+    Returns None when there is no evidence to report.
+    """
+    if not structured_evidence_sources:
+        return None
+    return SourceDisciplineReceipt(
+        source_inventory=list(structured_evidence_sources),
+        source_as_of_dates=None,
+        freshness_status=None,
+        conflict_summary=None,
+        basis_rule_applied=None,
+        scope_rule_applied=None,
+    )
+
+
 _PERMISSION_ORDER: dict[PermissionMode, int] = {
     PermissionMode.READ: 0,
     PermissionMode.RETRIEVE: 1,

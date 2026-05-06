@@ -143,7 +143,11 @@ export async function openWinstonCompanion(page: Page): Promise<void> {
 export async function sendAndWaitForResponse(
   page: Page,
   userText: string,
-  timeoutMs = 60_000,
+  // PR 6 follow-up: 60s was too short for non-fast-response paths
+  // (concept-routed Meridian NOI follow-ups go through the full
+  // retrieval + compile + LLM pipeline). 90s gives the LLM enough
+  // room without changing helper semantics.
+  timeoutMs = 90_000,
 ): Promise<string> {
   const input = page.getByTestId("global-commandbar-input");
   const output = page.getByTestId("global-commandbar-output");
@@ -220,8 +224,19 @@ export async function sendAndWaitForResponse(
   // Final stabilization for DOM updates
   await page.waitForTimeout(500);
 
+  const elapsedMs = Date.now() - pollStart;
   const finalText = await getLastAssistantMessage(page);
-  console.log(`[eval] final output length=${finalText.length}, text="${finalText.slice(0, 150)}"`);
+  // Diagnostic: if we timed out (Send button never re-enabled within
+  // budget) AND the text is empty, the LLM/runtime likely never produced
+  // content for this turn. This is the Problem 2 signal.
+  const sendStillDisabled = !(await sendBtn.isEnabled().catch(() => false));
+  if (sendStillDisabled && finalText.trim().length === 0) {
+    console.warn(
+      `[eval] TIMEOUT after ${elapsedMs}ms — Send button still disabled, ` +
+        `output empty. Likely runtime hang or empty SSE. Prompt: "${userText.slice(0, 80)}"`,
+    );
+  }
+  console.log(`[eval] final output length=${finalText.length}, elapsed=${elapsedMs}ms, text="${finalText.slice(0, 150)}"`);
   return finalText;
 }
 

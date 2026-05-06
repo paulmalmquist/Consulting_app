@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import time
 import uuid
@@ -47,6 +48,7 @@ from app.assistant_runtime.turn_receipts import (
     TurnReceipt,
     TurnStatus,
     build_concept_receipt,
+    build_source_discipline_receipt,
     legacy_code_to_lane,
 )
 from app.config import AI_MAX_TOOL_ROUNDS, OPENAI_API_KEY
@@ -453,13 +455,59 @@ def _build_asset_count_fast_response(
     return FastResponse(text=text, response_blocks=[markdown_block(text)])
 
 
-def _build_noi_variance_structured_fast_response(
+# Path C refactor (PR 6 discovery follow-up):
+#
+# The Meridian NOI variance structured executor used to short-circuit the
+# entire request lifecycle — its FastResponse was emitted directly to the
+# user, bypassing concept matching, the compiler, and the LLM. PR 6 caught
+# this end-to-end: the concept system never fired for the prompts it was
+# designed for.
+#
+# Path C splits the executor into:
+#   - `_compute_noi_variance_structured_payload`: pure payload builder
+#       (deterministic numbers + top driver hits + formatted text)
+#   - `_build_noi_variance_structured_fast_response`: legacy-mode fast
+#       response, gated behind WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY=1.
+#       Default behavior returns None so the lifecycle proceeds to the
+#       concept-routed LLM path with the structured payload injected as
+#       trusted evidence (a domain_block).
+#
+# When the flag is OFF (default), Meridian NOI prompts are concept-routed
+# with deterministic structured evidence available as a Tier-1 domain_block.
+# Concept matching, output_contract scorer, and source_discipline receipt
+# all fire as designed in PR 1-5.
+#
+# Set WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY=1 to restore the legacy
+# canned-response behavior (non-LLM, deterministic, no concept routing).
+# Should only be used as a fallback in environments where the LLM path
+# is unavailable or latency-constrained.
+
+@dataclass(frozen=True)
+class NoiVarianceStructuredPayload:
+    """Deterministic NOI variance evidence extracted from the
+    `meridian_noi_variance` structured precheck. Used both by the legacy
+    fast-response path and by the concept-routed domain_block path."""
+
+    text: str
+    summary: dict[str, Any]
+    top_hits: list[dict[str, Any]]
+    scope_label: str
+    source_id: str = "meridian_noi_variance:structured_precheck"
+
+
+def _compute_noi_variance_structured_payload(
     *,
     message: str,
     resolved_scope: Any,
     envelope: AssistantContextEnvelope,
     retrieval_execution: RetrievalExecution,
-) -> FastResponse | None:
+) -> NoiVarianceStructuredPayload | None:
+    """Build the NOI variance deterministic payload from the structured
+    precheck. Returns None when the precheck didn't fire or has no hits.
+    Pure function — no side effects, no FastResponse wrapping. Reusable
+    by both the legacy fast-response path and the concept-routed
+    domain_block path.
+    """
     precheck, debug = _structured_precheck_lookup(retrieval_execution.receipt, "meridian_noi_variance")
     if (
         precheck is None
@@ -491,15 +539,52 @@ def _build_noi_variance_structured_fast_response(
         f"- Average variance pct: {_format_percent(avg_variance_pct)}",
         "- Top visible drivers:",
     ]
+    top_hits_serialized: list[dict[str, Any]] = []
     for hit in debug.top_hits[:5]:
         label = hit.get("label") or "Unknown asset"
         line_code = hit.get("line_code") or "line item"
         variance_amount = _format_currency(hit.get("variance_amount"), signed=True)
         variance_pct = _format_percent(hit.get("variance_pct"))
         lines.append(f"  {label} / {line_code}: {variance_amount} ({variance_pct})")
+        top_hits_serialized.append({
+            "label": label,
+            "line_code": line_code,
+            "variance_amount": variance_amount,
+            "variance_pct": variance_pct,
+        })
 
-    text = "\n".join(lines)
-    return FastResponse(text=text, response_blocks=[markdown_block(text)])
+    return NoiVarianceStructuredPayload(
+        text="\n".join(lines),
+        summary=summary,
+        top_hits=top_hits_serialized,
+        scope_label=scope_label,
+    )
+
+
+def _build_noi_variance_structured_fast_response(
+    *,
+    message: str,
+    resolved_scope: Any,
+    envelope: AssistantContextEnvelope,
+    retrieval_execution: RetrievalExecution,
+) -> FastResponse | None:
+    """Legacy fast-response path. Default: returns None so the lifecycle
+    proceeds to the concept-routed LLM path with structured evidence
+    injected as a domain_block. Set
+    WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY=1 to restore the original
+    short-circuit behavior (canned response, no LLM, no concept routing).
+    """
+    if os.environ.get("WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY") != "1":
+        return None
+    payload = _compute_noi_variance_structured_payload(
+        message=message,
+        resolved_scope=resolved_scope,
+        envelope=envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if payload is None:
+        return None
+    return FastResponse(text=payload.text, response_blocks=[markdown_block(payload.text)])
 
 
 def _pending_action_receipt(
@@ -535,13 +620,19 @@ async def _persist_conversation_turn(
     envelope: AssistantContextEnvelope | None = None,
     result_memory: dict[str, Any] | None = None,
     structured_query_state: dict[str, Any] | None = None,
+    attachment_document_ids: list[str] | None = None,
 ) -> None:
     if not conversation_id:
         return
     try:
         await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: convo_svc.append_message(conversation_id=conversation_id, role="user", content=message),
+            lambda: convo_svc.append_message(
+                conversation_id=conversation_id,
+                role="user",
+                content=message,
+                attachment_document_ids=attachment_document_ids or [],
+            ),
         )
         await asyncio.get_event_loop().run_in_executor(
             None,
@@ -906,6 +997,7 @@ async def run_request_lifecycle(
     pending_question_text: str | None = None,
     request_id: str | None = None,
     new_conversation_created: bool = False,
+    document_ids: list[uuid.UUID] | None = None,
 ) -> AsyncGenerator[str, None]:
     # Trace id honors x-bm-request-id from the browser when present so the
     # receipt and the gateway log join 1:1 on the same id. Without this the
@@ -1533,6 +1625,9 @@ async def run_request_lifecycle(
             data_snapshot_hash=data_snapshot_hash,
         )
         response_blocks = context_blocks + response_blocks
+        # concept=None: this degraded path fires before strategize/compile_context
+        # run, so plan/compiled don't exist. PR 2 mistakenly attached
+        # build_concept_receipt(plan, compiled) here, causing UnboundLocalError.
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=lane,
@@ -1545,7 +1640,7 @@ async def run_request_lifecycle(
             pending_action=pending_action_state,
             status=TurnStatus.DEGRADED,
             degraded_reason=degraded_reason,
-            concept=build_concept_receipt(plan, compiled),
+            concept=None,
         )
         yield _sse("token", {"text": message_text})
         yield _sse(
@@ -1628,6 +1723,10 @@ async def run_request_lifecycle(
         for block in fast_response.response_blocks:
             yield _sse("response_block", {"block": block})
         yield _sse("token", {"text": fast_response.text})
+        # concept=None: this fast-response path bypasses strategize and
+        # compile_context, so plan/compiled don't exist here. PR 2
+        # mistakenly attached build_concept_receipt(plan, compiled),
+        # causing UnboundLocalError on every legacy fast-response turn.
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=lane,
@@ -1640,7 +1739,7 @@ async def run_request_lifecycle(
             pending_action=pending_action_state,
             status=TurnStatus.SUCCESS,
             degraded_reason=None,
-            concept=build_concept_receipt(plan, compiled),
+            concept=None,
         )
         elapsed_ms = int((time.time() - started_at) * 1000)
         timings["render_completion_ms"] = elapsed_ms
@@ -1727,6 +1826,30 @@ async def run_request_lifecycle(
     # ── Layer 2: Context Compiler (unless lane-A minimal bypass) ─────────
     workflow_aug_text = pending_question_text or ""
     compiled: CompiledContext | None = None
+
+    # Path C: If the Meridian NOI variance structured precheck fired but
+    # the legacy fast-response was suppressed (default), inject the
+    # deterministic numbers as a trusted domain_block. The model gets
+    # both the concept_object scaffolding AND the structured numbers,
+    # producing a concept-routed answer grounded in real data rather
+    # than fabricating drivers or amounts.
+    domain_blocks_for_compiler: list[tuple[str, str]] | None = None
+    structured_evidence_sources: list[str] = []
+    structured_noi_payload = _compute_noi_variance_structured_payload(
+        message=message,
+        resolved_scope=resolved_scope,
+        envelope=normalized_envelope,
+        retrieval_execution=retrieval_execution,
+    )
+    if structured_noi_payload is not None:
+        domain_blocks_for_compiler = [
+            (
+                "Trusted structured evidence — Meridian NOI variance",
+                structured_noi_payload.text,
+            ),
+        ]
+        structured_evidence_sources.append(structured_noi_payload.source_id)
+
     if not plan.is_minimal:
         compiled = compile_context(
             plan=plan,
@@ -1734,7 +1857,7 @@ async def run_request_lifecycle(
             history_messages=full_history,
             raw_rag_chunks=list(retrieval_execution.chunks or []),
             workflow_augmentation=workflow_aug_text,
-            domain_blocks=None,
+            domain_blocks=domain_blocks_for_compiler,
         )
         # Layer 3: compose OpenAI messages via compose_from_compiled
         messages, _prompt_audit, _prompt_sections = compose_runtime_messages(
@@ -1821,6 +1944,102 @@ async def run_request_lifecycle(
     except Exception:  # never break a turn over a receipt failure
         pass
 
+    # ── Attachment context assembly ──────────────────────────────────────
+    authorized_attachments: list[Any] = []
+    attachment_document_id_strs: list[str] = []
+    has_image_attachments = False
+    if document_ids:
+        from app.services.attachment_authorization import resolve_authorized_attachments
+        authorized_attachments = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: resolve_authorized_attachments(
+                document_ids,
+                env_id=env_id,
+                business_id=business_id,
+                actor=actor,
+                request_id=request_id,
+            ),
+        )
+        attachment_document_id_strs = [a.document_id for a in authorized_attachments]
+
+        # Split into text and image tracks
+        _IMAGE_MIMES = frozenset(
+            ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+        )
+        text_attachments = [
+            a for a in authorized_attachments
+            if a.mime_type not in _IMAGE_MIMES
+            and a.processing_mode not in ("vision_only",)
+        ]
+        image_attachments = [
+            a for a in authorized_attachments
+            if a.mime_type in _IMAGE_MIMES or a.processing_mode == "vision_only"
+        ]
+        has_image_attachments = bool(image_attachments)
+
+        # Inject text attachment context into the last user message
+        if text_attachments:
+            from app.db import get_cursor
+            import json as _json
+            text_context_parts: list[str] = []
+            for att in text_attachments:
+                try:
+                    with get_cursor() as _cur:
+                        _cur.execute(
+                            """SELECT metadata->>'attachment_classification' AS classification
+                               FROM app.document_versions
+                               WHERE document_id = %s
+                               ORDER BY version_number DESC LIMIT 1""",
+                            (att.document_id,),
+                        )
+                        _row = _cur.fetchone()
+                    classification = _json.loads(_row["classification"]) if _row and _row.get("classification") else {}
+                    summary = classification.get("summary") or ""
+                    stats = classification.get("parse_stats") or {}
+                    doc_type = classification.get("document_type") or att.mime_type
+                    header = f"[Attached file: {att.original_filename or att.document_id} ({doc_type})]"
+                    if summary:
+                        header += f"\n{summary}"
+                    if stats:
+                        stats_str = ", ".join(f"{k}={v}" for k, v in list(stats.items())[:5])
+                        header += f"\nStats: {stats_str}"
+                    text_context_parts.append(header)
+                except Exception:
+                    text_context_parts.append(f"[Attached file: {att.original_filename or att.document_id}]")
+            if text_context_parts and messages:
+                attachment_prefix = "\n\n".join(text_context_parts)
+                last_user_idx = next(
+                    (i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"),
+                    None,
+                )
+                if last_user_idx is not None:
+                    existing = messages[last_user_idx].get("content") or ""
+                    messages[last_user_idx] = {
+                        **messages[last_user_idx],
+                        "content": f"{attachment_prefix}\n\n{existing}".strip(),
+                    }
+
+        # Log attachment context event
+        emit_log(
+            level="info",
+            service="backend",
+            action="attachment.context_assembled",
+            message="Attachment context assembled for request",
+            context={
+                "request_id": request_id,
+                "authorized_count": len(authorized_attachments),
+                "text_attachment_count": len(text_attachments) if not has_image_attachments else 0,
+                "image_attachment_count": len(image_attachments) if has_image_attachments else 0,
+                "document_ids": attachment_document_id_strs,
+                "model_route_reason": "image_attachment_present" if has_image_attachments else "default_text",
+            },
+        )
+    else:
+        text_attachments = []
+        image_attachments = []
+
+    model_route_reason = "image_attachment_present" if has_image_attachments else "default_text"
+
     ctx = McpContext(
         actor=actor,
         token_valid=True,
@@ -1834,6 +2053,165 @@ async def run_request_lifecycle(
     upstream_prompt_tokens: int | None = None
     upstream_completion_tokens: int | None = None
     yield _sse("progress", {"stage": "computing", "message": "I'll pull that up for you..."})
+
+    # ── Vision path: Anthropic SDK for image-bearing turns ───────────────
+    if has_image_attachments:
+        vision_model = (os.environ.get("WINSTON_VISION_MODEL") or "").strip()
+        if not vision_model:
+            yield _sse("error", {"message": "vision provider unavailable: WINSTON_VISION_MODEL not configured"})
+            return
+        try:
+            import base64
+            import anthropic as _anthropic
+            import urllib.request as _urllib_req
+            from app.repos.supabase_storage_repo import SupabaseStorageRepository as _StorageRepo
+            _storage_repo = _StorageRepo()
+
+            # Build multimodal content blocks for image attachments
+            image_content_blocks: list[dict] = []
+            for img_att in image_attachments:
+                try:
+                    _signed = _storage_repo.generate_signed_download_url(img_att.bucket, img_att.object_key)
+                    with _urllib_req.urlopen(_signed) as _resp:
+                        _img_bytes = _resp.read()
+                    # Log document_id only — never log bytes or URLs
+                    emit_log(
+                        level="info",
+                        service="backend",
+                        action="attachment.image_bytes_fetched",
+                        message="Image bytes fetched for vision turn",
+                        context={"document_id": img_att.document_id, "request_id": request_id},
+                    )
+                    _mime = img_att.mime_type or "image/png"
+                    if _mime == "image/jpg":
+                        _mime = "image/jpeg"
+                    image_content_blocks.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": _mime,
+                            "data": base64.b64encode(_img_bytes).decode("utf-8"),
+                        },
+                    })
+                except Exception as _img_exc:
+                    emit_log(
+                        level="warning",
+                        service="backend",
+                        action="attachment.image_fetch_failed",
+                        message=f"Failed to fetch image bytes: {_img_exc}",
+                        context={"document_id": img_att.document_id, "request_id": request_id},
+                    )
+
+            if not image_content_blocks:
+                yield _sse("error", {"message": "vision provider unavailable: could not fetch image bytes"})
+                return
+
+            # Build Anthropic messages — extract system from messages list
+            _anthropic_system = ""
+            _anthropic_messages: list[dict] = []
+            for _msg in messages:
+                if _msg.get("role") == "system" or _msg.get("role") == "developer":
+                    _anthropic_system = _msg.get("content") or ""
+                else:
+                    _anthropic_messages.append(_msg)
+
+            # Inject image content blocks into last user message
+            if _anthropic_messages:
+                _last_user_idx = next(
+                    (i for i in range(len(_anthropic_messages) - 1, -1, -1)
+                     if _anthropic_messages[i].get("role") == "user"),
+                    None,
+                )
+                if _last_user_idx is not None:
+                    _existing_text = _anthropic_messages[_last_user_idx].get("content") or ""
+                    _anthropic_messages[_last_user_idx] = {
+                        "role": "user",
+                        "content": image_content_blocks + [{"type": "text", "text": _existing_text}],
+                    }
+
+            _anthr_client = _anthropic.Anthropic()
+            vision_collected = ""
+            timings["first_token_ms"] = None
+
+            with _anthr_client.messages.stream(
+                model=vision_model,
+                max_tokens=route.max_tokens or 2048,
+                system=_anthropic_system,
+                messages=_anthropic_messages,
+            ) as _stream:
+                for _text_chunk in _stream.text_stream:
+                    if timings["first_token_ms"] is None:
+                        timings["first_token_ms"] = int((time.time() - started_at) * 1000)
+                    vision_collected += _text_chunk
+                    yield _sse("token", {"text": _text_chunk})
+
+            elapsed_ms = int((time.time() - started_at) * 1000)
+            timings["render_completion_ms"] = elapsed_ms
+            response_blocks = [markdown_block(vision_collected)]
+            turn_receipt = TurnReceipt(
+                request_id=request_id,
+                lane=lane,
+                dispatch=dispatch.trace,
+                fallback_reason=dispatch.trace.normalized.fallback_reason,
+                context=context_receipt,
+                skill=routed_skill.selection,
+                tools=[],
+                retrieval=retrieval_execution.receipt,
+                pending_action=pending_action_state,
+                status=TurnStatus.SUCCESS,
+                degraded_reason=None,
+                concept=build_concept_receipt(plan, compiled),
+                source_discipline=build_source_discipline_receipt(
+                    structured_evidence_sources=structured_evidence_sources,
+                ),
+            )
+            trace = _build_trace(
+                turn_receipt=turn_receipt,
+                model=vision_model,
+                elapsed_ms=elapsed_ms,
+                resolved_scope=scope_dump,
+                response_blocks=response_blocks,
+                timings=timings,
+            )
+            emit_log(
+                level="info",
+                service="backend",
+                action="attachment.vision_turn_complete",
+                message="Vision turn completed",
+                context={
+                    "request_id": request_id,
+                    "model_provider": "anthropic",
+                    "model_route_reason": "image_attachment_present",
+                    "vision_model": vision_model,
+                    "document_ids": attachment_document_id_strs,
+                },
+            )
+            yield _sse(
+                "done",
+                {
+                    "session_id": session_id,
+                    "turn_receipt": turn_receipt.model_dump(mode="json"),
+                    "trace": trace,
+                    "response_blocks": response_blocks,
+                    "resolved_scope": scope_dump,
+                    "suggested_actions": [],
+                },
+            )
+            await _persist_conversation_turn(
+                conversation_id=conversation_id,
+                message=message,
+                assistant_content=vision_collected,
+                response_blocks=response_blocks,
+                turn_receipt=turn_receipt,
+                resolved_scope=resolved_scope,
+                request_id=request_id,
+                envelope=normalized_envelope,
+                attachment_document_ids=attachment_document_id_strs,
+            )
+            return
+        except Exception as _vis_exc:
+            yield _sse("error", {"message": f"vision provider error: {str(_vis_exc)[:200]}"})
+            return
 
     for _round in range(AI_MAX_TOOL_ROUNDS + 1):
         stream_kwargs = sanitize_params(
@@ -1863,6 +2241,9 @@ async def run_request_lifecycle(
                 status=TurnStatus.FAILED,
                 degraded_reason=DegradedReason.TOOL_FAILED,
                 concept=build_concept_receipt(plan, compiled),
+                source_discipline=build_source_discipline_receipt(
+                    structured_evidence_sources=structured_evidence_sources,
+                ),
             )
             yield _sse(
                 "done",
@@ -2054,6 +2435,9 @@ async def run_request_lifecycle(
         degraded_reason=final_reason,
         quality_gates=gate_dicts,
         concept=build_concept_receipt(plan, compiled),
+        source_discipline=build_source_discipline_receipt(
+            structured_evidence_sources=structured_evidence_sources,
+        ),
     )
     if final_status == TurnStatus.DEGRADED and not collected_content.strip():
         late_unavailable_reason = (
@@ -2140,6 +2524,7 @@ async def run_request_lifecycle(
         request_id=request_id,
         envelope=normalized_envelope,
         result_memory=turn_result_memory,
+        attachment_document_ids=attachment_document_id_strs if attachment_document_id_strs else None,
     )
 
     # ── HOOK C: ai_gateway_logs row (fixes NULL conversation_id epidemic) ──

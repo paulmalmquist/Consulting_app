@@ -494,7 +494,9 @@ def test_release_gate_vacuously_passes_when_no_concept_eval_results():
 def test_concept_eval_scenarios_present_in_registry():
     scenarios = load_scenarios(mode="full", environment="meridian")
     concept_evals = [s for s in scenarios if s.get("kind") == "concept_eval"]
-    assert len(concept_evals) == 20  # 10 PR 3 + 10 PR 4
+    # 10 PR 3 + 10 PR 4 + 1 PR 4 annotation of the existing
+    # golden_noi_down_vs_underwriting_meridian scenario in golden_corpus.json.
+    assert len(concept_evals) == 21
     # All target the same concept
     for s in concept_evals:
         assert s["concept_expected"]["concept_id"] == "repe.noi_variance"

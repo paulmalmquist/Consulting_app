@@ -391,8 +391,13 @@ def test_deterministic_fast_response_handles_structured_follow_up_prompt():
     assert "Follow up with Cortland" in fast.text
 
 
-def test_deterministic_fast_response_handles_structured_noi_prompt():
-    fast = _deterministic_fast_response(
+def _noi_variance_test_args():
+    """Shared scenario for NOI variance tests: a Meridian-style NOI prompt
+    with the structured_precheck "meridian_noi_variance" returning OK. The
+    deterministic numbers used to be served as a canned FastResponse; PR 6
+    discovery (Path C) suppresses that by default and routes to the LLM
+    with the numbers injected as a domain_block."""
+    return dict(
         message="Why is NOI down vs underwriting?",
         lane=Lane.C_ANALYSIS,
         routed_skill=SimpleNamespace(selection=SimpleNamespace(skill_id="run_analysis")),
@@ -443,9 +448,87 @@ def test_deterministic_fast_response_handles_structured_noi_prompt():
             )
         ),
     )
+
+
+def test_meridian_noi_default_does_not_short_circuit_to_canned_response(monkeypatch):
+    """Path C regression: by default (no legacy flag), Meridian NOI prompts
+    must NOT produce a canned FastResponse. The lifecycle proceeds to the
+    concept-routed LLM path with the structured numbers injected as a
+    domain_block. Bypassing the concept system (PR 1-5) for NOI prompts
+    was the bug PR 6 discovered.
+    """
+    monkeypatch.delenv("WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY", raising=False)
+    fast = _deterministic_fast_response(**_noi_variance_test_args())
+    assert fast is None, (
+        "Default behavior must suppress the legacy canned NOI response so "
+        "the concept system fires. Got fast.text=" + (fast.text[:120] if fast else "<none>")
+    )
+
+
+def test_meridian_noi_legacy_flag_restores_canned_response(monkeypatch):
+    """Setting WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY=1 restores the
+    pre-PR-6 canned response (deterministic, non-LLM). Useful as a
+    fallback when the LLM path is unavailable."""
+    monkeypatch.setenv("WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY", "1")
+    fast = _deterministic_fast_response(**_noi_variance_test_args())
     assert fast is not None
     assert "NOI is not down vs underwriting" in fast.text
     assert "Fund One" in fast.text
+
+
+def test_meridian_noi_structured_payload_is_reusable_evidence(monkeypatch):
+    """The pure payload builder produces deterministic evidence reusable
+    as a domain_block input. This is the data the LLM sees instead of
+    the canned response when the legacy flag is off."""
+    from app.assistant_runtime.request_lifecycle import (
+        _compute_noi_variance_structured_payload,
+    )
+    monkeypatch.delenv("WINSTON_MERIDIAN_NOI_FAST_RESPONSE_LEGACY", raising=False)
+    args = _noi_variance_test_args()
+    payload = _compute_noi_variance_structured_payload(
+        message=args["message"],
+        resolved_scope=args["resolved_scope"],
+        envelope=args["envelope"],
+        retrieval_execution=args["retrieval_execution"],
+    )
+    assert payload is not None
+    # Real numbers from the precheck must appear in the payload text.
+    assert "68,339,372" in payload.text or "68339372" in payload.text or "Total actual NOI" in payload.text
+    # Source ID is the stable handle the source_discipline receipt uses.
+    assert payload.source_id == "meridian_noi_variance:structured_precheck"
+    # The text is multi-line and includes the driver-bridge format.
+    assert "Top visible drivers" in payload.text
+    # Top hits list is non-empty so the LLM has structured driver detail.
+    assert len(payload.top_hits) >= 1
+    assert payload.top_hits[0]["label"] == "Riverfront Apartments"
+
+
+def test_source_discipline_receipt_lights_up_when_structured_evidence_present():
+    """When the structured precheck contributed evidence, the
+    SourceDisciplineReceipt is built with the real source_id. PR 4's
+    `unsupported_claim_penalty` and `source_discipline_score` see real
+    data instead of None."""
+    from app.assistant_runtime.turn_receipts import build_source_discipline_receipt
+
+    sd = build_source_discipline_receipt(
+        structured_evidence_sources=["meridian_noi_variance:structured_precheck"],
+    )
+    assert sd is not None
+    assert sd.source_inventory == ["meridian_noi_variance:structured_precheck"]
+    # The other fields stay None — the data layer doesn't yet plumb them
+    # and we don't fake completeness.
+    assert sd.source_as_of_dates is None
+    assert sd.freshness_status is None
+    assert sd.basis_rule_applied is None
+
+
+def test_source_discipline_receipt_returns_none_when_no_evidence():
+    """No evidence → no receipt. PR 4 scorers must skip
+    (applicable=False), not fail-closed on absent data."""
+    from app.assistant_runtime.turn_receipts import build_source_discipline_receipt
+
+    assert build_source_discipline_receipt(structured_evidence_sources=[]) is None
+    assert build_source_discipline_receipt(structured_evidence_sources=None) is None
 
 
 def test_deterministic_fast_response_handles_structured_asset_count_prompt():
