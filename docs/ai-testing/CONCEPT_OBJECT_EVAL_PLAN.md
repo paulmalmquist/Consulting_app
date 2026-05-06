@@ -119,3 +119,39 @@ The plan flagged this as deferred ("Defer population logic to PR 2; many will be
 ### Status
 
 Both limits are blockers for PR 3 release gates and are scheduled to be resolved before PR 3 work begins. Once fixed, the contextual matcher and the receipt's required-context block become trustable signals for `concept_match_score` and `context_completeness_score` respectively.
+
+## PR 6 deferred scenarios — explicit gaps
+
+PR 6 (browser simulation) was scoped down to Path B: implement scenarios that test real existing behavior, defer scenarios that would require either feature builds or test-isolation infrastructure. The following are explicitly deferred and **must not be faked with mocks**.
+
+### Deferred upload scenarios (3 of the original 10)
+
+> **Deferred PR 6 upload scenarios pending real concept-aware file-upload implementation. No mocks accepted.**
+
+The original PR 6 plan (scenarios 3, 4, 5 in the source plan) called for:
+1. Upload Excel and re-run the explanation
+2. Upload Excel with missing required columns → fail explicitly
+3. Upload conflicting Excel data vs. app data → surface conflict
+
+These scenarios assume a concept-aware upload flow that does not exist today:
+- Backend: no route that associates an upload with the active `concept_id` + conversation_id and triggers a re-prompt with the parsed fixture as a context block.
+- Frontend: no upload UI component in `repo-b/src/components/`. Generic document-attachment route at `backend/app/routes/documents.py` exists but is not concept-aware.
+
+**Resolution:** Build the concept-aware upload flow as a separate body of work (backend route + frontend component + re-prompt wiring), then write these three Playwright specs against the real flow. Mocks would produce passing tests with no meaning — explicitly forbidden.
+
+### Deferred write-execution scenario (confirm + execute write)
+
+> **Write execution validation deferred until transactional test isolation exists. Current PR 6 validates confirmation boundary only.**
+
+The original PR 6 scenario 9 ("user confirms safe write") would click the `Confirm` button on a `pending_action`, executing a real `repe.create_fund` (or similar) mutation against the Meridian database. Each test run would leave a fund row behind.
+
+PR 6 as shipped instead validates the **confirmation boundary**:
+- Scenario 6 (write-intent surfaces confirmation): asserts the deterministic intercept fires, the confirmation block renders with the intended action, and the receipt has a `pending_action` populated.
+- Scenario 7 (cancel confirmation): asserts cancel produces no mutation and the conversation continues.
+- Scenario 8 (confirmation-receipt shape): asserts the receipt records the intended action and tool name. **Stops at the boundary — does NOT click Confirm to execute.**
+
+**Resolution:** Real write-execution validation requires either per-test transactional rollback (Postgres test fixture wrapping each test in `BEGIN; ROLLBACK;`) OR a no-op write-tool target the spec can drive without real mutation (e.g., `repe.create_test_marker`). Neither exists today.
+
+### Refresh-state caveat
+
+PR 6 scenario 10 (refresh + state persistence) runs against the dedicated `/lab/env/{envId}/copilot` workspace surface, where URL-based rehydration via `?conversation_id=...` is documented and implemented (`WinstonCompanionWorkspace` component, `hydrateFromQuery` flow). The global commandbar overlay (which the existing AI evals use) is NOT covered by this scenario — its rehydration behavior on a fresh page load has not been verified end-to-end and is left as future work.

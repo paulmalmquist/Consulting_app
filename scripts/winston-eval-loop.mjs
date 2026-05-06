@@ -17,6 +17,7 @@
  *   SKIP_DEPLOY=1           Skip deployment step
  *   SKIP_FRONTEND=1         Skip Playwright frontend eval
  *   SKIP_BACKEND=1          Skip backend eval
+ *   SKIP_CONCEPT_SIM=1      Skip PR 6 NOI variance browser simulation
  *   EVAL_SUITE=smoke        Backend eval suite (smoke or full, default: smoke)
  *   BACKEND_HEALTH=url      Override backend health URL
  *   PROD_URL=url            Override production URL
@@ -38,6 +39,7 @@ const MAX_ITERATIONS = Number(process.env.MAX_ITERATIONS ?? "5");
 const SKIP_DEPLOY = process.env.SKIP_DEPLOY === "1";
 const SKIP_FRONTEND = process.env.SKIP_FRONTEND === "1";
 const SKIP_BACKEND = process.env.SKIP_BACKEND === "1";
+const SKIP_CONCEPT_SIM = process.env.SKIP_CONCEPT_SIM === "1";
 const EVAL_SUITE = process.env.EVAL_SUITE ?? "smoke";
 const PROD_URL = process.env.PROD_URL ?? "https://www.paulmalmquist.com";
 const BACKEND_HEALTH =
@@ -220,9 +222,47 @@ function runFrontendEval(cycle) {
   return passed;
 }
 
+// ─── PR 6 — Concept browser simulation ────────────────────────────────────────
+//
+// Runs the NOI variance browser-simulation suite separately so its result is
+// reportable as a distinct browser-gate signal. Path B scope: 7 implemented
+// scenarios; upload + write-execution + commandbar-refresh are deferred — see
+// docs/ai-testing/CONCEPT_OBJECT_EVAL_PLAN.md PR 6 deferred section.
+
+function runConceptBrowserSim(cycle) {
+  log("INFO", `Running PR 6 concept browser simulation (cycle=${cycle})`);
+  const result = spawnSync(
+    "npx",
+    [
+      "playwright",
+      "test",
+      "tests/ai-evals/concepts/noi_variance.spec.ts",
+      "--config",
+      "playwright.config.ts",
+      "--project",
+      "chromium",
+    ],
+    {
+      cwd: repoB,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        PW_RUN_ID: `concept_sim_cycle_${cycle}_${Date.now()}`,
+      },
+      timeout: 600_000,
+    }
+  );
+  const passed = result.status === 0;
+  log(
+    passed ? "PASS" : "FAIL",
+    `Concept browser sim ${passed ? "PASSED" : "FAILED"} (exit ${result.status})`,
+  );
+  return passed;
+}
+
 // ─── Combined report ──────────────────────────────────────────────────────────
 
-function writeCycleReport(cycle, backendPassed, frontendPassed) {
+function writeCycleReport(cycle, backendPassed, frontendPassed, conceptSimPassed) {
   const ts = new Date().toISOString();
   const reportPath = path.join(
     artifactsDir,
@@ -261,12 +301,43 @@ function writeCycleReport(cycle, backendPassed, frontendPassed) {
     }
   }
 
+  // Read PR 6 concept browser-sim results if available
+  let conceptSimSummary = "No concept browser-sim results.";
+  const conceptSimResultsPath = path.join(
+    projectRoot,
+    "artifacts",
+    "ai-evals",
+    "concepts",
+    "noi-variance-results.json",
+  );
+  if (existsSync(conceptSimResultsPath)) {
+    try {
+      const data = JSON.parse(readFileSync(conceptSimResultsPath, "utf-8"));
+      const total = data.total ?? data.results?.length ?? 0;
+      const passed = data.passed ?? (data.results || []).filter((r) => r.passed).length;
+      const failed = (data.results || []).filter((r) => !r.passed);
+      const deferred = data.deferred || [];
+      conceptSimSummary = [
+        `- Implemented: ${passed}/${total} passed`,
+        ...failed.map((r) => `- FAILED: ${r.id} — ${r.description}`),
+        "",
+        "**Deferred coverage** (not implemented; see CONCEPT_OBJECT_EVAL_PLAN.md PR 6 deferred section):",
+        ...deferred.map((d) => `- ${d.name}: ${d.reason}`),
+      ].join("\n");
+    } catch {
+      conceptSimSummary = "Failed to parse concept browser-sim results.";
+    }
+  } else if (SKIP_CONCEPT_SIM) {
+    conceptSimSummary = "Skipped via SKIP_CONCEPT_SIM=1.";
+  }
+
   const report = [
     `# Eval Loop Cycle Report — Cycle ${cycle}`,
     "",
     `- Timestamp: ${ts}`,
     `- Backend eval: ${backendPassed ? "PASSED" : "FAILED"}`,
     `- Frontend eval: ${frontendPassed === null ? "SKIPPED" : frontendPassed ? "PASSED" : "FAILED"}`,
+    `- Concept browser sim (PR 6): ${conceptSimPassed === null ? "SKIPPED" : conceptSimPassed ? "PASSED" : "FAILED"}`,
     `- Deploy: ${SKIP_DEPLOY ? "SKIPPED" : "executed"}`,
     "",
     "## Backend Eval Summary",
@@ -276,6 +347,10 @@ function writeCycleReport(cycle, backendPassed, frontendPassed) {
     "## Frontend Eval Summary",
     "",
     frontendSummary,
+    "",
+    "## PR 6 Concept Browser Simulation",
+    "",
+    conceptSimSummary,
     "",
   ].join("\n");
 
@@ -293,6 +368,7 @@ async function main() {
   log("INFO", `  Skip deploy: ${SKIP_DEPLOY}`);
   log("INFO", `  Skip frontend: ${SKIP_FRONTEND}`);
   log("INFO", `  Skip backend: ${SKIP_BACKEND}`);
+  log("INFO", `  Skip concept sim: ${SKIP_CONCEPT_SIM}`);
 
   for (let cycle = 1; cycle <= MAX_ITERATIONS; cycle++) {
     log("INFO", `\n${"─".repeat(60)}`);
@@ -309,7 +385,7 @@ async function main() {
       const deployOk = await deployIfNeeded();
       if (!deployOk) {
         log("FAIL", `Deploy failed on cycle ${cycle}`);
-        writeCycleReport(cycle, backendPassed, null);
+        writeCycleReport(cycle, backendPassed, null, null);
         process.exit(1);
       }
     }
@@ -320,12 +396,25 @@ async function main() {
       frontendPassed = runFrontendEval(cycle);
     }
 
+    // Step 3b: PR 6 concept browser simulation (NOI variance, Path B scope)
+    let conceptSimPassed = null;
+    if (!SKIP_CONCEPT_SIM) {
+      conceptSimPassed = runConceptBrowserSim(cycle);
+    }
+
     // Step 4: Write combined cycle report
-    const reportPath = writeCycleReport(cycle, backendPassed, frontendPassed);
+    const reportPath = writeCycleReport(
+      cycle,
+      backendPassed,
+      frontendPassed,
+      conceptSimPassed,
+    );
 
     // Step 5: Assess and continue
     const allPassed =
-      backendPassed && (frontendPassed === null || frontendPassed);
+      backendPassed &&
+      (frontendPassed === null || frontendPassed) &&
+      (conceptSimPassed === null || conceptSimPassed);
 
     if (allPassed) {
       log("PASS", `All evals passed on cycle ${cycle}`);
