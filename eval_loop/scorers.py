@@ -935,12 +935,61 @@ def context_completeness_score(
     }
 
 
+# Filler openers that disqualify a sentence as a "direct answer". Lowercased.
+_DIRECT_ANSWER_FILLER_OPENERS = (
+    "sure,",
+    "sure ",
+    "happy to help",
+    "great question",
+    "let me explain",
+    "let me",
+    "i'd be happy",
+    "i'll explain",
+    "i can help",
+    "of course",
+    "absolutely",
+    "good question",
+    "thanks for",
+    "to answer that",
+    "here's what",
+    "here is what",
+)
+
+
+def _first_sentence(text: str, max_chars: int = 240) -> str:
+    """Extract the first sentence of a response. A terminator (`.`, `!`,
+    `?`) only ends the sentence when followed by whitespace or end-of-text
+    — this avoids cutting "$1.2M" or "v0.1.0" mid-token. Caps at max_chars
+    to defend against runaway sentences."""
+    snippet = text.strip()[:max_chars]
+    for i, ch in enumerate(snippet):
+        if ch not in (".", "!", "?"):
+            continue
+        # End of string after the terminator counts as sentence end.
+        if i + 1 >= len(snippet):
+            return snippet[: i + 1].strip()
+        next_ch = snippet[i + 1]
+        # Whitespace or quote/bracket close → real terminator.
+        if next_ch.isspace() or next_ch in ('"', "'", ")", "]"):
+            return snippet[: i + 1].strip()
+    return snippet
+
+
+def _is_filler_opener(first_sentence_low: str) -> bool:
+    return any(first_sentence_low.startswith(opener) for opener in _DIRECT_ANSWER_FILLER_OPENERS)
+
+
 def output_contract_score(
     *, scenario: dict[str, Any], result: dict[str, Any]
 ) -> dict[str, Any]:
     """The answer mentions the required output sections from the concept.
-    Applicable when a concept matched. Uses simple keyword presence — a
-    smarter section-detector is a PR 4 problem.
+
+    When `direct_answer` is in required_output_sections, the FIRST SENTENCE
+    must answer the question directly — no filler openers like "Sure, happy
+    to help" or "Let me explain". This guards against drift in the
+    explain_metric one-sentence-first rule (PR 5 audit row #14).
+
+    Applicable when a concept matched.
     """
     expected = scenario.get("concept_expected", {}) or {}
     required_sections = expected.get("required_output_sections") or []
@@ -948,7 +997,8 @@ def output_contract_score(
     if not actual or not required_sections:
         return {"score": 0.0, "applicable": False, "mismatches": [],
                 "passed": True, "name": "output_contract_score"}
-    response = (result.get("response_text") or "").lower()
+    response_raw = result.get("response_text") or ""
+    response = response_raw.lower()
     if not response:
         return {"score": 0.0, "applicable": True, "passed": False,
                 "mismatches": [{"category": "empty_answer",
@@ -956,25 +1006,70 @@ def output_contract_score(
                                 "expected": "non-empty answer",
                                 "actual": ""}],
                 "name": "output_contract_score"}
-    # Match section names tolerant of underscore-vs-space + plural.
+    # `direct_answer` is implicit (the answer itself) and graded by the
+    # first-sentence check below — not by literal section-header matching.
+    # All other sections are graded by tolerant keyword presence.
+    direct_answer_required = any(
+        s.lower() == "direct_answer" for s in required_sections
+    )
+    sections_to_match = [
+        s for s in required_sections if s.lower() != "direct_answer"
+    ]
     missing = []
-    for section in required_sections:
+    for section in sections_to_match:
         section_low = section.lower()
         variants = [section_low, section_low.replace("_", " "),
                     section_low.replace("_", "-")]
         if not any(v in response for v in variants):
             missing.append(section)
-    passed = not missing
-    return {
-        "score": 100.0 if passed else max(0.0, 100.0 * (1 - len(missing) / len(required_sections))),
-        "applicable": True,
-        "passed": passed,
-        "mismatches": [] if passed else [{
+    mismatches: list[dict[str, Any]] = []
+    if missing:
+        mismatches.append({
             "category": "output_contract_violation",
             "field": "answer_sections",
             "expected": required_sections,
             "actual_missing": missing,
-        }],
+        })
+
+    # First-sentence-direct check. Fires only when direct_answer is required.
+    if direct_answer_required:
+        first = _first_sentence(response_raw)
+        first_low = first.lower()
+        if _is_filler_opener(first_low):
+            mismatches.append({
+                "category": "output_contract_violation",
+                "field": "first_sentence",
+                "expected": "first sentence answers the question directly",
+                "actual": first,
+                "subcategory": "filler_opener",
+            })
+        elif len(first.strip()) < 8:
+            # Empty or near-empty first "sentence" — also fails direct.
+            mismatches.append({
+                "category": "output_contract_violation",
+                "field": "first_sentence",
+                "expected": "first sentence answers the question directly",
+                "actual": first,
+                "subcategory": "empty_first_sentence",
+            })
+
+    # Score: weight section-coverage and first-sentence-direct equally.
+    # Section coverage contributes len(sections_to_match) "slots"; the direct
+    # check contributes one slot when applicable.
+    slots = len(sections_to_match) + (1 if direct_answer_required else 0)
+    failed_slots = len(missing) + sum(
+        1 for m in mismatches if m.get("field") == "first_sentence"
+    )
+    passed = not mismatches
+    if slots == 0:
+        score = 100.0 if passed else 0.0
+    else:
+        score = 100.0 if passed else max(0.0, 100.0 * (1 - failed_slots / slots))
+    return {
+        "score": score,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
         "name": "output_contract_score",
     }
 

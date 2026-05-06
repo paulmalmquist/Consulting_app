@@ -224,6 +224,86 @@ def test_output_contract_skipped_when_no_required_sections():
     assert out["applicable"] is False
 
 
+# ── output_contract_score: first-sentence-direct enforcement ──────────────
+#
+# When required_output_sections includes `direct_answer`, the first sentence
+# must answer the question directly. This guards against drift in the
+# explain_metric one-sentence-first rule (PR 5 audit row #14). Without this
+# check, a response that buries the direct answer in paragraph three would
+# still pass.
+
+
+def test_output_contract_first_sentence_direct_passes_with_direct_opener():
+    """When the first sentence states the answer directly, the scorer passes."""
+    scenario = {"concept_expected": {"required_output_sections": ["direct_answer", "driver_bridge"]}}
+    response = "NOI was off plan by $1.2M. The driver bridge breaks down to occupancy and rate."
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["applicable"] is True
+    assert out["passed"] is True
+
+
+def test_output_contract_first_sentence_fails_on_filler_opener():
+    """A filler opener like 'Sure, happy to help.' fails the first-sentence
+    direct check even when sections appear later."""
+    scenario = {"concept_expected": {"required_output_sections": ["direct_answer", "driver_bridge"]}}
+    response = (
+        "Sure, happy to help. The direct answer is that NOI was off by $1.2M. "
+        "The driver bridge breaks down to occupancy and rate."
+    )
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["applicable"] is True
+    assert out["passed"] is False
+    assert any(
+        m.get("field") == "first_sentence" and m.get("subcategory") == "filler_opener"
+        for m in out["mismatches"]
+    )
+
+
+def test_output_contract_first_sentence_fails_on_let_me_explain_opener():
+    scenario = {"concept_expected": {"required_output_sections": ["direct_answer"]}}
+    response = "Let me explain. NOI was off plan."
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["applicable"] is True
+    assert out["passed"] is False
+
+
+def test_output_contract_first_sentence_check_not_applied_without_direct_answer_section():
+    """If direct_answer isn't in the required sections, filler openers are
+    not penalized — the check is concept-driven, not blanket."""
+    scenario = {"concept_expected": {"required_output_sections": ["caveats"]}}
+    response = "Sure, happy to help. There are caveats to consider here."
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["applicable"] is True
+    # Passes because direct_answer not required; "caveats" appears.
+    assert out["passed"] is True
+
+
+def test_output_contract_first_sentence_handles_exclamation_and_question():
+    """Sentence terminator can be . ! ?, not just period."""
+    scenario = {"concept_expected": {"required_output_sections": ["direct_answer"]}}
+    # First sentence ends with '?', and starts with filler.
+    response = "Great question? The answer is NOI was off."
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["applicable"] is True
+    assert out["passed"] is False
+
+
+def test_output_contract_score_partial_when_only_first_sentence_fails():
+    """Score should be partial (not 0) when sections are present but only
+    the first-sentence-direct check fails. With 1 explicit section
+    (driver_bridge) + 1 implicit slot (direct_answer first-sentence), that's
+    2 slots total. driver_bridge keyword present, direct fails → 1 of 2
+    failed → score = 50.0."""
+    scenario = {"concept_expected": {"required_output_sections": ["direct_answer", "driver_bridge"]}}
+    response = (
+        "Let me explain. NOI was off by $1.2M. "
+        "The driver bridge: occupancy and rate."
+    )
+    out = output_contract_score(scenario=scenario, result=_result_with_concept(response_text=response))
+    assert out["passed"] is False
+    assert out["score"] == 50.0
+
+
 # ── missing_data_failure_mode_score ───────────────────────────────────────
 
 
