@@ -36,6 +36,7 @@ from eval_loop.retest_scheduler import schedule_retests
 from eval_loop.scenario_loader import load_scenarios
 from eval_loop.scorers import (
     score_assistant_scenario,
+    score_concept_scenario,
     score_frontend_scenario,
     score_operator_readiness_scenario,
     score_tool_engine_scenario,
@@ -446,7 +447,9 @@ async def execute_scenario(
     chaos_plan: ChaosPlan | None = None,
 ) -> dict[str, Any]:
     kind = scenario.get("kind", "assistant_turn")
-    if kind == "assistant_turn":
+    if kind in ("assistant_turn", "concept_eval"):
+        # concept_eval reuses the assistant turn executor — same prompt
+        # path, same receipt capture. Only scoring differs.
         return await run_assistant_turn(scenario, bindings, chaos_plan=chaos_plan)
     if kind == "tool_engine":
         return await run_tool_engine_case(scenario, chaos_plan=chaos_plan)
@@ -465,6 +468,8 @@ def score_result(scenario: dict[str, Any], raw_result: dict[str, Any]) -> dict[s
         scoring = score_tool_engine_scenario(scenario=scenario, result=raw_result)
     elif kind == "operator_readiness":
         scoring = score_operator_readiness_scenario(scenario=scenario, result=raw_result)
+    elif kind == "concept_eval":
+        scoring = score_concept_scenario(scenario=scenario, result=raw_result)
     else:
         scoring = score_frontend_scenario(scenario=scenario, result=raw_result)
     if scoring.get("passed"):

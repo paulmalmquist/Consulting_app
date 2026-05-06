@@ -40,6 +40,14 @@ _LEGACY_CATEGORIES: tuple[str, ...] = (
     "operator_unavailable",
     "performance_failure",
     "regression_failure",
+    # Concept-eval (PR 3+) hard-fail categories. Only `wrong_concept_id`
+    # is actively emitted by PR 3 scorers; the rest are pre-registered
+    # for PR 4 hard-fail scenarios (S13/S15/S16/S17).
+    "wrong_concept_id",
+    "hallucinated_number",
+    "mixed_basis",
+    "stale_primary_source",
+    "conflict_ignored",
 )
 
 _LEGACY_SEVERITY: dict[str, str] = {
@@ -55,6 +63,11 @@ _LEGACY_SEVERITY: dict[str, str] = {
     "operator_unavailable": "high",
     "performance_failure": "medium",
     "regression_failure": "high",
+    "wrong_concept_id": "critical",
+    "hallucinated_number": "critical",
+    "mixed_basis": "critical",
+    "stale_primary_source": "critical",
+    "conflict_ignored": "critical",
 }
 
 _LEGACY_CRITICAL: set[str] = {
@@ -64,6 +77,11 @@ _LEGACY_CRITICAL: set[str] = {
     "degraded_mode_failure",
     "rendering_failure",
     "operator_unavailable",
+    "wrong_concept_id",
+    "hallucinated_number",
+    "mixed_basis",
+    "stale_primary_source",
+    "conflict_ignored",
 }
 
 

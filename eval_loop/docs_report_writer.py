@@ -67,6 +67,68 @@ def _latency_line(summary: dict[str, Any]) -> str:
     return f"median **{median}**, p95 **{p95}**"
 
 
+def _render_concept_eval_section(concept: dict[str, Any]) -> list[str]:
+    """Render the concept-eval section for the docs report. Called when
+    `summary["concept_eval"]` is present (i.e. the run included at least
+    one concept_eval scenario).
+    """
+    lines: list[str] = []
+    lines.append("## Concept eval (NOI variance v1)")
+    lines.append("")
+    lines.append(f"- Scenarios run: **{concept.get('scenario_count', 0)}**")
+    lines.append(f"- Score coverage avg: **{concept.get('score_coverage_avg', 0)}**")
+    lines.append(f"- Source-discipline coverage avg: **{concept.get('source_discipline_coverage_avg', 0)}** _(0.0 expected in PR 3)_")
+    lines.append("")
+
+    by_scorer = concept.get("by_scorer") or {}
+    if by_scorer:
+        lines.append("### Pass rate by scorer")
+        lines.append("")
+        lines.append("| scorer | applicable | passed | pass_rate |")
+        lines.append("|---|---|---|---|")
+        for name, stats in by_scorer.items():
+            applicable = stats.get("applicable", 0)
+            passed = stats.get("passed", 0)
+            pass_rate = stats.get("pass_rate")
+            pass_rate_str = "n/a" if pass_rate is None else f"{pass_rate:.2%}"
+            lines.append(f"| `{name}` | {applicable} | {passed} | {pass_rate_str} |")
+        lines.append("")
+
+    gates = (concept.get("release_gates") or {}).get("gates") or []
+    if gates:
+        lines.append("### Release gates")
+        lines.append("")
+        lines.append("| gate | threshold | actual | applicable | passed |")
+        lines.append("|---|---|---|---|---|")
+        for g in gates:
+            actual = g.get("actual")
+            actual_str = "n/a" if actual is None else f"{actual:.2%}"
+            threshold = g.get("threshold")
+            threshold_str = f"{threshold:.0%}" if isinstance(threshold, (int, float)) else str(threshold)
+            mark = "PASS" if g.get("passed") else "FAIL"
+            lines.append(
+                f"| `{g.get('name')}` | {threshold_str} | {actual_str} | {g.get('applicable_count', 0)} | **{mark}** |"
+            )
+        lines.append("")
+        if not (concept.get("release_gates") or {}).get("all_passed"):
+            lines.append("> **Concept eval release gates failed.** Promotion blocked until concept_match_score reaches 95%.")
+            lines.append("")
+
+    hard_failures = concept.get("hard_gate_failures") or []
+    if hard_failures:
+        lines.append("### Hard-gate failures")
+        lines.append("")
+        lines.append("| scenario_id | category | scorer |")
+        lines.append("|---|---|---|")
+        for hf in hard_failures:
+            lines.append(
+                f"| `{hf.get('scenario_id')}` | `{hf.get('category')}` | `{hf.get('scorer')}` |"
+            )
+        lines.append("")
+
+    return lines
+
+
 def _actionable_suspects(results: list[dict[str, Any]], limit: int = 5) -> list[str]:
     tally: dict[str, int] = {}
     for r in results:
@@ -143,6 +205,10 @@ def write_docs_report(
     for lane, count in sorted(lane_dist.items(), key=lambda kv: -kv[1]):
         lines.append(f"- `{lane}`: {count}")
     lines.append("")
+
+    concept_summary = (summary or {}).get("concept_eval")
+    if concept_summary:
+        lines.extend(_render_concept_eval_section(concept_summary))
 
     if failed:
         lines.append("## Failing cases")

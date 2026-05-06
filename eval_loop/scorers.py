@@ -763,3 +763,496 @@ def score_operator_readiness_scenario(*, scenario: dict[str, Any], result: dict[
         },
         "anti_smoothness_failed": False,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Concept-aware scoring (PR 3)
+#
+# Each scorer returns a dict with at least:
+#   {"score": float, "applicable": bool, "mismatches": list[dict]}
+# `applicable=False` means the scorer skipped because its inputs weren't
+# present (e.g., source_discipline scorers when receipt fields are None).
+# Skipped scorers do NOT count as failures and are tracked via score_coverage.
+#
+# `score_concept_scenario` runs all scorers, aggregates, and returns the same
+# top-level shape as score_assistant_scenario so the runner can append to
+# raw_result without knowing the kind.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+_GENERIC_FILLER_PHRASES = (
+    "i don't have enough information",
+    "i'm not sure",
+    "could you clarify",
+    "as an ai",
+    "i cannot",
+    "happy to help",
+    "let me know if",
+    "in general",
+    "typically,",
+    "it depends",
+    "various factors",
+    "many reasons",
+)
+
+
+def _concept_receipt(result: dict[str, Any]) -> dict[str, Any]:
+    """Pull the ConceptReceipt sub-block off a turn receipt."""
+    receipt = result.get("turn_receipt") or {}
+    concept = receipt.get("concept")
+    return concept if isinstance(concept, dict) else {}
+
+
+def _source_discipline_receipt(result: dict[str, Any]) -> dict[str, Any]:
+    receipt = result.get("turn_receipt") or {}
+    sd = receipt.get("source_discipline")
+    return sd if isinstance(sd, dict) else {}
+
+
+def concept_match_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """expected.concept_id == actual.concept_id. Always applicable."""
+    expected = scenario.get("concept_expected", {}) or {}
+    expected_id = expected.get("concept_id")
+    actual = _concept_receipt(result)
+    actual_id = actual.get("concept_id")
+    mismatches: list[dict[str, Any]] = []
+    if not expected_id:
+        # Scenario didn't declare a target — nothing to grade.
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "concept_match_score"}
+    passed = actual_id == expected_id
+    if not passed:
+        mismatches.append({
+            "category": "wrong_concept_id",
+            "field": "concept_id",
+            "expected": expected_id,
+            "actual": actual_id,
+        })
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
+        "name": "concept_match_score",
+    }
+
+
+def alias_normalization_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """matched_alias is in the scenario's allowlist. Applicable when the
+    scenario declares `matched_alias_must_be_in`. If a concept matched but
+    the scenario didn't pin an alias, the scorer is informational only."""
+    expected = scenario.get("concept_expected", {}) or {}
+    allowed = expected.get("matched_alias_must_be_in")
+    if not allowed:
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "alias_normalization_score"}
+    actual = _concept_receipt(result)
+    matched = actual.get("matched_alias")
+    if matched is None:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{
+                    "category": "alias_not_resolved",
+                    "field": "matched_alias",
+                    "expected": allowed,
+                    "actual": None,
+                }],
+                "name": "alias_normalization_score"}
+    matched_low = matched.lower()
+    passed = any(a.lower() == matched_low for a in allowed)
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": [] if passed else [{
+            "category": "alias_normalization_failed",
+            "field": "matched_alias",
+            "expected": allowed,
+            "actual": matched,
+        }],
+        "name": "alias_normalization_score",
+    }
+
+
+def context_completeness_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """All scenario-declared `required_context_present` fields are present in
+    the receipt's required_context_present list. Source-discipline fields
+    (sources, basis, currency, comparison_set) are NOT graded — those stay
+    missing until the data layer plumbs them, by design.
+
+    Applicable: when scenario declares `required_context_present`, OR when
+    a concept matched (in which case we grade against the receipt's own
+    present/missing split for the entity/period/scope fields only).
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    required = expected.get("required_context_present")
+    actual = _concept_receipt(result)
+    if not actual:
+        # No concept matched — context_completeness has nothing to grade.
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "context_completeness_score"}
+    actual_present = set(actual.get("required_context_present") or [])
+    if required:
+        missing_required = [f for f in required if f not in actual_present]
+        passed = not missing_required
+        return {
+            "score": 100.0 if passed else 0.0,
+            "applicable": True,
+            "passed": passed,
+            "mismatches": [] if passed else [{
+                "category": "required_context_missing",
+                "field": "required_context_present",
+                "expected": required,
+                "actual": list(actual_present),
+            }],
+            "name": "context_completeness_score",
+        }
+    # Concept matched but scenario didn't pin specific fields. Grade the
+    # subset we can know today (entity, period, scope) — anything missing
+    # there counts. Source-discipline fields explicitly excluded.
+    KNOWABLE = {"entity", "period", "scope"}
+    missing_knowable = [
+        f for f in (actual.get("required_context_missing") or [])
+        if f in KNOWABLE
+    ]
+    passed = not missing_knowable
+    return {
+        "score": 100.0 if passed else 50.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": [] if passed else [{
+            "category": "knowable_context_missing",
+            "field": "required_context_missing",
+            "expected": "no knowable fields missing",
+            "actual": missing_knowable,
+        }],
+        "name": "context_completeness_score",
+    }
+
+
+def output_contract_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """The answer mentions the required output sections from the concept.
+    Applicable when a concept matched. Uses simple keyword presence — a
+    smarter section-detector is a PR 4 problem.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    required_sections = expected.get("required_output_sections") or []
+    actual = _concept_receipt(result)
+    if not actual or not required_sections:
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "output_contract_score"}
+    response = (result.get("response_text") or "").lower()
+    if not response:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "empty_answer",
+                                "field": "response_text",
+                                "expected": "non-empty answer",
+                                "actual": ""}],
+                "name": "output_contract_score"}
+    # Match section names tolerant of underscore-vs-space + plural.
+    missing = []
+    for section in required_sections:
+        section_low = section.lower()
+        variants = [section_low, section_low.replace("_", " "),
+                    section_low.replace("_", "-")]
+        if not any(v in response for v in variants):
+            missing.append(section)
+    passed = not missing
+    return {
+        "score": 100.0 if passed else max(0.0, 100.0 * (1 - len(missing) / len(required_sections))),
+        "applicable": True,
+        "passed": passed,
+        "mismatches": [] if passed else [{
+            "category": "output_contract_violation",
+            "field": "answer_sections",
+            "expected": required_sections,
+            "actual_missing": missing,
+        }],
+        "name": "output_contract_score",
+    }
+
+
+def missing_data_failure_mode_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """For scenarios where data is intentionally missing, the right
+    failure_mode fires (i.e., the answer references the canonical failure
+    code OR the receipt's failure_modes_available was actually used).
+
+    Applicable: when scenario declares `required_failure_mode`. PR 3
+    scenarios don't yet declare this — PR 4 will add the hard-fail
+    scenarios that exercise this path. Until then, the scorer is
+    informational and skipped.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    required_mode = expected.get("required_failure_mode")
+    if not required_mode:
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "missing_data_failure_mode_score"}
+    actual = _concept_receipt(result)
+    available = set(actual.get("failure_modes_available") or [])
+    response = (result.get("response_text") or "").lower()
+    fired = required_mode in available and required_mode.lower().replace("_", " ") in response
+    return {
+        "score": 100.0 if fired else 0.0,
+        "applicable": True,
+        "passed": fired,
+        "mismatches": [] if fired else [{
+            "category": "wrong_failure_mode",
+            "field": "failure_mode",
+            "expected": required_mode,
+            "actual": list(available),
+        }],
+        "name": "missing_data_failure_mode_score",
+    }
+
+
+def generic_filler_penalty(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Penalize answers without numbers/sources when fixture provides them.
+    Applicable when fixture declares `expected_numeric_data: true` (none of
+    the PR 3 scenarios do — PR 4 will add fixtures with numbers). Until
+    then, applies as a generic-phrase check only when the response is
+    clearly answer-shaped (>50 chars).
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    fixture_has_numbers = expected.get("expected_numeric_data")
+    response = (result.get("response_text") or "").strip()
+    if not response:
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "generic_filler_penalty"}
+    if not fixture_has_numbers and len(response) <= 50:
+        # Too short to grade meaningfully and no numeric fixture.
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "generic_filler_penalty"}
+    response_low = response.lower()
+    has_filler = any(p in response_low for p in _GENERIC_FILLER_PHRASES)
+    has_digits = any(c.isdigit() for c in response)
+    # If fixture has numbers but the answer has no digits, that's a failure.
+    if fixture_has_numbers and not has_digits:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{
+                    "category": "generic_filler_no_numbers",
+                    "field": "response_text",
+                    "expected": "answer with numeric values",
+                    "actual": "no digits in answer",
+                }],
+                "name": "generic_filler_penalty"}
+    if has_filler and not has_digits:
+        return {"score": 25.0, "applicable": True, "passed": False,
+                "mismatches": [{
+                    "category": "generic_filler",
+                    "field": "response_text",
+                    "expected": "specific answer",
+                    "actual": "filler phrasing without numbers",
+                }],
+                "name": "generic_filler_penalty"}
+    return {"score": 100.0, "applicable": True, "passed": True,
+            "mismatches": [], "name": "generic_filler_penalty"}
+
+
+def unsupported_claim_penalty(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Penalize claims with no source attribution. Applicable when the
+    receipt's source_inventory is populated. v1 source_inventory is None
+    by design (data layer hasn't plumbed it), so this scorer skips today.
+    PR 4 (S15-S17) and the data-layer work that follows will activate it.
+    """
+    sd = _source_discipline_receipt(result)
+    inventory = sd.get("source_inventory")
+    if inventory is None:
+        return {"score": 0.0, "applicable": False, "mismatches": [],
+                "passed": True, "name": "unsupported_claim_penalty"}
+    response = (result.get("response_text") or "").strip()
+    if not response:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "empty_answer",
+                                "field": "response_text",
+                                "expected": "non-empty answer",
+                                "actual": ""}],
+                "name": "unsupported_claim_penalty"}
+    response_low = response.lower()
+    inventory_referenced = any(s.lower() in response_low for s in inventory)
+    return {
+        "score": 100.0 if inventory_referenced else 0.0,
+        "applicable": True,
+        "passed": inventory_referenced,
+        "mismatches": [] if inventory_referenced else [{
+            "category": "unsupported_claim",
+            "field": "response_text",
+            "expected": "answer references at least one source from inventory",
+            "actual": inventory,
+        }],
+        "name": "unsupported_claim_penalty",
+    }
+
+
+_CONCEPT_SCORERS = (
+    concept_match_score,
+    alias_normalization_score,
+    context_completeness_score,
+    output_contract_score,
+    missing_data_failure_mode_score,
+    generic_filler_penalty,
+    unsupported_claim_penalty,
+)
+
+
+def score_concept_scenario(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Run all concept-aware scorers and aggregate. Mirrors the top-level
+    shape of score_assistant_scenario so the runner can merge into raw_result.
+
+    Aggregation:
+    - `score`: average of applicable scorers' scores (skipped scorers don't drag the mean)
+    - `passed`: every applicable scorer passed AND concept_match_score is True
+    - `score_coverage`: ratio of applicable to total scorers
+    - `concept_scores`: per-scorer breakdown with applicable/passed/score
+    """
+    per_scorer: list[dict[str, Any]] = [
+        scorer(scenario=scenario, result=result) for scorer in _CONCEPT_SCORERS
+    ]
+    applicable = [s for s in per_scorer if s.get("applicable")]
+    skipped = [s for s in per_scorer if not s.get("applicable")]
+    score_coverage = (len(applicable) / len(per_scorer)) if per_scorer else 0.0
+
+    if applicable:
+        avg_score = sum(s["score"] for s in applicable) / len(applicable)
+    else:
+        avg_score = 0.0
+
+    # Mandatory check: concept_match_score must be applicable AND passed.
+    cms = next((s for s in per_scorer if s["name"] == "concept_match_score"), None)
+    concept_match_ok = bool(cms and cms.get("applicable") and cms.get("passed"))
+
+    all_applicable_passed = all(s.get("passed") for s in applicable)
+    passed = concept_match_ok and all_applicable_passed
+
+    mismatches: list[dict[str, Any]] = []
+    for s in per_scorer:
+        for m in s.get("mismatches", []):
+            mismatches.append({**m, "scorer": s["name"]})
+
+    failure_category: str | None = None
+    if not concept_match_ok and cms is not None:
+        failure_category = "wrong_concept_id"
+    elif mismatches:
+        # Pick the first scorer's category as primary.
+        failure_category = mismatches[0].get("category")
+
+    # Source-discipline coverage: ratio of applicable source-discipline
+    # scorers (currently only unsupported_claim_penalty in PR 3) to the
+    # total source-discipline scorer set. Tracks when the data layer
+    # transitions from aspirational to real.
+    source_discipline_names = {"unsupported_claim_penalty"}
+    sd_total = sum(1 for s in per_scorer if s["name"] in source_discipline_names)
+    sd_applicable = sum(
+        1 for s in per_scorer if s["name"] in source_discipline_names and s.get("applicable")
+    )
+    sd_coverage = (sd_applicable / sd_total) if sd_total else 0.0
+
+    return {
+        "score": round(avg_score, 2),
+        "passed": passed,
+        "failure_category": failure_category,
+        "mismatches": mismatches,
+        "tool_count": 0,
+        "retrieval_count": 0,
+        "hallucination_proxy": 0,
+        "cross_environment_contamination": 0,
+        "receipt_completeness": 1.0 if _concept_receipt(result) else 0.0,
+        "trace_fidelity": 1.0,
+        "latency_bucket": _latency_bucket(
+            result.get("duration_ms"), passed, (scenario.get("expected") or {}).get("max_duration_ms")
+        ),
+        "trace_summary": {
+            "concept_id": (_concept_receipt(result) or {}).get("concept_id"),
+            "match_reason": (_concept_receipt(result) or {}).get("match_reason"),
+            "behavior_tier": (_concept_receipt(result) or {}).get("behavior_tier"),
+        },
+        "anti_smoothness_failed": False,
+        # Concept-specific aggregates exposed to the report writer:
+        "concept_scores": {
+            s["name"]: {
+                "score": s["score"],
+                "applicable": s["applicable"],
+                "passed": s.get("passed", False),
+            }
+            for s in per_scorer
+        },
+        "score_coverage": round(score_coverage, 3),
+        "source_discipline_coverage": round(sd_coverage, 3),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Release gates (PR 3 scope: concept_match_score >= 95% on the first 10
+# concept_eval scenarios). PR 4 will add output_contract, arithmetic_closure,
+# bridge_closure, hard_gate_failures, receipt_completeness gates.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+CONCEPT_MATCH_GATE_THRESHOLD = 0.95
+
+
+def _is_concept_eval_result(result: dict[str, Any]) -> bool:
+    return result.get("kind") == "concept_eval" or "concept_scores" in result
+
+
+def evaluate_concept_release_gates(
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate PR 3 concept-eval release gates against a list of scored
+    scenario results. Returns a structured pass/fail report.
+
+    PR 3 gates (only):
+      - concept_match_score >= 95% across all concept_eval results
+
+    Each scorer's `applicable` flag is respected: scenarios where
+    concept_match_score skipped (e.g. missing concept_expected.concept_id)
+    are excluded from the denominator.
+    """
+    concept_results = [r for r in results if _is_concept_eval_result(r)]
+
+    cms_applicable: list[dict[str, Any]] = []
+    cms_passed: list[dict[str, Any]] = []
+    for r in concept_results:
+        cms = (r.get("concept_scores") or {}).get("concept_match_score") or {}
+        if cms.get("applicable"):
+            cms_applicable.append(r)
+            if cms.get("passed"):
+                cms_passed.append(r)
+
+    if cms_applicable:
+        cms_pass_rate = len(cms_passed) / len(cms_applicable)
+        cms_gate_passed = cms_pass_rate >= CONCEPT_MATCH_GATE_THRESHOLD
+    else:
+        # No applicable concept-eval scenarios in this run → gate is vacuous.
+        # Report pass_rate as None so the report writer can render "n/a".
+        cms_pass_rate = None
+        cms_gate_passed = True
+
+    return {
+        "all_passed": cms_gate_passed,
+        "gates": [
+            {
+                "name": "concept_match_score",
+                "threshold": CONCEPT_MATCH_GATE_THRESHOLD,
+                "actual": round(cms_pass_rate, 3) if cms_pass_rate is not None else None,
+                "applicable_count": len(cms_applicable),
+                "passed_count": len(cms_passed),
+                "passed": cms_gate_passed,
+            },
+        ],
+        "concept_eval_total": len(concept_results),
+    }

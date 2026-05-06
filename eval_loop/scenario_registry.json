@@ -805,6 +805,188 @@
       "environment": "meridian",
       "frontend_command": "npm run test:unit -- src/components/commandbar/__tests__/AdvancedDrawer.receipt.test.tsx",
       "expected": {}
+    },
+
+    {
+      "id": "concept_noi_variance_off_plan",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why is NOI off plan for this fund?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "exact_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_context_present": ["entity"],
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_alias_net_property_income",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Explain net property income variance.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "matched_alias_must_be_in": ["net property income"],
+        "expected_match_reasons": ["exact_alias", "substring_alias"],
+        "min_confidence": 0.8,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_vs_underwriting",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why did NOI miss underwriting?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge",
+          "reconciliation"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_vs_budget",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Explain Q2 NOI variance to budget.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_context_present": ["period"],
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_vs_forecast",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "What missed versus latest forecast?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_same_property",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "What happened to same-store NOI?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "matched_alias_must_be_in": ["same-store NOI", "same-property NOI", "SSNOI", "SPNOI"],
+        "expected_match_reasons": ["exact_alias", "substring_alias"],
+        "min_confidence": 0.8,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_bridge_q1_to_q2",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Walk Q1 to Q2 NOI.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_rate_vs_occupancy",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Was the decline rate-driven or occupancy-driven?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_concessions_drag",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Quantify the concessions drag.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "substring_alias"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge"
+        ]
+      }
+    },
+    {
+      "id": "concept_noi_variance_bad_debt_headwind",
+      "family": "concept_eval_noi_variance",
+      "suite": ["smoke", "full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Is bad debt still a headwind?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "substring_alias", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge"
+        ]
+      }
     }
   ]
 }

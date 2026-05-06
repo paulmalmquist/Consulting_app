@@ -62,6 +62,9 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
     )
     retrieval_empty_rate = round(retrieval_empty_count / max(len(retrieval_used_results), 1), 4) if retrieval_used_results else None
 
+    # Concept-eval aggregates and release-gate evaluation (PR 3)
+    concept_summary = _summarize_concept_eval(results)
+
     return {
         "run_id": run_id,
         "cycle": cycle,
@@ -84,6 +87,87 @@ def summarize_run(*, run_id: str, cycle: int, suite: str, results: list[dict[str
         "product_pass_count": product_pass_count if product_results else None,
         "product_scenario_count": len(product_results) if product_results else None,
         "retrieval_empty_rate": retrieval_empty_rate,
+        "concept_eval": concept_summary,
+    }
+
+
+def _summarize_concept_eval(results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Aggregate concept-scorer outputs across the run + evaluate release
+    gates. Returns None when no concept_eval scenarios ran.
+    """
+    from eval_loop.scorers import evaluate_concept_release_gates
+
+    concept_results = [
+        r for r in results
+        if r.get("kind") == "concept_eval" or "concept_scores" in r
+    ]
+    if not concept_results:
+        return None
+
+    # Per-scorer pass rates: only count results where the scorer was applicable.
+    scorer_names = (
+        "concept_match_score",
+        "alias_normalization_score",
+        "context_completeness_score",
+        "output_contract_score",
+        "missing_data_failure_mode_score",
+        "generic_filler_penalty",
+        "unsupported_claim_penalty",
+    )
+    by_scorer: dict[str, dict[str, Any]] = {}
+    for name in scorer_names:
+        applicable = 0
+        passed = 0
+        for r in concept_results:
+            entry = (r.get("concept_scores") or {}).get(name) or {}
+            if entry.get("applicable"):
+                applicable += 1
+                if entry.get("passed"):
+                    passed += 1
+        pass_rate = round(passed / applicable, 4) if applicable else None
+        by_scorer[name] = {
+            "applicable": applicable,
+            "passed": passed,
+            "pass_rate": pass_rate,
+        }
+
+    score_coverage_avg = round(
+        sum(float(r.get("score_coverage") or 0.0) for r in concept_results)
+        / max(len(concept_results), 1),
+        4,
+    )
+    sd_coverage_avg = round(
+        sum(float(r.get("source_discipline_coverage") or 0.0) for r in concept_results)
+        / max(len(concept_results), 1),
+        4,
+    )
+
+    gates = evaluate_concept_release_gates(concept_results)
+
+    hard_gate_failures: list[dict[str, Any]] = []
+    for r in concept_results:
+        for m in r.get("mismatches") or []:
+            cat = m.get("category")
+            if cat in {
+                "wrong_concept_id",
+                "hallucinated_number",
+                "mixed_basis",
+                "stale_primary_source",
+                "conflict_ignored",
+            }:
+                hard_gate_failures.append({
+                    "scenario_id": r.get("scenario_id") or r.get("id"),
+                    "category": cat,
+                    "scorer": m.get("scorer"),
+                })
+
+    return {
+        "scenario_count": len(concept_results),
+        "by_scorer": by_scorer,
+        "score_coverage_avg": score_coverage_avg,
+        "source_discipline_coverage_avg": sd_coverage_avg,
+        "release_gates": gates,
+        "hard_gate_failures": hard_gate_failures,
     }
 
 
