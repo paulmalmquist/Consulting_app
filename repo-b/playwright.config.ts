@@ -24,9 +24,13 @@ export default defineConfig({
     { name: "webkit", use: { ...devices["iPhone 14"] } },
   ],
   webServer: {
-    command: `PLAYWRIGHT_BYPASS_AUTH=1 PORT=${port} npm run dev`,
+    command: `npm run dev -- --port ${port}`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      PLAYWRIGHT_BYPASS_AUTH: "1",
+      PORT: port,
+    },
   },
 });

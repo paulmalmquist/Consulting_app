@@ -13,6 +13,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = "3103"; // Dedicated port to avoid collision with other playwright configs
 const host = "localhost";
+const backendPort = "8000";
 
 export default defineConfig({
   testDir: "./tests/ai-evals",
@@ -31,15 +32,26 @@ export default defineConfig({
     video: "off",
     trace: "off",
   },
-  webServer: {
-    command: `BM_SESSION_SECRET=playwright-auth-secret PORT=${port} PLAYWRIGHT_BYPASS_AUTH=1 npm run dev -- --hostname ${host} --port ${port}`,
-    url: `http://${host}:${port}/`,
-    reuseExistingServer: true,
-    timeout: 120_000,
-    env: {
-      BM_SESSION_SECRET: process.env.BM_SESSION_SECRET || "playwright-auth-secret",
-      PLAYWRIGHT_BYPASS_AUTH: "1",
+  webServer: [
+    {
+      command: `.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port ${backendPort}`,
+      url: `http://127.0.0.1:${backendPort}/health`,
+      cwd: "../backend",
+      reuseExistingServer: true,
+      timeout: 120_000,
     },
-  },
+    {
+      command: `npm run dev -- --hostname ${host} --port ${port}`,
+      url: `http://${host}:${port}/`,
+      reuseExistingServer: true,
+      timeout: 120_000,
+      env: {
+        BM_SESSION_SECRET: process.env.BM_SESSION_SECRET || "playwright-auth-secret",
+        BOS_API_ORIGIN: `http://127.0.0.1:${backendPort}`,
+        PORT: port,
+        PLAYWRIGHT_BYPASS_AUTH: "1",
+      },
+    },
+  ],
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

@@ -238,7 +238,7 @@ function runConceptBrowserSim(cycle) {
       "test",
       "tests/ai-evals/concepts/noi_variance.spec.ts",
       "--config",
-      "playwright.config.ts",
+      "playwright.ai-eval.config.ts",
       "--project",
       "chromium",
     ],

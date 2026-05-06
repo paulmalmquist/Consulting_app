@@ -12,6 +12,9 @@ import type { EnvironmentSlug } from "../../src/lib/environmentAuth";
 process.env.BM_SESSION_SECRET =
   process.env.BM_SESSION_SECRET || "playwright-auth-secret";
 
+const EVAL_PLATFORM_USER_ID = "c2f38ed0-a661-454e-8487-07158a788e90";
+const EVAL_SUPABASE_USER_ID = "c2f38ed0-a661-454e-8487-07158a788e90";
+
 // ── Session helpers ──────────────────────────────────────────────────
 
 /**
@@ -32,8 +35,8 @@ export function buildEvalClaims(
   return {
     v: 1,
     session_id: "session-ai-eval",
-    platform_user_id: "user-ai-eval",
-    supabase_user_id: "supabase-ai-eval",
+    platform_user_id: EVAL_PLATFORM_USER_ID,
+    supabase_user_id: EVAL_SUPABASE_USER_ID,
     email: "eval@example.com",
     display_name: "AI Eval User",
     issued_at: Math.floor(Date.now() / 1000),
@@ -217,7 +220,7 @@ export async function sendAndWaitForResponse(
   // Final stabilization for DOM updates
   await page.waitForTimeout(500);
 
-  const finalText = (await output.textContent()) ?? "";
+  const finalText = await getLastAssistantMessage(page);
   console.log(`[eval] final output length=${finalText.length}, text="${finalText.slice(0, 150)}"`);
   return finalText;
 }
@@ -228,5 +231,16 @@ export async function sendAndWaitForResponse(
  */
 export async function getLastAssistantMessage(page: Page): Promise<string> {
   const output = page.getByTestId("global-commandbar-output");
-  return (await output.textContent()) ?? "";
+  return output.evaluate((root) => {
+    const articles = Array.from(root.querySelectorAll("article"));
+    for (let i = articles.length - 1; i >= 0; i--) {
+      const article = articles[i];
+      const eyebrow = article.querySelector(".nv-eyebrow")?.textContent?.trim();
+      if (eyebrow !== "Winston") continue;
+      const clone = article.cloneNode(true) as HTMLElement;
+      clone.querySelector(".nv-eyebrow")?.remove();
+      return clone.textContent?.trim() ?? "";
+    }
+    return "";
+  });
 }
