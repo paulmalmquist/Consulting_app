@@ -67,6 +67,23 @@ def _latency_line(summary: dict[str, Any]) -> str:
     return f"median **{median}**, p95 **{p95}**"
 
 
+def _format_pass_rate(pr: Any) -> str:
+    if pr is None:
+        return "n/a"
+    try:
+        return f"{float(pr):.2%}"
+    except (TypeError, ValueError):
+        return str(pr)
+
+
+def _format_threshold(t: Any) -> str:
+    if t is None:
+        return "n/a"
+    if isinstance(t, (int, float)) and 0 < t <= 1:
+        return f"{t:.0%}"
+    return str(t)
+
+
 def _render_concept_eval_section(concept: dict[str, Any]) -> list[str]:
     """Render the concept-eval section for the docs report. Called when
     `summary["concept_eval"]` is present (i.e. the run included at least
@@ -77,7 +94,10 @@ def _render_concept_eval_section(concept: dict[str, Any]) -> list[str]:
     lines.append("")
     lines.append(f"- Scenarios run: **{concept.get('scenario_count', 0)}**")
     lines.append(f"- Score coverage avg: **{concept.get('score_coverage_avg', 0)}**")
-    lines.append(f"- Source-discipline coverage avg: **{concept.get('source_discipline_coverage_avg', 0)}** _(0.0 expected in PR 3)_")
+    lines.append(
+        f"- Source-discipline coverage avg: **{concept.get('source_discipline_coverage_avg', 0)}** "
+        "_(0.0 until the data layer plumbs source_inventory / source_as_of_dates)_"
+    )
     lines.append("")
 
     by_scorer = concept.get("by_scorer") or {}
@@ -90,8 +110,32 @@ def _render_concept_eval_section(concept: dict[str, Any]) -> list[str]:
             applicable = stats.get("applicable", 0)
             passed = stats.get("passed", 0)
             pass_rate = stats.get("pass_rate")
-            pass_rate_str = "n/a" if pass_rate is None else f"{pass_rate:.2%}"
-            lines.append(f"| `{name}` | {applicable} | {passed} | {pass_rate_str} |")
+            lines.append(
+                f"| `{name}` | {applicable} | {passed} | {_format_pass_rate(pass_rate)} |"
+            )
+        lines.append("")
+
+        # PR 4 highlights — focused signals the user wants front-and-centre.
+        lines.append("### PR 4 signals")
+        lines.append("")
+        signals = [
+            ("bridge_closure_failure_rate", "arithmetic_closure_score", lambda pr: 1 - pr if pr is not None else None),
+            ("stale_source_failure_rate", "freshness_score", lambda pr: 1 - pr if pr is not None else None),
+            ("conflict_handling_success_rate", "conflict_handling_score", lambda pr: pr),
+            ("basis_fidelity_pass_rate", "basis_fidelity_score", lambda pr: pr),
+            ("scope_fidelity_pass_rate", "scope_fidelity_score", lambda pr: pr),
+            ("driver_attribution_pass_rate", "driver_attribution_score", lambda pr: pr),
+        ]
+        lines.append("| signal | source scorer | applicable | value |")
+        lines.append("|---|---|---|---|")
+        for label, scorer_name, transform in signals:
+            stats = by_scorer.get(scorer_name) or {}
+            applicable = stats.get("applicable", 0)
+            base_pr = stats.get("pass_rate")
+            value = transform(base_pr) if base_pr is not None else None
+            lines.append(
+                f"| `{label}` | `{scorer_name}` | {applicable} | {_format_pass_rate(value)} |"
+            )
         lines.append("")
 
     gates = (concept.get("release_gates") or {}).get("gates") or []
@@ -102,16 +146,23 @@ def _render_concept_eval_section(concept: dict[str, Any]) -> list[str]:
         lines.append("|---|---|---|---|---|")
         for g in gates:
             actual = g.get("actual")
-            actual_str = "n/a" if actual is None else f"{actual:.2%}"
-            threshold = g.get("threshold")
-            threshold_str = f"{threshold:.0%}" if isinstance(threshold, (int, float)) else str(threshold)
+            # `hard_gate_failures` reports a count, not a rate.
+            if g.get("name") == "hard_gate_failures":
+                actual_str = str(actual) if actual is not None else "n/a"
+            else:
+                actual_str = _format_pass_rate(actual)
             mark = "PASS" if g.get("passed") else "FAIL"
             lines.append(
-                f"| `{g.get('name')}` | {threshold_str} | {actual_str} | {g.get('applicable_count', 0)} | **{mark}** |"
+                f"| `{g.get('name')}` | {_format_threshold(g.get('threshold'))} | {actual_str} | {g.get('applicable_count', 0)} | **{mark}** |"
             )
         lines.append("")
         if not (concept.get("release_gates") or {}).get("all_passed"):
-            lines.append("> **Concept eval release gates failed.** Promotion blocked until concept_match_score reaches 95%.")
+            failed_names = [g["name"] for g in gates if not g.get("passed")]
+            lines.append(
+                "> **Concept eval release gates failed.** Failed gates: "
+                + ", ".join(f"`{n}`" for n in failed_names)
+                + "."
+            )
             lines.append("")
 
     hard_failures = concept.get("hard_gate_failures") or []

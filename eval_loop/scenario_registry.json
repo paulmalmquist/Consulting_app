@@ -987,6 +987,225 @@
           "driver_bridge"
         ]
       }
+    },
+
+    {
+      "id": "concept_noi_variance_expense_overrun",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why are expenses running hot?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge"
+        ],
+        "expected_material_drivers": ["payroll", "R&M", "taxes", "insurance"],
+        "expected_bridge_components": {
+          "payroll": -120000,
+          "R&M": -85000,
+          "taxes": -45000
+        },
+        "expected_total_variance": -250000
+      }
+    },
+    {
+      "id": "concept_noi_variance_timing_vs_recurring",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Is the miss timing or recurring?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge",
+          "caveats"
+        ],
+        "expected_material_drivers": ["timing", "recurring"]
+      }
+    },
+    {
+      "id": "concept_noi_variance_missing_underwriting",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why did we miss underwriting on Asset X?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "caveats"
+        ],
+        "required_failure_mode": "missing_context",
+        "must_not_invent_numbers": true,
+        "data_unavailable": ["underwriting"]
+      }
+    },
+    {
+      "id": "concept_noi_variance_missing_entity",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why is NOI off?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["keyword_cluster", "contextual_trigger"],
+        "min_confidence": 0.4,
+        "required_output_sections": [
+          "direct_answer"
+        ],
+        "required_failure_mode": "missing_context",
+        "expected_followup_targeted": true,
+        "data_unavailable": ["entity"]
+      }
+    },
+    {
+      "id": "concept_noi_variance_conflicting_sources",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why is NOI off plan?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias"],
+        "min_confidence": 0.8,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "caveats"
+        ],
+        "expected_conflict": {
+          "field": "actual_noi",
+          "sources": ["property_pnl", "fund_accounting"],
+          "values": [4250000, 4310000]
+        },
+        "must_surface_conflict": true,
+        "must_not_silently_pick": true
+      }
+    },
+    {
+      "id": "concept_noi_variance_stale_source",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Why is NOI off plan this quarter?",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias"],
+        "min_confidence": 0.8,
+        "required_output_sections": [
+          "direct_answer",
+          "caveats"
+        ],
+        "expected_stale_sources": {
+          "property_pnl": "2025-09-30",
+          "rent_roll": "2025-08-15"
+        },
+        "freshness_max_age_days": 90,
+        "must_surface_freshness_caveat": true
+      }
+    },
+    {
+      "id": "concept_noi_variance_mixed_basis",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Compare cash NOI to GAAP underwriting.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "caveats"
+        ],
+        "required_basis": "cash",
+        "must_reject_silent_basis_mixing": true
+      }
+    },
+    {
+      "id": "concept_noi_variance_missing_driver_detail",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Walk Q3 NOI by driver.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "driver_bridge",
+          "caveats"
+        ],
+        "expected_material_drivers": ["rate", "occupancy"],
+        "data_unavailable": ["concessions_detail", "bad_debt_detail"],
+        "must_not_invent_drivers": true,
+        "expected_total_variance": -180000
+      }
+    },
+    {
+      "id": "concept_noi_variance_portfolio_rollup",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Roll the asset misses up to fund-level NOI variance.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge",
+          "reconciliation"
+        ],
+        "required_scope": "fund",
+        "expected_material_drivers": ["asset_level_misses"],
+        "expected_total_variance": -1200000,
+        "expected_bridge_components": {
+          "asset_a": -450000,
+          "asset_b": -380000,
+          "asset_c": -370000
+        }
+      }
+    },
+    {
+      "id": "concept_noi_variance_board_style",
+      "family": "concept_eval_noi_variance",
+      "suite": ["full"],
+      "kind": "concept_eval",
+      "environment": "meridian",
+      "message": "Give me the board version of why NOI missed.",
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge"
+        ],
+        "expected_concise": true,
+        "expected_max_words": 200
+      }
     }
   ]
 }

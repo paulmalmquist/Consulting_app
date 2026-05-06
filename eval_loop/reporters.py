@@ -113,6 +113,14 @@ def _summarize_concept_eval(results: list[dict[str, Any]]) -> dict[str, Any] | N
         "missing_data_failure_mode_score",
         "generic_filler_penalty",
         "unsupported_claim_penalty",
+        # PR 4 second-wave scorers
+        "source_discipline_score",
+        "freshness_score",
+        "conflict_handling_score",
+        "basis_fidelity_score",
+        "scope_fidelity_score",
+        "arithmetic_closure_score",
+        "driver_attribution_score",
     )
     by_scorer: dict[str, dict[str, Any]] = {}
     for name in scorer_names:

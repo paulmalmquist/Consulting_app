@@ -1096,6 +1096,555 @@ def unsupported_claim_penalty(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Second-wave scorers (PR 4)
+#
+# These scorers depend on receipt fields that are intentionally None in v1:
+# source_inventory, source_as_of_dates, conflict_summary, basis_rule_applied,
+# scope_rule_applied. Until the data layer plumbs them, these scorers will
+# be `applicable: false` on real runs — the unit tests fabricate populated
+# receipts to verify the activation path works.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+import re as _re
+from datetime import date as _date, datetime as _datetime, timezone as _timezone
+
+
+# Broker-tier sources that are not allowed to be primary citations for
+# REPE financial reads. Lowercased for matching.
+_BROKER_TIER_SOURCES = (
+    "costar",
+    "co-star",
+    "real capital analytics",
+    "rca",
+    "cushman & wakefield broker brief",
+    "jll mid-cycle preview",
+    "broker comp",
+    "press release",
+)
+
+# Primary-tier source patterns (also lowercased). Receipt source_inventory
+# entries are evaluated against these to confirm primary discipline.
+_PRIMARY_TIER_PATTERNS = (
+    "property_pnl", "property p&l", "property pnl",
+    "rent_roll", "rent roll",
+    "fund_accounting", "fund accounting",
+    "underwriting",
+    "loan_servicer", "loan servicer",
+    "audited_financials", "audited financials",
+    "operator_statement", "operator statement",
+    "operating_statement", "operating statement",
+    "trial_balance", "trial balance",
+)
+
+
+def _parse_source_date(value: Any) -> _date | None:
+    if not value:
+        return None
+    if isinstance(value, _date):
+        return value
+    try:
+        # Accept "YYYY-MM-DD" and ISO datetimes.
+        s = str(value)
+        if "T" in s:
+            return _datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+        return _date.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def source_discipline_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Primary sources used; no broker-tier sources cited as authoritative.
+
+    Applicable: when `source_discipline.source_inventory` is populated. The
+    scorer flags any broker-tier source as a discipline failure and warns
+    when no primary-tier pattern matches the inventory.
+    """
+    sd = _source_discipline_receipt(result)
+    inventory = sd.get("source_inventory")
+    if inventory is None:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "source_discipline_score"}
+    if not inventory:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{
+                    "category": "no_sources_cited",
+                    "field": "source_inventory",
+                    "expected": "at least one primary source",
+                    "actual": [],
+                }],
+                "name": "source_discipline_score"}
+    inventory_low = [str(s).lower() for s in inventory]
+    broker_hits = [s for s in inventory_low if any(b in s for b in _BROKER_TIER_SOURCES)]
+    primary_hits = [s for s in inventory_low if any(p in s for p in _PRIMARY_TIER_PATTERNS)]
+    mismatches: list[dict[str, Any]] = []
+    if broker_hits:
+        mismatches.append({
+            "category": "broker_tier_source_used",
+            "field": "source_inventory",
+            "expected": "primary-tier sources only",
+            "actual": broker_hits,
+        })
+    if not primary_hits:
+        mismatches.append({
+            "category": "no_primary_source",
+            "field": "source_inventory",
+            "expected": "at least one primary-tier source",
+            "actual": list(inventory),
+        })
+    passed = not mismatches
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
+        "name": "source_discipline_score",
+    }
+
+
+def freshness_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """All cited sources within the freshness policy. Applicable when
+    `source_discipline.source_as_of_dates` is populated. The scenario can
+    pin a `freshness_max_age_days` override; otherwise defaults to 90.
+
+    When a scenario declares `must_surface_freshness_caveat: true` and any
+    source is past the threshold, the response text must mention freshness
+    explicitly (substring "stale", "as of", or "freshness").
+    """
+    sd = _source_discipline_receipt(result)
+    as_of = sd.get("source_as_of_dates")
+    if as_of is None:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "freshness_score"}
+    expected = scenario.get("concept_expected", {}) or {}
+    max_age_days = int(expected.get("freshness_max_age_days") or 90)
+    today = _date.today()
+    stale: list[dict[str, Any]] = []
+    for source, date_value in as_of.items():
+        d = _parse_source_date(date_value)
+        if d is None:
+            continue
+        age = (today - d).days
+        if age > max_age_days:
+            stale.append({"source": source, "age_days": age, "as_of": str(date_value)})
+    if not stale:
+        return {"score": 100.0, "applicable": True, "passed": True,
+                "mismatches": [], "name": "freshness_score"}
+    # Stale sources exist. If the scenario requires a caveat, check the response.
+    response_low = (result.get("response_text") or "").lower()
+    must_caveat = bool(expected.get("must_surface_freshness_caveat"))
+    caveat_present = any(p in response_low for p in ("stale", "as of", "freshness"))
+    mismatches: list[dict[str, Any]] = [{
+        "category": "stale_primary_source",
+        "field": "source_as_of_dates",
+        "expected": f"all sources within {max_age_days} days",
+        "actual": stale,
+    }]
+    if must_caveat and not caveat_present:
+        mismatches.append({
+            "category": "stale_primary_source",
+            "field": "response_text",
+            "expected": "answer mentions freshness/stale/as-of",
+            "actual": "no freshness caveat in response",
+        })
+    return {
+        "score": 0.0,
+        "applicable": True,
+        "passed": False,
+        "mismatches": mismatches,
+        "name": "freshness_score",
+    }
+
+
+def conflict_handling_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Conflicts surfaced explicitly. Applicable when scenario declares
+    `expected_conflict`. The response must mention both conflicting source
+    names; if `must_not_silently_pick` is set, the response must NOT pick a
+    single value without flagging the disagreement.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    expected_conflict = expected.get("expected_conflict")
+    if not expected_conflict:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "conflict_handling_score"}
+    response_low = (result.get("response_text") or "").lower()
+    if not response_low:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "conflict_ignored",
+                                "field": "response_text",
+                                "expected": "answer references conflicting sources",
+                                "actual": ""}],
+                "name": "conflict_handling_score"}
+    sources = [str(s).lower() for s in (expected_conflict.get("sources") or [])]
+    sources_mentioned = sum(1 for s in sources if any(t in response_low for t in (s, s.replace("_", " "))))
+    must_surface = bool(expected.get("must_surface_conflict"))
+    must_not_silently_pick = bool(expected.get("must_not_silently_pick"))
+    surfaced = (
+        sources_mentioned >= 2
+        or "conflict" in response_low
+        or "disagree" in response_low
+        or "two sources" in response_low
+        or "different value" in response_low
+        or "differ" in response_low
+    )
+    mismatches: list[dict[str, Any]] = []
+    if must_surface and not surfaced:
+        mismatches.append({
+            "category": "conflict_ignored",
+            "field": "response_text",
+            "expected": "answer surfaces the conflict between sources",
+            "actual": f"sources_mentioned={sources_mentioned}, no conflict-language",
+        })
+    # Detect silent picking: response cites a single value with no qualifier.
+    if must_not_silently_pick and not surfaced:
+        values = expected_conflict.get("values") or []
+        cited_values = [v for v in values if str(v) in response_low or _format_value_variants(v, response_low)]
+        if cited_values:
+            mismatches.append({
+                "category": "conflict_ignored",
+                "field": "response_text",
+                "expected": "answer flags disagreement before quoting either value",
+                "actual": f"silently cited {cited_values}",
+            })
+    passed = not mismatches
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
+        "name": "conflict_handling_score",
+    }
+
+
+def _format_value_variants(value: Any, haystack_low: str) -> bool:
+    """Tolerant numeric matcher for conflict detection. Catches "$4.25M"
+    style abbreviations alongside the raw number."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return False
+    raw = f"{f:,.0f}".replace(",", "")
+    abbrev_m = f"{f / 1_000_000:.2f}m"
+    abbrev_k = f"{f / 1_000:.0f}k"
+    return any(v in haystack_low for v in (raw, abbrev_m, abbrev_k))
+
+
+def basis_fidelity_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Answer respects the requested basis (cash vs GAAP). Applicable when
+    scenario declares `required_basis`. When `must_reject_silent_basis_mixing`
+    is set and the response mentions both bases without an explicit
+    reconciliation, that's a failure.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    required = expected.get("required_basis")
+    if not required:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "basis_fidelity_score"}
+    response_low = (result.get("response_text") or "").lower()
+    if not response_low:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "mixed_basis",
+                                "field": "response_text",
+                                "expected": f"answer on {required} basis",
+                                "actual": ""}],
+                "name": "basis_fidelity_score"}
+    required_low = required.lower()
+    mismatches: list[dict[str, Any]] = []
+    if required_low not in response_low:
+        mismatches.append({
+            "category": "mixed_basis",
+            "field": "response_text",
+            "expected": f"answer explicitly identifies {required} basis",
+            "actual": "no basis declaration in response",
+        })
+    if expected.get("must_reject_silent_basis_mixing"):
+        # Both bases present without reconciliation language → silent mix.
+        bases_present = sum(1 for b in ("cash", "gaap") if b in response_low)
+        reconciliation_words = ("reconcile", "bridge", "convert", "translate",
+                                "to/from", "basis difference", "differ on",
+                                "cannot directly compare")
+        has_reconciliation = any(w in response_low for w in reconciliation_words)
+        if bases_present >= 2 and not has_reconciliation:
+            mismatches.append({
+                "category": "mixed_basis",
+                "field": "response_text",
+                "expected": "explicit reconciliation when both bases present",
+                "actual": "both bases mentioned without reconciliation",
+            })
+    passed = not mismatches
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
+        "name": "basis_fidelity_score",
+    }
+
+
+def scope_fidelity_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Same-store / total / stabilized / fund / market scope respected.
+    Applicable when scenario declares `required_scope`.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    required = expected.get("required_scope")
+    if not required:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "scope_fidelity_score"}
+    response_low = (result.get("response_text") or "").lower()
+    if not response_low:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "scope_failure",
+                                "field": "response_text",
+                                "expected": f"{required}-scope answer",
+                                "actual": ""}],
+                "name": "scope_fidelity_score"}
+    # Tolerant matching for common scope synonyms.
+    SCOPE_ALIASES = {
+        "same_store": ("same-store", "same store", "ssnoi", "spnoi", "same-property", "same property"),
+        "total": ("total", "all properties", "all assets"),
+        "stabilized": ("stabilized", "stabilised"),
+        "fund": ("fund", "fund-level", "fund level", "portfolio"),
+        "market": ("market", "metro"),
+    }
+    aliases = SCOPE_ALIASES.get(required.lower(), (required.lower(),))
+    present = any(a in response_low for a in aliases)
+    return {
+        "score": 100.0 if present else 0.0,
+        "applicable": True,
+        "passed": present,
+        "mismatches": [] if present else [{
+            "category": "scope_failure",
+            "field": "response_text",
+            "expected": f"{required}-scope language",
+            "actual": "no scope declaration",
+        }],
+        "name": "scope_fidelity_score",
+    }
+
+
+# Currency-y number pattern: $1,234,567 or 1,234,567 or 1.2M or -$120k.
+# The M/K/B suffix must be immediately adjacent to the digit (no whitespace)
+# AND followed by a non-letter (so "$100, B contributed" does NOT match
+# "$100, B" as a single token where B is interpreted as billion).
+_NUMBER_PATTERN = _re.compile(
+    r"-?\$?\d[\d,]*(?:\.\d+)?(?:[mMkKbB](?![a-zA-Z]))?", _re.IGNORECASE
+)
+
+
+def _parse_currency_token(token: str) -> float | None:
+    s = token.strip().lower().replace("$", "").replace(",", "").replace(" ", "")
+    if not s:
+        return None
+    multiplier = 1.0
+    if s.endswith("m"):
+        multiplier = 1_000_000
+        s = s[:-1]
+    elif s.endswith("k"):
+        multiplier = 1_000
+        s = s[:-1]
+    elif s.endswith("b"):
+        multiplier = 1_000_000_000
+        s = s[:-1]
+    try:
+        return float(s) * multiplier
+    except ValueError:
+        return None
+
+
+def arithmetic_closure_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Bridge components sum to total variance within tolerance.
+
+    Applicable when scenario provides BOTH `expected_bridge_components`
+    (dict of driver → component value) and `expected_total_variance`
+    (signed scalar). The scorer checks the response text for numbers that
+    plausibly correspond to the components and the total, then verifies
+    that the sum of cited components matches the cited (or expected) total
+    within tolerance.
+
+    Tolerance: pass if either
+      |delta| <= $1,000 absolute, OR
+      |delta| <= 2% relative to total variance.
+
+    Real operator data has rounding, missing components, and timing
+    mismatches — tight equality fails correct answers.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    components = expected.get("expected_bridge_components")
+    total = expected.get("expected_total_variance")
+    if not components or total is None:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "arithmetic_closure_score"}
+    response = result.get("response_text") or ""
+    if not response.strip():
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "arithmetic_closure_failure",
+                                "field": "response_text",
+                                "expected": "numeric bridge",
+                                "actual": ""}],
+                "name": "arithmetic_closure_score"}
+    # Extract every plausible currency value from the response.
+    raw_tokens = _NUMBER_PATTERN.findall(response)
+    extracted = [_parse_currency_token(t) for t in raw_tokens]
+    extracted = [v for v in extracted if v is not None]
+    # Find cited components: for each expected component, pick the value
+    # in `extracted` closest to it (greedy by absolute distance, not first
+    # within tolerance). Each value can be matched by at most one component.
+    cited_components: dict[str, float] = {}
+    used_value_idxs: set[int] = set()
+    for driver, expected_val in components.items():
+        ev = float(expected_val)
+        best_idx: int | None = None
+        best_dist: float | None = None
+        for i, v in enumerate(extracted):
+            if i in used_value_idxs:
+                continue
+            dist = abs(abs(v) - abs(ev))
+            in_abs_tol = (abs(ev) < 1_000) and dist <= 1_000
+            in_rel_tol = (abs(ev) >= 1_000) and (dist / abs(ev) <= 0.05)
+            if not (in_abs_tol or in_rel_tol):
+                continue
+            if best_dist is None or dist < best_dist:
+                best_idx = i
+                best_dist = dist
+        if best_idx is not None:
+            v = extracted[best_idx]
+            cited_components[driver] = v if (v < 0) == (ev < 0) else -v
+            used_value_idxs.add(best_idx)
+    if not cited_components:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "arithmetic_closure_failure",
+                                "field": "response_text",
+                                "expected": list(components.keys()),
+                                "actual": "no driver components found in response"}],
+                "name": "arithmetic_closure_score"}
+    # The response's claimed total: the largest-absolute-value number that
+    # wasn't used as a component. This catches mismatches where the response
+    # asserts a total that doesn't match its own component sum.
+    leftover = [v for i, v in enumerate(extracted) if i not in used_value_idxs]
+    cited_total: float | None = None
+    if leftover:
+        cited_total = max(leftover, key=lambda x: abs(x))
+        # Sign-correct: if expected total is negative and the largest
+        # absolute leftover is positive, treat it as the negative value
+        # (operators often write "off by $300k" without a minus sign).
+        if total < 0 and cited_total > 0:
+            cited_total = -cited_total
+    component_sum = sum(cited_components.values())
+    # Grade against the response's own claimed total when present. Falling
+    # back to the fixture's expected total would mask cases where the
+    # response cites a total that disagrees with its own bridge.
+    target = cited_total if cited_total is not None else float(total)
+    delta = component_sum - target
+    abs_target = abs(target)
+    abs_tol_pass = abs(delta) <= 1_000.0
+    rel_tol_pass = (abs_target > 0) and (abs(delta) / abs_target <= 0.02)
+    passed = abs_tol_pass or rel_tol_pass
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": [] if passed else [{
+            "category": "arithmetic_closure_failure",
+            "field": "response_text",
+            "expected": f"sum within $1k OR 2% of {target}",
+            "actual": {
+                "cited_components": cited_components,
+                "component_sum": component_sum,
+                "delta": delta,
+                "cited_total": cited_total,
+            },
+        }],
+        "name": "arithmetic_closure_score",
+        "extras": {
+            "cited_total": cited_total,
+            "component_sum": component_sum,
+            "delta": delta,
+        },
+    }
+
+
+def driver_attribution_score(
+    *, scenario: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """All material drivers covered; no invented drivers when fixture caps
+    them. Applicable when scenario provides `expected_material_drivers`.
+
+    Two checks:
+      1. coverage — every expected driver appears in the response (tolerant
+         lowercasing, allows underscore↔space).
+      2. invention guard — when `must_not_invent_drivers: true` AND the
+         fixture lists `data_unavailable` containing driver-detail entries,
+         the response must NOT name drivers outside the expected list.
+    """
+    expected = scenario.get("concept_expected", {}) or {}
+    expected_drivers = expected.get("expected_material_drivers")
+    if not expected_drivers:
+        return {"score": 0.0, "applicable": False, "passed": True,
+                "mismatches": [], "name": "driver_attribution_score"}
+    response_low = (result.get("response_text") or "").lower()
+    if not response_low:
+        return {"score": 0.0, "applicable": True, "passed": False,
+                "mismatches": [{"category": "driver_attribution_failure",
+                                "field": "response_text",
+                                "expected": expected_drivers,
+                                "actual": ""}],
+                "name": "driver_attribution_score"}
+
+    def _present(driver: str) -> bool:
+        d = driver.lower()
+        return d in response_low or d.replace("_", " ") in response_low or d.replace(" ", "_") in response_low
+
+    missing = [d for d in expected_drivers if not _present(d)]
+    mismatches: list[dict[str, Any]] = []
+    if missing:
+        mismatches.append({
+            "category": "driver_attribution_failure",
+            "field": "response_text",
+            "expected": expected_drivers,
+            "actual_missing": missing,
+        })
+    if expected.get("must_not_invent_drivers"):
+        # Common driver vocabulary the matcher can scan for. If the response
+        # mentions drivers outside the expected list, that's invention.
+        DRIVER_VOCAB = (
+            "rate", "occupancy", "concessions", "vacancy", "bad debt",
+            "recoveries", "taxes", "insurance", "payroll", "r&m",
+            "rm", "repairs", "marketing", "utilities", "mix",
+        )
+        invented = [
+            d for d in DRIVER_VOCAB
+            if d in response_low and not any(d == ed.lower() or d == ed.lower().replace("_", " ") for ed in expected_drivers)
+        ]
+        if invented:
+            mismatches.append({
+                "category": "driver_attribution_failure",
+                "field": "response_text",
+                "expected": f"only drivers in {expected_drivers}",
+                "actual_invented": invented,
+            })
+    passed = not mismatches
+    return {
+        "score": 100.0 if passed else 0.0,
+        "applicable": True,
+        "passed": passed,
+        "mismatches": mismatches,
+        "name": "driver_attribution_score",
+    }
+
+
 _CONCEPT_SCORERS = (
     concept_match_score,
     alias_normalization_score,
@@ -1104,6 +1653,14 @@ _CONCEPT_SCORERS = (
     missing_data_failure_mode_score,
     generic_filler_penalty,
     unsupported_claim_penalty,
+    # PR 4 second-wave scorers
+    source_discipline_score,
+    freshness_score,
+    conflict_handling_score,
+    basis_fidelity_score,
+    scope_fidelity_score,
+    arithmetic_closure_score,
+    driver_attribution_score,
 )
 
 
@@ -1154,7 +1711,11 @@ def score_concept_scenario(
     # scorers (currently only unsupported_claim_penalty in PR 3) to the
     # total source-discipline scorer set. Tracks when the data layer
     # transitions from aspirational to real.
-    source_discipline_names = {"unsupported_claim_penalty"}
+    source_discipline_names = {
+        "unsupported_claim_penalty",
+        "source_discipline_score",
+        "freshness_score",
+    }
     sd_total = sum(1 for s in per_scorer if s["name"] in source_discipline_names)
     sd_applicable = sum(
         1 for s in per_scorer if s["name"] in source_discipline_names and s.get("applicable")
@@ -1196,63 +1757,165 @@ def score_concept_scenario(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Release gates (PR 3 scope: concept_match_score >= 95% on the first 10
-# concept_eval scenarios). PR 4 will add output_contract, arithmetic_closure,
-# bridge_closure, hard_gate_failures, receipt_completeness gates.
+# Release gates (PR 4 — full set)
+#
+# Each gate measures the pass rate of a specific scorer (or aggregate signal)
+# across applicable concept_eval scenarios. A gate is vacuous (passes) when
+# no scenarios are applicable — this prevents smoke runs without the
+# relevant scenarios from blocking promotion.
+#
+# Gates are reported, not enforced via sys.exit yet. The runner / cycle
+# controller can read `gates["all_passed"]` and decide what to do.
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 CONCEPT_MATCH_GATE_THRESHOLD = 0.95
+OUTPUT_CONTRACT_GATE_THRESHOLD = 0.95
+ARITHMETIC_CLOSURE_GATE_THRESHOLD = 0.98
+BRIDGE_CLOSURE_GATE_THRESHOLD = 0.95
+RECEIPT_COMPLETENESS_GATE_THRESHOLD = 1.0
+
+_HARD_GATE_CATEGORIES = {
+    "wrong_concept_id",
+    "hallucinated_number",
+    "mixed_basis",
+    "stale_primary_source",
+    "conflict_ignored",
+}
 
 
 def _is_concept_eval_result(result: dict[str, Any]) -> bool:
     return result.get("kind") == "concept_eval" or "concept_scores" in result
 
 
+def _scorer_pass_rate(
+    concept_results: list[dict[str, Any]], scorer_name: str
+) -> tuple[float | None, int, int]:
+    """Pass rate for a named scorer across applicable concept results.
+
+    Returns (pass_rate, applicable_count, passed_count). pass_rate is None
+    when no result was applicable (vacuous gate).
+    """
+    applicable = 0
+    passed = 0
+    for r in concept_results:
+        entry = (r.get("concept_scores") or {}).get(scorer_name) or {}
+        if entry.get("applicable"):
+            applicable += 1
+            if entry.get("passed"):
+                passed += 1
+    if applicable == 0:
+        return None, 0, 0
+    return passed / applicable, applicable, passed
+
+
+def _gate(
+    name: str,
+    threshold: float,
+    pass_rate: float | None,
+    applicable: int,
+    passed: int,
+) -> dict[str, Any]:
+    """Build a single gate report. Vacuous (applicable=0) gates pass."""
+    if pass_rate is None:
+        return {
+            "name": name,
+            "threshold": threshold,
+            "actual": None,
+            "applicable_count": 0,
+            "passed_count": 0,
+            "passed": True,  # vacuous
+        }
+    return {
+        "name": name,
+        "threshold": threshold,
+        "actual": round(pass_rate, 3),
+        "applicable_count": applicable,
+        "passed_count": passed,
+        "passed": pass_rate >= threshold,
+    }
+
+
+def _hard_gate_failures(concept_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    failures: list[dict[str, Any]] = []
+    for r in concept_results:
+        for m in r.get("mismatches") or []:
+            cat = m.get("category")
+            if cat in _HARD_GATE_CATEGORIES:
+                failures.append({
+                    "scenario_id": r.get("scenario_id") or r.get("id"),
+                    "category": cat,
+                    "scorer": m.get("scorer"),
+                })
+    return failures
+
+
 def evaluate_concept_release_gates(
     results: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Evaluate PR 3 concept-eval release gates against a list of scored
-    scenario results. Returns a structured pass/fail report.
+    """Evaluate the full set of concept-eval release gates.
 
-    PR 3 gates (only):
-      - concept_match_score >= 95% across all concept_eval results
+    PR 4 gates:
+      - concept_match_score >= 95%
+      - output_contract_score >= 95%
+      - arithmetic_closure_score >= 98% (numeric scenarios only)
+      - bridge_closure (same scorer, looser 95% gate) — measures whether the
+        bridge sums even when individual line items aren't all extractable
+      - hard_gate_failures = 0 (any wrong_concept_id, hallucinated_number,
+        mixed_basis, stale_primary_source, conflict_ignored)
+      - receipt_completeness = 100% (every concept-matched result has a
+        ConceptReceipt)
 
-    Each scorer's `applicable` flag is respected: scenarios where
-    concept_match_score skipped (e.g. missing concept_expected.concept_id)
-    are excluded from the denominator.
+    score_coverage and source_discipline_coverage are reported in the run
+    summary but NOT gated — they're informational signals that v1 source
+    plumbing hasn't fully matured. They become enforceable after PR 4
+    when source-discipline scenarios carry real fixture data.
+
+    Each gate is vacuous (passes) when its scorer was applicable to zero
+    scenarios in the run. This prevents smoke runs without source-discipline
+    scenarios from blocking on freshness / conflict / basis gates that
+    have no scenarios to grade.
     """
     concept_results = [r for r in results if _is_concept_eval_result(r)]
 
-    cms_applicable: list[dict[str, Any]] = []
-    cms_passed: list[dict[str, Any]] = []
-    for r in concept_results:
-        cms = (r.get("concept_scores") or {}).get("concept_match_score") or {}
-        if cms.get("applicable"):
-            cms_applicable.append(r)
-            if cms.get("passed"):
-                cms_passed.append(r)
+    # Per-scorer pass rates
+    cms_rate, cms_app, cms_pass = _scorer_pass_rate(concept_results, "concept_match_score")
+    oc_rate, oc_app, oc_pass = _scorer_pass_rate(concept_results, "output_contract_score")
+    ac_rate, ac_app, ac_pass = _scorer_pass_rate(concept_results, "arithmetic_closure_score")
 
-    if cms_applicable:
-        cms_pass_rate = len(cms_passed) / len(cms_applicable)
-        cms_gate_passed = cms_pass_rate >= CONCEPT_MATCH_GATE_THRESHOLD
-    else:
-        # No applicable concept-eval scenarios in this run → gate is vacuous.
-        # Report pass_rate as None so the report writer can render "n/a".
-        cms_pass_rate = None
-        cms_gate_passed = True
+    # Receipt completeness: a concept-matched result must have a ConceptReceipt.
+    rc_applicable = 0
+    rc_passed = 0
+    for r in concept_results:
+        cms_entry = (r.get("concept_scores") or {}).get("concept_match_score") or {}
+        if cms_entry.get("applicable") and cms_entry.get("passed"):
+            rc_applicable += 1
+            if (r.get("receipt_completeness") or 0) >= 1.0:
+                rc_passed += 1
+    rc_rate = (rc_passed / rc_applicable) if rc_applicable else None
+
+    hard_failures = _hard_gate_failures(concept_results)
+
+    gates = [
+        _gate("concept_match_score", CONCEPT_MATCH_GATE_THRESHOLD, cms_rate, cms_app, cms_pass),
+        _gate("output_contract_score", OUTPUT_CONTRACT_GATE_THRESHOLD, oc_rate, oc_app, oc_pass),
+        _gate("arithmetic_closure_score", ARITHMETIC_CLOSURE_GATE_THRESHOLD, ac_rate, ac_app, ac_pass),
+        # Bridge closure reads the same scorer at a looser threshold.
+        _gate("bridge_closure", BRIDGE_CLOSURE_GATE_THRESHOLD, ac_rate, ac_app, ac_pass),
+        _gate("receipt_completeness", RECEIPT_COMPLETENESS_GATE_THRESHOLD, rc_rate, rc_applicable, rc_passed),
+        {
+            "name": "hard_gate_failures",
+            "threshold": 0,
+            "actual": len(hard_failures),
+            "applicable_count": len(concept_results),
+            "passed_count": len(concept_results) - len({f["scenario_id"] for f in hard_failures}),
+            "passed": len(hard_failures) == 0,
+        },
+    ]
 
     return {
-        "all_passed": cms_gate_passed,
-        "gates": [
-            {
-                "name": "concept_match_score",
-                "threshold": CONCEPT_MATCH_GATE_THRESHOLD,
-                "actual": round(cms_pass_rate, 3) if cms_pass_rate is not None else None,
-                "applicable_count": len(cms_applicable),
-                "passed_count": len(cms_passed),
-                "passed": cms_gate_passed,
-            },
-        ],
+        "all_passed": all(g["passed"] for g in gates),
+        "gates": gates,
         "concept_eval_total": len(concept_results),
+        "hard_gate_failures": hard_failures,
     }
