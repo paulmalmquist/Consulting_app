@@ -5,7 +5,7 @@ with related sub-entities (contacts, opportunities, activities, proposals).
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -616,9 +616,6 @@ def suggest_contact_next_action(
             (str(contact_id), str(business_id)),
         )
         pending = cur.fetchone()["pending_count"]
-
-        linked_deals = get_contact_linked_deals(business_id=business_id, contact_id=contact_id)
-        deal_stage = linked_deals[0]["stage_key"] if linked_deals else None
 
     last_sent = history["last_sent"] if history else None
     last_replied = history["last_replied"] if history else None

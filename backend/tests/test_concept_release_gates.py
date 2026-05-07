@@ -18,17 +18,15 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-import pytest
+import pytest  # noqa: E402
 
-from eval_loop.scorers import (
+from eval_loop.scorers import (  # noqa: E402
     ARITHMETIC_CLOSURE_GATE_THRESHOLD,
     BRIDGE_CLOSURE_GATE_THRESHOLD,
-    CONCEPT_MATCH_GATE_THRESHOLD,
-    OUTPUT_CONTRACT_GATE_THRESHOLD,
     RECEIPT_COMPLETENESS_GATE_THRESHOLD,
     evaluate_concept_release_gates,
 )
-from eval_loop.reporters import _summarize_concept_eval
+from eval_loop.reporters import _summarize_concept_eval  # noqa: E402
 
 
 # ── helpers ────────────────────────────────────────────────────────────────

@@ -5,8 +5,6 @@ from app.services.upload_validation import (
     validate_init_upload,
     validate_complete_upload,
     MAX_UPLOAD_BYTES,
-    ALLOWED_EXTENSIONS,
-    ALLOWED_MIMES,
 )
 
 # ---------------------------------------------------------------------------

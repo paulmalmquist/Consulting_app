@@ -16,7 +16,6 @@ REMOVE and REWRITE rows are skipped — only KEEP rows are checked.
 """
 from __future__ import annotations
 
-import importlib
 import re
 import sys
 from pathlib import Path

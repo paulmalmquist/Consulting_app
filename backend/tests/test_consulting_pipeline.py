@@ -13,7 +13,6 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-import pytest
 from app.services import cro_pipeline, materialization
 from tests.conftest import FakeCursor
 

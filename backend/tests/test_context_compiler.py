@@ -315,7 +315,6 @@ def _plan_with_concept(
     extended: bool = False,
 ):
     from app.assistant_runtime.concepts import (
-        BehaviorTier,
         ConceptMatch,
         MatchReason,
     )

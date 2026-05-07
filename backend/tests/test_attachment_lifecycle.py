@@ -12,11 +12,8 @@ Tests verify:
 """
 from __future__ import annotations
 
-import io
 import uuid
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -31,7 +28,7 @@ def _make_authorized_doc(
     processing_mode: str = "text_indexed",
     bucket: str = "documents",
     object_key: str = "path/to/file.pdf",
-) -> "AuthorizedDocument":
+) -> "AuthorizedDocument":  # noqa: F821
     from app.services.attachment_authorization import AuthorizedDocument
     return AuthorizedDocument(
         document_id=document_id or str(uuid.uuid4()),
@@ -130,7 +127,7 @@ def test_cross_env_document_id_rejected():
 
     doc_id = uuid.uuid4()
     business_id_a = uuid.uuid4()
-    business_id_b = uuid.uuid4()  # document belongs to B
+    _business_id_b = uuid.uuid4()  # document belongs to B; unused but documents the test intent
 
     # Patch the DB cursor to return no rows (document not in business_a's scope)
     fake_cursor = MagicMock()
@@ -187,7 +184,7 @@ def test_no_business_id_rejects_all():
 
 def test_valid_document_passes_scope_check():
     """Document with matching business_id is returned."""
-    from app.services.attachment_authorization import resolve_authorized_attachments, AuthorizedDocument
+    from app.services.attachment_authorization import resolve_authorized_attachments
 
     doc_id = uuid.uuid4()
     business_id = uuid.uuid4()
@@ -401,8 +398,6 @@ def test_remove_does_not_delete_document():
 
 def test_image_bearing_turn_satisfies_winston_stream_contract():
     """Image turns must emit: context → progress → token(s) → done (exactly one terminal)."""
-    import json
-
     # Minimal SSE event sequence that satisfies the contract
     events = [
         {"event": "context", "data": {"context_envelope": {}, "resolved_scope": {}}},

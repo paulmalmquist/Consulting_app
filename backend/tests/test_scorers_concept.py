@@ -17,9 +17,7 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-import pytest
-
-from eval_loop.scorers import (
+from eval_loop.scorers import (  # noqa: E402
     alias_normalization_score,
     arithmetic_closure_score,
     basis_fidelity_score,
