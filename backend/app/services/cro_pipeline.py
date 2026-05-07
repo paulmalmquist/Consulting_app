@@ -5,12 +5,14 @@ Builds on the canonical CRM tables (crm_pipeline_stage, crm_opportunity, crm_opp
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
+from app.services import crm, cro_entity_detail, cro_next_actions
 from app.services.reporting_common import resolve_tenant_id
 
 # Consulting-specific pipeline stages (overrides generic CRM defaults)
@@ -105,7 +107,7 @@ def get_pipeline_kanban(*, env_id: str, business_id: UUID) -> dict:
             LEFT JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
             LEFT JOIN crm_contact pc ON pc.crm_contact_id = o.primary_contact_id
             LEFT JOIN LATERAL (
-                SELECT max(act.activity_date) AS last_activity_at
+                SELECT max(act.activity_at) AS last_activity_at
                 FROM crm_activity act
                 WHERE act.crm_opportunity_id = o.crm_opportunity_id
             ) la ON true
@@ -161,6 +163,97 @@ def get_pipeline_kanban(*, env_id: str, business_id: UUID) -> dict:
         "total_pipeline": total_pipeline,
         "weighted_pipeline": weighted_pipeline,
     }
+
+
+def create_manual_deal(
+    *,
+    env_id: str,
+    business_id: UUID,
+    account_name: str,
+    account_industry: str | None = None,
+    account_website: str | None = None,
+    contact_name: str,
+    contact_email: str | None = None,
+    contact_title: str | None = None,
+    contact_linkedin: str | None = None,
+    name: str,
+    amount: str,
+    stage_key: str,
+    expected_close_date: date | None = None,
+    next_action_description: str,
+    next_action_due: date,
+    next_action_type: str = "meeting",
+    offer: str | None = None,
+) -> dict:
+    """Create a new manual deal with a contact, account, next action, and stage assignment."""
+    with get_cursor() as cur:
+        tenant_id = resolve_tenant_id(cur, business_id)
+        cur.execute(
+            """
+            SELECT crm_pipeline_stage_id
+            FROM crm_pipeline_stage
+            WHERE tenant_id = %s AND business_id = %s AND key = %s
+            """,
+            (tenant_id, str(business_id), stage_key),
+        )
+        stage_row = cur.fetchone()
+        if not stage_row:
+            raise ValueError(f"Pipeline stage '{stage_key}' not found")
+        stage_id = stage_row["crm_pipeline_stage_id"]
+
+    account = crm.create_account(
+        business_id=business_id,
+        name=account_name,
+        account_type="prospect",
+        industry=account_industry,
+        website=account_website,
+    )
+
+    contact = cro_entity_detail.create_contact(
+        env_id=env_id,
+        business_id=business_id,
+        crm_account_id=UUID(account["crm_account_id"]),
+        full_name=contact_name,
+        email=contact_email,
+        title=contact_title,
+        linkedin_url=contact_linkedin,
+    )
+
+    opportunity = crm.create_opportunity(
+        business_id=business_id,
+        name=name,
+        amount=amount,
+        crm_account_id=UUID(account["crm_account_id"]),
+        crm_pipeline_stage_id=UUID(stage_id),
+        expected_close_date=expected_close_date,
+    )
+
+    try:
+        crm.create_activity(
+            business_id=business_id,
+            subject="Manual deal created",
+            activity_type="note",
+            body=f"Created deal {name} in stage {stage_key}. Offer: {offer or 'N/A'}.",
+            crm_account_id=UUID(account["crm_account_id"]),
+            crm_contact_id=UUID(contact["crm_contact_id"]),
+            crm_opportunity_id=UUID(opportunity["crm_opportunity_id"]),
+        )
+    except Exception:
+        pass
+
+    cro_next_actions.create_next_action(
+        env_id=env_id,
+        business_id=business_id,
+        entity_type="opportunity",
+        entity_id=UUID(opportunity["crm_opportunity_id"]),
+        action_type=next_action_type,
+        description=next_action_description,
+        due_date=next_action_due,
+        priority="high",
+        notes=f"Created from manual deal: {offer or 'General'}",
+    )
+
+    return opportunity
 
 
 def advance_opportunity_stage(
@@ -283,14 +376,14 @@ def advance_opportunity_stage(
                 """
                 INSERT INTO crm_activity
                   (tenant_id, business_id, crm_account_id, crm_opportunity_id,
-                   activity_type, subject, notes, activity_date)
+                   activity_type, subject, activity_at, payload_json)
                 VALUES (%s, %s, %s, %s, 'note', %s, %s, %s)
                 """,
                 (tenant_id_inner, str(business_id),
                  str(acct_id) if acct_id else None, str(opportunity_id),
                  f"Stage advanced to {to_stage_key}",
-                 note or f"Opportunity moved to {to_stage_key}",
-                 datetime.now(timezone.utc)),
+                 datetime.now(timezone.utc),
+                 json.dumps({"note": note or f"Opportunity moved to {to_stage_key}"})),
             )
 
             # Bump denormalized last_touch_at on cro_strategic_lead

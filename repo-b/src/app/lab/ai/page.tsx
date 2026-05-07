@@ -5,6 +5,7 @@ import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
+import { fetchJson } from "@/lib/fetchJson";
 
 type GatewayHealth = {
   enabled: boolean;
@@ -24,8 +25,7 @@ export default function AiGatewayPage() {
   const [stats, setStats] = useState<{ elapsed_ms?: number; prompt_tokens?: number; completion_tokens?: number } | null>(null);
 
   useEffect(() => {
-    fetch("/api/ai/gateway/health", { credentials: "include" })
-      .then((r) => r.json())
+    fetchJson<any>("/api/ai/gateway/health", { credentials: "include" })
       .then(setHealth)
       .catch(() =>
         setHealth({ enabled: false, model: "unknown", embedding_model: "unknown", rag_available: false, message: "Backend unreachable" })

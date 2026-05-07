@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { cn } from "@/lib/cn";
+import { ApiError, fetchJson } from "@/lib/fetchJson";
 
 // ---------------------------------------------------------------------------
 // Types (mirror backend schemas)
@@ -115,14 +116,21 @@ export function AlteredMindDashboard({ envId }: { envId: string }) {
     setLoading(true);
     setError(null);
     Promise.all([
-      fetch(`/api/am/v1/dashboard?env_id=${envId}`).then((r) => r.json()),
-      fetch(`/api/am/v1/checkins?env_id=${envId}&limit=10`).then((r) => r.json()),
+      fetchJson<DashboardData>(`/api/am/v1/dashboard?env_id=${envId}`),
+      fetchJson<CheckinsData>(`/api/am/v1/checkins?env_id=${envId}&limit=10`),
     ])
       .then(([d, c]) => {
         setDash(d);
         setCheckins(c);
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => {
+        if (e instanceof ApiError) {
+          const detail = (e.body as { detail?: string } | null)?.detail ?? "no detail";
+          setError(`API ${e.status}: ${detail}`);
+        } else {
+          setError(String(e));
+        }
+      })
       .finally(() => setLoading(false));
   }, [envId]);
 

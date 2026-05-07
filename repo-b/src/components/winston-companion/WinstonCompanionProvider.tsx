@@ -996,6 +996,12 @@ export function WinstonCompanionProvider({
         contextualAbortRef.current = abortController;
       }
 
+      // Build document_ids from ready attachments only (failed/processing excluded)
+      const readyAttachments = laneState.attachments.filter(
+        (a) => a.status === "ready" && a.document_id,
+      );
+      const documentIds = readyAttachments.map((a) => a.document_id!);
+
       const result = await sendWinstonMessage({
         message,
         business_id: businessId,
@@ -1004,6 +1010,7 @@ export function WinstonCompanionProvider({
         context_envelope: envelope,
         pending_continuation: pendingQuestion !== null,
         pending_question_text: pendingQuestion ?? undefined,
+        documentIds: documentIds.length > 0 ? documentIds : null,
         signal: abortController.signal,
         onStatus: (status) => {
           setLaneState(lane, (current) => ({
@@ -1109,6 +1116,8 @@ export function WinstonCompanionProvider({
         // thinking already cleared by onDone callback when 'done' SSE event arrives
         trace: result.trace,
         debug: result.debug,
+        // Clear sent ready attachments; keep failed ones visible for user awareness
+        attachments: current.attachments.filter((a) => a.status === "failed"),
       }));
       // Clear our abort ref on success — only abort future cancellations,
       // not this completed one.
@@ -1176,22 +1185,48 @@ export function WinstonCompanionProvider({
     setActiveLane("contextual");
   }
 
+  const IMAGE_MIME_TYPES = new Set([
+    "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif",
+  ]);
+  const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+  const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB
+
   async function uploadAttachment(lane: WinstonLane, file: File) {
-    const laneState = lane === "general" ? generalState : contextualState;
     const binding = lane === "general" ? generalBinding : contextualBinding;
     const businessId = binding?.businessId || currentContext.businessId;
     const envId = binding?.envId || currentContext.envId;
 
     if (!businessId || !envId) return;
 
+    // Client-side size cap (server also enforces)
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      console.warn("[winston-companion] uploadAttachment: file exceeds 25 MB limit", file.name);
+      return;
+    }
+
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `attachment_${Date.now()}`;
 
+    const fname = file.name.toLowerCase();
+    const isImage =
+      IMAGE_MIME_TYPES.has(file.type) ||
+      IMAGE_EXTENSIONS.some((ext) => fname.endsWith(ext));
+
     setLaneState(lane, (current) => ({
       ...current,
-      attachments: [...current.attachments, { id, name: file.name, status: "uploading" }],
+      attachments: [
+        ...current.attachments,
+        {
+          id,
+          name: file.name,
+          size_bytes: file.size,
+          mime_type: file.type || "application/octet-stream",
+          status: "uploading",
+          processing_mode: isImage ? "vision_only" : undefined,
+        },
+      ],
     }));
 
     try {
@@ -1221,17 +1256,32 @@ export function WinstonCompanionProvider({
         env_id: envId,
       });
 
+      if (isImage) {
+        // Image track: skip index + classify, go straight to ready
+        setLaneState(lane, (current) => ({
+          ...current,
+          attachments: current.attachments.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  document_id: init.document_id,
+                  version_id: init.version_id,
+                  status: "ready" as const,
+                  processing_mode: "vision_only" as const,
+                }
+              : a,
+          ),
+        }));
+        return;
+      }
+
+      // Text track: index then classify
       setLaneState(lane, (current) => ({
         ...current,
-        attachments: current.attachments.map((attachment) =>
-          attachment.id === id
-            ? {
-                ...attachment,
-                document_id: init.document_id,
-                version_id: init.version_id,
-                status: "indexing",
-              }
-            : attachment,
+        attachments: current.attachments.map((a) =>
+          a.id === id
+            ? { ...a, document_id: init.document_id, version_id: init.version_id, status: "indexing" as const }
+            : a,
         ),
       }));
 
@@ -1248,21 +1298,47 @@ export function WinstonCompanionProvider({
 
       setLaneState(lane, (current) => ({
         ...current,
-        attachments: current.attachments.map((attachment) =>
-          attachment.id === id ? { ...attachment, status: "ready" } : attachment,
+        attachments: current.attachments.map((a) =>
+          a.id === id ? { ...a, status: "classifying" as const } : a,
+        ),
+      }));
+
+      let classification: CopilotAttachment["classification"] | undefined;
+      try {
+        const classifyRes = await fetch(`/api/ai/gateway/attachments/${init.document_id}/classify`, {
+          method: "POST",
+        });
+        if (classifyRes.ok) {
+          classification = await classifyRes.json();
+        }
+      } catch {
+        // Classifier failure doesn't fail the attachment — deterministic stats stand
+      }
+
+      setLaneState(lane, (current) => ({
+        ...current,
+        attachments: current.attachments.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                status: "ready" as const,
+                processing_mode: "text_indexed" as const,
+                classification,
+              }
+            : a,
         ),
       }));
     } catch (error) {
       setLaneState(lane, (current) => ({
         ...current,
-        attachments: current.attachments.map((attachment) =>
-          attachment.id === id
+        attachments: current.attachments.map((a) =>
+          a.id === id
             ? {
-                ...attachment,
-                status: "failed",
-                error: error instanceof Error ? error.message : "Upload failed",
+                ...a,
+                status: "failed" as const,
+                error: error instanceof Error ? error.message.slice(0, 200) : "Upload failed",
               }
-            : attachment,
+            : a,
         ),
       }));
     }

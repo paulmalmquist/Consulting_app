@@ -12,6 +12,7 @@ import {
   RepeFund,
 } from "@/lib/bos-api";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
+import { getAssetDiagnostics } from "./asset-diagnostics";
 import { KpiStrip } from "@/components/repe/asset-cockpit/KpiStrip";
 import { fmtMoney, fmtPct } from '@/lib/format-utils';
 import {
@@ -51,6 +52,7 @@ const US_STATES = [
 ] as const;
 
 const STATUS_OPTIONS = ["All", "active", "exited", "pipeline", "held"] as const;
+
 
 /* ── Asset Creation Modal ─────────────────────────────────────── */
 function AssetCreateModal({
@@ -293,6 +295,7 @@ function AssetsIndexContent() {
   const avgOccupancy = assets.length
     ? assets.reduce((sum, a) => sum + Number(a.latest_occupancy || 0), 0) / assets.length
     : 0;
+  const assetDiagnostics = useMemo(() => getAssetDiagnostics(assets), [assets]);
 
   const clearFilters = () => {
     router.replace("?", { scroll: false });
@@ -453,6 +456,19 @@ function AssetsIndexContent() {
       }
       className="w-full"
     >
+      {!loading && !error && assetDiagnostics.length > 0 ? (
+        <div
+          className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 text-xs text-amber-200"
+          data-testid="asset-health-diagnostics"
+        >
+          <p className="mb-2 font-medium uppercase tracking-[0.12em] text-amber-300">Asset Health Diagnostics</p>
+          <ul className="space-y-1">
+            {assetDiagnostics.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <section data-testid="re-assets-index">
         {error ? (
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">

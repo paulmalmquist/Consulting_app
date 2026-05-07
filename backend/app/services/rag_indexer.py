@@ -239,7 +239,14 @@ def index_document(
 
     Returns total number of chunks stored (parents + children).
     Idempotent: deletes existing chunks for this version_id before inserting.
+
+    Returns 0 with no side effects when text is IMAGE_TRACK_SENTINEL — image
+    files use vision_only processing and must not create text RAG chunks.
     """
+    from app.services.text_extractor import IMAGE_TRACK_SENTINEL
+    if text == IMAGE_TRACK_SENTINEL:
+        # Image track: zero chunks is success, not failure
+        return 0
     if not text.strip():
         return 0
 

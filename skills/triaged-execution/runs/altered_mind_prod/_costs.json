@@ -1,0 +1,101 @@
+[
+  {
+    "step": 1,
+    "source": "cowork",
+    "model": "sonnet",
+    "input_tokens": 80000,
+    "output_tokens": 36000,
+    "thinking_tokens": 4000,
+    "duration_s": 91.5,
+    "timestamp": "2026-05-05T19:58:02.454879",
+    "note": "Inspect 6-layer Altered Mind code surface via Agent tool. 25 tool uses. 116k total tokens reported by usage block; split estimated 80/36 input/output."
+  },
+  {
+    "step": 2,
+    "source": "cli",
+    "model": "haiku",
+    "input_tokens": 3000,
+    "output_tokens": 1500,
+    "thinking_tokens": 0,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844231",
+    "note": "PROJECTED: count queries + scope + predicate + owner"
+  },
+  {
+    "step": 3,
+    "source": "cli",
+    "model": "haiku",
+    "input_tokens": 2000,
+    "output_tokens": 800,
+    "thinking_tokens": 0,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844260",
+    "note": "PROJECTED: covered by step 2 scope output"
+  },
+  {
+    "step": 4,
+    "source": "cli",
+    "model": "haiku",
+    "input_tokens": 2000,
+    "output_tokens": 800,
+    "thinking_tokens": 0,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844264",
+    "note": "PROJECTED: covered by step 2 owner probe"
+  },
+  {
+    "step": 5,
+    "source": "cli",
+    "model": "opus",
+    "input_tokens": 25000,
+    "output_tokens": 8000,
+    "thinking_tokens": 16000,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844275",
+    "note": "PROJECTED (CONDITIONAL): ingestion repair, run only if needed"
+  },
+  {
+    "step": 6,
+    "source": "cli",
+    "model": "sonnet",
+    "input_tokens": 20000,
+    "output_tokens": 6000,
+    "thinking_tokens": 16000,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844279",
+    "note": "PROJECTED (CONDITIONAL): API debug, only if data exists but has_data=false"
+  },
+  {
+    "step": 7,
+    "source": "cli",
+    "model": "sonnet",
+    "input_tokens": 15000,
+    "output_tokens": 4000,
+    "thinking_tokens": 16000,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844281",
+    "note": "PROJECTED (CONDITIONAL): frontend or predicate fix"
+  },
+  {
+    "step": 8,
+    "source": "cli",
+    "model": "sonnet",
+    "input_tokens": 20000,
+    "output_tokens": 6000,
+    "thinking_tokens": 4000,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844284",
+    "note": "PROJECTED: regression tests for the four assertions"
+  },
+  {
+    "step": 9,
+    "source": "cli",
+    "model": "sonnet",
+    "input_tokens": 10000,
+    "output_tokens": 3000,
+    "thinking_tokens": 0,
+    "duration_s": 0.0,
+    "timestamp": "2026-05-05T19:58:58.844287",
+    "note": "PROJECTED: aggregate receipts"
+  }
+]

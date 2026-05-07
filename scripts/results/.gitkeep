@@ -1,0 +1,3 @@
+# Output directory for host_runner.ps1.
+# Each run produces <timestamp>_<scriptname>.json with stdout, stderr, exit code, timing.
+# Cowork reads these to confirm host-side execution succeeded.

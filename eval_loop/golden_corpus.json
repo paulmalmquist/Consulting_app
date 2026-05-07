@@ -37,6 +37,7 @@
       "high_value": true,
       "family": "golden_noi_underwriting",
       "suite": ["full"],
+      "kind": "concept_eval",
       "environment": "meridian",
       "message": "Why is NOI down vs underwriting?",
       "expected": {
@@ -50,6 +51,17 @@
         "answer_must_not_include": ["Paul Malmquist", "Novendor"],
         "max_duration_ms": 18000,
         "contamination_terms": ["Novendor", "Paul Malmquist"]
+      },
+      "concept_expected": {
+        "concept_id": "repe.noi_variance",
+        "expected_match_reasons": ["substring_alias", "keyword_cluster"],
+        "min_confidence": 0.6,
+        "required_output_sections": [
+          "direct_answer",
+          "metric_block",
+          "driver_bridge",
+          "reconciliation"
+        ]
       },
       "mutations": ["terse", "sloppy_tone", "data_source", "justification"],
       "product_expected": {

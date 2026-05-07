@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { fetchJson } from "@/lib/fetchJson";
 
 type PipelineStats = {
   fund_exists: boolean;
@@ -74,8 +75,7 @@ function DebugFooterInner({
 
     setPipelineLoading(true);
     const params = new URLSearchParams({ env_id: envId, quarter });
-    fetch(`/api/re/v2/funds/${fundId}/pipeline-status?${params}`)
-      .then((r) => r.json())
+    fetchJson<unknown>(`/api/re/v2/funds/${fundId}/pipeline-status?${params}`)
       .then((data) => setPipeline(data as PipelineStats))
       .catch(() => setPipeline(null))
       .finally(() => setPipelineLoading(false));

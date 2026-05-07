@@ -12,6 +12,7 @@ import { fmtMoney, fmtPct, fmtX } from "./format-utils";
 import SectionHeader from "./shared/SectionHeader";
 import SecondaryMetric from "./shared/SecondaryMetric";
 import { BRIEFING_CONTAINER, BRIEFING_CARD } from "./shared/briefing-colors";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface CovenantDef {
   covenant_type: string;
@@ -55,8 +56,7 @@ export default function DebtSection({ financialState, periods, assetId }: Props)
 
   useEffect(() => {
     if (!assetId) return;
-    fetch(`/api/re/v2/assets/${assetId}/covenants`)
-      .then((r) => r.json())
+    fetchJson<any>(`/api/re/v2/assets/${assetId}/covenants`)
       .then(setCovenantData)
       .catch(() => {});
   }, [assetId]);

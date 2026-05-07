@@ -153,3 +153,7 @@ new_homepage/
 nv_mark_transparent_files/
 nv_mark_transparent_files.zip
 novendor_business_to_ai_visual_directions.html
+
+# Host runner output (per-run JSON, not worth versioning)
+scripts/results/*.json
+!scripts/results/.gitkeep

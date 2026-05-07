@@ -13,8 +13,7 @@
       "items": [
         { "label": "Operational Assessment", "href": "/operational-assessment", "icon": "🧰" },
         { "label": "AI Concierge", "href": "/ai-concierge", "icon": "🧭" },
-        { "label": "Comprehensive Data Strategy", "href": "/capabilities/comprehensive-data-strategy", "icon": "📊" },
-        { "label": "Legacy SaaS Migration", "href": "/legacy-saas", "icon": "📦" }
+        { "label": "Comprehensive Data Strategy", "href": "/capabilities/comprehensive-data-strategy", "icon": "📊" }
       ]
     },
     {

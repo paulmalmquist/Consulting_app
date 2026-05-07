@@ -144,9 +144,177 @@ The user wants visible confirmation that the row landed and is wired correctly �
 
 **Add a note to an existing contact** — UPDATE `cro_contact_profile.notes`; if no profile row exists, INSERT one.
 
+## Job search integration
+
+Job search leads live in the same pipeline as consulting leads. The only distinction is tags. No separate pipeline, no separate stage set.
+
+### Tag IDs (seeded 2026-05-06)
+
+| key | tag_id | color |
+| --- | --- | --- |
+| `job-search` | `4a7e99ea-a51b-4ade-88ed-ea3806b14ace` | #6366f1 |
+| `consulting` | `5d1814de-7e15-458f-8722-394019858c57` | #0ea5e9 |
+| `recruiter` | `9fa72ffc-c459-4f7c-9baa-f50229c1bd8c` | #f59e0b |
+| `inbound` | `2c775446-3cd2-4d5c-ae58-cc2f3b6248cb` | #10b981 |
+| `outbound` | `98c3eca0-9a7b-4f48-98e6-1235105b0cd6` | #8b5cf6 |
+
+Apply tags via `object_tag`:
+
+```sql
+INSERT INTO object_tag (object_id, tag_id)
+VALUES (:opportunity_id_or_account_id, :tag_id)
+ON CONFLICT DO NOTHING;
+```
+
+### Stage semantics for job search opportunities
+
+The pipeline stages map to job search milestones like this:
+
+| CRM stage | Job search meaning |
+| --- | --- |
+| `identified` | Company/role on radar, not applied |
+| `contacted` | Applied or sent cold message |
+| `engaged` | Recruiter/hiring manager responded |
+| `meeting` | Phone screen or intro call scheduled/done |
+| `qualified` | Panel / on-site interview |
+| `proposal` | Offer received |
+| `closed_won` | Offer accepted |
+| `closed_lost` | Rejected, ghosted, or withdrew |
+
+### Account and opportunity naming conventions
+
+- `crm_account.name` = company name (e.g., "Blackstone", "Apollo Global")
+- `crm_opportunity.name` = "[Company] - [Role]" (e.g., "Blackstone - VP Technology")
+- Set `thesis` to why the role is a fit
+- Set `pain` to what problem you solve for them
+- Set `winston_angle` to the specific angle for the conversation
+
+### Adding a job search lead (full flow)
+
+```sql
+-- 1. Create account (if new)
+INSERT INTO crm_account (tenant_id, business_id, name, industry)
+VALUES (
+  '921f716b-db4e-4cde-89fd-f7745066c8ef',
+  '225f52ca-cdf4-4af9-a973-d1d310ddcba1',
+  :company_name, :industry
+)
+ON CONFLICT DO NOTHING
+RETURNING crm_account_id;
+
+-- 2. Create opportunity
+INSERT INTO crm_opportunity (
+  tenant_id, business_id, crm_account_id, crm_pipeline_stage_id,
+  name, amount, currency_code, status, thesis, pain, winston_angle
+)
+SELECT
+  '921f716b-db4e-4cde-89fd-f7745066c8ef',
+  '225f52ca-cdf4-4af9-a973-d1d310ddcba1',
+  :account_id,
+  s.crm_pipeline_stage_id,
+  :opp_name, 0, 'USD', 'open',
+  :thesis, :pain, :angle
+FROM crm_pipeline_stage s
+WHERE s.key = :stage_key
+  AND s.business_id = '225f52ca-cdf4-4af9-a973-d1d310ddcba1'
+LIMIT 1
+RETURNING crm_opportunity_id;
+
+-- 3. Tag the opportunity
+INSERT INTO object_tag (object_id, tag_id)
+VALUES (:opportunity_id, '4a7e99ea-a51b-4ade-88ed-ea3806b14ace')  -- job-search
+ON CONFLICT DO NOTHING;
+
+-- 4. Tag inbound vs outbound
+INSERT INTO object_tag (object_id, tag_id)
+VALUES (:opportunity_id, :inbound_or_outbound_tag_id)
+ON CONFLICT DO NOTHING;
+```
+
+### Adding a recruiter contact
+
+Same flow as the New Contact form. Use `title = 'Recruiter'` and tag the account with `recruiter` (`9fa72ffc-c459-4f7c-9baa-f50229c1bd8c`).
+
+---
+
+## Gmail scan → CRM write workflow
+
+Use this when the user says "scan my Gmail for leads", "what recruiter emails came in this week", or "add this email signal to the CRM".
+
+### Trigger phrases
+
+- "scan Gmail for job search leads"
+- "scan Gmail for inbound consulting leads"
+- "what recruiter outreach did I get this week"
+- "add this email signal to the CRM"
+- "surface new leads from Gmail"
+
+### Step-by-step
+
+**Step 1 — Search Gmail** using the Gmail MCP (`mcp__5dd36e0f-*__search_threads`).
+
+For job search / recruiter signals:
+```
+query: "subject:(opportunity OR role OR position OR hiring OR recruiter OR talent) newer_than:7d -in:sent -in:draft"
+```
+
+For inbound consulting leads:
+```
+query: "to:info@novendor.ai newer_than:14d -in:sent -in:draft"
+```
+
+**Step 2 — Parse and surface.** For each thread, extract:
+- Sender name + email
+- Company (from signature or email domain)
+- Role or project mentioned
+- Signal type: `recruiter_outreach` | `inbound_inquiry` | `follow_up`
+- Suggested stage: `contacted` (if they reached out to you) or `identified` (if you're just flagging it)
+
+Present a clean list to the user — do not write to the DB yet.
+
+**Step 3 — User approves.** User says "add 1, 3, and 5" or "add all of them". Only write what's explicitly approved.
+
+**Step 4 — Write to CRM.** For each approved signal:
+1. Check for existing `crm_account` by company name/domain — avoid duplicates
+2. Check for existing `crm_contact` by email — avoid duplicates
+3. INSERT account (if new) → INSERT opportunity → INSERT contact (if new) → INSERT `crm_activity` with `activity_type = 'email_inbound'` and the thread snippet in `payload_json`
+4. Tag the opportunity (`job-search` or `consulting`, plus `inbound` or `recruiter`)
+5. RETURNING confirmation for every write
+
+**Step 5 — Confirm.** Show a summary table: company | contact | stage | tags | opportunity name. Never just say "done."
+
+### Activity log pattern for email signals
+
+```sql
+INSERT INTO crm_activity (
+  tenant_id, business_id,
+  crm_account_id, crm_contact_id, crm_opportunity_id,
+  activity_type, subject, activity_at,
+  direction, outcome, payload_json
+) VALUES (
+  '921f716b-db4e-4cde-89fd-f7745066c8ef',
+  '225f52ca-cdf4-4af9-a973-d1d310ddcba1',
+  :account_id, :contact_id, :opp_id,
+  'email_inbound',
+  :email_subject,
+  :email_received_at,
+  'inbound', 'signal',
+  jsonb_build_object(
+    'source', 'gmail',
+    'thread_id', :gmail_thread_id,
+    'from', :sender_email,
+    'snippet', :snippet
+  )
+)
+RETURNING crm_activity_id;
+```
+
+---
+
 ## What this skill does not do
 
 - Computer use, browser automation, or form filling — never. The user has chosen Supabase as the interface.
 - Schema changes / migrations — route to `agents/data.md`.
 - Lead enrichment from external sources (Apollo, LinkedIn) — route to `winston-sales-intelligence`.
 - Deletes that remove audit trail — discuss with the user first; default to soft-delete via `is_active`.
+- Sending, archiving, or labeling email — the Gmail MCP is read-only in this context.

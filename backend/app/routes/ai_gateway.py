@@ -151,6 +151,7 @@ async def gateway_ask(payload: GatewayAskRequest, request: Request) -> Streaming
             pending_question_text=payload.pending_question_text,
             request_id=request_id,
             new_conversation_created=new_conversation_created,
+            document_ids=payload.document_ids,
         ):
             yield sse_line.encode("utf-8")
 
@@ -244,6 +245,28 @@ def index_document_endpoint(payload: GatewayIndexRequest, request: Request) -> G
         version_id=str(payload.version_id),
         elapsed_ms=elapsed_ms,
     )
+
+
+@router.post("/attachments/{document_id}/classify")
+def classify_attachment(document_id: str, request: Request) -> dict:
+    """Run deterministic classification on an already-uploaded document.
+
+    Text track: returns parse stats + optional LLM summary line.
+    Image track: returns dimension/mime stats, processing_mode="vision_only".
+    Caller must have access to the environment the document belongs to.
+    """
+    require_authenticated_request(request)
+
+    from uuid import UUID
+    from app.services.attachment_classifier import classify
+    try:
+        result = classify(UUID(document_id))
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)[:200])
+
+    return result
 
 
 # ── Conversation CRUD ────────────────────────────────────────────────────────

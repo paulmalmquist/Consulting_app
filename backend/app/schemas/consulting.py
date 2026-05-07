@@ -261,6 +261,26 @@ class AdvanceStageRequest(BaseModel):
     close_notes: str | None = None
 
 
+class ManualDealCreateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    account_name: str
+    account_industry: str | None = None
+    account_website: str | None = None
+    contact_name: str
+    contact_email: str | None = None
+    contact_title: str | None = None
+    contact_linkedin: str | None = None
+    name: str
+    amount: Decimal
+    stage_key: str
+    expected_close_date: date | None = None
+    next_action_description: str
+    next_action_due: date
+    next_action_type: str
+    offer: str | None = None
+
+
 # ── Winston Assist ────────────────────────────────────────────────────────────
 
 class WinstonAssistRequest(BaseModel):
@@ -1543,6 +1563,101 @@ class ContactListItemOut(BaseModel):
 class ContactListOut(BaseModel):
     contacts: list[ContactListItemOut]
     total: int
+
+
+# Execution engine schemas
+class ContactUpdateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    title: str | None = None
+    unassigned_reason: str | None = None
+    execution_status: str | None = None
+    linkedin_url: str | None = None
+    relationship_strength: str | None = None
+    decision_role: str | None = None
+    notes: str | None = None
+    preferred_channel: str | None = None
+    buyer_persona: str | None = None
+    do_not_contact: bool | None = None
+    contact_owner: str | None = None
+
+
+class ContactLinkRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    crm_contact_id: UUID
+    role_on_deal: str | None = None
+    influence_level: str | None = None
+    is_primary: bool = False
+    link_source: str = "manual"
+
+
+class ContactLinkOut(BaseModel):
+    id: UUID
+    crm_opportunity_id: UUID
+    crm_contact_id: UUID
+    role_on_deal: str | None = None
+    influence_level: str | None = None
+    is_primary: bool
+    link_source: str | None = None
+    created_at: datetime
+
+
+class DealSuggestionOut(BaseModel):
+    crm_opportunity_id: UUID
+    name: str
+    amount: float | None = None
+    stage_key: str | None = None
+    stage_label: str | None = None
+    last_activity_at: datetime | None = None
+
+
+class SuggestedNextActionItem(BaseModel):
+    action_type: str
+    description: str
+    priority: str
+    due_date: str
+
+
+class ContactNextActionSuggestionOut(BaseModel):
+    recommended_action: str
+    reason: str
+    goal: str
+    angle: str
+    due_date: str
+    suggested_next_action: SuggestedNextActionItem
+
+
+class NextActionSuggestRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    dry_run: bool = False
+
+
+class OutreachGenerateRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    crm_opportunity_id: UUID | None = None
+    goal: str = "first_touch"   # first_touch|follow_up|close
+    angle: str = "value_prop"   # value_prop|ilpa_pressure|expansion|integration
+
+
+class OutreachDraftItem(BaseModel):
+    subject: str
+    body: str
+
+
+class RecommendedNextActionItem(BaseModel):
+    action_type: str
+    description: str
+
+
+class ContactOutreachDraftOut(BaseModel):
+    draft: OutreachDraftItem
+    recommended_next_action: RecommendedNextActionItem
 
 
 class AppWeeklyMemoOut(BaseModel):

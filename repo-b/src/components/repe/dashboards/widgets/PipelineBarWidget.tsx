@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { WidgetConfig } from "@/lib/dashboards/types";
 import { useDashboardFilters } from "../DashboardFilterContext";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface PipelineStageRow {
   status: string;
@@ -55,8 +56,7 @@ export default function PipelineBarWidget({ envId, businessId, config }: Props) 
   useEffect(() => {
     const params = new URLSearchParams({ env_id: envId, business_id: businessId });
     if (config.pipeline_filter?.fund_id) params.set("fund_id", config.pipeline_filter.fund_id);
-    fetch(`/api/re/v2/dashboards/pipeline-stages?${params}`)
-      .then((r) => r.json())
+    fetchJson<any>(`/api/re/v2/dashboards/pipeline-stages?${params}`)
       .then((data) => {
         // Sort by stage order
         const sorted = [...(data.stages ?? [])].sort(

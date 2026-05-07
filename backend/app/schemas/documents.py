@@ -23,6 +23,7 @@ class InitUploadRequest(BaseModel):
     department_id: Optional[UUID] = None
     filename: str
     content_type: str
+    byte_size: Optional[int] = None  # client hint; backend enforces server-side cap
     title: Optional[str] = None
     virtual_path: Optional[str] = None
     entity_type: Optional[DocumentEntityType] = None

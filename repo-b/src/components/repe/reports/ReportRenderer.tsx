@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import StatementTable from "@/components/repe/statements/StatementTable";
+import { fetchJson } from "@/lib/fetchJson";
 
 /* --------------------------------------------------------------------------
  * Types
@@ -64,8 +65,7 @@ function KpiStripBlock({
       env_id: envId,
       business_id: businessId,
     });
-    fetch(`${path}?${params}`)
-      .then((r) => r.json())
+    fetchJson<any>(`${path}?${params}`)
       .then((json) => {
         const map: Record<string, number> = {};
         for (const line of json.lines || []) {
@@ -157,8 +157,7 @@ export default function ReportRenderer({
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/re/v2/reports/catalog?report_key=${reportKey}`)
-      .then((r) => r.json())
+    fetchJson<any>(`/api/re/v2/reports/catalog?report_key=${reportKey}`)
       .then((data) => {
         if (data.error) setError(data.error);
         else setTemplate(data);

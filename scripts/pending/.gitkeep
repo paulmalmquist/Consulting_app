@@ -1,0 +1,2 @@
+# Drop zone for scripts Cowork wants the host shell to run.
+# host_runner.ps1 reads from here.

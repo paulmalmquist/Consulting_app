@@ -131,6 +131,7 @@ class GatewayAskRequest(BaseModel):
     context_envelope: AssistantContextEnvelope | None = None
     pending_continuation: bool = False
     pending_question_text: str | None = None
+    document_ids: list[UUID] | None = None
 
 
 class GatewayIndexRequest(BaseModel):

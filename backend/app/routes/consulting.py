@@ -95,6 +95,7 @@ from app.schemas.consulting import (
     TriggerSignalOut,
     DailyBriefOut,
     DealOut,
+    ManualDealCreateRequest,
     AppInboxDiscardRequest,
     AppInboxItemCreateRequest,
     AppInboxItemOut,
@@ -147,6 +148,14 @@ from app.schemas.consulting import (
     RevenueStreamOut,
     RoutingEngagementCreateRequest,
     RoutingEngagementPatchRequest,
+    ContactUpdateRequest,
+    ContactLinkRequest,
+    ContactLinkOut,
+    DealSuggestionOut,
+    ContactNextActionSuggestionOut,
+    NextActionSuggestRequest,
+    OutreachGenerateRequest,
+    ContactOutreachDraftOut,
 )
 from app.schemas.local_training import (
     LocalTrainingActivityCreateRequest,
@@ -301,6 +310,38 @@ def advance_stage(body: AdvanceStageRequest):
         )
         _log("cro.pipeline.advanced", f"Opportunity advanced to {body.to_stage_key}")
         return result
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/pipeline/deals", response_model=ExecutionCardOut, status_code=201)
+def create_pipeline_deal(body: ManualDealCreateRequest):
+    try:
+        result = cro_pipeline.create_manual_deal(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            account_name=body.account_name,
+            account_industry=body.account_industry,
+            account_website=body.account_website,
+            contact_name=body.contact_name,
+            contact_email=body.contact_email,
+            contact_title=body.contact_title,
+            contact_linkedin=body.contact_linkedin,
+            name=body.name,
+            amount=str(body.amount),
+            stage_key=body.stage_key,
+            expected_close_date=body.expected_close_date,
+            next_action_description=body.next_action_description,
+            next_action_due=body.next_action_due,
+            next_action_type=body.next_action_type,
+            offer=body.offer,
+        )
+        _log("cro.pipeline.manual_deal_created", f"Manual deal created: {body.name}")
+        return pipeline_execution_engine.get_execution_detail(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            opportunity_id=result["crm_opportunity_id"],
+        )["card"]
     except Exception as exc:
         raise _to_http(exc)
 
@@ -1934,6 +1975,105 @@ def get_contact_outreach(
     try:
         return cro_entity_detail.get_contact_outreach_history(
             business_id=business_id, contact_id=contact_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/contacts/{contact_id}", response_model=ContactOut)
+def update_contact_route(contact_id: UUID, body: ContactUpdateRequest):
+    try:
+        return cro_entity_detail.update_contact(
+            contact_id=contact_id,
+            business_id=body.business_id,
+            env_id=body.env_id,
+            full_name=body.full_name,
+            email=body.email,
+            phone=body.phone,
+            title=body.title,
+            unassigned_reason=body.unassigned_reason,
+            execution_status=body.execution_status,
+            linkedin_url=body.linkedin_url,
+            relationship_strength=body.relationship_strength,
+            decision_role=body.decision_role,
+            notes=body.notes,
+            preferred_channel=body.preferred_channel,
+            buyer_persona=body.buyer_persona,
+            do_not_contact=body.do_not_contact,
+            contact_owner=body.contact_owner,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/contacts/{contact_id}/deals", response_model=list[dict])
+def get_contact_linked_deals(
+    contact_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_contact_linked_deals(
+            business_id=business_id, contact_id=contact_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/contacts/{contact_id}/deal-suggestions", response_model=list[DealSuggestionOut])
+def get_contact_deal_suggestions(
+    contact_id: UUID,
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    try:
+        return cro_entity_detail.get_contact_deal_suggestions(
+            business_id=business_id, contact_id=contact_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/contacts/{contact_id}/next-action/suggest", response_model=ContactNextActionSuggestionOut)
+def suggest_contact_next_action_route(contact_id: UUID, body: NextActionSuggestRequest):
+    try:
+        return cro_entity_detail.suggest_contact_next_action(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            contact_id=contact_id,
+            dry_run=body.dry_run,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/contacts/{contact_id}/outreach/generate", response_model=ContactOutreachDraftOut)
+def generate_contact_outreach_route(contact_id: UUID, body: OutreachGenerateRequest):
+    try:
+        return cro_entity_detail.generate_contact_outreach_draft(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            contact_id=contact_id,
+            opportunity_id=body.crm_opportunity_id,
+            goal=body.goal,
+            angle=body.angle,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/contacts/link", response_model=ContactLinkOut, status_code=201)
+def link_contact_to_opportunity_route(opportunity_id: UUID, body: ContactLinkRequest):
+    try:
+        return cro_entity_detail.link_contact_to_opportunity(
+            env_id=body.env_id,
+            business_id=body.business_id,
+            opportunity_id=opportunity_id,
+            contact_id=body.crm_contact_id,
+            role_on_deal=body.role_on_deal,
+            influence_level=body.influence_level,
+            is_primary=body.is_primary,
+            link_source=body.link_source,
         )
     except Exception as exc:
         raise _to_http(exc)

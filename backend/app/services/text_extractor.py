@@ -8,12 +8,26 @@ from __future__ import annotations
 import io
 
 
+_IMAGE_MIMES = frozenset(
+    ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+)
+_IMAGE_EXTS = frozenset([".png", ".jpg", ".jpeg", ".webp", ".gif"])
+
+# Sentinel returned when a file is an image and should not be text-indexed.
+IMAGE_TRACK_SENTINEL = "__image_track__"
+
+
 def extract_text(content: bytes, mime_type: str, filename: str = "") -> str:
     """Route bytes to the right extractor based on MIME type or extension.
 
     Returns plain text suitable for chunking and embedding.
+    For image/* files returns IMAGE_TRACK_SENTINEL — callers must check
+    and handle the image track separately (vision_only processing_mode).
     """
     fname = filename.lower()
+    # Image short-circuit: return sentinel, never decode image bytes as text
+    if mime_type in _IMAGE_MIMES or any(fname.endswith(ext) for ext in _IMAGE_EXTS):
+        return IMAGE_TRACK_SENTINEL
     if mime_type == "application/pdf" or fname.endswith(".pdf"):
         return _extract_pdf(content)
     if mime_type in (

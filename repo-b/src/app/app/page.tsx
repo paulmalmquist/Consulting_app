@@ -43,6 +43,7 @@ const SYSTEM_LINKS = [
   { href: "/lab/system/access", label: "Access", detail: "Grant memberships and workspace visibility" },
   { href: "/lab/audit", label: "Audit", detail: "Operational review surfaces" },
   { href: "/lab/ai-audit", label: "AI Audit", detail: "Assistant and model oversight" },
+  { href: "/lab/system/ai-usage", label: "AI Usage", detail: "Token spend, attribution, and savings recommendations" },
 ] as const;
 
 // ── Mode A: default overview ──────────────────────────────────────────────────

@@ -14,6 +14,7 @@ from app.schemas.documents import (
 from app.schemas.business import OkResponse
 from app.services import audit as audit_svc
 from app.services import documents as doc_svc
+from app.services.upload_validation import MAX_UPLOAD_BYTES
 
 router = APIRouter(prefix="/api/documents")
 
@@ -32,11 +33,14 @@ def init_upload(req: InitUploadRequest):
             entity_type=req.entity_type,
             entity_id=req.entity_id,
             env_id=req.env_id,
+            byte_size=req.byte_size,
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        msg = str(e)
+        status = 413 if "exceeds the 25 MB limit" in msg else 400
+        raise HTTPException(status_code=status, detail=msg)
     if req.entity_type and req.entity_id and req.env_id:
         audit_svc.record_event(
             actor="api_user",

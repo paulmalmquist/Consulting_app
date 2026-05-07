@@ -509,17 +509,20 @@ def apply(cur, env_id: str, business_id: str, *, actor: str) -> SeedResult:
                 rk = rng.choice(cust_regions)
                 sk = rng.choice(cust_skus)
                 qty = float(rng.randint(2, 80))
+                resource_key = _u(env_id, "resource", cid, sk, rk)
+                usage_id = _u(env_id, "usage", str(resource_key), ts.isoformat(), "gpu_hour")
                 usage_batch.append(
-                    (env_id, business_id, _u(env_id, "resource", cid, sk, rk),
+                    (env_id, business_id, usage_id, resource_key,
                      cid, sk, rk, ts, qty, "gpu_hour", "platform_telemetry_demo",
                      _u(env_id, "usagerec", cid, str(d), str(h)))
                 )
     cur.executemany(
         """
         INSERT INTO fact_cloud_resource_usage_hourly
-          (env_id, business_id, resource_key, customer_id, sku_key, region_key,
+          (env_id, business_id, usage_id, resource_key, customer_id, sku_key, region_key,
            usage_hour, usage_quantity, usage_unit, source_system, source_record_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (env_id, usage_id) DO NOTHING
         """,
         usage_batch,
     )

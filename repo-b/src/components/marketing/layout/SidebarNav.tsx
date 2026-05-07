@@ -16,7 +16,6 @@ import {
   IconHome,
   IconIndustries,
   IconMail,
-  IconStack,
   IconUser,
   IconWorkflow,
   type NvIconProps,
@@ -32,7 +31,6 @@ const ALLOWED_NAV_ITEMS = new Set([
   'Operational Assessment',
   'AI Concierge',
   'Comprehensive Data Strategy',
-  'Legacy SaaS Migration',
   'About',
   'Contact'
 ]);
@@ -58,7 +56,6 @@ const NAV_ICON_BY_LABEL: Record<string, NvIcon> = {
   'AI Concierge': IconCompass,
   'What We Do': IconWorkflow,
   'Comprehensive Data Strategy': IconBarChart,
-  'Legacy SaaS Migration': IconStack,
   Industries: IconIndustries,
   'Operational Assessment': IconClipboard,
   About: IconUser,

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { ApiError, fetchJson } from "@/lib/fetchJson";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,14 +79,25 @@ export function AlteredMindTrends({ envId }: { envId: string }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch(`/api/am/v1/metrics?env_id=${envId}&limit=16`).then((r) => r.json()),
-      fetch(`/api/am/v1/goals?env_id=${envId}`).then((r) => r.json()),
+      fetchJson<{ total_weeks: number; weeks: WeeklyRow[] }>(
+        `/api/am/v1/metrics?env_id=${envId}&limit=16`
+      ),
+      fetchJson<{ total_referrals: number; platform_breakdown: PlatformSummary[] }>(
+        `/api/am/v1/goals?env_id=${envId}`
+      ),
     ])
       .then(([m, g]) => {
         setMetrics(m);
         setGoals(g);
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => {
+        if (e instanceof ApiError) {
+          const detail = (e.body as { detail?: string } | null)?.detail ?? "no detail";
+          setError(`API ${e.status}: ${detail}`);
+        } else {
+          setError(String(e));
+        }
+      })
       .finally(() => setLoading(false));
   }, [envId]);
 

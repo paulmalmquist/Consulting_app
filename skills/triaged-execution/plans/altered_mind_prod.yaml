@@ -1,0 +1,181 @@
+# Altered Mind production data path — diagnose and repair.
+#
+# Production page mounts but shows empty-state. Verify the data path end-to-end,
+# repair the ingestion or scoping if broken, fix only the layer that's actually wrong,
+# and add regression coverage so this doesn't repeat silently.
+#
+# Anchors:
+#   env_id      = bf5c5b10-9a17-4fe7-9f5b-e7de9a380122
+#   business_id = 50d028ab-45b4-402c-957f-a652dfcca621
+#   owner       = paulmalmquist@gmail.com
+#   prod URL    = https://novendor.ai/lab/env/bf5c5b10-9a17-4fe7-9f5b-e7de9a380122/altered-mind
+#   tables      = am_daily_checkin, am_weekly_summary, am_referral, am_monthly_reflection
+#   expected    = 355 / 16 / 63 / 3
+#
+# Conditional steps (5, 6, 7) execute based on findings from prior steps.
+# The dispatched Claude session decides whether each conditional step applies
+# and reports "skipped — condition not met" with reason if not.
+
+plan: "Altered Mind production data path"
+slug: "altered_mind_prod"
+
+steps:
+  - id: 1
+    name: "Inspect code surface"
+    description: |
+      Locate and report on each layer of the Altered Mind data path:
+        - Frontend route at repo-b/src/app/lab/env/[envId]/altered-mind/page.tsx
+        - Frontend data hook (likely repo-b/src/lib/altered-mind/* or hooks/ folder)
+        - Frontend API proxy route (repo-b/src/app/api/...)
+        - Backend FastAPI route (backend/app/routes/... most likely altered_mind.py or lab.py)
+        - Backend service module
+        - Ingestion script (likely scripts/ingest_altered_mind* or repo-c/)
+      For each layer, output:
+        - Absolute file path
+        - The exact contract it expects (env_id source, table names queried, return shape)
+        - Whether it depends on env-scoped reads (env_id NOT NULL filter, RLS policy)
+      No edits.
+    complexity: C2
+    importance: I3
+
+  - id: 2
+    name: "Verify schema + data exist"
+    description: |
+      Connect to production Supabase (project ozboonlsplroialdwuxj). Run:
+        SELECT count(*) FROM am_daily_checkin;
+        SELECT count(*) FROM am_weekly_summary;
+        SELECT count(*) FROM am_referral;
+        SELECT count(*) FROM am_monthly_reflection;
+      Output the actual counts vs. expected (355 / 16 / 63 / 3).
+      Flag any missing tables or zero counts. Do not write.
+    complexity: C1
+    importance: I3
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_1.md
+
+  - id: 3
+    name: "Verify env_id + business_id scoping"
+    description: |
+      For each Altered Mind table that has rows, run:
+        SELECT count(*), env_id, business_id
+        FROM <table>
+        GROUP BY env_id, business_id
+        ORDER BY count DESC;
+      Confirm the bulk of rows are scoped to:
+        env_id = bf5c5b10-9a17-4fe7-9f5b-e7de9a380122
+        business_id = 50d028ab-45b4-402c-957f-a652dfcca621
+      Flag any rows with mismatched or NULL scoping. Report exact counts per scope.
+    complexity: C1
+    importance: I3
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_2.md
+
+  - id: 4
+    name: "Verify owner membership"
+    description: |
+      Confirm a row exists in the membership / users table that grants
+      paulmalmquist@gmail.com access to env_id = bf5c5b10-9a17-4fe7-9f5b-e7de9a380122
+      (or business_id = 50d028ab-45b4-402c-957f-a652dfcca621, depending on schema).
+      Output the matching row(s) and the schema being checked.
+    complexity: C1
+    importance: I3
+
+  - id: 5
+    name: "Run or repair ingestion (CONDITIONAL)"
+    description: |
+      Execute only if step 2 shows zero rows OR step 3 shows mis-scoped rows.
+      Otherwise output: "skipped — data is present and correctly scoped" and exit.
+
+      If running:
+        - Locate the ingestion script identified in step 1.
+        - Confirm it accepts env_id and business_id as parameters or env vars.
+        - Run it with the anchors above.
+        - Verify post-run counts match expected. Halt the plan on mismatch.
+        - All writes are scoped to env_id + business_id; no cross-env writes.
+    complexity: C3
+    importance: I4
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_1.md
+      - /tmp/triaged_altered_mind_prod_step_2.md
+      - /tmp/triaged_altered_mind_prod_step_3.md
+    tools:
+      - "Read"
+      - "Bash"
+      - "Edit"
+
+  - id: 6
+    name: "Debug API has_data=false (CONDITIONAL)"
+    description: |
+      Execute only if data exists and is correctly scoped (steps 2-3 green) but the
+      production page still renders empty-state. Otherwise skip with a one-line reason.
+
+      If running:
+        - Hit the production dashboard API directly (curl with auth cookie or token)
+          using env_id = bf5c5b10-9a17-4fe7-9f5b-e7de9a380122.
+        - Read the JSON response. Identify which field controls has_data.
+        - Trace the boolean back to the backend service. Find the predicate.
+        - Output the failing predicate and the table/column it consults.
+    complexity: C3
+    importance: I3
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_1.md
+
+  - id: 7
+    name: "Fix frontend (CONDITIONAL)"
+    description: |
+      Execute only if the API returns has_data=true and the page still renders
+      empty-state. Otherwise skip with reason.
+
+      If running:
+        - Locate the empty-state condition in the page or hook.
+        - Patch the smallest possible change to make the render path follow has_data.
+        - Run the existing frontend tests touching this route.
+        - Output the diff.
+    complexity: C3
+    importance: I3
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_1.md
+      - /tmp/triaged_altered_mind_prod_step_6.md
+    tools:
+      - "Read"
+      - "Edit"
+      - "Bash"
+
+  - id: 8
+    name: "Add regression tests"
+    description: |
+      Add four assertions to the existing test surface (backend tests for the API,
+      frontend tests for the page):
+        a) Dashboard API returns has_data=true when Altered Mind rows exist for env_id.
+        b) Empty-state renders only when ALL relevant Altered Mind tables are empty for env_id.
+        c) Route env_id must equal the env_id used in DB queries (no silent rebinding).
+        d) No silent fallback to a different business_id or env_id.
+      Tests must hit a real database fixture, not mocks (per repo CLAUDE.md guidance).
+      Run them. Halt the plan on failure.
+    complexity: C2
+    importance: I3
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_1.md
+    tools:
+      - "Read"
+      - "Edit"
+      - "Bash"
+
+  - id: 9
+    name: "Produce receipts"
+    description: |
+      Output one consolidated artifact:
+        - SQL row counts (post-fix) for all four tables, scoped to env_id.
+        - Live API response payload for the dashboard endpoint.
+        - Either a Playwright assertion that succeeds, or a screenshot path,
+          showing the dashboard cards rendered (not the empty-state message).
+      Save to docs/receipts/altered_mind_prod_<YYYY-MM-DD>.md.
+    complexity: C2
+    importance: I2
+    inputs:
+      - /tmp/triaged_altered_mind_prod_step_2.md
+      - /tmp/triaged_altered_mind_prod_step_8.md
+    tools:
+      - "Read"
+      - "Bash"
+      - "Write"

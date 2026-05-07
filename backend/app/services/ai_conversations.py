@@ -219,13 +219,14 @@ def append_message(
     response_blocks: list[dict[str, Any]] | None = None,
     message_meta: dict[str, Any] | None = None,
     token_count: int | None = None,
+    attachment_document_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     import json
 
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO ai_messages (conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """INSERT INTO ai_messages (conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count, attachment_document_ids)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING message_id, conversation_id, role, content, tool_calls, citations, response_blocks, message_meta, token_count, created_at""",
             (
                 str(conversation_id),
@@ -236,6 +237,7 @@ def append_message(
                 json.dumps(response_blocks or []),
                 json.dumps(message_meta or {}),
                 token_count,
+                attachment_document_ids or [],
             ),
         )
         msg = cur.fetchone()

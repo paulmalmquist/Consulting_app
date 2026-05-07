@@ -67,6 +67,8 @@ type SendInput = StreamOperatorInput &
   Parameters<typeof streamAi>[0] & {
     /** Force a runtime regardless of resolveRuntime(). Useful for tests. */
     runtimeOverride?: WinstonRuntime;
+    /** document_ids of ready attachments to expose to the model this turn. */
+    documentIds?: string[] | null;
   };
 
 export async function sendWinstonMessage(input: SendInput): Promise<SendWinstonResult> {
@@ -99,7 +101,7 @@ export async function sendWinstonMessage(input: SendInput): Promise<SendWinstonR
     };
   }
 
-  const gateway = await streamAi(input);
+  const gateway = await streamAi({ ...input, document_ids: input.documentIds ?? null });
   return {
     answer: gateway.answer,
     blocks: gateway.blocks,

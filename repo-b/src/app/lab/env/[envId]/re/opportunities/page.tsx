@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRepeContext, useRepeBasePath } from "@/lib/repe-context";
 import { KpiStrip, type KpiDef } from "@/components/repe/asset-cockpit/KpiStrip";
-import { StateCard } from "@/components/ui/StateCard";
 import {
   listReOpportunities,
   type ReOpportunity,
@@ -84,6 +83,33 @@ function daysAgo(dt: string | null | undefined): string {
   return `${diff}d`;
 }
 
+type OpportunityUnavailable = {
+  reason: string;
+  detail: string;
+};
+
+function normalizeOpportunityError(err: unknown): OpportunityUnavailable {
+  const maybe = err as { message?: unknown; status?: unknown; detail?: unknown };
+  const rawMessage = typeof maybe?.message === "string" ? maybe.message : "";
+  const status = typeof maybe?.status === "number" ? maybe.status : null;
+  const detail =
+    maybe?.detail && typeof maybe.detail === "object"
+      ? JSON.stringify(maybe.detail)
+      : typeof maybe?.detail === "string"
+        ? maybe.detail
+        : "";
+  if (rawMessage === "Failed to fetch") {
+    return {
+      reason: "Backend API is unreachable.",
+      detail: "The Opportunities route failed closed before returning data. Check the Next proxy and FastAPI /api/re/v2/opportunities route.",
+    };
+  }
+  return {
+    reason: status ? `Opportunities unavailable (HTTP ${status}).` : "Opportunities unavailable.",
+    detail: detail || rawMessage || "No structured error body was returned by the route.",
+  };
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OpportunitiesPage() {
@@ -94,7 +120,7 @@ export default function OpportunitiesPage() {
 
   const [opps, setOpps] = useState<ReOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OpportunityUnavailable | null>(null);
 
   // URL-param filters
   const stageFilter = searchParams.get("stage") ?? undefined;
@@ -111,7 +137,7 @@ export default function OpportunitiesPage() {
       min_score: minScore,
     })
       .then(setOpps)
-      .catch((e) => setError(e?.message ?? "Failed to load opportunities"))
+      .catch((e) => setError(normalizeOpportunityError(e)))
       .finally(() => setLoading(false));
   }, [envId, stageFilter, fundFilter, minScore]);
 
@@ -144,7 +170,16 @@ export default function OpportunitiesPage() {
   }
 
   if (error) {
-    return <StateCard state="error" title="Failed to load" message={error} />;
+    return (
+      <div
+        className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm"
+        data-testid="opportunities-unavailable"
+      >
+        <p className="font-medium text-bm-text">Opportunities unavailable</p>
+        <p className="mt-1 text-bm-muted2">{error.reason}</p>
+        <p className="mt-2 text-xs text-bm-muted2">{error.detail}</p>
+      </div>
+    );
   }
 
   return (

@@ -122,10 +122,14 @@ When a request touches client portability or white-labeling, keep the three-laye
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
 | CRM lookup, prospect enrichment, contact record, Apollo search, add to CRM, find contact, is [company] in Apollo, track outreach | `skills/winston-sales-intelligence/SKILL.md` with `docs/WINSTON_SALES_INTELLIGENCE_PROMPT.md` as reference and `agents/outreach.md` as support |
 | direct Novendor CRM CRUD via Supabase, fill out the new contact form, add Sarat to Hall Boys, update the deal record, set primary contact, log this in Novendor, fix the CRM record, manipulate Novendor data | `skills/novendor-crm-supabase/SKILL.md` |
+| job search lead, add job application, track interview, recruiter outreach in CRM, tag as job-search, applied for role, phone screen, on-site, offer, accepted offer | `skills/novendor-crm-supabase/SKILL.md` |
+| scan Gmail for leads, scan Gmail for recruiter outreach, what inbound came in this week, surface new leads from Gmail, add this email signal to the CRM, check info@novendor.ai for inbound | `skills/novendor-crm-supabase/SKILL.md` |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
 | pitch deck, build me a deck, presentation for [client], pitch forge, give me 3 iterations, here's an idea for a presentation, Sarat review, run pitch forge | `skills/pitch-forge-deck/SKILL.md` |
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
+| triaged execution, model triage, tiered execution, complexity-routed plan, cost-aware execution, run plan with model selection, scale thinking budget, scale verification effort | `skills/triaged-execution/SKILL.md` |
+| fix altered mind, altered mind shows empty state, altered mind dashboard not loading, the altered mind page is broken, altered mind production fix, /lab/env/.../altered-mind isn't rendering | `skills/altered-mind-prod-fix/SKILL.md` |
 | clean the tree, tidy up before deploy, commit and deploy, file away loose files, update gitignore and push | `skills/clean-tree/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
 | trade decision, position sizing, allocation, execution layer, regime call, daily decision build, paper trading ledger, trading routine, morning book | `skills/historyrhymes-execution-layer/SKILL.md` with `skills/historyrhymes/SKILL.md` as support |
@@ -348,6 +352,11 @@ This is not optional busywork — these files contain real production data (test
 - `add this contact to Hall Boys in the CRM` -> `skills/novendor-crm-supabase/SKILL.md`
 - `set [contact] as the primary on the [account] deal` -> `skills/novendor-crm-supabase/SKILL.md`
 - `update the Novendor CRM directly via Supabase` -> `skills/novendor-crm-supabase/SKILL.md`
+- `add [Company] as a job search lead, applied for [Role]` -> `skills/novendor-crm-supabase/SKILL.md`
+- `move [Company] to phone screen stage, tag job-search` -> `skills/novendor-crm-supabase/SKILL.md`
+- `scan Gmail for recruiter outreach this week` -> `skills/novendor-crm-supabase/SKILL.md`
+- `scan Gmail for inbound consulting leads` -> `skills/novendor-crm-supabase/SKILL.md`
+- `log offer from [Company] in the CRM` -> `skills/novendor-crm-supabase/SKILL.md`
 - `generate today's Winston demo ideas` -> `skills/winston-demo-generator/SKILL.md`
 - `what demos should we run for [persona]` -> `skills/winston-demo-generator/SKILL.md`
 - `give me a demo script for the CFO` -> `skills/winston-demo-generator/SKILL.md`

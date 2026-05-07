@@ -25,6 +25,8 @@ import ResponseBlockRenderer from "@/components/copilot/ResponseBlockRenderer";
 import SplitPane from "@/components/winston-companion/SplitPane";
 import LoadingBlock from "@/components/winston-companion/LoadingBlock";
 import { getGreeting } from "@/lib/winston-companion/greetings";
+import { AttachmentTray } from "@/components/winston-companion/AttachmentTray";
+import { FileDropZone } from "@/components/winston-companion/FileDropZone";
 
 function formatConversationTime(value: string | null) {
   if (!value) return "Now";
@@ -137,11 +139,9 @@ function ThreadViewport({
 
 function ConversationComposer({
   compact = false,
-  showAttach = false,
   greeting,
 }: {
   compact?: boolean;
-  showAttach?: boolean;
   greeting?: string;
 }) {
   const {
@@ -154,46 +154,103 @@ function ConversationComposer({
     removeAttachment,
   } = useWinstonCompanion();
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const dragCountRef = useRef(0);
+  const [dragging, setDragging] = useState(false);
+
+  const ACCEPTED_EXTS = ".png,.jpg,.jpeg,.webp,.pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json";
+  const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+  function handleFiles(files: File[]) {
+    for (const file of files) {
+      if (file.size > MAX_FILE_BYTES) continue;
+      void uploadAttachment(activeLane, file);
+    }
+  }
+
+  function onDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragCountRef.current++;
+    setDragging(true);
+  }
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCountRef.current--;
+    if (dragCountRef.current === 0) setDragging(false);
+  }
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragCountRef.current = 0;
+    setDragging(false);
+    handleFiles(Array.from(e.dataTransfer.files));
+  }
+
+  function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter((item) => item.type.startsWith("image/"));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (file) void uploadAttachment(activeLane, file);
+    }
+  }
 
   // Use business name or a clean label — never show raw UUIDs
   const scopeDisplay = (() => {
     const label = currentContext?.scopeLabel;
     if (!label || label === "General") return null;
-    // If it looks like a UUID, use businessName instead
-    if (/^[0-9a-f]{8}-/.test(label)) {
-      return currentContext?.businessName || null;
-    }
+    if (/^[0-9a-f]{8}-/.test(label)) return currentContext?.businessName || null;
     return label;
   })();
 
   const placeholder = activeState.messages.length > 0
-    ? scopeDisplay
-      ? `Ask Winston about ${scopeDisplay}...`
-      : "Ask Winston..."
+    ? scopeDisplay ? `Ask Winston about ${scopeDisplay}...` : "Ask Winston..."
     : (greeting ?? "How may I be of service?");
 
+  const hasAttachments = activeState.attachments.length > 0;
+  const hasTyped = !!activeState.draft.trim();
+  const isProcessing = activeState.attachments.some(
+    (a) => a.status === "uploading" || a.status === "indexing" || a.status === "classifying",
+  );
+  const sendDisabled = activeState.thinking || isProcessing || !activeState.draft.trim();
+  const processingCount = activeState.attachments.filter(
+    (a) => a.status === "uploading" || a.status === "indexing" || a.status === "classifying",
+  ).length;
+
   return (
-    <div className={cn("border-t border-bm-border/50", compact ? "px-4 py-4" : "px-6 py-5")}>
-      {activeState.attachments.length ? (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {activeState.attachments.map((attachment) => (
-            <div
-              key={attachment.id}
-              className="flex items-center gap-2 rounded-full border border-bm-border/50 bg-bm-bg/70 px-3 py-1.5 text-xs text-bm-text"
-            >
-              <span>{attachment.name}</span>
-              <span className="text-bm-muted2">{attachment.status}</span>
-              <button
-                type="button"
-                onClick={() => removeAttachment(activeLane, attachment.id)}
-                className="text-bm-muted2 hover:text-bm-text"
-              >
-                ×
-              </button>
-            </div>
-          ))}
+    <div
+      className={cn(
+        "border-t border-bm-border/50",
+        compact ? "px-4 py-4" : "px-6 py-5",
+        dragging && "bg-white/5",
+      )}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {hasAttachments && (
+        <div className="mb-2">
+          <AttachmentTray
+            attachments={activeState.attachments}
+            onRemove={(id) => removeAttachment(activeLane, id)}
+          />
         </div>
-      ) : null}
+      )}
+
+      {!hasAttachments && !hasTyped && (
+        <div className="mb-2">
+          <FileDropZone onFiles={handleFiles} compact={false} />
+        </div>
+      )}
+      {(hasAttachments || hasTyped) && (
+        <div className="mb-2">
+          <FileDropZone onFiles={handleFiles} compact={true} />
+        </div>
+      )}
 
       <div className="rounded-2xl border border-bm-border/40 bg-bm-bg p-3 shadow-sm">
         <textarea
@@ -206,30 +263,34 @@ function ConversationComposer({
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              void sendPrompt(activeLane);
+              if (!sendDisabled) void sendPrompt(activeLane);
             }
           }}
+          onPaste={onPaste}
         />
         <div className="mt-3 flex items-center justify-end gap-2">
-          {showAttach ? (
-            <>
-              <input
-                ref={fileRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void uploadAttachment(activeLane, file);
-                  event.currentTarget.value = "";
-                }}
-              />
-              <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-                Attach
-              </Button>
-            </>
-          ) : null}
-          <Button type="button" size="sm" onClick={() => void sendPrompt(activeLane)} disabled={activeState.thinking || !activeState.draft.trim()}>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept={ACCEPTED_EXTS}
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files || []);
+              handleFiles(files);
+              event.currentTarget.value = "";
+            }}
+          />
+          <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+            Attach
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void sendPrompt(activeLane)}
+            disabled={sendDisabled}
+            title={isProcessing ? `Waiting for ${processingCount} file${processingCount !== 1 ? "s" : ""} to finish processing` : undefined}
+          >
             Send
           </Button>
         </div>
@@ -393,45 +454,56 @@ function RecentConversations() {
   );
 }
 
-function ExplorePanel() {
+function ExplorePanel({ defaultOpen = true }: { defaultOpen?: boolean }) {
   const { currentContext, exploreQuery, setExploreQuery, exploreResults, exploreLoading } = useWinstonCompanion();
+  const [open, setOpen] = useState(defaultOpen);
 
   if (!currentContext) return null;
 
   return (
     <section className="rounded-[24px] border border-bm-border/50 bg-bm-surface/14 p-4">
-      <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         <Compass size={15} className="text-bm-muted2" />
-        <p className="nv-h3 text-bm-text">Explore</p>
-      </div>
-      <div className="mt-3 flex items-center gap-2 rounded-2xl border border-bm-border/50 bg-bm-bg/70 px-3 py-2">
-        <input
-          value={exploreQuery}
-          onChange={(event) => setExploreQuery(event.target.value)}
-          placeholder={currentContext.searchPlaceholder}
-          className="w-full border-0 bg-transparent text-sm text-bm-text outline-none placeholder:text-bm-muted2"
-        />
-      </div>
-      <div className="mt-3 space-y-2">
-        {exploreResults.length ? exploreResults.map((result) => (
-          <Link
-            key={result.id}
-            href={result.href}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-bm-border/50 bg-bm-bg/60 px-3 py-3 text-sm transition hover:border-bm-accent/35 hover:bg-bm-surface/22"
-          >
-            <div className="min-w-0">
-              <p className="truncate font-medium text-bm-text">{result.label}</p>
-              <p className="mt-1 truncate text-xs text-bm-muted2">{result.description}</p>
-            </div>
-            <ArrowUpRight size={15} className="shrink-0 text-bm-muted2" />
-          </Link>
-        )) : (
-          <div className="rounded-2xl border border-dashed border-bm-border/50 px-3 py-4 text-sm text-bm-muted2">
-            Search funds, assets, models, investors, and related pages.
+        <p className="nv-h3 flex-1 text-left text-bm-text">Explore</p>
+        <ChevronRight size={14} className={cn("text-bm-muted2 transition-transform", open && "rotate-90")} />
+      </button>
+      {open && (
+        <div className="mt-3">
+          <div className="flex items-center gap-2 rounded-2xl border border-bm-border/50 bg-bm-bg/70 px-3 py-2">
+            <input
+              value={exploreQuery}
+              onChange={(event) => setExploreQuery(event.target.value)}
+              placeholder={currentContext.searchPlaceholder}
+              className="w-full border-0 bg-transparent text-sm text-bm-text outline-none placeholder:text-bm-muted2"
+            />
           </div>
-        )}
-      </div>
-      {exploreLoading ? <p className="mt-3 text-xs text-bm-muted2">Searching…</p> : null}
+          <div className="mt-3 space-y-2">
+            {exploreResults.length ? exploreResults.map((result) => (
+              <Link
+                key={result.id}
+                href={result.href}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-bm-border/50 bg-bm-bg/60 px-3 py-3 text-sm transition hover:border-bm-accent/35 hover:bg-bm-surface/22"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-bm-text">{result.label}</p>
+                  <p className="mt-1 truncate text-xs text-bm-muted2">{result.description}</p>
+                </div>
+                <ArrowUpRight size={15} className="shrink-0 text-bm-muted2" />
+              </Link>
+            )) : (
+              <div className="rounded-2xl border border-dashed border-bm-border/50 px-3 py-4 text-sm text-bm-muted2">
+                Search funds, assets, models, investors, and related pages.
+              </div>
+            )}
+          </div>
+          {exploreLoading ? <p className="mt-3 text-xs text-bm-muted2">Searching…</p> : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -462,7 +534,7 @@ function WorkspaceUtilities({ drawer = false }: { drawer?: boolean }) {
   return (
     <div className={cn("space-y-4", drawer ? "" : "sticky top-6")}>
       <RecentConversations />
-      <ExplorePanel />
+      <ExplorePanel defaultOpen={!drawer} />
       <AdvancedPanel />
     </div>
   );
@@ -533,7 +605,7 @@ function WorkspaceContent({
           thinkingStatus={activeState.thinkingStatus}
           compact={drawer}
         />
-        <ConversationComposer compact={drawer} showAttach={!drawer} greeting={greeting} />
+        <ConversationComposer compact={drawer} greeting={greeting} />
       </section>
     </>
   );

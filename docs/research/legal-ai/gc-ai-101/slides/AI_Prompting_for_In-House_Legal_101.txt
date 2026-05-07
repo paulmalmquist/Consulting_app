@@ -1,0 +1,445 @@
+AI Prompting
+for In-House Legal
+
+       Taught by GC AI
+       classes@gc.ai
+                         Get a free GC AI trial
+
+                              ✅ gc.ai/new
+
+
+
+
+CONFIDENTIAL & PROPRIETARY                        2
+                             📷 Turn your camera
+                             on to learn more.
+                   You!
+                             🧪 It's science.
+                             See GC AI summary.
+
+
+CONFIDENTIAL & PROPRIETARY                        3
+󰚒 Poll
+
+1. Does your legal team have a goal in
+2026 to use AI in legal work?
+
+✅ Yes!
+💬 We've talked about it
+❌ No
+
+   CONFIDENTIAL & PROPRIETARY            4
+󰚒 Poll
+2. How much are you using AI for legal work?
+
+😱 Never
+👶 Weekly
+🧒 Daily
+👩 Hourly
+
+
+   CONFIDENTIAL & PROPRIETARY                  5
+Agenda
+
+
+📃 Prompt Techniques
+🚴 Interactive Prompting
+󰢨 Q&A
+
+
+Ride the actual legal AI bike. Seriously.
+      CONFIDENTIAL & PROPRIETARY            6
+01
+Prompt Techniques
+                    7
+                             Remember this scene?
+
+
+
+
+CONFIDENTIAL & PROPRIETARY                          8
+AI is a
+smart 🧠,
+fast 󰝉,
+sometimes over-eager
+Intern who has read
+the whole internet, every book, every
+contract in Edgar, and every case.
+
+ CONFIDENTIAL & PROPRIETARY             9
+PROMPT TECHNIQUES
+
+
+
+
+            So what is a prompt?
+
+
+              01    A prompt is an instruction to the AI.
+                    System prompt: every time, like a standing order.
+                    User prompt: what we’re doing today.
+
+
+
+              02    AI is literal. Tries hard. Wants to please.
+
+
+              03    Answers may vary when you ask again. AI is “non-deterministic.”
+
+
+              04    Prompts later in a chat know what you said earlier.
+
+
+              05    Great prompting helps on any platform, but the platform matters.
+                                                                                       10
+PROMPT TECHNIQUES
+
+
+
+
+            Top 5 Essential Prompting Tips
+
+              01    🤓 Treat your AI like a smart, fast, occasionally overeager human
+                    intern.
+
+
+              02    📗 Give context and be speciﬁc - both in what you ask and how
+                    you want it to respond.
+
+
+              03    🔗 Give the AI what you want it to review. If you have a link or doc,
+                    give it to the AI.
+
+
+              04    ↪ Iterate & converse - keep asking, one step at a time.
+
+
+
+              05    🆕 Start fresh when needed. New topic, new chat.
+                                                                                           11
+Anatomy of a Great AI Prompt
+
+
+
+
+   CONFIDENTIAL & PROPRIETARY   12
+Making AI Work for You
+                                  “Review this”
+                                  “What should we do here”
+                                  “That’s not right - why did you say that”
+
+
+
+                                  “Attached is the supply agreement the vendor
+                                  sent–please review for unusual or particularly risky
+                                  provisions for us as buyer.”
+
+                                  “I’ve attached our current notes on this matter– please
+                                  review, research, and assess whether we have a
+     CONFIDENTIAL & PROPRIETARY   plausible claim for repayment under MA law”
+Great Uses of AI🪄
+1. 🎯 High-Precision Document Analysis
+●   Clear summaries, targeted extraction, ﬁrst-pass reviews – AI can get
+    you up to speed on new laws and new documents
+
+2. 📄 Draft & Communicate
+●   Drafting partner, negotiation gut-check, stakeholder communications
+    - you name it, AI can help
+
+3. 📚 Research
+●   Focused, in-depth search to compile large amounts of info, instantly
+
+     CONFIDENTIAL & PROPRIETARY                                            14
+02
+Interactive Prompting
+
+                        15
+󰳘 Document analysis is something:
+                                 I do, we do, you do …
+
+
+
+
+    CONFIDENTIAL & PROPRIETARY
+󰳘 Document Analysis
+Tell me about the December 2025 AI Executive Order
+
+
+Give me a summary of the Algorithmic Pricing
+Disclosure Act
+
+
+Review a SaaS MSA for issues.
+
+
+     CONFIDENTIAL & PROPRIETARY
+ Pick One, or Use your Own
+Software Vendor MSA                   Commercial Lease    Zoom Privacy Policy
+
+
+
+
+Amazon - FTC Settlement                  FDA Guidelines   Supplier Code of Conduct
+
+
+
+
+         CONFIDENTIAL & PROPRIETARY
+🧪 Document Analysis
+
+   Write a document analysis prompt.
+   3 minute timer. ⏲
+
+
+
+  CONFIDENTIAL & PROPRIETARY           19
+PROMPT TECHNIQUES
+
+
+
+
+            More Prompting Tips
+
+
+              01    😎 Ask for emojis to add glanceability.
+
+
+
+              02    🏓 Use tables for better readability.
+
+
+
+              03    󰟴 Ask for analysis/reasoning before (not after) it provides an answer
+
+
+
+              04    󰘬 Give the model a persona or role.
+
+
+
+              05    💄 Watch for terms of art. If you’d deﬁne it for an intern, do so for AI.
+                                                                                               20
+📃 Drafting
+Use AI to quickly draft
+almost anything
+
+Let’s try drafting a
+demand letter under a
+lease.
+
+
+    CONFIDENTIAL & PROPRIETARY   21
+📃 Drafting Practice
+
+   Write a drafting prompt.
+   3 minute timer. ⏲
+
+
+
+  CONFIDENTIAL & PROPRIETARY   22
+📚 Researching
+AI is a good tool for
+legal research.
+Give me a summary of the
+Anthropic case and status.
+AI Hiring Legislation Risk
+Analysis
+
+
+     CONFIDENTIAL & PROPRIETARY   23
+📚 Research Practice
+
+   Write a researching prompt.
+   4 minute timer. ⏲
+
+
+
+  CONFIDENTIAL & PROPRIETARY     24
+Appendix
+
+   CONFIDENTIAL & PROPRIETARY
+PROMPT TECHNIQUES
+
+General Prompt Tips
+
+       Treat your AI like a smart, fast,
+                                                       Iterate. Keep asking, one step at a time.
+       occasionally overeager human intern.
+
+       Use a dedicated legal AI tool.
+                                                       Start fresh when needed.
+       (Why? Professional Responsibility.)
+
+
+       Give context.                                   Ask for emojis to add glanceability.
+
+
+       Be speciﬁc. Both in what you ask and
+                                                       Use tables for better readability.
+       how you want it to respond.
+
+
+       Tell the AI the number of things.               Ask it to reason/explain ﬁrst, THEN answer you.
+
+
+       If you have a link or doc, give it to the AI.   Give the model a persona or role.
+
+
+       In GC AI, use Easy Prompt to structure
+                                                       Watch for terms of art.
+       complex instructions to the AI.
+                                                                                                         2626
+Prompt Tip:            Give Context.
+
+
+The more the AI knows about your company and the
+task at hand, the better your results will be.
+
+        In GC AI, you can build out your Company Proﬁle by clicking   + New company proﬁ   in the top bar.
+
+
+
+
+     Weak Prompt                               Good Prompt
+
+ Review this deck.                          [input company proﬁle]
+
+                                            I am drafting a slide deck on how to comply with the new AI
+                                            Executive Order. We’re working on training a new AI model. I
+                                            want to ensure that the content is clear, actionable and
+                                            helpful to my company’s engineering team.
+Prompt Tip:               Be Speciﬁc.
+
+
+
+
+     Weak Prompt                          Good Prompt
+
+ What’s the new privacy law?            Please explain in detail the monetary or user
+                                        number threshold for when the Texas Data Privacy
+                                        and Security Act applies.
+
+
+                                          How GC AI responded
+Prompt Tip:                 Don’t bind AI to a very speciﬁc number of bullets,
+words, etc.
+
+
+
+
+     Weak Prompt                                   Good Prompt
+
+ Please list the elements of adverse             What are the elements of adverse possession in NC? Please list and brieﬂy
+ possession in three bullets.                    describe them.
+
+ Ed. Note: there are more than three elements.
+
+
+
+                                                  How GC AI responded
+Prompt Tip:        Easy Prompt
+
+
+Easy Prompt uses AI to help build       Pro Tip
+   your prompts. It’s great for
+                                    Use GC AI’s Easy Prompt feature to optimize your prompts in real time.
+organizing complex prompts and
+ getting a preview of how the AI
+             will run
+Prompt Tip:             Ask it to reason/explain ﬁrst, THEN answer you.
+
+
+AI works by predicting the next group                     When you ask the AI to:
+of characters based on the previous                       Think step-by-step and reason
+                                               More
+             characters.                       Accurate   before providing its ﬁnal answer.
+   (Including the ones it generated itself).
+Prompt Tip:         Give the AI a persona or role.
+
+
+ AI can take on virtually any         Pro Tip
+ persona or role if you give it
+                                  Use it to take the counterparty’s lawyers' side to foresee potential negotiation points.
+       instructions to.
+
+                                    See an example
+Prompt Tip:                  Watch for terms of art/ industry terms
+
+
+ What are Revlon duties?                                                          What are Revlon duties?
+
+
+
+
+ Revlon duties refer to a board of directors’ responsibilities           Revlon is a multinational cosmetic company, and its duties can
+ when the company is in the midst of a change in control or              vary depending on the specific role or position. However, here
+ transaction that could break up the company. These duties were          are some common duties associate with Revlon:
+ established in the landmark case Revlon, Inc v. MacAndrews &
+ Forbes Holdings, Inc. The court held that when a company is for
+ sale, the board’s role shifts from preserving the corporate entity to
+ maximize the company’s value for the shareholder’s benefit. This
+ typically involves running a fair auction process to ensure
+ shareholders receive the highest value possible.
+Q&A
+
+Takeaways
+
+
+  01   AI is a smart, fast, overeager intern associate
+       who has read the whole internet.
+
+
+  02   You have all the tools you need.
+       If you use vanilla tools, be clear how you prompt.
+
+
+  03   Time spent prompting is reusable!
+       Save prompts.
+
+
+
+  04   Reach out anytime!
+Ethics things to know
+✅ Duty of Conﬁdentiality
+ -   Check your providers’ security & terms
+ -   If they meet bar, OK to input conﬁdential info
+ -   Public, consumer ChatGPT does NOT meet this bar, unless
+     you turn off history (see Appendix)
+
+✅ Duty of Competence & to supervise non-lawyers
+- Check the intern’s work! Even the citations
+
+✅ Duty of Candor
+- No fake cases
+- (debated) duty to disclose to clients                        Calbar guidance
+
+
+✅ Duty of Diligence
+- You can’t unduly delay legal work
+- So you must use AI? (I predict law will go there)
+          CONFIDENTIAL & PROPRIETARY                                             35
+Example chats
+ ❏   MSA Development Checklist
+ ❏   Employee Handbook Update Checklist
+ ❏   Compliance in the News Slack Post for Executive Team
+ ❏   Slack Update for Sales Team on 3rd party review solicitations and
+     review suppression: (showcases making alerts fun and easy to read for
+     Sales)
+ ❏   Review of FTC Non-Compete Final Rule (unstructured ask)
+ ❏   Accessibility Requirements for Websites and SaaS Platforms
+ ❏   SaaSCo California Privacy Compliance Checklist
+ ❏   A simple analysis of whether to form a subsidiary in India
+
+
+
+
+       CONFIDENTIAL & PROPRIETARY                                            36
+                          ⭐ Please leave a review!
+
+We want this class to be the best out there.
+    We read every piece of feedback.
+
+     Want more? Join our 201: Advanced
+             Prompting class!
+   CONFIDENTIAL & PROPRIETARY                        37
+

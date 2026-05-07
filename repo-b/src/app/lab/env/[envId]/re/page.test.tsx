@@ -111,7 +111,8 @@ describe("RE environment portfolio page", () => {
     expect(await screen.findByText("$490.0M")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Create your first fund" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create your first fund" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Verify re_authoritative_fund_state_qtr source data" })).toBeInTheDocument();
     const navCard = screen.getByText("Portfolio NAV").closest("div");
     expect(navCard?.textContent).toContain("Unavailable");
   });
@@ -128,6 +129,38 @@ describe("RE environment portfolio page", () => {
     const dscrLabel = screen.getByText("Wtd DSCR");
     const dscrCard = dscrLabel.closest("div");
     expect(dscrCard?.textContent).toContain("Unavailable");
+  });
+
+  test("empty fund portfolio explains missing canonical dependency", async () => {
+    mockGetFundPortfolioCoherent.mockResolvedValue(coherentPayload({
+      portfolio_summary: {
+        fund_count: 0,
+        total_commitments: null,
+        portfolio_nav: null,
+        active_assets: 0,
+        gross_irr: null,
+        net_irr: null,
+        weighted_dscr: null,
+        null_reasons: { portfolio: "no_released_authoritative_funds" },
+      },
+    }));
+
+    render(<ReFundListPage />);
+
+    const diagnostic = await screen.findByTestId("fund-portfolio-empty-diagnostic");
+    expect(diagnostic).toHaveAttribute("data-reason-code", "DATA_DELETED_OR_PERIOD_MISMATCH");
+    expect(diagnostic.textContent).toContain("re_authoritative_fund_state_qtr");
+    expect(screen.queryByRole("link", { name: "Create your first fund" })).not.toBeInTheDocument();
+  });
+
+  test("route failure is surfaced as unavailable dependency", async () => {
+    mockGetFundPortfolioCoherent.mockRejectedValue(new Error("Direct API request failed (502)"));
+
+    render(<ReFundListPage />);
+
+    const diagnostic = await screen.findByTestId("fund-portfolio-empty-diagnostic");
+    expect(diagnostic).toHaveAttribute("data-reason-code", "ROUTE_FAILURE");
+    expect(diagnostic.textContent).toContain("Fund portfolio unavailable");
   });
 
   test("IRR Range signal renders when ≥2 released funds have trusted gross_irr", async () => {

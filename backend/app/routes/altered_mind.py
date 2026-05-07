@@ -78,12 +78,30 @@ def get_dashboard(env_id: EnvId = Query(...)):
         with get_cursor() as cur:
             cur.execute("SET LOCAL app.env_id = %s", (env_id,))
 
+            # Widened predicate: has_data is true if ANY of the four am_* tables
+            # has rows for this env_id. Was previously gated only on
+            # am_weekly_summary AND clients_seen > 0, which hid legitimate data
+            # whenever weekly rollups lagged or had nullable clients_seen.
+            # Downstream queries handle missing weekly data via null fallbacks;
+            # the frontend renders the trend section only when trend.length > 0.
             cur.execute(
-                "SELECT COUNT(*) AS n FROM am_weekly_summary WHERE env_id = %s AND clients_seen > 0",
-                (env_id,)
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM am_weekly_summary    WHERE env_id = %s) AS weekly_n,
+                    (SELECT COUNT(*) FROM am_daily_checkin     WHERE env_id = %s) AS daily_n,
+                    (SELECT COUNT(*) FROM am_referral          WHERE env_id = %s) AS referral_n,
+                    (SELECT COUNT(*) FROM am_monthly_reflection WHERE env_id = %s) AS reflection_n
+                """,
+                (env_id, env_id, env_id, env_id),
             )
             row = cur.fetchone()
-            if not row or row["n"] == 0:
+            total_rows = (
+                (row["weekly_n"]     or 0) +
+                (row["daily_n"]      or 0) +
+                (row["referral_n"]   or 0) +
+                (row["reflection_n"] or 0)
+            ) if row else 0
+            if total_rows == 0:
                 return AMDashboardOut(env_id=env_id, trend=[], has_data=False)
 
             # Latest week

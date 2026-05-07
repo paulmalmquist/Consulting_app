@@ -18,6 +18,7 @@ import type { Asset, ReModelOverride, AssetPeriod } from "./types";
 import { apiFetch } from "./types";
 
 import { fmtMoney, fmtPct } from '@/lib/format-utils';
+import { fetchJson } from "@/lib/fetchJson";
 /* ── Formatters ─────────────────────────────────────────── */
 
 /* ── LeverInput (from ValuationLeverPanel pattern) ─────── */
@@ -196,8 +197,7 @@ export function AssetSurgeryDrawer({
   useEffect(() => {
     if (!asset || !open) return;
     setLoadingPeriods(true);
-    fetch(`/api/re/v2/assets/${asset.asset_id}/periods`)
-      .then((r) => r.json())
+    fetchJson<unknown>(`/api/re/v2/assets/${asset.asset_id}/periods`)
       .then((data) => setPeriods(Array.isArray(data) ? data : []))
       .catch(() => setPeriods([]))
       .finally(() => setLoadingPeriods(false));

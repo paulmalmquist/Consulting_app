@@ -1,0 +1,85 @@
+# Triaged execution plan — example
+#
+# Required per step: id, name, description.
+# Optional per step: complexity (C1..C4), importance (I1..I4),
+#                    inputs (list of paths from earlier outputs),
+#                    tools (list of allowed Claude Code tools).
+#
+# If complexity / importance are omitted, the runner will classify
+# the step using the heuristics in SKILL.md and ask for confirmation
+# before executing.
+
+plan: "Refactor AP review service"
+slug: "ap_review_refactor"
+
+steps:
+  - id: 1
+    name: "Find callers"
+    description: |
+      Find all callers of functions in backend/app/services/ap_review.py.
+      Output a structured list of (file path, line number, calling function name)
+      sorted by file path. Do not modify any files.
+    complexity: C1
+    importance: I2
+
+  - id: 2
+    name: "Map dependencies"
+    description: |
+      Read step 1 output. For each call site, classify it as one of:
+      read-only, mutator, boundary (crosses a service or module line).
+      Output a markdown table with columns: file, line, fn, classification, note.
+    complexity: C2
+    importance: I2
+    inputs:
+      - /tmp/triaged_ap_review_refactor_step_1.md
+
+  - id: 3
+    name: "Design new interface"
+    description: |
+      Read steps 1 and 2. Propose a new interface for the ap_review service
+      that preserves read-only call sites unchanged, surfaces mutators behind
+      explicit verbs, and isolates boundary calls behind a thin adapter.
+      Justify each method. Highlight breaking changes.
+    complexity: C3
+    importance: I3
+    inputs:
+      - /tmp/triaged_ap_review_refactor_step_1.md
+      - /tmp/triaged_ap_review_refactor_step_2.md
+
+  - id: 4
+    name: "Implement"
+    description: |
+      Read step 3. Implement the new interface in backend/app/services/ap_review.py.
+      Update all call sites identified in steps 1 and 2. Do not change behavior
+      beyond what step 3 specified. Run linter on the touched files.
+    complexity: C3
+    importance: I3
+    tools:
+      - "Edit"
+      - "Read"
+      - "Bash"
+    inputs:
+      - /tmp/triaged_ap_review_refactor_step_3.md
+
+  - id: 5
+    name: "Run tests"
+    description: |
+      Run pytest on backend/tests/services/test_ap_review.py.
+      Surface failures with file, test name, and assertion message.
+      Do not attempt fixes; just report.
+    complexity: C1
+    importance: I2
+    tools:
+      - "Bash"
+
+  - id: 6
+    name: "Critic review of the diff"
+    description: |
+      Read the diff from step 4 against main. Review for:
+      missed call sites, behavior drift, broken assumptions in step 3,
+      and any test coverage gaps. Output findings only; do not modify files.
+    complexity: C3
+    importance: I3
+    tools:
+      - "Bash"
+      - "Read"

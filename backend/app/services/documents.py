@@ -6,6 +6,7 @@ from uuid import UUID
 from app.db import get_cursor
 from app.config import STORAGE_BUCKET
 from app.repos.supabase_storage_repo import SupabaseStorageRepository
+from app.services.upload_validation import validate_init_upload, validate_complete_upload
 
 _storage = SupabaseStorageRepository()
 _DOMAIN_ENTITY_VPATH = re.compile(
@@ -101,7 +102,10 @@ def init_upload(
     entity_type: str | None = None,
     entity_id: UUID | None = None,
     env_id: UUID | None = None,
+    byte_size: int | None = None,
 ) -> dict:
+    # Stage 1 validation: extension, MIME, size cap — before any DB or storage work.
+    validate_init_upload(filename, content_type, byte_size)
     vpath_ctx = _extract_entity_context_from_virtual_path(virtual_path)
     has_entity_inputs = any([entity_type, entity_id, env_id])
     if has_entity_inputs and not (entity_type and entity_id and env_id):
@@ -271,6 +275,22 @@ def complete_upload(
             entity_type = vpath_ctx["entity_type"]
             entity_id = UUID(vpath_ctx["entity_id"])
             env_id = UUID(vpath_ctx["env_id"])
+
+        # Fetch version metadata for Stage 1b validation.
+        cur.execute(
+            "SELECT original_filename, mime_type FROM app.document_versions WHERE version_id = %s AND document_id = %s",
+            (str(version_id), str(document_id)),
+        )
+        ver = cur.fetchone()
+        if not ver:
+            raise LookupError("Version not found")
+
+        # Stage 1b: size cap and MIME/extension cross-check (no re-parsing of untrusted bytes).
+        validate_complete_upload(
+            filename=ver.get("original_filename") or "",
+            declared_mime=ver.get("mime_type") or "",
+            byte_size=byte_size,
+        )
 
         cur.execute(
             """UPDATE app.document_versions

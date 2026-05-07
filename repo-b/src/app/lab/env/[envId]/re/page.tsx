@@ -99,6 +99,7 @@ export default function ReFundListPage() {
   const envId = reEnv?.envId ?? params?.envId ?? "";
   const { push } = useToast();
   const [payload, setPayload] = useState<CoherentPortfolioPayload | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<CoherentFundRow | null>(null);
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
@@ -112,9 +113,11 @@ export default function ReFundListPage() {
   const refresh = useCallback(async () => {
     if (!envId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       setPayload(await getFundPortfolioCoherent(envId, quarter));
-    } catch {
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Fund portfolio route unavailable");
       setPayload(null);
     } finally {
       setLoading(false);
@@ -221,6 +224,36 @@ export default function ReFundListPage() {
       return <UnavailableCell nullReason={reason ?? "value_unavailable"} />;
     }
     return <span className="nv-metric">{formatter(String(raw))}</span>;
+  }
+
+  function emptyStateCopy() {
+    if (loadError) {
+      return {
+        title: "Fund portfolio unavailable.",
+        detail: `Route dependency failed for ${quarter}: ${loadError}`,
+        code: "ROUTE_FAILURE",
+      };
+    }
+    const nullReason = summary?.null_reasons?.portfolio;
+    if (nullReason === "no_released_authoritative_funds") {
+      return {
+        title: "No released authoritative fund snapshots for this period.",
+        detail: `Required dependency is missing: re_authoritative_fund_state_qtr released rows for ${quarter}.`,
+        code: "DATA_DELETED_OR_PERIOD_MISMATCH",
+      };
+    }
+    if (diagnostics.length > 0) {
+      return {
+        title: "No fund snapshots passed the canonical selector.",
+        detail: `${diagnostics.length} fund${diagnostics.length === 1 ? "" : "s"} excluded. See diagnostics for quarantine, archive, release, or scope reasons.`,
+        code: "SELECTOR_DIAGNOSTIC",
+      };
+    }
+    return {
+      title: "Fund portfolio source data is unavailable.",
+      detail: `No canonical fund rows were returned for env ${envId || "unknown"} and ${quarter}. Verify app.env_business_bindings, repe_fund, and released authoritative snapshots before reseeding.`,
+      code: "MISSING_DEPENDENCY",
+    };
   }
 
   // ── KPI strip values ────────────────────────────────────────────────────
@@ -360,9 +393,13 @@ export default function ReFundListPage() {
               Loading funds...
             </div>
           ) : fundRows.length === 0 ? (
-            <div className="rounded-xl border border-bm-border/70 bg-bm-surface/10 p-8 text-center">
+            <div
+              className="rounded-xl border border-bm-border/70 bg-bm-surface/10 p-8 text-center"
+              data-testid="fund-portfolio-empty-diagnostic"
+              data-reason-code={emptyStateCopy().code}
+            >
               <p className="text-sm text-bm-muted2">
-                No released authoritative fund snapshots for this period.
+                {emptyStateCopy().title}
               </p>
               {diagnostics.length > 0 ? (
                 <p className="mt-2 text-xs text-amber-400/80">
@@ -370,8 +407,8 @@ export default function ReFundListPage() {
                   — see diagnostics panel above for reasons.
                 </p>
               ) : (
-                <Link href={`${base}/funds/new`} className="mt-3 inline-flex text-sm text-bm-accent hover:text-bm-text">
-                  Create your first fund
+                <Link href={`${base}/operator-diagnostics?quarter=${quarter}`} className="mt-3 inline-flex text-sm text-bm-accent hover:text-bm-text">
+                  Verify re_authoritative_fund_state_qtr source data
                 </Link>
               )}
             </div>

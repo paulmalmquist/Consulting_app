@@ -13,6 +13,8 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+import pytest
+from app.services import cro_pipeline, materialization
 from tests.conftest import FakeCursor
 
 
@@ -238,6 +240,89 @@ class TestAdvanceStage:
         data = response.json()
         assert data["crm_opportunity_id"] == OPPORTUNITY_ID
         assert data["status"] == "open"
+
+
+class TestCreateManualDeal:
+    def test_service_creates_manual_deal(self, fake_cursor: FakeCursor, monkeypatch):
+        """Manual deal creation should create account, contact, opportunity, activity, and next action."""
+        monkeypatch.setattr(materialization, "enqueue_materialization_job", lambda **kwargs: {})
+        monkeypatch.setattr(materialization, "materialize_business_snapshot", lambda **kwargs: {})
+        fake_cursor.push_result([{"tenant_id": TENANT_ID}])
+        fake_cursor.push_result([{"crm_pipeline_stage_id": STAGE_ID_DISCOVERY}])
+        fake_cursor.push_result([{"tenant_id": TENANT_ID}])
+        fake_cursor.push_result([{
+            "crm_account_id": ACCOUNT_ID,
+            "name": "Acme Corp",
+            "account_type": "prospect",
+            "industry": "real_estate",
+            "website": "https://acme.com",
+            "created_at": NOW,
+        }])
+        fake_cursor.push_result([{"tenant_id": TENANT_ID}])
+        fake_cursor.push_result([{
+            "crm_contact_id": str(uuid.uuid4()),
+            "full_name": "Ava Lee",
+            "email": "ava@acme.com",
+            "phone": None,
+            "title": "Director",
+            "created_at": NOW,
+        }])
+        fake_cursor.push_result([{"tenant_id": TENANT_ID}])
+        fake_cursor.push_result([{
+            "crm_opportunity_id": OPPORTUNITY_ID,
+            "name": "Consulting Deal",
+            "amount": Decimal("55000"),
+            "status": "open",
+            "expected_close_date": "2026-12-31",
+            "created_at": NOW,
+        }])
+        fake_cursor.push_result([{"tenant_id": TENANT_ID}])
+        fake_cursor.push_result([{
+            "crm_activity_id": str(uuid.uuid4()),
+            "activity_type": "note",
+            "subject": "Manual deal created",
+            "payload_json": "{}",
+            "activity_at": NOW,
+            "created_at": NOW,
+        }])
+        fake_cursor.push_result([{
+            "id": str(uuid.uuid4()),
+            "env_id": ENV_ID,
+            "business_id": BUSINESS_ID,
+            "entity_type": "opportunity",
+            "entity_id": OPPORTUNITY_ID,
+            "action_type": "meeting",
+            "description": "Follow up",
+            "due_date": "2026-03-01",
+            "owner": None,
+            "priority": "high",
+            "notes": "Created from manual deal: Advisory",
+            "status": "pending",
+        }])
+
+        result = cro_pipeline.create_manual_deal(
+            env_id=ENV_ID,
+            business_id=BUSINESS_ID,
+            account_name="Acme Corp",
+            account_industry="real_estate",
+            account_website="https://acme.com",
+            contact_name="Ava Lee",
+            contact_email="ava@acme.com",
+            contact_title="Director",
+            contact_linkedin="https://linkedin.com/in/avale",
+            name="Consulting Deal",
+            amount="55000",
+            stage_key="discovery",
+            expected_close_date="2026-12-31",
+            next_action_description="Follow up on scope",
+            next_action_due="2026-03-01",
+            next_action_type="meeting",
+            offer="Advisory",
+        )
+
+        assert result["crm_opportunity_id"] == OPPORTUNITY_ID
+        assert result["name"] == "Consulting Deal"
+        assert result["status"] == "open"
 
 
 class TestLeadQualification:

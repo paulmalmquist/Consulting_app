@@ -9,6 +9,7 @@ import { BarChart3, ChevronRight, FileText, TrendingUp, PieChart } from "lucide-
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RepeIndexScaffold } from "@/components/repe/RepeIndexScaffold";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface ReportTemplate {
   report_key: string;
@@ -38,8 +39,7 @@ export default function ReportsLandingPage() {
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
 
   useEffect(() => {
-    fetch("/api/re/v2/reports/catalog")
-      .then((r) => r.json())
+    fetchJson<unknown>("/api/re/v2/reports/catalog")
       .then((data) => {
         if (Array.isArray(data)) setTemplates(data);
       })

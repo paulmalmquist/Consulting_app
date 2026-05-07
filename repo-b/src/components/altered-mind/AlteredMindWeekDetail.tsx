@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { ApiError, fetchJson } from "@/lib/fetchJson";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,13 +106,16 @@ export function AlteredMindWeekDetail({
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/am/v1/checkins/${date}?env_id=${envId}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`${r.status} — ${r.statusText}`);
-        return r.json();
-      })
+    fetchJson<CheckinDetail>(`/api/am/v1/checkins/${date}?env_id=${envId}`)
       .then(setData)
-      .catch((e) => setError(String(e)))
+      .catch((e) => {
+        if (e instanceof ApiError) {
+          const detail = (e.body as { detail?: string } | null)?.detail ?? "no detail";
+          setError(`API ${e.status}: ${detail}`);
+        } else {
+          setError(String(e));
+        }
+      })
       .finally(() => setLoading(false));
   }, [envId, date]);
 

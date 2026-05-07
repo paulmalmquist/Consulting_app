@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type { ComparisonMode, PeriodType, Scenario, StatementType } from "./StatementToolbar";
 import StatementToolbar from "./StatementToolbar";
+import { fetchJson } from "@/lib/fetchJson";
 
 /* --------------------------------------------------------------------------
  * Types
@@ -119,8 +120,7 @@ export default function StatementTable({
       business_id: businessId,
     });
 
-    fetch(`${basePath}?${params}`)
-      .then((res) => res.json())
+    fetchJson<any>(`${basePath}?${params}`)
       .then((json) => {
         if (cancelled) return;
         if (json.error) {

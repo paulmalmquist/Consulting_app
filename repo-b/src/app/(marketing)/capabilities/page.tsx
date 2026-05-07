@@ -4,7 +4,7 @@ import { NvCard } from '@/components/marketing/ui/NvCard';
 
 export const metadata: Metadata = {
   title: 'Capabilities | Novendor',
-  description: 'How Novendor engages — operational assessments, data strategy, AI concierge, and legacy SaaS migration.',
+  description: 'How Novendor engages — operational assessments, data strategy, and AI concierge.',
   alternates: { canonical: '/capabilities' },
 };
 
@@ -24,11 +24,6 @@ const capabilities = [
     href: '/ai-concierge',
     copy: 'Add an AI layer that answers questions against your real data with the citations and guardrails leadership expects.',
   },
-  {
-    title: 'Legacy SaaS Migration',
-    href: '/legacy-saas',
-    copy: 'Replace fragmented SaaS with a controlled execution layer your team owns. Migrate without losing the workflow.',
-  },
 ];
 
 export default function CapabilitiesIndexPage() {
@@ -43,7 +38,7 @@ export default function CapabilitiesIndexPage() {
           What we build, and how.
         </h1>
         <p className="nv-lede">
-          Four ways we engage. Each is scoped to one workflow or one system at a time, with explicit
+          Three ways we engage. Each is scoped to one workflow or one system at a time, with explicit
           outcomes and a cutover plan you control.
         </p>
       </header>

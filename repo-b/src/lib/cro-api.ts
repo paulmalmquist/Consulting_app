@@ -173,6 +173,26 @@ export type DailyExecutionBrief = {
   critical_count: number;
 };
 
+export type ManualDealCreateRequest = {
+  env_id: string;
+  business_id: string;
+  account_name: string;
+  account_industry?: string | null;
+  account_website?: string | null;
+  contact_name: string;
+  contact_email?: string | null;
+  contact_title?: string | null;
+  contact_linkedin?: string | null;
+  name: string;
+  amount: number;
+  stage_key: string;
+  expected_close_date?: string | null;
+  next_action_description: string;
+  next_action_due: string;
+  next_action_type: string;
+  offer?: string | null;
+};
+
 export type ExecutionCommandResult = {
   intent: string;
   requires_confirmation: boolean;
@@ -410,6 +430,13 @@ export function advanceOpportunityStage(body: {
 }) {
   return apiFetch<{ crm_opportunity_id: string; name: string; status: string }>(
     `${CRO_BASE}/pipeline/advance`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function createManualDeal(body: ManualDealCreateRequest) {
+  return apiFetch<ExecutionCard>(
+    `${CRO_BASE}/pipeline/deals`,
     { method: "POST", body: JSON.stringify(body) },
   );
 }
@@ -1037,6 +1064,14 @@ export interface ContactDetail {
   last_outreach_at: string | null;
   profile_notes: string | null;
   created_at: string;
+  // Execution engine fields (added by 522_crm_contact_execution.sql)
+  execution_status: string | null;       // needs_action | active | do_not_contact
+  unassigned_reason: string | null;
+  preferred_channel: string | null;
+  buyer_persona: string | null;
+  headline: string | null;
+  do_not_contact: boolean;
+  contact_owner: string | null;
 }
 
 export interface OpportunityDetail {
@@ -1109,6 +1144,65 @@ export interface ContactListItem {
   decision_role: string | null;
   last_outreach_at: string | null;
   profile_notes: string | null;
+  created_at: string;
+  execution_status: string | null;
+  unassigned_reason: string | null;
+  do_not_contact: boolean | null;
+  preferred_channel: string | null;
+}
+
+// ── Execution engine types ──────────────────────────────────────────────────
+
+export interface DealSuggestion {
+  crm_opportunity_id: string;
+  name: string;
+  amount: number | null;
+  stage_key: string | null;
+  stage_label: string | null;
+  last_activity_at: string | null;
+}
+
+export interface ContactLinkedDeal {
+  crm_opportunity_id: string;
+  name: string;
+  amount: number | null;
+  status: string;
+  stage_key: string | null;
+  stage_label: string | null;
+  role_on_deal: string | null;
+  influence_level: string | null;
+  is_primary: boolean;
+  next_action_description: string | null;
+  next_action_due: string | null;
+}
+
+export interface ContactNextActionSuggestion {
+  recommended_action: string;
+  reason: string;
+  goal: string;
+  angle: string;
+  due_date: string;
+  suggested_next_action: {
+    action_type: string;
+    description: string;
+    priority: string;
+    due_date: string;
+  };
+}
+
+export interface ContactOutreachDraft {
+  draft: { subject: string; body: string };
+  recommended_next_action: { action_type: string; description: string };
+}
+
+export interface ContactLinkResult {
+  id: string;
+  crm_opportunity_id: string;
+  crm_contact_id: string;
+  role_on_deal: string | null;
+  influence_level: string | null;
+  is_primary: boolean;
+  link_source: string | null;
   created_at: string;
 }
 
@@ -1192,6 +1286,68 @@ export async function fetchContactDetail(contactId: string, envId: string, busin
 
 export async function fetchContactOutreach(contactId: string, envId: string, businessId: string): Promise<OutreachEntry[]> {
   return apiFetch<OutreachEntry[]>(`${CRO_BASE}/contacts/${contactId}/outreach?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function updateContact(
+  contactId: string,
+  body: { env_id: string; business_id: string; [key: string]: unknown },
+): Promise<ContactDetail> {
+  return apiFetch<ContactDetail>(`${CRO_BASE}/contacts/${contactId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchContactLinkedDeals(contactId: string, envId: string, businessId: string): Promise<ContactLinkedDeal[]> {
+  return apiFetch<ContactLinkedDeal[]>(`${CRO_BASE}/contacts/${contactId}/deals?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function fetchContactDealSuggestions(contactId: string, envId: string, businessId: string): Promise<DealSuggestion[]> {
+  return apiFetch<DealSuggestion[]>(`${CRO_BASE}/contacts/${contactId}/deal-suggestions?env_id=${envId}&business_id=${businessId}`);
+}
+
+export async function suggestContactNextAction(
+  contactId: string,
+  body: { env_id: string; business_id: string; dry_run?: boolean },
+): Promise<ContactNextActionSuggestion> {
+  return apiFetch<ContactNextActionSuggestion>(`${CRO_BASE}/contacts/${contactId}/next-action/suggest`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function generateContactOutreach(
+  contactId: string,
+  body: {
+    env_id: string;
+    business_id: string;
+    crm_opportunity_id?: string;
+    goal?: string;
+    angle?: string;
+  },
+): Promise<ContactOutreachDraft> {
+  return apiFetch<ContactOutreachDraft>(`${CRO_BASE}/contacts/${contactId}/outreach/generate`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function linkContactToOpportunity(
+  opportunityId: string,
+  body: {
+    env_id: string;
+    business_id: string;
+    crm_contact_id: string;
+    role_on_deal?: string;
+    influence_level?: string;
+    is_primary?: boolean;
+    link_source?: string;
+  },
+): Promise<ContactLinkResult> {
+  return apiFetch<ContactLinkResult>(`${CRO_BASE}/opportunities/${opportunityId}/contacts/link`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Schema Health ───────────────────────────────────────────────────────────

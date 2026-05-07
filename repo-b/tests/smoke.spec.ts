@@ -93,6 +93,26 @@ test("Marketing home loads", async ({ page }) => {
   await expect(page.locator("body")).toBeVisible();
 });
 
+test("Marketing capability navigation omits Legacy SaaS Migration", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Legacy SaaS Migration")).toHaveCount(0);
+
+  await page.goto("/capabilities/comprehensive-data-strategy");
+  await expect(page.locator("body")).toBeVisible();
+
+  await page.goto("/saas-iceberg");
+  await expect(page.locator("body")).toBeVisible();
+
+  for (const path of [
+    "/capabilities/legacy-saas-migration",
+    "/legacy-saas",
+    "/legacy-saas-migration",
+  ]) {
+    const removedRoute = await page.goto(path);
+    expect(removedRoute?.status()).toBe(404);
+  }
+});
+
 test("Onboarding loads", async ({ page }) => {
   await page.goto("/onboarding");
   await expect(page.getByRole("heading", { name: "Business OS Setup" })).toBeVisible();

@@ -5,6 +5,7 @@ import MiniSearch from 'minisearch';
 import { IconSearch } from '../ui/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractSnippet, SearchDocument } from '@/lib/marketing/search';
+import { fetchJson } from "@/lib/fetchJson";
 
 type GroupedResults = {
   type: string;
@@ -42,8 +43,7 @@ export function InlineSearch() {
     if (documents.length > 0) {
       return;
     }
-    fetch('/search-index.json')
-      .then((res) => res.json())
+    fetchJson<any>('/search-index.json')
       .then((data) => setDocuments(data.documents))
       .catch(() => setDocuments([]));
   }, [documents.length]);

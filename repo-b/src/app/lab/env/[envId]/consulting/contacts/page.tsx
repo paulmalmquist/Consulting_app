@@ -14,7 +14,7 @@ import {
 } from "@/lib/cro-api";
 
 type RelationshipStrength = "cold" | "warm" | "hot" | "champion";
-type FilterKey = "all" | "no_email" | "no_linkedin" | "needs_touch" | "no_account";
+type FilterKey = "all" | "unassigned" | "no_next_action" | "no_email" | "no_linkedin" | "needs_touch" | "no_account";
 
 const STRENGTH_TONE: Record<RelationshipStrength, { color: string; bg: string }> = {
   cold: { color: "rgba(148,163,184,0.92)", bg: "rgba(148,163,184,0.12)" },
@@ -112,7 +112,9 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
           (c.title ?? "").toLowerCase().includes(q),
       );
     }
-    if (activeFilter === "no_email") list = list.filter((c) => !c.email);
+    if (activeFilter === "unassigned") list = list.filter((c) => c.execution_status === "needs_action" && !c.do_not_contact);
+    else if (activeFilter === "no_next_action") list = list.filter((c) => c.execution_status === "needs_action" && !c.do_not_contact);
+    else if (activeFilter === "no_email") list = list.filter((c) => !c.email);
     else if (activeFilter === "no_linkedin") list = list.filter((c) => !c.linkedin_url);
     else if (activeFilter === "needs_touch") list = list.filter((c) => !c.last_outreach_at);
     else if (activeFilter === "no_account") list = list.filter((c) => !c.crm_account_id);
@@ -122,6 +124,8 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
   // KPI counts
   const kpi = useMemo(() => ({
     total: contacts.length,
+    unassigned: contacts.filter((c) => c.execution_status === "needs_action" && !c.do_not_contact).length,
+    noNextAction: contacts.filter((c) => c.execution_status === "needs_action" && !c.do_not_contact).length,
     noEmail: contacts.filter((c) => !c.email).length,
     noLinkedIn: contacts.filter((c) => !c.linkedin_url).length,
     needsTouch: contacts.filter((c) => !c.last_outreach_at).length,
@@ -287,17 +291,19 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
+              gridTemplateColumns: "repeat(7, 1fr)",
               gap: 8,
               marginBottom: 12,
             }}
           >
             {[
-              { label: "Total", value: kpi.total, key: "all" as FilterKey },
-              { label: "No email", value: kpi.noEmail, key: "no_email" as FilterKey },
-              { label: "No LinkedIn", value: kpi.noLinkedIn, key: "no_linkedin" as FilterKey },
-              { label: "Needs touch", value: kpi.needsTouch, key: "needs_touch" as FilterKey },
-              { label: "No account", value: kpi.noAccount, key: "no_account" as FilterKey },
+              { label: "Total", value: kpi.total, key: "all" as FilterKey, danger: false },
+              { label: "Unassigned", value: kpi.unassigned, key: "unassigned" as FilterKey, danger: true },
+              { label: "No Action", value: kpi.noNextAction, key: "no_next_action" as FilterKey, danger: true },
+              { label: "No email", value: kpi.noEmail, key: "no_email" as FilterKey, danger: false },
+              { label: "No LinkedIn", value: kpi.noLinkedIn, key: "no_linkedin" as FilterKey, danger: false },
+              { label: "Needs touch", value: kpi.needsTouch, key: "needs_touch" as FilterKey, danger: false },
+              { label: "No account", value: kpi.noAccount, key: "no_account" as FilterKey, danger: false },
             ].map((item) => (
               <button
                 key={item.key}
@@ -307,8 +313,14 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
                   textAlign: "left",
                   padding: "8px 10px",
                   borderRadius: 3,
-                  border: `1px solid ${activeFilter === item.key ? "rgba(0,220,255,0.40)" : "rgba(255,255,255,0.07)"}`,
-                  background: activeFilter === item.key ? "rgba(0,220,255,0.06)" : "rgba(10,14,20,0.4)",
+                  border: `1px solid ${
+                    activeFilter === item.key
+                      ? item.danger ? "rgba(239,68,68,0.60)" : "rgba(0,220,255,0.40)"
+                      : item.danger && item.value > 0 ? "rgba(239,68,68,0.30)" : "rgba(255,255,255,0.07)"
+                  }`,
+                  background: activeFilter === item.key
+                    ? item.danger ? "rgba(239,68,68,0.10)" : "rgba(0,220,255,0.06)"
+                    : item.danger && item.value > 0 ? "rgba(239,68,68,0.05)" : "rgba(10,14,20,0.4)",
                   cursor: "pointer",
                 }}
               >
@@ -316,7 +328,7 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
                   style={{
                     fontSize: 16,
                     fontWeight: 600,
-                    color: activeFilter === item.key ? "#00DCFF" : "#dce6f0",
+                    color: item.danger && item.value > 0 ? "#FCA5A5" : activeFilter === item.key ? "#00DCFF" : "#dce6f0",
                     fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
                   }}
                 >
@@ -327,7 +339,7 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
                     fontSize: 9,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(220,230,240,0.42)",
+                    color: item.danger && item.value > 0 ? "rgba(252,165,165,0.60)" : "rgba(220,230,240,0.42)",
                     marginTop: 2,
                     fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
                   }}
@@ -486,7 +498,7 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.4fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
+                gridTemplateColumns: "1.6fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
                 padding: "8px 12px",
                 background: "rgba(10,14,20,0.6)",
                 borderBottom: "1px solid rgba(255,255,255,0.07)",
@@ -508,19 +520,21 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
               const tone = (c.relationship_strength as RelationshipStrength) in STRENGTH_TONE
                 ? STRENGTH_TONE[c.relationship_strength as RelationshipStrength]
                 : STRENGTH_TONE.cold;
+              const isBlocking = c.execution_status === "needs_action" && !c.do_not_contact;
               return (
                 <Link
                   key={c.crm_contact_id}
                   href={`/lab/env/${params.envId}/consulting/contacts/${c.crm_contact_id}`}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.4fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
+                    gridTemplateColumns: "1.6fr 1.4fr 1fr 1.5fr 0.7fr 0.6fr",
                     padding: "10px 12px",
                     borderBottom: "1px solid rgba(255,255,255,0.05)",
                     fontSize: 13,
                     color: "#dce6f0",
                     textDecoration: "none",
                     transition: "background 80ms",
+                    borderLeft: isBlocking ? "2px solid rgba(239,68,68,0.60)" : "2px solid transparent",
                   }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.03)";
@@ -529,7 +543,41 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
                     (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
                   }}
                 >
-                  <span style={{ fontWeight: 600 }}>{c.full_name}</span>
+                  <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {c.full_name}
+                    {isBlocking && (
+                      <span style={{
+                        fontSize: 9,
+                        letterSpacing: "0.10em",
+                        textTransform: "uppercase",
+                        padding: "2px 6px",
+                        borderRadius: 2,
+                        background: "rgba(239,68,68,0.15)",
+                        color: "#FCA5A5",
+                        border: "1px solid rgba(239,68,68,0.35)",
+                        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                        whiteSpace: "nowrap",
+                      }}>
+                        Needs Action
+                      </span>
+                    )}
+                    {c.do_not_contact && (
+                      <span style={{
+                        fontSize: 9,
+                        letterSpacing: "0.10em",
+                        textTransform: "uppercase",
+                        padding: "2px 6px",
+                        borderRadius: 2,
+                        background: "rgba(100,116,139,0.15)",
+                        color: "rgba(148,163,184,0.80)",
+                        border: "1px solid rgba(100,116,139,0.25)",
+                        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                        whiteSpace: "nowrap",
+                      }}>
+                        DNC
+                      </span>
+                    )}
+                  </span>
                   <span style={{ color: "rgba(220,230,240,0.72)" }}>
                     {c.account_name ?? <span style={{ color: "rgba(220,230,240,0.30)" }}>—</span>}
                     {c.vertical ? <span style={{ color: "rgba(220,230,240,0.30)", marginLeft: 6, fontSize: 11 }}>· {c.vertical}</span> : null}

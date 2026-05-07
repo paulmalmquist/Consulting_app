@@ -18,6 +18,7 @@ import DashboardCanvas from "@/components/repe/dashboards/DashboardCanvas";
 import DashboardToolbar from "@/components/repe/dashboards/DashboardToolbar";
 import WidgetConfigPanel from "@/components/repe/dashboards/WidgetConfigPanel";
 import { DashboardFilterProvider } from "@/components/repe/dashboards/DashboardFilterContext";
+import { fetchJson } from "@/lib/fetchJson";
 
 /* --------------------------------------------------------------------------
  * Types
@@ -82,8 +83,7 @@ export default function DashboardBuilderPage({
   // Load saved dashboards
   useEffect(() => {
     if (!businessId) return;
-    fetch(`/api/re/v2/dashboards?env_id=${params.envId}&business_id=${businessId}`)
-      .then((r) => r.json())
+    fetchJson<unknown>(`/api/re/v2/dashboards?env_id=${params.envId}&business_id=${businessId}`)
       .then((data) => { if (Array.isArray(data)) setSavedDashboards(data); })
       .catch(() => {});
   }, [params.envId, businessId]);

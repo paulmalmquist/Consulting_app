@@ -4474,6 +4474,7 @@ async def run_gateway_stream(
     pending_question_text: str | None = None,
     request_id: str | None = None,
     new_conversation_created: bool = False,
+    document_ids: list[uuid.UUID] | None = None,
 ) -> AsyncGenerator[str, None]:
     from app.assistant_runtime.request_lifecycle import run_request_lifecycle
     from app.assistant_runtime.contract_enforcer import wrap_lifecycle_stream
@@ -4492,6 +4493,7 @@ async def run_gateway_stream(
         pending_question_text=pending_question_text,
         request_id=request_id,
         new_conversation_created=new_conversation_created,
+        document_ids=document_ids,
     )
     async for sse_line in wrap_lifecycle_stream(
         upstream,

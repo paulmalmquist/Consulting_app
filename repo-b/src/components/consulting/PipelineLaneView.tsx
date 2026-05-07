@@ -1248,7 +1248,61 @@ function LaneCardItem({
           ) : null}
         </div>
 
-        {/* Row 4: Meta */}
+        {/* Row 4: Coverage badges */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
+          {card.contact_count === 0 ? (
+            <span
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                color: CP.critical,
+                background: "rgba(239,68,68,0.10)",
+                border: "1px solid rgba(239,68,68,0.30)",
+                padding: "1px 5px",
+                borderRadius: 2,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(card.crm_opportunity_id);
+              }}
+              title="No contacts — click to seed"
+            >
+              Seed Contact
+            </span>
+          ) : (
+            <span
+              style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.02em" }}
+              title={`${card.contact_count} contact${card.contact_count !== 1 ? "s" : ""}`}
+            >
+              👤 {card.contact_count}
+            </span>
+          )}
+          {card.outreach_count > 0 && (
+            <span
+              style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.02em" }}
+              title={`${card.outreach_count} outreach sent`}
+            >
+              📨 {card.outreach_count}
+            </span>
+          )}
+          {hasNoAction && card.contact_count > 0 && (
+            <span
+              style={{
+                fontSize: 8,
+                color: CP.warning,
+                letterSpacing: "0.02em",
+              }}
+              title="No next action"
+            >
+              ⚠
+            </span>
+          )}
+        </div>
+
+        {/* Row 5: Meta */}
         <div
           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}
         >

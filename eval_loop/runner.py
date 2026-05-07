@@ -733,6 +733,10 @@ async def run_suite(
             "page_type": scenario.get("page_type"),
             "expected": scenario.get("expected", {}),
             "previous_record": previous,
+            # concept-eval fields — None for non-concept_eval scenarios
+            "concept_scores": scored.get("concept_scores"),
+            "score_coverage": scored.get("score_coverage"),
+            "source_discipline_coverage": scored.get("source_discipline_coverage"),
         }
         results.append(record)
         store.insert_run(record)
@@ -831,6 +835,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--persist-trigger", default="manual", choices=["manual", "schedule", "post_deploy"], help="Trigger source recorded on the run row.")
     parser.add_argument("--regressions-out", default=None, help="Write a regressions JSON artifact for the follow-on issue job.")
     parser.add_argument("--write-docs-report", action="store_true", help="Write docs/ai-testing/reports/YYYY-MM-DD_HHMM.md and update docs/LATEST.md.")
+    parser.add_argument("--concept-id", default=None, help="Run only concept_eval scenarios for the given concept id, e.g. repe.noi_variance.")
     return parser.parse_args()
 
 
@@ -894,18 +899,30 @@ async def _run_cycle(
         environment=args.environment,
     )
 
-    suites_to_run: list[tuple[str, list[dict[str, Any]], bool]] = [("smoke", base_smoke, False)]
+    # --concept-id narrows every suite to concept_eval scenarios for that concept.
+    concept_id_filter = getattr(args, "concept_id", None)
+
+    def _filter_concept(scenarios: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not concept_id_filter:
+            return scenarios
+        return [
+            s for s in scenarios
+            if s.get("kind") == "concept_eval"
+            and (s.get("concept_expected") or {}).get("concept_id") == concept_id_filter
+        ]
+
+    suites_to_run: list[tuple[str, list[dict[str, Any]], bool]] = [("smoke", _filter_concept(base_smoke), False)]
     if mode == "full":
-        suites_to_run.append(("full", expanded_full, False))
+        suites_to_run.append(("full", _filter_concept(expanded_full), False))
     if args.include_mutations or (active_mutations_mode != "disabled" and mode == "full"):
-        mutated = _mutated_high_value_scenarios(expanded_full)
+        mutated = _mutated_high_value_scenarios(_filter_concept(expanded_full))
         if mutated:
             suites_to_run.append(("mutations", mutated, False))
     if args.chaos or args.include_chaos:
-        chaos_candidates = _chaos_suite_scenarios(base_full)
+        chaos_candidates = _chaos_suite_scenarios(_filter_concept(base_full))
         if chaos_candidates:
             suites_to_run.append(("chaos", chaos_candidates, True))
-    contamination_candidates = _contamination_suite_scenarios(base_full)
+    contamination_candidates = _contamination_suite_scenarios(_filter_concept(base_full))
     if contamination_candidates and (args.full or args.forever or args.include_comparisons or args.chaos):
         suites_to_run.append(("contamination", contamination_candidates, False))
 
@@ -1209,6 +1226,25 @@ async def main() -> int:
         cycle_result = await _run_cycle(cycle=1, args=args, bindings=bindings, store=store)
         if int(cycle_result.get("failed_count") or 0) > 0 or cycle_result.get("critical_regression"):
             return 2
+        # Concept eval release-gate enforcement. When --concept-id is passed
+        # (or when concept_eval scenarios ran and produced gate results),
+        # fail with exit 3 if any gate didn't pass. Exit 3 is distinct from
+        # exit 2 so the cycle controller can report "concept gates blocked
+        # promotion" rather than "scenario failures".
+        concept_eval_summary = (cycle_result.get("summary") or {}).get("concept_eval") or {}
+        concept_gates = concept_eval_summary.get("release_gates") or {}
+        if concept_eval_summary and not concept_gates.get("all_passed", True):
+            failed_gates = [
+                g["name"] for g in (concept_gates.get("gates") or [])
+                if not g.get("passed")
+            ]
+            print(
+                json.dumps({
+                    "concept_eval_gate_failure": True,
+                    "failed_gates": failed_gates,
+                })
+            )
+            return 3
         return 0
     finally:
         store.close()

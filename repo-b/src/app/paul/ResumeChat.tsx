@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,8 +28,7 @@ export default function ResumeChat() {
   useEffect(() => {
     if (!isOpen || suggestionsLoaded) return;
     setSuggestionsLoaded(true);
-    fetch("/api/resume/suggestions")
-      .then((r) => r.json())
+    fetchJson<any>("/api/resume/suggestions")
       .then((data) => {
         if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
       })

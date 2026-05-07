@@ -12,15 +12,19 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { useToast } from "@/components/ui/Toast";
 import {
   fetchExecutionBoard,
   advanceOpportunityStage,
+  fetchPipelineStages,
   fetchSchemaHealth,
   type ExecutionBoard,
   type ExecutionBoardColumn,
   type ExecutionCard,
   type SchemaHealth,
+  type PipelineStage,
 } from "@/lib/cro-api";
+import AddDealDrawer from "@/components/consulting/AddDealDrawer";
 import { DealSidePanel } from "@/components/consulting/DealSidePanel";
 import PipelineLaneView, {
   PipelineCommandBand,
@@ -205,6 +209,10 @@ export default function PipelinePage({
     stageKey: string;
   } | null>(null);
   const [closeReason, setCloseReason] = useState("");
+  const [addDealOpen, setAddDealOpen] = useState(false);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+
+  const { push } = useToast();
 
   const [selectedIndustries, setSelectedIndustries] = useState<Set<string>>(
     () => new Set(),
@@ -281,6 +289,22 @@ export default function PipelinePage({
     });
     return () => { cancelled = true; };
   }, [params.envId, businessId, ready]);
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    fetchPipelineStages(businessId)
+      .then((result) => setStages(result))
+      .catch(() => setStages([]));
+  }, [businessId, ready]);
+
+  const handleDealCreated = useCallback(() => {
+    loadData();
+    push({
+      title: "Deal created",
+      description: "The new deal was added to the pipeline.",
+      variant: "success",
+    });
+  }, [loadData, push]);
 
   // Debounce search query
   useEffect(() => {
@@ -831,6 +855,13 @@ export default function PipelinePage({
             <XIcon size={12} />
           </button>
         )}
+        <button
+          onClick={() => setAddDealOpen(true)}
+          className="hidden lg:inline-flex rounded-lg bg-bm-accent px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-bm-bg hover:bg-bm-accent/90"
+          style={{ flexShrink: 0 }}
+        >
+          + Add Deal
+        </button>
         <span style={{ fontSize: 11, color: "rgba(220,230,240,0.40)", flexShrink: 0, whiteSpace: "nowrap" }}>
           {kanban ? `${totalVisible} deal${totalVisible !== 1 ? "s" : ""}` : ""}
           {debouncedQuery ? ` · "${debouncedQuery}"` : ""}
@@ -1012,6 +1043,30 @@ export default function PipelinePage({
           />
         ) : null}
 
+        {kanban ? (
+          <button
+            onClick={() => setAddDealOpen(true)}
+            className="lg:hidden"
+            style={{
+              position: "fixed",
+              right: 20,
+              bottom: 24,
+              zIndex: 60,
+              background: "#00E5FF",
+              color: "#05070B",
+              border: "none",
+              borderRadius: 999,
+              padding: "14px 18px",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              boxShadow: "0 20px 45px rgba(0, 229, 255, 0.22)",
+              cursor: "pointer",
+            }}
+          >
+            + Add Deal
+          </button>
+        ) : null}
+
         {selectedDealId ? (
           <DealSidePanel
             dealId={selectedDealId}
@@ -1019,6 +1074,16 @@ export default function PipelinePage({
             businessId={businessId || ""}
             onClose={() => setSelectedDealId(null)}
             onDataChange={loadData}
+          />
+        ) : null}
+
+        {addDealOpen ? (
+          <AddDealDrawer
+            envId={params.envId}
+            businessId={businessId!}
+            stages={stages}
+            onClose={() => setAddDealOpen(false)}
+            onCreated={handleDealCreated}
           />
         ) : null}
       </div>

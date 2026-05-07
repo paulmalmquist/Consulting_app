@@ -28,11 +28,6 @@ const PANEL_CONTENT: Record<string, Omit<CapabilityPanel, 'title'>> = {
     sentence: 'Turn new AI capabilities into practical operating advantages.',
     graphic: 'signal',
     href: '/ai-concierge'
-  },
-  'Legacy SaaS Migration': {
-    sentence: 'Consolidate costly SaaS sprawl into an internal system you control.',
-    graphic: 'merge',
-    href: '/saas-iceberg'
   }
 };
 
