@@ -14,7 +14,6 @@ Run: python backend/scripts/podcast_phase1_report.py
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -262,13 +261,6 @@ def main() -> None:
                 ("podcast_narratives", "narratives"),
                 ("podcast_analogs", "analogs"),
             ]:
-                cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND extraction_model IN ('gpt-4o','claude-sonnet-4')", (eid,))
-                p0 = cur.fetchone()["c"]
-                cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND extraction_model = 'claude-sonnet-4-5'", (eid,))
-                p1_claude = cur.fetchone()["c"]
-                cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND extraction_model NOT IN ('gpt-4o','claude-sonnet-4','claude-sonnet-4-5')", (eid,))
-                other = cur.fetchone()["c"]
-                p1 = p1_claude + other
                 # For macro_views and trade_ideas the Phase 1 gpt-4o write lands same model string.
                 # Count phase 1 writes distinctly: they're created after phase 0. Use created_at.
                 cur.execute(f"SELECT COUNT(*) c FROM {table} WHERE episode_id=%s AND extraction_model IN ('gpt-4o','claude-sonnet-4-5')", (eid,))

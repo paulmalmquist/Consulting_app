@@ -2038,8 +2038,6 @@ async def run_request_lifecycle(
         text_attachments = []
         image_attachments = []
 
-    model_route_reason = "image_attachment_present" if has_image_attachments else "default_text"
-
     ctx = McpContext(
         actor=actor,
         token_valid=True,

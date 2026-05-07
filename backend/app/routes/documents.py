@@ -14,8 +14,6 @@ from app.schemas.documents import (
 from app.schemas.business import OkResponse
 from app.services import audit as audit_svc
 from app.services import documents as doc_svc
-from app.services.upload_validation import MAX_UPLOAD_BYTES
-
 router = APIRouter(prefix="/api/documents")
 
 
