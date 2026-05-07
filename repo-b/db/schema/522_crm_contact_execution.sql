@@ -23,8 +23,16 @@ CREATE TABLE IF NOT EXISTS cro_opportunity_contact (
 
 ALTER TABLE cro_opportunity_contact ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY cro_opportunity_contact_tenant ON cro_opportunity_contact
-  USING (env_id = current_setting('app.env_id', true));
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'cro_opportunity_contact'
+      AND policyname = 'cro_opportunity_contact_tenant'
+  ) THEN
+    EXECUTE 'CREATE POLICY cro_opportunity_contact_tenant ON cro_opportunity_contact
+      USING (env_id = current_setting(''app.env_id'', true))';
+  END IF;
+END $$;
 
 COMMENT ON TABLE cro_opportunity_contact IS
   'Explicit M:M deal-contact links. Replaces account-membership inference for execution-grade contact mapping. Module: consulting_revenue_os.';
