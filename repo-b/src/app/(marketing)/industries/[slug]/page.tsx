@@ -9,8 +9,17 @@ type IndustryPageProps = {
   };
 };
 
+const BESPOKE_INDUSTRY_SLUGS = new Set([
+  'real-estate-private-equity',
+  'consumer-credit',
+  'medical',
+  'legal',
+]);
+
 export function generateStaticParams() {
-  return INDUSTRY_VERTICALS.map((industry) => ({ slug: industry.slug }));
+  return INDUSTRY_VERTICALS
+    .filter((industry) => !BESPOKE_INDUSTRY_SLUGS.has(industry.slug))
+    .map((industry) => ({ slug: industry.slug }));
 }
 
 export function generateMetadata({ params }: IndustryPageProps): Metadata {
