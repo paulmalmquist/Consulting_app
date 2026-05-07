@@ -1593,6 +1593,7 @@ export function GroupedBoardView({
         </button>
       </div>
       <div style={{ overflowX: "auto", display: "flex", flexDirection: "column" }}>
+        <DndContext sensors={dndSensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           style={{
             display: "flex",
@@ -1697,13 +1698,8 @@ export function GroupedBoardView({
                     <span style={{ flex: 1 }} />
                     <span style={{ fontSize: 9, color: CP.muted, letterSpacing: "0.06em" }}>▲ collapse</span>
                   </div>
-                  {/* Child stage columns wrapped in DndContext for drag support */}
-                  <DndContext sensors={dndSensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                    {childCols}
-                    <DragOverlay>
-                      {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
-                    </DragOverlay>
-                  </DndContext>
+                  {/* Child stage columns — DndContext is hoisted above all groups */}
+                  {childCols}
                 </div>
               );
             }
@@ -1914,6 +1910,10 @@ export function GroupedBoardView({
             );
           })}
         </div>
+        <DragOverlay>
+          {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
+        </DragOverlay>
+        </DndContext>
       </div>
     </div>
   );
