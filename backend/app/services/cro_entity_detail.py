@@ -349,7 +349,7 @@ def evaluate_contact_execution_status(*, contact_id: UUID, business_id: UUID) ->
             (str(contact_id),),
         )
         profile = cur.fetchone()
-        do_not_contact = profile["do_not_contact"] if profile else False
+        do_not_contact = profile.get("do_not_contact", False) if profile else False
 
         if do_not_contact:
             new_status = "do_not_contact"

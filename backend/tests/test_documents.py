@@ -90,6 +90,7 @@ def test_complete_upload_not_found(client, fake_cursor):
 
 def test_complete_upload_success(client, fake_cursor):
     fake_cursor.push_result([{"virtual_path": None}])  # SELECT document
+    fake_cursor.push_result([{"original_filename": "test.pdf", "mime_type": "application/pdf"}])  # SELECT version
     fake_cursor.push_result([])  # UPDATE returns nothing via fetchone
 
     resp = client.post("/api/documents/complete-upload", json={

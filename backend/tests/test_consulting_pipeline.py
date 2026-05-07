@@ -266,6 +266,10 @@ class TestCreateManualDeal:
             "title": "Director",
             "created_at": NOW,
         }])
+        # evaluate_contact_execution_status: profile fetch, has_deal EXISTS, has_action EXISTS
+        fake_cursor.push_result([{"do_not_contact": False}])
+        fake_cursor.push_result([{"has_deal": False}])
+        fake_cursor.push_result([{"has_action": False}])
         fake_cursor.push_result([{"tenant_id": TENANT_ID}])
         fake_cursor.push_result([{
             "crm_opportunity_id": OPPORTUNITY_ID,
