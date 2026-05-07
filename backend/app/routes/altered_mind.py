@@ -76,7 +76,7 @@ def get_dashboard(env_id: EnvId = Query(...)):
     """
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
 
             # Widened predicate: has_data is true if ANY of the four am_* tables
             # has rows for this env_id. Was previously gated only on
@@ -211,7 +211,7 @@ def get_checkins(
     """Paginated daily check-in rows, newest first, with topic breakdowns."""
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
 
             cur.execute(
                 "SELECT COUNT(*) AS n FROM am_daily_checkin WHERE env_id = %s",
@@ -278,7 +278,7 @@ def get_checkin_detail(session_date: str, env_id: EnvId = Query(...)):
     """Single day detail view."""
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
             cur.execute("""
                 SELECT
                     id, session_date,
@@ -332,7 +332,7 @@ def get_metrics(
     """Weekly summaries with trend array. Returns chronological order."""
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
 
             cur.execute(
                 "SELECT COUNT(*) AS n FROM am_weekly_summary WHERE env_id = %s AND clients_seen > 0",
@@ -415,7 +415,7 @@ def get_goals(
     """Referral intake pipeline — client acquisition funnel by platform."""
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
 
             cur.execute(
                 "SELECT COUNT(*) AS n FROM am_referral WHERE env_id = %s",
@@ -489,7 +489,7 @@ def get_reflections(env_id: EnvId = Query(...)):
     """Monthly narrative reflections — theme, wins, challenges, adjustment."""
     try:
         with get_cursor() as cur:
-            cur.execute("SET LOCAL app.env_id = %s", (env_id,))
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (str(env_id),))
             cur.execute("""
                 SELECT id, reflection_month, reflection_month_date,
                        theme, wins, challenges, adjustment
