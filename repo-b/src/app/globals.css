@@ -455,6 +455,37 @@ html[data-theme="light"] .resume-os {
   font-family: var(--ros-font-editorial);
 }
 
+/* ── Light-mode: cancel .re-shell forced-dark overrides ─────────────────────
+   _typography.css applies !important bg/border overrides inside .re-shell to
+   keep legacy light utility classes dark in the operating console. In light
+   mode those overrides must be lifted so bg-white panels render white.
+   ──────────────────────────────────────────────────────────────────────────── */
+html[data-theme="light"] .re-shell [class~="bg-white"],
+html[data-theme="light"] .re-shell [class~="bg-white/70"],
+html[data-theme="light"] .re-shell [class~="bg-white/85"],
+html[data-theme="light"] .re-shell [class~="bg-white/90"],
+html[data-theme="light"] .re-shell [class~="bg-gray-50"],
+html[data-theme="light"] .re-shell [class~="bg-slate-50"],
+html[data-theme="light"] .re-shell [class~="bg-neutral-50"] {
+  background-color: revert !important;
+}
+
+html[data-theme="light"] .re-shell [class~="border-slate-200"],
+html[data-theme="light"] .re-shell [class~="border-neutral-200"] {
+  border-color: revert !important;
+}
+
+html[data-theme="light"] .re-shell [class~="text-slate-900"],
+html[data-theme="light"] .re-shell [class~="text-black"] {
+  color: revert !important;
+}
+
+/* Scaffold header bar — give it a visible white surface in light mode */
+html[data-theme="light"] .re-shell .re-scaffold-header {
+  background-color: hsl(var(--bm-surface) / 1);
+  border-color: hsl(var(--bm-border) / 0.5);
+}
+
 .resume-label {
   /* Sans-serif for all labels, tags, metadata */
   font-family: var(--font-body, system-ui, -apple-system, sans-serif);
