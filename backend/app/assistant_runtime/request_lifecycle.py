@@ -842,6 +842,14 @@ async def _try_meridian_structured_gate(
             degradation_reason=result.degraded_reason,
         )
 
+        _ts_receipt = None
+        if result.thread_subject:
+            from app.assistant_runtime.turn_receipts import ThreadSubjectReceipt as _TSR
+            try:
+                _ts_receipt = _TSR.model_validate(result.thread_subject)
+            except Exception:
+                _ts_receipt = None
+
         turn_receipt = TurnReceipt(
             request_id=request_id,
             lane=Lane.A_FAST,
@@ -872,10 +880,28 @@ async def _try_meridian_structured_gate(
             structured_query=sq_receipt,
             status=TurnStatus.SUCCESS,
             degraded_reason=DegradedReason.NO_RESPONSE if result.degraded else None,
+            thread_subject=_ts_receipt,
         )
 
         elapsed_ms = int((time.time() - started_at) * 1000)
         timings["render_completion_ms"] = elapsed_ms
+
+        # Persist a minimal prompt receipt carrying thread_subject in notes_json
+        # so the next turn can load it via load_prior_receipt_context().
+        if result.thread_subject and conversation_id:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: prompt_receipts.persist_thread_subject(
+                    conversation_id=str(conversation_id),
+                    request_id=request_id,
+                    session_id=session_id,
+                    env_id=env_id or None,
+                    business_id=business_id or None,
+                    actor=actor,
+                    thread_subject=result.thread_subject,
+                ),
+            )
+
         await _persist_conversation_turn(
             conversation_id=conversation_id,
             message=message,
@@ -1805,6 +1831,15 @@ async def run_request_lifecycle(
             summary_text = None
             summary_version = None
 
+    prior_receipt_ctx: dict[str, Any] = {}
+    if conversation_id and prior_messages_found > 0:
+        try:
+            prior_receipt_ctx = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: prompt_receipts.load_prior_receipt_context(str(conversation_id))
+            )
+        except Exception:
+            prior_receipt_ctx = {}
+
     effective_model = route.model
     caps = get_caps(effective_model)
     system_role = "developer" if (caps.supports_reasoning_effort and not caps.supports_temperature) else "system"
@@ -1821,6 +1856,9 @@ async def run_request_lifecycle(
         summary_text=summary_text,
         summary_version=summary_version,
         user_message=message,
+        prior_concept_id=prior_receipt_ctx.get("prior_concept_id"),
+        prior_concept_confidence=prior_receipt_ctx.get("prior_concept_confidence"),
+        prior_thread_subject=prior_receipt_ctx.get("prior_thread_subject"),
     )
 
     # ── Layer 2: Context Compiler (unless lane-A minimal bypass) ─────────

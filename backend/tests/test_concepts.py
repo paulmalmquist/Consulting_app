@@ -314,6 +314,23 @@ def test_non_referential_with_entity() -> None:
     assert not is_referential_message("Explain Austin West NOI variance")
 
 
+def test_referential_which_ones_with_qualifier() -> None:
+    assert is_referential_message("which ones don't have a status")
+
+
+def test_referential_which_ones_bare() -> None:
+    assert is_referential_message("which ones?")
+
+
+def test_referential_which_short() -> None:
+    assert is_referential_message("which ones are missing")
+
+
+def test_non_referential_which_long() -> None:
+    # 6 words after stripping punctuation — exceeds the 5-word bare-WH limit
+    assert not is_referential_message("which assets should we review for Q3")
+
+
 # ── Inheritance integration ────────────────────────────────────────────────
 
 

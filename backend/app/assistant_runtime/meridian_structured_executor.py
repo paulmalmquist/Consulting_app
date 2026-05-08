@@ -39,6 +39,7 @@ class StructuredExecutionResult:
     canonical_source: str = ""
     result_memory: dict[str, Any] | None = None
     structured_receipt: dict[str, Any] | None = None
+    thread_subject: dict[str, Any] | None = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -137,6 +138,18 @@ def _execute_fund_list(
             source_name="repe.list_funds",
             scope={"business_id": business_id, "environment_id": env_id},
         ),
+        thread_subject={
+            "subject_type": "entity_collection",
+            "entity_type": "fund",
+            "entity_label_plural": "funds",
+            "result_set_hint": "portfolio_funds",
+            "last_metric": "fund_list",
+            "supported_followups": ["list_members", "inactive_status", "filter_by_strategy"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 
@@ -354,6 +367,18 @@ def _execute_asset_count(
         source_path="repe.count_assets",
         canonical_source="repe_asset",
         result_memory=rm,
+        thread_subject={
+            "subject_type": "entity_collection",
+            "entity_type": "asset",
+            "entity_label_plural": "assets",
+            "result_set_hint": "portfolio_assets",
+            "last_metric": "status_count",
+            "supported_followups": ["missing_status", "noncanonical_status", "list_members"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 

@@ -21,11 +21,12 @@ and skills/winston-agentic-build (composition control architecture).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, replace as _dc_replace
 from typing import Any
 
 from app.assistant_runtime.concepts import BehaviorTier, ConceptMatch
 from app.assistant_runtime.concepts.registry import (
+    is_referential_message,
     load_concept_summary,
     match_with_inheritance,
 )
@@ -612,6 +613,7 @@ def strategize(
     user_message: str,
     prior_concept_id: str | None = None,
     prior_concept_confidence: float | None = None,
+    prior_thread_subject: dict[str, Any] | None = None,
 ) -> CompositionPlan:
     """Produce a deterministic ``CompositionPlan`` ready for the compiler.
 
@@ -619,6 +621,9 @@ def strategize(
     follow-up inheritance — when the user says "what about underwriting?" on
     turn 3, we reuse the concept matched on turn 2 instead of letting the
     matcher silently drop it.
+
+    ``prior_thread_subject`` carries entity-type memory for non-concept turns
+    (e.g., "how many assets" → "which ones don't have a status").
     """
 
     # Derive an intent string if the router didn't give us one.
@@ -705,6 +710,41 @@ def strategize(
         effective_lane = _normalize_lane(router_lane)
         policy = get_policy(effective_lane)
         diagnostics["scope_downgrade_applied"] = True
+
+    # Thread-subject inheritance for non-concept referential follow-ups.
+    # When a prior structured answer (e.g. asset-count) produced a thread_subject
+    # and the current message is referential with no explicit entity type in scope,
+    # inherit the prior entity_type so the model doesn't ask broad clarification.
+    _ts_inherited = False
+    _ts_source: str | None = None
+    _ts_entity_type: str | None = None
+    _ts_result_set_hint: str | None = None
+    _ts_last_metric: str | None = None
+    _ts_supported_followups: list[str] = []
+    if (
+        prior_thread_subject
+        and not scope.entity_type
+        and is_referential_message(user_message)
+    ):
+        _ts_turn_distance = prior_thread_subject.get("turn_distance", 0)
+        _THREAD_SUBJECT_MAX_TURN_DISTANCE = 2
+        if _ts_turn_distance <= _THREAD_SUBJECT_MAX_TURN_DISTANCE:
+            _ts_entity_type = prior_thread_subject.get("entity_type")
+            _ts_result_set_hint = prior_thread_subject.get("result_set_hint")
+            _ts_last_metric = prior_thread_subject.get("last_metric")
+            _ts_supported_followups = prior_thread_subject.get("supported_followups") or []
+            _ts_source = prior_thread_subject.get("source")
+            if _ts_entity_type:
+                scope = _dc_replace(scope, entity_type=_ts_entity_type)
+                _ts_inherited = True
+
+    diagnostics["thread_subject_inherited"] = _ts_inherited
+    if _ts_inherited:
+        diagnostics["thread_subject_source"] = _ts_source
+        diagnostics["thread_subject_entity_type"] = _ts_entity_type
+        diagnostics["thread_subject_result_set_hint"] = _ts_result_set_hint
+        diagnostics["thread_subject_last_metric"] = _ts_last_metric
+        diagnostics["thread_subject_supported_followups"] = _ts_supported_followups
 
     # Deictic resolution uses the active scope hint.
     scope_hint = {

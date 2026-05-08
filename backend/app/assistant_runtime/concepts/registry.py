@@ -90,6 +90,9 @@ _REFERENTIAL_PHRASES = (
     "the same",
     "same question",
     "same thing",
+    "which ones",
+    "which of them",
+    "which of those",
 )
 
 _REFERENTIAL_PRONOUNS = ("that", "this", "it", "those", "these")

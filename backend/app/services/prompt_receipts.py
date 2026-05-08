@@ -687,3 +687,89 @@ def update_upstream_usage(
             )
     except Exception:
         logger.exception("failed to update upstream usage for %s round %s", request_id, round_index)
+
+
+def persist_thread_subject(
+    conversation_id: str,
+    request_id: str,
+    session_id: str | None,
+    env_id: str | None,
+    business_id: str | None,
+    actor: str,
+    thread_subject: dict[str, Any],
+) -> None:
+    """Write a minimal ai_prompt_receipts row carrying only thread_subject in notes_json.
+
+    Used by the Meridian structured gate, which bypasses the normal prompt-receipt
+    path but still needs to persist thread_subject for the next turn's inheritance.
+    Safe to call from run_in_executor. Never raises.
+    """
+    if not is_enabled():
+        return
+    try:
+        notes = json.dumps({"thread_subject": thread_subject}, default=str)
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ai_prompt_receipts
+                    (request_id, conversation_id, session_id, env_id, business_id,
+                     actor, capture_point, notes_json)
+                VALUES (%s, %s, %s, %s, %s, %s, 'structured_gate', %s)
+                """,
+                (
+                    str(request_id),
+                    str(conversation_id),
+                    str(session_id) if session_id else None,
+                    str(env_id) if env_id else None,
+                    str(business_id) if business_id else None,
+                    str(actor),
+                    notes,
+                ),
+            )
+    except Exception:
+        logger.exception(
+            "failed to persist thread_subject receipt for conversation %s", conversation_id
+        )
+
+
+def load_prior_receipt_context(conversation_id: str) -> dict[str, Any]:
+    """Return thread-subject fields from the most recent receipt for this conversation.
+
+    Extracts concept_diagnostics (for prior_concept_id / prior_confidence) and
+    thread_subject (for non-concept entity memory). Returns an empty dict on any
+    failure — callers must treat all fields as optional.
+
+    Safe to call from a run_in_executor thread.
+    """
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT notes_json
+                FROM ai_prompt_receipts
+                WHERE conversation_id = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (str(conversation_id),),
+            )
+            row = cur.fetchone()
+        if not row:
+            return {}
+        notes = row["notes_json"] if isinstance(row, dict) else row[0]
+        if isinstance(notes, str):
+            notes = json.loads(notes)
+        if not isinstance(notes, dict):
+            return {}
+        result: dict[str, Any] = {}
+        cd = notes.get("concept_diagnostics") or {}
+        if cd.get("concept_id"):
+            result["prior_concept_id"] = cd["concept_id"]
+            result["prior_concept_confidence"] = cd.get("concept_confidence")
+        ts = notes.get("thread_subject") or {}
+        if ts:
+            result["prior_thread_subject"] = ts
+        return result
+    except Exception:
+        logger.exception("failed to load prior receipt context for conversation %s", conversation_id)
+        return {}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -277,6 +277,33 @@ class SourceDisciplineReceipt(BaseModel):
     scope_rule_applied: str | None = None
 
 
+class ThreadSubjectReceipt(BaseModel):
+    """Lightweight structured memory of what the prior answer was about.
+
+    Produced only by trusted producers (structured_executor, concept_receipt) —
+    never inferred from arbitrary assistant prose. Consumed on the next turn to
+    resolve referential follow-ups ("which ones don't have a status") without
+    asking broad entity-type clarification questions.
+
+    Expires after max_turn_distance turns so stale context does not bleed
+    across unrelated conversation threads.
+    """
+
+    model_config = {"extra": "ignore"}
+
+    subject_type: Literal["entity_collection", "metric_summary", "concept", "unknown"]
+    entity_type: str | None = None
+    entity_label_plural: str | None = None
+    result_set_hint: str | None = None
+    last_metric: str | None = None
+    supported_followups: list[str] = Field(default_factory=list)
+    environment_id: str | None = None
+    confidence: float = 0.9
+    source: Literal["structured_executor", "concept_receipt"]
+    turn_distance: int = 0
+    created_at: str | None = None
+
+
 class TurnReceipt(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -295,6 +322,7 @@ class TurnReceipt(BaseModel):
     quality_gates: list[dict[str, Any]] | None = None
     concept: ConceptReceipt | None = None
     source_discipline: SourceDisciplineReceipt | None = None
+    thread_subject: ThreadSubjectReceipt | None = None
 
 
 def build_concept_receipt(plan: Any, compiled: Any) -> ConceptReceipt | None:
