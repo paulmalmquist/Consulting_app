@@ -5,6 +5,7 @@ const nextConfig = {
     return [
       { source: '/public',                destination: '/',             permanent: true },
       { source: '/public/onboarding',     destination: '/onboarding',   permanent: true },
+      { source: '/capabilities/comprehensive-data-strategy', destination: '/what-we-do', permanent: true },
     ];
   },
 };

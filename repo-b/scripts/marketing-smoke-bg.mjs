@@ -22,7 +22,7 @@ const ROUTES = [
   { path: '/industries/medical', expectHeroBg: true },
   { path: '/industries/legal', expectHeroBg: true },
   { path: '/capabilities', expectIndex: true },
-  { path: '/capabilities/comprehensive-data-strategy', expectCapability: true },
+  { path: '/what-we-do', expectCapability: true },
 ];
 
 const browser = await chromium.launch();

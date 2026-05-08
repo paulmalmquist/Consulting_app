@@ -97,7 +97,7 @@ test("Marketing capability navigation omits Legacy SaaS Migration", async ({ pag
   await page.goto("/");
   await expect(page.getByText("Legacy SaaS Migration")).toHaveCount(0);
 
-  await page.goto("/capabilities/comprehensive-data-strategy");
+  await page.goto("/what-we-do");
   await expect(page.locator("body")).toBeVisible();
 
   await page.goto("/saas-iceberg");

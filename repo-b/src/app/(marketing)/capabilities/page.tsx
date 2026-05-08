@@ -15,11 +15,6 @@ const capabilities = [
     copy: 'Find the workflow that is costing you the most. Baseline cycle time, error rate, and owner gaps in 30 minutes.',
   },
   {
-    title: 'Comprehensive Data Strategy',
-    href: '/capabilities/comprehensive-data-strategy',
-    copy: 'Design and build the data systems behind your reporting, operations, and decision making.',
-  },
-  {
     title: 'AI Concierge',
     href: '/ai-concierge',
     copy: 'Add an AI layer that answers questions against your real data with the citations and guardrails leadership expects.',
