@@ -10,8 +10,6 @@ Tests cover:
 """
 from __future__ import annotations
 
-import pytest
-
 from app.services.prompt_strategy import strategize
 
 
