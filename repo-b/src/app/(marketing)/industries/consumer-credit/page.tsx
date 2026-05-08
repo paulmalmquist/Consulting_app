@@ -8,7 +8,7 @@ import {
 } from '@/components/marketing/visual/DataPipelineFlow';
 import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
 
-const HERO_BG = '/assets/bg-consumer-credit.jpg';
+const HERO_BG = '/assets/bg-consumer.jpg';
 
 // Replace with Calendly URL when available.
 const CONTACT_LINK =
