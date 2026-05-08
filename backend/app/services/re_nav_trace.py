@@ -30,10 +30,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any, Literal
-from uuid import UUID
 
 from app.db import get_cursor
-from app.services.re_authoritative_snapshots import _normalize, _to_decimal
+from app.services.re_authoritative_snapshots import _normalize
 from app.services.re_trace_gate import TraceableFundSnapshot
 
 

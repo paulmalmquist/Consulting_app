@@ -6,13 +6,12 @@ no LLMs, no random fudge.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
 from app.db import get_cursor
 from app.schemas.vultr import (
-    FreshnessReport,
     GpuCommandGraphFilters,
     GpuCommandGraphOut,
     GpuCustomerNode,
@@ -21,7 +20,6 @@ from app.schemas.vultr import (
     GpuSkuNode,
     GpuTimePoint,
     MetricBlock,
-    Provenance,
     ReconciliationException,
 )
 from app.services import (

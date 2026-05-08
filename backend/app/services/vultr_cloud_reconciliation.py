@@ -62,7 +62,8 @@ def build_bridge(env_id: str, period_start: date, period_end: date) -> Reconcili
         source_system="platform_telemetry_demo", previous=prev,
         null_reason="no_usage_rows" if usage_n == 0 else None,
     )
-    stages.append(s1); prev = s1.amount_usd
+    stages.append(s1)
+    prev = s1.amount_usd
 
     s2 = _stage(
         key="rated_billing", label="Rated Billing",
@@ -70,7 +71,8 @@ def build_bridge(env_id: str, period_start: date, period_end: date) -> Reconcili
         source_system="billing_engine_demo", previous=prev,
         null_reason="no_billing_lines" if bill_n == 0 else None,
     )
-    stages.append(s2); prev = s2.amount_usd
+    stages.append(s2)
+    prev = s2.amount_usd
 
     s3 = _stage(
         key="issued_invoices", label="Issued Invoices",
@@ -78,7 +80,8 @@ def build_bridge(env_id: str, period_start: date, period_end: date) -> Reconcili
         source_system="netsuite_demo", previous=prev,
         null_reason="no_invoices" if inv_n == 0 else None,
     )
-    stages.append(s3); prev = s3.amount_usd
+    stages.append(s3)
+    prev = s3.amount_usd
 
     s4 = _stage(
         key="recognized_revenue", label="Recognized Revenue",
@@ -86,7 +89,8 @@ def build_bridge(env_id: str, period_start: date, period_end: date) -> Reconcili
         source_system="netsuite_demo", previous=prev,
         null_reason="no_revrec_rows" if rec_n == 0 else None,
     )
-    stages.append(s4); prev = s4.amount_usd
+    stages.append(s4)
+    prev = s4.amount_usd
 
     s5 = _stage(
         key="collected_cash", label="Collected Cash",
@@ -94,7 +98,8 @@ def build_bridge(env_id: str, period_start: date, period_end: date) -> Reconcili
         source_system="netsuite_demo", previous=prev,
         null_reason="no_payments" if cash_n == 0 else None,
     )
-    stages.append(s5); prev = s5.amount_usd
+    stages.append(s5)
+    prev = s5.amount_usd
 
     s6 = _stage(
         key="contract_committed", label="Contract Committed",

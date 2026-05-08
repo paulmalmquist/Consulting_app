@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any
 
 from app.db import get_cursor
 from app.schemas.vultr import MetricBlock, MetricPeriod, Provenance

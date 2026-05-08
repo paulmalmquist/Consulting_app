@@ -6,7 +6,7 @@ so service-level callers don't have to think about table names.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 

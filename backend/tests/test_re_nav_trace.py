@@ -53,8 +53,8 @@ def _mock_cursor(cur: FakeCursor):
     return _mock
 
 
-from app.services import re_nav_trace
-from app.services.re_trace_gate import TraceableFundSnapshot
+from app.services import re_nav_trace  # noqa: E402
+from app.services.re_trace_gate import TraceableFundSnapshot  # noqa: E402
 
 
 FUND_ID = "f0000000-0000-0000-0000-000000000001"

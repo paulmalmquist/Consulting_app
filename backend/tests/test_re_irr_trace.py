@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from datetime import date
-from decimal import Decimal
 from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
@@ -54,8 +53,8 @@ def _mock_cursor(cur: FakeCursor):
     return _mock
 
 
-from app.services import re_irr_trace
-from app.services.re_trace_gate import TraceableFundSnapshot
+from app.services import re_irr_trace  # noqa: E402
+from app.services.re_trace_gate import TraceableFundSnapshot  # noqa: E402
 
 
 FUND_ID = "f0000000-0000-0000-0000-000000000001"
