@@ -282,6 +282,16 @@ def _parse_contract(
         inherited.transformation = "detail"
         return inherited, memory_used
 
+    # "which ones <qualifier>" — inherit the prior subject, set transformation
+    # to "filter", and let _extract_filters pick up phrases like
+    # "don't have a status" / "are non-canonical" / "are missing status".
+    if previous_contract and re.match(r"^\s*which\s+ones\b", lower):
+        memory_used = True
+        inherited = _contract_from_state(previous_contract)
+        inherited.transformation = "filter"
+        inherited.filters = _extract_filters(lower)
+        return inherited, memory_used
+
     entity = _extract_entity(lower, previous_contract)
     metric, fact = _extract_metric_or_fact(lower, previous_contract)
     transformation = _extract_transformation(lower, previous_contract)
@@ -480,6 +490,21 @@ def _extract_filters(text: str) -> list[StructuredFilter]:
         filters.append(StructuredFilter(field="status", operator="=", value="active", raw_text="active assets"))
     if "not active" in text:
         filters.append(StructuredFilter(field="status", operator="!=", value="active", raw_text="not active"))
+    # Missing or non-canonical status — natural follow-up to an asset count
+    # answer that surfaces an "Other / non-canonical status" bucket.
+    if (
+        "don't have a status" in text
+        or "dont have a status" in text
+        or "do not have a status" in text
+        or "without a status" in text
+        or "missing a status" in text
+        or "missing status" in text
+        or "no status" in text
+        or "non-canonical" in text
+        or "noncanonical" in text
+        or "non canonical" in text
+    ):
+        filters.append(StructuredFilter(field="status", operator="missing", value=None, raw_text="missing or non-canonical status"))
     return filters
 
 
@@ -1350,7 +1375,15 @@ def _asset_count_outcome(
     )
 
     status_filter = next((item for item in contract.filters if item.field == "status"), None)
-    if status_filter and status_filter.operator == "!=" and status_filter.value == "active":
+    if status_filter and status_filter.operator == "missing":
+        other_rows = list(bucket_members.get("other") or [])
+        if other_rows:
+            lines = [f"Meridian has {len(other_rows)} property asset(s) with a non-canonical status:"]
+            for row in other_rows:
+                lines.append(f"- {row.get('name')} ({row.get('status') or 'status n/a'})")
+        else:
+            lines = ["Every property asset in Meridian has a canonical status (active, disposed, or pipeline)."]
+    elif status_filter and status_filter.operator == "!=" and status_filter.value == "active":
         lines = [f"Meridian has {len(non_active_rows)} property assets that are not active:"]
         for row in non_active_rows:
             lines.append(f"- {row.get('name')} ({row.get('status') or 'status n/a'})")

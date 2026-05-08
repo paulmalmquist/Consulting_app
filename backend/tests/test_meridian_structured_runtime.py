@@ -491,3 +491,96 @@ def test_meridian_conversation_pack_exact_prompts(monkeypatch, capsys):
     assert rows[14]["Path"] == "referential"
     assert "list investments by gross IRR descending as of 2026Q1" in captured.out
     assert "| Prompt | Parsed OK | Executed | Used memory | Degraded | Valid | Path |" in captured.out
+
+
+def _asset_count_state() -> dict:
+    """Mimic what _build_structured_state writes after an asset-count answer."""
+    return {
+        "last_contract": {
+            "entity": "portfolio",
+            "entity_name": None,
+            "metric": "asset_count",
+            "fact": None,
+            "transformation": "summary",
+            "group_by": None,
+            "aggregation": "count",
+            "filters": [],
+            "sort_by": None,
+            "sort_direction": None,
+            "limit": None,
+            "timeframe_type": "none",
+            "timeframe_value": None,
+        }
+    }
+
+
+def test_meridian_parser_which_ones_dont_have_a_status():
+    """The follow-up that broke in production: 'which ones dont have a status'.
+
+    Should inherit the prior asset_count contract, set transformation='filter',
+    and attach a status=missing filter so _asset_count_outcome lists the
+    non-canonical-status assets.
+    """
+    contract, memory_used = _parse_contract(
+        message="which ones dont have a status",
+        structured_state=_asset_count_state(),
+    )
+    assert memory_used is True
+    assert contract is not None
+    assert contract.entity == "portfolio"
+    assert contract.metric == "asset_count"
+    assert contract.transformation == "filter"
+    status_filters = [f for f in contract.filters if f.field == "status"]
+    assert len(status_filters) == 1
+    assert status_filters[0].operator == "missing"
+
+
+def test_meridian_parser_which_ones_with_apostrophe():
+    """Apostrophe variant: 'which ones don't have a status'."""
+    contract, _ = _parse_contract(
+        message="which ones don't have a status",
+        structured_state=_asset_count_state(),
+    )
+    assert contract is not None
+    assert contract.transformation == "filter"
+    assert any(f.operator == "missing" for f in contract.filters if f.field == "status")
+
+
+def test_meridian_parser_which_ones_missing_status_phrasing():
+    """'which ones are missing a status' / 'which ones have no status'."""
+    for msg in (
+        "which ones are missing a status",
+        "which ones have no status",
+        "which ones are non-canonical",
+    ):
+        contract, _ = _parse_contract(
+            message=msg,
+            structured_state=_asset_count_state(),
+        )
+        assert contract is not None, f"failed to parse: {msg}"
+        assert contract.transformation == "filter"
+        assert any(
+            f.operator == "missing" for f in contract.filters if f.field == "status"
+        ), f"missing-status filter absent for: {msg}"
+
+
+def test_meridian_parser_bare_which_ones_still_uses_detail():
+    """The pre-existing bare 'which ones' branch must keep returning 'detail'."""
+    contract, _ = _parse_contract(
+        message="which ones",
+        structured_state=_asset_count_state(),
+    )
+    assert contract is not None
+    assert contract.transformation == "detail"
+
+
+def test_meridian_parser_which_ones_no_prior_contract_returns_none():
+    """Without prior state we cannot inherit; fall through to general parser."""
+    contract, memory_used = _parse_contract(
+        message="which ones don't have a status",
+        structured_state={},
+    )
+    # No prior contract → no inheritance → general parser sees no entity/metric
+    # and returns None.
+    assert memory_used is False
+    assert contract is None
