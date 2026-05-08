@@ -585,7 +585,7 @@ function AppIndexPageInner() {
       </div>
 
       {/* ── Desktop layout ────────────────────────────────────────────── */}
-      <div className="relative z-10 mx-auto hidden min-h-screen w-full max-w-[1440px] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="relative z-10 hidden min-h-screen w-full lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside
           className="border-b px-5 py-6 backdrop-blur-xl lg:border-b-0 lg:border-r"
           style={{
@@ -735,10 +735,10 @@ function AppIndexPageInner() {
           </div>
 
           {/* Content area */}
-          <div className="flex flex-1 px-8 pt-10 pb-8 lg:px-10">
-            <div className="flex w-full gap-8">
+          <div className="flex flex-1 px-8 pt-10 pb-8 lg:px-10 xl:px-12 2xl:px-14">
+            <div className="grid w-full grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:gap-10">
               {/* Primary detail panel — anchored top-left */}
-              <div className="flex-1 min-w-0 max-w-3xl space-y-4">
+              <div className="min-w-0 space-y-4">
                 {deniedMessage ? (
                   <div
                     className="rounded-md border px-4 py-2.5 text-[13px]"

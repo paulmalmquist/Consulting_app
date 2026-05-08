@@ -18,17 +18,17 @@ export function PortfolioAnalyticsGrid({
   const { setMapHighlight } = usePortfolioFilters();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-3">
-      {/* LEFT: Map (~42%) */}
-      <div>
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[5fr_7fr] lg:items-stretch">
+      {/* LEFT: Map (~42%) — fills full column height */}
+      <div className="flex flex-col">
         <PortfolioAssetMap
           data={assetMapData as any}
           loading={assetMapLoading}
         />
       </div>
 
-      {/* RIGHT: Stacked analytics (60%) */}
-      <div className="space-y-3">
+      {/* RIGHT: Stacked analytics (~58%) */}
+      <div className="flex flex-col gap-3">
         <FundComparisonChart />
         <AllocationAndPerformers />
       </div>

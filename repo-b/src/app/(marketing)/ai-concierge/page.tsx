@@ -2,40 +2,70 @@ import { HeroBackground } from '@/components/marketing/HeroBackground';
 import { NvButton } from '@/components/marketing/ui/NvButton';
 import { NvCard } from '@/components/marketing/ui/NvCard';
 import { SectionHeader } from '@/components/marketing/ui/SectionHeader';
+import { AIControlBoard } from '@/components/marketing/visual/AIControlBoard';
 import { fileExistsInPublic } from '@/lib/marketing/publicAssets';
 
 const HERO_BG = '/assets/bg-ai-concierge.jpg';
 
-const howItWorks = [
+const controlLayer = [
   {
-    title: 'Question',
-    detail: 'A team member asks the assistant a question tied to real work — an exception, an approval, a status check.'
+    title: 'Request',
+    detail: 'A user asks for an answer, action, report, exception review, or workflow step.'
   },
   {
-    title: 'Answer with records',
-    detail: 'The assistant pulls the data, rules, and prior approvals behind the answer, then drafts a recommendation a human can review.'
+    title: 'Route',
+    detail: 'Novendor selects the right skill, system, model, context, and permission path.'
   },
   {
-    title: 'Approve or adjust',
-    detail: 'A person reviews the recommendation, approves it, edits it, or sends it back. Nothing acts on its own.'
+    title: 'Govern',
+    detail: 'Token use, source access, business rules, approvals, and human review are applied before action.'
   },
   {
-    title: 'Trace the decision',
-    detail: 'Every recommendation, approval, and override is recorded so the team can review what happened and why.'
+    title: 'Record',
+    detail: 'Every recommendation, override, model call, source, and decision is logged.'
+  }
+];
+
+const controlSurface = [
+  {
+    title: 'Skill registry',
+    detail: 'Approved skills by function, industry, workflow, and data source.'
+  },
+  {
+    title: 'Model and token control',
+    detail: 'Track model use, cost, latency, and fit by task.'
+  },
+  {
+    title: 'Prompt and context governance',
+    detail: 'Keep business logic, approved language, and source rules consistent.'
+  },
+  {
+    title: 'Access and approval paths',
+    detail: 'Route sensitive work through the right users and permissions.'
+  },
+  {
+    title: 'Optimization loop',
+    detail: 'See which requests get used, overridden, or ignored. Track cost per task and where approvals slow things down.'
+  },
+  {
+    title: 'Sprawl control',
+    detail: 'Bring scattered copilots, spreadsheets, prompts, and one-off automations into one traceable layer.'
   }
 ];
 
 const safeguards = [
-  'Human review on every action',
+  'Human review on sensitive work',
   'Role-based access to data and tools',
   'Recommendations tied to records',
-  'Decisions and overrides are traceable'
+  'Decisions and overrides logged',
+  'Model and token use tracked',
+  'Skills approved before they ship'
 ];
 
 const whatChanges = [
-  'Faster, cleaner answers on recurring exceptions.',
-  'Recommendations the team can defend, with the records behind them.',
-  'A clear record of what was approved, by whom, and on what basis.',
+  'A single place to see every AI request, model call, approval, and override.',
+  'Cleaner answers on recurring exceptions, with the records behind them.',
+  'Cost and risk you can manage — token use, model fit, and approval coverage are visible.',
   'AI use that holds up to a compliance review without surprises.'
 ];
 
@@ -45,43 +75,75 @@ export default function AIConciergePage() {
   return (
     <>
       <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45} fallbackTone="concierge">
-        <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />AI Concierge</p>
+        <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Operating concierge for enterprise AI</p>
         <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
-          Help your team use AI with context, control, and <em>confidence</em>.
+          One place where AI work is <em>controlled</em>.
         </h1>
         <p className="nv-lede">
-          We work alongside your team to evaluate AI use cases, answer practical questions, review risks, and guide adoption. You get expert support before AI experiments spread across the business without control.
+          AI work is spreading across the enterprise. Copilots, prompts, and one-off automations are already in use. No one owns how that work runs.
+        </p>
+        <p className="nv-lede" style={{ marginTop: 12 }}>
+          Novendor centralizes that work in a governed operating layer.
         </p>
         <div style={{ marginTop: 28 }}>
-          <NvButton variant="primary" href="/contact">Talk through your AI use</NvButton>
+          <NvButton variant="primary" href="/contact">Talk through your AI control layer</NvButton>
         </div>
       </HeroBackground>
 
       <div className="nv-page" style={{ paddingTop: 0 }}>
         <section className="nv-section">
           <div className="nv-section-head">
-            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Example interaction</p>
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Control board</p>
+          </div>
+          <AIControlBoard />
+        </section>
+
+        <section className="nv-section">
+          <div className="nv-section-head">
+            <p className="nv-eyebrow"><span className="nv-eyebrow-dot" />Example request</p>
           </div>
           <NvCard>
-            <p className="nv-body"><strong>Team member:</strong> A capital call exception just crossed the threshold. Should we escalate?</p>
+            <p className="nv-body"><strong>Request</strong> — Finance owner asks the assistant to review this week&apos;s variance exceptions over threshold.</p>
             <p className="nv-body" style={{ marginTop: 12 }}>
-              <strong>Concierge:</strong> Yes — escalate to the finance approver. The variance is above the 2.5% threshold. Two similar items last quarter were approved by the owner with notes attached. The records behind this recommendation are linked.
+              <strong>Routed</strong> — variance-review skill, model gpt-4.1, ERP and prior approvals, finance-owner approval path.
+            </p>
+            <p className="nv-body" style={{ marginTop: 12 }}>
+              <strong>Governed</strong> — 18,420 tokens used. Three exceptions flagged for human review. Escalations drafted with linked records.
+            </p>
+            <p className="nv-body" style={{ marginTop: 12 }}>
+              <strong>Recorded</strong> — trace nv-48291. Decisions, overrides, model call, and sources logged.
             </p>
           </NvCard>
         </section>
 
         <section className="nv-section">
           <SectionHeader
-            eyebrow="How it works"
-            headline="Four steps, every time."
-            description="Every recommendation runs through the same path: question, answer with records, approve or adjust, trace the decision."
+            eyebrow="Control layer"
+            headline="Govern AI where the work happens."
+            description="Every AI request runs through the same path: route to the right skill and model, apply governance before action, record what happened."
           />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {howItWorks.map((step, idx) => (
+            {controlLayer.map((step, idx) => (
               <NvCard key={step.title}>
                 <p className="nv-eyebrow" style={{ marginBottom: 12 }}>{String(idx + 1).padStart(2, '0')}</p>
                 <h3 className="nv-h3" style={{ marginBottom: 8 }}>{step.title}</h3>
                 <p className="nv-body" style={{ margin: 0 }}>{step.detail}</p>
+              </NvCard>
+            ))}
+          </div>
+        </section>
+
+        <section className="nv-section">
+          <SectionHeader
+            eyebrow="Control surface"
+            headline="Centralize the sprawl before it becomes permanent."
+            description="One operating layer for the work, the models, and the people who approve it."
+          />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {controlSurface.map((item) => (
+              <NvCard key={item.title}>
+                <h3 className="nv-h3" style={{ marginBottom: 8 }}>{item.title}</h3>
+                <p className="nv-body" style={{ margin: 0 }}>{item.detail}</p>
               </NvCard>
             ))}
           </div>
@@ -111,7 +173,7 @@ export default function AIConciergePage() {
               ))}
             </ul>
             <div className="flex flex-wrap gap-3" style={{ marginTop: 24 }}>
-              <NvButton variant="primary" href="/contact">Talk through your AI use</NvButton>
+              <NvButton variant="primary" href="/contact">Talk through your AI control layer</NvButton>
               <NvButton variant="secondary" href="/operational-assessment">Get an AI-readiness review</NvButton>
             </div>
           </NvCard>

@@ -175,7 +175,7 @@ export function AllocationAndPerformers() {
   }
 
   return (
-    <div className="rounded-md border border-bm-border/20 bg-bm-surface/30 p-3 space-y-3">
+    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3 dark:border-bm-border/20 dark:bg-bm-surface/30">
       {/* Allocation */}
       <div>
         <div className="flex items-center justify-between mb-2">

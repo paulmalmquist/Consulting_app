@@ -20,20 +20,86 @@ const clipPill =
 const clipChip =
   "polygon(0 4px, 4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px))";
 
-const sources = [
+export type SourceGlyphKind = "erp" | "crm" | "tools" | "files" | "cloud";
+export type UserGlyphKind = "exec" | "analyst" | "ops" | "agent" | "report";
+export type GovTileTone = "teal" | "copper" | "warning" | "success";
+
+export type DataPipelineSource = {
+  name: string;
+  detail: string;
+  glyph: SourceGlyphKind;
+};
+
+export type DataPipelineUser = {
+  name: string;
+  detail: string;
+  glyph: UserGlyphKind;
+};
+
+export type DataPipelineColumn = {
+  items: readonly string[];
+  foot: ReactNode;
+};
+
+export type DataPipelineGovTile = {
+  label: string;
+  tone: GovTileTone;
+};
+
+export type DataPipelineFlowContent = {
+  aiBannerCopy?: ReactNode;
+  column1?: { sources?: readonly DataPipelineSource[]; foot?: ReactNode };
+  column2?: DataPipelineColumn;
+  column3?: DataPipelineColumn;
+  column4?: {
+    govTiles?: readonly [DataPipelineGovTile, DataPipelineGovTile, DataPipelineGovTile, DataPipelineGovTile];
+    items?: readonly string[];
+    foot?: ReactNode;
+  };
+  column5?: { users?: readonly DataPipelineUser[]; foot?: ReactNode };
+};
+
+const defaultSources: readonly DataPipelineSource[] = [
   { name: "ERP", detail: "Financial and operating records", glyph: "erp" },
   { name: "CRM", detail: "Pipeline, contacts, history", glyph: "crm" },
   { name: "Internal tools", detail: "Where the work happens", glyph: "tools" },
   { name: "Files / Excel", detail: "Absorbed into the record", glyph: "files" },
   { name: "Third-party data", detail: "External feeds and portals", glyph: "cloud" },
-] as const;
+];
 
-const users = [
+const defaultUsers: readonly DataPipelineUser[] = [
   { name: "Executives", detail: "Dashboards that drive decisions", glyph: "exec" },
   { name: "Analysts", detail: "Self-serve with trusted data", glyph: "analyst" },
   { name: "Operations", detail: "Answers in the flow of work", glyph: "ops" },
   { name: "AI agents", detail: "Use governed context to draft, check, and execute approved work", glyph: "agent" },
+];
+
+const defaultGovTiles: readonly [DataPipelineGovTile, DataPipelineGovTile, DataPipelineGovTile, DataPipelineGovTile] = [
+  { label: "Metrics & definitions", tone: "teal" },
+  { label: "Business logic", tone: "copper" },
+  { label: "Access & security", tone: "warning" },
+  { label: "Data quality", tone: "success" },
+];
+
+const defaultColumn2Items = [
+  "Pull from the systems where the work lives",
+  "ETL/ELT in Python and SQL",
+  "State, retries, and observability built in",
 ] as const;
+
+const defaultColumn3Items = [
+  "Data warehouse design",
+  "Modern lakehouse on Databricks, Snowflake, or Azure",
+  "Modeled around the questions leadership asks",
+] as const;
+
+const defaultColumn4Items = [
+  "Governed metrics in Power BI",
+  "Definitions tied to the source record",
+  "Validation, access control, and lineage",
+] as const;
+
+const defaultAiBannerCopy = "Reads context, checks definitions, drafts actions, and runs agents against governed data.";
 
 const aiStages = [
   { id: "classify", label: "classify" },
@@ -44,7 +110,48 @@ const aiStages = [
 
 const flowStrip = ["Source", "Integrate", "Model", "Govern", "Deliver"] as const;
 
-export function DataPipelineFlow() {
+export type DataPipelineFlowProps = {
+  content?: DataPipelineFlowContent;
+};
+
+export function DataPipelineFlow({ content }: DataPipelineFlowProps = {}) {
+  const sources = content?.column1?.sources ?? defaultSources;
+  const users = content?.column5?.users ?? defaultUsers;
+  const govTiles = content?.column4?.govTiles ?? defaultGovTiles;
+  const column2Items = content?.column2?.items ?? defaultColumn2Items;
+  const column3Items = content?.column3?.items ?? defaultColumn3Items;
+  const column4Items = content?.column4?.items ?? defaultColumn4Items;
+  const aiBannerCopy = content?.aiBannerCopy ?? defaultAiBannerCopy;
+  const column1Foot = content?.column1?.foot ?? "Your data already lives somewhere.";
+  const column2Foot = content?.column2?.foot ?? (
+    <>
+      Data moves reliably.
+      <br />
+      Owned end to end.
+    </>
+  );
+  const column3Foot = content?.column3?.foot ?? (
+    <>
+      Structured. Modeled.
+      <br />
+      Built for decisions.
+    </>
+  );
+  const column4Foot = content?.column4?.foot ?? (
+    <>
+      One definition.
+      <br />
+      Trusted by every team.
+    </>
+  );
+  const column5Foot = content?.column5?.foot ?? (
+    <>
+      Trusted data.
+      <br />
+      Used by people and agents.
+    </>
+  );
+
   return (
     <section aria-label="Data strategy execution flow" className="nv-pipeline">
       <div className="nv-pipeline__scroll">
@@ -56,9 +163,7 @@ export function DataPipelineFlow() {
           </div>
           <div className="nv-pipeline__ai-copy">
             <strong>AI operating layer</strong>
-            <span>
-              Reads context, checks definitions, drafts actions, and runs agents against governed data.
-            </span>
+            <span>{aiBannerCopy}</span>
           </div>
           <span className="nv-pipeline__ai-chip" style={{ clipPath: clipChip }}>
             human-approved
@@ -95,72 +200,42 @@ export function DataPipelineFlow() {
               </li>
             ))}
           </ul>
-          <CardFoot>Your data already lives somewhere.</CardFoot>
+          <CardFoot>{column1Foot}</CardFoot>
         </PipelineCard>
 
         <PipelineCard index={2} title="Pipeline & integration">
           <div className="nv-pipeline__visual">
             <PipelineGlyph />
           </div>
-          <Bullets
-            items={[
-              "Pull from the systems where the work lives",
-              "ETL/ELT in Python and SQL",
-              "State, retries, and observability built in",
-            ]}
-          />
-          <CardFoot>
-            Data moves reliably.
-            <br />
-            Owned end to end.
-          </CardFoot>
+          <Bullets items={column2Items} />
+          <CardFoot>{column2Foot}</CardFoot>
         </PipelineCard>
 
         <PipelineCard index={3} title="Data modeling & warehouse">
           <div className="nv-pipeline__visual">
             <WarehouseGlyph />
           </div>
-          <Bullets
-            items={[
-              "Data warehouse design",
-              "Modern lakehouse on Databricks, Snowflake, or Azure",
-              "Modeled around the questions leadership asks",
-            ]}
-          />
-          <CardFoot>
-            Structured. Modeled.
-            <br />
-            Built for decisions.
-          </CardFoot>
+          <Bullets items={column3Items} />
+          <CardFoot>{column3Foot}</CardFoot>
         </PipelineCard>
 
         <PipelineCard index={4} title="Semantic layer & governance">
           <ul className="nv-pipeline__govern">
-            <GovTile label="Metrics & definitions" tone="teal">
+            <GovTile label={govTiles[0].label} tone={govTiles[0].tone}>
               <GovIconMetrics />
             </GovTile>
-            <GovTile label="Business logic" tone="copper">
+            <GovTile label={govTiles[1].label} tone={govTiles[1].tone}>
               <GovIconLogic />
             </GovTile>
-            <GovTile label="Access & security" tone="warning">
+            <GovTile label={govTiles[2].label} tone={govTiles[2].tone}>
               <GovIconShield />
             </GovTile>
-            <GovTile label="Data quality" tone="success">
+            <GovTile label={govTiles[3].label} tone={govTiles[3].tone}>
               <GovIconCheck />
             </GovTile>
           </ul>
-          <Bullets
-            items={[
-              "Governed metrics in Power BI",
-              "Definitions tied to the source record",
-              "Validation, access control, and lineage",
-            ]}
-          />
-          <CardFoot>
-            One definition.
-            <br />
-            Trusted by every team.
-          </CardFoot>
+          <Bullets items={column4Items} />
+          <CardFoot>{column4Foot}</CardFoot>
         </PipelineCard>
 
         <PipelineCard index={5} title="End users">
@@ -177,11 +252,7 @@ export function DataPipelineFlow() {
               </li>
             ))}
           </ul>
-          <CardFoot>
-            Trusted data.
-            <br />
-            Used by people and agents.
-          </CardFoot>
+          <CardFoot>{column5Foot}</CardFoot>
         </PipelineCard>
       </div>
 
@@ -440,7 +511,7 @@ function GovIconCheck() {
   );
 }
 
-function SourceGlyph({ kind }: { kind: (typeof sources)[number]["glyph"] }) {
+function SourceGlyph({ kind }: { kind: SourceGlyphKind }) {
   switch (kind) {
     case "erp":
       return (
@@ -486,7 +557,7 @@ function SourceGlyph({ kind }: { kind: (typeof sources)[number]["glyph"] }) {
   }
 }
 
-function UserGlyph({ kind }: { kind: (typeof users)[number]["glyph"] }) {
+function UserGlyph({ kind }: { kind: UserGlyphKind }) {
   switch (kind) {
     case "exec":
       return (
@@ -515,6 +586,14 @@ function UserGlyph({ kind }: { kind: (typeof users)[number]["glyph"] }) {
           <circle cx="9" cy="11" r="1.2" fill="currentColor" />
           <circle cx="15" cy="11" r="1.2" fill="currentColor" />
           <path d="M12 6V3M9 17l-1 3M15 17l1 3" stroke="currentColor" strokeWidth="1.3" />
+        </svg>
+      );
+    case "report":
+      return (
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+          <path d="M6 3h9l4 4v14H6z" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M9 12h7M9 16h4" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M9 8l2 2 3-3" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       );
   }

@@ -192,27 +192,76 @@ def _classify_image(content: bytes, mime_type: str) -> dict[str, Any]:
 
 
 def _llm_summary(text_sample: str, document_type: str) -> str | None:
-    """One-line prose summary via WINSTON_ATTACHMENT_SUMMARY_MODEL. Never raises."""
+    """One-line prose summary via WINSTON_ATTACHMENT_SUMMARY_MODEL.
+
+    Routes to Hugging Face Inference API when the model ID contains '/'
+    (e.g. 'google/gemma-3-4b-it'), otherwise falls back to Anthropic SDK.
+    Never raises — failure returns None and the attachment stays ready.
+    """
     model = os.environ.get("WINSTON_ATTACHMENT_SUMMARY_MODEL", "").strip()
     if not model or not text_sample.strip():
         return None
+
+    prompt = (
+        f"Summarize this {document_type} in one sentence:\n\n{text_sample[:1500]}"
+    )
+    system = "You write single-sentence document summaries. Respond with exactly one sentence, no preamble."
+
     try:
-        import anthropic
-        client = anthropic.Anthropic()
-        response = client.messages.create(
-            model=model,
-            max_tokens=80,
-            system="You write single-sentence document summaries. Respond with exactly one sentence, no preamble.",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Summarize this {document_type} in one sentence:\n\n{text_sample[:1500]}",
-                }
-            ],
-        )
-        return response.content[0].text.strip() if response.content else None
+        if "/" in model:
+            return _hf_summary(model, system, prompt)
+        return _anthropic_summary(model, system, prompt)
     except Exception:
         return None
+
+
+def _hf_summary(model: str, system: str, prompt: str) -> str | None:
+    """Call the Hugging Face Inference API (chat/completions compatible)."""
+    import urllib.request
+    import json
+
+    hf_token = os.environ.get("HF_API_TOKEN", "").strip()
+    if not hf_token:
+        return None
+
+    url = f"https://api-inference.huggingface.co/models/{model}/v1/chat/completions"
+    body = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": 80,
+        "stream": False,
+    }).encode()
+
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {hf_token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read())
+
+    text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    return text.strip() or None
+
+
+def _anthropic_summary(model: str, system: str, prompt: str) -> str | None:
+    """Call the Anthropic SDK for a prose summary."""
+    import anthropic
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=model,
+        max_tokens=80,
+        system=system,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text.strip() if response.content else None
 
 
 def _fetch_document_bytes(document_id: uuid.UUID) -> tuple[bytes, str, str]:

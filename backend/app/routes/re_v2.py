@@ -77,6 +77,9 @@ from app.schemas.re_institutional import (
 )
 from app.services import (
     re_fund_portfolio_coherent,
+    re_irr_trace,
+    re_nav_trace,
+    re_trace_gate,
     re_investment,
     re_jv,
     re_partner,
@@ -240,6 +243,73 @@ def get_environment_fund_portfolio(
             quarter=quarter,
         )
         return re_fund_portfolio_coherent.payload_to_dict(payload)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+# ── Fund Metric Trace (NAV / Gross IRR drill-through) ────────────────────────
+
+_TRACE_METRICS = {"nav", "gross_irr"}
+
+
+@router.get("/environments/{env_id}/funds/{fund_id}/trace/{metric_key}")
+def get_fund_metric_trace(
+    env_id: UUID,
+    fund_id: UUID,
+    metric_key: str,
+    request: Request,
+    quarter: str = Query(...),
+):
+    """Drill from a fund-level metric to the rows that compose it.
+
+    Gating:
+      - Fund must be in re_fund_portfolio_included_v for (env_id, business_id,
+        quarter) AND have a released snapshot. Otherwise: HTTP 404.
+      - metric_key must be one of {"nav", "gross_irr"}. Otherwise: HTTP 400.
+
+    Lineage authority:
+      - NAV: re_authoritative_asset_state_qtr scoped by audit_run_id.
+      - gross_irr: re_investment_cf_series_mat with source_hash matching the
+        fund snapshot's cf_series_hash. If the hash gate fails, returns
+        Unavailable(source_lineage_missing); never falls back to recomputing
+        from current cashflow tables.
+
+    Plan: audit/fund_trace/.
+    """
+    metric = metric_key.lower()
+    if metric not in _TRACE_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "metric_not_traceable",
+                "message": (
+                    f"Metric '{metric_key}' is not traceable. Supported: "
+                    f"{sorted(_TRACE_METRICS)}."
+                ),
+            },
+        )
+
+    try:
+        resolved = repe_context.resolve_repe_business_context(
+            request=request,
+            env_id=str(env_id),
+            allow_create=True,
+        )
+        snapshot = re_trace_gate.assert_fund_traceable(
+            env_id=str(env_id),
+            business_id=resolved.business_id,
+            fund_id=str(fund_id),
+            quarter=quarter,
+        )
+        if metric == "nav":
+            payload = re_nav_trace.get_nav_trace(snapshot)
+            return re_nav_trace.payload_to_dict(payload)
+        # metric == "gross_irr"
+        payload_irr = re_irr_trace.get_irr_trace(snapshot)
+        return re_irr_trace.payload_to_dict(payload_irr)
+    except HTTPException:
+        # Preserve the gate's 404 — do not let _to_http coerce it into 500.
+        raise
     except Exception as exc:
         raise _to_http(exc)
 

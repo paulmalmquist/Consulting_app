@@ -1,0 +1,295 @@
+/* Page-scoped styles for the AI control board on /ai-concierge.
+   Uses --nv-* tokens from marketing.css; no global CSS changes. */
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.4fr) minmax(220px, 1fr);
+  gap: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(900px 420px at 50% -20%, rgba(92, 213, 204, 0.06), transparent 70%),
+    rgb(var(--nv-surface));
+  border: 1px solid var(--nv-hair-medium-rgba);
+  box-shadow: var(--nv-shadow-card);
+  clip-path: polygon(
+    0 14px, 14px 0,
+    calc(100% - 22px) 0, 100% 22px,
+    100% calc(100% - 14px), calc(100% - 14px) 100%,
+    22px 100%, 0 calc(100% - 22px)
+  );
+}
+
+.colLabel {
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-tertiary));
+  margin-bottom: 14px;
+}
+
+/* ── Sprawl column ────────────────────────────────────────────── */
+
+.sprawl {
+  position: relative;
+  min-height: 320px;
+}
+
+.sprawlField {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+
+.sprawlChip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgb(var(--nv-text-secondary));
+  background: rgb(var(--nv-surface-raised));
+  border: 1px solid var(--nv-hair-medium-rgba);
+}
+
+.sprawlChip.faded {
+  opacity: 0.45;
+  color: rgb(var(--nv-text-muted));
+}
+
+.sprawlShapeChip {
+  clip-path: polygon(
+    0 4px, 4px 0,
+    calc(100% - 4px) 0, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 0 calc(100% - 4px)
+  );
+}
+
+.sprawlShapeRect {
+  /* no clip — visibly different shape from neighbors */
+}
+
+.sprawlShapePill {
+  border-radius: 999px;
+}
+
+.sprawlConnector {
+  position: absolute;
+  border-top: 1px dashed var(--nv-hair-medium-rgba);
+  pointer-events: none;
+}
+
+/* ── Operating spine ──────────────────────────────────────────── */
+
+.spine {
+  position: relative;
+  background: rgb(var(--nv-surface-raised));
+  border: 1px solid var(--nv-hair-strong-rgba);
+  padding: 18px;
+  clip-path: polygon(
+    0 10px, 10px 0,
+    calc(100% - 10px) 0, 100% 10px,
+    100% calc(100% - 10px), calc(100% - 10px) 100%,
+    10px 100%, 0 calc(100% - 10px)
+  );
+}
+
+.spineHeader {
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-accent-teal));
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--nv-hair-medium-rgba);
+}
+
+.spineRows {
+  display: grid;
+  gap: 10px;
+}
+
+.spineRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgb(var(--nv-surface));
+  border: 1px solid var(--nv-hair-medium-rgba);
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+  font-size: 12px;
+  color: rgb(var(--nv-text-secondary));
+  clip-path: polygon(
+    0 8px, 8px 0,
+    calc(100% - 10px) 0, 100% 10px,
+    100% calc(100% - 8px), calc(100% - 8px) 100%,
+    10px 100%, 0 calc(100% - 10px)
+  );
+}
+
+.spineRow .request {
+  color: rgb(var(--nv-text-primary));
+}
+
+.spineRow .skill {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-tertiary));
+}
+
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  background: rgb(var(--nv-text-muted));
+  vertical-align: middle;
+}
+
+.statusLive { background: rgb(var(--nv-accent-teal)); }
+.statusReview { background: rgb(var(--nv-amber)); }
+.statusLogged { background: rgb(var(--nv-text-tertiary)); }
+
+/* ── Destinations column ──────────────────────────────────────── */
+
+.destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.destination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgb(var(--nv-surface-raised));
+  border: 1px solid var(--nv-hair-medium-rgba);
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-secondary));
+  clip-path: polygon(
+    0 5px, 5px 0,
+    calc(100% - 5px) 0, 100% 5px,
+    100% calc(100% - 5px), calc(100% - 5px) 100%,
+    5px 100%, 0 calc(100% - 5px)
+  );
+}
+
+.destinationMark {
+  width: 4px;
+  height: 14px;
+  background: rgb(var(--nv-accent-teal));
+}
+
+/* ── Receipt strip ────────────────────────────────────────────── */
+
+.receipt {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  background: rgb(var(--nv-bg));
+  border: 1px solid var(--nv-hair-strong-rgba);
+  padding: 12px 16px;
+  margin-top: 4px;
+  clip-path: polygon(
+    0 8px, 8px 0,
+    calc(100% - 10px) 0, 100% 10px,
+    100% calc(100% - 8px), calc(100% - 8px) 100%,
+    10px 100%, 0 calc(100% - 10px)
+  );
+}
+
+.receiptCell {
+  position: relative;
+  padding: 0 14px;
+  font-family: var(--font-marketing-mono), ui-monospace, monospace;
+}
+
+.receiptCell + .receiptCell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--nv-hair-medium-rgba);
+}
+
+.receiptLabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgb(var(--nv-text-tertiary));
+  margin-bottom: 4px;
+}
+
+.receiptValue {
+  display: block;
+  font-size: 12px;
+  color: rgb(var(--nv-text-primary));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.receiptValueApprover {
+  color: rgb(var(--nv-amber));
+}
+
+.receiptValueTrace {
+  color: rgb(var(--nv-accent-teal));
+}
+
+/* ── Mobile collapse ──────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .board {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  .sprawlField {
+    height: 220px;
+  }
+  .receipt {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 14px;
+    column-gap: 4px;
+  }
+  .receiptCell {
+    padding: 0 8px;
+  }
+  .receiptCell + .receiptCell::before {
+    display: none;
+  }
+  .receiptValue {
+    /* allow wrapping at narrow widths so the timestamp doesn't truncate */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  .receipt {
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+  }
+  .receiptCell {
+    padding: 0;
+  }
+}

@@ -1,0 +1,30 @@
+Playwright run: 2026-05-07
+Config: playwright.local.config.ts
+Workers: 1 (serial)
+
+re-fund-trace.spec.ts (6/6 passing)
+─────────────────────────────────────────────────────────
+ok 1 NAV cell on the portfolio is a link to /trace/nav and the page renders asset rows (24.6s)
+ok 2 Gross IRR cell on the portfolio is a link to /trace/gross_irr (19.2s)
+ok 3 Gross IRR trace shows lineage_missing when the snapshot has no cf_series_hash (4.2s)
+ok 4 Unsupported metric (DSCR) renders the not-traceable page (3.0s)
+ok 5 Quarantined fund_id 404s into the not-found page (5.3s)
+ok 6 NAV trace asset rows are scoped to the fund's audit_run_id (provenance check) (4.6s)
+
+re-fund-portfolio-coherence.spec.ts (regression — 7/7 passing)
+─────────────────────────────────────────────────────────
+ok 1 header fund count equals primary table row count (5.9s)
+ok 2 primary table contains zero rows whose name carries [QUARANTINED] (4.4s)
+ok 3 diagnostics panel exists and contains at least one quarantined row (4.3s)
+ok 4 NAV reconciliation strip reads ✓ Reconciled (4.2s)
+ok 5 IRR method badge is locked to NAV-weighted, n=N (3.7s)
+ok 6 trend chart series count equals primary table row count (5.2s)
+ok 7 full-page screenshot for the audit receipt (4.2s)
+
+Total: 13 passing.
+
+Backend pytest:
+  test_re_nav_trace.py            7 passed in 0.32s
+  test_re_irr_trace.py            7 passed in 0.34s
+  test_re_fund_portfolio_coherent 11 passed (regression)
+  test_fund_trend_canonical_selector 6 passed (regression)

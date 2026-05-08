@@ -158,12 +158,35 @@ function ConversationComposer({
   const [dragging, setDragging] = useState(false);
 
   const ACCEPTED_EXTS = ".png,.jpg,.jpeg,.webp,.pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json";
+  const ACCEPTED_EXT_SET = new Set(ACCEPTED_EXTS.split(","));
   const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
+  const [rejectedFiles, setRejectedFiles] = useState<Array<{ name: string; reason: string }>>([]);
+
   function handleFiles(files: File[]) {
+    const newRejections: Array<{ name: string; reason: string }> = [];
     for (const file of files) {
-      if (file.size > MAX_FILE_BYTES) continue;
+      const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
+      if (!ACCEPTED_EXT_SET.has(ext)) {
+        newRejections.push({
+          name: file.name,
+          reason: `File type '${ext}' is not supported`,
+        });
+        continue;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        newRejections.push({
+          name: file.name,
+          reason: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — exceeds the 25 MB limit`,
+        });
+        continue;
+      }
       void uploadAttachment(activeLane, file);
+    }
+    if (newRejections.length > 0) {
+      setRejectedFiles((prev) => [...prev, ...newRejections]);
+      // Auto-clear after 6 seconds
+      setTimeout(() => setRejectedFiles([]), 6000);
     }
   }
 
@@ -238,6 +261,17 @@ function ConversationComposer({
             attachments={activeState.attachments}
             onRemove={(id) => removeAttachment(activeLane, id)}
           />
+        </div>
+      )}
+
+      {rejectedFiles.length > 0 && (
+        <div className="mb-2 flex flex-col gap-1 px-3 pb-1">
+          {rejectedFiles.map((r, i) => (
+            <div key={i} className="flex items-start gap-2 rounded bg-red-500/10 border border-red-500/20 px-2 py-1.5 text-xs">
+              <span className="truncate text-white/70 font-medium">{r.name}</span>
+              <span className="shrink-0 text-red-400/80">{r.reason}</span>
+            </div>
+          ))}
         </div>
       )}
 

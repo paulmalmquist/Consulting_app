@@ -5464,6 +5464,123 @@ export function getFundPortfolioCoherent(
   );
 }
 
+// Fund Metric Trace ─────────────────────────────────────────────────────────
+//
+// Drill from a fund-level metric to the rows that compose it. The route 404s
+// if the fund is not in re_fund_portfolio_included_v for the requested period
+// or if no released snapshot exists. NAV trace reads from
+// re_authoritative_asset_state_qtr scoped by audit_run_id; IRR trace reads
+// re_investment_cf_series_mat with a strict source_hash gate.
+
+export interface AssetNavRow {
+  asset_id: string;
+  asset_name: string | null;
+  investment_id: string | null;
+  investment_name: string | null;
+  ending_nav: string | null;
+  ownership_pct: string | null;
+  fund_attributed_nav: string | null;
+  trust_status: string;
+  null_reasons: Record<string, string>;
+  source_table: string;
+  audit_run_id: string;
+}
+
+export type NavReconciliationStatus =
+  | "reconciled"
+  | "soft_fail"
+  | "hard_fail"
+  | "unavailable";
+
+export interface NavReconciliationCheck {
+  fund_nav: string | null;
+  asset_sum: string;
+  delta: string;
+  soft_tolerance: string;
+  hard_tolerance: string;
+  soft_pass: boolean;
+  hard_pass: boolean;
+  status: NavReconciliationStatus;
+}
+
+export interface NavTracePayload {
+  fund_id: string;
+  fund_name: string;
+  quarter: string;
+  audit_run_id: string;
+  snapshot_version: string;
+  fund_nav: string | null;
+  asset_rows: AssetNavRow[];
+  reconciliation: NavReconciliationCheck;
+  null_reason: string | null;
+  provenance: Record<string, unknown>;
+}
+
+export interface InvestmentCfRow {
+  investment_id: string;
+  investment_name: string | null;
+  quarter: string;
+  quarter_end_date: string;
+  cash_flow_base: string;
+  asset_contributions: unknown[];
+  source_hash: string;
+  source_table: string;
+}
+
+export type IrrReconciliationStatus =
+  | "reconciled"
+  | "soft_fail"
+  | "hard_fail"
+  | "unavailable"
+  | "lineage_missing";
+
+export interface IrrReconciliationCheck {
+  snapshot_gross_irr: string | null;
+  recomputed_irr: string | null;
+  delta_bps: string | null;
+  soft_tolerance_bps: string;
+  hard_tolerance_bps: string;
+  soft_pass: boolean | null;
+  hard_pass: boolean | null;
+  status: IrrReconciliationStatus;
+  lineage_note: string | null;
+}
+
+export interface IrrTracePayload {
+  fund_id: string;
+  fund_name: string;
+  quarter: string;
+  audit_run_id: string;
+  snapshot_version: string;
+  snapshot_gross_irr: string | null;
+  cf_rows: InvestmentCfRow[];
+  reconciliation: IrrReconciliationCheck;
+  null_reason: string | null;
+  provenance: Record<string, unknown>;
+}
+
+export function getNavTrace(
+  envId: string,
+  fundId: string,
+  quarter: string,
+): Promise<NavTracePayload> {
+  return directFetch(
+    `/api/re/v2/environments/${envId}/funds/${fundId}/trace/nav`,
+    { params: { quarter } },
+  );
+}
+
+export function getIrrTrace(
+  envId: string,
+  fundId: string,
+  quarter: string,
+): Promise<IrrTracePayload> {
+  return directFetch(
+    `/api/re/v2/environments/${envId}/funds/${fundId}/trace/gross_irr`,
+    { params: { quarter } },
+  );
+}
+
 // Fund Decomposition — Gross Contribution Overlay ──────────────────────────
 //
 // NOT a KPI fetcher. Response always carries state_origin:"decomposition_overlay"

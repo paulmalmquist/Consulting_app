@@ -41,7 +41,7 @@ export function PortfolioAssetMap({
   const summary = data?.summary;
 
   return (
-    <div className="h-full min-w-0 rounded-lg border border-bm-border/30 bg-bm-surface/[0.02] overflow-hidden">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-bm-border/30 dark:bg-bm-surface/[0.02]">
       {loading ? (
         <div className="p-4">
           <StateCard state="loading" />
@@ -57,7 +57,7 @@ export function PortfolioAssetMap({
       ) : (
         <div className="relative">
           {/* Summary overlay — compact, inside map corner */}
-          <div className="absolute top-2 left-2 z-10 bg-bm-bg/80 backdrop-blur-sm rounded-md border border-bm-border/20 px-3 py-2">
+          <div className="absolute top-2 left-2 z-10 rounded-md border border-slate-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-bm-border/20 dark:bg-bm-bg/80">
             <div className="flex gap-x-4 gap-y-1">
               <SummaryMetric label="Owned" value={summary?.owned_assets ?? 0} />
               <SummaryMetric label="Pipeline" value={summary?.pipeline_assets ?? 0} />
@@ -74,8 +74,8 @@ export function PortfolioAssetMap({
                 onClick={() => setFilter(s.value)}
                 className={`rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.06em] transition-colors backdrop-blur-sm ${
                   filter === s.value
-                    ? "bg-bm-accent/20 text-bm-accent border border-bm-accent/30"
-                    : "bg-bm-bg/60 text-bm-muted2 hover:bg-bm-surface/40 hover:text-bm-text border border-bm-border/20"
+                    ? "border border-bm-accent/30 bg-bm-accent/20 text-bm-accent"
+                    : "border border-slate-200 bg-white/80 text-bm-muted2 hover:bg-white hover:text-bm-text dark:border-bm-border/20 dark:bg-bm-bg/60 dark:hover:bg-bm-surface/40"
                 }`}
               >
                 {s.label}

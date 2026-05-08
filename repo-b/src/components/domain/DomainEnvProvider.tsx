@@ -33,6 +33,7 @@ import {
   getResumeContext,
   getOperatorContext,
 } from "@/lib/bos-api";
+import { getVultrContext } from "@/lib/vultr-api";
 import { useBusinessContext } from "@/lib/business-context";
 import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
@@ -43,7 +44,8 @@ export type DomainSlug = "pds" | "credit" | "legal" | "medical"
   | "impact" | "case-factory" | "copilot" | "outputs" | "pattern-intel"
   | "opportunity-engine"
   | "operator"
-  | "resume";
+  | "resume"
+  | "vultr";
 
 type DomainEnvironment = {
   env_id: string;
@@ -96,6 +98,7 @@ async function resolveDomainContext(domain: DomainSlug, envId: string): Promise<
   if (domain === "opportunity-engine") return getOpportunityEngineContext(envId);
   if (domain === "operator") return getOperatorContext(envId);
   if (domain === "resume") return getResumeContext(envId);
+  if (domain === "vultr") return getVultrContext(envId);
   return getMedOfficeContext(envId);
 }
 

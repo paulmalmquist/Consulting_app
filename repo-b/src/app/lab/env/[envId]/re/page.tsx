@@ -459,10 +459,30 @@ export default function ReFundListPage() {
                           {renderMetric(fund, "total_committed", (v) => fmtMoney(v))}
                         </td>
                         <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                          {renderMetric(fund, "portfolio_nav", (v) => fmtMoney(v))}
+                          {fund.portfolio_nav ? (
+                            <Link
+                              href={`${base}/funds/${fund.fund_id}/trace/nav?quarter=${encodeURIComponent(quarter)}`}
+                              className="nv-metric underline-offset-2 hover:underline"
+                              data-testid={`nav-trace-link-${fund.fund_id}`}
+                            >
+                              {renderMetric(fund, "portfolio_nav", (v) => fmtMoney(v))}
+                            </Link>
+                          ) : (
+                            renderMetric(fund, "portfolio_nav", (v) => fmtMoney(v))
+                          )}
                         </td>
                         <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                          {renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))}
+                          {fund.gross_irr ? (
+                            <Link
+                              href={`${base}/funds/${fund.fund_id}/trace/gross_irr?quarter=${encodeURIComponent(quarter)}`}
+                              className="nv-metric underline-offset-2 hover:underline"
+                              data-testid={`irr-trace-link-${fund.fund_id}`}
+                            >
+                              {renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))}
+                            </Link>
+                          ) : (
+                            renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))
+                          )}
                         </td>
                         <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
                           {renderMetric(fund, "net_irr", (v) => fmtPct(parseFloat(v)))}

@@ -82,8 +82,9 @@ export function FundComparisonChart() {
   }, [response]);
 
   return (
-    <div className="rounded-md border border-bm-border/20 bg-bm-surface/30 p-3">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex min-h-[220px] flex-col rounded-md border border-slate-200 bg-white p-3 dark:border-bm-border/20 dark:bg-bm-surface/30">
+      {/* Header — fixed height */}
+      <div className="mb-2 flex flex-shrink-0 items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-bm-muted2 font-medium">
           Fund Comparison
         </span>
@@ -105,64 +106,67 @@ export function FundComparisonChart() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-[200px] animate-pulse rounded bg-bm-surface/20" />
-      ) : chartData.length === 0 ? (
-        <div className="flex h-[200px] items-center justify-center text-xs text-bm-muted2">
-          No fund data for this metric
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} {...getGridStyle()} />
-            <XAxis
-              dataKey="quarter"
-              tick={getAxisTickStyle()}
-              axisLine={false}
-              tickLine={false}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={getAxisTickStyle()}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v: number) => formatValue(currentFormat, v)}
-              width={54}
-              domain={[
-                (dataMin: number) => {
-                  if (currentFormat === "dollar") return 0;
-                  return Math.min(0, dataMin);
-                },
-                "auto",
-              ]}
-            />
-            <Tooltip
-              contentStyle={getTooltipStyle()}
-              formatter={(value: number, name: string) => [formatValue(currentFormat, value), name]}
-              labelFormatter={(_label: string, payload: Array<{ payload?: { _rawQuarter?: string } }>) =>
-                payload?.[0]?.payload?._rawQuarter || _label
-              }
-            />
-            <Legend
-              wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
-              iconType="line"
-              iconSize={10}
-            />
-            {fundNames.map((name, i) => (
-              <Line
-                key={name}
-                dataKey={name}
-                name={name.length > 20 ? name.slice(0, 18) + "…" : name}
-                stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 3 }}
-                connectNulls
+      {/* Chart body — grows to fill remaining card height */}
+      <div className="min-h-0 flex-1">
+        {loading ? (
+          <div className="h-full animate-pulse rounded bg-bm-surface/20" />
+        ) : chartData.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-xs text-bm-muted2">
+            No fund data for this metric
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} {...getGridStyle()} />
+              <XAxis
+                dataKey="quarter"
+                tick={getAxisTickStyle()}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
               />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      )}
+              <YAxis
+                tick={getAxisTickStyle()}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => formatValue(currentFormat, v)}
+                width={54}
+                domain={[
+                  (dataMin: number) => {
+                    if (currentFormat === "dollar") return 0;
+                    return Math.min(0, dataMin);
+                  },
+                  "auto",
+                ]}
+              />
+              <Tooltip
+                contentStyle={getTooltipStyle()}
+                formatter={(value: number, name: string) => [formatValue(currentFormat, value), name]}
+                labelFormatter={(_label: string, payload: Array<{ payload?: { _rawQuarter?: string } }>) =>
+                  payload?.[0]?.payload?._rawQuarter || _label
+                }
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                iconType="line"
+                iconSize={10}
+              />
+              {fundNames.map((name, i) => (
+                <Line
+                  key={name}
+                  dataKey={name}
+                  name={name.length > 20 ? name.slice(0, 18) + "…" : name}
+                  stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 3 }}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </div>
   );
 }

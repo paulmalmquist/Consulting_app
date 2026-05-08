@@ -34,6 +34,7 @@ const DOMAIN_LABELS: Record<DomainSlug, string> = {
   "opportunity-engine": "Opportunity Engine",
   operator: "Multi-Entity Operator",
   resume: "Visual Resume",
+  vultr: "Cloud Infrastructure Intelligence OS",
 };
 
 function navItems(domain: DomainSlug, base: string): NavItem[] {
@@ -209,6 +210,19 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
   }
   if (domain === "resume") {
     return [];
+  }
+  if (domain === "vultr") {
+    return [
+      { href: base, label: "Command" },
+      { href: `${base}/executive`, label: "Executive" },
+      { href: `${base}/gpu-economics`, label: "GPU Economics" },
+      { href: `${base}/reconciliation`, label: "Reconciliation" },
+      { href: `${base}/customers`, label: "Customers" },
+      { href: `${base}/sales`, label: "Sales" },
+      { href: `${base}/operations`, label: "Operations" },
+      { href: `${base}/data-model`, label: "Data Model" },
+      { href: `${base}/bi-architect`, label: "BI Architect" },
+    ];
   }
   return [
     { href: base, label: "Home" },
