@@ -28,9 +28,7 @@ import {
   pickCurrentQuarter,
   formatQuarterLabel,
 } from "@/components/repe/portfolio/PortfolioFilterContext";
-import { DataIntegrityBanner, type DataQuality } from "@/components/repe/portfolio/DataIntegrityBanner";
 import { PortfolioKpiBar } from "@/components/repe/portfolio/PortfolioKpiBar";
-import { PortfolioSignalsStrip } from "@/components/repe/portfolio/PortfolioSignalsStrip";
 import { PortfolioAnalyticsGrid } from "@/components/repe/portfolio/PortfolioAnalyticsGrid";
 import { PortfolioFilterBar } from "@/components/repe/portfolio/PortfolioFilterBar";
 import { PortfolioFundTable } from "@/components/repe/portfolio/PortfolioFundTable";
@@ -64,9 +62,6 @@ function RepeFundsPageContent() {
   >(new Map());
   const [fundTableLoading, setFundTableLoading] = useState(true);
   const [fundTableError, setFundTableError] = useState<string | null>(null);
-
-  // Data quality (from integrity banner)
-  const [dataQuality, setDataQuality] = useState<DataQuality>("ok");
 
   // Fetch asset map
   useEffect(() => {
@@ -159,9 +154,6 @@ function RepeFundsPageContent() {
           transform: mounted ? "translateY(0)" : "translateY(10px)",
         }}
       >
-        {/* Data integrity warnings */}
-        <DataIntegrityBanner onDataQualityChange={setDataQuality} />
-
         <RepeIndexScaffold
           title="Fund Portfolio"
           subtitle={subtitle}
@@ -178,9 +170,6 @@ function RepeFundsPageContent() {
         >
           {/* Section A: KPI Bar with Quarter Selector */}
           <PortfolioKpiBar />
-
-          {/* Section B: Signals Strip (gated on data quality) */}
-          <PortfolioSignalsStrip dataQuality={dataQuality} />
 
           {/* Section C: Analytics Grid (Map + Charts) */}
           <PortfolioAnalyticsGrid
