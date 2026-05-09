@@ -192,21 +192,41 @@ def try_run_meridian_structured_query(
         return None
 
     # Load prior structured query state BEFORE the hint check so we can let
-    # referential follow-ups bypass the keyword prefilter. Production failure
-    # 2026-05-09 (conversation c760b823): "which ones dont have a status"
-    # matched no hint keywords, so the runtime returned None before
-    # `_parse_contract` could inherit from the prior asset_count contract,
-    # and the message fell through to the LLM's broad clarification path.
+    # referential follow-ups bypass the keyword prefilter. Production failures:
+    #   2026-05-09 12:08 (conv c760b823): "which ones dont have a status"
+    #   2026-05-09 12:55 (conv 047bbd62): "which dont have a status"  (no 'ones')
+    # Both matched no hint keywords. Returning None here pushed the message
+    # to the LLM dispatch path which produced a broad entity-type clarification.
+    #
+    # When prior structured state exists, the user is almost certainly
+    # following up on the prior answer. Be permissive: accept any short
+    # message that opens with a question word ("which", "what", "how many",
+    # "any of those", "those", "them", etc.). The downstream parser still
+    # has to produce a sensible contract; if it can't, we fall through.
     structured_state = (thread_entity_state or {}).get("structured_query_state") or {}
     has_prior_contract = bool(structured_state.get("last_contract"))
     lower = normalized.lower()
-    looks_referential = (
-        lower.startswith("which ones")
-        or lower.startswith("what about")
-        or lower.startswith("how many of those")
-        or lower.startswith("how many of them")
-        or lower in {"those", "them", "their names", "what are their names", "what are the names"}
-    )
+
+    looks_referential = False
+    if has_prior_contract:
+        word_count = len(normalized.split())
+        if word_count <= 12:
+            looks_referential = (
+                lower.startswith("which ")
+                or lower.startswith("what about")
+                or lower.startswith("what are")
+                or lower.startswith("how many of those")
+                or lower.startswith("how many of them")
+                or lower.startswith("any of those")
+                or lower.startswith("any of them")
+                or lower.startswith("any that ")
+                or lower.startswith("show me ")
+                or lower in {
+                    "those", "them", "the others", "the rest",
+                    "their names", "what are their names",
+                    "what are the names", "which ones",
+                }
+            )
 
     if not _STRUCTURED_HINT_RE.search(normalized) and not (has_prior_contract and looks_referential):
         return None
@@ -302,10 +322,17 @@ def _parse_contract(
         inherited.transformation = "detail"
         return inherited, memory_used
 
-    # "which ones <qualifier>" — inherit the prior subject, set transformation
+    # "which <qualifier>" — inherit the prior subject, set transformation
     # to "filter", and let _extract_filters pick up phrases like
     # "don't have a status" / "are non-canonical" / "are missing status".
-    if previous_contract and re.match(r"^\s*which\s+ones\b", lower):
+    # Matches both "which ones don't have a status" AND the bare-"which"
+    # variant the user actually types in production: "which dont have a
+    # status". Production failure 2026-05-09 12:55 (conv 047bbd62) showed
+    # users drop "ones" naturally — the previous regex required it.
+    if previous_contract and re.match(
+        r"^\s*which\s+(ones?\b|don'?t\b|do\s+not\b|are\b|have\b|aren'?t\b)",
+        lower,
+    ):
         memory_used = True
         inherited = _contract_from_state(previous_contract)
         inherited.transformation = "filter"

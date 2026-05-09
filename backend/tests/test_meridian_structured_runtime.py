@@ -721,6 +721,47 @@ def test_meridian_runtime_referential_followup_bypasses_hint_regex(monkeypatch):
     assert "non-canonical" in outcome.text.lower() or "every property asset" in outcome.text.lower()
 
 
+def test_meridian_runtime_bare_which_no_ones(monkeypatch):
+    """Regression for production failure 2026-05-09 12:55 (conv 047bbd62).
+
+    User typed 'which dont have a status' — without 'ones'. The previous
+    bypass regex required 'which ones' literally, so the runtime returned
+    None and the message fell through to the LLM's broad clarification
+    path. This test pins the bare-'which' form so it can't regress.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    prior_state = {
+        "structured_query_state": {
+            "last_contract": {
+                "entity": "portfolio",
+                "metric": "asset_count",
+                "fact": None,
+                "transformation": "summary",
+                "group_by": None,
+                "aggregation": "count",
+                "filters": [],
+                "sort_by": None,
+                "sort_direction": None,
+                "limit": None,
+                "timeframe_type": "none",
+                "timeframe_value": None,
+            }
+        }
+    }
+    outcome = try_run_meridian_structured_query(
+        message="which dont have a status",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=prior_state,
+    )
+    assert outcome is not None, "bare 'which' bypass regression"
+    assert "non-canonical" in outcome.text.lower() or "every property asset" in outcome.text.lower()
+
+
 def test_meridian_runtime_apostrophe_referential_followup(monkeypatch):
     """Apostrophe variant of the same case: 'which ones don't have a status'."""
     _apply_meridian_mocks(monkeypatch)
