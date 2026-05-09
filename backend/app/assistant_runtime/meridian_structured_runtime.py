@@ -188,10 +188,29 @@ def try_run_meridian_structured_query(
         return None
 
     normalized = (message or "").strip()
-    if not normalized or not _STRUCTURED_HINT_RE.search(normalized):
+    if not normalized:
         return None
 
+    # Load prior structured query state BEFORE the hint check so we can let
+    # referential follow-ups bypass the keyword prefilter. Production failure
+    # 2026-05-09 (conversation c760b823): "which ones dont have a status"
+    # matched no hint keywords, so the runtime returned None before
+    # `_parse_contract` could inherit from the prior asset_count contract,
+    # and the message fell through to the LLM's broad clarification path.
     structured_state = (thread_entity_state or {}).get("structured_query_state") or {}
+    has_prior_contract = bool(structured_state.get("last_contract"))
+    lower = normalized.lower()
+    looks_referential = (
+        lower.startswith("which ones")
+        or lower.startswith("what about")
+        or lower.startswith("how many of those")
+        or lower.startswith("how many of them")
+        or lower in {"those", "them", "their names", "what are their names", "what are the names"}
+    )
+
+    if not _STRUCTURED_HINT_RE.search(normalized) and not (has_prior_contract and looks_referential):
+        return None
+
     contract, memory_used = _parse_contract(message=normalized, structured_state=structured_state)
     if contract is None:
         metric_hint = extract_metric(normalized, business_id=str(envelope.ui.active_business_id or MERIDIAN_BUSINESS_ID))

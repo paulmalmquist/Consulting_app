@@ -669,6 +669,111 @@ def test_meridian_runtime_commitments_total_emits_thread_subject(monkeypatch):
     assert ts["last_metric"] == "commitments"
 
 
+def test_meridian_runtime_referential_followup_bypasses_hint_regex(monkeypatch):
+    """Regression test for production failure on 2026-05-09 (conversation c760b823).
+
+    'which ones dont have a status' matched no STRUCTURED_HINT_RE keywords —
+    no `assets`, `fund`, `count`, `how many`, `noi`, etc. — so the hint prefilter
+    in `try_run_meridian_structured_query` returned None before `_parse_contract`
+    could inherit from the prior asset_count contract. This test calls the
+    PUBLIC entry point (not `_parse_contract` directly) to catch any regression
+    where the prefilter blocks a valid referential follow-up.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    prior_state = {
+        "structured_query_state": {
+            "last_contract": {
+                "entity": "portfolio",
+                "entity_name": None,
+                "metric": "asset_count",
+                "fact": None,
+                "transformation": "summary",
+                "group_by": None,
+                "aggregation": "count",
+                "filters": [],
+                "sort_by": None,
+                "sort_direction": None,
+                "limit": None,
+                "timeframe_type": "none",
+                "timeframe_value": None,
+            }
+        }
+    }
+
+    outcome = try_run_meridian_structured_query(
+        message="which ones dont have a status",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=prior_state,
+    )
+    # The runtime must NOT return None here. If it does, the production
+    # hint-regex prefilter regression is back.
+    assert outcome is not None, (
+        "Hint-regex prefilter still blocking referential follow-ups; "
+        "production failure on conversation c760b823 will recur."
+    )
+    # The inherited contract should produce a filtered asset list answer,
+    # not the original count summary.
+    assert "non-canonical" in outcome.text.lower() or "every property asset" in outcome.text.lower()
+
+
+def test_meridian_runtime_apostrophe_referential_followup(monkeypatch):
+    """Apostrophe variant of the same case: 'which ones don't have a status'."""
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    prior_state = {
+        "structured_query_state": {
+            "last_contract": {
+                "entity": "portfolio",
+                "metric": "asset_count",
+                "fact": None,
+                "transformation": "summary",
+                "group_by": None,
+                "aggregation": "count",
+                "filters": [],
+                "sort_by": None,
+                "sort_direction": None,
+                "limit": None,
+                "timeframe_type": "none",
+                "timeframe_value": None,
+            }
+        }
+    }
+    outcome = try_run_meridian_structured_query(
+        message="which ones don't have a status",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=prior_state,
+    )
+    assert outcome is not None
+
+
+def test_meridian_runtime_no_prior_state_still_requires_hint(monkeypatch):
+    """When there is no prior structured state, the hint regex must still
+    block bare referential phrases. Otherwise random user messages would
+    enter the structured-query parser unnecessarily.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    outcome = try_run_meridian_structured_query(
+        message="which ones dont have a status",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=None,
+    )
+    assert outcome is None, "Without prior contract, hint regex must still gate"
+
+
 def test_meridian_runtime_commitments_by_fund_emits_thread_subject(monkeypatch):
     """Commitments-by-fund breakout must populate outcome.thread_subject with
     last_metric=commitments and entity_type=fund.
