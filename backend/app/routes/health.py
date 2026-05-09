@@ -15,15 +15,16 @@ def _read_deployed_git_sha() -> str | None:
     Resolution order:
       1. Environment variable ``GIT_SHA`` (set explicitly by the deploy ritual
          or by Railway when source-connected).
-      2. ``backend/.git_sha`` file (written by ``scripts/deploy_backend.sh``
-         before ``railway up`` packages the local tree). Wrapped in
-         try/except — never raise on missing file.
+      2. ``app/_git_sha.txt`` file written by ``scripts/deploy_backend.sh``
+         before ``railway up``. The file lives inside ``app/`` so the
+         Dockerfile's ``COPY app ./app`` carries it into the image; a sibling
+         file at ``backend/.git_sha`` would not enter the build context.
     """
     env_sha = os.environ.get("GIT_SHA")
     if env_sha:
         return env_sha.strip() or None
     try:
-        sha_file = Path(__file__).resolve().parents[2] / ".git_sha"
+        sha_file = Path(__file__).resolve().parent.parent / "_git_sha.txt"
         if sha_file.is_file():
             text = sha_file.read_text(encoding="utf-8").strip()
             return text or None

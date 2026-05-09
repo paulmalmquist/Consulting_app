@@ -2,8 +2,9 @@
 ._*
 
 # Per-deploy git SHA captured by scripts/deploy_backend.sh before `railway up`.
+# Lives inside backend/app/ so the Dockerfile's `COPY app ./app` picks it up.
 # Read at backend startup and exposed via /version. Not source.
-backend/.git_sha
+backend/app/_git_sha.txt
 
 # Angular specific
 /dist/

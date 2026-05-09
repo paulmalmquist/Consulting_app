@@ -42,8 +42,11 @@ if ! git diff-index --quiet HEAD --; then
   SHA="${SHA}-dirty"
 fi
 
-echo "$SHA" > backend/.git_sha
-echo "captured git SHA: $SHA"
+# Write inside backend/app/ so the Dockerfile's `COPY app ./app` picks it up.
+# (A sibling `backend/.git_sha` would not enter the build context.)
+SHA_FILE="backend/app/_git_sha.txt"
+echo "$SHA" > "$SHA_FILE"
+echo "captured git SHA: $SHA  ->  $SHA_FILE"
 
 cd backend
 exec railway up --service "$SERVICE"
