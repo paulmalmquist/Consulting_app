@@ -43,7 +43,6 @@ from app.assistant_runtime.turn_receipts import (
     RetrievalStatus,
     SkillSelection,
     StructuredPrecheckStatus,
-    StructuredQueryReceipt,
     ToolStatus,
     TurnReceipt,
     TurnStatus,
