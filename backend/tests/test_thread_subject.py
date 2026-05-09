@@ -7,9 +7,12 @@ Tests cover:
 - Active page entity beats stale thread_subject
 - Unrelated message does not inherit thread_subject
 - turn_distance = 3 causes subject to be ignored (expiry)
+- created_turn_index roundtrip via load_prior_receipt_context
+- ThreadSubjectReceipt model accepts created_turn_index + max_turn_distance
 """
 from __future__ import annotations
 
+from app.assistant_runtime.turn_receipts import ThreadSubjectReceipt
 from app.services.prompt_strategy import strategize
 
 
@@ -208,3 +211,124 @@ def test_thread_subject_at_max_turn_distance_still_inherits() -> None:
     diag = _strategize("which ones don't have a status", prior_thread_subject=ts)
     assert diag["thread_subject_inherited"] is True
     assert diag["thread_subject_entity_type"] == "asset"
+
+
+# ── Test 8: ThreadSubjectReceipt model accepts new PR 7 fields ───────────
+
+
+def test_thread_subject_receipt_model_accepts_created_turn_index() -> None:
+    """The Pydantic model must accept created_turn_index and max_turn_distance."""
+    receipt = ThreadSubjectReceipt(
+        subject_type="entity_collection",
+        entity_type="asset",
+        source="structured_executor",
+        created_turn_index=5,
+        max_turn_distance=2,
+    )
+    assert receipt.created_turn_index == 5
+    assert receipt.max_turn_distance == 2
+    # Defaults: omitted fields stay sensible.
+    bare = ThreadSubjectReceipt(
+        subject_type="concept",
+        source="concept_receipt",
+    )
+    assert bare.created_turn_index is None
+    assert bare.max_turn_distance == 2
+
+
+# ── Test 9: live turn_distance computation in load_prior_receipt_context ──
+
+
+def test_load_prior_receipt_context_computes_live_turn_distance(monkeypatch) -> None:
+    """When the loader is given current_turn_index, it computes live distance
+    and overrides the stored (write-time) turn_distance.
+    """
+    from app.services import prompt_receipts as pr
+
+    # Stub get_cursor + the cursor's fetchone() to return a single row whose
+    # notes_json contains a thread_subject with created_turn_index=5.
+    class _StubCur:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def execute(self, *_a, **_kw) -> None:
+            pass
+
+        def fetchone(self):
+            import json as _json
+            return {"notes_json": _json.dumps(self._payload)}
+
+    class _CtxMgr:
+        def __init__(self, cur: _StubCur) -> None:
+            self._cur = cur
+
+        def __enter__(self):
+            return self._cur
+
+        def __exit__(self, *exc):
+            return False
+
+    payload = {
+        "thread_subject": {
+            "subject_type": "entity_collection",
+            "entity_type": "asset",
+            "source": "structured_executor",
+            "created_turn_index": 5,
+            "max_turn_distance": 2,
+            "turn_distance": 0,  # write-time value; loader should overwrite
+        }
+    }
+    monkeypatch.setattr(pr, "get_cursor", lambda: _CtxMgr(_StubCur(payload)))
+
+    # current_turn_index = 7 → distance = 2 → still within max_turn_distance=2
+    result = pr.load_prior_receipt_context("conv-1", current_turn_index=7)
+    ts = result.get("prior_thread_subject")
+    assert ts is not None, "subject should still be present at distance == max"
+    assert ts["turn_distance"] == 2
+
+    # current_turn_index = 8 → distance = 3 → exceeds max → dropped
+    result_expired = pr.load_prior_receipt_context("conv-1", current_turn_index=8)
+    assert "prior_thread_subject" not in result_expired
+
+
+def test_load_prior_receipt_context_no_index_falls_back(monkeypatch) -> None:
+    """When current_turn_index is None or created_turn_index is missing, the
+    loader returns the subject unchanged (back-compat with PR 7 receipts)."""
+    from app.services import prompt_receipts as pr
+
+    class _StubCur:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def execute(self, *_a, **_kw) -> None:
+            pass
+
+        def fetchone(self):
+            import json as _json
+            return {"notes_json": _json.dumps(self._payload)}
+
+    class _CtxMgr:
+        def __init__(self, cur: _StubCur) -> None:
+            self._cur = cur
+
+        def __enter__(self):
+            return self._cur
+
+        def __exit__(self, *exc):
+            return False
+
+    # No created_turn_index in stored payload — old-style receipt.
+    payload = {
+        "thread_subject": {
+            "subject_type": "entity_collection",
+            "entity_type": "asset",
+            "source": "structured_executor",
+            "turn_distance": 0,
+        }
+    }
+    monkeypatch.setattr(pr, "get_cursor", lambda: _CtxMgr(_StubCur(payload)))
+
+    result = pr.load_prior_receipt_context("conv-1", current_turn_index=99)
+    ts = result.get("prior_thread_subject")
+    assert ts is not None, "old-style subject without created_turn_index must pass through"
+    assert ts["turn_distance"] == 0  # unchanged

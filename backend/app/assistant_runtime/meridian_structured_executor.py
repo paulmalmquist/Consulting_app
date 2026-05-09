@@ -1,8 +1,15 @@
 """Deprecated Meridian deterministic executor.
 
-This module is kept for compatibility only.
-The live authoritative Meridian execution path now lives in
-`meridian_structured_runtime.py` plus `meridian_structured_capabilities.py`.
+Deprecated. No production `request_lifecycle` callsite after PR 7. The live
+authoritative Meridian execution path is `meridian_structured_runtime.py` plus
+`meridian_structured_capabilities.py`, which is strictly more capable than
+this module and runs first in the lifecycle.
+
+This file is preserved (not deleted) so the deletion can land in a follow-on
+cleanup PR alongside removal of any test fixtures that still import it. No
+test in `backend/tests/` currently imports this module — the deprecation
+verification was done as part of PR 7 (grep `meridian_structured_executor` in
+`app/` returns only this file's own definitions).
 
 Executes a MeridianStructuredContract against REPE services
 and returns a StructuredExecutionResult — no LLM, no narrative fallback.

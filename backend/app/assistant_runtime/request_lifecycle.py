@@ -733,208 +733,6 @@ def _normalize_result_memory_scope(
     return normalized
 
 
-async def _try_meridian_structured_gate(
-    *,
-    message: str,
-    resolved_scope: Any,
-    context_receipt: Any,
-    envelope: AssistantContextEnvelope,
-    thread_entity_state: dict[str, Any] | None,
-    request_id: str,
-    session_id: str | None,
-    conversation_id: uuid.UUID | None,
-    actor: str,
-    started_at: float,
-    scope_dump: dict[str, Any],
-    timings: dict[str, int | None],
-) -> AsyncGenerator[str, None] | None:
-    """Meridian structured gate: parse → execute → emit SSE, bypassing LLM.
-
-    Returns an async generator of SSE chunks if the gate fires, or None
-    to let the normal lifecycle continue.
-    """
-    if context_receipt.resolution_status != ContextResolutionStatus.RESOLVED:
-        return None
-    if not resolved_scope.business_id:
-        return None
-
-    from app.assistant_runtime.meridian_structured_parser import (
-        is_meridian_structured_query,
-        parse_meridian_contract,
-    )
-
-    env_name = envelope.ui.active_environment_name or ""
-    if not is_meridian_structured_query(message, env_name=env_name):
-        return None
-
-    contract = parse_meridian_contract(message, prior_state=thread_entity_state)
-    if contract is None or contract.needs_clarification:
-        return None
-
-    from app.assistant_runtime.meridian_structured_executor import (
-        execute_meridian_contract,
-    )
-
-    business_id = str(resolved_scope.business_id)
-    env_id = str(resolved_scope.environment_id or "")
-
-    # Phase 4 follow-up: pass the raw message to the executor so
-    # _execute_fund_metric_snapshot can resolve a fund name that the
-    # parser did not populate into contract.entity_name. ContextVars
-    # do not propagate across run_in_executor, so this must be an
-    # explicit argument.
-    result = await asyncio.get_event_loop().run_in_executor(
-        None,
-        lambda: execute_meridian_contract(
-            contract,
-            business_id=business_id,
-            env_id=env_id,
-            thread_state=thread_entity_state,
-            raw_message=message,
-        ),
-    )
-    if result is None:
-        return None
-
-    emit_log(
-        level="info",
-        service="backend",
-        action="assistant_runtime.meridian_structured_gate",
-        message="Meridian structured gate fired — bypassing LLM dispatch",
-        context={
-            "request_id": request_id,
-            "use_case": (result.structured_receipt or {}).get("execution_path"),
-            "degraded": result.degraded,
-            "row_count": len(result.rows),
-        },
-    )
-
-    async def _emit() -> AsyncGenerator[str, None]:
-        response_text = result.answer_text
-        response_blocks = [markdown_block(response_text)]
-
-        if result.structured_receipt:
-            yield _sse("response_block", {"block": {
-                "type": "structured_query_receipt",
-                "data": result.structured_receipt,
-            }})
-
-        for block in response_blocks:
-            yield _sse("response_block", {"block": block})
-        yield _sse("token", {"text": response_text})
-
-        receipt_data = result.structured_receipt or {}
-        sq_receipt = StructuredQueryReceipt(
-            parsed_contract=receipt_data.get("parsed_contract", {}),
-            execution_path=receipt_data.get("execution_path", "unknown"),
-            transformation_applied=contract.transformation,
-            operators_applied={
-                k: v for k, v in {
-                    "sort_direction": contract.sort_direction,
-                    "limit": contract.limit,
-                    "group_by": contract.group_by,
-                    "filter_count": len(contract.filters) if contract.filters else 0,
-                }.items() if v
-            },
-            memory_used=receipt_data.get("memory_used", False),
-            degraded=result.degraded,
-            canonical_source=result.canonical_source or None,
-            degradation_reason=result.degraded_reason,
-        )
-
-        _ts_receipt = None
-        if result.thread_subject:
-            from app.assistant_runtime.turn_receipts import ThreadSubjectReceipt as _TSR
-            try:
-                _ts_receipt = _TSR.model_validate(result.thread_subject)
-            except Exception:
-                _ts_receipt = None
-
-        turn_receipt = TurnReceipt(
-            request_id=request_id,
-            lane=Lane.A_FAST,
-            dispatch=DispatchTrace(
-                raw=None,
-                normalized=DispatchDecision(
-                    source=DispatchSource.DETERMINISTIC_GUARDRAIL,
-                    skill_id="meridian_structured",
-                    lane=Lane.A_FAST,
-                    needs_retrieval=False,
-                    write_intent=False,
-                    ambiguity_level=DispatchAmbiguity.LOW,
-                    confidence=1.0,
-                    fallback_used=False,
-                    notes=["meridian_structured_gate"],
-                ),
-            ),
-            fallback_reason=None,
-            context=context_receipt,
-            skill=SkillSelection(
-                skill_id="meridian_structured",
-                confidence=1.0,
-                triggers_matched=["meridian_structured_parser"],
-            ),
-            tools=[],
-            retrieval=RetrievalReceipt(used=False, result_count=0, status=RetrievalStatus.OK),
-            pending_action=None,
-            structured_query=sq_receipt,
-            status=TurnStatus.SUCCESS,
-            degraded_reason=DegradedReason.NO_RESPONSE if result.degraded else None,
-            thread_subject=_ts_receipt,
-        )
-
-        elapsed_ms = int((time.time() - started_at) * 1000)
-        timings["render_completion_ms"] = elapsed_ms
-
-        # Persist a minimal prompt receipt carrying thread_subject in notes_json
-        # so the next turn can load it via load_prior_receipt_context().
-        if result.thread_subject and conversation_id:
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: prompt_receipts.persist_thread_subject(
-                    conversation_id=str(conversation_id),
-                    request_id=request_id,
-                    session_id=session_id,
-                    env_id=env_id or None,
-                    business_id=business_id or None,
-                    actor=actor,
-                    thread_subject=result.thread_subject,
-                ),
-            )
-
-        await _persist_conversation_turn(
-            conversation_id=conversation_id,
-            message=message,
-            assistant_content=response_text,
-            response_blocks=response_blocks,
-            turn_receipt=turn_receipt,
-            resolved_scope=resolved_scope,
-            request_id=request_id,
-            envelope=envelope,
-            result_memory=result.result_memory,
-        )
-        yield _sse(
-            "done",
-            {
-                "session_id": session_id,
-                "turn_receipt": turn_receipt.model_dump(mode="json"),
-                "trace": _build_trace(
-                    turn_receipt=turn_receipt,
-                    model="none",
-                    elapsed_ms=elapsed_ms,
-                    resolved_scope=scope_dump,
-                    response_blocks=response_blocks,
-                    timings=timings,
-                ),
-                "response_blocks": response_blocks,
-                "resolved_scope": scope_dump,
-                "structured_query": result.structured_receipt,
-            },
-        )
-
-    return _emit()
-
-
 def _deterministic_fast_response(
     *,
     message: str,
@@ -1385,6 +1183,46 @@ async def run_request_lifecycle(
             result_memory=meridian_structured.result_memory,
             structured_query_state=meridian_structured.structured_query_state,
         )
+
+        # PR 7 — persist thread_subject for the live Meridian runtime so the
+        # next turn's strategize() can inherit entity_type for referential
+        # follow-ups. The user message is appended inside
+        # _persist_conversation_turn above, so at this point ai_messages
+        # contains all user messages including the in-flight one — the count
+        # is exactly created_turn_index.
+        if meridian_structured.thread_subject and conversation_id:
+            try:
+                _runtime_turn_index = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: convo_svc.count_user_messages(conversation_id=conversation_id),
+                )
+            except Exception:
+                _runtime_turn_index = 0
+            if _runtime_turn_index > 0:
+                _runtime_env_id = (
+                    str(resolved_scope.environment_id)
+                    if getattr(resolved_scope, "environment_id", None)
+                    else None
+                )
+                _runtime_business_id = (
+                    str(resolved_scope.business_id)
+                    if getattr(resolved_scope, "business_id", None)
+                    else None
+                )
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: prompt_receipts.persist_thread_subject(
+                        conversation_id=str(conversation_id),
+                        request_id=request_id,
+                        session_id=session_id,
+                        env_id=_runtime_env_id,
+                        business_id=_runtime_business_id,
+                        actor=actor,
+                        thread_subject=meridian_structured.thread_subject,
+                        created_turn_index=_runtime_turn_index,
+                    ),
+                )
+
         yield _sse(
             "done",
             {
@@ -1404,28 +1242,12 @@ async def run_request_lifecycle(
         )
         return
 
-    # ── Meridian structured gate ────────────────────────────────────────────
-    # Deterministic short-circuit: if the message parses into a structured
-    # REPE contract AND the current environment is a Meridian demo portal,
-    # execute deterministically — no LLM dispatch, no retrieval.
-    _meridian_gate_result = await _try_meridian_structured_gate(
-        message=message,
-        resolved_scope=resolved_scope,
-        context_receipt=context_receipt,
-        envelope=normalized_envelope,
-        thread_entity_state=thread_entity_state,
-        request_id=request_id,
-        session_id=session_id,
-        conversation_id=conversation_id,
-        actor=actor,
-        started_at=started_at,
-        scope_dump=scope_dump,
-        timings=timings,
-    )
-    if _meridian_gate_result is not None:
-        async for chunk in _meridian_gate_result:
-            yield chunk
-        return
+    # PR 7 — the deprecated Meridian structured gate (which delegated to
+    # `meridian_structured_executor.execute_meridian_contract`) was removed.
+    # The live `try_run_meridian_structured_query` runtime above (line ~1332)
+    # is strictly more capable; the deprecated executor was unreachable for
+    # any query the runtime handled. See
+    # `meridian_structured_executor.py` docstring for the deprecation note.
 
     route_started = time.perf_counter()
     visible_context_policy = resolve_visible_context_policy(
@@ -1831,11 +1653,23 @@ async def run_request_lifecycle(
             summary_text = None
             summary_version = None
 
+    # PR 7 — current_turn_index is the user-message count INCLUDING the
+    # in-flight message we are about to answer. full_history is loaded from
+    # DB and excludes the new turn (which is persisted at the end of the
+    # request), so we add 1. Receipts written by this turn will store the
+    # same value as their created_turn_index, enabling distance arithmetic
+    # on the next load.
+    current_turn_index = sum(1 for _m in full_history if _m.get("role") == "user") + 1
+
     prior_receipt_ctx: dict[str, Any] = {}
     if conversation_id and prior_messages_found > 0:
         try:
             prior_receipt_ctx = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: prompt_receipts.load_prior_receipt_context(str(conversation_id))
+                None,
+                lambda: prompt_receipts.load_prior_receipt_context(
+                    str(conversation_id),
+                    current_turn_index=current_turn_index,
+                ),
             )
         except Exception:
             prior_receipt_ctx = {}
@@ -1975,6 +1809,7 @@ async def run_request_lifecycle(
                     active_scope_label=plan.scope.short_label,
                     resolved_entity_state=(thread_entity_state or {}),
                     continuity_notes=_continuity_notes,
+                    current_turn_index=current_turn_index,
                 )
             await asyncio.get_event_loop().run_in_executor(
                 None, prompt_receipts.persist_receipt, _receipt

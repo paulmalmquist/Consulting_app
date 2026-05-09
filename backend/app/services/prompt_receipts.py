@@ -220,6 +220,7 @@ def build_receipt_from_compiled(
     resolved_entity_state: dict[str, Any],
     continuity_notes: dict[str, Any],
     messages_delta: list[dict[str, Any]] | None = None,
+    current_turn_index: int | None = None,
 ) -> ReceiptRow:
     """Serialize a CompiledContext into a ReceiptRow.
 
@@ -325,6 +326,29 @@ def build_receipt_from_compiled(
             "conflict_summary": None,
             "basis_rule_applied": None,
             "scope_rule_applied": None,
+        }
+
+        # PR 7 — emit thread_subject from concept-routed turns so referential
+        # follow-ups that aren't another concept match still inherit an
+        # entity_type anchor. The strategize() consumer reads this on the
+        # next turn alongside prior_concept_id.
+        notes["thread_subject"] = {
+            "subject_type": "concept",
+            "entity_type": getattr(plan.scope, "entity_type", None),
+            "entity_label_plural": None,
+            "result_set_hint": None,
+            "last_metric": plan.concept_match.concept_id,
+            "supported_followups": [],
+            "environment_id": env_id,
+            "confidence": float(plan.concept_match.confidence),
+            "source": "concept_receipt",
+            "turn_distance": 0,
+            "created_turn_index": (
+                int(current_turn_index)
+                if current_turn_index is not None
+                else None
+            ),
+            "max_turn_distance": 2,
         }
 
     # Evaluate inline diagnostic flags.
@@ -697,17 +721,27 @@ def persist_thread_subject(
     business_id: str | None,
     actor: str,
     thread_subject: dict[str, Any],
+    created_turn_index: int,
 ) -> None:
     """Write a minimal ai_prompt_receipts row carrying only thread_subject in notes_json.
 
-    Used by the Meridian structured gate, which bypasses the normal prompt-receipt
-    path but still needs to persist thread_subject for the next turn's inheritance.
-    Safe to call from run_in_executor. Never raises.
+    Used by the live Meridian structured runtime, which bypasses the normal
+    prompt-receipt path but still needs to persist thread_subject for the next
+    turn's inheritance.
+
+    ``created_turn_index`` is the user-message count at the moment this turn is
+    being answered (e.g., 1 for the first turn, 2 for the second). The next-turn
+    consumer subtracts to compute live distance and applies expiry. Safe to call
+    from run_in_executor. Never raises.
     """
     if not is_enabled():
         return
     try:
-        notes = json.dumps({"thread_subject": thread_subject}, default=str)
+        # Embed created_turn_index in the persisted shape so load_prior_receipt_context
+        # can compute live distance.
+        ts_payload = dict(thread_subject)
+        ts_payload["created_turn_index"] = int(created_turn_index)
+        notes = json.dumps({"thread_subject": ts_payload}, default=str)
         with get_cursor() as cur:
             cur.execute(
                 """
@@ -732,12 +766,21 @@ def persist_thread_subject(
         )
 
 
-def load_prior_receipt_context(conversation_id: str) -> dict[str, Any]:
+def load_prior_receipt_context(
+    conversation_id: str,
+    current_turn_index: int | None = None,
+) -> dict[str, Any]:
     """Return thread-subject fields from the most recent receipt for this conversation.
 
     Extracts concept_diagnostics (for prior_concept_id / prior_confidence) and
     thread_subject (for non-concept entity memory). Returns an empty dict on any
     failure — callers must treat all fields as optional.
+
+    When ``current_turn_index`` is supplied AND the loaded thread_subject has a
+    ``created_turn_index``, computes live ``turn_distance`` and drops the subject
+    if it exceeds ``max_turn_distance`` (default 2). When either index is missing,
+    falls back to the stored ``turn_distance`` and lets the consumer enforce its
+    own bound — back-compat with receipts written before this PR.
 
     Safe to call from a run_in_executor thread.
     """
@@ -768,6 +811,17 @@ def load_prior_receipt_context(conversation_id: str) -> dict[str, Any]:
             result["prior_concept_confidence"] = cd.get("concept_confidence")
         ts = notes.get("thread_subject") or {}
         if ts:
+            # Compute live turn_distance from created_turn_index when both ends
+            # are available. Stored turn_distance is set at write-time and
+            # remains 0 — the consumer should trust the live computation.
+            created_idx = ts.get("created_turn_index")
+            if current_turn_index is not None and isinstance(created_idx, int):
+                live_distance = max(0, int(current_turn_index) - int(created_idx))
+                ts = dict(ts)
+                ts["turn_distance"] = live_distance
+                max_distance = int(ts.get("max_turn_distance") or 2)
+                if live_distance > max_distance:
+                    return result  # subject expired; do not return it
             result["prior_thread_subject"] = ts
         return result
     except Exception:

@@ -129,6 +129,7 @@ class MeridianStructuredOutcome:
     result_memory: dict[str, Any] | None = None
     structured_query_state: dict[str, Any] | None = None
     response_blocks: list[dict[str, Any]] | None = None
+    thread_subject: dict[str, Any] | None = None
 
 
 def _to_decimal(value: Any) -> Decimal | None:
@@ -737,6 +738,18 @@ def _fund_inventory_outcome(
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+        thread_subject={
+            "subject_type": "entity_collection",
+            "entity_type": "fund",
+            "entity_label_plural": "funds",
+            "result_set_hint": "portfolio_funds",
+            "last_metric": "fund_list",
+            "supported_followups": ["list_members", "inactive_status", "filter_by_strategy"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 
@@ -1424,6 +1437,18 @@ def _asset_count_outcome(
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=state,
+        thread_subject={
+            "subject_type": "entity_collection",
+            "entity_type": "asset",
+            "entity_label_plural": "assets",
+            "result_set_hint": "portfolio_assets",
+            "last_metric": "status_count",
+            "supported_followups": ["missing_status", "noncanonical_status", "list_members"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 
@@ -1472,6 +1497,18 @@ def _commitments_total_outcome(
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+        thread_subject={
+            "subject_type": "metric_summary",
+            "entity_type": "fund",
+            "entity_label_plural": "funds",
+            "result_set_hint": "portfolio_funds",
+            "last_metric": "commitments",
+            "supported_followups": ["breakout_by_fund", "list_members"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 
@@ -1522,6 +1559,18 @@ def _commitments_by_fund_outcome(
         receipt=receipt,
         result_memory=result_memory,
         structured_query_state=_build_structured_state(contract=contract, receipt=receipt),
+        thread_subject={
+            "subject_type": "entity_collection",
+            "entity_type": "fund",
+            "entity_label_plural": "funds",
+            "result_set_hint": "portfolio_funds",
+            "last_metric": "commitments",
+            "supported_followups": ["list_members", "filter_by_strategy"],
+            "environment_id": env_id,
+            "confidence": 0.9,
+            "source": "structured_executor",
+            "turn_distance": 0,
+        },
     )
 
 

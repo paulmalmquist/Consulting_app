@@ -209,6 +209,30 @@ def get_messages(*, conversation_id: UUID) -> list[dict[str, Any]]:
         return cur.fetchall()
 
 
+def count_user_messages(*, conversation_id: UUID | str) -> int:
+    """Cheap COUNT(*) of user-role messages in a conversation.
+
+    Used by the Meridian structured runtime path to compute
+    ``created_turn_index`` for thread_subject receipts without loading the
+    full message history. Returns 0 on any failure.
+    """
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS n FROM ai_messages "
+                "WHERE conversation_id = %s AND role = 'user'",
+                (str(conversation_id),),
+            )
+            row = cur.fetchone()
+        if not row:
+            return 0
+        if isinstance(row, dict):
+            return int(row.get("n") or 0)
+        return int(row[0])
+    except Exception:
+        return 0
+
+
 def append_message(
     *,
     conversation_id: UUID,

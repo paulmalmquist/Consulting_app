@@ -584,3 +584,125 @@ def test_meridian_parser_which_ones_no_prior_contract_returns_none():
     # and returns None.
     assert memory_used is False
     assert contract is None
+
+
+# ── PR 7: thread_subject emission from live runtime ─────────────────────
+
+
+def _meridian_resolved_scope() -> "ResolvedAssistantScope":
+    return ResolvedAssistantScope(
+        resolved_scope_type="environment",
+        environment_id=MERIDIAN_ENV_ID,
+        business_id=MERIDIAN_BUSINESS_ID,
+        entity_type="environment",
+        entity_id=MERIDIAN_ENV_ID,
+        entity_name="Meridian Capital Management",
+        confidence=1.0,
+        source="test",
+    )
+
+
+def test_meridian_runtime_asset_count_emits_thread_subject(monkeypatch):
+    """Asset-count answer must populate outcome.thread_subject so the next
+    turn's strategize() can inherit entity_type=asset.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    outcome = try_run_meridian_structured_query(
+        message="how many assets do we have in the portfolio",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=None,
+    )
+    assert outcome is not None
+    assert outcome.thread_subject is not None
+    ts = outcome.thread_subject
+    assert ts["entity_type"] == "asset"
+    assert ts["last_metric"] == "status_count"
+    assert "missing_status" in ts["supported_followups"]
+    assert ts["source"] == "structured_executor"
+
+
+def test_meridian_runtime_fund_inventory_emits_thread_subject(monkeypatch):
+    """Fund-list answer must populate outcome.thread_subject with entity_type=fund."""
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    outcome = try_run_meridian_structured_query(
+        message="give me a rundown of the funds",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=None,
+    )
+    assert outcome is not None
+    assert outcome.thread_subject is not None
+    ts = outcome.thread_subject
+    assert ts["entity_type"] == "fund"
+    assert ts["last_metric"] == "fund_list"
+    assert ts["source"] == "structured_executor"
+
+
+def test_meridian_runtime_commitments_total_emits_thread_subject(monkeypatch):
+    """Commitments-total answer must populate outcome.thread_subject with
+    last_metric=commitments.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    outcome = try_run_meridian_structured_query(
+        message="how much in total commitments do we have",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state=None,
+    )
+    assert outcome is not None
+    assert outcome.thread_subject is not None
+    ts = outcome.thread_subject
+    assert ts["entity_type"] == "fund"
+    assert ts["last_metric"] == "commitments"
+
+
+def test_meridian_runtime_commitments_by_fund_emits_thread_subject(monkeypatch):
+    """Commitments-by-fund breakout must populate outcome.thread_subject with
+    last_metric=commitments and entity_type=fund.
+    """
+    _apply_meridian_mocks(monkeypatch)
+    from app.assistant_runtime.meridian_structured_runtime import (
+        try_run_meridian_structured_query,
+    )
+
+    outcome = try_run_meridian_structured_query(
+        message="break that out by fund",
+        resolved_scope=_meridian_resolved_scope(),
+        envelope=_meridian_envelope(),
+        thread_entity_state={
+            "structured_query_state": {
+                "last_contract": {
+                    "entity": "portfolio",
+                    "metric": "commitments",
+                    "fact": None,
+                    "transformation": "summary",
+                    "group_by": None,
+                    "aggregation": "sum",
+                    "filters": [],
+                    "sort_by": None,
+                    "sort_direction": None,
+                    "limit": None,
+                    "timeframe_type": "none",
+                    "timeframe_value": None,
+                }
+            }
+        },
+    )
+    assert outcome is not None
+    assert outcome.thread_subject is not None
+    ts = outcome.thread_subject
+    assert ts["entity_type"] == "fund"
+    assert ts["last_metric"] == "commitments"

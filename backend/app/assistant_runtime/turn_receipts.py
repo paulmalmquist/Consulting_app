@@ -285,8 +285,11 @@ class ThreadSubjectReceipt(BaseModel):
     resolve referential follow-ups ("which ones don't have a status") without
     asking broad entity-type clarification questions.
 
-    Expires after max_turn_distance turns so stale context does not bleed
-    across unrelated conversation threads.
+    Expiry uses ``created_turn_index`` (the user-message count at the time the
+    receipt was written). The consumer computes live ``turn_distance`` by
+    subtracting from the current turn index and discards subjects older than
+    ``max_turn_distance``. Storing an index rather than a UUID lets distance
+    arithmetic actually mean something.
     """
 
     model_config = {"extra": "ignore"}
@@ -302,6 +305,8 @@ class ThreadSubjectReceipt(BaseModel):
     source: Literal["structured_executor", "concept_receipt"]
     turn_distance: int = 0
     created_at: str | None = None
+    created_turn_index: int | None = None
+    max_turn_distance: int = 2
 
 
 class TurnReceipt(BaseModel):
