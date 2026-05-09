@@ -1,6 +1,10 @@
 # macOS resource forks (external drives)
 ._*
 
+# Per-deploy git SHA captured by scripts/deploy_backend.sh before `railway up`.
+# Read at backend startup and exposed via /version. Not source.
+backend/.git_sha
+
 # Angular specific
 /dist/
 /out-tsc/
