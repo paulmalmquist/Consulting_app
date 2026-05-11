@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 import time
 from uuid import UUID
 from typing import Optional
+from app.auth.app_role_gate import gate_app_role
 from app.schemas.executions import RunExecutionRequest, RunExecutionResponse, ExecutionOut
 from app.services import executions as exec_svc
 from app.services import audit as audit_svc
@@ -10,7 +11,13 @@ router = APIRouter(prefix="/api/executions")
 
 
 @router.post("/run", response_model=RunExecutionResponse)
-def run_execution(req: RunExecutionRequest):
+def run_execution(req: RunExecutionRequest, request: Request):
+    gate_app_role(
+        request,
+        allowed_app_roles={"operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member"},
+        action_attempted="executions.run",
+    )
     start = time.monotonic()
     result = exec_svc.run_execution(
         business_id=req.business_id,

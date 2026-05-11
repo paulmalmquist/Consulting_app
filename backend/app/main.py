@@ -36,6 +36,7 @@ from app.routes import (
     finance,
     reports,
     tasks,
+    nv_tasks,
     work,
     audit,
     lab,
@@ -111,6 +112,7 @@ from app.routes import hr as hr_routes
 from app.routes import altered_mind as altered_mind_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
+from app.routes import trading_analytics
 from app.routes import trades
 from app.routes import sql_agent as sql_agent_routes
 from app.routes import capability as capability_routes
@@ -121,6 +123,7 @@ from app.routes import pipeline_integrity
 from app.routes.winston_contract_admin import router as winston_contract_admin_router
 from app.routes import investment_engine as investment_engine_routes
 from app.routes import vultr as vultr_routes
+from app.routes import auth_oidc as auth_oidc_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -369,6 +372,7 @@ app.include_router(metrics.router)
 app.include_router(metrics_query.router)
 app.include_router(reports.router)
 app.include_router(crm.router)
+app.include_router(nv_tasks.router)
 app.include_router(work.router)
 app.include_router(audit.router)
 app.include_router(lab.router)
@@ -437,6 +441,7 @@ app.include_router(hr_routes.router)
 app.include_router(altered_mind_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
+app.include_router(trading_analytics.router)
 app.include_router(trades.router)
 app.include_router(operator.router)
 app.include_router(site_risk.router)
@@ -479,4 +484,5 @@ app.include_router(sql_agent_routes.router)
 app.include_router(capability_routes.router)
 app.include_router(investment_engine_routes.router)
 app.include_router(vultr_routes.router)
+app.include_router(auth_oidc_routes.router)
 app.include_router(mcp_http_router)

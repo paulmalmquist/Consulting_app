@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app.schemas.crm import CrmAccountCreateRequest, CrmActivityCreateRequest, CrmOpportunityCreateRequest
 from app.services import crm as crm_svc
@@ -89,3 +91,39 @@ def create_activity(req: CrmActivityCreateRequest):
         if isinstance(exc, LookupError):
             raise HTTPException(status_code=404, detail=str(exc))
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+class CloseOpportunityRequest(BaseModel):
+    business_id: UUID
+    close_reason: str  # lost | ghosted | disqualified | deferred | removed
+    close_notes: Optional[str] = None
+
+
+@router.post("/opportunities/{opportunity_id}/close")
+def close_opportunity(opportunity_id: UUID, req: CloseOpportunityRequest):
+    try:
+        return crm_svc.close_opportunity(
+            business_id=req.business_id,
+            opportunity_id=opportunity_id,
+            close_reason=req.close_reason,
+            close_notes=req.close_notes,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+class ReopenOpportunityRequest(BaseModel):
+    business_id: UUID
+
+
+@router.post("/opportunities/{opportunity_id}/reopen")
+def reopen_opportunity(opportunity_id: UUID, req: ReopenOpportunityRequest):
+    try:
+        return crm_svc.reopen_opportunity(
+            business_id=req.business_id,
+            opportunity_id=opportunity_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))

@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response
 
+from app.auth.app_role_gate import gate_app_role
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.draw import (
     DrawApproval,
@@ -133,6 +134,13 @@ def submit_draw(
     business_id: UUID | None = Query(default=None),
 ):
     """Submit draw for review: draft -> pending_review. Runs variance analysis."""
+    gate_app_role(
+        request,
+        allowed_app_roles={"operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member"},
+        action_attempted="cp.draws.submit",
+        env_id=env_id,
+    )
     try:
         eid, bid = _resolve(request, env_id, str(business_id) if business_id else None)
         actor = _actor(request)
@@ -160,6 +168,13 @@ def approve_draw(
     business_id: UUID | None = Query(default=None),
 ):
     """HITL REQUIRED: Approve draw — pending_review -> approved."""
+    gate_app_role(
+        request,
+        allowed_app_roles={"operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member"},
+        action_attempted="cp.draws.approve",
+        env_id=env_id,
+    )
     try:
         eid, bid = _resolve(request, env_id, str(business_id) if business_id else None)
         return calc_svc.transition_draw_status(
@@ -221,6 +236,13 @@ def submit_to_lender(
     business_id: UUID | None = Query(default=None),
 ):
     """HITL REQUIRED: Submit to lender — approved -> submitted_to_lender."""
+    gate_app_role(
+        request,
+        allowed_app_roles={"operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member"},
+        action_attempted="cp.draws.submit_to_lender",
+        env_id=env_id,
+    )
     try:
         eid, bid = _resolve(request, env_id, str(business_id) if business_id else None)
         return calc_svc.transition_draw_status(
@@ -240,6 +262,13 @@ def mark_funded(
     env_id: str | None = Query(default=None),
     business_id: UUID | None = Query(default=None),
 ):
+    gate_app_role(
+        request,
+        allowed_app_roles={"operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member"},
+        action_attempted="cp.draws.mark_funded",
+        env_id=env_id,
+    )
     try:
         eid, bid = _resolve(request, env_id, str(business_id) if business_id else None)
         return calc_svc.transition_draw_status(

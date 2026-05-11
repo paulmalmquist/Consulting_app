@@ -167,6 +167,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.pipeline_execution_engine.get_cursor",
     "app.services.local_training_crm.get_cursor",
     "app.services.trading_lab_service.get_cursor",
+    "app.services.trading_analytics.get_cursor",
     "app.services.resume.get_cursor",
     "app.services.winston_readiness.get_cursor",
     "app.services.entity_search.get_cursor",
@@ -199,6 +200,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.nv_transaction_matcher.get_cursor",
     "app.services.pipeline_rail.get_cursor",
     "app.services.hr_decision_runner.get_cursor",
+    "app.services.identity_providers.get_cursor",
 ]
 
 

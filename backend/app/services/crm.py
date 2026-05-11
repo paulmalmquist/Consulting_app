@@ -115,19 +115,92 @@ def list_opportunities(*, business_id: UUID) -> list[dict]:
                    o.status,
                    o.expected_close_date,
                    o.actual_close_date,
+                   o.close_reason,
+                   o.close_notes,
+                   o.closed_at,
+                   o.thesis,
+                   o.pain,
+                   o.winston_angle,
+                   o.next_action,
+                   o.next_action_date,
                    a.name AS account_name,
+                   a.industry AS account_industry,
                    s.key AS stage_key,
                    s.label AS stage_label,
+                   s.stage_order,
+                   s.is_closed,
+                   s.is_won,
+                   c.full_name AS contact_name,
+                   c.title AS contact_title,
+                   c.email::text AS contact_email,
+                   cp.linkedin_url,
+                   cp.last_outreach_at,
                    o.created_at
             FROM crm_opportunity o
             LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
             LEFT JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
+            LEFT JOIN crm_contact c ON c.crm_contact_id = o.primary_contact_id
+            LEFT JOIN cro_contact_profile cp ON cp.crm_contact_id = o.primary_contact_id
             WHERE o.business_id = %s
-            ORDER BY o.created_at DESC
+            ORDER BY s.stage_order ASC NULLS LAST, o.created_at DESC
             """,
             (str(business_id),),
         )
         return cur.fetchall()
+
+
+def close_opportunity(
+    *,
+    business_id: UUID,
+    opportunity_id: UUID,
+    close_reason: str,
+    close_notes: str | None = None,
+) -> dict:
+    """Mark an opportunity as lost with a reason. Does not handle won — that path needs a proposal."""
+    allowed_reasons = {"lost", "ghosted", "disqualified", "deferred", "removed"}
+    if close_reason not in allowed_reasons:
+        raise ValueError(f"close_reason must be one of: {', '.join(sorted(allowed_reasons))}")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE crm_opportunity
+            SET status      = CASE WHEN %s = 'deferred' THEN 'deferred' ELSE 'lost' END,
+                close_reason = %s,
+                close_notes  = %s,
+                closed_at    = now()
+            WHERE crm_opportunity_id = %s
+              AND business_id = %s
+            RETURNING crm_opportunity_id, name, status, close_reason, close_notes, closed_at
+            """,
+            (close_reason, close_reason, close_notes, str(opportunity_id), str(business_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError(f"Opportunity {opportunity_id} not found")
+        return row
+
+
+def reopen_opportunity(*, business_id: UUID, opportunity_id: UUID) -> dict:
+    """Move a closed/deferred opportunity back to open."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE crm_opportunity
+            SET status       = 'open',
+                close_reason = NULL,
+                close_notes  = NULL,
+                closed_at    = NULL
+            WHERE crm_opportunity_id = %s
+              AND business_id = %s
+            RETURNING crm_opportunity_id, name, status
+            """,
+            (str(opportunity_id), str(business_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError(f"Opportunity {opportunity_id} not found")
+        return row
 
 
 def create_opportunity(

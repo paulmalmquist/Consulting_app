@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
+from app.auth.app_role_gate import gate_app_role
 from app.schemas.trades import (
     AccountSummaryOut,
     ClosedPortfolioPositionOut,
@@ -59,7 +60,14 @@ def run_trade_risk_check(trade_intent_id: UUID, req: TradeRiskCheckRequest):
 
 
 @router.post("/intents/{trade_intent_id}/approve", response_model=TradeIntentOut)
-def approve_trade_intent(trade_intent_id: UUID, req: TradeApprovalRequest):
+def approve_trade_intent(trade_intent_id: UUID, req: TradeApprovalRequest, request: Request):
+    gate_app_role(
+        request,
+        allowed_app_roles={"finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin"},
+        action_attempted="trades.intent.approve",
+        permission_checked="trades.approve",
+    )
     return trades_svc.approve_trade_intent(
         req.business_id,
         trade_intent_id,

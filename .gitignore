@@ -6,6 +6,23 @@
 # Read at backend startup and exposed via /version. Not source.
 backend/app/_git_sha.txt
 
+# Stale path from an earlier deploy script revision.
+backend/.git_sha
+
+# Loose research / outreach notes that landed at the repo root. Keep
+# locally if useful, don't ship them as source.
+/ai_remote_roles.md
+/winston_ai_agent_dr.md
+
+# Outreach drafts (PII, per-campaign payloads).
+scripts/drafts/
+
+# Local-only utility scripts and smoke harnesses that should not enter
+# CI or production. Move to docs/ or backend/scripts/ if they earn a
+# place. The smoke for trading_analytics is included as long as it is
+# tracked elsewhere; the standalone outlook integration is local-only.
+scripts/outlook_service.py
+
 # Angular specific
 /dist/
 /out-tsc/

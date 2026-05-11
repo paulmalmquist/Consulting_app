@@ -19,6 +19,9 @@ python-docx==1.1.2
 reportlab==4.2.5
 python-multipart==0.0.20
 
+# Enterprise OIDC (Okta + Entra) — JWKS-backed JWT validation
+PyJWT[crypto]>=2.8,<3
+
 # CRE Intelligence connectors
 pyshp>=2.3.0
 usaddress>=0.5.10

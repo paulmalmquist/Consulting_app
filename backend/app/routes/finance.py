@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+from app.auth.app_role_gate import gate_app_role
 from app.observability.logger import emit_log
 
 from app.schemas.finance import (
@@ -389,7 +390,14 @@ def create_contribution(fund_id: UUID, req: ContributionCreateRequest):
 
 
 @router.post("/funds/{fund_id}/distribution-events")
-def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest):
+def create_distribution_event(fund_id: UUID, req: DistributionEventCreateRequest, request: Request):
+    gate_app_role(
+        request,
+        allowed_app_roles={"finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin"},
+        action_attempted="fin.distribution_event.create",
+        permission_checked="finance.mutate",
+    )
     _log_repe("repe.distribution.create.start", "Creating distribution event", context={"fund_id": str(fund_id)})
     try:
         row = finance_repe.create_distribution_event(
@@ -440,7 +448,14 @@ def list_distribution_payouts(fund_id: UUID, distribution_event_id: UUID):
 
 
 @router.post("/funds/{fund_id}/waterfall-runs", response_model=FinRunResponse)
-def run_waterfall(fund_id: UUID, req: WaterfallRunTriggerRequest):
+def run_waterfall(fund_id: UUID, req: WaterfallRunTriggerRequest, request: Request):
+    gate_app_role(
+        request,
+        allowed_app_roles={"finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin"},
+        action_attempted="fin.waterfall.run",
+        permission_checked="finance.mutate",
+    )
     _log_repe("repe.waterfall.run.start", "Running waterfall", context={"fund_id": str(fund_id), "distribution_event_id": str(req.distribution_event_id)})
     try:
         run_row = finance_runtime.submit_run(
@@ -479,7 +494,14 @@ def list_waterfall_allocations(fund_id: UUID, run_id: UUID):
 
 
 @router.post("/funds/{fund_id}/capital-rollforward-runs", response_model=FinRunResponse)
-def run_capital_rollforward(fund_id: UUID, req: CapitalRollforwardTriggerRequest):
+def run_capital_rollforward(fund_id: UUID, req: CapitalRollforwardTriggerRequest, request: Request):
+    gate_app_role(
+        request,
+        allowed_app_roles={"finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin"},
+        action_attempted="fin.capital_rollforward.run",
+        permission_checked="finance.mutate",
+    )
     _log_repe("repe.rollforward.run.start", "Running capital rollforward", context={"fund_id": str(fund_id)})
     try:
         run_row = finance_runtime.submit_run(

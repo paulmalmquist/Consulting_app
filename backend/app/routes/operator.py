@@ -28,6 +28,7 @@ from app.schemas.operator import (
     LessonsBoardOut,
     AccountabilityBoardOut,
 )
+from app.auth.app_role_gate import gate_app_role
 from app.services import env_context
 from app.services import operator as operator_svc
 from app.services import operator_site_decision as operator_site_decision_svc
@@ -82,6 +83,13 @@ def get_command_center(
     env_id: str = Query(...),
     business_id: UUID | None = Query(default=None),
 ):
+    gate_app_role(
+        request,
+        allowed_app_roles={"viewer", "operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member", "viewer"},
+        action_attempted="operator.command_center.read",
+        env_id=env_id,
+    )
     try:
         resolved_env_id, resolved_business_id, _ctx = _resolve_context(request, env_id, business_id)
         return OperatorCommandCenterOut(

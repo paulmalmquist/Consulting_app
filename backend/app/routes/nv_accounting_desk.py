@@ -15,6 +15,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
 
+from app.auth.app_role_gate import gate_app_role
 from app.routes.domain_common import classify_domain_error, domain_error_response
 from app.schemas.nv_accounting_desk import (
     ARAgingOut,
@@ -77,6 +78,13 @@ def get_queue(
     kpi_filter: str | None = Query(default=None),
     q: str | None = Query(default=None),
 ):
+    gate_app_role(
+        request,
+        allowed_app_roles={"viewer", "operator", "finance_admin", "admin"},
+        allowed_membership_roles={"owner", "admin", "member", "viewer"},
+        action_attempted="nv_accounting.queue.read",
+        env_id=env_id,
+    )
     try:
         env, biz = _resolve(request, env_id, business_id)
         # Lazy state sync: promote sent invoices past due to overdue before reading.

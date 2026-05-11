@@ -26,6 +26,7 @@ class AuthContext:
     env_id: str | None = None
     env_slug: str | None = None
     membership_role: str | None = None
+    app_role: str | None = None  # viewer | operator | finance_admin | admin
     scopes: dict[str, Any] = field(default_factory=dict)
     provider: str = "anonymous"  # mcp | okta | azure_ad | platform-session
     raw_claims: dict[str, Any] = field(default_factory=dict)
