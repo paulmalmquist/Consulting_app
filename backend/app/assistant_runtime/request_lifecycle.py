@@ -23,6 +23,7 @@ from app.assistant_runtime.meridian_structured_runtime import try_run_meridian_s
 from app.assistant_runtime.prompt_registry import compose_runtime_messages
 from app.assistant_runtime.result_memory import (
     build_asset_count_response_text,
+    build_attribute_lookup_response_text,
     build_referential_response_text,
     extract_result_memory_from_prechecks,
     resolve_referential_followup,
@@ -56,6 +57,7 @@ from app.observability.logger import emit_log
 from app.schemas.ai_gateway import AssistantContextEnvelope
 from app.services import audit as audit_svc
 from app.services import ai_conversations as convo_svc
+from app.services import repe
 from app.services.ai_client import get_instrumented_client
 from app.services.assistant_blocks import citations_block, confirmation_block, markdown_block
 from app.services.assistant_scope import resolve_visible_context_policy
@@ -1059,11 +1061,74 @@ async def run_request_lifecycle(
                 "resolution_source": referential_resolution.resolution_source,
             },
         )
-        response_text = build_referential_response_text(
-            resolution=referential_resolution,
-            result_memory=(thread_entity_state or {}).get("result_memory"),
-            current_scope_label=current_scope_label,
-        )
+        # PR 8a — when the user asked for an attribute lookup over the
+        # resolved row set (e.g., "of the ones without statuses, what
+        # sector are they in"), run a batched repe.get_asset_attributes
+        # against the asset_ids and format a row-by-row table. Falls
+        # back to the existing name-only response when the attribute
+        # path returns no rows or errors out.
+        attribute_response: str | None = None
+        if (
+            referential_resolution.status == "resolved"
+            and referential_resolution.requested_attributes
+            and referential_resolution.rows
+        ):
+            asset_ids_for_attrs: list[uuid.UUID] = []
+            for _row in referential_resolution.rows:
+                if (_row.get("entity_type") or "asset") != "asset":
+                    continue
+                _id = _row.get("id") or _row.get("asset_id")
+                if not _id:
+                    continue
+                try:
+                    asset_ids_for_attrs.append(uuid.UUID(str(_id)))
+                except (TypeError, ValueError):
+                    continue
+            if asset_ids_for_attrs:
+                try:
+                    _bus_id = current_memory_scope.get("business_id")
+                    if _bus_id:
+                        enriched = await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: repe.get_asset_attributes(
+                                business_id=uuid.UUID(str(_bus_id)),
+                                asset_ids=asset_ids_for_attrs,
+                                attributes=list(referential_resolution.requested_attributes),
+                            ),
+                        )
+                        if enriched:
+                            attribute_response = build_attribute_lookup_response_text(
+                                rows=enriched,
+                                requested_attributes=list(
+                                    referential_resolution.requested_attributes
+                                ),
+                                meaning=referential_resolution.meaning,
+                                scope_label=current_scope_label,
+                            )
+                except Exception:
+                    emit_log(
+                        level="warning",
+                        service="backend",
+                        action="assistant_runtime.referential_attribute_lookup_failed",
+                        message="Attribute lookup failed; falling back to name-only response",
+                        context={
+                            "request_id": request_id,
+                            "requested_attributes": list(
+                                referential_resolution.requested_attributes
+                            ),
+                            "asset_id_count": len(asset_ids_for_attrs),
+                        },
+                    )
+                    attribute_response = None
+
+        if attribute_response is not None:
+            response_text = attribute_response
+        else:
+            response_text = build_referential_response_text(
+                resolution=referential_resolution,
+                result_memory=(thread_entity_state or {}).get("result_memory"),
+                current_scope_label=current_scope_label,
+            )
         response_blocks = [markdown_block(response_text)]
         turn_receipt = TurnReceipt(
             request_id=request_id,

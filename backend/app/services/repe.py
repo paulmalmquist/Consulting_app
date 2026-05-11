@@ -416,6 +416,78 @@ def list_property_assets(
         return cur.fetchall()
 
 
+# PR 8a — batch attribute lookup for a saved row set. The authoritative
+# fund attribution source is the same `repe_asset → repe_deal → repe_fund`
+# join `list_property_assets` already uses (verified precondition). All
+# attribute columns route through this single SQL round-trip so a
+# follow-up like "what sector are they in" runs in one query, not N.
+_GET_ASSET_ATTRIBUTES_ALLOWED = frozenset(
+    {"property_type", "market", "fund", "status", "units", "occupancy"}
+)
+
+
+def get_asset_attributes(
+    *,
+    business_id: UUID,
+    asset_ids: list[UUID],
+    attributes: list[str],
+) -> list[dict]:
+    """Return one dict per asset_id with `asset_id`, `name`, plus the
+    requested attribute columns.
+
+    Attributes accepted: property_type, market, fund, status, units,
+    occupancy. Unknown attributes raise ValueError — callers should
+    filter through the whitelist in result_memory first. `fund` returns
+    `fund_name`. `status` returns `asset_status`.
+
+    Capped at 200 ids to match MAX_RESULT_MEMORY_ROWS. Tenant-isolated
+    via `repe_fund.business_id` (same as list_property_assets).
+    """
+    if not asset_ids:
+        return []
+    if not attributes:
+        raise ValueError("attributes must be non-empty")
+    unknown = [a for a in attributes if a not in _GET_ASSET_ATTRIBUTES_ALLOWED]
+    if unknown:
+        raise ValueError(f"unknown attribute(s): {sorted(unknown)}")
+
+    # Defensive cap (matches MAX_RESULT_MEMORY_ROWS = 200 in
+    # app.assistant_runtime.result_memory; not imported here to avoid
+    # a circular dependency at module load).
+    capped_ids = asset_ids[:200]
+
+    column_map = {
+        "property_type": "p.property_type AS property_type",
+        "market": "p.market AS market",
+        "fund": "f.name AS fund",
+        "status": "a.asset_status AS status",
+        "units": "p.units AS units",
+        "occupancy": "p.occupancy AS occupancy",
+    }
+    selected = [column_map[a] for a in attributes if a in column_map]
+    select_clause = ",\n              ".join(["a.asset_id", "a.name", *selected])
+
+    placeholders = ",".join(["%s"] * len(capped_ids))
+    params: list[str] = [str(business_id)] + [str(aid) for aid in capped_ids]
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+              {select_clause}
+            FROM repe_asset a
+            JOIN repe_deal d ON d.deal_id = a.deal_id
+            JOIN repe_fund f ON f.fund_id = d.fund_id
+            LEFT JOIN repe_property_asset p ON p.asset_id = a.asset_id
+            WHERE f.business_id = %s::uuid
+              AND a.asset_id::text IN ({placeholders})
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+    return rows
+
+
 def list_assets(*, deal_id: UUID) -> list[dict]:
     with get_cursor() as cur:
         cur.execute("SELECT 1 FROM repe_deal WHERE deal_id = %s", (str(deal_id),))

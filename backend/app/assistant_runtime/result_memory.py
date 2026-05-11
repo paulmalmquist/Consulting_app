@@ -34,6 +34,127 @@ _NOT_BUCKET_RE = re.compile(
 )
 
 
+# ── PR 8a: clustered referential / attribute-lookup patterns ─────────────
+#
+# Three named clusters, grouped so the resolver doesn't drift into a regex
+# junk drawer. Each cluster has its own unit tests in
+# backend/tests/test_result_memory.py.
+#
+# Cluster 1: qualifier phrases. Catch the user-typed forms for "those
+# without a status" / "of the ones without statuses" / "of those". When the
+# qualifier is status-related, set meaning="noncanonical_status" so the
+# response wording reflects the bucket the data actually lives in
+# (`other`), NOT a non-existent NULL value.
+# Status-qualifier pattern: catches "of the ones without statuses",
+# "those without a status", "which ones don't have a status", "the ones
+# that aren't given a status", etc. Two structural slots:
+#   1. anchor: optional "(of|the|which|with)" before "(ones|those)"
+#   2. predicate: one of (without|missing|lacking|have no|don't have|
+#      do not have|aren't given) followed by optional article and
+#      "status(es)"
+_QUALIFIER_STATUS_RE = re.compile(
+    r"\b(?:of\s+|the\s+|which\s+|with\s+)?(?:ones|those)\s+"
+    r"(?:that\s+)?"
+    r"(?:"
+    r"without"
+    r"|missing"
+    r"|lacking"
+    r"|have\s+no"
+    r"|don'?t\s+have"
+    r"|dont\s+have"
+    r"|do\s+not\s+have"
+    r"|aren'?t\s+given"
+    r"|aren'?t\s+assigned"
+    r"|are\s+not\s+given"
+    r")\s+"
+    r"(?:a\s+|any\s+|canonical\s+|valid\s+)?"
+    r"status(?:es)?",
+    re.IGNORECASE,
+)
+_QUALIFIER_OF_THOSE_RE = re.compile(
+    r"^\s*(?:of\s+)?(?:those|them|the\s+ones|the\s+rest|the\s+others)\b",
+    re.IGNORECASE,
+)
+_QUALIFIER_PHRASE_PATTERNS = (_QUALIFIER_STATUS_RE, _QUALIFIER_OF_THOSE_RE)
+
+
+# Cluster 2: attribute-lookup phrases. Match natural language forms. Each
+# pattern captures `attrs` as a free-form phrase; `_normalize_attrs`
+# splits/synonym-maps/whitelist-filters. Capturing greedily (up to a
+# stopword, optional trailing punctuation, or end-of-string) sidesteps
+# regex-engine non-greedy short-circuits like
+# `re.match("[a-z]+?\b", "property type")` returning just "property".
+_ATTRIBUTE_PHRASE_RES = (
+    # "what [are|is] [their] sector and market", "what sector are they in",
+    # "what's their sector"
+    re.compile(
+        r"\bwhat(?:'?s)?\s+(?:are\s+|is\s+)?(?:their\s+)?"
+        r"(?P<attrs>[a-z][a-z\s\-,]*?)"
+        r"(?:\s+(?:are|is)\s+(?:they|those|the\s+ones|it)(?:\s+in)?)?"
+        r"\s*[?.!]?\s*$",
+        re.IGNORECASE,
+    ),
+    # "show me their property type", "give me their sector and fund"
+    re.compile(
+        r"\b(?:show|give|tell|list)\s+(?:me\s+)?(?:their|the)\s+"
+        r"(?P<attrs>[a-z][a-z\s\-,]*?)"
+        r"\s*[?.!]?\s*$",
+        re.IGNORECASE,
+    ),
+    # "sector for those", "market and fund of those",
+    # "property type of the ones"
+    re.compile(
+        r"\b(?P<attrs>[a-z][a-z\s\-,]*?)\s+"
+        r"(?:for|of)\s+(?:those|them|the\s+ones)\b",
+        re.IGNORECASE,
+    ),
+)
+
+
+# Whitelist + synonym map. `fund` IS in: the authoritative attribution
+# source is the same repe_asset → repe_deal → repe_fund join that
+# `list_property_assets` already uses. Verified before coding per the PR 8a
+# precondition. Unknown words drop out.
+_ATTRIBUTE_WHITELIST: dict[str, str] = {
+    "sector": "property_type",
+    "property type": "property_type",
+    "property_type": "property_type",
+    "market": "market",
+    "fund": "fund",
+    "status": "status",
+    "units": "units",
+    "occupancy": "occupancy",
+}
+
+
+def _normalize_attrs(raw: str) -> list[str]:
+    """Split a captured attribute phrase on `and`/`,`, map synonyms through
+    the whitelist, drop unknowns, preserve order, dedup. Used by the
+    attribute-phrase cluster.
+    """
+    if not raw:
+        return []
+    parts = re.split(r"\s+and\s+|,", raw, flags=re.IGNORECASE)
+    canonical: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        word = re.sub(r"\s+", " ", part.strip().lower())
+        if not word:
+            continue
+        # Strip trailing question/sentence punctuation that the regex
+        # may have included (e.g., "fund?" → "fund").
+        word = word.rstrip("?.!")
+        # Drop common pre-attribute fillers ("are", "is", "their", "the").
+        word = re.sub(r"^(?:are|is|their|the)\s+", "", word).strip()
+        if not word:
+            continue
+        canonical_name = _ATTRIBUTE_WHITELIST.get(word)
+        if canonical_name and canonical_name not in seen:
+            canonical.append(canonical_name)
+            seen.add(canonical_name)
+    return canonical
+
+
 @dataclass(frozen=True)
 class ReferentialIntent:
     matched_pattern: str
@@ -41,6 +162,15 @@ class ReferentialIntent:
     complement_of: str | None = None
     requested_count: int | None = None
     use_all_rows: bool = False
+    # PR 8a additions:
+    # - `requested_attributes` is the canonical-column list extracted by the
+    #   attribute-phrase cluster (e.g., ["property_type", "market"]).
+    # - `meaning` carries the qualifier semantics so the response wording
+    #   reflects what the data actually means (e.g.,
+    #   "noncanonical_status" — never claim NULL when the data is just
+    #   non-canonical).
+    requested_attributes: list[str] = field(default_factory=list)
+    meaning: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +184,10 @@ class ReferentialResolution:
     resolved_count: int | None = None
     rows: list[dict[str, Any]] = field(default_factory=list)
     resolution_source: str = RESULT_MEMORY_SOURCE
+    # PR 8a: carried through from ReferentialIntent for the lifecycle's
+    # attribute-lookup branch.
+    requested_attributes: list[str] = field(default_factory=list)
+    meaning: str | None = None
 
 
 def build_memory_scope(
@@ -185,6 +319,8 @@ def resolve_referential_followup(
             status="no_memory",
             matched_pattern=intent.matched_pattern,
             requested_count=intent.requested_count,
+            requested_attributes=list(intent.requested_attributes),
+            meaning=intent.meaning,
         )
 
     if not compatible_result_memory_scope(result_memory, current_scope):
@@ -193,6 +329,8 @@ def resolve_referential_followup(
             status="scope_mismatch",
             matched_pattern=intent.matched_pattern,
             requested_count=intent.requested_count,
+            requested_attributes=list(intent.requested_attributes),
+            meaning=intent.meaning,
         )
 
     result_type = result_memory.get("result_type")
@@ -207,12 +345,16 @@ def resolve_referential_followup(
             requested_count=intent.requested_count,
             resolved_count=len(rows),
             rows=rows,
+            requested_attributes=list(intent.requested_attributes),
+            meaning=intent.meaning,
         )
     return ReferentialResolution(
         is_referential=True,
         status="unsupported_pattern",
         matched_pattern=intent.matched_pattern,
         requested_count=intent.requested_count,
+        requested_attributes=list(intent.requested_attributes),
+        meaning=intent.meaning,
     )
 
 
@@ -318,6 +460,73 @@ def build_referential_response_text(
     return "\n".join(lines)
 
 
+def build_attribute_lookup_response_text(
+    *,
+    rows: list[dict[str, Any]],
+    requested_attributes: list[str],
+    meaning: str | None,
+    scope_label: str,
+) -> str:
+    """Format the response text for an attribute-lookup follow-up.
+
+    `rows` carries one dict per asset_id with `name` plus the requested
+    attribute keys. `requested_attributes` is the canonical column list
+    in user-visible order. `meaning` shapes the intro: when
+    "noncanonical_status" the intro says "with a non-canonical status",
+    never "without a status" — the data lives in the `other` bucket, not
+    NULL.
+
+    Attribute display labels:
+      property_type → "property type"
+      market        → "market"
+      fund          → "fund"
+      status        → "status"
+      units         → "units"
+      occupancy     → "occupancy"
+    """
+    if not rows:
+        return (
+            f"I have a saved result set for {scope_label} but no rows "
+            f"matched the requested attribute lookup."
+        )
+
+    if meaning == "noncanonical_status":
+        intro = (
+            f"The {len(rows)} property asset(s) in {scope_label} with a "
+            f"non-canonical status are:"
+        )
+    else:
+        intro = (
+            f"Here are the {len(rows)} saved item(s) in {scope_label}:"
+        )
+
+    display_labels = {
+        "property_type": "property type",
+        "market": "market",
+        "fund": "fund",
+        "status": "status",
+        "units": "units",
+        "occupancy": "occupancy",
+    }
+
+    lines = [intro]
+    for row in rows[:MAX_RESULT_MEMORY_ROWS]:
+        name = row.get("name") or "Unnamed"
+        attr_parts: list[str] = []
+        for attr in requested_attributes:
+            label = display_labels.get(attr, attr.replace("_", " "))
+            raw = row.get(attr)
+            value = "n/a" if raw is None or raw == "" else str(raw)
+            attr_parts.append(f"{label}: {value}")
+        if attr_parts:
+            lines.append(f"- {name} — {', '.join(attr_parts)}")
+        else:
+            lines.append(f"- {name}")
+    if len(rows) > MAX_RESULT_MEMORY_ROWS:
+        lines.append(f"- ...and {len(rows) - MAX_RESULT_MEMORY_ROWS} more")
+    return "\n".join(lines)
+
+
 def format_scope_label(scope: dict[str, Any] | None) -> str:
     data = scope or {}
     entity_type = data.get("entity_type")
@@ -339,6 +548,9 @@ def _resolve_bucketed_count(
 ) -> ReferentialResolution:
     bucket_members = result_memory.get("bucket_members") or {}
     summary = result_memory.get("summary") or {}
+    # PR 8a — pre-bind the new fields so every return path threads them.
+    _attrs = list(intent.requested_attributes)
+    _meaning = intent.meaning
     if intent.use_all_rows:
         bucket_name = _default_bucket_name(bucket_members)
         if bucket_name is None:
@@ -347,6 +559,8 @@ def _resolve_bucketed_count(
                 status="unsupported_pattern",
                 matched_pattern=intent.matched_pattern,
                 requested_count=intent.requested_count,
+                requested_attributes=_attrs,
+                meaning=_meaning,
             )
         rows = list(bucket_members.get(bucket_name) or [])
         return ReferentialResolution(
@@ -357,6 +571,8 @@ def _resolve_bucketed_count(
             requested_count=intent.requested_count,
             resolved_count=len(rows),
             rows=rows,
+            requested_attributes=_attrs,
+            meaning=_meaning,
         )
 
     if intent.bucket_name:
@@ -378,6 +594,8 @@ def _resolve_bucketed_count(
                         requested_count=requested_count,
                         resolved_count=len(remainder_rows),
                         rows=remainder_rows,
+                        requested_attributes=_attrs,
+                        meaning=_meaning,
                     )
         rows = list(bucket_members.get(intent.bucket_name) or [])
         return ReferentialResolution(
@@ -389,6 +607,8 @@ def _resolve_bucketed_count(
             requested_count=intent.requested_count,
             resolved_count=len(rows),
             rows=rows,
+            requested_attributes=_attrs,
+            meaning=_meaning,
         )
 
     if intent.complement_of:
@@ -405,6 +625,8 @@ def _resolve_bucketed_count(
             requested_count=intent.requested_count,
             resolved_count=len(rows),
             rows=rows,
+            requested_attributes=_attrs,
+            meaning=_meaning,
         )
 
     return ReferentialResolution(
@@ -412,6 +634,8 @@ def _resolve_bucketed_count(
         status="unsupported_pattern",
         matched_pattern=intent.matched_pattern,
         requested_count=intent.requested_count,
+        requested_attributes=_attrs,
+        meaning=_meaning,
     )
 
 
@@ -436,41 +660,147 @@ def _bucket_display_label(bucket_name: str | None) -> str:
 
 
 def _parse_intent(message: str) -> ReferentialIntent | None:
+    """Recognize a referential follow-up message.
+
+    Dispatch order (most specific first):
+      1. `other N` count pattern ("the other 4")
+      2. Explicit bucket ("the active ones")
+      3. Negation ("not active")
+      4. Plain-names ("which ones", "list them")
+      5. PR 8a clusters: qualifier-phrase + attribute-phrase
+    """
     text = (message or "").strip()
     if not text:
         return None
 
     match = _OTHER_COUNT_RE.search(text)
     if match:
-        return ReferentialIntent(
-            matched_pattern="other_count",
-            bucket_name="other",
-            requested_count=int(match.group("count")),
+        return _augment_with_attributes(
+            ReferentialIntent(
+                matched_pattern="other_count",
+                bucket_name="other",
+                requested_count=int(match.group("count")),
+            ),
+            text,
         )
 
     match = _EXPLICIT_BUCKET_RE.search(text)
     if match:
-        return ReferentialIntent(
-            matched_pattern="explicit_bucket",
-            bucket_name=match.group("bucket").lower(),
+        return _augment_with_attributes(
+            ReferentialIntent(
+                matched_pattern="explicit_bucket",
+                bucket_name=match.group("bucket").lower(),
+            ),
+            text,
         )
 
     match = _NOT_BUCKET_RE.search(text)
     if match:
         bucket_name = (match.group("direct") or match.group("indirect") or "").lower()
         if bucket_name:
-            return ReferentialIntent(
-                matched_pattern="not_bucket",
-                complement_of=bucket_name,
+            return _augment_with_attributes(
+                ReferentialIntent(
+                    matched_pattern="not_bucket",
+                    complement_of=bucket_name,
+                ),
+                text,
             )
 
     if _PLAIN_NAMES_RE.match(text):
+        return _augment_with_attributes(
+            ReferentialIntent(
+                matched_pattern="plain_names",
+                use_all_rows=True,
+            ),
+            text,
+        )
+
+    # PR 8a — qualifier-phrase cluster. Catches "of the ones without
+    # statuses" / "those without a status" / "of those". When the qualifier
+    # is status-related, route to the existing `other` bucket and tag with
+    # meaning="noncanonical_status" so the response wording is honest
+    # about the data.
+    qualifier_intent = _match_qualifier_cluster(text)
+    if qualifier_intent is not None:
+        return _augment_with_attributes(qualifier_intent, text)
+
+    # PR 8a — attribute-phrase cluster, standalone (no qualifier above).
+    # Only fires if the captured attribute resolves through the whitelist.
+    # "what sector are they in" with no qualifier → use_all_rows so the
+    # resolver applies to whatever the saved memory holds.
+    standalone_attrs = _extract_attribute_phrase(text)
+    if standalone_attrs:
         return ReferentialIntent(
-            matched_pattern="plain_names",
+            matched_pattern="attribute_lookup",
+            use_all_rows=True,
+            requested_attributes=standalone_attrs,
+        )
+
+    return None
+
+
+def _match_qualifier_cluster(text: str) -> ReferentialIntent | None:
+    """Match the qualifier-phrase cluster (status-related and bare-of-those
+    forms). Returns an intent or None. Attribute resolution is layered on
+    top by `_augment_with_attributes`.
+    """
+    # Status qualifier — most specific.
+    m = _QUALIFIER_STATUS_RE.search(text)
+    if m and m.group(0):
+        # The regex captures both "ones without statuses" and bare "ones"
+        # alone. Differentiate: if the matched span contains a status word,
+        # treat as noncanonical_status; otherwise treat as bare reference.
+        span = m.group(0).lower()
+        if "status" in span:
+            return ReferentialIntent(
+                matched_pattern="qualifier_noncanonical_status",
+                bucket_name="other",
+                meaning="noncanonical_status",
+            )
+
+    # Bare "of those" / "those" / "the ones" anchored at start.
+    m = _QUALIFIER_OF_THOSE_RE.match(text)
+    if m:
+        return ReferentialIntent(
+            matched_pattern="qualifier_bare_reference",
             use_all_rows=True,
         )
 
     return None
+
+
+def _extract_attribute_phrase(text: str) -> list[str]:
+    """Run the attribute-phrase patterns against `text` and return the
+    canonical column list. Empty list if nothing matched OR if all matched
+    words drop out of the whitelist (so the LLM path can take over).
+    """
+    for pattern in _ATTRIBUTE_PHRASE_RES:
+        match = pattern.search(text)
+        if not match:
+            continue
+        raw = match.group("attrs")
+        canonical = _normalize_attrs(raw)
+        if canonical:
+            return canonical
+    return []
+
+
+def _augment_with_attributes(
+    intent: ReferentialIntent, text: str
+) -> ReferentialIntent:
+    """If the message also contains an attribute-lookup phrase, attach the
+    requested attributes to the given intent. Preserves the original
+    matched_pattern so callers can still see which bucket/qualifier path
+    fired. Frozen dataclass requires replace().
+    """
+    if intent.requested_attributes:
+        return intent
+    attrs = _extract_attribute_phrase(text)
+    if not attrs:
+        return intent
+    from dataclasses import replace as _dc_replace
+
+    return _dc_replace(intent, requested_attributes=attrs)
 
 
 def _cap_bucket_members(bucket_members: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
