@@ -18,7 +18,7 @@
    the SignalMap .visual so both align with the global marketing rail. */
 .heroRail {
   position: relative;
-  min-height: 560px;
+  min-height: 640px;
 }
 
 .copy {
@@ -26,47 +26,13 @@
   z-index: 6;
   left: 48px;
   top: 36px;
-  width: 430px;
-}
-
-.eyebrow {
-  font-family: var(--font-marketing-mono), ui-monospace, monospace;
-  font-size: 13px;
-  line-height: 1;
-  font-weight: 500;
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: rgb(var(--nv-accent-teal));
-  margin-bottom: 26px;
+  width: 560px;
 }
 
 .rule {
   height: 1px;
   background: linear-gradient(90deg, rgba(33, 48, 64, 0.8), transparent);
-  margin-bottom: 30px;
-}
-
-.headline {
-  font-size: 54px;
-  line-height: 1.06;
-  letter-spacing: -0.055em;
-  font-weight: 700;
-  margin: 0 0 24px;
-  color: rgb(var(--nv-text-primary));
-  font-family: var(--font-marketing-sans), ui-sans-serif, sans-serif;
-}
-
-.headlineSpan {
-  display: block;
-  color: rgb(var(--nv-accent-teal));
-}
-
-.lede {
-  font-size: 17px;
-  line-height: 1.55;
-  color: rgb(var(--nv-text-secondary));
-  margin: 0 0 28px;
-  max-width: 390px;
+  margin: 20px 0 24px;
 }
 
 .ctaRow {
@@ -107,7 +73,7 @@
 .visual {
   position: absolute;
   z-index: 1;
-  left: 380px;
+  left: 480px;
   right: -8px;
   top: -4px;
   height: 555px;
@@ -672,14 +638,6 @@
 @media (max-width: 767px) {
   .heroRail {
     min-height: auto;
-  }
-
-  .headline {
-    font-size: 36px;
-  }
-
-  .lede {
-    font-size: 15px;
   }
 
   .scoreGrid {

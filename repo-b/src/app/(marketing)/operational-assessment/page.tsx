@@ -27,15 +27,18 @@ export default function OperationalAssessmentPage() {
     <>
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className={styles.hero}>
-        <div className={`${styles.heroRail} nv-hero-bg__content nv-hero-bg__content--wide`}>
+        <div className={`${styles.heroRail} nv-hero-bg__content`}>
           <div className={styles.copy}>
-            <div className={styles.eyebrow}>Operational Assessment</div>
+            <p className="nv-eyebrow">
+              <span className="nv-eyebrow-dot" />
+              Operational Assessment
+            </p>
             <div className={styles.rule} />
-            <h1 className={styles.headline}>
-              You can&apos;t fix what you can&apos;t see.
-              <span className={styles.headlineSpan}>We make it visible.</span>
+            <h1 className="nv-h1" style={{ marginTop: 18, marginBottom: 24 }}>
+              You can&apos;t fix what you can&apos;t see.{' '}
+              <em>We make it visible.</em>
             </h1>
-            <p className={styles.lede}>
+            <p className="nv-lede">
               Novendor maps how work actually moves through your business, exposes friction,
               and shows where control breaks and value leaks.
             </p>
