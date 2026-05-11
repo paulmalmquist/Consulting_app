@@ -30,6 +30,9 @@ export default function MarketsHomePage() {
             This page now reads only from the BOS paper-account layer. Select the Trading Platform business so Winston can load the canonical positions, snapshots, quote provenance, and accountability state.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
+            <Link href={`/lab/env/${envId}/trading`} className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/20">
+              Energy Trading Command Center
+            </Link>
             <Link href={`/lab/env/${envId}/markets/execution`} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-500/20">
               Open Execution Workspace
             </Link>
@@ -57,6 +60,11 @@ export default function MarketsHomePage() {
           rangeKey={rangeKey}
           onRangeChange={setRangeKey}
         />
+        <div className="mt-4 flex flex-wrap justify-end gap-3">
+          <Link href={`/lab/env/${envId}/trading`} className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/20">
+            Energy Trading Command Center
+          </Link>
+        </div>
       </div>
     </div>
   );

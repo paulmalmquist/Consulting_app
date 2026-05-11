@@ -73,7 +73,7 @@ describe("AppShell", () => {
   });
 
   test("hides the global utility header on immersive trading routes", () => {
-    mockUsePathname.mockReturnValue("/lab/env/env-123/markets");
+    mockUsePathname.mockReturnValue("/lab/env/env-123/trading");
 
     render(<AppShell><div>content</div></AppShell>);
 

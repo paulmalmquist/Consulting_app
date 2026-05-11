@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronRight,
+  CheckSquare,
   Clock3,
   FileText,
   X,
@@ -57,12 +58,29 @@ export default function Sidebar({
     }
   };
 
+  const isTasksActive = pathname === "/app/tasks";
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="border-b border-bm-border/20 p-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-bm-muted2">
           {isFinance ? "Lifecycle" : "Capabilities"}
         </p>
+      </div>
+      {/* Pinned system links */}
+      <div className="border-b border-bm-border/10 px-2 py-2">
+        <Link
+          href="/app/tasks"
+          onClick={onClose}
+          className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors duration-100 ${
+            isTasksActive
+              ? "bg-bm-accent/10 text-bm-accent"
+              : "text-bm-muted hover:bg-bm-surface/15 hover:text-bm-text"
+          }`}
+        >
+          <CheckSquare className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+          <span>Tasks</span>
+        </Link>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {isFinance ? (

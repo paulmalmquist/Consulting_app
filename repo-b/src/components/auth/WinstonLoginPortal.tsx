@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Input } from "@/components/ui/Input";
 import { applyEnvironmentClientState } from "@/lib/platformSessionClient";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
 const AUTH_UNAVAILABLE_MESSAGE = "Login is currently unavailable. Please try again shortly.";
+
+function ssoButtonClassName(palette: "okta" | "microsoft") {
+  const base =
+    "inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border px-4 text-sm font-medium uppercase tracking-[0.16em] transition-[transform,filter] duration-150 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60";
+  if (palette === "okta") {
+    return `${base} border-white/14 bg-white/[0.06] text-white hover:bg-white/[0.10]`;
+  }
+  return `${base} border-cyan-300/24 bg-cyan-300/[0.07] text-cyan-50 hover:bg-cyan-300/[0.12]`;
+}
 
 function panelInputClassName() {
   return "h-12 rounded-xl border-white/12 bg-white/[0.08] text-white placeholder:text-white/32 focus-visible:border-white/24 focus-visible:shadow-[0_0_0_1px_rgba(255,255,255,0.14)]";
@@ -31,11 +40,25 @@ const resumeLinks = [
 
 export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<"auth" | "infra" | null>(null);
+
+  useEffect(() => {
+    if (searchParams?.get("error") === "oidc_failed") {
+      const reason = searchParams.get("reason") || "unknown";
+      setError(`Enterprise login failed (${reason.replace(/_/g, " ")}). Use the form below or try again.`);
+      setErrorKind("auth");
+    }
+  }, [searchParams]);
+
+  function ssoHref(provider: "okta" | "entra"): string {
+    const target = returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
+    return `/api/auth/oidc/start?provider=${provider}${target}`;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -243,6 +266,26 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
                 {loading ? "Signing in..." : "Sign in"}
               </button>
             </form>
+
+            <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/44">
+                Enterprise sign-in
+              </p>
+              <a
+                href={ssoHref("okta")}
+                className={ssoButtonClassName("okta")}
+                data-testid="sso-okta-button"
+              >
+                Continue with Okta
+              </a>
+              <a
+                href={ssoHref("entra")}
+                className={ssoButtonClassName("microsoft")}
+                data-testid="sso-entra-button"
+              >
+                Continue with Microsoft
+              </a>
+            </div>
 
           </section>
         </div>

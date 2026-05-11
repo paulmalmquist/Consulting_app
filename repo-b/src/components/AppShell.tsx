@@ -11,7 +11,7 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isImmersiveRoute = /^\/lab\/env\/[^/]+\/(markets|consulting\/pipeline)(\/|$)/.test(pathname);
+  const isImmersiveRoute = /^\/lab\/env\/[^/]+\/(markets|trading|consulting\/pipeline)(\/|$)/.test(pathname);
   // Pipeline needs a proper flex column chain so the kanban fills remaining viewport height.
   const isPipelineRoute = /^\/lab\/env\/[^/]+\/consulting\/pipeline(\/|$)/.test(pathname);
 

@@ -16,6 +16,7 @@ import {
   isCreditEnvironment,
   isLegalOpsEnvironment,
   isMedicalBackofficeEnvironment,
+  isTradingPlatformEnvironment,
   isVisualResumeEnvironment,
   resolveEnvironmentOpenPath,
 } from "@/components/lab/environments/constants";
@@ -348,6 +349,14 @@ function getQuickActions(industry: string, envId: string): Array<{ label: string
       { label: "Update Ranking", href: `/lab/env/${envId}/rankings` },
       { label: "Log Revenue", href: `/lab/env/${envId}/analytics` },
       { label: "Create Task", href: `/lab/env/${envId}/projects` },
+    ];
+  }
+  if (isTradingPlatformEnvironment(industry)) {
+    return [
+      { label: "Energy Trading Command Center", href: `/lab/env/${envId}/trading` },
+      { label: "Trading Lab", href: `/lab/env/${envId}/markets` },
+      { label: "Execution Workspace", href: `/lab/env/${envId}/markets/execution` },
+      { label: "Podcast Intelligence", href: `/lab/env/${envId}/markets/podcast-intel` },
     ];
   }
   return [

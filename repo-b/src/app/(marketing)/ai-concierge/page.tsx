@@ -704,14 +704,16 @@ const Infographic = () => (
 
 export default function AIConciergePage() {
   return (
-    <div className={styles.shell}>
-      <div className={styles.scaler}>
-        <div className={styles.canvas}>
-          <Infographic />
+    <div className="nv-page nv-page--wide">
+      <div className={styles.shell}>
+        <div className={styles.scaler}>
+          <div className={styles.canvas}>
+            <Infographic />
+          </div>
         </div>
-      </div>
-      <div className={styles.cta}>
-        <NvButton variant="primary" href="/contact">See where AI is blocked in your workflow</NvButton>
+        <div className={styles.cta}>
+          <NvButton variant="primary" href="/contact">See where AI is blocked in your workflow</NvButton>
+        </div>
       </div>
     </div>
   );

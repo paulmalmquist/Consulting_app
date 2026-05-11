@@ -34,25 +34,25 @@ type LeftSidebarProps = {
   mode?: "full" | "brand" | "nav";
 };
 
-// Hard-coded palette so the sidebar renders correctly in any context —
-// not just inside [data-command-desk] where CSS tokens are scoped.
+// Palette is driven by CSS custom properties so the sidebar follows the
+// active [data-theme] on any ancestor. Fallbacks preserve the original dark
+// look for callers that mount outside a themed root.
 const SB = {
-  bg: "rgba(10, 14, 20, 0.98)",
-  border: "rgba(255,255,255,0.10)",
-  sectionDivider: "rgba(255,255,255,0.07)",
-  sectionLabel: "rgba(220,230,240,0.42)",
-  itemInactive: "rgba(220,230,240,0.68)",
-  itemHover: "rgba(255,255,255,0.92)",
-  itemActive: "#ffffff",
-  itemActiveBg: "rgba(0,220,255,0.10)",
-  itemActiveBorder: "#00DCFF",
-  itemDisabled: "rgba(255,255,255,0.22)",
-  badgeBorder: "rgba(255,255,255,0.14)",
-  badgeText: "rgba(220,230,240,0.50)",
-  badgeBg: "rgba(255,255,255,0.04)",
-  backBorder: "rgba(255,255,255,0.14)",
-  backColor: "rgba(220,230,240,0.60)",
-  footerText: "rgba(220,230,240,0.42)",
+  bg: "var(--sidebar-bg, rgba(10, 14, 20, 0.98))",
+  border: "var(--sidebar-border, rgba(255,255,255,0.10))",
+  sectionDivider: "var(--sidebar-section-divider, rgba(255,255,255,0.07))",
+  sectionLabel: "var(--sidebar-section-label, rgba(220,230,240,0.42))",
+  itemInactive: "var(--sidebar-item-inactive, rgba(220,230,240,0.68))",
+  itemActive: "var(--sidebar-item-active, #ffffff)",
+  itemActiveBg: "var(--sidebar-item-active-bg, rgba(0,220,255,0.10))",
+  itemActiveBorder: "var(--sidebar-item-active-border, #00DCFF)",
+  itemDisabled: "var(--sidebar-item-disabled, rgba(255,255,255,0.22))",
+  badgeBorder: "var(--sidebar-badge-border, rgba(255,255,255,0.14))",
+  badgeText: "var(--sidebar-badge-text, rgba(220,230,240,0.50))",
+  badgeBg: "var(--sidebar-badge-bg, rgba(255,255,255,0.04))",
+  backBorder: "var(--sidebar-back-border, rgba(255,255,255,0.14))",
+  backColor: "var(--sidebar-back-color, rgba(220,230,240,0.60))",
+  footerText: "var(--sidebar-footer-text, rgba(220,230,240,0.42))",
 } as const;
 
 export function LeftSidebar({

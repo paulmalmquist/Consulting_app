@@ -5,7 +5,6 @@
 
 .hero {
   position: relative;
-  min-height: 560px;
   border-bottom: 1px solid rgba(33, 48, 64, 0.8);
   overflow: hidden;
   /* Full-bleed background matching mockup body gradient */
@@ -13,6 +12,13 @@
     radial-gradient(1200px 600px at 48% 8%, rgba(0, 220, 235, 0.12), transparent 58%),
     radial-gradient(700px 420px at 78% 25%, rgba(255, 56, 182, 0.055), transparent 62%),
     rgb(var(--nv-bg));
+}
+
+/* Centered content rail inside the full-bleed hero — anchors .copy and
+   the SignalMap .visual so both align with the global marketing rail. */
+.heroRail {
+  position: relative;
+  min-height: 560px;
 }
 
 .copy {
@@ -617,7 +623,7 @@
 /* ── Responsive ──────────────────────────────────────────────── */
 
 @media (max-width: 1280px) {
-  .hero {
+  .heroRail {
     min-height: 880px;
   }
 
@@ -664,7 +670,7 @@
 }
 
 @media (max-width: 767px) {
-  .hero {
+  .heroRail {
     min-height: auto;
   }
 

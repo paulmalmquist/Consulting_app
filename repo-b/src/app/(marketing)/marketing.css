@@ -200,13 +200,13 @@
 /* ── Page + section rhythm ──────────────────────────────────── */
 
 .nv-page {
-  max-width: 1320px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 72px 48px 120px;
 }
 
 .nv-page--wide {
-  max-width: 1560px;
+  max-width: 1600px;
 }
 
 .nv-section {
@@ -232,6 +232,17 @@
 @media (max-width: 767px) {
   .nv-page { padding: 48px 20px 80px; }
   .nv-section { margin-top: 64px; }
+}
+
+@media (min-width: 1680px) {
+  .nv-page,
+  .nv-hero-bg__content {
+    max-width: 1520px;
+  }
+  .nv-page--wide,
+  .nv-hero-bg__content--wide {
+    max-width: 1680px;
+  }
 }
 
 /* ── Hero background (full-bleed image wrapper) ───────────────── */
@@ -345,8 +356,12 @@
 .nv-hero-bg__content {
   position: relative;
   z-index: 1;
-  max-width: 1320px;
+  max-width: 1440px;
   margin: 0 auto;
+}
+
+.nv-hero-bg__content--wide {
+  max-width: 1600px;
 }
 
 /* ── Cyberpunk accent utilities — DECORATIVE ONLY ─────────────────

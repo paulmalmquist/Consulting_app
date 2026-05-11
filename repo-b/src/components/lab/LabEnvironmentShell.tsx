@@ -164,7 +164,7 @@ export default function LabEnvironmentShell({ envId, children }: Props) {
     };
   }, [mobileSidebarOpen]);
 
-  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|operator|opportunity-engine|ecc|demo|documents|definitions|resume|markets|ncf|supply-chain|investment-engine|altered-mind)(/|$)`).test(pathname);
+  const isDomainRoute = new RegExp(`^/lab/env/${envId}/(re|pds|credit|legal|medical|consulting|operator|opportunity-engine|ecc|demo|documents|definitions|resume|markets|trading|ncf|supply-chain|investment-engine|altered-mind)(/|$)`).test(pathname);
   const homeHref = `/lab/env/${envId}`;
   if (isDomainRoute) {
     return <div className="min-h-screen bg-bm-bg">{children}</div>;

@@ -9,6 +9,23 @@ import type {
   NvInvoiceRow,
   NvSubscriptionRow,
 } from "@/types/nv-accounting";
+import { InboxRowActions, type InboxDisposition } from "./InboxRowActions";
+
+export function makeNeedsColumns(
+  onDisposition: (item: NvQueueItem, d: InboxDisposition) => void,
+): WorkTableColumn<NvQueueItem>[] {
+  const dispoCol: WorkTableColumn<NvQueueItem> = {
+    key: "dispositions",
+    header: "QUICK ACTIONS",
+    width: "240px",
+    align: "right",
+    render: (row) => <InboxRowActions item={row} onDisposition={onDisposition} />,
+  };
+  // Drop the trailing "AGE" column so we have room for dispositions without
+  // wrapping. The age signal is already encoded in the row-glow + state badge.
+  const filtered = needsColumns.filter((c) => c.key !== "age");
+  return [...filtered, dispoCol];
+}
 
 const TYPE_META: Record<
   string,

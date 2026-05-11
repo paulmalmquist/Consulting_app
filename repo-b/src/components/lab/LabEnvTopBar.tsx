@@ -10,6 +10,7 @@ export default function LabEnvTopBar({ envId }: { envId: string }) {
   if (/\/ncf(\/|$)/.test(pathname)) return null;
   if (/\/supply-chain(\/|$)/.test(pathname)) return null;
   if (/\/altered-mind(\/|$)/.test(pathname)) return null;
+  if (/\/trading(\/|$)/.test(pathname)) return null;
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-2 px-4 pt-3 lg:px-6">
       <WorkspaceIdentityBar envId={envId} />

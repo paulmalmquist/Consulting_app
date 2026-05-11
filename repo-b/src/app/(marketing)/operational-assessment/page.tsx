@@ -27,32 +27,35 @@ export default function OperationalAssessmentPage() {
     <>
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className={styles.hero}>
-        <div className={styles.copy}>
-          <div className={styles.eyebrow}>Operational Assessment</div>
-          <div className={styles.rule} />
-          <h1 className={styles.headline}>
-            You can&apos;t fix what you can&apos;t see.
-            <span className={styles.headlineSpan}>We make it visible.</span>
-          </h1>
-          <p className={styles.lede}>
-            Novendor maps how work actually moves through your business, exposes friction,
-            and shows where control breaks and value leaks.
-          </p>
-          <div className={styles.ctaRow}>
-            <NvButton variant="primary" href="#assessment">Start assessment</NvButton>
-            <span className={styles.timeNote}>~ 3 minutes</span>
+        <div className={`${styles.heroRail} nv-hero-bg__content nv-hero-bg__content--wide`}>
+          <div className={styles.copy}>
+            <div className={styles.eyebrow}>Operational Assessment</div>
+            <div className={styles.rule} />
+            <h1 className={styles.headline}>
+              You can&apos;t fix what you can&apos;t see.
+              <span className={styles.headlineSpan}>We make it visible.</span>
+            </h1>
+            <p className={styles.lede}>
+              Novendor maps how work actually moves through your business, exposes friction,
+              and shows where control breaks and value leaks.
+            </p>
+            <div className={styles.ctaRow}>
+              <NvButton variant="primary" href="#assessment">Start assessment</NvButton>
+              <span className={styles.timeNote}>~ 3 minutes</span>
+            </div>
+            <div className={styles.trace}>
+              <strong>Actions leave a trace</strong><br />
+              Workflow ownership, approval clarity, evidence gaps, and automation readiness
+              are scored into one operating profile.
+            </div>
           </div>
-          <div className={styles.trace}>
-            <strong>Actions leave a trace</strong><br />
-            Workflow ownership, approval clarity, evidence gaps, and automation readiness
-            are scored into one operating profile.
-          </div>
-        </div>
 
-        <SignalMap />
+          <SignalMap />
+        </div>
       </section>
 
       {/* ── Assessment console ───────────────────────────────────── */}
+      <div className="nv-page nv-page--wide">
       <div className={styles.consoleLabel}>Actions leave a trace</div>
 
       <section className={styles.console} id="assessment">
@@ -128,6 +131,7 @@ export default function OperationalAssessmentPage() {
           <strong>Novendor</strong><br />
           Operational intelligence for teams that move fast and need evidence to back it up.
         </div>
+      </div>
       </div>
     </>
   );

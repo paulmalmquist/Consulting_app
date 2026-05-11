@@ -5015,9 +5015,26 @@ export interface CrmOpportunity {
   status: string;
   expected_close_date?: string | null;
   actual_close_date?: string | null;
+  close_reason?: string | null;
+  close_notes?: string | null;
+  closed_at?: string | null;
+  thesis?: string | null;
+  pain?: string | null;
+  winston_angle?: string | null;
+  next_action?: string | null;
+  next_action_date?: string | null;
   account_name?: string | null;
+  account_industry?: string | null;
   stage_key?: string | null;
   stage_label?: string | null;
+  stage_order?: number | null;
+  is_closed?: boolean | null;
+  is_won?: boolean | null;
+  contact_name?: string | null;
+  contact_title?: string | null;
+  contact_email?: string | null;
+  linkedin_url?: string | null;
+  last_outreach_at?: string | null;
   created_at: string;
 }
 
@@ -5074,6 +5091,26 @@ export function createCrmOpportunity(body: {
   return bosFetch("/api/crm/opportunities", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function closeOpportunity(
+  opportunityId: string,
+  body: { business_id: string; close_reason: string; close_notes?: string }
+): Promise<CrmOpportunity> {
+  return bosFetch(`/api/crm/opportunities/${opportunityId}/close`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function reopenOpportunity(
+  opportunityId: string,
+  businessId: string
+): Promise<CrmOpportunity> {
+  return bosFetch(`/api/crm/opportunities/${opportunityId}/reopen`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId }),
   });
 }
 

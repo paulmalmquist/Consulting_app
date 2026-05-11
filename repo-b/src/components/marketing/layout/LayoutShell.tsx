@@ -91,7 +91,7 @@ export function LayoutShell({ children }: { children: ReactNode }) {
         )}
         <div className="flex w-full flex-col">
           <Topbar {...value} />
-          <main id="main" className="flex-1 px-4 pb-12 pt-6 md:px-8">
+          <main id="main" className="flex-1 pb-12">
             {children}
           </main>
         </div>

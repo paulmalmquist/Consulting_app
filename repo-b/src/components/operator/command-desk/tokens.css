@@ -148,6 +148,32 @@
   color: var(--selection-fg);
 }
 
+/* ------------------------------------------------------------
+   LeftSidebar palette — exposed at :root so the sidebar can
+   render outside [data-command-desk] (e.g. in CSS-grid layouts
+   where the aside sits next to the desk surface, not inside it).
+   Dark is default; tokens-light.css overrides under
+   :root[data-theme="light"].
+   ------------------------------------------------------------ */
+:root,
+:root[data-theme="dark"] {
+  --sidebar-bg: rgba(10, 14, 20, 0.98);
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-section-divider: rgba(255, 255, 255, 0.07);
+  --sidebar-section-label: rgba(220, 230, 240, 0.42);
+  --sidebar-item-inactive: rgba(220, 230, 240, 0.68);
+  --sidebar-item-active: #ffffff;
+  --sidebar-item-active-bg: rgba(0, 220, 255, 0.10);
+  --sidebar-item-active-border: #00DCFF;
+  --sidebar-item-disabled: rgba(255, 255, 255, 0.22);
+  --sidebar-badge-border: rgba(255, 255, 255, 0.14);
+  --sidebar-badge-text: rgba(220, 230, 240, 0.50);
+  --sidebar-badge-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-back-border: rgba(255, 255, 255, 0.14);
+  --sidebar-back-color: rgba(220, 230, 240, 0.60);
+  --sidebar-footer-text: rgba(220, 230, 240, 0.42);
+}
+
 [data-command-desk] *::-webkit-scrollbar { width: 10px; height: 10px; }
 [data-command-desk] *::-webkit-scrollbar-track { background: var(--bg-inset); }
 [data-command-desk] *::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--bg-inset); }
