@@ -62,7 +62,7 @@ export default function TasksWidget() {
   }, []);
 
   async function toggleDone(task: NvTask) {
-    const next = task.status === "done" ? "open" : "done";
+    const next: NvTask["status"] = task.status === "done" ? "open" : "done";
     try {
       await fetch(`/api/nv-tasks/${task.id}`, {
         method: "PATCH",
