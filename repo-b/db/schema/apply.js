@@ -118,11 +118,32 @@ function matchesFilter(filename, filter) {
   return false;
 }
 
+/**
+ * Sort schema files by the leading integer prefix (e.g. "260_foo.sql" < "10000_bar.sql"),
+ * falling back to lex order for files without a numeric prefix or when prefixes tie.
+ * Exported so unit tests can exercise it without touching the filesystem.
+ */
+function compareSchemaFiles(a, b) {
+  const ma = /^(\d+)/.exec(a);
+  const mb = /^(\d+)/.exec(b);
+  if (ma && mb) {
+    const na = parseInt(ma[1], 10);
+    const nb = parseInt(mb[1], 10);
+    if (na !== nb) return na - nb;
+  } else if (ma) {
+    return -1;
+  } else if (mb) {
+    return 1;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 async function main() {
-  // Collect SQL files in numeric order, optionally filtered
+  // Collect SQL files in numeric prefix order (e.g. 260_ runs before 10000_),
+  // optionally filtered. Lex sort would break for any prefix >= 10000.
   const allFiles = fs.readdirSync(SCHEMA_DIR)
     .filter(f => f.endsWith('.sql'))
-    .sort();
+    .sort(compareSchemaFiles);
 
   const files = options.filesFilter
     ? allFiles.filter(f => matchesFilter(f, options.filesFilter))
@@ -217,4 +238,8 @@ async function main() {
   }
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+module.exports = { compareSchemaFiles };
+
+if (require.main === module) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}
