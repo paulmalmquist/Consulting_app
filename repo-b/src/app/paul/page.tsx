@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { TimelineEngine } from "@/components/resume/timeline";
 import SystemsBuiltSection from "@/components/resume/SystemsBuiltSection";
@@ -229,6 +230,32 @@ export default function PaulPage() {
 
         {/* SYSTEMS IN PRODUCTION */}
         <SystemsBuiltSection />
+
+        {/* EVIDENCE GRAPH CTA */}
+        <section
+          className="border-t pt-8 text-center"
+          style={{ borderColor: "var(--ros-border)" }}
+        >
+          <p
+            className="text-[10px] font-semibold tracking-[0.24em] uppercase"
+            style={{ color: "var(--ros-text-dim)" }}
+          >
+            Credibility Map
+          </p>
+          <Link
+            href="/paul/evidence"
+            className="resume-editorial mt-3 inline-block text-[clamp(1.4rem,3vw,2rem)] leading-tight transition-opacity hover:opacity-90"
+            style={{ color: "var(--ros-accent-gold)" }}
+          >
+            View Evidence Graph →
+          </Link>
+          <p
+            className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed"
+            style={{ color: "var(--ros-text-muted)" }}
+          >
+            See how each resume claim maps to shipped experience, Winston platform work, prototypes, and current skill gaps.
+          </p>
+        </section>
 
         {/* CONTACT / CTA */}
         <footer className="border-t pb-4 pt-8 text-center" style={{ borderColor: "var(--ros-border)" }}>
