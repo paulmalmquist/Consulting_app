@@ -26,7 +26,7 @@
   z-index: 6;
   left: 48px;
   top: 36px;
-  width: 560px;
+  width: 700px;
 }
 
 .rule {
@@ -73,7 +73,7 @@
 .visual {
   position: absolute;
   z-index: 1;
-  left: 480px;
+  left: 620px;
   right: -8px;
   top: -4px;
   height: 555px;
