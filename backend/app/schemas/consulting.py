@@ -1239,6 +1239,11 @@ class DealOut(BaseModel):
     computed_status: str  # NeedsAttention | ReadyToAct | Waiting | OnTrack | Closed
 
 
+class DealStatusUpdateRequest(BaseModel):
+    status: str  # open | won | lost | cold_hold | archived
+    disposition_reason: str | None = None
+
+
 class PipelineStripItem(BaseModel):
     stage_key: str
     stage_label: str

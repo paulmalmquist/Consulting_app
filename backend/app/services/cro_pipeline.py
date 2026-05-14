@@ -457,3 +457,84 @@ def advance_opportunity_stage(
         pass
 
     return updated
+
+
+def update_deal_status(
+    *,
+    business_id: UUID,
+    opportunity_id: UUID,
+    status: str,
+    disposition_reason: str | None = None,
+) -> dict:
+    """Update deal lifecycle status (open, won, lost, cold_hold, archived).
+
+    When status changes to won/lost/cold_hold/archived, sets closed_at timestamp.
+    """
+    allowed_statuses = {'open', 'won', 'lost', 'on_hold', 'cold_hold', 'archived'}
+    if status not in allowed_statuses:
+        raise ValueError(f"Invalid status: {status}. Must be one of {allowed_statuses}")
+
+    with get_cursor() as cur:
+        tenant_id = resolve_tenant_id(cur, business_id)
+
+        # Determine closed_at
+        closed_at = None
+        if status in ('won', 'lost', 'cold_hold', 'archived'):
+            closed_at = datetime.now(timezone.utc)
+
+        # Update opportunity
+        cur.execute(
+            """
+            UPDATE crm_opportunity
+            SET status = %s,
+                disposition_reason = COALESCE(%s, disposition_reason),
+                closed_at = COALESCE(%s, closed_at),
+                updated_at = now()
+            WHERE crm_opportunity_id = %s AND business_id = %s
+            RETURNING crm_opportunity_id, name, status, disposition_reason, closed_at
+            """,
+            (status, disposition_reason, closed_at, str(opportunity_id), str(business_id)),
+        )
+        updated = cur.fetchone()
+        if not updated:
+            raise LookupError(f"Opportunity {opportunity_id} not found")
+
+        # Auto-log status change activity
+        try:
+            cur.execute(
+                "SELECT crm_account_id FROM crm_opportunity WHERE crm_opportunity_id = %s",
+                (str(opportunity_id),),
+            )
+            opp_row = cur.fetchone()
+            acct_id = opp_row["crm_account_id"] if opp_row else None
+
+            reason_str = f" ({disposition_reason})" if disposition_reason else ""
+            cur.execute(
+                """
+                INSERT INTO crm_activity
+                  (tenant_id, business_id, crm_account_id, crm_opportunity_id,
+                   activity_type, subject, activity_at, payload_json)
+                VALUES (%s, %s, %s, %s, 'note', %s, %s, %s)
+                """,
+                (tenant_id, str(business_id),
+                 str(acct_id) if acct_id else None, str(opportunity_id),
+                 f"Deal marked {status}{reason_str}",
+                 datetime.now(timezone.utc),
+                 json.dumps({"status": status, "reason": disposition_reason})),
+            )
+        except Exception:
+            pass
+
+    emit_log(
+        level="info",
+        service="backend",
+        action="cro.pipeline.deal_status_changed",
+        message=f"Opportunity {opportunity_id} marked {status}",
+        context={
+            "opportunity_id": str(opportunity_id),
+            "status": status,
+            "reason": disposition_reason,
+        },
+    )
+
+    return dict(updated)

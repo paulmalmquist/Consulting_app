@@ -20,6 +20,8 @@ from app.schemas.consulting import (
     ContactOut,
     ConvertToClientRequest,
     DailyExecutionBriefOut,
+    DealOut,
+    DealStatusUpdateRequest,
     DemoReadinessOut,
     DemoReadinessUpdateRequest,
     EngagementCreateRequest,
@@ -2439,9 +2441,14 @@ def execution_board_route(
 ):
     """Run auto-generation, then return all visible tasks plus summary counts."""
     try:
-        auto_report = execution_auto.run_auto_generation(
-            env_id=env_id, business_id=business_id,
-        )
+        try:
+            auto_report = execution_auto.run_auto_generation(
+                env_id=env_id, business_id=business_id,
+            )
+        except Exception as auto_exc:
+            emit_log("error", "Auto-task generation failed", {"env_id": env_id, "business_id": str(business_id)}, exc_info=auto_exc)
+            raise HTTPException(status_code=500, detail="Auto-task generation unavailable")
+
         tasks = execution_tasks_svc.list_tasks(
             env_id=env_id,
             business_id=business_id,
@@ -2454,6 +2461,43 @@ def execution_board_route(
             env_id=env_id, business_id=business_id,
         )
         return {"tasks": tasks, "summary": summary, "auto_report": auto_report}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.patch("/deals/{opportunity_id}/status", response_model=DealOut)
+def update_deal_status_route(
+    opportunity_id: UUID,
+    business_id: UUID = Query(...),
+    body: DealStatusUpdateRequest = None,
+):
+    """Update deal lifecycle status (open, won, lost, cold_hold, archived)."""
+    if body is None:
+        raise HTTPException(status_code=400, detail="Request body required")
+    try:
+        from app.services import cro_pipeline
+        from app.services import cro_deal_status
+
+        result = cro_pipeline.update_deal_status(
+            business_id=business_id,
+            opportunity_id=opportunity_id,
+            status=body.status,
+            disposition_reason=body.disposition_reason,
+        )
+
+        # Fetch the full deal record with computed status
+        deals = cro_deal_status.get_deals_with_status(
+            env_id="",  # Will be resolved from context; optional for status endpoint
+            business_id=business_id,
+            include_closed=True,
+            limit=1,
+        )
+
+        if deals:
+            return deals[0]
+
+        # Fallback: return minimal response if deal not found in view
+        return result
     except Exception as exc:
         raise _to_http(exc)
 

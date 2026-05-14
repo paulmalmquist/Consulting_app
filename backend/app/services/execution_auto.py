@@ -49,7 +49,9 @@ def _safe_insert_auto(
            linked_deal_id, linked_contact_id, impact, revenue_tag,
            auto_source, auto_source_ref)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT ON CONSTRAINT uq_cro_execution_task_auto_open DO NOTHING
+        ON CONFLICT (env_id, auto_source, auto_source_ref)
+        WHERE status <> 'done' AND auto_source IS NOT NULL AND auto_source_ref IS NOT NULL
+        DO NOTHING
         RETURNING id
         """,
         (
