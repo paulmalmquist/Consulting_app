@@ -535,6 +535,8 @@ type PipelineLaneViewProps = {
   onSelectSegment: (key: string, segKey: string) => void;
   onSelectCard: (id: string) => void;
   makeColumnRef: (key: string) => (el: HTMLDivElement | null) => void;
+  businessId?: string;
+  onStatusChange?: (dealId: string, status: string) => void;
 };
 
 const CLOSED = new Set(["closed_won", "closed_lost"]);
@@ -552,6 +554,8 @@ export default function PipelineLaneView({
   onSelectSegment,
   onSelectCard,
   makeColumnRef,
+  businessId,
+  onStatusChange,
 }: PipelineLaneViewProps) {
   const colorMap = useMemo(() => {
     if (colorMode === "vertical") {
@@ -626,6 +630,8 @@ export default function PipelineLaneView({
                 onSelectSegment={onSelectSegment}
                 onSelectCard={onSelectCard}
                 columnRef={makeColumnRef(col.execution_column_key)}
+                businessId={businessId}
+                onStatusChange={onStatusChange}
               />
             );
           })}
@@ -639,6 +645,8 @@ export default function PipelineLaneView({
 type LaneColumnProps = {
   column: ExecutionBoardColumn;
   row: StageRow | null;
+  businessId?: string;
+  onStatusChange?: (dealId: string, status: string) => void;
   isClosed: boolean;
   globalMax: number;
   chartGroupKeys: string[];
@@ -668,6 +676,8 @@ function LaneColumn({
   onSelectSegment,
   onSelectCard,
   columnRef,
+  businessId,
+  onStatusChange,
 }: LaneColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: `column-${column.execution_column_key}`,
@@ -850,6 +860,7 @@ function LaneColumn({
               key={card.crm_opportunity_id}
               card={card}
               onSelect={onSelectCard}
+              onStatusChange={onStatusChange}
             />
           ))
         )}
@@ -1118,10 +1129,15 @@ function MomentumArrow({
 function LaneCardItem({
   card,
   onSelect,
+  onStatusChange,
 }: {
   card: ExecutionCard;
   onSelect: (id: string) => void;
+  onStatusChange?: (id: string, status: string, reason?: string) => void;
 }) {
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: card.crm_opportunity_id,
@@ -1139,6 +1155,17 @@ function LaneCardItem({
   const overdue = isOverdue(card.next_action_due);
   const pressure = card.execution_pressure;
 
+  // Hygiene checks — stale = no activity in > 14 days
+  const isStale = card.last_activity_at
+    ? (() => {
+        const d = new Date(card.last_activity_at);
+        const diffMs = Date.now() - d.getTime();
+        const days = Math.floor(diffMs / 86_400_000);
+        return days > 14;
+      })()
+    : false;
+  const hasHygieneIssue = hasNoAction || isStale;
+
   const leftAccent = hasNoAction
     ? CP.critical
     : pressure === "critical"
@@ -1146,6 +1173,47 @@ function LaneCardItem({
       : pressure === "high"
         ? CP.warning
         : CP.borderDim;
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleStatusChange = async (status: string) => {
+    setMenuOpen(false);
+
+    // Call the provided callback if available
+    if (onStatusChange) {
+      onStatusChange(card.crm_opportunity_id, status);
+      return;
+    }
+
+    // Otherwise, make direct API call
+    try {
+      const { updateDealStatus } = await import("@/lib/cro-api");
+      // Get business_id from URL params or context — for now use a fallback
+      const searchParams = new URLSearchParams(window.location.search);
+      const businessId = searchParams.get("business_id") || "";
+
+      if (!businessId) {
+        console.error("Missing business_id");
+        return;
+      }
+
+      await updateDealStatus(card.crm_opportunity_id, { status }, businessId);
+
+      // Show toast
+      if (typeof window !== "undefined" && window.dispatchEvent) {
+        window.dispatchEvent(
+          new CustomEvent("deal-status-changed", {
+            detail: { id: card.crm_opportunity_id, status },
+          })
+        );
+      }
+    } catch (err) {
+      console.error("Failed to update deal status:", err);
+    }
+  };
 
   return (
     <div
@@ -1302,29 +1370,169 @@ function LaneCardItem({
           )}
         </div>
 
-        {/* Row 5: Meta */}
+        {/* Row 5: Meta + Hygiene + Menu */}
         <div
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3, gap: 4, position: "relative" }}
         >
-          <span style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.03em" }}>
-            {relativeTime(card.last_activity_at)}
-          </span>
-          {overdue ? (
-            <span
-              style={{
-                fontSize: 8,
-                color: CP.warning,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                background: "rgba(245,158,11,0.12)",
-                padding: "1px 4px",
-                borderRadius: 2,
-              }}
-            >
-              OVERDUE
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 8, color: CP.muted, letterSpacing: "0.03em" }}>
+              {relativeTime(card.last_activity_at)}
             </span>
-          ) : null}
+            {hasNoAction && (
+              <span
+                style={{
+                  fontSize: 7,
+                  fontWeight: 700,
+                  color: CP.critical,
+                  background: "rgba(239,68,68,0.12)",
+                  border: "0.5px solid rgba(239,68,68,0.4)",
+                  padding: "1px 3px",
+                  borderRadius: 1,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                NO ACTION
+              </span>
+            )}
+            {isStale && (
+              <span
+                style={{
+                  fontSize: 7,
+                  fontWeight: 700,
+                  color: CP.critical,
+                  background: "rgba(239,68,68,0.12)",
+                  border: "0.5px solid rgba(239,68,68,0.4)",
+                  padding: "1px 3px",
+                  borderRadius: 1,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                STALE
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 2, position: "relative" }}>
+            {overdue ? (
+              <span
+                style={{
+                  fontSize: 7,
+                  color: CP.warning,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "rgba(245,158,11,0.12)",
+                  padding: "1px 3px",
+                  borderRadius: 1,
+                }}
+              >
+                OVERDUE
+              </span>
+            ) : null}
+            <button
+              onClick={handleMenuClick}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: CP.muted,
+                cursor: "pointer",
+                padding: "2px 2px",
+                fontSize: 10,
+                lineHeight: 1,
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+              }}
+              title="Deal actions"
+            >
+              ⋮
+            </button>
+            {menuOpen && (
+              <div
+                ref={menuRef}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 16,
+                  background: CP.surface,
+                  border: `1px solid ${CP.borderDim}`,
+                  borderRadius: 3,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                  zIndex: 1000,
+                  minWidth: 140,
+                  overflow: "hidden",
+                }}
+              >
+                <button
+                  onClick={() => handleStatusChange("won")}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "5px 10px",
+                    background: "transparent",
+                    border: "none",
+                    color: CP.won,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${CP.borderDim}`,
+                  }}
+                >
+                  Mark Won
+                </button>
+                <button
+                  onClick={() => handleStatusChange("lost")}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "5px 10px",
+                    background: "transparent",
+                    border: "none",
+                    color: CP.critical,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${CP.borderDim}`,
+                  }}
+                >
+                  Mark Lost
+                </button>
+                <button
+                  onClick={() => handleStatusChange("cold_hold")}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "5px 10px",
+                    background: "transparent",
+                    border: "none",
+                    color: CP.info,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${CP.borderDim}`,
+                  }}
+                >
+                  Cold Hold
+                </button>
+                <button
+                  onClick={() => handleStatusChange("archived")}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "5px 10px",
+                    background: "transparent",
+                    border: "none",
+                    color: CP.textDim,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  Archive
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

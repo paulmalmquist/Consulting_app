@@ -113,6 +113,7 @@ function buildPlaywrightStubPayload(envId: string, quarter: string) {
       weighted_ltv: { value: "0.62", provenance: "legacy_quarter_state", null_reason: null },
       null_reasons: {},
       canonical_metrics_excerpt: { asset_count: 12, investment_count: 5, scope: { scope_completeness: "complete" } },
+      gross_irr_traceable: true,
     },
     {
       fund_id: "a1b2c3d4-0002-0020-0001-000000000001",
@@ -145,6 +146,7 @@ function buildPlaywrightStubPayload(envId: string, quarter: string) {
       weighted_ltv: { value: "0.55", provenance: "legacy_quarter_state", null_reason: null },
       null_reasons: {},
       canonical_metrics_excerpt: { asset_count: 8, investment_count: 8, scope: { scope_completeness: "complete" } },
+      gross_irr_traceable: true,
     },
     {
       fund_id: "a1b2c3d4-0003-0030-0001-000000000001",
@@ -177,6 +179,7 @@ function buildPlaywrightStubPayload(envId: string, quarter: string) {
       weighted_ltv: { value: "0.58", provenance: "legacy_quarter_state", null_reason: null },
       null_reasons: {},
       canonical_metrics_excerpt: { asset_count: 32, investment_count: 14, scope: { scope_completeness: "complete" } },
+      gross_irr_traceable: false,
     },
   ];
 

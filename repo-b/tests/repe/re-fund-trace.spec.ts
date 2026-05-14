@@ -77,6 +77,18 @@ test.describe("REPE Fund Metric Trace", () => {
     expect(status).toBe("reconciled");
   });
 
+  test("Gross IRR cell is rendered disabled (with tooltip) when gross_irr_traceable is false", async ({ page }) => {
+    await gotoPortfolio(page);
+    // IGF VII fixture has gross_irr_traceable=false in the bypass stub.
+    const disabled = page.locator(`[data-testid='irr-trace-disabled-${FUND_IGF7}']`);
+    await expect(disabled).toHaveCount(1);
+    const title = await disabled.getAttribute("title");
+    expect(title ?? "").toContain("Lineage unavailable");
+    // And there must be no link variant for that fund.
+    const link = page.locator(`[data-testid='irr-trace-link-${FUND_IGF7}']`);
+    await expect(link).toHaveCount(0);
+  });
+
   test("Gross IRR trace shows lineage_missing when the snapshot has no cf_series_hash", async ({ page }) => {
     await page.goto(
       `/lab/env/${ENV_ID}/re/funds/${FUND_IGF7}/trace/gross_irr?quarter=${QUARTER}`,

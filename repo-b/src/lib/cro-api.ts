@@ -2940,3 +2940,14 @@ export function convertDealToEngagement(args: {
     { method: "POST", body: JSON.stringify(args.body ?? { create_next_action_task: true }) },
   );
 }
+
+export function updateDealStatus(
+  opportunityId: string,
+  body: { status: string; disposition_reason?: string },
+  businessId: string,
+) {
+  return apiFetch<any>(
+    `${CRO_BASE}/deals/${opportunityId}/status${qs({ business_id: businessId })}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}

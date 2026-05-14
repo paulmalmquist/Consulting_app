@@ -5426,6 +5426,10 @@ export interface CoherentFundRow {
     investment_count: number | null;
     scope: Record<string, unknown> | null;
   };
+  // True when the snapshot's inputs_hash matches provenance[0].cf_series_hash.
+  // The UI uses this to disable the gross_irr trace link with a tooltip when
+  // the trace would otherwise land on the lineage_missing surface.
+  gross_irr_traceable?: boolean;
 }
 
 export type FundExclusionReason =

@@ -472,7 +472,7 @@ export default function ReFundListPage() {
                           )}
                         </td>
                         <td className={`px-3 py-3 align-middle ${reIndexNumericCellClass}`}>
-                          {fund.gross_irr ? (
+                          {fund.gross_irr && fund.gross_irr_traceable ? (
                             <Link
                               href={`${base}/funds/${fund.fund_id}/trace/gross_irr?quarter=${encodeURIComponent(quarter)}`}
                               className="nv-metric underline-offset-2 hover:underline"
@@ -480,6 +480,14 @@ export default function ReFundListPage() {
                             >
                               {renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))}
                             </Link>
+                          ) : fund.gross_irr ? (
+                            <span
+                              className="nv-metric cursor-not-allowed text-bm-muted2"
+                              title="Lineage unavailable — snapshot cf_series_hash is missing or mismatched."
+                              data-testid={`irr-trace-disabled-${fund.fund_id}`}
+                            >
+                              {renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))}
+                            </span>
                           ) : (
                             renderMetric(fund, "gross_irr", (v) => fmtPct(parseFloat(v)))
                           )}
