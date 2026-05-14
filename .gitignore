@@ -13,6 +13,7 @@ backend/.git_sha
 # locally if useful, don't ship them as source.
 /ai_remote_roles.md
 /winston_ai_agent_dr.md
+/resume_holes.md
 
 # Outreach drafts (PII, per-campaign payloads).
 scripts/drafts/
