@@ -18,6 +18,7 @@ import {
   advanceOpportunityStage,
   fetchPipelineStages,
   fetchSchemaHealth,
+  updateDealStatus,
   type ExecutionBoard,
   type ExecutionBoardColumn,
   type ExecutionCard,
@@ -305,6 +306,34 @@ export default function PipelinePage({
       variant: "success",
     });
   }, [loadData, push]);
+
+  const handleDealStatusChange = useCallback(
+    async (dealId: string, status: string) => {
+      if (!businessId) return;
+
+      try {
+        const { updateDealStatus } = await import("@/lib/cro-api");
+        await updateDealStatus(dealId, { status }, businessId);
+
+        // Reload data to reflect the change
+        await loadData();
+
+        push({
+          title: `Deal marked ${status}`,
+          description: "The deal status was updated successfully.",
+          variant: "success",
+        });
+      } catch (err) {
+        console.error("Failed to update deal status:", err);
+        push({
+          title: "Error",
+          description: "Failed to update deal status.",
+          variant: "danger",
+        });
+      }
+    },
+    [businessId, loadData, push],
+  );
 
   // Debounce search query
   useEffect(() => {
@@ -1022,6 +1051,8 @@ export default function PipelinePage({
                   onSelectSegment={handleSelectSegment}
                   onSelectCard={handleSelectCard}
                   makeColumnRef={makeColumnRef}
+                  businessId={businessId || ""}
+                  onStatusChange={handleDealStatusChange}
                 />
                 <DragOverlay>
                   {activeCard ? <LaneCardOverlay card={activeCard} /> : null}
