@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line
 const { compareSchemaFiles } = require("../../db/schema/apply.js") as {
   compareSchemaFiles: (a: string, b: string) => number;
 };
