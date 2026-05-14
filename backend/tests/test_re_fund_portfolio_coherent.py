@@ -154,11 +154,22 @@ def _excluded_row(
 
 
 def _call(included: list[dict], excluded: list[dict]):
-    """Patch the module's get_cursor and return the payload."""
+    """Patch the module's get_cursor and return the payload.
+
+    Three SQL queries are issued in order:
+      1. SELECT from re_fund_portfolio_included_v
+      2. SELECT inputs_hash FROM re_authoritative_fund_state_qtr (per-fund
+         lookup for gross_irr_traceable hint — empty result here is fine;
+         it just means no fund is hinted as traceable in the unit test)
+      3. SELECT from re_fund_portfolio_excluded_v
+    """
     from app.services import re_fund_portfolio_coherent
 
     cur = FakeCursor()
     cur.push_result(included)
+    # inputs_hash lookup — only executed when included is non-empty.
+    if included:
+        cur.push_result([])
     cur.push_result(excluded)
     with patch(
         "app.services.re_fund_portfolio_coherent.get_cursor",
@@ -413,6 +424,7 @@ def test_diagnostics_env_scoped():
 
     cur = FakeCursor()
     cur.push_result([rogue_row])
+    cur.push_result([])  # inputs_hash lookup (issued before env-scope check)
     cur.push_result([])
 
     with patch(

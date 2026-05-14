@@ -84,10 +84,17 @@ def _snapshot(
     )
 
 
-def _cf_row(*, qe: date, amount: str, source_hash: str = "hash-A") -> dict:
+def _cf_row(
+    *,
+    qe: date,
+    amount: str,
+    source_hash: str = "hash-A",
+    as_of_quarter: str = "2026Q2",  # matches _snapshot()'s default quarter
+) -> dict:
     return {
         "investment_id": INV_ID,
         "quarter": f"{qe.year}Q{((qe.month - 1) // 3) + 1}",
+        "as_of_quarter": as_of_quarter,
         "quarter_end_date": qe,
         "cash_flow_base": amount,
         "asset_contributions": [],

@@ -84,10 +84,12 @@ def _asset_row(
     asset_name: str = "Asset A",
     investment_name: str | None = "Inv 1",
     null_reasons=None,
+    quarter: str = "2026Q2",  # matches _snapshot()'s default snapshot quarter
 ) -> dict:
     return {
         "asset_id": asset_id,
         "investment_id": investment_id,
+        "quarter": quarter,
         "ending_nav": ending_nav,
         "ownership_pct": ownership_pct,
         "trust_status": "trusted",

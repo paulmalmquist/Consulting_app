@@ -215,6 +215,7 @@ def get_irr_trace(snapshot: TraceableFundSnapshot) -> IrrTracePayload:
             SELECT
               cf.investment_id::text  AS investment_id,
               cf.quarter              AS quarter,
+              cf.as_of_quarter        AS as_of_quarter,
               cf.quarter_end_date     AS quarter_end_date,
               cf.cash_flow_base       AS cash_flow_base,
               cf.asset_contributions  AS asset_contributions,
@@ -251,6 +252,57 @@ def get_irr_trace(snapshot: TraceableFundSnapshot) -> IrrTracePayload:
                 "snapshot's cf_series_hash. The materialized series was "
                 "regenerated after the snapshot was taken; lineage cannot be "
                 "proven."
+            ),
+            status="lineage_missing",
+            null_reason="source_lineage_missing",
+        )
+
+    # ── Investment-set membership check ────────────────────────────────────
+    # The CF rows must be for investments that belong to the same released
+    # investment-state set as the fund snapshot. The SQL filter above bounds
+    # this in principle (WHERE cf.investment_id = ANY(investment_ids)), but a
+    # defensive post-check guards against drift if the SQL is ever modified
+    # or the matched_rows shape changes. Until investment_set_hash is written
+    # by the snapshot writer (separate PR), this is the strongest local check
+    # we can make.
+    expected_investment_set = set(investment_ids)
+    rogue_investment_ids = [
+        str(r["investment_id"])
+        for r in matched_rows
+        if str(r["investment_id"]) not in expected_investment_set
+    ]
+    if rogue_investment_ids:
+        return _unavailable_payload(
+            snapshot,
+            note=(
+                "Matched CF rows include investment_id(s) outside the fund's "
+                f"released investment-state set: {sorted(set(rogue_investment_ids))[:5]}. "
+                "Aggregation scope cannot be proven."
+            ),
+            status="lineage_missing",
+            null_reason="source_lineage_missing",
+        )
+
+    # ── Quarter-consistency assertion ──────────────────────────────────────
+    # Every matched CF row's as_of_quarter must equal the fund snapshot's
+    # quarter. The SQL bounds this with WHERE cf.as_of_quarter = snapshot.quarter,
+    # but we double-check to surface any drift if the query is later changed.
+    # cf.quarter is the cash-flow period (the row's bucket); cf.as_of_quarter
+    # is the "what view of the series" — that's the one that must match the
+    # snapshot quarter so we can't be looking at a different vintage.
+    mismatched_quarters = {
+        str(r.get("as_of_quarter"))
+        for r in matched_rows
+        if str(r.get("as_of_quarter") or "") != snapshot.quarter
+    }
+    if mismatched_quarters:
+        return _unavailable_payload(
+            snapshot,
+            note=(
+                "Matched CF rows include as_of_quarter values that disagree "
+                f"with snapshot.quarter={snapshot.quarter}: "
+                f"{sorted(mismatched_quarters)[:5]}. Quarter split-brain — "
+                "trace cannot prove it is reading the same series the snapshot used."
             ),
             status="lineage_missing",
             null_reason="source_lineage_missing",
@@ -349,6 +401,8 @@ def get_irr_trace(snapshot: TraceableFundSnapshot) -> IrrTracePayload:
             "matched_row_count": len(cf_rows),
             "candidate_row_count": len(all_rows),
             "investment_count": len(investment_ids),
+            "investment_set_check": "passed",
+            "quarter_consistency_check": "passed",
             "lineage_status": "verified",
         },
     )

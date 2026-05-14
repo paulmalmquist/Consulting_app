@@ -93,6 +93,12 @@ class CoherentFundRow:
     weighted_ltv: dict
     null_reasons: dict[str, str]
     canonical_metrics_excerpt: dict[str, Any]
+    # Hint for the UI to disable the trace link before the user clicks. True
+    # when the snapshot's inputs_hash equals provenance[0].cf_series_hash and
+    # both are non-empty — the same condition checked by re_irr_trace's hash
+    # gate. Computed server-side from the snapshot already loaded; no extra
+    # round-trip to the trace route is needed to know if it would resolve.
+    gross_irr_traceable: bool = False
 
 
 @dataclass
@@ -199,7 +205,42 @@ def _bridge_metric(legacy_value: Any, fund_id: str) -> MetricWithProvenance:
     )
 
 
-def _row_to_coherent_fund_row(row: dict[str, Any], env_id: str, quarter: str) -> CoherentFundRow:
+def _is_gross_irr_traceable(
+    *, gross_irr: Any, inputs_hash: str | None, provenance: Any
+) -> bool:
+    """Pre-flight hash gate for the gross_irr trace.
+
+    Returns True only if every condition the trace route itself checks is
+    already satisfied at portfolio-load time:
+      - gross_irr is not null (no point linking to an unavailable value)
+      - inputs_hash is non-empty
+      - provenance[0].cf_series_hash equals inputs_hash
+
+    A True hint here means the trace will resolve; a False hint means it
+    would land on the lineage_missing surface. The UI uses this to disable
+    the link with a tooltip instead of letting the user click into a dead end.
+    """
+    if gross_irr is None:
+        return False
+    if not inputs_hash:
+        return False
+    if not isinstance(provenance, list) or not provenance:
+        return False
+    first = provenance[0]
+    if not isinstance(first, dict):
+        return False
+    cf_hash = first.get("cf_series_hash")
+    if not cf_hash:
+        return False
+    return str(cf_hash) == str(inputs_hash)
+
+
+def _row_to_coherent_fund_row(
+    row: dict[str, Any],
+    env_id: str,
+    quarter: str,
+    inputs_hash_by_fund: dict[str, str | None] | None = None,
+) -> CoherentFundRow:
     metrics = row.get("canonical_metrics") or {}
     nulls = row.get("null_reasons") or {}
     fund_id = str(row["fund_id"])
@@ -208,6 +249,13 @@ def _row_to_coherent_fund_row(row: dict[str, Any], env_id: str, quarter: str) ->
     # source for these; null values stay null (no zero coercion).
     nav = metrics.get("ending_nav") or metrics.get("portfolio_nav")
     committed = metrics.get("total_committed")
+
+    inputs_hash = (inputs_hash_by_fund or {}).get(fund_id)
+    gross_irr_traceable = _is_gross_irr_traceable(
+        gross_irr=metrics.get("gross_irr"),
+        inputs_hash=inputs_hash,
+        provenance=row.get("provenance"),
+    )
 
     return CoherentFundRow(
         fund_id=fund_id,
@@ -244,6 +292,7 @@ def _row_to_coherent_fund_row(row: dict[str, Any], env_id: str, quarter: str) ->
             "investment_count": metrics.get("investment_count"),
             "scope": metrics.get("scope"),
         },
+        gross_irr_traceable=gross_irr_traceable,
     )
 
 
@@ -361,6 +410,25 @@ def get_coherent_fund_portfolio(
         )
         included_rows = cur.fetchall()
 
+        # Per-fund inputs_hash lookup — needed to compute gross_irr_traceable
+        # without an extra trace-route round trip. Reads the same released
+        # snapshot rows that re_fund_portfolio_included_v already JOINs to.
+        inputs_hash_by_fund: dict[str, str | None] = {}
+        if included_rows:
+            audit_ids = [r["audit_run_id"] for r in included_rows]
+            cur.execute(
+                """
+                SELECT fund_id::text AS fund_id, inputs_hash
+                FROM re_authoritative_fund_state_qtr
+                WHERE audit_run_id = ANY(%s::uuid[])
+                  AND quarter = %s
+                  AND promotion_state = 'released'
+                """,
+                (audit_ids, quarter),
+            )
+            for row in cur.fetchall():
+                inputs_hash_by_fund[row["fund_id"]] = row.get("inputs_hash")
+
         # Diagnostics — env-scoped via app.env_business_bindings JOIN inside the view.
         # We additionally filter by business_id so a multi-env binding cannot leak
         # across businesses (defense-in-depth; today UNIQUE(env_id) makes this a no-op).
@@ -408,7 +476,10 @@ def get_coherent_fund_portfolio(
             )
 
     # ── Build fund_rows ────────────────────────────────────────────────────
-    fund_rows = [_row_to_coherent_fund_row(r, env_id_text, quarter) for r in included_rows]
+    fund_rows = [
+        _row_to_coherent_fund_row(r, env_id_text, quarter, inputs_hash_by_fund)
+        for r in included_rows
+    ]
     diagnostics = [_row_to_diagnostic(r) for r in excluded_rows]
 
     # ── Portfolio aggregates (released-only, scope-complete by view contract) ──

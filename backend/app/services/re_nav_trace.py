@@ -131,6 +131,7 @@ def get_nav_trace(snapshot: TraceableFundSnapshot) -> NavTracePayload:
             SELECT
               a.asset_id::text                                AS asset_id,
               a.investment_id::text                           AS investment_id,
+              a.quarter                                       AS quarter,
               a.canonical_metrics->>'ending_nav'              AS ending_nav,
               a.canonical_metrics->>'ownership_pct'           AS ownership_pct,
               a.trust_status                                  AS trust_status,
@@ -149,6 +150,47 @@ def get_nav_trace(snapshot: TraceableFundSnapshot) -> NavTracePayload:
             (snapshot.audit_run_id, snapshot.fund_id),
         )
         rows = cur.fetchall()
+
+    # ── Quarter split-brain guard ──────────────────────────────────────────
+    # The audit_run_id scopes the snapshot's quarter, but the asset table is
+    # quarterized. We require every returned asset row to be from
+    # snapshot.quarter — anything else would mean we're stitching NAV across
+    # quarters silently. Returns a payload with reconciliation.status =
+    # "unavailable" and a quarter_split_brain note instead of summing.
+    mismatched_quarters = {
+        str(r.get("quarter"))
+        for r in rows
+        if str(r.get("quarter") or "") != snapshot.quarter
+    }
+    if mismatched_quarters:
+        return NavTracePayload(
+            fund_id=snapshot.fund_id,
+            fund_name=snapshot.fund_name,
+            quarter=snapshot.quarter,
+            audit_run_id=snapshot.audit_run_id,
+            snapshot_version=snapshot.snapshot_version,
+            fund_nav=str(fund_nav) if fund_nav is not None else None,
+            asset_rows=[],
+            reconciliation=NavReconciliationCheck(
+                fund_nav=str(fund_nav) if fund_nav is not None else None,
+                asset_sum="0",
+                delta="0",
+                soft_tolerance=str(SOFT_TOLERANCE_USD),
+                hard_tolerance=str(SOFT_TOLERANCE_USD),
+                soft_pass=False,
+                hard_pass=False,
+                status="unavailable",
+            ),
+            null_reason="quarter_split_brain",
+            provenance={
+                "source_table": "re_authoritative_asset_state_qtr",
+                "scope": "audit_run_id = fund_snapshot.audit_run_id",
+                "asset_count": 0,
+                "contributing_asset_count": 0,
+                "quarter_consistency_check": "failed",
+                "mismatched_quarters": sorted(mismatched_quarters)[:5],
+            },
+        )
 
     asset_rows: list[AssetNavRow] = []
     asset_sum = Decimal("0")
@@ -233,6 +275,10 @@ def get_nav_trace(snapshot: TraceableFundSnapshot) -> NavTracePayload:
             "contributing_asset_count": sum(
                 1 for a in asset_rows if a.fund_attributed_nav is not None
             ),
+            "ownership_source": (
+                "re_authoritative_asset_state_qtr.canonical_metrics.ownership_pct"
+            ),
+            "quarter_consistency_check": "passed",
         },
     )
 
