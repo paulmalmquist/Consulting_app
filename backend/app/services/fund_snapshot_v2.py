@@ -283,6 +283,18 @@ def _v2_canonical_metrics(
         "null_reasons": dict(bridge.null_reasons),
     }
 
+    # Top-level null_reasons dict — surfaced to the frontend for per-metric
+    # unavailable chips. Populated when a metric is null or implausible.
+    top_null_reasons: dict[str, str] = {}
+    if rollup.null_reason:
+        top_null_reasons["gross_irr"] = rollup.null_reason
+    elif rollup.irr is not None and abs(float(rollup.irr)) > 2.0:
+        top_null_reasons["gross_irr"] = "irr_implausible_early_period"
+
+    net_irr_null = waterfall.null_reasons.get("net_irr") if waterfall.null_reasons else None
+    if net_irr_null:
+        top_null_reasons["net_irr"] = net_irr_null
+
     return {
         "bottom_up": bottom_up_block,
         "fund_expenses": expense_block,
@@ -296,6 +308,7 @@ def _v2_canonical_metrics(
         "carry": _f(waterfall.carry),
         "management_fees": _f(expense_schedule.total_management_fees),
         "total_expenses": _f(expense_schedule.total_expenses),
+        "null_reasons": top_null_reasons,
     }
 
 

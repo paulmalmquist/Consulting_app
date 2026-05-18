@@ -147,7 +147,7 @@ export function FundComparisonChart() {
                 }
               />
               <Legend
-                wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                wrapperStyle={{ fontSize: 10, paddingTop: 4, color: "var(--bm-text-muted)" }}
                 iconType="line"
                 iconSize={10}
               />

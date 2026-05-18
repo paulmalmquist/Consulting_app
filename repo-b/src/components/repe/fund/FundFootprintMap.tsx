@@ -26,15 +26,15 @@ type SelectionState =
   | { mode: "asset"; assetId: string };
 
 const PANEL_CLASS =
-  "rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
+  "rounded-xl border border-slate-200 bg-white shadow-sm dark:border-bm-border/20 dark:bg-bm-surface/80";
 
 const STORAGE_PREFIX = "repe-fund-footprint-filters";
 
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="min-w-0">
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#64748B]">{label}</p>
-      <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-[#0F172A]">{String(value)}</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-bm-muted2">{label}</p>
+      <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-slate-900 dark:text-bm-text">{String(value)}</p>
     </div>
   );
 }
@@ -54,8 +54,8 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors ${
         active
-          ? "border-[#BFDBFE] bg-[#DBEAFE] text-[#1D4ED8]"
-          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#CBD5E1] hover:text-[#0F172A]"
+          ? "border-bm-accent/30 bg-bm-accent/10 text-bm-accent"
+          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 dark:border-bm-border/20 dark:bg-transparent dark:text-bm-muted2 dark:hover:text-bm-text"
       }`}
     >
       {label}
@@ -73,10 +73,10 @@ function MetricCard({
   hint?: string | null;
 }) {
   return (
-    <div className="rounded-2xl border border-[#E2E8F0] bg-white/90 p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-[#0F172A]">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-[#64748B]">{hint}</p> : null}
+    <div className="rounded-lg border border-slate-200 bg-white/90 p-3 dark:border-bm-border/20 dark:bg-bm-surface/80">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-bm-muted2">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-bm-text">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-bm-muted2">{hint}</p> : null}
     </div>
   );
 }
@@ -90,12 +90,12 @@ function Pill({
 }) {
   const className =
     tone === "positive"
-      ? "border-[#BBF7D0] bg-[#ECFDF5] text-[#047857]"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/20 dark:text-emerald-400"
       : tone === "warn"
-        ? "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]"
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-400"
         : tone === "negative"
-          ? "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]"
-          : "border-[#E2E8F0] bg-white text-[#475569]";
+          ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-400"
+          : "border-slate-200 bg-white text-slate-500 dark:border-bm-border/20 dark:bg-bm-surface/60 dark:text-bm-muted2";
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${className}`}>
       {label}
@@ -156,44 +156,44 @@ function PortfolioPanel({ data }: { data: FundFootprintAnalyticsResponse }) {
         <MetricCard label="Markets" value={fmtNumber(data.summary.markets)} hint="Distinct current markets with geocoded assets" />
       </div>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center gap-2">
-          <Globe2 className="h-4 w-4 text-[#2563EB]" />
+          <Globe2 className="h-4 w-4 text-blue-500 dark:text-bm-accent" />
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Geographic Allocation</h3>
-            <p className="text-xs text-[#64748B]">% NAV by region</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Geographic Allocation</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">% NAV by region</p>
           </div>
         </div>
         <div className="mt-4 space-y-3">
           {data.summary.geography_allocation.map((row) => (
             <div key={row.region}>
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-[#0F172A]">{row.region}</span>
-                <span className="text-[#64748B]">{fmtPct(row.share_of_nav)} · {fmtMoney(row.total_nav)}</span>
+                <span className="font-medium text-slate-900 dark:text-bm-text">{row.region}</span>
+                <span className="text-slate-500 dark:text-bm-muted2">{fmtPct(row.share_of_nav)} · {fmtMoney(row.total_nav)}</span>
               </div>
-              <div className="mt-2 h-2 rounded-full bg-[#E2E8F0]">
-                <div className="h-full rounded-full bg-[#3B82F6]" style={{ width: progressWidth(row.share_of_nav) }} />
+              <div className="mt-2 h-2 rounded-full bg-slate-200 dark:bg-bm-border/30">
+                <div className="h-full rounded-full bg-blue-500 dark:bg-bm-accent" style={{ width: progressWidth(row.share_of_nav) }} />
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-[#2563EB]" />
+          <Building2 className="h-4 w-4 text-blue-500 dark:text-bm-accent" />
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Market Concentration Risk</h3>
-            <p className="text-xs text-[#64748B]">Top markets by NAV</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Market Concentration Risk</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">Top markets by NAV</p>
           </div>
         </div>
         <div className="mt-4 space-y-3">
           {data.summary.top_markets.map((market) => (
-            <div key={market.market_key} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <div key={market.market_key} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-bm-border/20 dark:bg-bm-surface/40">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-[#0F172A]">{market.market_label}</p>
-                  <p className="text-xs text-[#64748B]">{fmtMoney(market.total_nav)} · {fmtPct(market.share_of_nav)}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-bm-text">{market.market_label}</p>
+                  <p className="text-xs text-slate-500 dark:text-bm-muted2">{fmtMoney(market.total_nav)} · {fmtPct(market.share_of_nav)}</p>
                 </div>
                 <Pill
                   label={market.performance_state}
@@ -205,21 +205,21 @@ function PortfolioPanel({ data }: { data: FundFootprintAnalyticsResponse }) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-[#2563EB]" />
+          <TrendingUp className="h-4 w-4 text-blue-500 dark:text-bm-accent" />
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Signals</h3>
-            <p className="text-xs text-[#64748B]">What needs attention first</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Signals</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">What needs attention first</p>
           </div>
         </div>
         <div className="mt-4 space-y-2">
           {data.summary.signals.length ? data.summary.signals.map((signal) => (
-            <div key={signal} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#334155]">
+            <div key={signal} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-bm-border/20 dark:bg-bm-surface/40 dark:text-bm-text">
               {signal}
             </div>
           )) : (
-            <div className="rounded-2xl border border-dashed border-[#CBD5E1] px-3 py-4 text-sm text-[#64748B]">
+            <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-bm-border/30 dark:text-bm-muted2">
               No immediate concentration or integrity signals detected in the current released footprint.
             </div>
           )}
@@ -248,11 +248,11 @@ function MarketPanel({
         <MetricCard label="Action" value={actionForMarket(market)} />
       </div>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Market Trend</h3>
-            <p className="text-xs text-[#64748B]">Released snapshot NAV and NOI over time</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Market Trend</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">Released snapshot NAV and NOI over time</p>
           </div>
           <Pill label={market.performance_state} tone={defaultToneForMarket(market)} />
         </div>
@@ -268,30 +268,30 @@ function MarketPanel({
               showLegend
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#CBD5E1] text-sm text-[#64748B]">
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-500 dark:border-bm-border/30 dark:text-bm-muted2">
               Not enough released history yet for a market trend.
             </div>
           )}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-[#2563EB]" />
+          <ShieldAlert className="h-4 w-4 text-blue-500 dark:text-bm-accent" />
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Assets In Market</h3>
-            <p className="text-xs text-[#64748B]">Selection-scoped breakdown</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Assets In Market</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">Selection-scoped breakdown</p>
           </div>
         </div>
         <div className="mt-4 space-y-2">
           {assets.map((asset) => (
-            <div key={asset.asset_id} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <div key={asset.asset_id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-bm-border/20 dark:bg-bm-surface/40">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-[#0F172A]">{asset.name}</p>
-                  <p className="text-xs text-[#64748B]">{fmtText(asset.property_type)} · {fmtText(asset.city)}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-bm-text">{asset.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-bm-muted2">{fmtText(asset.property_type)} · {fmtText(asset.city)}</p>
                 </div>
-                <div className="text-right text-xs text-[#475569]">
+                <div className="text-right text-xs text-slate-500 dark:text-bm-muted2">
                   <p>{fmtMoney(asset.asset_value ?? asset.cost_basis)}</p>
                   <p>{asset.dscr != null ? `${asset.dscr.toFixed(2)}x DSCR` : "DSCR unavailable"}</p>
                 </div>
@@ -332,11 +332,11 @@ function AssetPanel({
         <MetricCard label="Valuation" value={fmtMoney(asset.asset_value ?? asset.cost_basis)} hint={asset.valuation_quarter ? `As of ${asset.valuation_quarter}` : "No released snapshot"} />
       </div>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Asset Trend</h3>
-            <p className="text-xs text-[#64748B]">NOI and occupancy over released quarters</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Asset Trend</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">NOI and occupancy over released quarters</p>
           </div>
           <Pill label={asset.integrity_reason ? "integrity issue" : "released"} tone={riskTone} />
         </div>
@@ -352,19 +352,19 @@ function AssetPanel({
               showLegend
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#CBD5E1] text-sm text-[#64748B]">
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-500 dark:border-bm-border/30 dark:text-bm-muted2">
               Not enough released history yet for an asset trend.
             </div>
           )}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-[#2563EB]" />
+          <AlertTriangle className="h-4 w-4 text-blue-500 dark:text-bm-accent" />
           <div>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Debt + Action</h3>
-            <p className="text-xs text-[#64748B]">What the operator should do next</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-bm-text">Debt + Action</h3>
+            <p className="text-xs text-slate-500 dark:text-bm-muted2">What the operator should do next</p>
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -400,26 +400,26 @@ function AnalyticsPanel({
 
   return (
     <aside className={`${PANEL_CLASS} flex h-[560px] min-h-[560px] flex-col overflow-hidden`} data-testid="fund-footprint-analytics-panel">
-      <div className="border-b border-[#E2E8F0] px-5 py-4">
+      <div className="border-b border-slate-200 px-5 py-4 dark:border-bm-border/20">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Analytics</p>
-            <h3 className="mt-1 text-lg font-semibold text-[#0F172A]">Decision Surface</h3>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-bm-muted2">Analytics</p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-bm-text">Decision Surface</h3>
           </div>
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3 py-1 text-xs font-medium text-[#475569] hover:border-[#CBD5E1] hover:text-[#0F172A]"
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 hover:border-slate-300 hover:text-slate-900 dark:border-bm-border/20 dark:bg-transparent dark:text-bm-muted2 dark:hover:text-bm-text"
           >
             <RefreshCcw className="h-3.5 w-3.5" />
             Reset
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#64748B]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-bm-muted2">
           {breadcrumb.map((entry, index) => (
             <span key={`${entry}-${index}`} className="inline-flex items-center gap-2">
-              {index > 0 ? <span className="text-[#CBD5E1]">→</span> : null}
-              <span className={index === breadcrumb.length - 1 ? "font-semibold text-[#0F172A]" : undefined}>{entry}</span>
+              {index > 0 ? <span className="text-slate-300 dark:text-bm-border/60">→</span> : null}
+              <span className={index === breadcrumb.length - 1 ? "font-semibold text-slate-900 dark:text-bm-text" : undefined}>{entry}</span>
             </span>
           ))}
         </div>
@@ -460,6 +460,9 @@ export function FundFootprintMap({
   const [viewMode, setViewMode] = useState<ViewMode>("assets");
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<PropertyTypeFilter>("all");
   const [selection, setSelection] = useState<SelectionState>({ mode: "portfolio" });
+  // fitKey increments only when new data arrives from the server — not on client-side
+  // property-type filter changes — so the map does not re-zoom on every filter chip click.
+  const [fitKey, setFitKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -502,7 +505,20 @@ export function FundFootprintMap({
     })
       .then((result) => {
         setData(result);
-        setSelection({ mode: "portfolio" });
+        setFitKey((k) => k + 1);
+        // Preserve selection if the selected entity still exists in the new result set.
+        // Only reset to portfolio if the entity was removed by the filter change.
+        setSelection((prev) => {
+          if (prev.mode === "asset") {
+            const stillVisible = result.asset_points.some((p) => p.asset_id === prev.assetId);
+            return stillVisible ? prev : { mode: "portfolio" };
+          }
+          if (prev.mode === "market") {
+            const stillVisible = result.market_rollups.some((m) => m.market_key === prev.marketKey);
+            return stillVisible ? prev : { mode: "portfolio" };
+          }
+          return prev;
+        });
       })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -531,10 +547,10 @@ export function FundFootprintMap({
     <div className={`${PANEL_CLASS} p-5`} data-testid="fund-footprint-map">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Geographic Footprint</p>
-          <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#0F172A]">Fund Footprint</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-bm-muted2">Geographic Footprint</p>
+          <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-bm-text">Fund Footprint</h2>
         </div>
-        <p className="max-w-2xl text-sm leading-6 text-[#64748B]">
+        <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-bm-muted2">
           Dual-pane map plus analytics surface for exposure, market performance, change, and action.
         </p>
       </div>
@@ -550,7 +566,7 @@ export function FundFootprintMap({
           />
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-3 rounded-2xl border border-[#E2E8F0]/80 bg-white/70 p-4 md:grid-cols-6">
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/70 p-4 md:grid-cols-6 dark:border-bm-border/20 dark:bg-bm-surface/40">
               <SummaryMetric label="Owned" value={data.summary.owned_assets} />
               <SummaryMetric label="Pipeline" value={data.summary.pipeline_assets} />
               <SummaryMetric label="Disposed" value={data.summary.disposed_assets} />
@@ -569,7 +585,7 @@ export function FundFootprintMap({
                   onClick={() => setStatusFilter(status)}
                 />
               ))}
-              <div className="mx-2 hidden h-5 w-px bg-[#E2E8F0] md:block" />
+              <div className="mx-2 hidden h-5 w-px bg-slate-200 md:block dark:bg-bm-border/30" />
               {(["assets", "markets"] as ViewMode[]).map((mode) => (
                 <FilterChip
                   key={mode}
@@ -594,8 +610,8 @@ export function FundFootprintMap({
               <div className={`${PANEL_CLASS} overflow-hidden p-4`}>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#0F172A]">Map Intelligence</p>
-                    <p className="text-xs text-[#64748B]">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-bm-text">Map Intelligence</p>
+                    <p className="text-xs text-slate-500 dark:text-bm-muted2">
                       {viewMode === "assets"
                         ? "Marker size reflects NAV or basis. Click an asset to drive the right rail."
                         : "Market circles aggregate released asset performance and integrity coverage."}
@@ -606,7 +622,7 @@ export function FundFootprintMap({
                     tone={viewMode === "assets" ? "positive" : "warn"}
                   />
                 </div>
-                <div className="h-[560px] overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#EFF6FF]">
+                <div className="h-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-blue-50 dark:border-bm-border/20 dark:bg-bm-bg/60">
                   {mounted ? (
                     <MapInner
                       assetPoints={filteredAssetPoints}
@@ -616,6 +632,7 @@ export function FundFootprintMap({
                       selectedMarketKey={selection.mode === "market" ? selection.marketKey : null}
                       onSelectAsset={(assetId) => setSelection({ mode: "asset", assetId })}
                       onSelectMarket={(marketKey) => setSelection({ mode: "market", marketKey })}
+                      fitKey={String(fitKey)}
                     />
                   ) : null}
                 </div>

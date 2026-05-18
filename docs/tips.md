@@ -2577,3 +2577,29 @@ The marketing surface uses its own design system (`docs/assets/Novendor_Design_S
 - **Audit denials, not just successes.** Every `gate_app_role` 403 writes a `permission.denied` row to `app.audit_events` carrying `action_attempted`, `permission_checked`, `user_app_role`, and `user_membership_role`. Auditors ask for denials before successes, and the storage cost is zero compared to a single login session.
 - **Group → role mapping uses immutable group IDs, never display names.** Both Okta (`00g...`) and Entra (group object IDs) expose stable IDs. Display names rename without warning and silently grant or revoke access if you key off them.
 - **Backend is authoritative for `enabled`.** The Next.js OIDC routes may pre-check `identity_providers.enabled` to skip the redirect for UX, but `backend/app/routes/auth_oidc.py:exchange` re-checks. Disabling a provider in the DB must stop logins even if a stale Next.js cache says otherwise.
+
+## Planning System Notes (2026-05-16)
+
+- `docs/plans/` is the durable planning and coding-session orchestration layer. It covers all 13 major product environments.
+- Every coding session should read `docs/plans/<environment>/next-session.md` before writing code and update it before finishing.
+- Every coding session should write new bugs to `docs/plans/<environment>/backlog.md` and durable architecture discoveries to `docs/plans/<environment>/architecture.md`.
+- Reusable repo-wide lessons belong here in `docs/tips.md`, not buried in environment-specific plan files.
+- `docs/plans/README.md` is the index. `docs/plans/PLAN_MAINTENANCE_RULES.md` is the rule set.
+- `docs/plans/_templates/` contains reusable scaffolds for adding new environment folders.
+- Implementation tickets live in `docs/plans/03-implementation-plans/active/`. File naming: `NNNN-environment-short-title.md`. Each dispatch record classifies by environment, shared standard impact, deliverable type, and required reading — filling this out before coding is the discipline that keeps sessions from sprawling.
+
+## Leaflet Dark Mode (2026-05-16)
+
+- **Leaflet tooltip content is injected as static DOM into `document.body`, outside the React tree.** Tailwind `dark:` classes on the map container or parent do not cascade into `.leaflet-tooltip` — the tooltip renders in light mode even when the rest of the page is dark. Fix with a global CSS override: `.dark .leaflet-tooltip { background: var(--bm-surface); color: var(--bm-text); border-color: var(--bm-border); }`. Add this to the REPE environment's CSS or to `repo-b/src/app/globals.css` scoped under `.dark`.
+- **Leaflet tile layers are always light (OpenStreetMap default).** In the dark operator shell, OSM light tiles produce a bright white map inside a dark panel. Swap the `url` prop on `<TileLayer>` to a dark-appropriate tile: CARTO Voyager Dark (`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`) works well and requires only attribution update. No library change needed.
+- **Leaflet `FitBounds` zoom resets on every client-side filter change if it depends on filtered array references.** The `useEffect` dep array `[assetPoints, marketPoints, map, viewMode]` fires every time the filtered arrays are new references (every `useMemo` recompute). Fix: pass a `fitKey` string prop that only increments when a new server response arrives. The `FitBounds` dep array becomes `[fitKey, map, viewMode]` — client-side filter changes no longer reset zoom or pan.
+- **Leaflet map marker selection resets on API refetch if `setSelection` is unconditional.** If `setSelection({ mode: 'portfolio' })` is called in every `.then()` callback, it fires on every filter change that triggers a new API call, even when the selected entity exists in the new result. Fix: use the functional `setSelection((prev) => ...)` form and check whether the previously selected `assetId`/`marketKey` exists in the new result set before resetting.
+- **`FundFootprintMap.tsx` and similar components use hardcoded light hex colors** (`#F8FAFC`, `#0F172A`, `#64748B`). These must be replaced with Tailwind semantic dark variants or CSS vars. Pattern: `text-[#0F172A]` → `text-slate-900 dark:text-slate-100`, `bg-[#F8FAFC]` → `bg-slate-50 dark:bg-bm-surface`.
+
+## XIRR Sparse-History Guard (2026-05-18)
+
+- **XIRR bisection produces extreme outliers for funds with sparse cash flow history.** When a fund has fewer than 4 cash flow entries, the bisection algorithm can output values like 456% or 366%. These are not plausible IRRs — they are artifacts of extreme compounding over a single short interval (e.g., one contribution + one NAV snapshot). The guard `if len(cashflows) < 4: return None` eliminates these before they reach any display path.
+- **The sign-change check is also necessary.** `xirr()` must return `None` when all cash flows have the same sign. A fund with only capital calls and no distributions has no IRR by definition.
+- **Null-reason codes must flow from the computation engine to the display layer.** `irr_engine.py → _xirr_from_series → compute_fund_rollup → FundRollup.null_reason → _v2_canonical_metrics null_reasons dict → LpSummary.fund_metric_null_reasons → UnavailableTile`. Breaking any link in this chain silently restores a raw number.
+- **LP summary reads from `re_fund_metrics_qtr`, not from canonical_metrics.** A plausibility gate must live in `re_sale_scenario.get_lp_summary` (not just in canonical_metrics) because LP summary has its own read path from the metrics table. Check `abs(raw_irr) > 2.0` → `"irr_implausible_early_period"` before returning the payload.
+- **`UnavailableTile` does not accept a `size` prop.** The full-card null-state component has `{ label, nullReason, className? }` — no `size`. If a KPI grid uses `MetricCard` with `size="large"`, switch to a conditional render: `{nullReason ? <UnavailableTile label=... nullReason=... /> : <MetricCard ... size="large" />}`.

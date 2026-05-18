@@ -103,6 +103,7 @@ import { FundFootprintMap } from "@/components/repe/fund/FundFootprintMap";
 import { EntityLineagePanel } from "@/components/repe/EntityLineagePanel";
 import { fmtMoney, fmtMultiple } from '@/lib/format-utils';
 import { WaterfallReceiptPanel } from "@/components/re/WaterfallReceiptPanel";
+import { UnavailableTile } from "@/components/re/UnavailableTile";
 import FundBottomUpSection from "@/components/repe/bottom-up/FundBottomUpSection";
 import DecisionStrip from "@/components/repe/workspace/DecisionStrip";
 import { buildDecisionStrip } from "@/components/repe/workspace/buildDecisionStrip";
@@ -266,10 +267,10 @@ function payloadToExposureInsights(payload: FundExposureInsightsPayload): {
 }
 
 const FUND_PANEL_CLASS =
-  "rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
+  "rounded-[22px] border border-slate-200 bg-slate-50 shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:border-bm-border/20 dark:bg-bm-surface/80";
 
 const INSTITUTIONAL_PANEL_CLASS =
-  "rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_1px_2px_rgba(0,0,0,0.04)]";
+  "rounded-lg border border-slate-200 bg-slate-50 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-bm-border/20 dark:bg-bm-surface/80";
 
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -1992,14 +1993,14 @@ export default function FundDetailPage({
       <div className={`${FUND_PANEL_CLASS} px-5 pb-[18px] pt-[20px]`} data-testid="fund-overview-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Fund</p>
-            <h1 className="mt-2 text-[24px] sm:text-[28px] xl:text-[32px] font-semibold tracking-[-0.02em] text-[#0F172A]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-bm-muted2">Fund</p>
+            <h1 className="mt-2 text-[24px] sm:text-[28px] xl:text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-bm-text">
               {fund?.name || "—"}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-[#6B7280]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-slate-500 dark:text-bm-muted2">
               {metadataItems.map((item, index) => (
                 <span key={`${item}-${index}`} className="inline-flex items-center gap-3">
-                  {index > 0 ? <span className="text-[#94A3B8]">•</span> : null}
+                  {index > 0 ? <span className="text-slate-300 dark:text-bm-border">•</span> : null}
                   <span>{item}</span>
                 </span>
               ))}
@@ -2011,26 +2012,26 @@ export default function FundDetailPage({
               type="button"
               onClick={() => setLineageOpen(true)}
               title="View entity lineage"
-              className="inline-flex items-center gap-1 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#475569] transition-colors duration-150 hover:border-[#BFDBFE] hover:bg-[#EFF6FF] hover:text-[#0F172A]"
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 transition-colors duration-150 hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 dark:border-bm-border/40 dark:bg-bm-surface dark:text-bm-muted2 dark:hover:border-bm-accent/40 dark:hover:bg-bm-accent/10 dark:hover:text-bm-text"
             >
-              <GitBranch className="h-3.5 w-3.5 text-[#64748B]" strokeWidth={1.5} />
+              <GitBranch className="h-3.5 w-3.5 text-slate-500 dark:text-bm-muted2" strokeWidth={1.5} />
               Lineage
             </button>
             <div className="relative" ref={actionsMenuRef}>
               <button
                 type="button"
                 onClick={() => setActionsOpen((open) => !open)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F172A] transition-colors duration-150 hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-colors duration-150 hover:border-blue-200 hover:bg-blue-50 dark:border-bm-border/40 dark:bg-bm-surface dark:text-bm-text dark:hover:border-bm-accent/40 dark:hover:bg-bm-accent/10"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
               >
-                <MoreHorizontal className="h-4 w-4 text-[#64748B]" strokeWidth={1.5} />
+                <MoreHorizontal className="h-4 w-4 text-slate-500 dark:text-bm-muted2" strokeWidth={1.5} />
                 Actions
-                <ChevronDown className="h-3.5 w-3.5 text-[#64748B]" strokeWidth={1.5} />
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500 dark:text-bm-muted2" strokeWidth={1.5} />
               </button>
               {actionsOpen ? (
                 <div
-                  className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)]"
+                  className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] dark:border-bm-border/30 dark:bg-bm-surface"
                   role="menu"
                 >
                   <button
@@ -2038,7 +2039,7 @@ export default function FundDetailPage({
                     role="menuitem"
                     onClick={handleExportWorkbook}
                     disabled={!envId || !businessId}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-slate-900 transition-colors duration-100 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-bm-text dark:hover:bg-bm-accent/10"
                   >
                     Export Excel Workbook
                   </button>
@@ -2046,7 +2047,7 @@ export default function FundDetailPage({
                     type="button"
                     role="menuitem"
                     onClick={() => setActionsOpen(false)}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF]"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-slate-900 transition-colors duration-100 hover:bg-blue-50 dark:text-bm-text dark:hover:bg-bm-accent/10"
                   >
                     Download LP Report (PDF)
                   </button>
@@ -2054,11 +2055,11 @@ export default function FundDetailPage({
                     type="button"
                     role="menuitem"
                     onClick={() => setActionsOpen(false)}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] transition-colors duration-100 hover:bg-[#EFF6FF]"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-slate-900 transition-colors duration-100 hover:bg-blue-50 dark:text-bm-text dark:hover:bg-bm-accent/10"
                   >
                     Download Waterfall (.xlsx)
                   </button>
-                  <div className="my-1 border-t border-[#E2E8F0]" />
+                  <div className="my-1 border-t border-slate-200 dark:border-bm-border/30" />
                   <button
                     type="button"
                     role="menuitem"
@@ -2076,40 +2077,40 @@ export default function FundDetailPage({
           </div>
         </div>
 
-        <div className="mt-4 border-t border-[#E2E8F0] pt-4" data-testid="fund-health-summary">
+        <div className="mt-4 border-t border-slate-200 pt-4 dark:border-bm-border/20" data-testid="fund-health-summary">
           <div className="grid gap-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
             <span
               className={`inline-flex h-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
                 headerHealthSummary.label === "Strong"
-                  ? "bg-emerald-100 text-emerald-700"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                   : headerHealthSummary.label === "Stable"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-amber-100 text-amber-700"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
               }`}
             >
               {headerHealthSummary.label}
             </span>
-            <p className="text-sm leading-6 text-[#475569] line-clamp-2">
+            <p className="text-sm leading-6 text-slate-600 line-clamp-2 dark:text-bm-muted2">
               {headerHealthSummary.headline}. {headerHealthSummary.detail}
             </p>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-[#64748B]">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-slate-500 dark:text-bm-muted2">
               {lastCloseQuarter ? (
-                <span className="rounded-full border border-[#D1FAE5] bg-[#ECFDF5] px-2.5 py-1 font-semibold text-[#047857]">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-900/20 dark:text-emerald-300">
                   Last Close {lastCloseQuarter}
                 </span>
               ) : null}
               {latestTerms?.preferred_return_rate != null ? (
-                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold dark:border-bm-border/30 dark:bg-bm-surface">
                   Pref {fmtPercent(latestTerms.preferred_return_rate)}
                 </span>
               ) : null}
               {latestTerms?.carry_rate != null ? (
-                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold dark:border-bm-border/30 dark:bg-bm-surface">
                   Carry {fmtPercent(latestTerms.carry_rate)}
                 </span>
               ) : null}
               {latestTerms?.waterfall_style ? (
-                <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 font-semibold capitalize">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold capitalize dark:border-bm-border/30 dark:bg-bm-surface">
                   {latestTerms.waterfall_style}
                 </span>
               ) : null}
@@ -2200,7 +2201,7 @@ export default function FundDetailPage({
       )}
 
       <div
-        className="sticky top-[60px] z-20 flex flex-wrap gap-1 rounded-[18px] border border-[#E2E8F0] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05)] backdrop-blur md:top-4 xl:top-8"
+        className="sticky top-[60px] z-20 flex flex-wrap gap-1 rounded-[18px] border border-slate-200 bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05)] backdrop-blur dark:border-bm-border/20 dark:bg-bm-surface/90 md:top-4 xl:top-8"
         data-testid="fund-tabs"
       >
         {TABS.map((label) => (
@@ -2210,8 +2211,8 @@ export default function FundDetailPage({
             onClick={() => setTab(label)}
             className={`rounded-[14px] border-b-2 px-3 py-2 text-sm transition-colors duration-150 ${
               tab === label
-                ? "border-[#3B82F6] bg-[#EFF6FF] font-semibold text-[#0F172A]"
-                : "border-transparent text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                ? "border-blue-500 bg-blue-50 font-semibold text-slate-900 dark:border-bm-accent dark:bg-bm-accent/10 dark:text-bm-text"
+                : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-bm-muted2 dark:hover:bg-bm-surface dark:hover:text-bm-text"
             }`}
             data-testid={`tab-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}
           >
@@ -2639,8 +2640,8 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
     { label: "Realized Proceeds", value: fmtMoney(baseScenario.summary.realized_proceeds) },
     { label: "Paid-In Capital", value: fmtMoney(baseScenario.summary.paid_in_capital) },
     { label: "Distributed Capital", value: fmtMoney(baseScenario.summary.distributed_capital) },
-    { label: "TVPI", value: fmtMultiple(baseScenario.summary.tvpi) },
-    { label: "Gross IRR", value: fmtPercent(baseScenario.summary.gross_irr) },
+    { label: "TVPI", value: fmtMultiple(baseScenario.summary.tvpi), asOf: baseScenario.as_of_date },
+    { label: "Gross IRR", value: fmtPercent(baseScenario.summary.gross_irr), asOf: baseScenario.as_of_date },
   ];
 
   return (
@@ -2652,13 +2653,16 @@ function BaseScenarioSummaryCard({ baseScenario }: { baseScenario: FundBaseScena
       />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryMetrics.map((metric) => (
-          <div key={metric.label} className="rounded-[18px] border border-[#E2E8F0] bg-white p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">
+          <div key={metric.label} className="rounded-[18px] border border-slate-200 bg-white p-4 dark:border-bm-border/20 dark:bg-bm-surface/60">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-bm-muted2">
               {metric.label}
             </p>
-            <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[#0F172A]">
+            <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-bm-text">
               {metric.value}
             </p>
+            {"asOf" in metric && metric.asOf ? (
+              <p className="mt-1 text-[10px] text-slate-400 dark:text-bm-muted2">As of {metric.asOf}</p>
+            ) : null}
           </div>
         ))}
       </div>
@@ -2874,7 +2878,7 @@ function OverviewTab({ investments, investmentRollup, fund, fundState, baseScena
             <button
               type="button"
               onClick={() => setContributorFilter(null)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-1 text-[11px] font-medium text-[#2563EB] hover:bg-[#DBEAFE]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 dark:border-bm-accent/30 dark:bg-bm-accent/10 dark:text-bm-accent dark:hover:bg-bm-accent/20"
             >
               Filtered by: {contributorFilterName} ×
             </button>
@@ -3043,7 +3047,7 @@ function VarianceTab({ envId, businessId, fundId, quarter }: {
               <tr key={item.id} className="hover:bg-bm-surface/20">
                 <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">
                   {fmtLineCode(item.line_code)}
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-bm-muted2">
                     {item.plan_amount != null && <span>Plan {fmtMoney(item.plan_amount)}</span>}
                     {item.variance_pct !== null && (
                       <span className={Number(item.variance_pct) >= 0 ? "text-green-500" : "text-red-400"}>
@@ -3082,13 +3086,13 @@ function PerformanceMetric({
 }) {
   return (
     <div className="min-w-0 flex-1">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+      <p className="mt-1 text-lg font-semibold leading-none tracking-tight text-slate-900 tabular-nums dark:text-bm-text">
         {value}
       </p>
-      <p className="mt-1 text-[10px] leading-snug text-slate-400">{context || "\u00A0"}</p>
+      <p className="mt-1 text-[10px] leading-snug text-slate-400 dark:text-bm-muted2">{context || "\u00A0"}</p>
     </div>
   );
 }
@@ -3103,21 +3107,21 @@ function ReturnsSummaryCard({
   testId: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid={testId}>
-      <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid={testId}>
+      <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
         {title}
       </h3>
       <div className="mt-4 space-y-3">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-            <span className="text-sm text-slate-500">{row.label}</span>
+          <div key={row.label} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 dark:border-bm-border/10">
+            <span className="text-sm text-slate-500 dark:text-bm-muted2">{row.label}</span>
             <span
               className={`text-sm font-semibold tabular-nums ${
                 row.tone === "positive"
-                  ? "text-emerald-600"
+                  ? "text-emerald-600 dark:text-emerald-400"
                   : row.tone === "negative"
-                    ? "text-rose-600"
-                    : "text-slate-900"
+                    ? "text-rose-600 dark:text-rose-400"
+                    : "text-slate-900 dark:text-bm-text"
               }`}
             >
               {row.value}
@@ -3136,11 +3140,11 @@ function ReturnsTab({ baseScenario, loading }: {
   if (loading && !baseScenario) return <div className="p-4 text-sm text-bm-muted2">Loading return metrics...</div>;
   if (!baseScenario) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center" data-testid="returns-empty">
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="returns-empty">
         <div className="text-3xl">📊</div>
         <div className="mt-4 space-y-1">
-          <p className="text-sm font-medium text-slate-900">No base scenario is available yet</p>
-          <p className="text-xs text-slate-500">Fund performance appears once the asset and capital ledgers are available.</p>
+          <p className="text-sm font-medium text-slate-900 dark:text-bm-text">No base scenario is available yet</p>
+          <p className="text-xs text-slate-500 dark:text-bm-muted2">Fund performance appears once the asset and capital ledgers are available.</p>
         </div>
       </div>
     );
@@ -3183,15 +3187,15 @@ function ReturnsTab({ baseScenario, loading }: {
 
   return (
     <div className="space-y-4" data-testid="returns-section">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5" data-testid="returns-kpis">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="returns-kpis">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-slate-900">Base Scenario Returns</h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-bm-text">Base Scenario Returns</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-bm-muted2">
               As of {baseScenario.as_of_date}, current fund returns reflect realized exits, active asset marks, ownership attribution, and the fund waterfall.
             </p>
           </div>
-          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-bm-border/20 dark:bg-bm-surface dark:text-bm-muted2">
             {summary.active_assets} active / {summary.disposed_assets} disposed / {summary.pipeline_assets} pipeline
           </div>
         </div>
@@ -3227,29 +3231,29 @@ function ReturnsTab({ baseScenario, loading }: {
         />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="value-bridge-table">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="value-bridge-table">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
           Value Bridge
         </h3>
-        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100 dark:border-bm-border/10">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400 dark:bg-bm-surface dark:text-bm-muted2">
               <tr>
                 <th className="px-4 py-3 font-medium">Bridge Step</th>
                 <th className="px-4 py-3 font-medium text-right">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-bm-border/10">
               {baseScenario.bridge.map((row) => (
                 <tr key={row.label}>
-                  <td className="px-4 py-3 text-slate-600">{row.label}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-bm-muted2">{row.label}</td>
                   <td
                     className={`px-4 py-3 text-right font-medium tabular-nums ${
                       row.kind === "negative"
-                        ? "text-rose-600"
+                        ? "text-rose-600 dark:text-rose-400"
                         : row.kind === "positive" || row.kind === "total"
-                          ? "text-emerald-600"
-                          : "text-slate-900"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-900 dark:text-bm-text"
                     }`}
                   >
                     {fmtMoney(row.amount)}
@@ -3262,23 +3266,23 @@ function ReturnsTab({ baseScenario, loading }: {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
-        <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="asset-contribution-table">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="asset-contribution-table">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
                 Asset Contribution Bridge
               </h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 dark:text-bm-muted2">
                 Asset-level marks and realizations are ownership-adjusted before they enter the fund waterfall.
               </p>
             </div>
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-bm-border/20 dark:bg-bm-surface dark:text-bm-muted2">
               {baseScenario.assumptions.liquidation_mode === "hypothetical_sale" ? "Hypothetical Sale" : "Current State"}
             </div>
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+              <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.12em] text-slate-400 dark:border-bm-border/20 dark:text-bm-muted2">
                 <tr>
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium">Asset</th>
                   <th className="hidden sm:table-cell px-3 py-3 font-medium">Status</th>
@@ -3289,13 +3293,13 @@ function ReturnsTab({ baseScenario, loading }: {
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-medium text-right">Current Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-bm-border/10">
                 {sortedAssets.map((asset) => (
                   <tr key={asset.asset_id}>
                     <td className="px-2 py-2 sm:px-3 sm:py-3">
                       <div>
-                        <p className="font-medium text-slate-900">{asset.asset_name}</p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="font-medium text-slate-900 dark:text-bm-text">{asset.asset_name}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-bm-muted2">
                           {asset.investment_name}
                           {asset.market ? ` · ${asset.market}` : ""}
                         </p>
@@ -3318,27 +3322,27 @@ function ReturnsTab({ baseScenario, loading }: {
                     <td className="hidden sm:table-cell px-3 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                         asset.status_category === "active"
-                          ? "bg-blue-50 text-blue-700"
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                           : asset.status_category === "disposed"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                       }`}>
                         {asset.status_category}
                       </span>
                     </td>
-                    <td className="hidden md:table-cell px-3 py-3 text-right tabular-nums text-slate-600">
+                    <td className="hidden md:table-cell px-3 py-3 text-right tabular-nums text-slate-600 dark:text-bm-muted2">
                       {fmtFlexiblePercent(asset.ownership_percent)}
                     </td>
-                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900 dark:text-bm-text">
                       {fmtMoney(asset.attributable_nav)}
                     </td>
-                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums text-slate-900 dark:text-bm-text">
                       {fmtMoney(asset.attributable_realized_proceeds)}
                     </td>
-                    <td className="hidden lg:table-cell px-3 py-3 text-right tabular-nums text-slate-900">
+                    <td className="hidden lg:table-cell px-3 py-3 text-right tabular-nums text-slate-900 dark:text-bm-text">
                       {asset.has_sale_assumption ? fmtMoney(asset.attributable_hypothetical_proceeds) : "—"}
                     </td>
-                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums font-medium text-slate-900">
+                    <td className="px-2 py-2 sm:px-3 sm:py-3 text-right tabular-nums font-medium text-slate-900 dark:text-bm-text">
                       {fmtMoney(asset.current_value_contribution)}
                     </td>
                   </tr>
@@ -3349,13 +3353,13 @@ function ReturnsTab({ baseScenario, loading }: {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="waterfall-tier-results">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="waterfall-tier-results">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
               Waterfall Tier Results
             </h3>
-            <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+            <div className="mt-4 overflow-hidden rounded-lg border border-slate-100 dark:border-bm-border/10">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-400 dark:bg-bm-surface dark:text-bm-muted2">
                   <tr>
                     <th className="px-3 py-3 font-medium">Tier</th>
                     <th className="px-3 py-3 font-medium text-right">LP</th>
@@ -3363,13 +3367,13 @@ function ReturnsTab({ baseScenario, loading }: {
                     <th className="px-3 py-3 font-medium text-right">Remaining</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-bm-border/10">
                   {baseScenario.waterfall.tiers.map((tier) => (
                     <tr key={tier.tier_code}>
-                      <td className="px-3 py-3 text-slate-600">{tier.tier_label}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-900">{fmtMoney(tier.lp_amount)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-900">{fmtMoney(tier.gp_amount)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-500">{fmtMoney(tier.remaining_after)}</td>
+                      <td className="px-3 py-3 text-slate-600 dark:text-bm-muted2">{tier.tier_label}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-900 dark:text-bm-text">{fmtMoney(tier.lp_amount)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-900 dark:text-bm-text">{fmtMoney(tier.gp_amount)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-500 dark:text-bm-muted2">{fmtMoney(tier.remaining_after)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3377,11 +3381,11 @@ function ReturnsTab({ baseScenario, loading }: {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="base-scenario-assumptions">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-bm-border/20 dark:bg-bm-surface/60" data-testid="base-scenario-assumptions">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-bm-muted2">
               Modeling Conventions
             </h3>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-bm-muted2">
               <p>{baseScenario.assumptions.ownership_model}</p>
               <p>{baseScenario.assumptions.realized_allocation_method}</p>
               {baseScenario.assumptions.notes.map((note) => (
@@ -3458,7 +3462,7 @@ function LoanBookTab({ envId, businessId, fundId, quarter }: {
                   <tr key={loan.id} className="hover:bg-bm-surface/20">
                     <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium">
                       {loan.loan_name}
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-bm-muted2">
                         {loan.rate != null && <span>{fmtPercent(loan.rate)} rate</span>}
                         {latest?.dscr ? <span>DSCR {Number(latest.dscr).toFixed(2)}</span> : null}
                         {latest?.debt_yield ? <span>DY {fmtPercent(latest.debt_yield)}</span> : null}
@@ -4130,6 +4134,7 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
 
   const fm = data.fund_metrics;
   const gnb = data.gross_net_bridge;
+  const fmNullReasons = data.fund_metric_null_reasons ?? {};
 
   // Sort partners: GP first, then LPs alphabetically
   const sortedPartners = [...data.partners].sort((a, b) => {
@@ -4143,7 +4148,11 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
     <div className="space-y-4" data-testid="lp-summary-section">
       {/* Fund-level KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MetricCard label="Gross IRR" value={fm.gross_irr ? fmtPercent(fm.gross_irr) : "—"} size="large" />
+        {fmNullReasons.gross_irr ? (
+          <UnavailableTile label="Gross IRR" nullReason={fmNullReasons.gross_irr} />
+        ) : (
+          <MetricCard label="Gross IRR" value={fm.gross_irr ? fmtPercent(fm.gross_irr) : "—"} size="large" />
+        )}
         <MetricCard label="Net IRR" value={fm.net_irr ? fmtPercent(fm.net_irr) : "—"} size="large" />
         <MetricCard label="Gross TVPI" value={fm.gross_tvpi ? fmtMultiple(fm.gross_tvpi) : "—"} size="large" />
         <MetricCard label="DPI" value={fm.dpi ? fmtMultiple(fm.dpi) : "—"} size="large" />
@@ -4280,7 +4289,7 @@ function LpSummaryTab({ envId, businessId, fundId, quarter }: {
                 <tr key={p.partner_id} className="hover:bg-bm-surface/20">
                   <td className="px-2 py-2 sm:px-4 font-medium">
                     {p.name}
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-[#64748B] sm:hidden">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-bm-muted2">
                       {p.waterfall_allocation?.preferred_return != null && (
                         <span>Pref {fmtMoney(p.waterfall_allocation.preferred_return)}</span>
                       )}

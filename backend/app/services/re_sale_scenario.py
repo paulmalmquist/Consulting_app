@@ -509,6 +509,12 @@ def get_lp_summary(
         for ps in partner_summaries:
             ps["waterfall_allocation"] = wf_by_partner.get(ps["partner_id"])
 
+    fund_metric_null_reasons: dict[str, str] = {}
+    if metrics_row and metrics_row.get("gross_irr"):
+        raw_irr = Decimal(str(metrics_row["gross_irr"]))
+        if abs(raw_irr) > Decimal("2.0"):
+            fund_metric_null_reasons["gross_irr"] = "irr_implausible_early_period"
+
     return {
         "fund_id": str(fund_id),
         "quarter": quarter,
@@ -520,6 +526,7 @@ def get_lp_summary(
             "dpi": str(metrics_row["dpi"]) if metrics_row and metrics_row.get("dpi") else None,
             "rvpi": str(metrics_row["rvpi"]) if metrics_row and metrics_row.get("rvpi") else None,
         } if metrics_row else {},
+        "fund_metric_null_reasons": fund_metric_null_reasons,
         "gross_net_bridge": {
             "gross_return": str(bridge_row["gross_return"]) if bridge_row else None,
             "mgmt_fees": str(bridge_row["mgmt_fees"]) if bridge_row else None,

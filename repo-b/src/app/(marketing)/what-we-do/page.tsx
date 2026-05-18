@@ -65,7 +65,7 @@ export default function WhatWeDoPage() {
           Your data strategy is your <em>AI</em> strategy.
         </h1>
         <p className="nv-lede">
-          We design and build the data systems your business actually runs on. From source systems to
+          We design, build and audit the data systems your business actually runs on. From source systems to
           executive reporting, everything is structured, governed, and tied to decisions.
         </p>
         <div style={{ marginTop: 28 }}>

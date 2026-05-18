@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -106,7 +106,23 @@ function FitBounds({ points }: { points: ResolvedPoint[] }) {
   return null;
 }
 
+function useDarkMode(): boolean {
+  const [dark, setDark] = React.useState(
+    () => typeof window !== "undefined" && document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return dark;
+}
+
 export default function PortfolioAssetMapInner({ points }: { points: AssetMapPoint[] }) {
+  const isDark = useDarkMode();
+
   // Force Leaflet to recalculate tile sizes on mount
   useEffect(() => {
     window.dispatchEvent(new Event("resize"));
@@ -136,8 +152,12 @@ export default function PortfolioAssetMapInner({ points }: { points: AssetMapPoi
         scrollWheelZoom
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={isDark
+            ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}
+          url={isDark
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
         />
         <FitBounds points={resolved} />
         {resolved.map((p) => {
@@ -148,8 +168,8 @@ export default function PortfolioAssetMapInner({ points }: { points: AssetMapPoi
             <Marker key={p.asset_id} position={p.coords} icon={icon}>
               <Popup>
                 <div className="min-w-[220px] text-sm">
-                  <p className="font-semibold text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="font-semibold">{p.name}</p>
+                  <p className="text-xs opacity-70">
                     <span
                       className={`inline-block mr-1 h-2 w-2 rounded-full ${
                         p.status === "owned" ? "bg-emerald-400" : "bg-amber-400"
@@ -158,25 +178,25 @@ export default function PortfolioAssetMapInner({ points }: { points: AssetMapPoi
                     {p.status === "owned" ? "Owned" : "Pipeline"}
                     {p.property_type ? ` · ${p.property_type}` : ""}
                   </p>
-                  <p className="text-xs text-gray-600 mt-0.5">{p.fund_name}</p>
+                  <p className="text-xs opacity-60 mt-0.5">{p.fund_name}</p>
                   {p.city && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs opacity-60">
                       {p.city}{p.state ? `, ${p.state}` : ""}
                     </p>
                   )}
                   <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
                     {p.cost_basis && Number(p.cost_basis) > 0 && (
-                      <p className="text-gray-600"><span className="text-gray-400">Basis:</span> {fmtMoney(p.cost_basis)}</p>
+                      <p><span className="opacity-50">Basis:</span> {fmtMoney(p.cost_basis)}</p>
                     )}
                     {p.current_noi && Number(p.current_noi) > 0 && (
-                      <p className="text-gray-600"><span className="text-gray-400">NOI:</span> {fmtMoney(p.current_noi)}</p>
+                      <p><span className="opacity-50">NOI:</span> {fmtMoney(p.current_noi)}</p>
                     )}
                     {p.occupancy != null && Number(p.occupancy) > 0 && (
-                      <p className="text-gray-600"><span className="text-gray-400">Occ:</span> {(Number(p.occupancy) * 100).toFixed(0)}%</p>
+                      <p><span className="opacity-50">Occ:</span> {(Number(p.occupancy) * 100).toFixed(0)}%</p>
                     )}
                   </div>
                   {p.isApproximate && (
-                    <p className="mt-1 text-[10px] text-gray-400 italic">Approximate (market centroid)</p>
+                    <p className="mt-1 text-[10px] opacity-50 italic">Approximate (market centroid)</p>
                   )}
                 </div>
               </Popup>

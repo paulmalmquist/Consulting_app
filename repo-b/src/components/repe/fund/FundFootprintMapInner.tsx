@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { CircleMarker, MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -32,19 +32,24 @@ function FitBounds({
   assetPoints,
   marketPoints,
   viewMode,
+  fitKey,
 }: {
   assetPoints: FundFootprintAssetPoint[];
   marketPoints: FundFootprintMarketRollup[];
   viewMode: ViewMode;
+  fitKey: string;
 }) {
   const map = useMap();
 
+  // Only re-fit when fitKey changes (new data load or explicit re-center),
+  // not on every client-side filter recompute.
   useEffect(() => {
     const rawPoints = viewMode === "assets"
       ? assetPoints.map((point) => [point.lat, point.lon] as [number, number])
       : marketPoints.map((point) => [point.lat, point.lon] as [number, number]);
     fitBoundsToPoints(map, rawPoints);
-  }, [assetPoints, map, marketPoints, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey, map, viewMode]);
 
   return null;
 }
@@ -141,6 +146,20 @@ function MarketTooltip({ market }: { market: FundFootprintMarketRollup }) {
   );
 }
 
+function useDarkMode(): boolean {
+  const [dark, setDark] = React.useState(
+    () => typeof window !== "undefined" && document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return dark;
+}
+
 export default function FundFootprintMapInner({
   assetPoints,
   marketPoints,
@@ -149,6 +168,7 @@ export default function FundFootprintMapInner({
   selectedMarketKey,
   onSelectAsset,
   onSelectMarket,
+  fitKey,
 }: {
   assetPoints: FundFootprintAssetPoint[];
   marketPoints: FundFootprintMarketRollup[];
@@ -157,7 +177,10 @@ export default function FundFootprintMapInner({
   selectedMarketKey: string | null;
   onSelectAsset: (assetId: string) => void;
   onSelectMarket: (marketKey: string) => void;
+  fitKey: string;
 }) {
+  const isDark = useDarkMode();
+
   useEffect(() => {
     window.dispatchEvent(new Event("resize"));
   }, []);
@@ -173,13 +196,17 @@ export default function FundFootprintMapInner({
     [assetPoints, selectedAssetId],
   );
 
+  const tileUrl = isDark
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const tileAttribution = isDark
+    ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
   return (
     <MapContainer center={[39.8, -98.5]} zoom={4} className="h-full w-full" scrollWheelZoom>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <FitBounds assetPoints={assetPoints} marketPoints={marketPoints} viewMode={viewMode} />
+      <TileLayer attribution={tileAttribution} url={tileUrl} />
+      <FitBounds assetPoints={assetPoints} marketPoints={marketPoints} viewMode={viewMode} fitKey={fitKey} />
 
       {viewMode === "assets"
         ? assetPoints.map((asset) => (

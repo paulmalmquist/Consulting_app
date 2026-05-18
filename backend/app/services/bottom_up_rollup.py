@@ -154,18 +154,19 @@ def _merge_series(
             )
 
 
-def _xirr_from_series(series: list[CFPoint]) -> Decimal | None:
+def _xirr_from_series(series: list[CFPoint]) -> tuple[Decimal | None, str | None]:
+    """Return (irr, null_reason). irr is None when a guard fires."""
     cashflows = [(p.quarter_end_date, p.amount) for p in series if p.amount != 0]
-    if len(cashflows) < 2:
-        return None
+    if len(cashflows) < 4:
+        return None, "irr_insufficient_history"
     has_pos = any(a > 0 for _, a in cashflows)
     has_neg = any(a < 0 for _, a in cashflows)
     if not (has_pos and has_neg):
-        return None
+        return None, "insufficient_sign_changes"
     result = xirr(cashflows)
-    return (
-        Decimal(str(result)).quantize(Decimal("0.000001")) if result is not None else None
-    )
+    if result is None:
+        return None, "insufficient_sign_changes"
+    return Decimal(str(result)).quantize(Decimal("0.000001")), None
 
 
 def compute_investment_rollup(
@@ -260,7 +261,7 @@ def compute_investment_rollup(
         )
 
     series = sorted(merged.values(), key=lambda p: p.quarter_end_date)
-    irr = _xirr_from_series(series)
+    irr, irr_null_reason = _xirr_from_series(series)
     warnings: list[str] = []
     for p in series:
         for w in p.warnings:
@@ -272,7 +273,7 @@ def compute_investment_rollup(
         if null_child_count == len(assets):
             null_reason = "all_children_null"
         else:
-            null_reason = "insufficient_sign_changes"
+            null_reason = irr_null_reason or "insufficient_sign_changes"
 
     return InvestmentRollup(
         investment_id=investment_id,
@@ -365,7 +366,7 @@ def compute_fund_rollup(
             all_asset_contribs.append(c)
 
     series = sorted(merged.values(), key=lambda p: p.quarter_end_date)
-    irr = _xirr_from_series(series)
+    irr, irr_null_reason = _xirr_from_series(series)
 
     warnings: list[str] = []
     for p in series:
@@ -375,11 +376,10 @@ def compute_fund_rollup(
 
     null_reason: str | None = None
     if irr is None:
-        null_reason = (
-            "all_investments_null"
-            if null_inv_count == len(investments)
-            else "insufficient_sign_changes"
-        )
+        if null_inv_count == len(investments):
+            null_reason = "all_investments_null"
+        else:
+            null_reason = irr_null_reason or "insufficient_sign_changes"
 
     # IRR contribution — value_share + marginal + weighted.
     if compute_contributions and irr is not None:

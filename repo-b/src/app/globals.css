@@ -369,6 +369,30 @@
   z-index: 10 !important;
 }
 
+/* Dark mode: Leaflet tooltips and popups are injected into document.body
+   outside the React tree — Tailwind dark: variants don't cascade into them.
+   These overrides ensure readable text in the dark operator shell. */
+.dark .leaflet-tooltip {
+  background-color: var(--bm-surface);
+  color: var(--bm-text);
+  border-color: var(--bm-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.dark .leaflet-tooltip-left::before,
+.dark .leaflet-tooltip-right::before {
+  border-right-color: var(--bm-border);
+  border-left-color: var(--bm-border);
+}
+.dark .leaflet-popup-content-wrapper {
+  background-color: var(--bm-surface);
+  color: var(--bm-text);
+  border: 1px solid var(--bm-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+.dark .leaflet-popup-tip {
+  background-color: var(--bm-surface);
+}
+
 /* Hide scrollbar for horizontal scroll areas */
 .scrollbar-hide {
   -ms-overflow-style: none;

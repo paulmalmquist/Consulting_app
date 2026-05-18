@@ -149,7 +149,7 @@ export default function CompoundingCapabilityGraph({
             <CartesianGrid
               stroke={GRID_STYLE.stroke}
               strokeDasharray={GRID_STYLE.strokeDasharray}
-              strokeOpacity={isMobile ? (GRID_STYLE.strokeOpacity ?? 0.3) * 0.5 : GRID_STYLE.strokeOpacity}
+              strokeOpacity={isMobile ? 0.5 : 1}
               horizontal
               vertical={false}
             />

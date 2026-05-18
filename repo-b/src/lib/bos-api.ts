@@ -8925,6 +8925,7 @@ export type LpSummary = {
   fund_id: string;
   quarter: string;
   fund_metrics: Record<string, string | null>;
+  fund_metric_null_reasons?: Record<string, string>;
   gross_net_bridge: Record<string, string | null>;
   partners: LpPartnerSummary[];
   total_committed: string;

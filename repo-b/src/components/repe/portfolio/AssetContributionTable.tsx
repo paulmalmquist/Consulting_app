@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReV2FundInvestmentRollupRow } from "@/lib/bos-api";
 import { toNumberSafe } from "@/components/repe/workspace/repePortfolioFlags";
 import { fmtMoney } from "@/lib/format-utils";
+import { UnavailableCell } from "@/components/re/UnavailableTile";
 
 export type TrustState =
   | "Realized"
@@ -38,7 +39,7 @@ export type AssetRow = {
   isArchived?: boolean;
 };
 
-type SortKey = "nav" | "irr" | "name";
+type SortKey = "nav" | "irr" | "name" | "market";
 
 interface Props {
   rollup: ReV2FundInvestmentRollupRow[];
@@ -176,6 +177,12 @@ export default function AssetContributionTable({
         const cmp = left.name.localeCompare(right.name);
         return sortDir === "desc" ? -cmp : cmp;
       }
+      if (sortKey === "market") {
+        const lm = left.market ?? "";
+        const rm = right.market ?? "";
+        const cmp = lm.localeCompare(rm);
+        return sortDir === "desc" ? -cmp : cmp;
+      }
       const leftV = sortKey === "nav" ? (left.nav ?? -Infinity) : (left.irr ?? -Infinity);
       const rightV = sortKey === "nav" ? (right.nav ?? -Infinity) : (right.irr ?? -Infinity);
       return sortDir === "desc" ? rightV - leftV : leftV - rightV;
@@ -217,7 +224,9 @@ export default function AssetContributionTable({
               <Th onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir}>
                 Asset
               </Th>
-              <th className="px-3 py-2 font-medium">Sector / Market</th>
+              <Th onClick={() => toggleSort("market")} active={sortKey === "market"} dir={sortDir}>
+                Sector / Market
+              </Th>
               <th className="px-3 py-2 text-right font-medium">Invested</th>
               <Th onClick={() => toggleSort("nav")} active={sortKey === "nav"} dir={sortDir} align="right">
                 NAV
@@ -353,7 +362,7 @@ function AssetRowView({
         {navPctText ?? <Unavailable reason="Awaiting fund NAV total" />}
       </td>
       <td className={`px-3 py-2 text-right font-semibold ${irrColor}`}>
-        {irrText ?? <Unavailable reason="Awaiting IRR" />}
+        {irrText ?? <UnavailableCell nullReason="incomplete_cash_flow_series" />}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
         {row.impactBps !== null ? (

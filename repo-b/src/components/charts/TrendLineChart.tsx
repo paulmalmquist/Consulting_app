@@ -14,9 +14,9 @@ import {
 } from "recharts";
 import {
   CHART_COLORS,
-  TOOLTIP_STYLE,
-  AXIS_TICK_STYLE,
-  GRID_STYLE,
+  getTooltipStyle,
+  getAxisTickStyle,
+  getGridStyle,
   fmtCompact,
   fmtPct,
 } from "./chart-theme";
@@ -119,15 +119,15 @@ export default function TrendLineChart({
         margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
         syncId={syncId}
       >
-        <CartesianGrid vertical={false} {...GRID_STYLE} />
+        <CartesianGrid vertical={false} {...getGridStyle()} />
         <XAxis
           dataKey="quarter"
-          tick={AXIS_TICK_STYLE}
+          tick={getAxisTickStyle()}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={AXIS_TICK_STYLE}
+          tick={getAxisTickStyle()}
           axisLine={false}
           tickLine={false}
           tickFormatter={tickFmt(format)}
@@ -135,7 +135,7 @@ export default function TrendLineChart({
           domain={format === "percent" ? [0, 1] : ["auto", "auto"]}
         />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={getTooltipStyle()}
           formatter={tooltipFmt(format)}
           labelStyle={{ color: "hsl(210, 24%, 94%)", fontWeight: 600 }}
         />

@@ -87,7 +87,7 @@ export function getTooltipStyle(): React.CSSProperties {
 
 export function getAxisTickStyle() {
   return {
-    fill: getCSSVar("--bm-chart-axis", "#475569"),
+    fill: getCSSVar("--bm-chart-axis", "#94a3b8"),
     fontSize: 10,
   };
 }
@@ -95,7 +95,7 @@ export function getAxisTickStyle() {
 export function getGridStyle() {
   return {
     strokeDasharray: "3 3",
-    stroke: getCSSVar("--bm-chart-grid", "#1c263850"),
+    stroke: getCSSVar("--bm-chart-grid", "#1c2638"),
   };
 }
 
@@ -128,8 +128,8 @@ export const TOOLTIP_STYLE: React.CSSProperties = {
   color: "hsl(210, 24%, 94%)",
 };
 
-export const AXIS_TICK_STYLE = { fontSize: 11, fill: "rgba(107,114,128,0.8)" } as const;
-export const GRID_STYLE = { stroke: "rgba(107,114,128,0.2)", strokeDasharray: "3 3", strokeOpacity: 0.5 } as const;
+export const AXIS_TICK_STYLE = { fontSize: 11, fill: "#94a3b8" } as const;
+export const GRID_STYLE = { stroke: "rgba(148,163,184,0.15)", strokeDasharray: "3 3" } as const;
 
 /* ── Number formatting helpers ─────────────────────────────────── */
 

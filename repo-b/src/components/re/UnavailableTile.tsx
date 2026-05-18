@@ -40,6 +40,14 @@ const NULL_REASON_COPY: Record<string, { short: string; long: string }> = {
     short: "unavailable",
     long: "IRR unavailable — incomplete cash flow series",
   },
+  irr_insufficient_history: {
+    short: "insufficient history",
+    long: "IRR requires at least 4 cash flow periods — fund history too short",
+  },
+  irr_implausible_early_period: {
+    short: "early-period outlier",
+    long: "IRR exceeds 200% — likely a sparse-history artifact. Recheck once the fund has 4+ quarters of cash flows.",
+  },
   period_coherence_violation: {
     short: "unavailable",
     long: "Period mismatch between inputs",

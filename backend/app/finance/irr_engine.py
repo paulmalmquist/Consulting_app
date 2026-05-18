@@ -21,7 +21,7 @@ def _xnpv(rate: float, cashflows: list[tuple[date, Decimal]]) -> float:
 
 
 def xirr(cashflows: list[tuple[date, Decimal]]) -> Decimal | None:
-    if len(cashflows) < 2:
+    if len(cashflows) < 4:
         return None
 
     values = [float(to_decimal(v)) for _, v in cashflows]
