@@ -2456,7 +2456,41 @@ export type ExecutionTaskUpdate = Partial<{
   due_date: string | null;
   re_engage_at: string | null;
   blocked_reason: string | null;
+  // Operator Control Plane hierarchy write-path (Ticket 5). Passing null
+  // clears the field (task → Ungrouped). Server validates keys.
+  domain_key: string | null;
+  initiative_key: string | null;
+  workstream_key: string | null;
+  source_kind: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  related_url: string | null;
+  last_reviewed_at: string | null;
 }>;
+
+export type ExecutionHierarchyOption = {
+  key: string;
+  label: string;
+  domain_key?: string | null;
+  initiative_key?: string | null;
+};
+
+export type ExecutionHierarchyOptions = {
+  domains: ExecutionHierarchyOption[];
+  initiatives: ExecutionHierarchyOption[];
+  workstreams: ExecutionHierarchyOption[];
+};
+
+export function fetchExecutionHierarchyOptions(
+  envId: string,
+  businessId: string,
+) {
+  return apiFetch<ExecutionHierarchyOptions>(
+    `${CRO_BASE}/execution/hierarchy-options?env_id=${encodeURIComponent(
+      envId,
+    )}&business_id=${encodeURIComponent(businessId)}`,
+  );
+}
 
 export type QuickCaptureRequest = {
   env_id: string;

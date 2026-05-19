@@ -125,6 +125,7 @@ from app.schemas.consulting import (
     ExecutionTask,
     ExecutionTaskCreate,
     ExecutionTaskUpdate,
+    ExecutionHierarchyOptions,
     ExecutionBoardOutV2,
     GenerateActionsRequest,
     GenerateActionsResponse,
@@ -2554,10 +2555,31 @@ def update_execution_task_route(
             update_kwargs["_re_engage_at_set"] = True
         if "blocked_reason" in update_kwargs:
             update_kwargs["_blocked_reason_set"] = True
+        # Hierarchy write-path (Ticket 5): sentinel flags so explicitly passing
+        # null clears the field (task → Ungrouped).
+        for _hk in (
+            "domain_key",
+            "initiative_key",
+            "workstream_key",
+            "source_kind",
+            "related_entity_type",
+            "related_entity_id",
+            "related_url",
+            "last_reviewed_at",
+        ):
+            if _hk in update_kwargs:
+                update_kwargs[f"_{_hk}_set"] = True
         result = execution_tasks_svc.update_task(task_id=task_id, **update_kwargs)
         if not result:
             raise HTTPException(404, "Execution task not found")
         return result
+    except execution_tasks_svc.HierarchyValidationError as exc:
+        # Unknown domain/initiative/workstream key — clean 400, never a 500,
+        # never a silent write.
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_hierarchy", "message": str(exc)},
+        )
     except execution_tasks_svc.TodayFullError as exc:
         raise HTTPException(
             status_code=422,
@@ -2565,6 +2587,26 @@ def update_execution_task_route(
         )
     except HTTPException:
         raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get(
+    "/execution/hierarchy-options",
+    response_model=ExecutionHierarchyOptions,
+)
+def execution_hierarchy_options_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Seeded domain/initiative/workstream options for the task form.
+
+    Read-only. Returns honest empty lists if nothing is seeded — the form
+    degrades cleanly rather than fabricating choices."""
+    try:
+        return execution_tasks_svc.list_hierarchy_options(
+            env_id=env_id, business_id=business_id,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

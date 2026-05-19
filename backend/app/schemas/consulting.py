@@ -1757,6 +1757,30 @@ class ExecutionTaskUpdate(BaseModel):
     due_date: date | None = None
     re_engage_at: datetime | None = None
     blocked_reason: str | None = None
+    # Operator Control Plane hierarchy write-path (Ticket 5). All optional;
+    # explicitly passing null clears the field (task → Ungrouped). Keys are
+    # validated server-side against the seeded reference tables.
+    domain_key: str | None = None
+    initiative_key: str | None = None
+    workstream_key: str | None = None
+    source_kind: str | None = None
+    related_entity_type: str | None = None
+    related_entity_id: UUID | None = None
+    related_url: str | None = None
+    last_reviewed_at: datetime | None = None
+
+
+class ExecutionHierarchyOption(BaseModel):
+    key: str
+    label: str
+    domain_key: str | None = None
+    initiative_key: str | None = None
+
+
+class ExecutionHierarchyOptions(BaseModel):
+    domains: list[ExecutionHierarchyOption]
+    initiatives: list[ExecutionHierarchyOption]
+    workstreams: list[ExecutionHierarchyOption]
 
 
 class ExecutionBoardSummary(BaseModel):
