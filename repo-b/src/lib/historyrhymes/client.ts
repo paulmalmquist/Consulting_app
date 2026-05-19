@@ -85,19 +85,6 @@ export interface HrBrief {
   created_at: string;
 }
 
-export interface EnhancementCandidate {
-  candidate_id: string;
-  title: string;
-  status: "new" | "promoted" | "discarded" | "planned" | "shipped";
-  adversarial_verdict?: "PASS" | "FAIL" | "HOLD" | "CAUTION" | "ABSTAIN";
-  priority?: string;
-  effort_days?: number | null;
-  what?: string;
-  why?: string;
-  expected_impact?: string;
-  dependencies: string[];
-}
-
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 async function getJson<T>(path: string): Promise<T | null> {
@@ -124,84 +111,153 @@ export function fetchLatestBrief(): Promise<HrBrief | null> {
   return getJson<HrBrief>("/api/hr/v1/briefs/latest");
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Research → planning bridge (backed by backend/app/routes/hr_research.py).
+ * SHIPPED, TESTED CONTRACT — paths are /api/hr/v1/research/* . Same
+ * direct-to-FastAPI convention as above (NEXT_PUBLIC_API_BASE); there is
+ * intentionally no Next.js proxy route for /api/hr/*. Do not rename these
+ * paths or reshape the responses without changing the backend + its tests.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type CandidateStatus =
+  | "new"
+  | "promoted"
+  | "discarded"
+  | "planned"
+  | "shipped";
+
+export interface EnhancementCandidate {
+  candidate_id: string;
+  brief_id?: string | null;
+  title: string;
+  category: string | null;
+  what: string | null;
+  why: string | null;
+  effort_days: number | null;
+  expected_impact: string | null;
+  dependencies: string[];
+  priority: string;
+  confidence: number | null;
+  adversarial_verdict: string | null;
+  status: CandidateStatus;
+  created_at?: string;
+}
+
 export interface ResearchBriefSummary {
   brief_id: string;
-  published_at: string;
-  markdown_uri: string | null;
-  source: string;
-  title?: string;
   brief_date: string;
   week_type: string;
   pillar_name: string;
+  title: string | null;
   confidence: number | null;
+  freshness_score: number | null;
+  source_filename?: string | null;
+  parsed_json: Record<string, unknown>;
   candidate_count: number;
+  created_at: string;
 }
 
 export interface IngestResult {
-  brief: { brief_id: string };
+  brief: {
+    brief_id: string;
+    brief_date: string;
+    week_type: string;
+    pillar_name: string;
+    title: string | null;
+    confidence: number;
+    freshness_score: number | null;
+    regime_call: string | null;
+    found_sections: string[];
+    created_at: string | null;
+  };
   candidates: EnhancementCandidate[];
   warnings: string[];
   confidence: number;
   degraded: boolean;
 }
 
-export async function fetchLatestResearchBrief(): Promise<ResearchBriefSummary | null> {
-  return getJson<ResearchBriefSummary>("/api/historyrhymes/v1/research-brief/latest");
-}
-
-export async function fetchEnhancementCandidates(): Promise<EnhancementCandidate[]> {
-  const result = await getJson<EnhancementCandidate[]>("/api/historyrhymes/v1/candidates");
-  return result ?? [];
-}
-
-export async function promoteCandidate(candidateId: string): Promise<void> {
-  try {
-    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/candidates/${candidateId}/promote`, {
-      method: "POST",
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`promote failed: ${res.status}`);
-  } catch (err) {
-    console.error(`[hr-client] promote ${candidateId} failed:`, err);
-    throw err;
-  }
-}
-
-export async function discardCandidate(candidateId: string): Promise<void> {
-  try {
-    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/candidates/${candidateId}/discard`, {
-      method: "POST",
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`discard failed: ${res.status}`);
-  } catch (err) {
-    console.error(`[hr-client] discard ${candidateId} failed:`, err);
-    throw err;
-  }
-}
-
-export async function fetchPlanningMarkdown(candidateId: string): Promise<{ planning_markdown: string } | null> {
-  return getJson<{ planning_markdown: string }>(`/api/historyrhymes/v1/candidates/${candidateId}/planning`);
-}
-
-export async function postResearchBrief(payload: {
-  brief_date: string;
+export interface IngestInput {
+  brief_date: string; // YYYY-MM-DD
   week_type: string;
   pillar_name: string;
   markdown_content: string;
-  source_filename: string | null;
-}): Promise<IngestResult> {
-  try {
-    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/research-brief`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`postResearchBrief failed: ${res.status}`);
-    return (await res.json()) as IngestResult;
-  } catch (err) {
-    console.error(`[hr-client] postResearchBrief failed:`, err);
-    throw err;
+  title?: string | null;
+  source_filename?: string | null;
+}
+
+async function sendJson<T>(
+  path: string,
+  method: "POST",
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const j = (await res.json()) as { detail?: unknown };
+      if (j?.detail) detail = String(j.detail);
+    } catch {
+      /* keep status-only detail */
+    }
+    throw new Error(`${path} → ${detail}`);
   }
+  return (await res.json()) as T;
+}
+
+export function postResearchBrief(input: IngestInput): Promise<IngestResult> {
+  return sendJson<IngestResult>(
+    "/api/hr/v1/research/briefs",
+    "POST",
+    input,
+  );
+}
+
+export function fetchLatestResearchBrief(): Promise<ResearchBriefSummary | null> {
+  return getJson<ResearchBriefSummary>("/api/hr/v1/research/briefs/latest");
+}
+
+export function fetchEnhancementCandidates(
+  status?: CandidateStatus,
+): Promise<{ count: number; candidates: EnhancementCandidate[] } | null> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return getJson<{ count: number; candidates: EnhancementCandidate[] }>(
+    `/api/hr/v1/research/enhancement-candidates${q}`,
+  );
+}
+
+export function promoteCandidate(
+  candidateId: string,
+): Promise<{ candidate_id: string; title: string; status: string }> {
+  return sendJson(
+    `/api/hr/v1/research/enhancement-candidates/${encodeURIComponent(
+      candidateId,
+    )}/promote`,
+    "POST",
+  );
+}
+
+export function discardCandidate(
+  candidateId: string,
+): Promise<{ candidate_id: string; title: string; status: string }> {
+  return sendJson(
+    `/api/hr/v1/research/enhancement-candidates/${encodeURIComponent(
+      candidateId,
+    )}/discard`,
+    "POST",
+  );
+}
+
+export function fetchPlanningMarkdown(
+  candidateId: string,
+): Promise<{ candidate_id: string; planning_markdown: string } | null> {
+  return getJson(
+    `/api/hr/v1/research/enhancement-candidates/${encodeURIComponent(
+      candidateId,
+    )}/planning-markdown`,
+  );
 }

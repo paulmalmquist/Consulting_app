@@ -31,7 +31,7 @@ export function HistoryRhymesPlanningClient({ envId }: Props) {
       fetchEnhancementCandidates(),
     ]);
     setBrief(b);
-    setCandidates(c ?? []);
+    setCandidates(c?.candidates ?? []);
     setLoading(false);
   }, []);
 
