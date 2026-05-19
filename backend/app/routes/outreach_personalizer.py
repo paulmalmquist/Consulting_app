@@ -23,9 +23,11 @@ from app.schemas.outreach_personalizer import (
     TargetCreateIn,
     MicrositeTrackIn,
     MicrositeUpdateIn,
+    LogCrmActivityIn,
 )
 from app.services import outreach_personalizer as op_db
 from app.services import outreach_personalizer_ai as op_ai
+from app.services import crm as crm_svc
 from app.services.outreach_personalizer import (
     OutreachTargetNotFound,
     normalize_loom_url,
@@ -213,6 +215,11 @@ def list_targets(
 ):
     try:
         targets = op_db.list_targets(env_id=env_id)
+        rollups = op_db.engagement_rollup_bulk(
+            target_ids=[str(t["id"]) for t in targets]
+        )
+        for t in targets:
+            t["engagement"] = rollups.get(str(t["id"]), dict(op_db._EMPTY_ROLLUP))
         return {"targets": targets}
     except Exception as exc:
         status, code = classify_domain_error(exc)
@@ -229,7 +236,10 @@ def get_target(
 ):
     try:
         target = op_db.get_target_by_id(target_id=target_id)
-        return _target_response(target)
+        resp = _target_response(target)
+        resp["engagement"] = op_db.engagement_rollup(target_id=target_id)
+        resp["crm_account"] = _crm_account_summary(target)
+        return resp
     except OutreachTargetNotFound as exc:
         return domain_error_response(
             request=request, status_code=404, code="outreach_personalizer.not_found",
@@ -340,6 +350,73 @@ def regenerate_asset(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="outreach-personalizer.regenerate.failed",
+        )
+
+
+# ---------------------------------------------------------------------------
+# CRM follow-through (Phase 2B) — reuses crm_svc.create_activity. No new model.
+# ---------------------------------------------------------------------------
+
+def _engagement_activity_body(target: dict, rollup: dict, note: str | None) -> str:
+    lines = [
+        f"Outreach microsite engagement for {target['firm_name']}.",
+        f"Microsite: {target.get('microsite_url') or '/for/' + target['firm_slug']}",
+        f"Views: {rollup['total_views']}  |  CTA clicks: {rollup['total_ctas']}",
+        f"Last viewed: {rollup.get('last_viewed_at') or 'never'}",
+        f"Last CTA: {rollup.get('last_cta_at') or 'never'}",
+    ]
+    if note:
+        lines.append(f"Operator note: {note}")
+    lines.append("Generated from Outreach Personalizer.")
+    return "\n".join(lines)
+
+
+@router.post("/targets/{target_id}/crm-activity")
+def log_crm_activity(
+    target_id: UUID,
+    payload: LogCrmActivityIn,
+    request: Request,
+):
+    """Log the target's microsite engagement as a CRM activity.
+
+    Reuses crm_svc.create_activity (writes crm_activity). Fails closed when the
+    target has no linked CRM account or no business_id (create_activity needs a
+    business_id to resolve the tenant).
+    """
+    try:
+        target = op_db.get_target_by_id(target_id=target_id)
+        if not target.get("crm_account_id"):
+            raise ValueError(
+                "Target is not linked to a CRM account. Link one before logging activity."
+            )
+        if not target.get("business_id"):
+            raise ValueError(
+                "Target has no business_id; cannot resolve a CRM tenant for the activity."
+            )
+        rollup = op_db.engagement_rollup(target_id=target_id)
+        activity = crm_svc.create_activity(
+            business_id=target["business_id"],
+            subject=f"Outreach microsite engagement — {target['firm_name']}",
+            activity_type="note",
+            body=_engagement_activity_body(target, rollup, payload.note),
+            crm_account_id=target["crm_account_id"],
+        )
+        return {"ok": True, "activity": activity, "engagement": rollup}
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404, code="outreach_personalizer.not_found",
+            detail=str(exc), action="outreach-personalizer.crm-activity.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=400, code="outreach_personalizer.validation_error",
+            detail=str(exc), action="outreach-personalizer.crm-activity.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="outreach-personalizer.crm-activity.failed",
         )
 
 

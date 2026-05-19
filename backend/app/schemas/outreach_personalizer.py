@@ -69,3 +69,12 @@ class MicrositeUpdateIn(BaseModel):
     crm_account_id: UUID | None = None
     logo_url: str | None = None
     accent_hsl: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Log microsite engagement as a CRM activity (Phase 2B). Optional operator note
+# appended to the auto-composed body.
+# ---------------------------------------------------------------------------
+
+class LogCrmActivityIn(BaseModel):
+    note: str | None = None

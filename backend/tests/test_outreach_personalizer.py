@@ -487,3 +487,135 @@ class TestPatchTarget:
             json={"loom_url": VALID_LOOM},
         )
         assert r.status_code == 404, r.text
+
+
+# ---------------------------------------------------------------------------
+# Phase 2B — Engagement rollup + CRM activity follow-through
+# ---------------------------------------------------------------------------
+
+BUSINESS_ID = "33333333-3333-3333-3333-333333333333"
+
+
+class TestEngagementRollup:
+    def test_rollup_service_counts_and_recent_order(self, fake_cursor):
+        from app.services import outreach_personalizer as op_db
+
+        fake_cursor.push_result([{
+            "total_views": 3, "total_ctas": 1,
+            "last_viewed_at": "2026-05-19T10:00:00Z",
+            "last_cta_at": "2026-05-19T11:00:00Z",
+        }])
+        fake_cursor.push_result([
+            {"event_type": "microsite_cta", "occurred_at": "2026-05-19T11:00:00Z"},
+            {"event_type": "microsite_view", "occurred_at": "2026-05-19T10:00:00Z"},
+        ])
+        r = op_db.engagement_rollup(target_id=TARGET_ID)
+        assert r["total_views"] == 3 and r["total_ctas"] == 1
+        assert r["last_viewed_at"] == "2026-05-19T10:00:00Z"
+        assert [e["event_type"] for e in r["recent_events"]] == [
+            "microsite_cta", "microsite_view"
+        ]
+
+    def test_rollup_bulk_empty_short_circuits(self, fake_cursor):
+        from app.services import outreach_personalizer as op_db
+
+        assert op_db.engagement_rollup_bulk(target_ids=[]) == {}
+
+    def test_get_target_detail_includes_engagement(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])              # get_target_by_id
+        fake_cursor.push_result([_insight_asset(), _email_asset()])         # list_assets
+        fake_cursor.push_result([{
+            "total_views": 2, "total_ctas": 0,
+            "last_viewed_at": "2026-05-19T09:00:00Z", "last_cta_at": None,
+        }])                                                                 # rollup agg
+        fake_cursor.push_result(
+            [{"event_type": "microsite_view", "occurred_at": "2026-05-19T09:00:00Z"}]
+        )                                                                   # recent
+        r = client.get(f"/api/outreach-personalizer/v1/targets/{TARGET_ID}")
+        assert r.status_code == 200, r.text
+        b = r.json()
+        assert b["engagement"]["total_views"] == 2
+        assert b["engagement"]["recent_events"][0]["event_type"] == "microsite_view"
+        assert b["crm_account"] is None  # target_row has no crm_account_id
+
+    def test_list_targets_includes_engagement_summary(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])              # list_targets
+        fake_cursor.push_result([{
+            "target_id": TARGET_ID, "total_views": 5, "total_ctas": 2,
+            "last_viewed_at": "x", "last_cta_at": "y",
+        }])                                                                 # bulk rollup
+        r = client.get(f"/api/outreach-personalizer/v1/targets?env_id={ENV_ID}")
+        assert r.status_code == 200, r.text
+        tg = r.json()["targets"][0]
+        assert tg["engagement"]["total_views"] == 5
+        assert tg["engagement"]["total_ctas"] == 2
+
+    def test_list_targets_engagement_defaults_when_no_events(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])  # list_targets
+        fake_cursor.push_result([])                             # bulk → no rows
+        r = client.get(f"/api/outreach-personalizer/v1/targets?env_id={ENV_ID}")
+        assert r.status_code == 200, r.text
+        assert r.json()["targets"][0]["engagement"]["total_views"] == 0
+
+
+class TestLogCrmActivity:
+    def test_fails_closed_without_crm_account(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])  # no crm_account_id
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/crm-activity",
+            json={},
+        )
+        assert r.status_code == 400, r.text
+        assert "not linked to a CRM account" in r.json()["detail"]
+
+    def test_fails_closed_without_business_id(self, client, fake_cursor):
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"), "crm_account_id": CRM_ID, "business_id": None}]
+        )
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/crm-activity",
+            json={},
+        )
+        assert r.status_code == 400, r.text
+        assert "business_id" in r.json()["detail"]
+
+    def test_logs_activity_via_existing_crm_service(self, client, fake_cursor):
+        from app.routes import outreach_personalizer as route
+
+        fake_cursor.push_result([{
+            **_target_row("assets_ready"),
+            "crm_account_id": CRM_ID, "business_id": BUSINESS_ID,
+        }])                                                                 # get_target_by_id
+        fake_cursor.push_result([{
+            "total_views": 4, "total_ctas": 2,
+            "last_viewed_at": "a", "last_cta_at": "b",
+        }])                                                                 # rollup agg
+        fake_cursor.push_result(
+            [{"event_type": "microsite_cta", "occurred_at": "b"}]
+        )                                                                   # recent
+        with patch.object(
+            route.crm_svc,
+            "create_activity",
+            return_value={"crm_activity_id": "act-1", "subject": "x"},
+        ) as m:
+            r = client.post(
+                f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/crm-activity",
+                json={"note": "sent via email"},
+            )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert body["activity"]["crm_activity_id"] == "act-1"
+        assert body["engagement"]["total_views"] == 4
+        kwargs = m.call_args.kwargs
+        assert str(kwargs["crm_account_id"]) == CRM_ID
+        assert "Outreach Personalizer" in kwargs["body"]
+        assert "sent via email" in kwargs["body"]
+
+    def test_unknown_target_404(self, client, fake_cursor):
+        fake_cursor.push_result([])  # get_target_by_id → None
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/crm-activity",
+            json={},
+        )
+        assert r.status_code == 404, r.text

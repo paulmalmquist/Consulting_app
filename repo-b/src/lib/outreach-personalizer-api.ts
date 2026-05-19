@@ -51,6 +51,27 @@ export type CrmAccountSummary = {
   website: string | null;
 };
 
+// Phase 2B engagement rollup (operator-facing; no IP/user-agent).
+export type EngagementEvent = {
+  event_type: "microsite_view" | "microsite_cta";
+  occurred_at: string;
+};
+
+export type EngagementSummary = {
+  total_views: number;
+  total_ctas: number;
+  last_viewed_at: string | null;
+  last_cta_at: string | null;
+};
+
+export type EngagementRollup = EngagementSummary & {
+  recent_events: EngagementEvent[];
+};
+
+export type OutreachTargetWithEngagement = OutreachTarget & {
+  engagement?: EngagementSummary;
+};
+
 export type TargetResponse = {
   target: OutreachTarget;
   assets: OutreachAsset[];
@@ -58,6 +79,7 @@ export type TargetResponse = {
   public_path: string;
   created?: boolean;
   crm_account?: CrmAccountSummary | null;
+  engagement?: EngagementRollup;
 };
 
 // crm_account row as returned by the existing /api/crm/accounts route
@@ -122,9 +144,21 @@ export function seedOutreachTarget(
 }
 
 export function listOutreachTargets(envId: string) {
-  return apiFetch<{ targets: OutreachTarget[] }>(
+  return apiFetch<{ targets: OutreachTargetWithEngagement[] }>(
     `${OP_BASE}/targets?env_id=${encodeURIComponent(envId)}`,
   );
+}
+
+/** Log the target's microsite engagement as a CRM activity (reuses crm_svc). */
+export function logCrmActivity(targetId: string, note?: string) {
+  return apiFetch<{
+    ok: boolean;
+    activity: Record<string, unknown>;
+    engagement: EngagementRollup;
+  }>(`${OP_BASE}/targets/${targetId}/crm-activity`, {
+    method: "POST",
+    body: JSON.stringify({ note: note ?? null }),
+  });
 }
 
 export function getOutreachTarget(targetId: string) {

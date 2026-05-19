@@ -9,14 +9,21 @@ import {
   getOutreachTarget,
   listCrmAccounts,
   listOutreachTargets,
+  logCrmActivity,
   patchOutreachTarget,
   regenerateOutreachAsset,
   seedOutreachTarget,
   type CrmAccount,
   type OutreachInsight,
-  type OutreachTarget,
+  type OutreachTargetWithEngagement,
   type TargetResponse,
 } from "@/lib/outreach-personalizer-api";
+
+function fmtTs(ts: string | null | undefined): string {
+  if (!ts) return "never";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? "never" : d.toLocaleString();
+}
 
 const ARTEMIS = {
   firm_name: "Artemis Real Estate Partners",
@@ -52,7 +59,7 @@ export default function OutreachPersonalizerPage({
   const { envId, businessId, ready, error: envError } = useConsultingEnv();
   void params;
 
-  const [targets, setTargets] = useState<OutreachTarget[]>([]);
+  const [targets, setTargets] = useState<OutreachTargetWithEngagement[]>([]);
   const [detail, setDetail] = useState<TargetResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -132,6 +139,22 @@ export default function OutreachPersonalizerPage({
       setBusy(false);
     }
   }, [detail, loomInput, accountInput, logoInput, accentInput, refresh, syncEditState]);
+
+  const logActivity = useCallback(async () => {
+    if (!detail) return;
+    setBusy(true);
+    setErr(null);
+    setSaveMsg(null);
+    try {
+      await logCrmActivity(detail.target.id);
+      setSaveMsg("Engagement logged to CRM activity.");
+      setDetail(await getOutreachTarget(detail.target.id));
+    } catch (e) {
+      setErr(fmtError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [detail]);
 
   const seedArtemis = useCallback(async () => {
     setBusy(true);
@@ -216,8 +239,20 @@ export default function OutreachPersonalizerPage({
                       : "border-l-transparent text-bm-muted hover:bg-bm-surface/10 hover:text-bm-text"
                   }`}
                 >
-                  <span className="block font-medium">{t.firm_name}</span>
-                  <span className={`text-[10px] ${statusTone(t.status)}`}>{t.status}</span>
+                  <span className="block font-medium">
+                    {t.firm_name}
+                    {t.engagement && t.engagement.total_ctas > 0 ? (
+                      <span className="ml-2 rounded bg-bm-danger/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-bm-danger">
+                        Hot
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className={`text-[10px] ${statusTone(t.status)}`}>
+                    {t.status}
+                    {t.engagement
+                      ? ` · ${t.engagement.total_views}v / ${t.engagement.total_ctas}c`
+                      : ""}
+                  </span>
                 </button>
               ))
             )}
@@ -344,6 +379,106 @@ export default function OutreachPersonalizerPage({
                   {saveMsg ? (
                     <span className="text-xs text-bm-success">{saveMsg}</span>
                   ) : null}
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded border border-bm-border/60 bg-bm-bg/40 p-4">
+                <h3 className="text-sm font-semibold text-bm-text">
+                  Microsite engagement
+                </h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <p className="text-lg font-semibold text-bm-text">
+                      {detail.engagement?.total_views ?? 0}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      Views
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-bm-text">
+                      {detail.engagement?.total_ctas ?? 0}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      CTA clicks
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-bm-text">
+                      {fmtTs(detail.engagement?.last_viewed_at)}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      Last viewed
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-bm-text">
+                      {fmtTs(detail.engagement?.last_cta_at)}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      Last CTA
+                    </p>
+                  </div>
+                </div>
+
+                {detail.engagement && detail.engagement.recent_events.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      Recent events
+                    </p>
+                    {detail.engagement.recent_events.map((ev, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between text-xs text-bm-muted2"
+                      >
+                        <span
+                          className={
+                            ev.event_type === "microsite_cta"
+                              ? "text-bm-danger"
+                              : "text-bm-muted"
+                          }
+                        >
+                          {ev.event_type === "microsite_cta" ? "CTA click" : "View"}
+                        </span>
+                        <span>{fmtTs(ev.occurred_at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-bm-muted2">No engagement yet.</p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3 border-t border-bm-border/40 pt-3">
+                  {detail.target.crm_account_id && detail.target.business_id ? (
+                    <Button
+                      size="sm"
+                      onClick={() => void logActivity()}
+                      disabled={busy}
+                    >
+                      {busy ? "Logging…" : "Log CRM activity"}
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" disabled title="Link a CRM account (and the env must have a business) to log activity">
+                      Log CRM activity
+                    </Button>
+                  )}
+                  {!detail.target.crm_account_id ? (
+                    <span className="text-[10px] text-bm-warning">
+                      Link a CRM account above to enable activity logging.
+                    </span>
+                  ) : !detail.target.business_id ? (
+                    <span className="text-[10px] text-bm-warning">
+                      This env has no business_id; CRM activity logging is unavailable.
+                    </span>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled
+                    title="Pipeline advance is not available yet (Phase 2C)"
+                  >
+                    Advance pipeline — not available
+                  </Button>
                 </div>
               </section>
 

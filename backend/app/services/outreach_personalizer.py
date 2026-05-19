@@ -311,3 +311,82 @@ def record_microsite_event(
             ),
         )
         return cur.fetchone()
+
+
+# ---------------------------------------------------------------------------
+# Engagement rollups (Phase 2B). cro_microsite_event is the source of truth.
+# Operator-facing only — IP / user-agent are deliberately NOT surfaced.
+# ---------------------------------------------------------------------------
+
+_EMPTY_ROLLUP = {
+    "total_views": 0,
+    "total_ctas": 0,
+    "last_viewed_at": None,
+    "last_cta_at": None,
+}
+
+
+def engagement_rollup(*, target_id: UUID, recent_limit: int = 10) -> dict:
+    """Full rollup for one target: counts, last-seen, and recent events
+    (event_type + occurred_at only)."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT
+                   count(*) FILTER (WHERE event_type = 'microsite_view')  AS total_views,
+                   count(*) FILTER (WHERE event_type = 'microsite_cta')   AS total_ctas,
+                   max(occurred_at) FILTER (WHERE event_type = 'microsite_view') AS last_viewed_at,
+                   max(occurred_at) FILTER (WHERE event_type = 'microsite_cta')  AS last_cta_at
+               FROM cro_microsite_event
+               WHERE target_id = %s::uuid""",
+            (str(target_id),),
+        )
+        agg = cur.fetchone() or {}
+        cur.execute(
+            """SELECT event_type, occurred_at
+               FROM cro_microsite_event
+               WHERE target_id = %s::uuid
+               ORDER BY occurred_at DESC
+               LIMIT %s""",
+            (str(target_id), recent_limit),
+        )
+        recent = cur.fetchall()
+    return {
+        "total_views": agg.get("total_views") or 0,
+        "total_ctas": agg.get("total_ctas") or 0,
+        "last_viewed_at": agg.get("last_viewed_at"),
+        "last_cta_at": agg.get("last_cta_at"),
+        "recent_events": [
+            {"event_type": r["event_type"], "occurred_at": r["occurred_at"]}
+            for r in recent
+        ],
+    }
+
+
+def engagement_rollup_bulk(*, target_ids: list[str]) -> dict[str, dict]:
+    """Per-target counts + last-seen for a list view, in a single grouped query.
+    Returns {target_id: {total_views,total_ctas,last_viewed_at,last_cta_at}}."""
+    if not target_ids:
+        return {}
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT
+                   target_id,
+                   count(*) FILTER (WHERE event_type = 'microsite_view')  AS total_views,
+                   count(*) FILTER (WHERE event_type = 'microsite_cta')   AS total_ctas,
+                   max(occurred_at) FILTER (WHERE event_type = 'microsite_view') AS last_viewed_at,
+                   max(occurred_at) FILTER (WHERE event_type = 'microsite_cta')  AS last_cta_at
+               FROM cro_microsite_event
+               WHERE target_id = ANY(%s)
+               GROUP BY target_id""",
+            ([str(t) for t in target_ids],),
+        )
+        rows = cur.fetchall()
+    out: dict[str, dict] = {}
+    for r in rows:
+        out[str(r["target_id"])] = {
+            "total_views": r.get("total_views") or 0,
+            "total_ctas": r.get("total_ctas") or 0,
+            "last_viewed_at": r.get("last_viewed_at"),
+            "last_cta_at": r.get("last_cta_at"),
+        }
+    return out

@@ -49,6 +49,54 @@ Phase 1 seed + public tracking unaffected; pitch-forge + typecheck green.
 
 ---
 
+## Phase 2B — Engagement rollup + CRM activity follow-through
+
+**Scope (intentionally limited):** close the loop
+`microsite engagement → operator visibility → CRM activity`. Aggregate
+`cro_microsite_event` (Phase 1 table — the source of engagement truth) into per-target
+rollups surfaced on the operator read endpoints, and let the operator log that
+engagement as a CRM activity by **reusing the existing** `crm_svc.create_activity`
+(`backend/app/services/crm.py:271`) into `crm_activity`. **No new CRM/event/activity
+model. No new migration.** Env scaffolding, Apollo, scraping, Clearbit remain out of
+scope. History Rhymes + the `fix/consulting-task-generation-logging` dirty tree
+untouched (Phase 2B is built in an isolated git worktree).
+
+**Pipeline advance — deliberately NOT built.** The only existing stage mechanism is
+`crm_svc.move_opportunity_stage` (`backend/app/services/crm.py:344`), which needs a
+linked `crm_opportunity` + stage id; outreach targets have no opportunity linkage in
+this model. Inventing one is out of scope, so the operator UI shows a disabled
+"Advance pipeline — not available (Phase 2C)" affordance instead.
+
+**Backend**
+- `backend/app/services/outreach_personalizer.py`: `engagement_rollup(target_id)`
+  (total_views, total_ctas, last_viewed_at, last_cta_at, recent_events[] —
+  event_type+occurred_at only; no IP/user-agent exposed) and
+  `engagement_rollup_bulk(target_ids)` (one grouped query for the list view).
+- `backend/app/routes/outreach_personalizer.py`: `GET /targets/{id}` gains
+  `engagement` (full rollup incl. recent_events); `GET /targets` gains a per-target
+  `engagement` summary (counts + last seen, no recent list). POST/PATCH responses
+  unchanged so Phase 1/2A FakeCursor sequences don't regress. New
+  `POST /targets/{id}/crm-activity` → composes a subject/body from the rollup and
+  calls `crm_svc.create_activity`. Fail closed: 400 if target has no
+  `crm_account_id`; 400 if no `business_id` (can't resolve tenant for create_activity).
+- `backend/app/schemas/outreach_personalizer.py`: `LogCrmActivityIn` (optional
+  operator `note`).
+
+**Frontend**
+- `repo-b/src/lib/outreach-personalizer-api.ts`: `logCrmActivity()`; engagement
+  fields typed onto the target detail/list responses.
+- operator page: detail panel shows views / CTAs / last viewed / last CTA / recent
+  events + "Log CRM activity" button (disabled w/ reason when not CRM-linked or no
+  business_id) + success/error state; small "Hot" badge in the list when CTAs > 0;
+  detail re-fetched after seed/save so counts refresh.
+
+**Acceptance:** detail+list carry correct rollups (counts, last-seen, recent desc);
+log-activity 400s clearly without a linked account; succeeds via mocked `crm_svc`;
+no IP/UA in operator UI; Phase 1 seed + 2A loom/CRM + public tracking unaffected;
+pitch-forge + typecheck green; no new migration; no duplicate models.
+
+---
+
 ## Context
 
 Novendor has pitch-forge (deck generation, `backend/app/routes/pitch_forge.py`) and consulting
