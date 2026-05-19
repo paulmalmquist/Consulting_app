@@ -313,14 +313,59 @@ reference tables, but **assigning** tasks to domains is write-path (future ticke
 grouping infra is live and renders all tasks under "Ungrouped"; the four lanes behave
 exactly as before. Activates automatically as tasks get `domain_key` values.
 
-**Ticket 5 (FlowYorker task creation/editing — write-path: domain/initiative selectors
-on quick-capture + drawer) is now safe to start.** The read/display path is proven; the
-next step is letting users assign hierarchy.
+**Ticket 5 (write-path) is DONE — see below.**
 
-## Workstream D — FlowYorker / Web Properties (deferred)
+---
 
-FlowYorker.com as the first `web_properties` initiative with its 7 workstreams; web-property
-task fields via `related_entity_type='web_property'` + `related_url`.
+## Ticket 5 — Task hierarchy write-path (drawer-first) — DONE & VERIFIED 2026-05-19
+
+PR **#77** merged to `main` (merge commit `36f1871405f68c93757a8136449f7e8485e98c73`).
+Drawer-first; quick-capture stays flat (per recommendation). No schema change, no
+assistant retrieval, no Morning Checklist.
+
+**Shipped (6 files):**
+- Backend: `ExecutionTaskUpdate` schema + `update_task` — 8 optional hierarchy fields
+  with `_*_set` sentinels (explicit null clears → Ungrouped). `validate_hierarchy()`
+  fails closed against seeded `cro_operating_domain`/`cro_initiative`/`cro_workstream`:
+  unknown key → `HierarchyValidationError` → clean **HTTP 400**, never 500/silent write.
+  Dependency rules (initiative needs domain, workstream needs both). NULL/flat hierarchy
+  short-circuits before opening a cursor (correctness: a flat task validates with no DB).
+  New `GET /execution/hierarchy-options` (read-only, honest empty lists if unseeded).
+- Frontend: `cro-api.ts` optional update fields + `ExecutionHierarchyOptions` +
+  `fetchExecutionHierarchyOptions`; `ExecutionTaskDrawer.tsx` dependent Domain →
+  Initiative → Workstream selectors, honest empty states, parent-change clears children,
+  unknown current key preserved, options-fetch failure degrades to current assignment.
+
+**Verification:**
+- Backend AST/ruff clean; **23 tests pass** (7 new fail-closed validation tests in
+  `test_execution_hierarchy_write.py` + 16 regression). Frontend: CI **Frontend Lint +
+  Typecheck + Unit = SUCCESS** + **DB Schema Gate = SUCCESS** (local typecheck not
+  possible — fresh worktree, tips #20).
+- Deployed: backend Railway `authentic-sparkle` (`a27bf166`, SUCCESS); frontend Vercel
+  repo-b (`repo-ekakz26ko`, Ready) — deployed explicitly (no auto-deploy).
+- **Production smoke PASSED:** options endpoint live (5 domains, FlowYorker, content_seo);
+  **one live task (`b4608987-e50d-47fb-ad35-1a783c9d2908`) assigned
+  `Web Properties → FlowYorker.com → Content / SEO`** — persisted with resolved labels,
+  durable on re-read; board now shows **1 grouped / 251** (was 0 — Ticket 4 grouping
+  activated by real data). Invalid `domain_key` → **HTTP 400**
+  `{"detail":{"error":"invalid_hierarchy","message":"unknown domain_key: …"}}`.
+  (The one assigned task is intentional durable evidence, a legitimate categorization —
+  not test garbage.)
+
+The full chain works in production: **Ticket 3 schema → Ticket 4 read/display →
+Ticket 5 write-path.** Tickets 1–5 complete.
+
+**Ticket 6 (Morning Checklist generated read-only view) is now safe to start** — tasks
+can now carry hierarchy, so a domain/priority-aware daily brief has real structure to
+read. Keep it read-time-generated (no persistence) per the Domain model decision.
+
+## Workstream D — FlowYorker / Web Properties (largely satisfied by Tickets 3–5; deferred remainder)
+
+FlowYorker.com is seeded as the first `web_properties` initiative with its 7 workstreams
+(Ticket 3) and tasks can now be assigned to it (Ticket 5). Deferred remainder: web-property
+-specific task fields via `related_entity_type='web_property'` + `related_url` surfacing in
+the UI (low priority — columns exist, drawer write-path exists; just needs a dedicated
+web-property affordance if desired).
 
 ## Workstream E — Outreach / CRM integration (deferred)
 
