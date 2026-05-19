@@ -143,6 +143,10 @@ Rules:
 4. **The `/v2/environments/health` endpoint** (`backend/app/routes/lab_v2.py`) checks template-row integrity for every active app row with a `template_key` set. Extend it before adding new cross-table invariants — don't bury invariant checks in a separate diagnostic.
 5. **Future:** When the frontend env-identity read moves off `/v1/environments/:id`, retire `v1.environments` writes and demote it to read-only. Until then, treat it as a co-canonical mirror.
 
+### Governance sidecar: `app.environment_contract`
+
+`repo-b/db/schema/10004_environment_contract_promotion.sql` adds a per-env governance sidecar to `app.environments`, env_id-keyed (PK = `env_id` FK to `app.environments`, `ON DELETE CASCADE`). It carries the **EnvironmentContract** (template lineage, `canonical_runtime_path`, `seed_pack_version`, `required_capabilities/smoke_tests/eval_suite`, `deployment_target`, `runtime_mode`, `compatibility_version`) and a `promotion_state` (`draft|seeded|verified|staging|released|quarantined|failed`) that is **distinct from `app.environments.lifecycle_state`** — lifecycle answers "did provisioning/seeding/health succeed", promotion_state answers "is this env governance-cleared for production". Owning module: `backend/app/services/environment_contract_v2.py`; surfaced via `GET /v2/environments/{id}/verify` (fail-closed report; `?strict=1` → 503) and `GET /v2/environments/{id}/contract`. **Absence of a contract row = ungoverned/draft**; no legacy env is backfilled. A companion append-only audit table `app.environment_promotion_event` is created by the same migration but is **dead until the Ticket 2 promotion gate** (no writes in Ticket 1). These `app.*` tables are exempt from the public-prefix rule and intentionally do not use the `public.*` `env_id TEXT + business_id UUID` + RLS template.
+
 ## Session Guardrails
 
 Autonomous coding sessions must follow these database rules:

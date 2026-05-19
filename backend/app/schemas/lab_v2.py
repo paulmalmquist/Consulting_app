@@ -105,3 +105,66 @@ class TemplateOut(BaseModel):
     default_seed_pack: str | None
     available_seed_packs: list[str]
     is_latest: bool
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EnvironmentContract + Promotion Gate (Ticket 1 — read-only verifier).
+#
+# promotion_state is governance state, DISTINCT from LifecycleState (which answers
+# "did provisioning/seeding/health succeed for this env instance"). It is stored on
+# the app.environment_contract sidecar table, never on app.environments.
+# ─────────────────────────────────────────────────────────────────────────────
+
+PromotionState = Literal[
+    "draft", "seeded", "verified", "staging", "released", "quarantined", "failed"
+]
+DeploymentTarget = Literal["local", "preview", "staging", "production"]
+RuntimeMode = Literal["static", "interactive", "agentic", "headless"]
+CheckStatus = Literal["pass", "fail", "missing", "unknown", "not_available"]
+CheckSeverity = Literal["blocking", "warning"]
+
+
+class ContractCheck(BaseModel):
+    """One fail-closed verification check. Only status='pass' counts as healthy;
+    'missing' / 'unknown' / 'not_available' are explicitly NOT pass."""
+
+    key: str
+    status: CheckStatus
+    severity: CheckSeverity
+    message: str
+
+
+class EnvironmentContractOut(BaseModel):
+    """The declarative governance contract for one v2 environment."""
+
+    env_id: str
+    template_key: str
+    template_version: int
+    canonical_runtime_path: str | None
+    runtime_mode: RuntimeMode | None
+    deployment_target: DeploymentTarget
+    seed_pack_version: int | None
+    required_capabilities: list[str]
+    required_smoke_tests: list[str]
+    required_eval_suite: str | None
+    authoritative_state_requirements: dict[str, Any]
+    compatibility_version: str
+    promotion_state: PromotionState
+
+
+class ContractVerificationReport(BaseModel):
+    """Structured fail-closed verification result.
+
+    eligible_for_promotion is True only when no blocking check is non-pass.
+    health_ok preserves backward compatibility with callers of the old thin
+    verify_environment_v2 stub (== blocking_failures == []).
+    """
+
+    env_id: str
+    checks: list[ContractCheck]
+    blocking_failures: list[str]  # check keys with a blocking non-pass status
+    warnings: list[str]  # check keys with a warning non-pass status
+    eligible_for_promotion: bool
+    promotion_state: PromotionState  # current stored state (NOT mutated in Ticket 1)
+    verified_at: str  # iso8601 UTC
+    health_ok: bool

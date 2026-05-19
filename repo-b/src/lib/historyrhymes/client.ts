@@ -123,3 +123,85 @@ export function fetchLatestDecision(): Promise<HrDecision | null> {
 export function fetchLatestBrief(): Promise<HrBrief | null> {
   return getJson<HrBrief>("/api/hr/v1/briefs/latest");
 }
+
+export interface ResearchBriefSummary {
+  brief_id: string;
+  published_at: string;
+  markdown_uri: string | null;
+  source: string;
+  title?: string;
+  brief_date: string;
+  week_type: string;
+  pillar_name: string;
+  confidence: number | null;
+  candidate_count: number;
+}
+
+export interface IngestResult {
+  brief: { brief_id: string };
+  candidates: EnhancementCandidate[];
+  warnings: string[];
+  confidence: number;
+  degraded: boolean;
+}
+
+export async function fetchLatestResearchBrief(): Promise<ResearchBriefSummary | null> {
+  return getJson<ResearchBriefSummary>("/api/historyrhymes/v1/research-brief/latest");
+}
+
+export async function fetchEnhancementCandidates(): Promise<EnhancementCandidate[]> {
+  const result = await getJson<EnhancementCandidate[]>("/api/historyrhymes/v1/candidates");
+  return result ?? [];
+}
+
+export async function promoteCandidate(candidateId: string): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/candidates/${candidateId}/promote`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`promote failed: ${res.status}`);
+  } catch (err) {
+    console.error(`[hr-client] promote ${candidateId} failed:`, err);
+    throw err;
+  }
+}
+
+export async function discardCandidate(candidateId: string): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/candidates/${candidateId}/discard`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`discard failed: ${res.status}`);
+  } catch (err) {
+    console.error(`[hr-client] discard ${candidateId} failed:`, err);
+    throw err;
+  }
+}
+
+export async function fetchPlanningMarkdown(candidateId: string): Promise<{ planning_markdown: string } | null> {
+  return getJson<{ planning_markdown: string }>(`/api/historyrhymes/v1/candidates/${candidateId}/planning`);
+}
+
+export async function postResearchBrief(payload: {
+  brief_date: string;
+  week_type: string;
+  pillar_name: string;
+  markdown_content: string;
+  source_filename: string | null;
+}): Promise<IngestResult> {
+  try {
+    const res = await fetch(`${API_BASE}/api/historyrhymes/v1/research-brief`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`postResearchBrief failed: ${res.status}`);
+    return (await res.json()) as IngestResult;
+  } catch (err) {
+    console.error(`[hr-client] postResearchBrief failed:`, err);
+    throw err;
+  }
+}
