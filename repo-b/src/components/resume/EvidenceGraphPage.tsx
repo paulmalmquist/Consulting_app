@@ -7,6 +7,7 @@ import { EvidenceCapabilityTable } from "./EvidenceCapabilityTable";
 import { EvidenceFilterBar, type FilterState } from "./EvidenceFilterBar";
 import { EvidenceGapTracker } from "./EvidenceGapTracker";
 import { ProofArtifactCard } from "./ProofArtifactCard";
+import { ProofSummaryCards } from "./ProofSummaryCards";
 import {
   CAPABILITIES,
   GAP_ITEMS,
@@ -285,6 +286,35 @@ export default function EvidenceGraphPage() {
               />
             </div>
           </div>
+        </ResumeModuleBoundary>
+
+        {/* Proof summary cards */}
+        <ResumeModuleBoundary
+          boundaryId="proof-summary"
+          eyebrow="Evidence Overview"
+          title="Proof summary unavailable"
+          message="The summary cards could not render."
+          resetKey="proof-summary-v1"
+        >
+          <ProofSummaryCards
+            capabilities={filtered}
+            gaps={GAP_ITEMS}
+            artifacts={PROOF_ARTIFACTS}
+            onCapabilityClick={(id) => {
+              if (id.startsWith("prod:")) {
+                const sys = id.replace("prod:", "");
+                setFilters({ ...filters, statuses: new Set(["Production"]) });
+              } else {
+                setExpandedId(id);
+              }
+            }}
+            onGapClick={(id) => {
+              const gapItem = GAP_ITEMS.find((g) => g.id === id);
+              if (gapItem) {
+                window.scrollTo({ behavior: "smooth", top: document.documentElement.scrollHeight });
+              }
+            }}
+          />
         </ResumeModuleBoundary>
 
         {/* Filter bar */}

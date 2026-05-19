@@ -85,6 +85,19 @@ export interface HrBrief {
   created_at: string;
 }
 
+export interface EnhancementCandidate {
+  candidate_id: string;
+  title: string;
+  status: "new" | "promoted" | "discarded" | "planned" | "shipped";
+  adversarial_verdict?: "PASS" | "FAIL" | "HOLD" | "CAUTION" | "ABSTAIN";
+  priority?: string;
+  effort_days?: number | null;
+  what?: string;
+  why?: string;
+  expected_impact?: string;
+  dependencies: string[];
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 async function getJson<T>(path: string): Promise<T | null> {

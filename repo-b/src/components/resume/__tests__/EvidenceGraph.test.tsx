@@ -187,6 +187,6 @@ describe("EvidenceGraphPage rendering", () => {
 
   it("references the proof artifacts seeded in data", () => {
     render(<EvidenceGraphPage />);
-    expect(screen.getByText(PROOF_ARTIFACTS[0].title)).toBeInTheDocument();
+    expect(screen.getAllByText(PROOF_ARTIFACTS[0].title).length).toBeGreaterThan(0);
   });
 });
