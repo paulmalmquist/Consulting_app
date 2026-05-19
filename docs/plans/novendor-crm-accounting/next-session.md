@@ -3,50 +3,51 @@
 **Last updated:** 2026-05-19
 **Priority:** High — this is Novendor's internal operating system
 
-## Copy-paste prompt for next Claude Code session (Ticket 3 — hierarchy migration)
+## Copy-paste prompt for next Claude Code session (Ticket 4 — Tasks UI domain grouping)
 
-Ticket 1 (logger bug) and the schema inventory are DONE. This session is **Ticket 3 only**.
-Read first: `docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`,
-`docs/plans/novendor-crm-accounting/{architecture,backlog}.md`, `ARCHITECTURE.md`,
-`repo-b/db/schema/525_execution_board.sql` + `604_cro_execution_task_re_engage.sql`,
-`repo-b/db/schema/10002_history_rhymes_research_planning.sql` (numbering convention).
+Tickets 1, 2, 2B, and 3 are DONE & production-verified: logger bug fixed, `o.stage` SQL
+fixed, board returns HTTP 200, and the additive hierarchy schema (`10003`) is applied +
+verified live (10 columns on `cro_execution_task` + `cro_operating_domain`/`cro_initiative`/
+`cro_workstream` ref tables + seeds for env `62cfd59c-a171-4224-ad1e-fffc35bd1ef4`,
+`business_id` `225f52ca-cdf4-4af9-a973-d1d310ddcba1`). This session is **Ticket 4 only**.
+
+Read first: `docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`
+(Workstream B/Ticket 3 result + Workstream C spec), `docs/plans/novendor-crm-accounting/{architecture,backlog}.md`,
+`docs/plans/01-shared-standards/design-system/shell-navigation-rules.md`,
+`repo-b/src/components/consulting/execution/ExecutionBoard.tsx`,
+`repo-b/src/app/lab/env/[envId]/consulting/tasks/page.tsx`,
+`backend/app/routes/consulting.py` (board route) + `backend/app/services/execution_tasks.py`.
 
 ```
-Before writing migration `10003_consulting_task_hierarchy.sql`, verify the current live
-schema for `cro_execution_task` in Supabase project `ozboonlsplroialdwuxj`.
+Add domain/initiative/workstream grouping to the Consulting Tasks board WITHOUT
+removing or breaking the existing Today / This Week / Waiting / Done lanes.
 
-Do not assume the local schema files perfectly match production.
+Backend first (read path only — no schema change, 10003 is already live):
+- Surface domain_key / initiative_key / workstream_key (+ the new fields) in the
+  board read API and join the cro_operating_domain / cro_initiative /
+  cro_workstream reference tables to resolve labels.
+- Missing reference rows must degrade to honest empty states ("No linked
+  initiative" / "Ungrouped"), never error. Preserve fail-closed behavior.
+- Do NOT duplicate status/type/impact/date fields — reuse existing.
 
-Confirm:
-- existing columns
-- existing enum/check constraints
-- existing indexes
-- existing RLS policies
-- env scoping pattern
-- current migration history / latest applied migration
+Frontend:
+- ExecutionBoard.tsx: add an optional domain grouping view + initiative/
+  workstream filter. The four status lanes must still work exactly as today
+  when no grouping is selected (default unchanged).
+- Dark operator shell preserved; left nav stays ≤7 items (Pipeline,
+  Accounting, Contacts, Tasks unchanged).
+- Honest empty states for ungrouped/NULL-hierarchy tasks.
 
-Then write an additive-only migration that:
-- extends `cro_execution_task` without duplicating existing status/type/priority/date fields
-- adds hierarchy fields only where missing
-- adds `cro_operating_domain`, `cro_initiative`, and `cro_workstream` reference tables if not already present
-- keeps RLS/env scoping consistent
-- seeds the five controlled domains
-- seeds FlowYorker under `web_properties`
-- seeds Novendor industry initiatives under `novendor_web`
-- includes verification queries
-- updates the active implementation plan and `docs/tips.md`
-
-Do not change frontend UI in this ticket.
-Do not add assistant retrieval yet.
-Do not persist Morning Checklist rows yet.
+Do NOT: persist Morning Checklist rows, add assistant/CoWork retrieval,
+change the schema, touch app.task_*/nv_tasks, or alter unrelated environments.
 ```
 
-Migration dry-run mindset (even without a formal dry-run tool): inspect live schema first,
-then write the migration, then verify against a Supabase branch / local test DB — or at
-minimum produce exact verification SQL in the migration file. Hierarchy column list and the
-five controlled domain keys are in dispatch `0002` ("Domain model"). Do NOT touch
-`app.task_*` or `nv_tasks` (unrelated task systems). The error-envelope normalization in
-backlog.md is explicitly out of scope for Ticket 3.
+Verification: typecheck (`cd repo-b && npm run typecheck`), relevant backend route
+tests + `test_execution_board_route.py`, Playwright smoke for `/consulting/tasks`,
+dark-mode visual check, and a production smoke that the board still returns 200 and
+existing lanes render. Work in a fresh `git worktree` off `origin/main` (the primary
+tree may carry unrelated concurrent work). Repo Guardrails `1000` red is documented
+pre-existing baseline (tips #18) — do not chase it.
 
 Update dispatch `0002`, `backlog.md`, `next-session.md`, and `docs/tips.md` before finishing.
 

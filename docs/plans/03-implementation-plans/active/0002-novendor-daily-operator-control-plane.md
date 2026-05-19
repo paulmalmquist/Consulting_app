@@ -235,13 +235,46 @@ fail-closed-to-zero, not fabricated).
 **Ticket 3 (migration `10003`) is now safe to start** — no remaining live
 board fault.
 
-## Workstream B — Task hierarchy data model (deferred)
+## Workstream B / Ticket 3 — Task hierarchy data model — DONE & VERIFIED 2026-05-19
 
-Migration `10003_consulting_task_hierarchy.sql` per the Domain model section. Additive only,
-env-scoped, RLS on every new table, verification queries, seed the 5 domains + FlowYorker +
-industry initiatives. Schema discovery is sufficient for planning; **Ticket 3 must still verify
-current production schema** (`supabase db query --linked` against `ozboonlsplroialdwuxj`) before
-writing the migration — a stale local read must not become a bad prod migration.
+`repo-b/db/schema/10003_consulting_task_hierarchy.sql`. PR **#73** merged to `main`
+(merge commit `4a800d8ede60c6c02dde80906d4315e055e0dd45`). Schema-only — no app code, no
+deploy needed (migration applied directly to live Supabase + independently re-applied and
+verified by CI's **DB Schema Gate = SUCCESS**).
+
+**Live schema verification (before):** none of the 10 hierarchy columns existed on
+`cro_execution_task`; `cro_operating_domain`/`cro_initiative`/`cro_workstream` absent;
+`10003` was the free number; board SELECT uses explicit columns (additive-safe). Type
+discovery: `app.environments.env_id` is **uuid** while `cro_*.env_id` is **text** — the
+seed `business_id` lookup casts accordingly (a `uuid = text` operator error was caught and
+fixed during apply, not guessed).
+
+**What shipped:**
+- 10 nullable hierarchy columns on `cro_execution_task` (`domain_key`, `initiative_key`,
+  `workstream_key`, `parent_task_id` self-FK `ON DELETE SET NULL`, `source_kind`,
+  `related_entity_type/_id/_url`, `evidence`, `last_reviewed_at`) + 2 grouping indexes.
+  No status/type/impact/date columns duplicated — reuses existing.
+- `cro_operating_domain` / `cro_initiative` / `cro_workstream` — `env_id`+`business_id`,
+  RLS `USING (env_id = current_setting('app.env_id', true))` per ARCHITECTURE.md.
+- Seeds (env `62cfd59c…`, `business_id` `225f52ca-cdf4-4af9-a973-d1d310ddcba1` resolved
+  authoritatively from `app.environments` → `cro_outreach_log` → `cro_execution_task`,
+  self-skips rather than fabricate): 5 controlled domains, FlowYorker initiative + 7
+  workstreams, 6 Novendor industry initiatives.
+- 9 companion verification queries; idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`).
+
+**Verified live (post-apply):** 6a cols=10, 6b tables=3, 6c RLS=3, 6d domains=5,
+6e flowyorker=1, 6f industry=6, 6g workstreams=7, seed `business_id` single distinct =
+`225f52ca…`. `cro_execution_task` has 0 rows total (fresh board) so nothing was rewritten.
+Existing board endpoint still **HTTP 200** post-migration. 19 backend tests pass
+(`test_execution_board_route`, `test_execution_auto_stage_query`, `test_executions`,
+`test_consulting_pipeline`, `test_pipeline_execution_engine`).
+
+> Repo Guardrails `1000` duplicate-prefix is pre-existing baseline (`10000_`/`10001_`
+> collapse under `^(\d{4})`; tips #18). `10003` adds no new collision class. CI DB Schema
+> Gate (the authoritative migration check) passed.
+
+**Ticket 4 (UI domain grouping in `ExecutionBoard.tsx`) is now safe to start** — the
+hierarchy columns + reference tables + seeds exist and are verified live.
 
 ## Workstream C — Tasks page UI hierarchy (deferred)
 
