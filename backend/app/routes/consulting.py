@@ -2445,7 +2445,14 @@ def execution_board_route(
                 env_id=env_id, business_id=business_id,
             )
         except Exception as auto_exc:
-            emit_log("error", "Auto-task generation failed", {"env_id": env_id, "business_id": str(business_id)}, exc_info=auto_exc)
+            emit_log(
+                level="error",
+                service="backend",
+                action="execution.auto_generation_failed",
+                message="Auto-task generation failed",
+                context={"env_id": env_id, "business_id": str(business_id)},
+                error=auto_exc,
+            )
             raise HTTPException(status_code=500, detail="Auto-task generation unavailable")
 
         tasks = execution_tasks_svc.list_tasks(

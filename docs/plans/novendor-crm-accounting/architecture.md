@@ -83,8 +83,29 @@
 
 ## Data map
 
-- Needs repo verification — check Supabase for CRM and accounting tables
-- Likely tables: `contacts`, `deals`, `accounts`, `receipts`, `accounting_entries`, `nv_tasks`
+### Consulting Tasks / Execution Board (verified 2026-05-19)
+
+The `/lab/env/[envId]/consulting/tasks` board is **NOT** backed by `app.task_*` or `nv_tasks`
+(those are separate, unrelated task systems — do not extend them for consulting tasks).
+
+- **Spine table:** `cro_execution_task` — `repo-b/db/schema/525_execution_board.sql`
+  (+ `604_cro_execution_task_re_engage.sql` adds `re_engage_at`, `blocked_reason`).
+  env-scoped (`env_id` TEXT, `business_id` UUID), RLS `env_id = current_setting('app.env_id', true)`.
+  Flat status (`today`/`this_week`/`waiting`/`done`), `type` enum, `impact` 1–5, `next_action`,
+  `why_now`, `linked_deal_id` → `crm_opportunity`, `linked_contact_id` → `crm_contact`.
+- **Route:** `GET /api/consulting/execution/board` → `backend/app/routes/consulting.py:2433`
+  (`router` prefix `/api/consulting`; FE calls it via `/bos/api/consulting/...`).
+- **Service:** `backend/app/services/execution_tasks.py` (CRUD), `execution_auto.py` (auto-gen passes).
+- **Frontend:** `repo-b/src/components/consulting/execution/ExecutionBoard.tsx` (lanes + quick
+  capture + Generate), `repo-b/src/lib/cro-api.ts`.
+- Hierarchy buildout (Domain→Initiative→Workstream) is **additive on `cro_execution_task`** via
+  planned migration `10003` — see dispatch `0002`.
+
+### Other (still needs repo verification)
+
+- CRM/accounting tables: `crm_account`, `crm_contact`, `crm_opportunity`, `crm_activity`
+  (env-scoped per schema inventory), `nv_receipt_intake`, `nv_subscription_ledger`, etc. —
+  confirm against Supabase before relying on column shapes.
 - Design handoff artifacts: `design_handoff_accounting_command_desk/`
 
 ## AI / MCP / Runtime map
