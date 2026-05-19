@@ -187,9 +187,53 @@ LINE 16:  AND lower(o.stage) = 'proposal'
   backend/app/services/execution_auto.py:338, in run_auto_generation
 ```
 
-This is now a clean fail-closed 500 (correct behavior), tracked as its own backlog item.
-**Ticket 1 + Ticket 2 are complete. Ticket 3 (migration `10003`) is now unblocked** — the
-live `exc_info` banner is gone; remaining board failure is the separate `o.stage` SQL bug.
+This is now a clean fail-closed 500 (correct behavior), tracked as Ticket 2B.
+
+---
+
+## Ticket 2B — Fix consulting auto-gen `o.stage` SQL reference — DONE & VERIFIED 2026-05-19
+
+**Schema finding (evidence-based, verified local + live, not guessed):**
+`crm_opportunity` has **no `stage` column**. Stage is the FK
+`crm_opportunity.crm_pipeline_stage_id → crm_pipeline_stage` (canonical schema
+`repo-b/db/schema/260_crm_native.sql`). `crm_pipeline_stage` has `key` + `label`.
+Live Supabase (`ozboonlsplroialdwuxj`) confirmed: `crm_opportunity` exposes
+`crm_pipeline_stage_id` + `status` only; `crm_pipeline_stage` has a row
+`key='proposal'`, `label='Proposal'`. The proposal stage is
+`crm_pipeline_stage.key = 'proposal'` (stable machine key, not display label).
+
+**Fix (`backend/app/services/execution_auto.py`, pass 8 / proposal follow-up):**
+replaced `AND lower(o.stage) = 'proposal'` with a join
+`JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id`
+and filter `lower(s.key) = 'proposal'`. Inner join is deliberate and correct —
+an opportunity with no stage cannot be in proposal; this matches the original
+filter's intent and preserves fail-closed zero-result behavior. Stale comment
+("Stage values come from crm_opportunity.stage") corrected. Localized to
+`execution_auto.py` + one new test; no migration, no UI, no hierarchy change.
+
+**Tests:** new `backend/tests/test_execution_auto_stage_query.py` (static guard:
+no `o.stage` reference may return; proposal pass must join `crm_pipeline_stage`
+and filter `lower(s.key)='proposal'`). Full set: 19 passed
+(new guard + `test_execution_board_route` + `test_executions` +
+`test_consulting_pipeline` + `test_pipeline_execution_engine`). ruff + AST clean.
+Fixed query run against live Supabase: `proposal_open_deals: 1`, no UndefinedColumn.
+
+**Ship:** PR **#71** merged to `main` (merge commit
+`45833c0060a511cbc6ae8c8aaa09d5c31f1700ad`). Backend deployed to Railway
+`authentic-sparkle` production, deployment
+`d0df0115-17b5-41a5-97a0-35a6e45a507d` → SUCCESS.
+
+**Production smoke — PASSED:** live
+`GET /bos/api/consulting/execution/board?env_id=62cfd59c-…` now returns
+**HTTP 200** with `{"tasks":[],"summary":{…},"auto_report":{…}}`. Railway logs:
+`status_code=200`, `200 OK`, no `UndefinedColumn` / `o.stage` /
+`auto_generation_failed`. `auto_report.pipeline_proposal_sent_no_followup=0`
+(proposal pass ran clean, zero eligible for the empty test env — correct
+fail-closed-to-zero, not fabricated).
+
+**The Consulting Tasks page now loads.** Ticket 1 + 2 + 2B complete.
+**Ticket 3 (migration `10003`) is now safe to start** — no remaining live
+board fault.
 
 ## Workstream B — Task hierarchy data model (deferred)
 
