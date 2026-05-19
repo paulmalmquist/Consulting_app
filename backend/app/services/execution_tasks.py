@@ -91,6 +91,140 @@ def _validate_status(value: str) -> None:
         raise ValueError(f"invalid task status: {value}")
 
 
+class HierarchyValidationError(ValueError):
+    """Raised when a domain/initiative/workstream key is not in the seeded
+    reference tables for the env. Surfaced as a clean 400 (not a 500) — never
+    write an unvalidated key to cro_execution_task."""
+
+
+def validate_hierarchy(
+    *,
+    env_id: str,
+    business_id: UUID,
+    domain_key: str | None,
+    initiative_key: str | None,
+    workstream_key: str | None,
+) -> None:
+    """Fail-closed validation against the seeded reference tables.
+
+    Rules:
+      - NULL hierarchy is allowed (flat / Ungrouped task).
+      - initiative_key requires a domain_key; workstream_key requires both.
+      - Each key must exist in its reference table for THIS env, scoped by
+        the parent key(s). Unknown keys raise HierarchyValidationError.
+    Does not fabricate or coerce — rejects, leaving the field unset.
+    """
+    if initiative_key and not domain_key:
+        raise HierarchyValidationError(
+            "initiative_key requires a domain_key"
+        )
+    if workstream_key and not (domain_key and initiative_key):
+        raise HierarchyValidationError(
+            "workstream_key requires a domain_key and initiative_key"
+        )
+
+    # NULL / flat hierarchy: nothing to look up. Return before touching the
+    # DB — a flat (Ungrouped) task must validate without a cursor. (The
+    # dependency rules above already rejected orphan initiative/workstream.)
+    if not domain_key:
+        return
+
+    with get_cursor() as cur:
+        if domain_key:
+            cur.execute(
+                """
+                SELECT 1 FROM cro_operating_domain
+                 WHERE env_id = %s AND business_id = %s AND domain_key = %s
+                 LIMIT 1
+                """,
+                (env_id, str(business_id), domain_key),
+            )
+            if cur.fetchone() is None:
+                raise HierarchyValidationError(
+                    f"unknown domain_key: {domain_key}"
+                )
+        if initiative_key:
+            cur.execute(
+                """
+                SELECT 1 FROM cro_initiative
+                 WHERE env_id = %s AND business_id = %s
+                   AND domain_key = %s AND initiative_key = %s
+                 LIMIT 1
+                """,
+                (env_id, str(business_id), domain_key, initiative_key),
+            )
+            if cur.fetchone() is None:
+                raise HierarchyValidationError(
+                    f"unknown initiative_key '{initiative_key}' for domain "
+                    f"'{domain_key}'"
+                )
+        if workstream_key:
+            cur.execute(
+                """
+                SELECT 1 FROM cro_workstream
+                 WHERE env_id = %s AND business_id = %s
+                   AND domain_key = %s AND initiative_key = %s
+                   AND workstream_key = %s
+                 LIMIT 1
+                """,
+                (
+                    env_id,
+                    str(business_id),
+                    domain_key,
+                    initiative_key,
+                    workstream_key,
+                ),
+            )
+            if cur.fetchone() is None:
+                raise HierarchyValidationError(
+                    f"unknown workstream_key '{workstream_key}' for "
+                    f"initiative '{initiative_key}'"
+                )
+
+
+def list_hierarchy_options(*, env_id: str, business_id: UUID) -> dict:
+    """Seeded domain/initiative/workstream options for the env's task form.
+
+    Read-only; returns honest empty lists if nothing is seeded (the form
+    degrades cleanly rather than fabricating choices)."""
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT domain_key AS key, label
+              FROM cro_operating_domain
+             WHERE env_id = %s AND business_id = %s AND status = 'active'
+             ORDER BY sort_order, label
+            """,
+            (env_id, str(business_id)),
+        )
+        domains = [dict(r) for r in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT initiative_key AS key, label, domain_key
+              FROM cro_initiative
+             WHERE env_id = %s AND business_id = %s AND status = 'active'
+             ORDER BY domain_key, sort_order, label
+            """,
+            (env_id, str(business_id)),
+        )
+        initiatives = [dict(r) for r in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT workstream_key AS key, label, domain_key, initiative_key
+              FROM cro_workstream
+             WHERE env_id = %s AND business_id = %s AND status = 'active'
+             ORDER BY domain_key, initiative_key, sort_order, label
+            """,
+            (env_id, str(business_id)),
+        )
+        workstreams = [dict(r) for r in cur.fetchall()]
+    return {
+        "domains": domains,
+        "initiatives": initiatives,
+        "workstreams": workstreams,
+    }
+
+
 def _validate_revenue_tag(value: str) -> None:
     if value not in _ALLOWED_REVENUE_TAG:
         raise ValueError(f"invalid revenue_tag: {value}")
@@ -250,11 +384,27 @@ def update_task(
     due_date=None,
     re_engage_at=None,
     blocked_reason: str | None = None,
+    domain_key: str | None = None,
+    initiative_key: str | None = None,
+    workstream_key: str | None = None,
+    source_kind: str | None = None,
+    related_entity_type: str | None = None,
+    related_entity_id: UUID | None = None,
+    related_url: str | None = None,
+    last_reviewed_at=None,
     _due_date_set: bool = False,
     _linked_deal_set: bool = False,
     _linked_contact_set: bool = False,
     _re_engage_at_set: bool = False,
     _blocked_reason_set: bool = False,
+    _domain_key_set: bool = False,
+    _initiative_key_set: bool = False,
+    _workstream_key_set: bool = False,
+    _source_kind_set: bool = False,
+    _related_entity_type_set: bool = False,
+    _related_entity_id_set: bool = False,
+    _related_url_set: bool = False,
+    _last_reviewed_at_set: bool = False,
 ) -> dict | None:
     # Enforce TODAY cap when moving an existing task INTO today. We need the
     # current row to know whether it's already in today (no-op) or coming from
@@ -327,6 +477,54 @@ def update_task(
     if _blocked_reason_set:
         sets.append("blocked_reason = %s")
         params.append(blocked_reason)
+
+    # Hierarchy write-path (Ticket 5). Validate the RESULTING hierarchy against
+    # the seeded reference tables before writing — fail closed on unknown keys.
+    hierarchy_touched = (
+        _domain_key_set or _initiative_key_set or _workstream_key_set
+    )
+    if hierarchy_touched:
+        existing = get_task(task_id=task_id)
+        if existing is None:
+            return None
+        eff_domain = domain_key if _domain_key_set else existing.get("domain_key")
+        eff_initiative = (
+            initiative_key if _initiative_key_set else existing.get("initiative_key")
+        )
+        eff_workstream = (
+            workstream_key if _workstream_key_set else existing.get("workstream_key")
+        )
+        validate_hierarchy(
+            env_id=existing["env_id"],
+            business_id=existing["business_id"],
+            domain_key=eff_domain,
+            initiative_key=eff_initiative,
+            workstream_key=eff_workstream,
+        )
+    if _domain_key_set:
+        sets.append("domain_key = %s")
+        params.append(domain_key)
+    if _initiative_key_set:
+        sets.append("initiative_key = %s")
+        params.append(initiative_key)
+    if _workstream_key_set:
+        sets.append("workstream_key = %s")
+        params.append(workstream_key)
+    if _source_kind_set:
+        sets.append("source_kind = %s")
+        params.append(source_kind)
+    if _related_entity_type_set:
+        sets.append("related_entity_type = %s")
+        params.append(related_entity_type)
+    if _related_entity_id_set:
+        sets.append("related_entity_id = %s")
+        params.append(str(related_entity_id) if related_entity_id else None)
+    if _related_url_set:
+        sets.append("related_url = %s")
+        params.append(related_url)
+    if _last_reviewed_at_set:
+        sets.append("last_reviewed_at = %s")
+        params.append(last_reviewed_at)
 
     if not sets:
         return get_task(task_id=task_id)
