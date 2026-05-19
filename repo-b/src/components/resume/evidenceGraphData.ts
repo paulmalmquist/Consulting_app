@@ -55,6 +55,11 @@ export type Capability = {
   operationalControls?: OperationalControls;
   lastTouched?: string;
   demoable?: boolean;
+  whatWasBuilt?: string;
+  stackInvolved?: string;
+  proofExists?: string;
+  demoEnvironment?: string;
+  doNotClaim?: string;
 };
 
 export type GapItem = {
@@ -123,6 +128,10 @@ export const CAPABILITIES: Capability[] = [
     operationalControls: { governance: true, auditability: true, observability: true },
     lastTouched: "2025-06",
     demoable: true,
+    whatWasBuilt: "Canonical entity graph with 12 core tables (funds, investors, properties, partnerships, capital events, distributions). Enforces cardinality rules via SQL CHECK constraints and application-layer validation.",
+    stackInvolved: "Databricks SQL, PySpark, dbt, Tabular Editor, Delta Lake, Unity Catalog",
+    proofExists: "50K+ daily queries from fund-level dashboards and investor reports. 100% SLA uptime over 18 months. 6 business units rely on it; schema changes require DDL approval.",
+    demoEnvironment: "REPE lab environment in Novendor (public Databricks schema, read-only replica of live structure)",
   },
   {
     id: "cap-yardi-mri-dealcloud",
@@ -140,6 +149,10 @@ export const CAPABILITIES: Capability[] = [
     linkedSystemId: "sys-ingestion-automation",
     operationalControls: { governance: true, observability: true, cicd: true, auditability: true },
     lastTouched: "2025-03",
+    whatWasBuilt: "Azure Logic Apps workflows pulling from Yardi API (1 portfolio per workflow) and MRI, DealCloud via SFTP exports. Schedules run daily on portfolio-specific cadences. PySpark jobs de-duplicate, validate, and insert to Databricks bronze tables.",
+    stackInvolved: "Azure Logic Apps, Azure Key Vault, PySpark, Databricks SQL, Airflow (dbt-core for bronze→silver transformations)",
+    proofExists: "500+ properties ingesting automatically. Validation gates detect schema changes (emails alerts). Reconciliation pipeline compares row counts vs. source system weekly. Zero-downtime deployments via blue-green branching.",
+    demoEnvironment: "Can walkthrough Logic App UI (anonymized flows) and sample PySpark notebooks showing schema evolution logic",
   },
   {
     id: "cap-databricks-medallion",
@@ -462,6 +475,10 @@ export const CAPABILITIES: Capability[] = [
     operationalControls: { cicd: true, auditability: false },
     lastTouched: "2026-04",
     demoable: true,
+    whatWasBuilt: "Python orchestration that (1) polls Jira for new tickets in 'Ready' status, (2) feeds issue context to Claude, (3) generates a plan, (4) auto-creates PR with generated code, (5) runs tests, (6) deploys to staging, (7) posts results back to Jira.",
+    stackInvolved: "Python, Jira API, GitHub API, Claude API, FastAPI, Deno/TypeScript for deploy hooks",
+    proofExists: "10+ end-to-end flows in internal QA environment. Same-day changes for simple tasks (add a field, fix a typo). 3-7 day changes for complex refactors.",
+    doNotClaim: "Has NOT been production-hardened. Missing: approval gates, audit logging, change-request SLAs, safe rollback for failed deploys, and drift detection post-deploy.",
   },
   {
     id: "cap-multi-tenant-arch",
