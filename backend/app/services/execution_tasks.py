@@ -40,7 +40,13 @@ _SELECT_TASK_COLUMNS = """
     t.sequence_group, t.sequence_position, t.outcome, t.outcome_note,
     t.completed_at, t.re_engage_at, t.blocked_reason, t.created_at, t.updated_at,
     d.name AS deal_name,
-    c.full_name AS contact_name
+    c.full_name AS contact_name,
+    t.domain_key, t.initiative_key, t.workstream_key, t.parent_task_id,
+    t.source_kind, t.related_entity_type, t.related_entity_id, t.related_url,
+    t.last_reviewed_at,
+    od.label AS domain_label,
+    ini.label AS initiative_label,
+    ws.label AS workstream_label
 """
 
 
@@ -61,6 +67,17 @@ _FROM_TASK = """
     FROM cro_execution_task t
     LEFT JOIN crm_opportunity d ON d.crm_opportunity_id = t.linked_deal_id
     LEFT JOIN crm_contact c ON c.crm_contact_id = t.linked_contact_id
+    LEFT JOIN cro_operating_domain od
+           ON od.env_id = t.env_id AND od.domain_key = t.domain_key
+    LEFT JOIN cro_initiative ini
+           ON ini.env_id = t.env_id
+          AND ini.domain_key = t.domain_key
+          AND ini.initiative_key = t.initiative_key
+    LEFT JOIN cro_workstream ws
+           ON ws.env_id = t.env_id
+          AND ws.domain_key = t.domain_key
+          AND ws.initiative_key = t.initiative_key
+          AND ws.workstream_key = t.workstream_key
 """
 
 
