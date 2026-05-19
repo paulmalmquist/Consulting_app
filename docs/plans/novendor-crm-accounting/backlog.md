@@ -37,7 +37,7 @@
 ## Daily Operator Control Plane (dispatch 0002 — hierarchy buildout, deferred)
 Tracked in `docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`. Workstreams, in order:
 - [x] **B / Ticket 3 — Hierarchy migration** — **DONE & VERIFIED 2026-05-19.** `repo-b/db/schema/10003_consulting_task_hierarchy.sql`, PR #73 merged (`4a800d8e`), applied + verified live (CI DB Schema Gate SUCCESS). 10 additive columns on `cro_execution_task` + 3 RLS reference tables + seeds (5 domains / FlowYorker+7 workstreams / 6 industry initiatives). Board still HTTP 200, 19 tests pass. See dispatch `0002` Workstream B / Ticket 3.
-- [ ] **C — Tasks UI hierarchy** — domain grouping + initiative/workstream filter in `repo-b/src/components/consulting/execution/ExecutionBoard.tsx`, lanes preserved.
+- [x] **C / Ticket 4 — Tasks UI domain grouping** — **DONE & VERIFIED 2026-05-19.** PR #75 merged (`8f30791d`). Display-only domain filter strip + per-card crumb; lanes preserved; backend additive (hierarchy cols + ref-table label joins, all optional). Deployed backend Railway `6bfc0d7a` + frontend Vercel `repo-jr5udqqyd`. Prod smoke: board API HTTP 200 with hierarchy fields, 251 tasks (all currently Ungrouped — assignment is write-path/Ticket 5). 16 backend tests pass, CI Frontend Typecheck SUCCESS. See dispatch `0002` Workstream C / Ticket 4.
 - [ ] **D — FlowYorker / Web Properties** — FlowYorker.com as first `web_properties` initiative + 7 workstreams.
 - [ ] **E — Outreach/CRM linkage** — tasks ↔ `crm_account`/`crm_contact`/`crm_opportunity`/`crm_activity`.
 - [ ] **F — Coding / impl-plan linkage** — `coding_platform` tasks ↔ active plans via `related_url`.
