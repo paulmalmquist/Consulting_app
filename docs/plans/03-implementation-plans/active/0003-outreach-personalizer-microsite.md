@@ -1,12 +1,51 @@
-# Dispatch Record 0003 — Outreach Personalizer Microsite (Phase 1)
+# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A)
 
 **Created:** 2026-05-19
-**Status:** Phase 1 COMPLETE 2026-05-19 — migration 611 applied to Supabase
+**Status:** Phase 1 COMPLETE 2026-05-19 (PR #68) — migration 611 applied to Supabase
 (`ozboonlsplroialdwuxj`); 16/16 backend tests pass; repo-b typecheck clean; live
-end-to-end smoke verified against the real DB (seed idempotent, microsite payload,
-view+cta tracking persisted, rows cleaned up). Phase 2 backlog below.
+end-to-end smoke verified. **Phase 2A IN PROGRESS 2026-05-19** — Loom URL
+edit/save loop + CRM account linking (see "Phase 2A" section below).
 **Environment:** Consulting / Novendor CRM
-**Deliverable type:** Single-ticket vertical slice (Phase 1 of a multi-phase build)
+**Deliverable type:** Multi-phase build (Phase 1 vertical slice + Phase 2A operational layer)
+
+---
+
+## Phase 2A — Loom URL edit/save + CRM account linking
+
+**Scope (intentionally limited):** persist + validate `loom_url`, link a target to an
+existing `crm_account` via `crm_account_id`, optional `logo_url`/`accent_hsl` updates.
+Reuse the existing CRM surface — `crm_svc.list_accounts` / `GET /api/crm/accounts`
+(`backend/app/routes/crm.py:16`, `backend/app/services/crm.py:11`). **No new CRM
+model. No new migration** — `loom_url`, `crm_account_id`, `logo_url`, `accent_hsl`
+already exist in `cro_outreach_target` (migration 611). **Env scaffolding stays out
+of scope.** No Apollo, scraping, Clearbit. History Rhymes diffs untouched.
+
+**Backend**
+- `backend/app/services/outreach_personalizer.py`: `normalize_loom_url()` (shared
+  validator — accepts only `loom.com/share|embed/<id>`, normalizes to embed URL,
+  rejects javascript:/data:/arbitrary iframes; `None` clears); `patch_target()`
+  (dynamic SET, supports explicit null-clear, keeps Phase 1 `update_target` intact);
+  `crm_account_exists()` + `crm_account_summary()` (FK existence guard + summary read
+  of `crm_account`, not a model).
+- `backend/app/schemas/outreach_personalizer.py`: `MicrositeUpdateIn`
+  (all-optional; route uses `model_dump(exclude_unset=True)` so absent ≠ explicit null).
+- `backend/app/routes/outreach_personalizer.py`: `PATCH /targets/{id}` (validate
+  loom + crm_account_id; 400 on invalid/missing; returns target+assets+microsite_url
+  +crm_account). `_microsite_payload` re-validates `loom_url` so a tampered DB value
+  can't inject an arbitrary iframe (defense in depth).
+
+**Frontend**
+- `repo-b/src/lib/outreach-personalizer-api.ts`: `patchOutreachTarget()`,
+  `listCrmAccounts()` (reuses `/bos/api/crm/accounts?business_id=`).
+- operator page: Loom URL input + Save + error state; CRM account picker (lists when
+  `businessId` present, else manual id) + linked-account display; logo/accent inputs;
+  refresh after save.
+- `LoomEmbed.tsx`: explicit reject of non-loom/unsafe schemes (render-side guard;
+  preserve the intentional `&apos;` lint edit in `MicrositeView.tsx`).
+
+**Acceptance:** valid Loom saves → microsite flips pending→ready embed; invalid Loom
+→ clear 400; crm link validated (exists→ok, missing→400); logo/accent persist;
+Phase 1 seed + public tracking unaffected; pitch-forge + typecheck green.
 
 ---
 

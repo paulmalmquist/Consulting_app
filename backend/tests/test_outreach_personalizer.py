@@ -341,3 +341,149 @@ class TestTargetRoutes:
                 )
         assert r.status_code == 200, r.text
         assert r.json()["asset"]["regenerated_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 2A — Loom URL edit/save + CRM account linking
+# ---------------------------------------------------------------------------
+
+VALID_LOOM = "https://www.loom.com/share/abc123DEF456"
+NORMALIZED_LOOM = "https://www.loom.com/embed/abc123DEF456"
+CRM_ID = "22222222-2222-2222-2222-222222222222"
+
+
+class TestLoomValidator:
+    def test_normalizer_accepts_share_and_embed(self):
+        from app.services.outreach_personalizer import normalize_loom_url
+
+        assert normalize_loom_url(VALID_LOOM) == NORMALIZED_LOOM
+        assert (
+            normalize_loom_url("https://loom.com/embed/xyz789") ==
+            "https://www.loom.com/embed/xyz789"
+        )
+
+    def test_normalizer_clears_on_empty_or_none(self):
+        from app.services.outreach_personalizer import normalize_loom_url
+
+        assert normalize_loom_url(None) is None
+        assert normalize_loom_url("") is None
+        assert normalize_loom_url("   ") is None
+
+    def test_normalizer_rejects_non_loom_and_unsafe(self):
+        from app.services.outreach_personalizer import normalize_loom_url
+
+        for bad in (
+            "https://youtube.com/watch?v=1",
+            "javascript:alert(1)",
+            "data:text/html,<script>1</script>",
+            "https://evil.com/loom.com/share/abc",
+            "ftp://www.loom.com/share/abc",
+        ):
+            with pytest.raises(ValueError):
+                normalize_loom_url(bad)
+
+
+class TestPatchTarget:
+    def test_patch_loom_url_valid_and_normalized(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])              # get_target_by_id (404 guard)
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"), "loom_url": NORMALIZED_LOOM}]
+        )                                                                   # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset(), _email_asset()])         # list_assets
+
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"loom_url": VALID_LOOM},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["target"]["loom_url"] == NORMALIZED_LOOM
+
+    def test_patch_loom_url_invalid_returns_400(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])  # get_target_by_id
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"loom_url": "https://youtube.com/watch?v=nope"},
+        )
+        assert r.status_code == 400, r.text
+        assert r.json()["code"] == "outreach_personalizer.validation_error"
+
+    def test_patch_loom_url_clear(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])              # get_target_by_id
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"), "loom_url": None}]
+        )                                                                   # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                        # list_assets
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"loom_url": ""},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["target"]["loom_url"] is None
+
+    def test_microsite_loom_state_pending_then_ready(self, client, fake_cursor):
+        # pending (no loom_url)
+        fake_cursor.push_result([_target_row("assets_ready")])             # get_public_target_by_slug
+        fake_cursor.push_result([_insight_asset(), _loom_asset(), _email_asset()])
+        p1 = client.get(f"/api/outreach-personalizer/v1/microsite/{SLUG}").json()
+        assert p1["loom"]["state"] == "pending" and p1["loom"]["url"] is None
+
+        # ready (valid loom_url → re-validated/normalized in payload)
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"), "loom_url": VALID_LOOM}]
+        )                                                                  # get_public_target_by_slug
+        fake_cursor.push_result([_insight_asset(), _loom_asset(), _email_asset()])
+        p2 = client.get(f"/api/outreach-personalizer/v1/microsite/{SLUG}").json()
+        assert p2["loom"]["state"] == "ready"
+        assert p2["loom"]["url"] == NORMALIZED_LOOM
+
+    def test_patch_crm_link_success(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])             # get_target_by_id
+        fake_cursor.push_result([{"exists": 1}])                           # crm_account_exists
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"), "crm_account_id": CRM_ID}]
+        )                                                                  # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                        # list_assets
+        fake_cursor.push_result(
+            [{"crm_account_id": CRM_ID, "name": "Artemis RE", "website": "artemis.com"}]
+        )                                                                  # crm_account_summary
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_account_id": CRM_ID},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["crm_account"]["name"] == "Artemis RE"
+
+    def test_patch_crm_link_missing_returns_400(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])  # get_target_by_id
+        fake_cursor.push_result([])                             # crm_account_exists → None → False
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_account_id": CRM_ID},
+        )
+        assert r.status_code == 400, r.text
+        assert "does not exist" in r.json()["detail"]
+
+    def test_patch_logo_and_accent_persist(self, client, fake_cursor):
+        fake_cursor.push_result([_target_row("assets_ready")])             # get_target_by_id
+        fake_cursor.push_result(
+            [{**_target_row("assets_ready"),
+              "logo_url": "https://cdn.example.com/a.png",
+              "accent_hsl": "210 90% 60%"}]
+        )                                                                  # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                        # list_assets
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"logo_url": "https://cdn.example.com/a.png", "accent_hsl": "210 90% 60%"},
+        )
+        assert r.status_code == 200, r.text
+        t = r.json()["target"]
+        assert t["logo_url"] == "https://cdn.example.com/a.png"
+        assert t["accent_hsl"] == "210 90% 60%"
+
+    def test_patch_unknown_target_404(self, client, fake_cursor):
+        fake_cursor.push_result([])  # get_target_by_id → None → OutreachTargetNotFound
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"loom_url": VALID_LOOM},
+        )
+        assert r.status_code == 404, r.text

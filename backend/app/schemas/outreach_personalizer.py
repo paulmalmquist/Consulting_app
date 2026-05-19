@@ -56,3 +56,16 @@ class TargetOut(BaseModel):
 class MicrositeTrackIn(BaseModel):
     event_type: str  # microsite_view | microsite_cta
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Target patch (Phase 2A) — all optional. The route uses
+# model_dump(exclude_unset=True) so an absent field is left untouched while an
+# explicitly-null loom_url clears it.
+# ---------------------------------------------------------------------------
+
+class MicrositeUpdateIn(BaseModel):
+    loom_url: str | None = None
+    crm_account_id: UUID | None = None
+    logo_url: str | None = None
+    accent_hsl: str | None = None

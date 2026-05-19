@@ -8,8 +8,11 @@ type LoomEmbedProps = {
 };
 
 function toEmbedUrl(url: string): string | null {
-  // Accept https://www.loom.com/share/<id> (with optional query) → /embed/<id>
-  const m = url.match(/loom\.com\/(?:share|embed)\/([A-Za-z0-9]+)/);
+  // Render-side guard (the backend also validates + normalizes on write/serve).
+  // Reject anything that is not an http(s) loom.com share/embed link — this
+  // explicitly excludes javascript:/data: and arbitrary iframe srcs.
+  const safe = /^https?:\/\/(?:www\.)?loom\.com\/(?:share|embed)\/([A-Za-z0-9]+)/;
+  const m = url.match(safe);
   if (!m) return null;
   return `https://www.loom.com/embed/${m[1]}`;
 }

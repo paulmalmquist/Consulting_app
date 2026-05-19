@@ -19,10 +19,17 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
-from app.schemas.outreach_personalizer import TargetCreateIn, MicrositeTrackIn
+from app.schemas.outreach_personalizer import (
+    TargetCreateIn,
+    MicrositeTrackIn,
+    MicrositeUpdateIn,
+)
 from app.services import outreach_personalizer as op_db
 from app.services import outreach_personalizer_ai as op_ai
-from app.services.outreach_personalizer import OutreachTargetNotFound
+from app.services.outreach_personalizer import (
+    OutreachTargetNotFound,
+    normalize_loom_url,
+)
 
 router = APIRouter(prefix="/api/outreach-personalizer/v1", tags=["outreach-personalizer"])
 
@@ -112,7 +119,13 @@ def _microsite_payload(target: dict, assets: list[dict]) -> dict:
     insights = _insights_from_assets(by_type)
     loom_payload = (by_type.get("loom_script") or {}).get("payload") or {}
     email_payload = (by_type.get("cold_email") or {}).get("payload") or {}
-    loom_url = target.get("loom_url")
+    # Re-validate the stored loom_url at serve time so a tampered/legacy DB value
+    # can never reach the public page as an arbitrary iframe src. Anything that
+    # is not a recognizable Loom URL degrades to the "pending" state.
+    try:
+        loom_url = normalize_loom_url(target.get("loom_url"))
+    except ValueError:
+        loom_url = None
     return {
         "ready": True,
         "firm": {
@@ -227,6 +240,60 @@ def get_target(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="outreach-personalizer.target.get.failed",
+        )
+
+
+def _crm_account_summary(target: dict) -> dict | None:
+    cid = target.get("crm_account_id")
+    if not cid:
+        return None
+    return op_db.crm_account_summary(crm_account_id=cid)
+
+
+@router.patch("/targets/{target_id}")
+def patch_target(
+    target_id: UUID,
+    payload: MicrositeUpdateIn,
+    request: Request,
+):
+    """Phase 2A: edit/save loom_url + link a CRM account (+ optional logo/accent).
+
+    Only explicitly-provided fields are written. loom_url is validated and
+    normalized to a safe Loom embed URL (or null to clear). crm_account_id must
+    reference an existing crm_account. No env scaffolding, no CRM model changes.
+    """
+    try:
+        op_db.get_target_by_id(target_id=target_id)  # 404 early if missing
+        provided = payload.model_dump(exclude_unset=True)
+
+        if "loom_url" in provided:
+            provided["loom_url"] = normalize_loom_url(provided["loom_url"])
+
+        if provided.get("crm_account_id") is not None:
+            if not op_db.crm_account_exists(crm_account_id=provided["crm_account_id"]):
+                raise ValueError(
+                    f"crm_account_id {provided['crm_account_id']} does not exist."
+                )
+
+        updated = op_db.patch_target(target_id=target_id, fields=provided)
+        resp = _target_response(updated)
+        resp["crm_account"] = _crm_account_summary(updated)
+        return resp
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404, code="outreach_personalizer.not_found",
+            detail=str(exc), action="outreach-personalizer.target.patch.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=400, code="outreach_personalizer.validation_error",
+            detail=str(exc), action="outreach-personalizer.target.patch.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="outreach-personalizer.target.patch.failed",
         )
 
 

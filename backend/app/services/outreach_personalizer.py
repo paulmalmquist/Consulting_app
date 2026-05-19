@@ -12,11 +12,39 @@ Rules (mirror pitch_forge):
 from __future__ import annotations
 
 import json
+import re
 from uuid import UUID
 
 from app.db import get_cursor
 
 PUBLIC_STATUSES = ("assets_ready", "microsite_live")
+
+# Shared Loom URL validator. Mirrors the render-side toEmbedUrl() shape in
+# repo-b/src/components/marketing/personalizer/LoomEmbed.tsx so operator-side and
+# public-render validation agree. Only accepts loom.com share/embed links and
+# normalizes to the embed form. Rejects javascript:/data:/arbitrary iframe URLs.
+_LOOM_ID_RE = re.compile(r"^https?://(?:www\.)?loom\.com/(?:share|embed)/([A-Za-z0-9]+)")
+
+
+def normalize_loom_url(value: str | None) -> str | None:
+    """Return a safe normalized Loom embed URL, or None to clear.
+
+    Raises ValueError for any non-empty value that is not a recognizable Loom
+    share/embed URL (this includes javascript:/data: and arbitrary iframes,
+    which never match the loom.com host pattern).
+    """
+    if value is None:
+        return None
+    v = value.strip()
+    if v == "":
+        return None
+    m = _LOOM_ID_RE.match(v)
+    if not m:
+        raise ValueError(
+            "loom_url must be a Loom share or embed URL "
+            "(https://www.loom.com/share/<id> or /embed/<id>)."
+        )
+    return f"https://www.loom.com/embed/{m.group(1)}"
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +160,64 @@ def update_target(
     if not row:
         raise OutreachTargetNotFound(f"Target {target_id} not found")
     return row
+
+
+# Columns the PATCH endpoint may set. Unlike update_target (Phase 1 seed path,
+# COALESCE — never clears), patch_target writes exactly the provided fields, so
+# loom_url can be explicitly set to NULL to clear it.
+_PATCHABLE = ("loom_url", "crm_account_id", "logo_url", "accent_hsl")
+
+
+def patch_target(*, target_id: UUID, fields: dict) -> dict:
+    """Update only the explicitly provided patchable fields (supports null-clear)."""
+    cols = [c for c in _PATCHABLE if c in fields]
+    if not cols:
+        return get_target_by_id(target_id=target_id)
+    set_sql = ", ".join(f"{c} = %s" for c in cols)
+    params: list = []
+    for c in cols:
+        val = fields[c]
+        if c == "crm_account_id" and val is not None:
+            params.append(str(val))
+        else:
+            params.append(val)
+    params.append(str(target_id))
+    with get_cursor() as cur:
+        cur.execute(
+            f"""UPDATE cro_outreach_target
+                SET {set_sql}, updated_at = now()
+                WHERE id = %s::uuid
+                RETURNING *""",
+            tuple(params),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise OutreachTargetNotFound(f"Target {target_id} not found")
+    return row
+
+
+# ---------------------------------------------------------------------------
+# crm_account — read-only reuse (FK existence guard + summary). NOT a CRM model;
+# crm_account is owned by 260_crm_native.sql / app.services.crm.
+# ---------------------------------------------------------------------------
+
+def crm_account_exists(*, crm_account_id: UUID) -> bool:
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT 1 FROM crm_account WHERE crm_account_id = %s::uuid",
+            (str(crm_account_id),),
+        )
+        return cur.fetchone() is not None
+
+
+def crm_account_summary(*, crm_account_id: UUID) -> dict | None:
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT crm_account_id, name, website
+               FROM crm_account WHERE crm_account_id = %s::uuid""",
+            (str(crm_account_id),),
+        )
+        return cur.fetchone()
 
 
 # ---------------------------------------------------------------------------

@@ -45,12 +45,37 @@ export type OutreachTarget = {
   loom_url: string | null;
 };
 
+export type CrmAccountSummary = {
+  crm_account_id: string;
+  name: string;
+  website: string | null;
+};
+
 export type TargetResponse = {
   target: OutreachTarget;
   assets: OutreachAsset[];
   microsite_url: string | null;
   public_path: string;
   created?: boolean;
+  crm_account?: CrmAccountSummary | null;
+};
+
+// crm_account row as returned by the existing /api/crm/accounts route
+// (backend/app/routes/crm.py). Reused as-is — no new CRM endpoint/model.
+export type CrmAccount = {
+  crm_account_id: string;
+  name: string;
+  account_type: string;
+  industry: string | null;
+  website: string | null;
+  created_at: string;
+};
+
+export type PatchTargetPayload = {
+  loom_url?: string | null;
+  crm_account_id?: string | null;
+  logo_url?: string | null;
+  accent_hsl?: string | null;
 };
 
 export type SeedTargetPayload = {
@@ -104,6 +129,23 @@ export function listOutreachTargets(envId: string) {
 
 export function getOutreachTarget(targetId: string) {
   return apiFetch<TargetResponse>(`${OP_BASE}/targets/${targetId}`);
+}
+
+export function patchOutreachTarget(targetId: string, payload: PatchTargetPayload) {
+  return apiFetch<TargetResponse>(`${OP_BASE}/targets/${targetId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Lists CRM accounts via the EXISTING /api/crm/accounts route
+ * (backend/app/routes/crm.py — scoped by business_id). Reused, not duplicated.
+ */
+export function listCrmAccounts(businessId: string) {
+  return apiFetch<CrmAccount[]>(
+    `/bos/api/crm/accounts?business_id=${encodeURIComponent(businessId)}`,
+  );
 }
 
 export function regenerateOutreachAsset(
