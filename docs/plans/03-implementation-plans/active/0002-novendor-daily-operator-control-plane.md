@@ -147,6 +147,50 @@ Regression test: `backend/tests/test_execution_board_route.py` — two tests mon
 `run_auto_generation` to raise and assert a clean fail-closed 500 with no `TypeError`/`exc_info`
 in the body. **Both pass.** 15 related consulting/execution tests still pass.
 
+---
+
+## Ticket 2 — Production deployment verification — DONE & VERIFIED 2026-05-19
+
+**Why:** the live site still showed the `exc_info` banner after Ticket 1 was committed —
+because the commit was on a branch, not merged/deployed. Production deploys from `main`.
+
+**Delivery path executed (user-directed):**
+1. Found 2 pre-existing red CI checks on `main`, neither caused by Ticket 1:
+   - Backend Lint — duplicate `DealOut` import in `consulting.py` (already on `main`).
+   - Repo Guardrails — `1000` duplicate schema prefix from `10000_/10001_` (baseline `main` debt).
+2. Separate lint-fix PR **#69** (`chore: remove duplicate DealOut import (F811)`) — merged to
+   `main` (squash). `consulting.py` is now ruff-clean.
+3. Rebased PR **#67** on updated `main` (clean, no conflicts; fix + tests intact, re-verified).
+4. Merged **#67** to `main` — merge commit `cebc4e5a607b2aea3388dcaac3921c74c1245926`,
+   merged 2026-05-19T14:42:04Z. (`main` is unprotected; repo-wide Backend Lint / Repo
+   Guardrails remain red for unrelated pre-existing reasons — accepted, backlogged, not chased.)
+5. Deployed backend from merged `main` to Railway: project/service **`authentic-sparkle`**,
+   environment **production**, deployment `0f05e231-1adb-46c9-9075-ecbfceb272d7` → **SUCCESS**
+   (previous prod deployment was `02570297…` from 2026-05-18, pre-fix).
+
+**Production smoke — PASSED (decisive evidence):**
+- `GET https://novendor.ai/bos/api/consulting/execution/board?env_id=62cfd59c-…` now returns
+  the clean fail-closed body `{"detail":{"error_code":"INTERNAL_ERROR","message":"500:
+  Auto-task generation unavailable"}}` — **no `exc_info` TypeError**.
+- Railway logs show the structured line `action="execution.auto_generation_failed"` with
+  `request_id="req_8d4f073b638b3_1779201977414"`, structured `error={name,message,stack}`,
+  `context={env_id,business_id}` — exactly the keyword-only `emit_log(..., error=auto_exc)`
+  behavior. **`grep -c exc_info` over recent prod logs = 0.**
+- The `exc_info` masking bug is resolved in production.
+
+**Real underlying fault now surfaced (was masked before — separate from the logger bug):**
+The fix exposed the genuine `run_auto_generation` defect it was designed to stop hiding:
+
+```
+psycopg.errors.UndefinedColumn: column o.stage does not exist
+LINE 16:  AND lower(o.stage) = 'proposal'
+  backend/app/services/execution_auto.py:338, in run_auto_generation
+```
+
+This is now a clean fail-closed 500 (correct behavior), tracked as its own backlog item.
+**Ticket 1 + Ticket 2 are complete. Ticket 3 (migration `10003`) is now unblocked** — the
+live `exc_info` banner is gone; remaining board failure is the separate `o.stage` SQL bug.
+
 ## Workstream B — Task hierarchy data model (deferred)
 
 Migration `10003_consulting_task_hierarchy.sql` per the Domain model section. Additive only,
