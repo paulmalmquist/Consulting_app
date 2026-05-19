@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import EvidenceGraphPage from "@/components/resume/EvidenceGraphPage";
 
 export const metadata: Metadata = {
-  title: "Evidence Graph — Paul Malmquist",
+  title: "Evidence Ledger — Paul Malmquist",
   description:
-    "A transparent map of data engineering, finance, real estate, and AI platform experience. Separates shipped professional work, Winston platform work, prototypes, and active gaps.",
+    "A transparent, auditable proof ledger of data engineering, finance, REPE, and AI platform experience. Weighted by shipped systems, demoable artifacts, evidence source, confidence, and named gaps.",
   openGraph: {
-    title: "Evidence Graph — Paul Malmquist",
+    title: "Evidence Ledger — Paul Malmquist",
     description:
       "Every resume claim mapped to shipped experience, Winston platform work, prototypes, or named gaps with planned proof artifacts.",
     type: "profile",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Evidence Graph — Paul Malmquist",
+    title: "Evidence Ledger — Paul Malmquist",
     description:
       "Every resume claim mapped to shipped experience, Winston platform work, prototypes, or named gaps.",
   },
