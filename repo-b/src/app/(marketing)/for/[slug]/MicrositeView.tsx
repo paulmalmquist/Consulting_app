@@ -105,7 +105,7 @@ export function MicrositeView({ slug }: { slug: string }) {
         {data.cold_email_preview.body ? (
           <section className="mx-auto max-w-2xl rounded-2xl border border-white/10 bg-white/[0.03] p-7">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/45">
-              The note we'd send
+              The note we&apos;d send
             </p>
             {data.cold_email_preview.subject ? (
               <p className="mt-3 text-sm font-semibold text-white">
