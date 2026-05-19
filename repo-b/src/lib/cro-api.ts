@@ -2380,6 +2380,21 @@ export type ExecutionTask = {
   updated_at: string;
   deal_name: string | null;
   contact_name: string | null;
+  // Operator Control Plane hierarchy (additive, read-only). All nullable:
+  // flat tasks have NULL hierarchy → "Ungrouped"; missing reference rows
+  // leave *_label null → "No linked initiative/workstream".
+  domain_key?: string | null;
+  initiative_key?: string | null;
+  workstream_key?: string | null;
+  parent_task_id?: string | null;
+  source_kind?: string | null;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
+  related_url?: string | null;
+  last_reviewed_at?: string | null;
+  domain_label?: string | null;
+  initiative_label?: string | null;
+  workstream_label?: string | null;
 };
 
 export type ExecutionBoardSummary = {

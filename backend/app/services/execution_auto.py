@@ -332,9 +332,11 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
                 report["pipeline_no_outreach"] += 1
 
         # ── 8. Stage = proposal AND last touch > 2d → check response ────────
-        # Stage values come from crm_opportunity.stage. The 2-day window matches
-        # the no-reply pass; together they form a tight follow-up loop on the
-        # most-revenue-sensitive part of the funnel.
+        # Stage is a FK: crm_opportunity.crm_pipeline_stage_id → crm_pipeline_stage.
+        # There is no crm_opportunity.stage column; the proposal stage is
+        # crm_pipeline_stage.key = 'proposal' (stable machine key, not label).
+        # The 2-day window matches the no-reply pass; together they form a tight
+        # follow-up loop on the most-revenue-sensitive part of the funnel.
         cur.execute(
             """
             WITH proposal_deals AS (
@@ -349,9 +351,11 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
                        ) AS last_touch
                   FROM crm_opportunity o
              LEFT JOIN crm_account a ON a.crm_account_id = o.crm_account_id
+                  JOIN crm_pipeline_stage s
+                    ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
                  WHERE o.business_id = %s
                    AND o.status = 'open'
-                   AND lower(o.stage) = 'proposal'
+                   AND lower(s.key) = 'proposal'
             )
             SELECT crm_opportunity_id, name, account_name, last_touch
               FROM proposal_deals

@@ -147,19 +147,175 @@ Regression test: `backend/tests/test_execution_board_route.py` — two tests mon
 `run_auto_generation` to raise and assert a clean fail-closed 500 with no `TypeError`/`exc_info`
 in the body. **Both pass.** 15 related consulting/execution tests still pass.
 
-## Workstream B — Task hierarchy data model (deferred)
+---
 
-Migration `10003_consulting_task_hierarchy.sql` per the Domain model section. Additive only,
-env-scoped, RLS on every new table, verification queries, seed the 5 domains + FlowYorker +
-industry initiatives. Schema discovery is sufficient for planning; **Ticket 3 must still verify
-current production schema** (`supabase db query --linked` against `ozboonlsplroialdwuxj`) before
-writing the migration — a stale local read must not become a bad prod migration.
+## Ticket 2 — Production deployment verification — DONE & VERIFIED 2026-05-19
 
-## Workstream C — Tasks page UI hierarchy (deferred)
+**Why:** the live site still showed the `exc_info` banner after Ticket 1 was committed —
+because the commit was on a branch, not merged/deployed. Production deploys from `main`.
 
-Add domain grouping + initiative/workstream filter to `ExecutionBoard.tsx` **without** removing
-the Today / This Week / Waiting / Done lanes. Dark operator shell preserved; left nav stays
-≤7 items (Pipeline, Accounting, Contacts, Tasks unchanged).
+**Delivery path executed (user-directed):**
+1. Found 2 pre-existing red CI checks on `main`, neither caused by Ticket 1:
+   - Backend Lint — duplicate `DealOut` import in `consulting.py` (already on `main`).
+   - Repo Guardrails — `1000` duplicate schema prefix from `10000_/10001_` (baseline `main` debt).
+2. Separate lint-fix PR **#69** (`chore: remove duplicate DealOut import (F811)`) — merged to
+   `main` (squash). `consulting.py` is now ruff-clean.
+3. Rebased PR **#67** on updated `main` (clean, no conflicts; fix + tests intact, re-verified).
+4. Merged **#67** to `main` — merge commit `cebc4e5a607b2aea3388dcaac3921c74c1245926`,
+   merged 2026-05-19T14:42:04Z. (`main` is unprotected; repo-wide Backend Lint / Repo
+   Guardrails remain red for unrelated pre-existing reasons — accepted, backlogged, not chased.)
+5. Deployed backend from merged `main` to Railway: project/service **`authentic-sparkle`**,
+   environment **production**, deployment `0f05e231-1adb-46c9-9075-ecbfceb272d7` → **SUCCESS**
+   (previous prod deployment was `02570297…` from 2026-05-18, pre-fix).
+
+**Production smoke — PASSED (decisive evidence):**
+- `GET https://novendor.ai/bos/api/consulting/execution/board?env_id=62cfd59c-…` now returns
+  the clean fail-closed body `{"detail":{"error_code":"INTERNAL_ERROR","message":"500:
+  Auto-task generation unavailable"}}` — **no `exc_info` TypeError**.
+- Railway logs show the structured line `action="execution.auto_generation_failed"` with
+  `request_id="req_8d4f073b638b3_1779201977414"`, structured `error={name,message,stack}`,
+  `context={env_id,business_id}` — exactly the keyword-only `emit_log(..., error=auto_exc)`
+  behavior. **`grep -c exc_info` over recent prod logs = 0.**
+- The `exc_info` masking bug is resolved in production.
+
+**Real underlying fault now surfaced (was masked before — separate from the logger bug):**
+The fix exposed the genuine `run_auto_generation` defect it was designed to stop hiding:
+
+```
+psycopg.errors.UndefinedColumn: column o.stage does not exist
+LINE 16:  AND lower(o.stage) = 'proposal'
+  backend/app/services/execution_auto.py:338, in run_auto_generation
+```
+
+This is now a clean fail-closed 500 (correct behavior), tracked as Ticket 2B.
+
+---
+
+## Ticket 2B — Fix consulting auto-gen `o.stage` SQL reference — DONE & VERIFIED 2026-05-19
+
+**Schema finding (evidence-based, verified local + live, not guessed):**
+`crm_opportunity` has **no `stage` column**. Stage is the FK
+`crm_opportunity.crm_pipeline_stage_id → crm_pipeline_stage` (canonical schema
+`repo-b/db/schema/260_crm_native.sql`). `crm_pipeline_stage` has `key` + `label`.
+Live Supabase (`ozboonlsplroialdwuxj`) confirmed: `crm_opportunity` exposes
+`crm_pipeline_stage_id` + `status` only; `crm_pipeline_stage` has a row
+`key='proposal'`, `label='Proposal'`. The proposal stage is
+`crm_pipeline_stage.key = 'proposal'` (stable machine key, not display label).
+
+**Fix (`backend/app/services/execution_auto.py`, pass 8 / proposal follow-up):**
+replaced `AND lower(o.stage) = 'proposal'` with a join
+`JOIN crm_pipeline_stage s ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id`
+and filter `lower(s.key) = 'proposal'`. Inner join is deliberate and correct —
+an opportunity with no stage cannot be in proposal; this matches the original
+filter's intent and preserves fail-closed zero-result behavior. Stale comment
+("Stage values come from crm_opportunity.stage") corrected. Localized to
+`execution_auto.py` + one new test; no migration, no UI, no hierarchy change.
+
+**Tests:** new `backend/tests/test_execution_auto_stage_query.py` (static guard:
+no `o.stage` reference may return; proposal pass must join `crm_pipeline_stage`
+and filter `lower(s.key)='proposal'`). Full set: 19 passed
+(new guard + `test_execution_board_route` + `test_executions` +
+`test_consulting_pipeline` + `test_pipeline_execution_engine`). ruff + AST clean.
+Fixed query run against live Supabase: `proposal_open_deals: 1`, no UndefinedColumn.
+
+**Ship:** PR **#71** merged to `main` (merge commit
+`45833c0060a511cbc6ae8c8aaa09d5c31f1700ad`). Backend deployed to Railway
+`authentic-sparkle` production, deployment
+`d0df0115-17b5-41a5-97a0-35a6e45a507d` → SUCCESS.
+
+**Production smoke — PASSED:** live
+`GET /bos/api/consulting/execution/board?env_id=62cfd59c-…` now returns
+**HTTP 200** with `{"tasks":[],"summary":{…},"auto_report":{…}}`. Railway logs:
+`status_code=200`, `200 OK`, no `UndefinedColumn` / `o.stage` /
+`auto_generation_failed`. `auto_report.pipeline_proposal_sent_no_followup=0`
+(proposal pass ran clean, zero eligible for the empty test env — correct
+fail-closed-to-zero, not fabricated).
+
+**The Consulting Tasks page now loads.** Ticket 1 + 2 + 2B complete.
+**Ticket 3 (migration `10003`) is now safe to start** — no remaining live
+board fault.
+
+## Workstream B / Ticket 3 — Task hierarchy data model — DONE & VERIFIED 2026-05-19
+
+`repo-b/db/schema/10003_consulting_task_hierarchy.sql`. PR **#73** merged to `main`
+(merge commit `4a800d8ede60c6c02dde80906d4315e055e0dd45`). Schema-only — no app code, no
+deploy needed (migration applied directly to live Supabase + independently re-applied and
+verified by CI's **DB Schema Gate = SUCCESS**).
+
+**Live schema verification (before):** none of the 10 hierarchy columns existed on
+`cro_execution_task`; `cro_operating_domain`/`cro_initiative`/`cro_workstream` absent;
+`10003` was the free number; board SELECT uses explicit columns (additive-safe). Type
+discovery: `app.environments.env_id` is **uuid** while `cro_*.env_id` is **text** — the
+seed `business_id` lookup casts accordingly (a `uuid = text` operator error was caught and
+fixed during apply, not guessed).
+
+**What shipped:**
+- 10 nullable hierarchy columns on `cro_execution_task` (`domain_key`, `initiative_key`,
+  `workstream_key`, `parent_task_id` self-FK `ON DELETE SET NULL`, `source_kind`,
+  `related_entity_type/_id/_url`, `evidence`, `last_reviewed_at`) + 2 grouping indexes.
+  No status/type/impact/date columns duplicated — reuses existing.
+- `cro_operating_domain` / `cro_initiative` / `cro_workstream` — `env_id`+`business_id`,
+  RLS `USING (env_id = current_setting('app.env_id', true))` per ARCHITECTURE.md.
+- Seeds (env `62cfd59c…`, `business_id` `225f52ca-cdf4-4af9-a973-d1d310ddcba1` resolved
+  authoritatively from `app.environments` → `cro_outreach_log` → `cro_execution_task`,
+  self-skips rather than fabricate): 5 controlled domains, FlowYorker initiative + 7
+  workstreams, 6 Novendor industry initiatives.
+- 9 companion verification queries; idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`).
+
+**Verified live (post-apply):** 6a cols=10, 6b tables=3, 6c RLS=3, 6d domains=5,
+6e flowyorker=1, 6f industry=6, 6g workstreams=7, seed `business_id` single distinct =
+`225f52ca…`. `cro_execution_task` has 0 rows total (fresh board) so nothing was rewritten.
+Existing board endpoint still **HTTP 200** post-migration. 19 backend tests pass
+(`test_execution_board_route`, `test_execution_auto_stage_query`, `test_executions`,
+`test_consulting_pipeline`, `test_pipeline_execution_engine`).
+
+> Repo Guardrails `1000` duplicate-prefix is pre-existing baseline (`10000_`/`10001_`
+> collapse under `^(\d{4})`; tips #18). `10003` adds no new collision class. CI DB Schema
+> Gate (the authoritative migration check) passed.
+
+**Ticket 4 (UI domain grouping in `ExecutionBoard.tsx`) is now safe to start** — the
+hierarchy columns + reference tables + seeds exist and are verified live.
+
+## Workstream C / Ticket 4 — Tasks page UI domain grouping — DONE & VERIFIED 2026-05-19
+
+PR **#75** merged to `main` (merge commit `8f30791d98d248d0802e49c37c4f5d0d19b21502`).
+Display-only, read-path only — no schema change, no write selectors, no assistant
+retrieval, no Morning Checklist persistence.
+
+**Shipped (5 files, +177/-1):**
+- Backend additive: `execution_tasks.py` `_SELECT_TASK_COLUMNS` adds the 10003 hierarchy
+  columns; `_FROM_TASK` LEFT JOINs `cro_operating_domain`/`cro_initiative`/`cro_workstream`
+  for server-side labels (LEFT JOIN → NULL label for unknown keys, never errors).
+  `consulting.py` `ExecutionTask` schema: new fields all `Optional`/`None`
+  (backward-compatible). `evidence` jsonb intentionally omitted from the board SELECT.
+- Frontend: `cro-api.ts` optional hierarchy fields; `ExecutionBoard.tsx` domain filter
+  strip (All / 5 controlled domains / Ungrouped) with true counts, filtering
+  `tasksByColumn` by `domain_key` — `"All"` default reproduces the original flat board,
+  four lanes untouched; `ExecutionCard.tsx` display-only "Domain → Initiative" crumb with
+  fallback labels, no crumb for flat tasks. Honest empty states throughout.
+
+**Verification:**
+- Backend: AST OK, ruff clean, 16 targeted tests pass. New SELECT + 3 joins verified live
+  against Supabase (`ozboonlsplroialdwuxj`) — no error.
+- Frontend: CI **Frontend Lint + Typecheck + Unit = SUCCESS** (local typecheck not
+  possible — fresh worktree has no `node_modules`; changes are type-additive/optional and
+  were manually reviewed; CI is the authoritative gate and passed).
+- Deployed: backend Railway `authentic-sparkle` (`6bfc0d7a`, SUCCESS); frontend Vercel
+  repo-b (`repo-jr5udqqyd`, Ready) — repo-b does **not** auto-deploy, deployed explicitly.
+- **Production smoke PASSED:** live board API returns HTTP 200 with the new
+  `domain_key`/`domain_label`/`initiative_*`/`workstream_*` fields present (251 tasks),
+  `summary`+`auto_report` intact (backward-compatible). Tasks page returns 307 → `/login`
+  (auth redirect, expected — not a regression).
+
+**Honest data state:** all 251 live tasks currently have NULL `domain_key`
+(`grouped=0, ungrouped=251`). This is expected — Ticket 3 added columns + seeded the
+reference tables, but **assigning** tasks to domains is write-path (future ticket). The
+grouping infra is live and renders all tasks under "Ungrouped"; the four lanes behave
+exactly as before. Activates automatically as tasks get `domain_key` values.
+
+**Ticket 5 (FlowYorker task creation/editing — write-path: domain/initiative selectors
+on quick-capture + drawer) is now safe to start.** The read/display path is proven; the
+next step is letting users assign hierarchy.
 
 ## Workstream D — FlowYorker / Web Properties (deferred)
 

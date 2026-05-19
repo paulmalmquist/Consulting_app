@@ -96,7 +96,6 @@ from app.schemas.consulting import (
     TriggerSignalCreateRequest,
     TriggerSignalOut,
     DailyBriefOut,
-    DealOut,
     ManualDealCreateRequest,
     AppInboxDiscardRequest,
     AppInboxItemCreateRequest,

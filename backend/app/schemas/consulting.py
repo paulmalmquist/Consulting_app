@@ -1708,6 +1708,21 @@ class ExecutionTask(BaseModel):
     updated_at: datetime
     deal_name: str | None = None
     contact_name: str | None = None
+    # Operator Control Plane hierarchy (additive, read-only for Ticket 4).
+    # All nullable: existing flat tasks have NULL hierarchy and group as
+    # "Ungrouped"; missing reference rows leave *_label NULL ("No linked …").
+    domain_key: str | None = None
+    initiative_key: str | None = None
+    workstream_key: str | None = None
+    parent_task_id: UUID | None = None
+    source_kind: str | None = None
+    related_entity_type: str | None = None
+    related_entity_id: UUID | None = None
+    related_url: str | None = None
+    last_reviewed_at: datetime | None = None
+    domain_label: str | None = None
+    initiative_label: str | None = None
+    workstream_label: str | None = None
 
 
 class ExecutionTaskCreate(BaseModel):
