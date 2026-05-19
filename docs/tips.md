@@ -278,6 +278,7 @@ _(This section is appended by the research-architect after each successful inges
 - `hr_*` tables are RLS/`env_id`-exempt by design (ARCHITECTURE.md — single-tenant analytics). Do NOT add `env_id`/`business_id`/RLS to new `hr_*` tables even when a task spec asks; match siblings (`hr_weekly_briefs`, `hr_predictions`) or you create a guardrail conflict and inconsistent isolation across the module. Record the deliberate deviation in the plan for honesty.
 - The History Rhymes frontend calls FastAPI directly via `NEXT_PUBLIC_API_BASE` (`repo-b/src/lib/historyrhymes/client.ts`) — there is intentionally no Next.js `/api/hr/*` proxy route. Extend that client with new endpoints; do not add a `proxyToBos` route for HR or you fork the calling convention.
 - Markdown-extractor pattern for research→action bridges: deterministic parse against a canonical section/alias map, a module-level degraded result, fail closed with explicit `warnings`, and never fabricate missing sub-fields (leave `None`). Keep "confidence" a simple displayed fraction, not a tunable scorer — unclear structure degrades, it is never "recovered."
+- Direct-FastAPI clients (no Next proxy) drift silently: if `repo-b/src/lib/*/client.ts` paths or response shapes diverge from the shipped backend routes, nothing fails at build/typecheck — it only 404s at runtime. The HR research client is the shipped contract: `/api/hr/v1/research/*` with `GET enhancement-candidates` returning the `{ count, candidates }` wrapper (not a bare array), and `IngestResult` carrying `confidence`/`degraded`/`warnings`/`brief.freshness_score`. Pin it with a contract test that mocks `fetch` and asserts the exact URL + wrapper shape per function (`src/components/historyrhymes/historyrhymesClientContract.test.ts`) so drift fails CI, not production. When reconciling drift, fix the client to the tested backend — do not rename backend routes to chase the client.
 - Route tests for a new `app.routes.<x>` module that imports `get_cursor` directly: patch `app.routes.<x>.get_cursor` locally in the test file (reuse `tests.conftest.FakeCursor`) rather than appending to the shared `_GET_CURSOR_TARGETS` list — same result, minimal blast radius. The shared `fake_cursor` fixture only covers `app.services.*` import sites.
 
 ## 1. Repo Inventory
@@ -2619,3 +2620,74 @@ The marketing surface uses its own design system (`docs/assets/Novendor_Design_S
 - **Fail-closed verifier rule: `pass` is the ONLY healthy status.** `fail` / `missing` / `unknown` / `not_available` are all non-pass and, if `severity=blocking`, force `eligible_for_promotion=False`. The single most dangerous failure mode is reporting a check as `pass` when its backing feature is unimplemented — e.g. capability binding (`environment_pipeline_v2._apply_template_metadata` is a no-op and there is no `app.environment_capabilities` table). Hard-code such checks to `not_available`/`blocking` until the feature actually exists; never silent-pass an unimplemented dependency.
 - **`bosFetch(path)` is the frontend convention for backend calls; never hard-code an origin.** It prepends the same-origin `/bos` proxy prefix to any path and forwards to FastAPI via `BOS_API_ORIGIN`. `lab_v2.router` mounts at `/v2` with no extra prefix, so the frontend calls `bosFetch("/v2/environments/{id}/verify")`. There was no pre-existing frontend caller of `/v2/environments` — it is a newer backend surface.
 - **`repo-b/src/app/lab/env/[envId]/blueprint/page.tsx` already existed as a `DomainPreviewState` placeholder.** "Create the blueprint page" meant *integrate additively* (render the new card above the existing preview), not overwrite — the route's layout (`DomainEnvProvider`/`DomainWorkspaceShell`, `useDomainEnv()` → `{envId, businessId}`) and preview intent were preserved.
+
+### Ticket 2 — promotion state machine (2026-05-19)
+
+- **A "read endpoint that writes" must make the write explicit and never touch promotion state.** Ticket 1's `verify_environment_contract` persisted `last_verification` on every GET. Ticket 2 split it: `materialize=False` (default, `GET /verify`) is a pure read; `materialize=True` (`?materialize=1` and the gate) records the report. Either way it NEVER transitions `promotion_state` or writes the event log. Contract-row derivation at `draft` on first touch is a separate, documented kind of materialization (not a promotion) — that distinction kept Ticket 1 tests green with zero edits.
+- **Mirror the DB promotion guard in Python so the gate fails closed with a clean 4xx before the trigger ever raises.** `_LEGAL_TRANSITIONS` in `environment_contract_v2.py` is kept in lockstep with the `environment_contract_enforce_promotion` trigger (migration `10005`, mirroring `re_authoritative_enforce_promotion` from `459`). The trigger is the real backstop; the Python copy turns a would-be raw `psycopg` `P0001` 500 into a structured 409. If you change one, change both.
+- **The released-immutability trigger needs `updated_at` in its allowed-keys list.** `app.environment_contract` has a separate `BEFORE UPDATE` `updated_at` touch trigger. If the promotion-guard's `to_jsonb(NEW) - allowed_keys <> to_jsonb(OLD) - allowed_keys` immutability check omits `updated_at`, every legitimate allowed-field update on a released row falsely trips "payload immutable". Allowed keys for env contract: `promotion_state, last_verification, last_verified_at, verified_by, released_at, released_by, updated_at`.
+- **The gate must re-verify fresh, never trust a cached report.** `assert_environment_promotable` calls `verify_environment_contract(..., materialize=True)` itself and decides on that result. A promotion that reads a stale `last_verification` is a fail-open hole. Mirror `re_trace_gate.assert_fund_traceable`: typed result on success, `HTTPException` on refusal, downstream transition unreachable otherwise.
+- **`supabase db query --linked` aborts the whole batch on the first error and returns a 400** — which is exactly what you want for validating a fail-closed trigger: wrap `BEGIN; <migrations>; <illegal UPDATE>; ROLLBACK;` and the expected `P0001` proves the guard fires AND nothing persisted. To validate the *legal* path, put the only intentional failure last (e.g. a final `released→draft`) so everything before it is exercised before the abort.
+- **A no-param collection route (`/environments/promotion-drift`) declared after `/environments/{env_id}/verify` is NOT shadowed** — Starlette path structures differ (`promotion-drift` vs `{env_id}/verify`). Verified via TestClient. No reordering needed, but confirm rather than assume when adding sibling routes under a `{param}` prefix.
+
+### Phase 3a — capability binding (2026-05-19)
+
+- **`environment_templates_v2.get_template` has a 300s module cache that makes FakeCursor sequences non-deterministic across test order.** A cold cache issues a `_load_templates_fresh` query mid-verify that shifts every queued result by one; a warm cache (populated by an earlier test in the run) doesn't. Ticket 1's tests got lucky because the service caught the resulting `LookupError` and fell back to empty capabilities — which silently masked the real behavior once capabilities started being resolved. Fix: an `autouse` fixture that primes `_tpl._CACHE["templates"]` with the needed template and sets `fetched_at = float("inf")`, then `invalidate_cache()` on teardown. Any test that drives `verify_environment_contract`/the gate through a FakeCursor must prime this cache, or its sequence is order-dependent.
+- **A verifier check that newly issues queries shifts every downstream `push_result` in existing tests.** Adding the `to_regclass` probe + bound-capabilities SELECT to `_capability_checks` re-sequenced both the Ticket 1 `_queue_verify_sequence` and Ticket 2 `_queue_gate` helpers. This is mock-faithfulness maintenance (the real query order changed by design), not assertion weakening — keep the assertions, fix the queued sequence. The conditional bound-caps SELECT only runs when the table is present AND `required_capabilities` is non-empty; the helper must mirror that conditional exactly.
+- **`FakeCursor` silently accepts new INSERTs, so a pipeline test asserting only stage *names* will stay green when a no-op stage becomes a real write.** `test_full_create_writes_expected_rows` kept passing when `_apply_template_metadata` went from `skipped`/no-op to a real `INSERT INTO app.environment_capabilities` — because it only pins the stage-name list and v1-mirror inserts, not the stage status or capability rows. That is genuine zero-edit compatibility, but it is also a coverage gap: add a focused additive test that asserts the new write + idempotent `ON CONFLICT` rather than assuming the existing test covers it.
+- **Capability fail-closed is now data-driven, not hard-coded.** `_capability_checks` resolves `contract.required_capabilities` against `app.environment_capabilities` (enabled rows only). `capability.binding_implemented` = `not_available`/blocking when `to_regclass('app.environment_capabilities')` is NULL (migration 10006 not applied); `capability.required_resolvable` = `fail`/blocking when any required capability has no enabled binding row; vacuous `pass` only when the contract requires none. A *disabled* binding row is NOT a satisfied capability — the resolution query filters `enabled = true`.
+- **"Bind exactly what the template advertises" — no inference.** `_apply_template_metadata` binds only `template.enabled_modules`, `source='template'`, idempotent via `ON CONFLICT (env_id, capability_key) DO UPDATE SET enabled=true`. A template with no `enabled_modules` binds nothing (and the env then correctly fails closed at the verifier if its contract requires capabilities). Resist scope creep into a capability marketplace / module registry — the template is the single source of truth for what an env should have.
+- **Capability binding does NOT make existing envs promotable.** Migration `10006` creates the table with zero backfill (verified live: `cap_rows = 0` post-apply). Existing v2 envs only gain bindings when re-provisioned through the v2 pipeline (or via a separately-ticketed explicit opt-in backfill). A force-promoted env with no bindings will be flagged by `GET /v2/environments/promotion-drift` — capability binding closes the gate's blocking check, it does not open a backdoor.
+
+## Domain Routing Notes (2026-05-19)
+
+Both `paulmalmquist.com` (personal portfolio) and `novendor.ai` (consulting app / marketing) are served by the **same Vercel project** (`repo-b`). Routing is determined by hostname via middleware or config.
+
+### Key routes to preserve
+
+- **paulmalmquist.com/** — personal page + resume (shared component with `/paul`)
+- **paulmalmquist.com/paul** — direct alias to personal page (backward-compatible)
+- **paulmalmquist.com/paul/evidence** — Evidence Ledger (proof matrix with KPIs)
+- **paulmalmquist.com/login** — Winston app login (Supabase auth)
+- **novendor.ai/** — Novendor homepage + marketing
+- **novendor.ai/login** — Novendor app login (same Supabase, same auth)
+
+Both domains share the same backend at `https://authentic-sparkle-production-7f37.up.railway.app`. CORS headers on `BOS_API_ORIGIN` must include both domains.
+
+### Before touching domain routing
+
+1. Check `repo-b/src/app/layout.tsx` — does it have host-aware routing or middleware that distinguishes the domains?
+2. Check `repo-b/vercel.json` or `.vercel/project.json` — are there rewrites or domain-specific routes configured?
+3. Check `repo-b/src/middleware.ts` — is there middleware that routes based on hostname?
+4. How is `repo-b/src/app/novendor/` organized? Is it a route group, a layout, or a slug-based path?
+
+### Implementation pattern (if re-configuring)
+
+The preferred pattern is **shared component extraction** — keep both `/` and `/paul` as working routes, backed by a single `PersonalPageBody` component. This avoids code duplication and keeps each route discoverable:
+
+```tsx
+// repo-b/src/components/resume/PersonalPageBody.tsx — the content
+export function PersonalPageBody() { ... }
+
+// repo-b/src/app/page.tsx
+export default function RootPage() { return <PersonalPageBody />; }
+
+// repo-b/src/app/paul/page.tsx
+export default function PaulPage() { return <PersonalPageBody />; }
+```
+
+Do NOT:
+- Move or rename `src/app/novendor/` — it is a separate routing boundary
+- Use middleware to redirect `/paul` to `/` — preserve backward compatibility
+- Break paulmalmquist.com/login — it is critical for team access
+
+### Testing checklist
+
+After any routing change:
+- Smoke test: `paulmalmquist.com/` renders the personal page
+- Smoke test: `paulmalmquist.com/paul` still works
+- Smoke test: `paulmalmquist.com/paul/evidence` works and header says "Evidence Ledger"
+- Smoke test: `paulmalmquist.com/login` works
+- Smoke test: `novendor.ai/` renders Novendor homepage
+- Smoke test: `novendor.ai/login` works
+- Check Vercel deployment has both domains aliased under the project
