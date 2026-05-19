@@ -130,6 +130,11 @@ class MeridianStructuredOutcome:
     structured_query_state: dict[str, Any] | None = None
     response_blocks: list[dict[str, Any]] | None = None
     thread_subject: dict[str, Any] | None = None
+    # PR 8b: a durable, addressable multi-set memory entry for this answer.
+    # Built from result_memory's rows; persisted into thread_entity_state
+    # .result_sets so later cross-set follow-ups ("for the funds, which
+    # are inactive") can resolve even after other answers intervened.
+    result_set: dict[str, Any] | None = None
 
 
 def _to_decimal(value: Any) -> Decimal | None:

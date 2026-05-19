@@ -28,6 +28,12 @@ from app.assistant_runtime.result_memory import (
     extract_result_memory_from_prechecks,
     resolve_referential_followup,
 )
+from app.assistant_runtime.result_sets import (
+    prune_expired as _rs_prune,
+    resolve_result_set as _rs_resolve,
+    result_set_from_structured_outcome as _rs_from_outcome,
+    upsert_result_set as _rs_upsert,
+)
 from app.assistant_runtime.retrieval_orchestrator import RetrievalExecution, execute_retrieval
 from app.assistant_runtime.skill_registry import skill_requires_grounding
 from app.assistant_runtime.turn_receipts import (
@@ -1034,9 +1040,64 @@ async def run_request_lifecycle(
         "entity_id": resolved_scope.entity_id,
         "entity_name": resolved_scope.entity_name,
     }
+    # PR 8b — multi-set override. If the message specifically (alias)
+    # references a stored set that differs from whatever the single-slot
+    # result_memory holds, run the proven PR 8a machinery against THAT
+    # set instead. Generic "of those" deliberately falls through to the
+    # single-slot path (PR 8a already handles most-recent correctly).
+    _single_slot_rm = (thread_entity_state or {}).get("result_memory")
+    _effective_result_memory = _single_slot_rm
+    _stored_result_sets = (thread_entity_state or {}).get("result_sets") or []
+    try:
+        if _stored_result_sets and conversation_id:
+            _rs_turn_index = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: convo_svc.count_user_messages(
+                    conversation_id=conversation_id
+                ),
+            ) + 1
+        else:
+            _rs_turn_index = 0
+        _rs_match = _rs_resolve(
+            message=message,
+            result_sets=_stored_result_sets,
+            current_turn_index=_rs_turn_index,
+            current_scope=current_memory_scope,
+        )
+        if (
+            _rs_match.matched
+            and _rs_match.match_reason == "alias"
+            and _rs_match.result_set is not None
+        ):
+            _matched_et = _rs_match.result_set.get("entity_type")
+            _slot_et = (_single_slot_rm or {}).get("scope", {}).get("entity_type")
+            # Override when there is no single-slot memory, or the matched
+            # set is a different entity family than the slot holds.
+            if _single_slot_rm is None or _matched_et != _slot_et:
+                from app.assistant_runtime.result_sets import (
+                    result_memory_from_set as _rs_to_rm,
+                )
+
+                _effective_result_memory = _rs_to_rm(_rs_match.result_set)
+                emit_log(
+                    level="info",
+                    service="backend",
+                    action="assistant_runtime.result_set_override",
+                    message="PR 8b multi-set override selected a non-slot set",
+                    context={
+                        "request_id": request_id,
+                        "result_set_id": _rs_match.result_set.get("result_set_id"),
+                        "match_reason": _rs_match.match_reason,
+                        "turn_distance": _rs_match.turn_distance,
+                        "entity_type": _matched_et,
+                    },
+                )
+    except Exception:
+        _effective_result_memory = _single_slot_rm
+
     referential_resolution = resolve_referential_followup(
         message=message,
-        result_memory=(thread_entity_state or {}).get("result_memory"),
+        result_memory=_effective_result_memory,
         current_scope=current_memory_scope,
     )
     if referential_resolution.is_referential:
@@ -1286,6 +1347,52 @@ async def run_request_lifecycle(
                         created_turn_index=_runtime_turn_index,
                     ),
                 )
+
+                # PR 8b — also project this answer into the durable
+                # multi-set memory so a later cross-set follow-up ("for
+                # the funds, which are inactive") resolves even after
+                # other answers (or failed turns) intervened. Derived
+                # from the outcome's existing thread_subject +
+                # result_memory; never clears the list (upsert only).
+                try:
+                    _derived_set = _rs_from_outcome(
+                        thread_subject=meridian_structured.thread_subject,
+                        result_memory=meridian_structured.result_memory,
+                        source_query=message,
+                        source_turn_id=request_id,
+                        created_turn_index=_runtime_turn_index,
+                        environment_id=_runtime_env_id,
+                        business_id=_runtime_business_id,
+                    )
+                    if _derived_set is not None:
+                        _existing_state = await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: convo_svc.get_thread_entity_state(
+                                str(conversation_id)
+                            ),
+                        )
+                        _existing_sets = (
+                            (_existing_state or {}).get("result_sets") or []
+                        )
+                        _next_sets = _rs_upsert(_existing_sets, _derived_set)
+                        _next_sets = _rs_prune(
+                            _next_sets, current_turn_index=_runtime_turn_index
+                        )
+                        await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: convo_svc.update_thread_result_sets(
+                                str(conversation_id),
+                                result_sets=_next_sets,
+                            ),
+                        )
+                except Exception:
+                    emit_log(
+                        level="warning",
+                        service="backend",
+                        action="assistant_runtime.result_set_persist_failed",
+                        message="PR 8b result_set persistence failed (non-fatal)",
+                        context={"request_id": request_id},
+                    )
 
         yield _sse(
             "done",

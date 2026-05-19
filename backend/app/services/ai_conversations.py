@@ -533,6 +533,10 @@ def update_thread_entity_state(
         "active_context": active_context,
         "result_memory": current.get("result_memory"),
         "structured_query_state": current.get("structured_query_state"),
+        # PR 8b: carry result_sets forward. A turn that only updates
+        # entity state (incl. failed/tool turns) must NOT erase the
+        # multi-set memory.
+        "result_sets": current.get("result_sets") or [],
     }
     try:
         with get_cursor() as cur:
@@ -565,12 +569,53 @@ def update_thread_result_memory(
         "active_context": current.get("active_context", {}),
         "result_memory": None,
         "structured_query_state": current.get("structured_query_state"),
+        # PR 8b: carry result_sets forward (preserved across this update).
+        "result_sets": current.get("result_sets") or [],
     }
     if result_memory is not None:
         normalized = dict(result_memory)
         normalized["stored_at"] = datetime.now(timezone.utc).isoformat()
         state["result_memory"] = normalized
 
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE ai_conversations
+                   SET thread_entity_state = %s, updated_at = now()
+                   WHERE conversation_id = %s""",
+                (json.dumps(state), str(conversation_id)),
+            )
+    except Exception:
+        pass
+
+
+def update_thread_result_sets(
+    conversation_id: str | UUID,
+    *,
+    result_sets: list[dict[str, Any]],
+) -> None:
+    """Persist the PR 8b multi-set result memory list, preserving all
+    other thread state. `result_sets` is the FULL post-upsert/prune list
+    the caller computed — this writer does not append or evict, it just
+    stores what it is given (callers own the upsert/TTL logic so the
+    write is idempotent and testable).
+    """
+    import json
+    from datetime import datetime, timezone
+
+    _ensure_thread_entity_state_column()
+    if "thread_entity_state" not in _conversation_table_columns():
+        return
+
+    current = get_thread_entity_state(conversation_id) or {}
+    state = {
+        "resolved_entities": current.get("resolved_entities", []),
+        "active_context": current.get("active_context", {}),
+        "result_memory": current.get("result_memory"),
+        "structured_query_state": current.get("structured_query_state"),
+        "result_sets": list(result_sets or []),
+    }
+    state["result_sets_updated_at"] = datetime.now(timezone.utc).isoformat()
     try:
         with get_cursor() as cur:
             cur.execute(
@@ -602,6 +647,8 @@ def update_thread_structured_query_state(
         "active_context": current.get("active_context", {}),
         "result_memory": current.get("result_memory"),
         "structured_query_state": None,
+        # PR 8b: carry result_sets forward (preserved across this update).
+        "result_sets": current.get("result_sets") or [],
     }
     if structured_query_state is not None:
         normalized = dict(structured_query_state)
