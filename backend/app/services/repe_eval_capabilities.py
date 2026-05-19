@@ -93,11 +93,14 @@ def resolve_repe_context(
             UNION ALL
             SELECT 'deal' AS entity_type, d.deal_id AS entity_id, d.name, false AS quarantined
             FROM repe_deal d
-            WHERE d.business_id = %s AND (%s IS NULL OR %s = 'deal') AND d.name ILIKE %s
+            JOIN repe_fund df ON df.fund_id = d.fund_id
+            WHERE df.business_id = %s AND (%s IS NULL OR %s = 'deal') AND d.name ILIKE %s
             UNION ALL
             SELECT 'asset' AS entity_type, a.asset_id AS entity_id, a.name, false AS quarantined
             FROM repe_asset a
-            WHERE a.business_id = %s AND (%s IS NULL OR %s = 'asset') AND a.name ILIKE %s
+            JOIN repe_deal ad ON ad.deal_id = a.deal_id
+            JOIN repe_fund af ON af.fund_id = ad.fund_id
+            WHERE af.business_id = %s AND (%s IS NULL OR %s = 'asset') AND a.name ILIKE %s
             LIMIT 20
             """,
             (
