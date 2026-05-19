@@ -15,7 +15,6 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-import pytest
 
 from backend.app.finance.irr_engine import xirr
 
@@ -61,7 +60,6 @@ class TestSparseHistoryGuard:
         # We can't assert non-None because bisection may legitimately fail,
         # but we can assert the guard itself didn't reject it by checking
         # the guard condition directly.
-        from backend.app.finance.irr_engine import xirr as _xirr
         # Four entries clears the < 4 guard. The above should at minimum
         # not be rejected by the length check — result is None or a Decimal.
         assert result is None or isinstance(result, Decimal)

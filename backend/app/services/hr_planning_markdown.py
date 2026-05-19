@@ -83,7 +83,7 @@ def build_planning_markdown(
     regime_call = brief_ctx.get("regime_call")
 
     context_lines = [
-        f"Source: History Rhymes weekly research brief"
+        "Source: History Rhymes weekly research brief"
         + (f" — {brief_title}" if brief_title else "")
         + (f" ({brief_date})" if brief_date else ""),
         f"Pillar: {_inline(pillar)}",
