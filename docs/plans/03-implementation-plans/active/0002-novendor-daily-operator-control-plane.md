@@ -276,11 +276,46 @@ Existing board endpoint still **HTTP 200** post-migration. 19 backend tests pass
 **Ticket 4 (UI domain grouping in `ExecutionBoard.tsx`) is now safe to start** — the
 hierarchy columns + reference tables + seeds exist and are verified live.
 
-## Workstream C — Tasks page UI hierarchy (deferred)
+## Workstream C / Ticket 4 — Tasks page UI domain grouping — DONE & VERIFIED 2026-05-19
 
-Add domain grouping + initiative/workstream filter to `ExecutionBoard.tsx` **without** removing
-the Today / This Week / Waiting / Done lanes. Dark operator shell preserved; left nav stays
-≤7 items (Pipeline, Accounting, Contacts, Tasks unchanged).
+PR **#75** merged to `main` (merge commit `8f30791d98d248d0802e49c37c4f5d0d19b21502`).
+Display-only, read-path only — no schema change, no write selectors, no assistant
+retrieval, no Morning Checklist persistence.
+
+**Shipped (5 files, +177/-1):**
+- Backend additive: `execution_tasks.py` `_SELECT_TASK_COLUMNS` adds the 10003 hierarchy
+  columns; `_FROM_TASK` LEFT JOINs `cro_operating_domain`/`cro_initiative`/`cro_workstream`
+  for server-side labels (LEFT JOIN → NULL label for unknown keys, never errors).
+  `consulting.py` `ExecutionTask` schema: new fields all `Optional`/`None`
+  (backward-compatible). `evidence` jsonb intentionally omitted from the board SELECT.
+- Frontend: `cro-api.ts` optional hierarchy fields; `ExecutionBoard.tsx` domain filter
+  strip (All / 5 controlled domains / Ungrouped) with true counts, filtering
+  `tasksByColumn` by `domain_key` — `"All"` default reproduces the original flat board,
+  four lanes untouched; `ExecutionCard.tsx` display-only "Domain → Initiative" crumb with
+  fallback labels, no crumb for flat tasks. Honest empty states throughout.
+
+**Verification:**
+- Backend: AST OK, ruff clean, 16 targeted tests pass. New SELECT + 3 joins verified live
+  against Supabase (`ozboonlsplroialdwuxj`) — no error.
+- Frontend: CI **Frontend Lint + Typecheck + Unit = SUCCESS** (local typecheck not
+  possible — fresh worktree has no `node_modules`; changes are type-additive/optional and
+  were manually reviewed; CI is the authoritative gate and passed).
+- Deployed: backend Railway `authentic-sparkle` (`6bfc0d7a`, SUCCESS); frontend Vercel
+  repo-b (`repo-jr5udqqyd`, Ready) — repo-b does **not** auto-deploy, deployed explicitly.
+- **Production smoke PASSED:** live board API returns HTTP 200 with the new
+  `domain_key`/`domain_label`/`initiative_*`/`workstream_*` fields present (251 tasks),
+  `summary`+`auto_report` intact (backward-compatible). Tasks page returns 307 → `/login`
+  (auth redirect, expected — not a regression).
+
+**Honest data state:** all 251 live tasks currently have NULL `domain_key`
+(`grouped=0, ungrouped=251`). This is expected — Ticket 3 added columns + seeded the
+reference tables, but **assigning** tasks to domains is write-path (future ticket). The
+grouping infra is live and renders all tasks under "Ungrouped"; the four lanes behave
+exactly as before. Activates automatically as tasks get `domain_key` values.
+
+**Ticket 5 (FlowYorker task creation/editing — write-path: domain/initiative selectors
+on quick-capture + drawer) is now safe to start.** The read/display path is proven; the
+next step is letting users assign hierarchy.
 
 ## Workstream D — FlowYorker / Web Properties (deferred)
 
