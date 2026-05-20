@@ -36,6 +36,7 @@ export type OutreachTarget = {
   business_id: string | null;
   crm_account_id: string | null;
   crm_opportunity_id: string | null;  // Phase 2C
+  scaffolded_env_id: string | null;   // Phase 3
   firm_name: string;
   firm_slug: string;
   status: "pending" | "enriching" | "assets_ready" | "microsite_live" | "failed";
@@ -119,10 +120,44 @@ export type EngagementRollup = EngagementSummary & {
   recent_events: EngagementEvent[];
 };
 
+// Phase 3 — scaffolded environment summary. Mirrors backend op_db.env_summary
+// (which itself mirrors environment_pipeline_v2._build_response's URL
+// composition: default_home_route.replace("{env_id}", env_id)).
+export type ScaffoldedEnvSummary = {
+  env_id: string;
+  slug: string;
+  template_key: string;
+  lifecycle_state: string;
+  default_home_route: string | null;
+  theme_accent: string | null;
+  dashboard_url: string | null;
+};
+
+// Phase 3 — gate state surfaced by GET /targets/{id}. `available` is true
+// ONLY when target has business_id + account + assets_ready/microsite_live
+// status + no existing scaffolded_env_id + the "repe" template is active.
+// When env_summary is present, the UI MUST render a success/link state
+// ("Open environment ↗"), NOT a warning — blocking_reason carries
+// "Environment already exists." which is a success signal, not an error.
+export type ScaffoldEnvState = {
+  available: boolean;
+  blocking_reason: string | null;
+  env_summary: ScaffoldedEnvSummary | null;
+  can_recreate: boolean;  // Phase 3.5; always false in Phase 3
+};
+
+// Phase 3 list-view per-target indicator (no N+1 full gate; built from a
+// single bulk lookup in op_db.get_scaffolded_env_id_bulk).
+export type ScaffoldListSummary = {
+  linked: boolean;
+  env_id: string | null;
+};
+
 export type OutreachTargetWithEngagement = OutreachTarget & {
   engagement?: EngagementSummary;
   crm_opportunity?: { crm_opportunity_id: string; name: string; stage_label: string | null } | null;  // Phase 2C list-view
   pipeline?: PipelineListSummary;  // Phase 2C
+  scaffold?: ScaffoldListSummary;  // Phase 3
 };
 
 export type TargetResponse = {
@@ -134,6 +169,7 @@ export type TargetResponse = {
   crm_account?: CrmAccountSummary | null;
   crm_opportunity?: CrmOpportunitySummary | null;  // Phase 2C
   pipeline?: PipelineAdvanceState;                  // Phase 2C
+  scaffold?: ScaffoldEnvState;                      // Phase 3
   engagement?: EngagementRollup;
 };
 
@@ -276,6 +312,27 @@ export function advancePipeline(targetId: string, note?: string) {
     opportunity: MovedOpportunity;
     pipeline: PipelineAdvanceState;
   }>(`${OP_BASE}/targets/${targetId}/advance-pipeline`, {
+    method: "POST",
+    body: JSON.stringify({ note: note ?? null }),
+  });
+}
+
+/**
+ * Phase 3 — scaffold a REPE-flavored outreach environment for this target via
+ * env_v2.create_environment_v2(). Idempotent: a second call with the target
+ * already linked returns 200 with `created=false` and the existing env summary
+ * (same as a successful first call) — NOT a 400. Gate failures (no
+ * business_id, no CRM account, assets not ready, template unavailable, stored
+ * env missing) return 400 with the exact backend blocking_reason. The public
+ * microsite NEVER reaches this endpoint — operator-only.
+ */
+export function scaffoldEnv(targetId: string, note?: string) {
+  return apiFetch<{
+    ok: boolean;
+    created: boolean;
+    env: ScaffoldedEnvSummary | null;
+    scaffold: ScaffoldEnvState;
+  }>(`${OP_BASE}/targets/${targetId}/scaffold-env`, {
     method: "POST",
     body: JSON.stringify({ note: note ?? null }),
   });
