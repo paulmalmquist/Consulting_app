@@ -83,16 +83,38 @@ def _contract_row(env_id, promotion_state="verified", **over):
     return base
 
 
-def _queue_gate(cur, env_row, contract_row, *, template_active=True):
-    """Queue the FakeCursor sequence for assert_environment_promotable:
+def _queue_gate(
+    cur,
+    env_row,
+    contract_row,
+    *,
+    template_active=True,
+    cap_table_present=True,
+    bound_caps=("repe",),
+):
+    """Queue the FakeCursor sequence for assert_environment_promotable (post-3a):
 
     verify_environment_contract(materialize=True):
       get_or_derive_contract: contract HIT (return early)
-      verify block: env row -> template active probe -> materialize UPDATE (no fetch)
+      verify block: env row
+                    -> _capability_checks: to_regclass probe
+                                           -> bound-caps SELECT (table present and
+                                              the contract requires ['repe'])
+                    -> template active probe
+                    -> materialize UPDATE (no fetch)
     gate's own block: contract row -> env row
     """
     cur.push_result([contract_row])  # get_or_derive: contract hit
     cur.push_result([env_row])  # verify: _load_env_row
+    cur.push_result(
+        [{"t": "app.environment_capabilities"}]
+        if cap_table_present
+        else [{"t": None}]
+    )  # to_regclass
+    if cap_table_present:
+        cur.push_result(
+            [{"capability_key": c} for c in bound_caps]
+        )  # bound-caps SELECT
     cur.push_result([{"1": 1}] if template_active else [])  # template probe
     # materialize UPDATE: no fetch
     cur.push_result([contract_row])  # gate: _load_contract_row
@@ -102,13 +124,14 @@ def _queue_gate(cur, env_row, contract_row, *, template_active=True):
 # ── Gate fail-closed ─────────────────────────────────────────────────────────
 
 
-def test_gate_blocks_release_when_capability_not_eligible(fake_cursor):
-    """staging/released require eligible_for_promotion; capability binding is
-    not_available/blocking in Ticket 1 (Phase 3a makes it data-driven), so the
-    gate must refuse with 409 not_eligible."""
+def test_gate_blocks_release_when_required_capability_unbound(fake_cursor):
+    """staging/released require eligible_for_promotion. With the required 'repe'
+    capability NOT bound, the verifier fails closed (capability.required_resolvable
+    = fail) so the gate refuses release with 409 not_eligible. (Phase 3a: the block
+    is now data-driven, not a hard-coded not_available.)"""
     env = _env_row(lifecycle_state="verified")
     contract = _contract_row(env["env_id"], promotion_state="staging")
-    _queue_gate(fake_cursor, env, contract)
+    _queue_gate(fake_cursor, env, contract, bound_caps=("unrelated_cap",))
 
     with pytest.raises(HTTPException) as ei:
         svc.assert_environment_promotable(
@@ -116,7 +139,9 @@ def test_gate_blocks_release_when_capability_not_eligible(fake_cursor):
         )
     assert ei.value.status_code == 409
     assert ei.value.detail["code"] == "not_eligible"
-    assert ei.value.detail["blocking_failures"]
+    assert "capability.required_resolvable" in ei.value.detail[
+        "blocking_failures"
+    ]
 
 
 def test_gate_blocks_illegal_transition(fake_cursor):

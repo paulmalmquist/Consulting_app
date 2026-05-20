@@ -41,13 +41,6 @@ from app.services.environment_seed_packs_v2 import SEED_PACKS
 
 SERVICE = "environment_contract_v2"
 
-# Capability binding is a no-op in environment_pipeline_v2._apply_template_metadata
-# and there is no app.environment_capabilities table yet (verified absent in prod).
-# Until Phase 3 implements it, capability checks MUST report not_available/blocking —
-# never a silent pass. This is the single most dangerous failure mode.
-# (Phase 3a flips this to True once 10030 environment_capabilities lands.)
-_CAPABILITY_BINDING_IMPLEMENTED = False
-
 # Promotion state machine (DB-enforced by the promotion-guard migration's
 # environment_contract_enforce_promotion trigger; mirrored here so the gate fails
 # closed with a clean 4xx before the DB ever raises). Keep in lockstep with the migration.
@@ -301,36 +294,92 @@ def _seed_checks(
     return checks
 
 
-def _capability_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
-    # Hard fail-closed: binding is unimplemented and there is no capability table.
-    # Reporting pass here would be the worst failure mode in the whole system.
-    if not _CAPABILITY_BINDING_IMPLEMENTED:
+def _capability_checks(
+    cur, contract: EnvironmentContractOut
+) -> list[ContractCheck]:
+    """Resolve the contract's required_capabilities against the authoritative
+    app.environment_capabilities bindings. Fail-closed: a required capability with
+    no enabled binding row is blocking; the binding table not existing at all is
+    blocking (not_available), never a silent pass."""
+    checks: list[ContractCheck] = []
+
+    # binding_implemented = is the capability registry actually present? If the
+    # table is missing (pre-10030 env) this MUST stay not_available/blocking.
+    try:
+        cur.execute("SELECT to_regclass('app.environment_capabilities') AS t")
+        row = cur.fetchone()
+        table_present = bool(row and row.get("t"))
+    except Exception:
+        table_present = False
+
+    if not table_present:
         return [
             _check(
                 "capability.binding_implemented",
                 "not_available",
                 "blocking",
-                "capability binding not implemented "
-                "(environment_pipeline_v2._apply_template_metadata is a no-op; "
-                "no app.environment_capabilities table) — Phase 3",
+                "app.environment_capabilities not present (migration 10030 not "
+                "applied) — capability binding cannot be proven",
             ),
             _check(
                 "capability.required_resolvable",
                 "unknown",
                 "blocking",
                 f"cannot resolve {len(contract.required_capabilities)} required "
-                "capabilities while binding is not_available",
+                "capabilities while the binding table is not_available",
             ),
         ]
-    # Unreachable in Ticket 1; kept so the flip in Phase 3 is a one-line change.
-    return [
+
+    checks.append(
         _check(
             "capability.binding_implemented",
             "pass",
             "blocking",
-            "capability binding implemented",
+            "capability binding registry present (app.environment_capabilities)",
         )
-    ]
+    )
+
+    required = list(contract.required_capabilities)
+    if not required:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "pass",
+                "blocking",
+                "contract requires no capabilities",
+            )
+        )
+        return checks
+
+    cur.execute(
+        """SELECT capability_key
+             FROM app.environment_capabilities
+            WHERE env_id = %s::uuid AND enabled = true""",
+        (contract.env_id,),
+    )
+    bound = {r["capability_key"] for r in cur.fetchall()}
+    missing = sorted(set(required) - bound)
+
+    if missing:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "fail",
+                "blocking",
+                f"required capabilities not bound/enabled for this env: "
+                f"{missing} (data_not_ingested)",
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "pass",
+                "blocking",
+                f"all {len(required)} required capabilities bound and enabled",
+            )
+        )
+    return checks
 
 
 def _runtime_checks(
@@ -489,7 +538,7 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
         env_row = _load_env_row(cur, env_id) or {}
         checks: list[ContractCheck] = []
         checks += _seed_checks(contract, env_row)
-        checks += _capability_checks(contract)
+        checks += _capability_checks(cur, contract)
         checks += _runtime_checks(contract, env_row)
         checks.append(_runtime_backend_check(cur, contract))
         checks += _ai_runtime_checks(contract)

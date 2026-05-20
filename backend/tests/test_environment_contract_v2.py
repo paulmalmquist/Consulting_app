@@ -33,17 +33,42 @@ def _env_row(**over):
     return base
 
 
-def _queue_verify_sequence(cur, env_row, *, template_active=True):
-    """Queue FakeCursor results for the full verify_environment_contract path:
+def _queue_verify_sequence(
+    cur,
+    env_row,
+    *,
+    template_active=True,
+    cap_table_present=True,
+    bound_caps=("repe",),
+):
+    """Queue FakeCursor results for the verify path (post-Phase-3a):
 
     get_or_derive_contract: contract miss -> env row -> INSERT -> re-read contract
-    verify: env row -> template active probe -> UPDATE (no fetch).
+    verify block: env row
+                  -> _capability_checks: to_regclass probe
+                                         -> bound-capabilities SELECT (only when
+                                            the table is present AND the contract
+                                            requires capabilities; the derived
+                                            contract requires
+                                            template.enabled_modules = ['repe'])
+                  -> runtime backend template active probe
+                  -> UPDATE last_verification (no fetch, only when
+                     materialize=True; default GET /verify uses materialize=False).
     """
     cur.push_result([])  # _load_contract_row miss
     cur.push_result([env_row])  # _load_env_row
     # INSERT consumes no result
     cur.push_result([])  # re-read _load_contract_row after insert (race fallback)
     cur.push_result([env_row])  # verify: _load_env_row
+    cur.push_result(
+        [{"t": "app.environment_capabilities"}]
+        if cap_table_present
+        else [{"t": None}]
+    )  # to_regclass
+    if cap_table_present:
+        # bound-capabilities SELECT (required_capabilities derived from template
+        # is non-empty for the repe fixture, so this query runs)
+        cur.push_result([{"capability_key": c} for c in bound_caps])
     cur.push_result([{"1": 1}] if template_active else [])  # template active probe
     # UPDATE last_verification consumes no result
 
@@ -82,23 +107,62 @@ def test_v2_env_without_template_is_not_contract_governed(fake_cursor):
         svc.get_or_derive_contract(env["env_id"])
 
 
-def test_capability_binding_blocks_promotion_even_when_healthy(fake_cursor):
-    """The critical no-silent-pass assertion: a structurally healthy env still
-    fails eligibility because capability binding is not_available/blocking."""
-    env = _env_row()  # seed applied + matching version + home route + active template
-    _queue_verify_sequence(fake_cursor, env, template_active=True)
+def test_capability_table_absent_is_not_available_blocking(fake_cursor):
+    """Fail-closed: if app.environment_capabilities is not present (migration
+    10006 not applied), binding cannot be proven — not_available/blocking, never
+    silent pass."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, cap_table_present=False
+    )
 
     report = svc.verify_environment_contract(env["env_id"])
 
     by_key = {c.key: c for c in report.checks}
     assert by_key["capability.binding_implemented"].status == "not_available"
     assert by_key["capability.binding_implemented"].severity == "blocking"
+    assert by_key["capability.required_resolvable"].status == "unknown"
     assert "capability.binding_implemented" in report.blocking_failures
     assert report.eligible_for_promotion is False
-    assert report.health_ok is False
-    # seed + runtime backend genuinely pass; only blocking unknowns hold it back
+
+
+def test_all_required_capabilities_bound_passes(fake_cursor):
+    """Phase 3a happy path: binding table present and every required capability
+    (derived from template.enabled_modules = ['repe']) is bound+enabled. AI
+    behavior contract and runtime_mode are still blocking, so eligibility stays
+    False — but capability checks themselves are NOT in blocking_failures."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, bound_caps=("repe",)
+    )
+
+    report = svc.verify_environment_contract(env["env_id"])
+
+    by_key = {c.key: c for c in report.checks}
+    assert by_key["capability.binding_implemented"].status == "pass"
+    assert by_key["capability.required_resolvable"].status == "pass"
+    assert "capability.binding_implemented" not in report.blocking_failures
+    assert "capability.required_resolvable" not in report.blocking_failures
     assert by_key["seed.pack_present"].status == "pass"
     assert by_key["runtime.backend_reachable"].status == "pass"
+
+
+def test_missing_required_capability_blocks_fail_closed(fake_cursor):
+    """Required 'repe' (from template) not among bound capabilities -> blocking
+    fail. Bound rows present but the required one absent."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, bound_caps=("some_other_cap",)
+    )
+
+    report = svc.verify_environment_contract(env["env_id"])
+
+    by_key = {c.key: c for c in report.checks}
+    assert by_key["capability.binding_implemented"].status == "pass"
+    assert by_key["capability.required_resolvable"].status == "fail"
+    assert "repe" in by_key["capability.required_resolvable"].message
+    assert "capability.required_resolvable" in report.blocking_failures
+    assert report.eligible_for_promotion is False
 
 
 def test_eligible_property_matches_blocking_failures(fake_cursor):

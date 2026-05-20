@@ -201,3 +201,75 @@ def test_idempotent_reuses_existing_slug(fake_cursor):
     create_stage = next(s for s in resp.stages if s.name == "create_rows")
     assert create_stage.status == "skipped"
     assert any("already exists" in w for w in resp.warnings)
+
+
+# ── Phase 3a: capability binding (apply_template_metadata) ───────────────────
+
+
+def test_apply_template_metadata_binds_enabled_modules(fake_cursor):
+    """Binds exactly the template's enabled_modules (['crm','tasks']) into
+    app.environment_capabilities, source='template', idempotent via ON CONFLICT."""
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=dict(_TEMPLATE_ROW),
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="internal_ops_minimal",
+        env_id="00000000-0000-0000-0000-0000000000aa",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    cap_inserts = [
+        (q, p)
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_capabilities" in q
+    ]
+    assert len(cap_inserts) == 2  # crm + tasks, nothing inferred beyond template
+    for q, _ in cap_inserts:
+        assert "ON CONFLICT (env_id, capability_key) DO UPDATE" in q
+        assert "'template'" in q  # source pinned to template
+    bound_keys = {p[1] for _, p in cap_inserts}
+    assert bound_keys == {"crm", "tasks"}
+
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.status == "ok"
+    assert stage.artifacts["rows_created"] == 2
+    assert set(stage.artifacts["bound"]) == {"crm", "tasks"}
+
+
+def test_apply_template_metadata_binds_nothing_when_no_modules(fake_cursor):
+    """A template with no enabled_modules binds nothing — and reports ok with
+    rows_created=0 (the env will then fail closed at the verifier if its contract
+    requires capabilities)."""
+    tpl = dict(_TEMPLATE_ROW)
+    tpl["enabled_modules"] = []
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=tpl,
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="empty",
+        env_id="00000000-0000-0000-0000-0000000000bb",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    assert not [
+        q
+        for q, _ in fake_cursor.queries
+        if "INSERT INTO app.environment_capabilities" in q
+    ]
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.status == "ok"
+    assert stage.artifacts["rows_created"] == 0
