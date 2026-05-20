@@ -126,6 +126,7 @@ from app.schemas.consulting import (
     ExecutionTaskCreate,
     ExecutionTaskUpdate,
     ExecutionHierarchyOptions,
+    MorningChecklistOut,
     ExecutionBoardOutV2,
     GenerateActionsRequest,
     GenerateActionsResponse,
@@ -198,6 +199,7 @@ from app.services import (
     execution_tasks as execution_tasks_svc,
     execution_auto,
     execution_actions,
+    morning_checklist as morning_checklist_svc,
     execution_quick_capture,
     engagement_routing as engagement_routing_svc,
 )
@@ -2605,6 +2607,28 @@ def execution_hierarchy_options_route(
     degrades cleanly rather than fabricating choices."""
     try:
         return execution_tasks_svc.list_hierarchy_options(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get(
+    "/execution/morning-checklist",
+    response_model=MorningChecklistOut,
+)
+def execution_morning_checklist_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Daily Operator Brief — read-time-generated from cro_execution_task.
+
+    No persistence, no schema change, no task mutation. Empty board returns
+    sections with `items: []` rather than erroring (honest empty state).
+    Suggested prompts are display-only and grounded in real task state
+    (assistant retrieval is a later ticket)."""
+    try:
+        return morning_checklist_svc.build_morning_checklist(
             env_id=env_id, business_id=business_id,
         )
     except Exception as exc:

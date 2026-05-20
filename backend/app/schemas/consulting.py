@@ -1783,6 +1783,62 @@ class ExecutionHierarchyOptions(BaseModel):
     workstreams: list[ExecutionHierarchyOption]
 
 
+# ── Morning Checklist (Ticket 6) ─────────────────────────────────────────────
+# Read-time-generated daily brief derived from cro_execution_task. No
+# persistence, no schema change. Items may also appear in their domain
+# section because the brief is a view, not a partition.
+
+
+class MorningChecklistItem(BaseModel):
+    task_id: str
+    title: str | None = None
+    reason: str
+    domain_key: str | None = None
+    domain_label: str | None = None
+    initiative_key: str | None = None
+    initiative_label: str | None = None
+    workstream_key: str | None = None
+    workstream_label: str | None = None
+    next_action: str | None = None
+    status: str | None = None
+    impact: int | None = None
+    due_date: str | None = None
+    revenue_tag: str | None = None
+    blocked_reason: str | None = None
+    related_url: str | None = None
+
+
+class MorningChecklistSuggestedPrompt(BaseModel):
+    key: str
+    prompt: str
+    reason: str
+
+
+class MorningChecklistSection(BaseModel):
+    key: str
+    label: str
+    # Items are heterogeneous: most sections hold MorningChecklistItem;
+    # suggested_prompts holds MorningChecklistSuggestedPrompt. Keep loose
+    # to avoid a discriminated-union schema explosion for a read-only view.
+    items: list[dict]
+
+
+class MorningChecklistSummary(BaseModel):
+    total_items: int = 0
+    overdue_count: int = 0
+    blocked_count: int = 0
+    web_properties_count: int = 0
+    outreach_count: int = 0
+    coding_count: int = 0
+    admin_count: int = 0
+
+
+class MorningChecklistOut(BaseModel):
+    date: str
+    sections: list[MorningChecklistSection]
+    summary: MorningChecklistSummary
+
+
 class ExecutionBoardSummary(BaseModel):
     today_count: int
     this_week_count: int
