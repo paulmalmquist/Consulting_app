@@ -91,16 +91,25 @@ def _queue_gate(
     template_active=True,
     cap_table_present=True,
     bound_caps=("repe",),
+    ai_table_present=True,
+    ai_rows=(
+        {
+            "contract_key": "default",
+            "contract_version": "ai_behavior_v1",
+            "enabled": True,
+        },
+    ),
 ):
-    """Queue the FakeCursor sequence for assert_environment_promotable (post-3a):
+    """Queue the FakeCursor sequence for assert_environment_promotable (post-3a+3c):
 
     verify_environment_contract(materialize=True):
       get_or_derive_contract: contract HIT (return early)
       verify block: env row
-                    -> _capability_checks: to_regclass probe
-                                           -> bound-caps SELECT (table present and
-                                              the contract requires ['repe'])
-                    -> template active probe
+                    -> _capability_checks: cap to_regclass probe
+                                           -> bound-caps SELECT
+                    -> runtime backend template probe
+                    -> _behavior_contract_check: ai to_regclass probe
+                                                 -> ai rows SELECT
                     -> materialize UPDATE (no fetch)
     gate's own block: contract row -> env row
     """
@@ -110,12 +119,19 @@ def _queue_gate(
         [{"t": "app.environment_capabilities"}]
         if cap_table_present
         else [{"t": None}]
-    )  # to_regclass
+    )  # cap to_regclass
     if cap_table_present:
         cur.push_result(
             [{"capability_key": c} for c in bound_caps]
         )  # bound-caps SELECT
     cur.push_result([{"1": 1}] if template_active else [])  # template probe
+    cur.push_result(
+        [{"t": "app.environment_ai_behavior_contracts"}]
+        if ai_table_present
+        else [{"t": None}]
+    )  # ai to_regclass
+    if ai_table_present:
+        cur.push_result([dict(r) for r in ai_rows])  # ai behavior rows
     # materialize UPDATE: no fetch
     cur.push_result([contract_row])  # gate: _load_contract_row
     cur.push_result([env_row])  # gate: _load_env_row

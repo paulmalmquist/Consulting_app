@@ -40,18 +40,25 @@ def _queue_verify_sequence(
     template_active=True,
     cap_table_present=True,
     bound_caps=("repe",),
+    ai_table_present=True,
+    ai_rows=(
+        {
+            "contract_key": "default",
+            "contract_version": "ai_behavior_v1",
+            "enabled": True,
+        },
+    ),
 ):
-    """Queue FakeCursor results for the verify path (post-Phase-3a):
+    """Queue FakeCursor results for the verify path (post-Phase-3a + 3c):
 
     get_or_derive_contract: contract miss -> env row -> INSERT -> re-read contract
     verify block: env row
-                  -> _capability_checks: to_regclass probe
-                                         -> bound-capabilities SELECT (only when
-                                            the table is present AND the contract
-                                            requires capabilities; the derived
-                                            contract requires
-                                            template.enabled_modules = ['repe'])
+                  -> _capability_checks: cap to_regclass probe
+                                         -> bound-caps SELECT (table present and
+                                            the contract requires capabilities)
                   -> runtime backend template active probe
+                  -> _behavior_contract_check: ai to_regclass probe
+                                               -> ai rows SELECT (table present)
                   -> UPDATE last_verification (no fetch, only when
                      materialize=True; default GET /verify uses materialize=False).
     """
@@ -64,13 +71,17 @@ def _queue_verify_sequence(
         [{"t": "app.environment_capabilities"}]
         if cap_table_present
         else [{"t": None}]
-    )  # to_regclass
+    )  # cap to_regclass
     if cap_table_present:
-        # bound-capabilities SELECT (required_capabilities derived from template
-        # is non-empty for the repe fixture, so this query runs)
         cur.push_result([{"capability_key": c} for c in bound_caps])
     cur.push_result([{"1": 1}] if template_active else [])  # template active probe
-    # UPDATE last_verification consumes no result
+    cur.push_result(
+        [{"t": "app.environment_ai_behavior_contracts"}]
+        if ai_table_present
+        else [{"t": None}]
+    )  # ai to_regclass
+    if ai_table_present:
+        cur.push_result([dict(r) for r in ai_rows])  # ai behavior rows
 
 
 def test_derive_contract_when_no_row(fake_cursor):
@@ -222,13 +233,79 @@ def test_dangling_template_is_runtime_backend_fail(fake_cursor):
     assert "runtime.backend_reachable" in report.blocking_failures
 
 
-def test_ai_behavior_contract_absent_is_missing_blocking(fake_cursor):
+def test_ai_behavior_table_absent_is_not_available_blocking(fake_cursor):
+    """Migration 10007 not applied -> not_available/blocking, never silent pass."""
     env = _env_row()
-    _queue_verify_sequence(fake_cursor, env)
+    _queue_verify_sequence(fake_cursor, env, ai_table_present=False)
     report = svc.verify_environment_contract(env["env_id"])
-    by_key = {c.key: c for c in report.checks}
-    assert by_key["ai_runtime.behavior_contract_present"].status == "missing"
-    assert by_key["ai_runtime.behavior_contract_present"].severity == "blocking"
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "not_available"
+    assert c.severity == "blocking"
+    assert "ai_runtime.behavior_contract_present" in report.blocking_failures
+
+
+def test_ai_behavior_no_row_is_missing_blocking(fake_cursor):
+    """Table present but no row for this env -> missing/blocking."""
+    env = _env_row()
+    _queue_verify_sequence(fake_cursor, env, ai_rows=())
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "missing"
+    assert c.severity == "blocking"
+    assert report.eligible_for_promotion is False
+
+
+def test_ai_behavior_disabled_row_is_fail_blocking(fake_cursor):
+    """Row exists but disabled -> fail/blocking (distinct from missing)."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor,
+        env,
+        ai_rows=(
+            {
+                "contract_key": "default",
+                "contract_version": "ai_behavior_v1",
+                "enabled": False,
+            },
+        ),
+    )
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "fail"
+    assert c.severity == "blocking"
+    assert "disabled" in c.message
+
+
+def test_ai_behavior_unsupported_version_is_fail_blocking(fake_cursor):
+    """Enabled row with unsupported contract_version -> malformed -> fail/blocking,
+    never a silent pass."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor,
+        env,
+        ai_rows=(
+            {
+                "contract_key": "default",
+                "contract_version": "ai_behavior_v99",
+                "enabled": True,
+            },
+        ),
+    )
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "fail"
+    assert c.severity == "blocking"
+    assert "unsupported" in c.message or "malformed" in c.message
+
+
+def test_ai_behavior_valid_enabled_row_passes(fake_cursor):
+    """A single enabled, supported-version row -> pass."""
+    env = _env_row()
+    _queue_verify_sequence(fake_cursor, env)  # default ai_rows = valid v1 enabled
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "pass"
+    assert "ai_runtime.behavior_contract_present" not in report.blocking_failures
 
 
 def test_eval_checks_are_warning_not_blocking(fake_cursor):

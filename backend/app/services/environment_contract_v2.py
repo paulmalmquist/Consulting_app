@@ -59,6 +59,13 @@ _LEGAL_TRANSITIONS: dict[str, set[str]] = {
 _STATES_REQUIRING_ELIGIBILITY: set[str] = {"staging", "released"}
 _LIFECYCLE_OK_FOR_PROMOTION: set[str] = {"verified", "live"}
 
+# AI behavior contract (Phase 3c): a per-env row in
+# app.environment_ai_behavior_contracts declares which behavior contract applies.
+# Supported version is pinned to the AI runtime's CONTRACT_VERSION ("v1") so the
+# governance layer and runtime cannot silently diverge. An enabled row whose
+# version is not in this set is treated as malformed -> blocking fail, never pass.
+_SUPPORTED_AI_BEHAVIOR_VERSIONS: set[str] = {"ai_behavior_v1"}
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -450,18 +457,95 @@ def _runtime_backend_check(cur, contract: EnvironmentContractOut) -> ContractChe
     )
 
 
-def _ai_runtime_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
-    checks: list[ContractCheck] = []
-    # No per-env AI behavior contract registry exists in code yet — report missing,
-    # do not invent a pass.
-    checks.append(
-        _check(
+def _behavior_contract_check(
+    cur, contract: EnvironmentContractOut
+) -> ContractCheck:
+    """Resolve ai_runtime.behavior_contract_present from
+    app.environment_ai_behavior_contracts. Fail-closed and explicit:
+
+      * table absent (migration 10031 not applied) -> not_available / blocking
+      * no row for this env                          -> missing / blocking
+      * row exists but enabled = false               -> fail / blocking
+      * row exists but contract_version unsupported  -> fail / blocking (malformed)
+      * a single enabled, supported row              -> pass
+
+    This is a presence/validity check only — it does NOT re-implement or re-validate
+    AI runtime behavior; contract_enforcer.py remains the runtime source of truth.
+    """
+    try:
+        cur.execute(
+            "SELECT to_regclass('app.environment_ai_behavior_contracts') AS t"
+        )
+        row = cur.fetchone()
+        table_present = bool(row and row.get("t"))
+    except Exception:
+        table_present = False
+
+    if not table_present:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "not_available",
+            "blocking",
+            "app.environment_ai_behavior_contracts not present (migration 10031 "
+            "not applied) — AI behavior contract cannot be proven",
+        )
+
+    cur.execute(
+        """SELECT contract_key, contract_version, enabled
+             FROM app.environment_ai_behavior_contracts
+            WHERE env_id = %s::uuid""",
+        (contract.env_id,),
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+
+    if not rows:
+        return _check(
             "ai_runtime.behavior_contract_present",
             "missing",
             "blocking",
-            "no per-env AI behavior contract registry (Phase 3)",
+            "no AI behavior contract declared for this environment "
+            "(out_of_scope_environment)",
         )
+
+    enabled_rows = [r for r in rows if r.get("enabled")]
+    if not enabled_rows:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "fail",
+            "blocking",
+            "AI behavior contract row(s) exist but all are disabled "
+            f"({sorted(r['contract_key'] for r in rows)})",
+        )
+
+    unsupported = [
+        r
+        for r in enabled_rows
+        if r.get("contract_version") not in _SUPPORTED_AI_BEHAVIOR_VERSIONS
+    ]
+    if unsupported:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "fail",
+            "blocking",
+            "AI behavior contract version unsupported/malformed: "
+            f"{sorted(set(r.get('contract_version') for r in unsupported))} "
+            f"(supported: {sorted(_SUPPORTED_AI_BEHAVIOR_VERSIONS)})",
+        )
+
+    return _check(
+        "ai_runtime.behavior_contract_present",
+        "pass",
+        "blocking",
+        f"AI behavior contract present and enabled: "
+        f"{sorted(r['contract_key'] for r in enabled_rows)}",
     )
+
+
+def _ai_runtime_checks(
+    cur, contract: EnvironmentContractOut
+) -> list[ContractCheck]:
+    checks: list[ContractCheck] = []
+    checks.append(_behavior_contract_check(cur, contract))
     if contract.required_eval_suite:
         checks.append(
             _check(
@@ -541,7 +625,7 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
         checks += _capability_checks(cur, contract)
         checks += _runtime_checks(contract, env_row)
         checks.append(_runtime_backend_check(cur, contract))
-        checks += _ai_runtime_checks(contract)
+        checks += _ai_runtime_checks(cur, contract)
         checks += _eval_checks(contract)
 
         blocking_failures = [
