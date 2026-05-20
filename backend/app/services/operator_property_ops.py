@@ -18,6 +18,7 @@ FIXTURE_PATH = (
 )
 LOCAL_ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "ml"
 ARTIFACT_ROOT = LOCAL_ARTIFACT_ROOT
+DATABRICKS_ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "databricks"
 BUNDLED_ARTIFACT_ROOT = (
     Path(__file__).resolve().parent.parent
     / "fixtures"
@@ -786,6 +787,7 @@ def recommendations_with_ml() -> dict[str, Any]:
 def ml_risk_predictions(*, property_id: str | None = None, artifact_root: Path | None = None) -> dict[str, Any]:
     metadata = get_dataset()["metadata"]
     root = artifact_root or _default_ml_artifact_root()
+    databricks = databricks_run_status()
     required = [
         root / "predictions.csv",
         root / "model_metrics.json",
@@ -800,6 +802,10 @@ def ml_risk_predictions(*, property_id: str | None = None, artifact_root: Path |
             "model_metrics": None,
             "feature_importance": [],
             "model_registry": None,
+            "databricks_status": databricks["databricks_status"],
+            "databricks_run_id": databricks.get("databricks_run_id"),
+            "databricks_run_url": databricks.get("databricks_run_url"),
+            "databricks_receipt": databricks.get("databricks_receipt"),
             "missing_artifacts": [str(path) for path in required if not path.exists()],
         }
 
@@ -835,6 +841,47 @@ def ml_risk_predictions(*, property_id: str | None = None, artifact_root: Path |
         "model_metrics": metrics,
         "feature_importance": feature_importance,
         "model_registry": registry,
+        "databricks_status": databricks["databricks_status"],
+        "databricks_run_id": databricks.get("databricks_run_id"),
+        "databricks_run_url": databricks.get("databricks_run_url"),
+        "databricks_receipt": databricks.get("databricks_receipt"),
+    }
+
+
+def databricks_run_status(*, artifact_root: Path | None = None) -> dict[str, Any]:
+    """Return Databricks execution receipt status without shelling out at request time."""
+
+    root = artifact_root or DATABRICKS_ARTIFACT_ROOT
+    completed_path = root / "databricks_run_receipt.json"
+    attempt_path = root / "databricks_run_attempt_receipt.json"
+    if completed_path.exists():
+        receipt = json.loads(completed_path.read_text(encoding="utf-8"))
+        status = str(receipt.get("status") or "").lower()
+        completed = bool(receipt.get("databricks_executed")) and status in {
+            "completed",
+            "success",
+            "succeeded",
+            "terminated",
+        }
+        return {
+            "databricks_status": "completed" if completed else "attempted_failed",
+            "databricks_run_id": receipt.get("run_id"),
+            "databricks_run_url": receipt.get("run_page_url"),
+            "databricks_receipt": receipt,
+        }
+    if attempt_path.exists():
+        receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
+        return {
+            "databricks_status": receipt.get("databricks_status") or "attempted_failed",
+            "databricks_run_id": receipt.get("run_id"),
+            "databricks_run_url": receipt.get("run_page_url"),
+            "databricks_receipt": receipt,
+        }
+    return {
+        "databricks_status": "not_run",
+        "databricks_run_id": None,
+        "databricks_run_url": None,
+        "databricks_receipt": None,
     }
 
 

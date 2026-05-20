@@ -10489,6 +10489,10 @@ export interface OperatorPropertyOpsMlPrediction {
 
 export interface OperatorPropertyOpsMlRisk extends OperatorPropertyOpsMetadata {
   ml_status: "available" | "not_available" | string;
+  databricks_status: "not_configured" | "not_run" | "attempted_failed" | "completed" | string;
+  databricks_run_id?: string | null;
+  databricks_run_url?: string | null;
+  databricks_receipt?: Record<string, unknown> | null;
   predictions: OperatorPropertyOpsMlPrediction[];
   model_metrics: Record<string, unknown> | null;
   feature_importance: Array<Record<string, string>>;

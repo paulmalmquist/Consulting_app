@@ -61,7 +61,13 @@ function statusTone(value: string) {
   if (lower.includes("high") || lower.includes("blocked") || lower.includes("not_available")) {
     return "border-rose-300 bg-rose-50 text-rose-800";
   }
-  if (lower.includes("medium") || lower.includes("review") || lower.includes("planned") || lower.includes("draft")) {
+  if (
+    lower.includes("medium") ||
+    lower.includes("review") ||
+    lower.includes("planned") ||
+    lower.includes("draft") ||
+    lower.includes("not_run")
+  ) {
     return "border-amber-300 bg-amber-50 text-amber-800";
   }
   if (lower.includes("low") || lower.includes("ready") || lower.includes("available") || lower.includes("complete")) {
@@ -140,6 +146,13 @@ function firstMlPrediction(
 
 function driverLabel(driver: OperatorPropertyOpsDriver) {
   return driver.feature.replaceAll("_", " ").replaceAll("__", ": ");
+}
+
+function databricksStatusLabel(mlRisk: OperatorPropertyOpsMlRisk) {
+  if (mlRisk.databricks_status === "completed") return "Databricks run completed";
+  if (mlRisk.databricks_status === "attempted_failed") return "Databricks attempted_failed";
+  if (mlRisk.databricks_status === "not_configured") return "Databricks not_configured";
+  return "Databricks not_run";
 }
 
 export function PropertyOpsIntelligencePage({ envId }: { envId: string }) {
@@ -258,7 +271,7 @@ export function PropertyOpsIntelligencePage({ envId }: { envId: string }) {
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <StatusPill value="Synthetic demo data" />
-                <StatusPill value="Databricks-ready" />
+                <StatusPill value={bundle.mlRisk.databricks_status === "completed" ? "Databricks run completed" : "Databricks-ready"} />
                 <StatusPill value="No fake export success" />
                 <StatusPill value={bundle.mlRisk.ml_status === "available" ? "ML ready" : "ML not_available"} />
               </div>
@@ -577,7 +590,7 @@ function DataFlowTab() {
           {[
             ["Quality gates", "duplicate detection, stale input checks, category normalization"],
             ["Resolution rules", "exact ID, address, fuzzy name, geospatial placeholder"],
-            ["Fail-soft states", "not_available, needs review, missing artifact, stale input"],
+            ["Fail-soft states", "not_available, not_run, attempted_failed, needs review, missing artifact, stale input"],
             ["Product outputs", "APIs, demo page, workbook, deck, microsite, email draft"],
           ].map(([title, text]) => (
             <div key={title} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
@@ -629,6 +642,23 @@ function MlRiskTab({
             Status: <StatusPill value={mlRisk.ml_status} />
           </div>
           <div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">
+            Databricks: <StatusPill value={databricksStatusLabel(mlRisk)} />
+          </div>
+          {mlRisk.databricks_status === "completed" ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">
+              Run ID: {mlRisk.databricks_run_id || "recorded"}{" "}
+              {mlRisk.databricks_run_url ? (
+                <a className="underline" href={mlRisk.databricks_run_url} target="_blank" rel="noreferrer">
+                  Open receipt
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+              Databricks-ready; live run not yet completed. Do not claim Databricks execution without a successful receipt.
+            </div>
+          )}
+          <div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">
             Accuracy: {String(mlRisk.model_metrics?.accuracy ?? "N/A")}
           </div>
           <div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">
@@ -656,7 +686,7 @@ function AutomationTab() {
   const rows = [
     ["Recruiter thread", "Outlook WinCOM skill", "Search + summarize", "Read-only", "Requirements brief"],
     ["Demo data update", "Benchmark engine", "Recompute KPIs", "Deterministic tests", "Metric cards + evidence"],
-    ["ML proof", "Databricks-ready notebook", "Train local fallback", "Receipt required", "Predictions + model card"],
+    ["ML proof", "Databricks-ready notebook", "Train local fallback or Databricks job", "Receipt required", "Predictions + model card"],
     ["Artifact request", "Workbook/deck runner", "Generate Excel + PPT", "File validation", "Shareable gated package"],
     ["Follow-up needed", "Outlook draft skill", "Create email draft", "Explicit send gate", "Draft only"],
   ];
@@ -698,6 +728,7 @@ function ArtifactFactoryTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) {
     [Mail, "Outlook Draft", "Recruiter follow-up via WinCOM params", "Template ready"],
     [Sparkles, "Gated Microsite", "Invite-code HappyCo proof package", "Ready"],
     [Database, "ML Artifacts", "Feature table, predictions, model card", mlRisk.ml_status === "available" ? "Ready" : "not_available"],
+    [Sparkles, "Databricks Receipt", "Run id, notebook path, output paths, claim controls", mlRisk.databricks_status === "completed" ? "Completed" : "not_run"],
   ] as const;
   return (
     <div className="space-y-6">
@@ -726,6 +757,7 @@ function BuildLogTab() {
     ["Ticket 1", "Plan expansion", "Complete"],
     ["Ticket 2", "Canonical seed data", "Complete"],
     ["Ticket 3A", "ML risk proof", "Complete"],
+    ["Ticket 3B", "Live Databricks run receipt", "Pending receipt"],
     ["Ticket 3", "Operator APIs", "Complete"],
     ["Ticket 4", "Frontend demo", "Complete"],
     ["Ticket 6/7", "Excel + PowerPoint", "Complete"],

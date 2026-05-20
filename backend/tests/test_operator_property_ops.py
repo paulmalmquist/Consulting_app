@@ -159,6 +159,7 @@ def test_graph_exposes_nodes_and_edges_for_property_ops_chain():
 def test_operator_property_ops_api_endpoints_return_demo_payloads(client, monkeypatch, tmp_path):
     monkeypatch.setattr(operator_routes, "_resolve_context", _resolver)
     monkeypatch.setattr(svc, "ARTIFACT_ROOT", tmp_path / "missing-ml")
+    monkeypatch.setattr(svc, "DATABRICKS_ARTIFACT_ROOT", tmp_path / "missing-databricks")
 
     entities = client.get("/api/operator/v1/property-ops/entities", params={"env_id": ENV_ID})
     assert entities.status_code == 200
@@ -188,4 +189,32 @@ def test_operator_property_ops_api_endpoints_return_demo_payloads(client, monkey
     )
     assert ml_risk.status_code == 200
     assert ml_risk.json()["ml_status"] == "not_available"
+    assert ml_risk.json()["databricks_status"] == "not_run"
     assert ml_risk.json()["predictions"] == []
+
+
+def test_ml_risk_reports_databricks_attempt_receipt(monkeypatch, tmp_path):
+    receipt_dir = tmp_path / "databricks"
+    receipt_dir.mkdir()
+    (receipt_dir / "databricks_run_attempt_receipt.json").write_text(
+        """
+{
+  "demo_mode": true,
+  "data_source": "synthetic_demo",
+  "databricks_executed": false,
+  "databricks_status": "not_configured",
+  "status": "failed",
+  "error_category": "cli_not_found",
+  "next_setup_step": "Install Databricks CLI and run databricks auth profiles.",
+  "caveat": "Synthetic demo data. Not HappyCo production data."
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(svc, "DATABRICKS_ARTIFACT_ROOT", receipt_dir)
+    payload = svc.ml_risk_predictions()
+
+    assert payload["databricks_status"] == "not_configured"
+    assert payload["databricks_receipt"]["error_category"] == "cli_not_found"

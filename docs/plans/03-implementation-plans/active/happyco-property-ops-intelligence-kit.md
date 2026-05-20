@@ -1,7 +1,7 @@
 # HappyCo Property Ops Intelligence Kit
 
 **Created:** 2026-05-20
-**Status:** Active - Tickets 2, 3A, 3, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete; demo package ready with documented caveats
+**Status:** Active - Tickets 2, 3A, 3, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete; Ticket 3B added for live Databricks run receipt
 **Environment:** Operator lab / gated HappyCo proof package
 **Deliverable type:** Multi-ticket interview demonstration package
 
@@ -445,6 +445,79 @@ registry record template.
 - Model honesty warning is written to `model_metrics.json` and `model_card.md`:
   synthetic labels may be deterministic or partially separable, so metrics are
   not expected production performance.
+
+### Ticket 3B - Live Databricks ML Run Receipt
+
+**Goal:** upgrade the ML proof from Databricks-ready artifacts to an actual
+Databricks-executed training run on the existing deterministic synthetic HappyCo
+property ops dataset.
+
+**Honest claim if completed:**
+
+`Databricks ML training run executed on synthetic property operations data.`
+
+**Claims still not allowed:**
+
+- Real HappyCo production model.
+- Real HappyCo production data.
+- Production Databricks deployment.
+- Model registered/deployed unless a real registry/deployment receipt exists.
+
+**Required local receipt path:**
+
+`artifacts/happyco/databricks/databricks_run_receipt.json`
+
+**Attempt receipt path when execution cannot complete:**
+
+`artifacts/happyco/databricks/databricks_run_attempt_receipt.json`
+
+**Receipt JSON fields:**
+
+- `demo_mode: true`
+- `data_source: "synthetic_demo"`
+- `databricks_executed: true`
+- `workspace_user` or masked user identity
+- `job_id` if applicable
+- `run_id`
+- `run_page_url` if available
+- `notebook_path` or task path
+- `started_at`
+- `finished_at`
+- `status`
+- `output_paths`
+- `model_name`
+- `model_version` or run label
+- `caveat: "Synthetic demo data. Not HappyCo production data."`
+- `claim_allowed: "Databricks ML training run executed on synthetic property operations data."`
+- `claim_not_allowed: "Production HappyCo model trained/deployed."`
+
+**Backend/API behavior:**
+
+`/api/operator/v1/property-ops/ml-risk` reports:
+
+- `databricks_status`: `not_configured`, `not_run`, `attempted_failed`, or `completed`
+- `databricks_run_id` when completed
+- `databricks_run_url` when available
+- `databricks_receipt` for gated proof context
+
+No receipt means `databricks_status: "not_run"`. Attempt receipts never produce
+"completed" language.
+
+**Frontend behavior:**
+
+- Operator ML panel shows "Databricks run completed" only when the completed
+  receipt exists and records a successful Databricks execution.
+- Otherwise it shows "Databricks-ready; live run not yet completed."
+- `/happyco` continues to require a receipt before making any live Databricks claim.
+
+**Implementation status 2026-05-20:**
+
+- Added receipt-aware API/service contract.
+- Added `scripts/happyco/run_databricks_ml.py` to check CLI/auth and write an
+  attempt receipt without printing secrets.
+- Databricks CLI was not available in the current shell (`databricks` command not
+  found), so no live Databricks execution was performed and no completed receipt
+  exists yet.
 
 ### Ticket 4 - Frontend Winston demo page
 
