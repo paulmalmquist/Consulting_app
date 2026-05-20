@@ -377,10 +377,51 @@ Link tasks to existing `crm_account` / `crm_contact` / `crm_opportunity` / `crm_
 `coding_platform` tasks reference active plans via `related_entity_type='impl_plan'` +
 `related_url` to `docs/plans/03-implementation-plans/active/*`.
 
-## Workstream G — Morning Checklist (deferred)
+## Workstream G / Ticket 6 — Morning Checklist generated brief — DONE & VERIFIED 2026-05-20
 
-Read-only generated view over `cro_execution_task` (priority + due + status + domain +
-next_action). No new table unless audit history is required.
+PR **#80** merged to `main` (merge commit `cb3a36db39f5e6dee15b61f7872b1a6cbe862d63`).
+Read-only, derived at read time from `cro_execution_task` — **no persistence**, no new
+table, no schema change, no assistant retrieval.
+
+**Shipped (7 files, +145 lines + 3 new files):**
+- Backend: `app/services/morning_checklist.py` — pure derivation over
+  `execution_tasks.list_tasks` (no new SQL). 8 sections (`top_priorities` /
+  `overdue_follow_ups` / `web_properties` / `outreach_crm` / `coding_platform` /
+  `admin_ops` / `waiting_blocked` / `suggested_prompts`). Honest empty states; ranking
+  today → revenue → impact → due → created_at; transparent reasons. Suggested prompts
+  grounded — only emitted when the underlying board state supports them. New Pydantic
+  `MorningChecklistOut` etc.; new route `GET /execution/morning-checklist`.
+- Frontend: `MorningBriefPanel.tsx` — compact panel above the lanes; collapse/expand;
+  per-section `TOP_PREVIEW=3` + "Show all N"; dark operator shell. Suggested prompts
+  display-only. Load failure degrades to in-panel error + Retry; board below still works.
+  `cro-api.ts` types + `fetchMorningChecklist`. `ExecutionBoard.tsx` mounts the panel
+  between the top bar and the domain filter strip — lanes/filter/drawer/quick-capture/
+  Generate all untouched.
+
+**Verification:**
+- Backend AST/ruff clean; **34 tests pass** (11 new in `test_morning_checklist.py` —
+  empty board, today-vs-overdue priority order, top-5 cap, dedup, overdue filter, domain
+  routing, waiting/blocked detection, re-engage date, grounded-prompts contract,
+  empty-board no-prompts, response-shape contract; all DB-free per tips #23) + 23
+  regression (`test_execution_board_route` + stage query + hierarchy write + executions
+  + consulting pipeline). Frontend: CI **Frontend Lint + Typecheck + Unit = SUCCESS** +
+  **DB Schema Gate = SUCCESS**.
+- Deployed: backend Railway `authentic-sparkle` (`02b341f0`, SUCCESS) + frontend Vercel
+  repo-b (`repo-pc8uh3267`, Ready) — both deployed explicitly (no auto-deploy).
+- **Production smoke PASSED:** `GET /execution/morning-checklist` returns HTTP 200,
+  date `2026-05-20`, sections `top_priorities:5 / overdue:0 / web_properties:1 /
+  outreach:0 / coding:0 / admin:0 / waiting:0 / suggested_prompts:2`, summary
+  `web_properties_count=1` — **the Ticket-5 FlowYorker task surfaces under Website /
+  content moves** ("Check response on National Christian Foundation proposal"), exactly
+  as the acceptance criteria require. Grounded prompts emitted: `what_first` (Today
+  tasks exist) and `flowyorker` (web-property task exists); no fabricated `overdue` /
+  `unblock` / `next_coding_ticket` prompts because the board has none. Board + tasks
+  page + hierarchy-options endpoint all unchanged (no regression).
+
+**Ticket 7 (Workstream H — assistant/CoWork retrieval over the brief) is now safe to
+start.** The brief provides a stable, grounded ground-truth read surface for a copilot
+to answer "what should I do this morning / show FlowYorker tasks / what outreach is
+overdue / what coding ticket is next" — those questions now have real data to read.
 
 ## Workstream H — Assistant / Claude CoWork retrieval (deferred)
 
