@@ -2492,6 +2492,65 @@ export function fetchExecutionHierarchyOptions(
   );
 }
 
+// Morning Checklist (Ticket 6) — read-only generated brief over
+// cro_execution_task. No persistence; suggested prompts are display-only.
+export type MorningChecklistItem = {
+  task_id: string;
+  title: string | null;
+  reason: string;
+  domain_key: string | null;
+  domain_label: string | null;
+  initiative_key: string | null;
+  initiative_label: string | null;
+  workstream_key: string | null;
+  workstream_label: string | null;
+  next_action: string | null;
+  status: string | null;
+  impact: number | null;
+  due_date: string | null;
+  revenue_tag: string | null;
+  blocked_reason: string | null;
+  related_url: string | null;
+};
+
+export type MorningChecklistSuggestedPrompt = {
+  key: string;
+  prompt: string;
+  reason: string;
+};
+
+export type MorningChecklistSection = {
+  key: string;
+  label: string;
+  // Heterogeneous: domain/priority sections hold MorningChecklistItem;
+  // suggested_prompts holds MorningChecklistSuggestedPrompt.
+  items: Array<MorningChecklistItem | MorningChecklistSuggestedPrompt>;
+};
+
+export type MorningChecklistSummary = {
+  total_items: number;
+  overdue_count: number;
+  blocked_count: number;
+  web_properties_count: number;
+  outreach_count: number;
+  coding_count: number;
+  admin_count: number;
+};
+
+export type MorningChecklist = {
+  date: string;
+  sections: MorningChecklistSection[];
+  summary: MorningChecklistSummary;
+};
+
+export function fetchMorningChecklist(envId: string, businessId: string) {
+  return apiFetch<MorningChecklist>(
+    `${CRO_BASE}/execution/morning-checklist?env_id=${encodeURIComponent(
+      envId,
+    )}&business_id=${encodeURIComponent(businessId)}`,
+  );
+}
+
 export type QuickCaptureRequest = {
   env_id: string;
   business_id: string;

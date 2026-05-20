@@ -23,6 +23,7 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { ExecutionColumn } from "./ExecutionColumn";
 import { ExecutionTaskDrawer } from "./ExecutionTaskDrawer";
 import { GenerateActionsModal } from "./GenerateActionsModal";
+import { MorningBriefPanel } from "./MorningBriefPanel";
 import { CompletionFeedbackModal } from "./CompletionFeedbackModal";
 
 type ColumnKey = Exclude<ExecutionTaskStatus, never>;
@@ -467,6 +468,11 @@ export function ExecutionBoard({
           </button>
         </div>
       </div>
+
+      {/* Morning Brief — Ticket 6, read-only generated view above the lanes.
+          Failure to load degrades to an in-panel error + Retry; the rest of
+          the board still works. */}
+      <MorningBriefPanel envId={envId} businessId={businessId} />
 
       {/* Domain grouping strip — display/filter only. Lanes below are
           unchanged; "All" (default) preserves the original flat board. */}
