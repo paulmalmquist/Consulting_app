@@ -1,0 +1,39 @@
+{
+  "dry_run": true,
+  "output_dir": "C:/Projects/Consulting_app_happyco/artifacts/happyco/outlook/draft_followup",
+  "mailbox": "default",
+  "folder": "Inbox",
+  "mode": "draft_email",
+  "read": {},
+  "graph": {
+    "enabled": false
+  },
+  "email": {
+    "enabled": true,
+    "send_policy": "draft",
+    "to": ["recruiter@example.com"],
+    "cc": [],
+    "bcc": [],
+    "subject": "HappyCo Head of Data - property ops intelligence proof package",
+    "body_template": "Hi <RECIPIENT_NAME>,\n\nThanks again for the conversation about HappyCo's Head of Data role. I put together a focused proof package that shows how I would approach canonical property data, entity resolution, a property operations graph, benchmarking, ML risk scoring, product-facing APIs, and AI-enabled workflows.\n\nGated package: <HAPPYCO_MICROSITE_LINK>\nLive Winston demo route: /lab/env/<ENV_ID>/operator/property-ops-intelligence\n\nThe package is synthetic demo data only. It includes a deterministic canonical fixture, Databricks-ready ML notebook with local fallback, Excel workbook, PowerPoint strategy deck, and a route-scoped gated share page. Outlook is draft-only by default; I am sending only after local review.\n\nBest,\nPaul",
+    "attach_outputs": false,
+    "attachments": [
+      "C:/Projects/Consulting_app_happyco/artifacts/happyco/excel/HappyCo_Property_Ops_Model.xlsx",
+      "C:/Projects/Consulting_app_happyco/artifacts/happyco/deck/HappyCo_90_Day_Data_Strategy.pptx"
+    ]
+  },
+  "happyco_notes": {
+    "purpose": "Create a local Outlook draft only. Replace placeholders locally before running.",
+    "send_allowed": false,
+    "send_requires": [
+      "manual review in Outlook",
+      "email.send_policy changed locally to send",
+      "runner send override supplied locally"
+    ],
+    "do_not_commit": [
+      "real recruiter email address",
+      "private thread summary",
+      "personalized message edits"
+    ]
+  }
+}

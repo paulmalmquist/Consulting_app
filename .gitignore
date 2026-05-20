@@ -103,6 +103,7 @@ hf_toke.txt
 
 # Local test/runtime artifacts
 artifacts/
+happy_co_invitecode.txt
 repo-b/.next.bak*/
 .openclaw/
 scripts/.winston_managed_agent_state.json

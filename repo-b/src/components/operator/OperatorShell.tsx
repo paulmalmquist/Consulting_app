@@ -36,6 +36,7 @@ function anchorSections(pathname: string): AnchorItem[] {
   if (pathname.includes("/operator/capital-raising")) return [];
   if (pathname.includes("/operator/engagements")) return [];
   if (pathname.includes("/operator/product")) return [];
+  if (pathname.includes("/operator/property-ops-intelligence")) return [];
   if (pathname.includes("/operator/research")) return [];
   if (pathname.includes("/operator/tasks")) return [];
   if (pathname.includes("/operator/finance")) {
@@ -158,6 +159,7 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       { href: `${base}/finance`, label: "Finance" },
       { href: `${base}/pipeline`, label: "Pipeline" },
       { href: `${base}/accounting`, label: "Accounting" },
+      { href: `${base}/property-ops-intelligence`, label: "Property Ops" },
     ],
     [base]
   );

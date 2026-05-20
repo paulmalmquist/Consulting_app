@@ -31,6 +31,7 @@ from app.schemas.operator import (
 from app.auth.app_role_gate import gate_app_role
 from app.services import env_context
 from app.services import operator as operator_svc
+from app.services import operator_property_ops as property_ops_svc
 from app.services import operator_site_decision as operator_site_decision_svc
 
 router = APIRouter(prefix="/api/operator/v1", tags=["operator"])
@@ -104,6 +105,116 @@ def get_command_center(
             detail=str(exc),
             action="operator.command_center.failed",
             context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/property-ops/entities")
+def get_property_ops_entities(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        _resolve_context(request, env_id, business_id)
+        return property_ops_svc.canonical_entities()
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.property_ops.entities.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/property-ops/graph")
+def get_property_ops_graph(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        _resolve_context(request, env_id, business_id)
+        return property_ops_svc.graph()
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.property_ops.graph.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/property-ops/benchmarks")
+def get_property_ops_benchmarks(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        _resolve_context(request, env_id, business_id)
+        return property_ops_svc.benchmark_metrics()
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.property_ops.benchmarks.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/property-ops/recommendations")
+def get_property_ops_recommendations(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+):
+    try:
+        _resolve_context(request, env_id, business_id)
+        return property_ops_svc.recommendations_with_ml()
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.property_ops.recommendations.failed",
+            context={"env_id": env_id, "business_id": str(business_id) if business_id else None},
+        )
+
+
+@router.get("/property-ops/ml-risk")
+def get_property_ops_ml_risk(
+    request: Request,
+    env_id: str = Query(...),
+    business_id: UUID | None = Query(default=None),
+    property_id: str | None = Query(default=None),
+):
+    try:
+        _resolve_context(request, env_id, business_id)
+        return property_ops_svc.ml_risk_predictions(property_id=property_id)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request,
+            status_code=status,
+            code=code,
+            detail=str(exc),
+            action="operator.property_ops.ml_risk.failed",
+            context={
+                "env_id": env_id,
+                "business_id": str(business_id) if business_id else None,
+                "property_id": property_id,
+            },
         )
 
 
