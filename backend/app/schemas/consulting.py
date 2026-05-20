@@ -1839,6 +1839,28 @@ class MorningChecklistOut(BaseModel):
     summary: MorningChecklistSummary
 
 
+# ── Brief Assistant (Ticket 7) — read-only retrieval ────────────────────────
+
+
+class BriefAssistantAskRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    question: str | None = None
+
+
+class BriefAssistantAskResponse(BaseModel):
+    intent: str
+    question: str | None = None
+    answer: str
+    # Items / brief loosely typed because they pass through the morning
+    # checklist + list_tasks projections; existing schemas would force
+    # double-validation. Keep loose for a read-only response.
+    items: list[dict] = []
+    brief: dict | None = None
+    tool_calls: list[dict] = []  # always empty by construction — no writes
+    refused: bool = False
+
+
 class ExecutionBoardSummary(BaseModel):
     today_count: int
     this_week_count: int

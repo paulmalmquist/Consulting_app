@@ -127,6 +127,8 @@ from app.schemas.consulting import (
     ExecutionTaskUpdate,
     ExecutionHierarchyOptions,
     MorningChecklistOut,
+    BriefAssistantAskRequest,
+    BriefAssistantAskResponse,
     ExecutionBoardOutV2,
     GenerateActionsRequest,
     GenerateActionsResponse,
@@ -200,6 +202,7 @@ from app.services import (
     execution_auto,
     execution_actions,
     morning_checklist as morning_checklist_svc,
+    brief_assistant as brief_assistant_svc,
     execution_quick_capture,
     engagement_routing as engagement_routing_svc,
 )
@@ -2630,6 +2633,39 @@ def execution_morning_checklist_route(
     try:
         return morning_checklist_svc.build_morning_checklist(
             env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/execution/brief-assistant/ask",
+    response_model=BriefAssistantAskResponse,
+)
+def execution_brief_assistant_ask_route(payload: BriefAssistantAskRequest):
+    """Morning Brief Assistant — read-only retrieval over board + brief.
+
+    Answers the six canonical operator questions ("what should I do this
+    morning", "show FlowYorker tasks", "what outreach is overdue", "what
+    coding ticket is next", "what's waiting or blocked", "what should I
+    ask Claude Code to work on next") by reading real task data via
+    morning_checklist + list_tasks.
+
+    Read-only by construction:
+      * no writes, no tool calls, no mutation surface
+      * `tool_calls` in the response is always [] (explicit for the contract)
+      * fails closed on resolver errors — never fabricates an answer
+      * never falls back to generic productivity advice; if a slice is
+        empty the assistant says so plainly
+
+    Does NOT touch the streaming `/api/ai/gateway/ask` chat surface — that
+    is the broad gateway with tool use. This is a focused retrieval surface
+    a chat UI can call once and render the structured payload."""
+    try:
+        return brief_assistant_svc.answer(
+            env_id=payload.env_id,
+            business_id=payload.business_id,
+            question=payload.question,
         )
     except Exception as exc:
         raise _to_http(exc)
