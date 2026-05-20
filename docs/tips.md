@@ -2704,3 +2704,16 @@ After any routing change:
 - Smoke test: `novendor.ai/` renders Novendor homepage
 - Smoke test: `novendor.ai/login` works
 - Check Vercel deployment has both domains aliased under the project
+
+### Root route conflict (`/`) — Next.js route group pitfall (2026-05-20)
+
+Dual-root files in the same app cause build-time ambiguity. Vercel's post-build validation fails with `ENOENT: no such file or directory, lstat '.next/server/app/(marketing)/page_client-reference-manifest.js'` when two routes resolve to `/`:
+
+- `src/app/page.tsx` → `/`
+- `src/app/(marketing)/page.tsx` → `/` (route group does NOT prevent this)
+
+**Fix:** Rename conflicting file to a subdirectory. In this case: `(marketing)/page.tsx` → `(marketing)/home/page.tsx` so Novendor homepage lives at `/home`, not `/`. Personal page remains at `/`.
+
+**Prevention:** Before committing a new root page, check `git ls-files | grep 'src/app/.*page\.tsx' | grep -v '\['` to list all root-level page routes. Should be exactly one (`page.tsx` in `src/app/`).
+
+**Why this happens:** Route groups `(marketing)` control *grouping and layout* but do NOT prevent a `page.tsx` inside from routing to `/`. The Next.js compiler resolves both as canonical roots, and Vercel's artifact check cannot determine which one should generate the manifest.
