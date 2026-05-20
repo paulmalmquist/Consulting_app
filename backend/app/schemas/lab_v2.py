@@ -69,6 +69,34 @@ class EnvironmentManifestV2(BaseModel):
         default=False,
         description="Validate + preview stages without persisting.",
     )
+    # Phase 5 closure — structured declaration fields. The verifier reads these
+    # via _derive_contract_fields with precedence: manifest > template > NULL.
+    # NEVER inferred from enabled_modules / env_kind / "AI enabled".
+    runtime_mode: "RuntimeMode | None" = Field(
+        default=None,
+        description=(
+            "Declares the runtime mode for this env. None = inherit from "
+            "template.runtime_mode; if both null the verifier reports "
+            "runtime.mode_explicit unknown/blocking (correct fail-closed)."
+        ),
+    )
+    ai_behavior_contract_key: str | None = Field(
+        default=None,
+        max_length=120,
+        description=(
+            "Declares the AI behavior contract for this env. None = inherit "
+            "from template.ai_behavior_contract_key; if both null no binding "
+            "is created and ai_runtime.behavior_contract_present stays missing."
+        ),
+    )
+    ai_behavior_contract_version: str | None = Field(
+        default=None,
+        max_length=64,
+        description=(
+            "Version for the declared behavior contract; defaults to "
+            "'ai_behavior_v1' at bind time when key is set and version is null."
+        ),
+    )
 
 
 class StageReport(BaseModel):

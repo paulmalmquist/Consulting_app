@@ -13,7 +13,7 @@
 --
 -- app.* internal system schema. env_id-keyed, exempt from the public-prefix rule,
 -- does NOT use the public.* env_id TEXT + business_id UUID + RLS template. Mirrors
--- app.environment_capabilities (10006) style, incl. the shared updated_at trigger.
+-- app.environment_capabilities (10030) style, incl. the shared updated_at trigger.
 --
 -- Additive only. ZERO BACKFILL: creates the table and binds NOTHING for any
 -- existing environment. Absence of a row = no declared AI behavior contract = the

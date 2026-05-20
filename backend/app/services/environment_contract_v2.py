@@ -122,6 +122,21 @@ def _contract_out(row: dict[str, Any]) -> EnvironmentContractOut:
     )
 
 
+def _resolve_template_runtime_mode(
+    template_key: str, template_version: int
+) -> str | None:
+    """Phase 5 closure: read runtime_mode from the template registry only.
+    Returns None if the template doesn't declare one or the template is missing.
+    NEVER infers from env_kind / enabled_modules / "AI enabled"."""
+    try:
+        template = environment_templates_v2.get_template(
+            template_key, template_version
+        )
+    except LookupError:
+        return None
+    return template.get("runtime_mode")
+
+
 def _derive_contract_fields(env_row: dict[str, Any]) -> dict[str, Any]:
     """Derive contract fields from clearly existing sources ONLY.
 
@@ -163,8 +178,12 @@ def _derive_contract_fields(env_row: dict[str, Any]) -> dict[str, Any]:
         "template_key": template_key,
         "template_version": int(template_version),
         "canonical_runtime_path": canonical_runtime_path,
-        # runtime_mode is NOT confidently derivable from existing sources -> null.
-        "runtime_mode": None,
+        # runtime_mode: Phase 5 closure — read from template.runtime_mode if the
+        # template declares it (migration 10032). Manifest overrides are written
+        # at provision time by environment_pipeline_v2._apply_template_metadata,
+        # so the contract row already carries them before this fallback fires.
+        # Still NULL if the template declares nothing — never inferred.
+        "runtime_mode": _resolve_template_runtime_mode(template_key, template_version),
         "deployment_target": "local",
         "seed_pack_version": seed_pack_version,
         "required_capabilities": required_capabilities,
@@ -611,8 +630,15 @@ def _eval_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
     return checks
 
 
-def verify_environment_contract(env_id: str) -> ContractVerificationReport:
+def verify_environment_contract(
+    env_id: str, *, materialize: bool = False
+) -> ContractVerificationReport:
     """Fail-closed structured verification of an environment's contract.
+
+    materialize=False (default): pure read — does not write last_verification.
+    materialize=True: additionally persists the latest report to
+    last_verification / last_verified_at. Promotion (Ticket 2) always forces a
+    fresh materialized verification; GET /verify defaults to a read.
 
     Raises LookupError if env_id is unknown / not a v2 contract env.
     """
@@ -650,15 +676,17 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
             health_ok=eligible,
         )
 
-        # Persist the verification snapshot for operator visibility. This does NOT
-        # transition promotion_state and does NOT write environment_promotion_event
-        # (both are Ticket 2). It only records the latest report + timestamp.
-        cur.execute(
-            """UPDATE app.environment_contract
-                  SET last_verification = %s::jsonb, last_verified_at = now()
-                WHERE env_id = %s::uuid""",
-            (_serialize_json(report.model_dump()), env_id),
-        )
+        # Persist the verification snapshot for operator visibility only when
+        # materialize is requested. This does NOT transition promotion_state and
+        # does NOT write environment_promotion_event (those are the promotion path).
+        # It only records the latest report + timestamp.
+        if materialize:
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET last_verification = %s::jsonb, last_verified_at = now()
+                    WHERE env_id = %s::uuid""",
+                (_serialize_json(report.model_dump()), env_id),
+            )
 
     emit_log(
         level="info" if eligible else "warning",

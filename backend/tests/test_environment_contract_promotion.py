@@ -2,7 +2,7 @@
 
 Covers the gate (assert_environment_promotable), promote/quarantine transitions,
 the append-only event write, and the drift guard. The DB trigger
-(environment_contract_enforce_promotion, migration 10005) is exercised separately
+(environment_contract_enforce_promotion, migration 10029) is exercised separately
 by a rolled-back live-schema validation; these tests pin the Python-side
 fail-closed gate that refuses BEFORE the DB ever raises.
 """
