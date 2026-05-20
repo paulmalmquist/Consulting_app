@@ -16,7 +16,14 @@ FIXTURE_PATH = (
     / "winston_demo"
     / "happyco_property_ops_seed.json"
 )
-ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "ml"
+LOCAL_ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "ml"
+ARTIFACT_ROOT = LOCAL_ARTIFACT_ROOT
+BUNDLED_ARTIFACT_ROOT = (
+    Path(__file__).resolve().parent.parent
+    / "fixtures"
+    / "winston_demo"
+    / "happyco_ml_artifacts"
+)
 
 AS_OF_DATE = date(2026, 5, 20)
 DEMO_CAVEAT = "Synthetic demo data. Not HappyCo production data."
@@ -777,8 +784,8 @@ def recommendations_with_ml() -> dict[str, Any]:
 
 
 def ml_risk_predictions(*, property_id: str | None = None, artifact_root: Path | None = None) -> dict[str, Any]:
-    root = artifact_root or ARTIFACT_ROOT
     metadata = get_dataset()["metadata"]
+    root = artifact_root or _default_ml_artifact_root()
     required = [
         root / "predictions.csv",
         root / "model_metrics.json",
@@ -829,6 +836,17 @@ def ml_risk_predictions(*, property_id: str | None = None, artifact_root: Path |
         "feature_importance": feature_importance,
         "model_registry": registry,
     }
+
+
+def _default_ml_artifact_root() -> Path:
+    """Prefer local generated artifacts, then bundled synthetic demo artifacts."""
+
+    if ARTIFACT_ROOT != LOCAL_ARTIFACT_ROOT:
+        return ARTIFACT_ROOT
+    generated_predictions = ARTIFACT_ROOT / "predictions.csv"
+    if generated_predictions.exists():
+        return ARTIFACT_ROOT
+    return BUNDLED_ARTIFACT_ROOT
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:

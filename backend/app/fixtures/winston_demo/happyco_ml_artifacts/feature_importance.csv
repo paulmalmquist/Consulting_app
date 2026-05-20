@@ -1,0 +1,22 @@
+feature,coefficient,importance
+reopened_work_order_rate,19.3089,19.3089
+category__moisture,3.425749,3.425749
+category__plumbing,-2.430794,2.430794
+prior_escalation_flag,1.53818,1.53818
+trailing_30_day_work_order_count,1.204758,1.204758
+plumbing_finding_count,-0.937881,0.937881
+repeat_work_order_rate,0.592709,0.592709
+peer_group__Carolinas Workforce Housing,-0.472765,0.472765
+category__hvac,-0.372176,0.372176
+vendor_first_time_fix_rate,-0.306176,0.306176
+hvac_finding_count,0.285829,0.285829
+peer_group__Coastal Mid-Rise,0.247876,0.247876
+safety_finding_count,-0.178476,0.178476
+resident_impact_proxy_count,0.121085,0.121085
+peer_group__Sunbelt Garden Multifamily,0.057504,0.057504
+moisture_finding_count,0.040323,0.040323
+inspection_severity_score,0.015432,0.015432
+average_aging_days,0.013245,0.013245
+vendor_average_aging,0.013245,0.013245
+property_unit_count,0.009708,0.009708
+trailing_60_day_work_order_count,-0.00465,0.00465
