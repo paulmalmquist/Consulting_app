@@ -423,7 +423,61 @@ start.** The brief provides a stable, grounded ground-truth read surface for a c
 to answer "what should I do this morning / show FlowYorker tasks / what outreach is
 overdue / what coding ticket is next" — those questions now have real data to read.
 
-## Workstream H — Assistant / Claude CoWork retrieval (deferred)
+## Workstream H / Ticket 7 — Morning Brief Assistant read-only retrieval — MERGED 2026-05-20; PROD DEPLOY PENDING
+
+PR **#83** merged to `main` (merge commit `5ad37b00dec6e22b8045bd5094941bb5fd2e008c`).
+Read-only retrieval over board + brief; **no writes, no tools, no LLM call in this layer**,
+no broad assistant redesign.
+
+**Shipped (4 files, +58 lines + 2 new files):**
+- Backend: new `app/services/brief_assistant.py` — deterministic keyword intent
+  classifier (`morning_brief`/`flowyorker`/`outreach_overdue`/`next_coding`/
+  `waiting_blocked`/`ask_claude`); each slice reads via
+  `execution_tasks.list_tasks` + `morning_checklist.build_morning_checklist` (no new
+  SQL, no duplicated ranking); plain-text prose rendered from real task fields; honest
+  empty states throughout; grounded refusal on `ask_claude` when no coding task exists.
+  Read-only by construction (no writer imports, no tools, no mutation path;
+  `tool_calls: []` is contractual).
+- New route `POST /api/consulting/execution/brief-assistant/ask` →
+  `BriefAssistantAskResponse`.
+- New Pydantic `BriefAssistantAskRequest` / `BriefAssistantAskResponse`.
+- 17 new tests in `test_brief_assistant.py` — canonical six question coverage,
+  honest empty states, intent classification (incl. unknown→brief), grounded
+  `ask_claude` (echoes real next_action) + refusal-when-no-coding test, morning-brief
+  render test, and **read-only invariants**: every intent returns
+  `tool_calls: []`; defense-in-depth source-code assertion that the module imports no
+  writer entry point (`create_task`/`update_task`/`delete_task`/`complete_task`).
+
+**Architecture note (transparency):** I deliberately did **not** touch
+`/api/ai/gateway/ask` — that path is a 4500-line SSE streaming runtime with tool use,
+and expanding it would be the broad assistant redesign the ticket forbids. A future
+ticket can decide whether/how the gateway should route to this read-only endpoint.
+
+**Frontend deferred** per ticket guidance ("If this is risky or large, defer UI"). The
+existing `MorningBriefPanel` already shows suggested prompts; wiring them to a chat
+input is a separate, deliberate Ticket 8 decision.
+
+**Verification:**
+- Backend AST + ruff clean. **51 tests pass** (17 new + 34 regression). DB-free per
+  tips #23. CI **DB Schema Gate = SUCCESS** + **Frontend Lint + Typecheck + Unit =
+  SUCCESS** (CI ran frontend even though I didn't change it).
+- **Production deploy: PENDING.** Railway returned "Deploys have been paused
+  temporarily" — confirmed via Railway status page as an active incident
+  (2026-05-20 12:16 UTC investigating, 13:48 UTC monitoring): hobby/free-plan builds
+  paused while clearing a build-queue backlog from a prior incident. Running services
+  unaffected — Tickets 1–6 endpoints all still return 200 (board, morning-checklist,
+  hierarchy-options verified). The new `/brief-assistant/ask` endpoint returns 404 in
+  prod until Railway resumes; merged code is correct and will go live on the next
+  successful `railway up`. **Not retrying** to avoid adding to the queue.
+
+**Ticket 8 (assistant-driven task creation/editing — write-path through the brief
+assistant) is plannable, but gate it deliberately.** The read-only retrieval surface
+shipped here is the foundation; adding writes means re-introducing risky-action gating,
+LLM intent confidence thresholds, and confirmation flows that this ticket explicitly
+excluded. Recommend treating Ticket 8 as its own scoped design pass, not an automatic
+next step.
+
+## Workstream H — original parent description (kept for reference)
 
 Novendor copilot answers "what should I do this morning / show FlowYorker tasks / what outreach
 is overdue / what coding ticket is next" from real board state. Fail-closed when context is
