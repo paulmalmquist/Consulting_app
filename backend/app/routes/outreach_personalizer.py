@@ -24,6 +24,7 @@ from app.schemas.outreach_personalizer import (
     MicrositeTrackIn,
     MicrositeUpdateIn,
     LogCrmActivityIn,
+    AdvancePipelineIn,
 )
 from app.services import outreach_personalizer as op_db
 from app.services import outreach_personalizer_ai as op_ai
@@ -218,8 +219,24 @@ def list_targets(
         rollups = op_db.engagement_rollup_bulk(
             target_ids=[str(t["id"]) for t in targets]
         )
+        # Phase 2C: per-row linked-opportunity indicator, single bulk JOIN
+        # (no per-row N+1 gate computation; full gate is detail-view only).
+        opp_summaries = op_db.list_opportunity_summaries_bulk(
+            opp_ids=[
+                str(t["crm_opportunity_id"]) for t in targets
+                if t.get("crm_opportunity_id")
+            ]
+        )
         for t in targets:
             t["engagement"] = rollups.get(str(t["id"]), dict(op_db._EMPTY_ROLLUP))
+            opp_id = t.get("crm_opportunity_id")
+            opp = opp_summaries.get(str(opp_id)) if opp_id else None
+            t["crm_opportunity"] = opp
+            t["pipeline"] = {
+                "linked": opp is not None,
+                "opportunity_name": (opp or {}).get("name") if opp else None,
+                "current_stage_label": (opp or {}).get("stage_label") if opp else None,
+            }
         return {"targets": targets}
     except Exception as exc:
         status, code = classify_domain_error(exc)
@@ -239,6 +256,13 @@ def get_target(
         resp = _target_response(target)
         resp["engagement"] = op_db.engagement_rollup(target_id=target_id)
         resp["crm_account"] = _crm_account_summary(target)
+        # Phase 2C: pre-fetch the opp summary once, attach to response, AND pass
+        # to compute_pipeline_advance_state so it does not re-query.
+        opp = _crm_opportunity_summary(target)
+        resp["crm_opportunity"] = opp
+        resp["pipeline"] = op_db.compute_pipeline_advance_state(
+            target=target, opportunity=opp,
+        )
         return resp
     except OutreachTargetNotFound as exc:
         return domain_error_response(
@@ -260,6 +284,15 @@ def _crm_account_summary(target: dict) -> dict | None:
     return op_db.crm_account_summary(crm_account_id=cid)
 
 
+def _crm_opportunity_summary(target: dict) -> dict | None:
+    """Phase 2C — read-only opportunity summary attached to detail responses.
+    Mirrors `_crm_account_summary` exactly. None if no linked opportunity."""
+    oid = target.get("crm_opportunity_id")
+    if not oid:
+        return None
+    return op_db.crm_opportunity_summary(crm_opportunity_id=oid)
+
+
 @router.patch("/targets/{target_id}")
 def patch_target(
     target_id: UUID,
@@ -273,11 +306,26 @@ def patch_target(
     reference an existing crm_account. No env scaffolding, no CRM model changes.
     """
     try:
-        op_db.get_target_by_id(target_id=target_id)  # 404 early if missing
+        target = op_db.get_target_by_id(target_id=target_id)  # 404 early if missing
         provided = payload.model_dump(exclude_unset=True)
 
         if "loom_url" in provided:
             provided["loom_url"] = normalize_loom_url(provided["loom_url"])
+
+        # Phase 2C clear-order guard: prevent the impossible state
+        # (crm_opportunity_id NOT NULL AND crm_account_id NULL) at the route
+        # layer with a specific operator message, so the migration 612 CHECK
+        # never actually fires. Resolve post-PATCH values from current target
+        # + provided patch fields.
+        if "crm_account_id" in provided or "crm_opportunity_id" in provided:
+            final_account = provided.get("crm_account_id", target.get("crm_account_id"))
+            final_opp = provided.get(
+                "crm_opportunity_id", target.get("crm_opportunity_id")
+            )
+            if final_opp is not None and final_account is None:
+                raise ValueError(
+                    "Clear the linked CRM opportunity before clearing the CRM account."
+                )
 
         if provided.get("crm_account_id") is not None:
             if not op_db.crm_account_exists(crm_account_id=provided["crm_account_id"]):
@@ -285,9 +333,25 @@ def patch_target(
                     f"crm_account_id {provided['crm_account_id']} does not exist."
                 )
 
+        # Phase 2C: opportunity FK + same-business guard.
+        if provided.get("crm_opportunity_id") is not None:
+            if not target.get("business_id"):
+                raise ValueError(
+                    "Target has no business_id; cannot link an opportunity."
+                )
+            if not op_db.crm_opportunity_exists(
+                crm_opportunity_id=provided["crm_opportunity_id"],
+                business_id=target["business_id"],
+            ):
+                raise ValueError(
+                    f"crm_opportunity_id {provided['crm_opportunity_id']} "
+                    "does not exist or belongs to a different business."
+                )
+
         updated = op_db.patch_target(target_id=target_id, fields=provided)
         resp = _target_response(updated)
         resp["crm_account"] = _crm_account_summary(updated)
+        resp["crm_opportunity"] = _crm_opportunity_summary(updated)
         return resp
     except OutreachTargetNotFound as exc:
         return domain_error_response(
@@ -417,6 +481,58 @@ def log_crm_activity(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="outreach-personalizer.crm-activity.failed",
+        )
+
+
+@router.post("/targets/{target_id}/advance-pipeline")
+def advance_pipeline(
+    target_id: UUID,
+    payload: AdvancePipelineIn,
+    request: Request,
+):
+    """Phase 2C: advance the linked opportunity's pipeline stage by ONE step.
+
+    The four-condition gate is enforced inside compute_pipeline_advance_state
+    (the single source of truth for both display and enforcement). When all
+    conditions pass, this endpoint calls the existing crm_svc.move_opportunity_stage
+    with the deterministic computed next stage; no new pipeline mechanism, no
+    operator-chosen target stage. Fail-closed with the exact gate
+    `blocking_reason` string on every unavailable case.
+    """
+    try:
+        target = op_db.get_target_by_id(target_id=target_id)
+        state = op_db.compute_pipeline_advance_state(target=target)
+        if not state["available"]:
+            raise ValueError(state["blocking_reason"])
+
+        moved = crm_svc.move_opportunity_stage(
+            business_id=target["business_id"],
+            crm_opportunity_id=target["crm_opportunity_id"],
+            to_stage_id=state["next_stage"]["crm_pipeline_stage_id"],
+            note=payload.note or "Advanced via Outreach Personalizer",
+        )
+        # Recompute gate so the operator UI immediately reflects the post-move
+        # state (next-next stage, or "Opportunity already at terminal stage."
+        # if we just advanced into the terminal).
+        fresh_target = op_db.get_target_by_id(target_id=target_id)
+        fresh_state = op_db.compute_pipeline_advance_state(target=fresh_target)
+        return {"ok": True, "opportunity": moved, "pipeline": fresh_state}
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404, code="outreach_personalizer.not_found",
+            detail=str(exc), action="outreach-personalizer.advance-pipeline.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=400,
+            code="outreach_personalizer.validation_error",
+            detail=str(exc), action="outreach-personalizer.advance-pipeline.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="outreach-personalizer.advance-pipeline.failed",
         )
 
 

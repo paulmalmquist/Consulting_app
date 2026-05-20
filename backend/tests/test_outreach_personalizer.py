@@ -619,3 +619,296 @@ class TestLogCrmActivity:
             json={},
         )
         assert r.status_code == 404, r.text
+
+
+# ---------------------------------------------------------------------------
+# Phase 2C — opportunity link (PATCH) + pipeline advancement
+# ---------------------------------------------------------------------------
+
+OPP_ID = "44444444-4444-4444-4444-444444444444"
+STAGE_CURRENT_ID = "55555555-5555-5555-5555-555555555555"
+STAGE_NEXT_ID = "66666666-6666-6666-6666-666666666666"
+
+
+def _target_linked(
+    *,
+    business_id: str | None = BUSINESS_ID,
+    crm_account_id: str | None = CRM_ID,
+    crm_opportunity_id: str | None = OPP_ID,
+    status: str = "assets_ready",
+) -> dict:
+    """Phase 2C target row with linkage fields parameterised so each gate
+    failure mode can be exercised by setting exactly one field to None."""
+    return {
+        **_target_row(status),
+        "business_id": business_id,
+        "crm_account_id": crm_account_id,
+        "crm_opportunity_id": crm_opportunity_id,
+    }
+
+
+def _opp_summary(
+    *,
+    business_id: str = BUSINESS_ID,
+    status: str = "open",
+    stage_order: int | None = 1,
+    is_closed: bool = False,
+    is_won: bool = False,
+    stage_label: str = "Discovery",
+) -> dict:
+    """Phase 2C opportunity-summary row (crm_opportunity_summary shape)."""
+    return {
+        "crm_opportunity_id": OPP_ID,
+        "name": "Verify Opp",
+        "amount": "0.00",
+        "status": status,
+        "business_id": business_id,
+        "crm_account_id": CRM_ID,
+        "crm_pipeline_stage_id": STAGE_CURRENT_ID,
+        "stage_key": "discovery",
+        "stage_label": stage_label,
+        "stage_order": stage_order,
+        "is_closed": is_closed,
+        "is_won": is_won,
+    }
+
+
+def _next_stage_row(label: str = "Qualified") -> dict:
+    return {
+        "crm_pipeline_stage_id": STAGE_NEXT_ID,
+        "key": "qualified",
+        "label": label,
+        "stage_order": 2,
+    }
+
+
+class TestOpportunityLink:
+    def test_patch_links_opportunity_success(self, client, fake_cursor):
+        # Existing target has business_id + account but no opportunity yet
+        starting = _target_linked(crm_opportunity_id=None)
+        fake_cursor.push_result([starting])                          # get_target_by_id
+        fake_cursor.push_result([{"exists": 1}])                     # crm_opportunity_exists
+        fake_cursor.push_result(
+            [{**starting, "crm_opportunity_id": OPP_ID}]
+        )                                                            # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                  # list_assets
+        fake_cursor.push_result(
+            [{"crm_account_id": CRM_ID, "name": "Artemis RE", "website": None}]
+        )                                                            # crm_account_summary
+        fake_cursor.push_result([_opp_summary()])                    # crm_opportunity_summary
+
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_opportunity_id": OPP_ID},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["target"]["crm_opportunity_id"] == OPP_ID
+        assert body["crm_opportunity"]["crm_opportunity_id"] == OPP_ID
+
+    def test_patch_opp_link_rejected_without_business_id(self, client, fake_cursor):
+        fake_cursor.push_result(
+            [_target_linked(business_id=None, crm_opportunity_id=None)]
+        )                                                            # get_target_by_id
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_opportunity_id": OPP_ID},
+        )
+        assert r.status_code == 400, r.text
+        assert "business_id" in r.json()["detail"]
+
+    def test_patch_opp_link_rejected_when_opportunity_missing_or_wrong_business(
+        self, client, fake_cursor
+    ):
+        fake_cursor.push_result([_target_linked(crm_opportunity_id=None)])  # get_target_by_id
+        fake_cursor.push_result([])                                  # crm_opportunity_exists → False
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_opportunity_id": OPP_ID},
+        )
+        assert r.status_code == 400, r.text
+        assert "does not exist or belongs to a different business" in r.json()["detail"]
+
+    def test_patch_clears_opportunity_link(self, client, fake_cursor):
+        # Target currently has opp linked; PATCH with null clears it.
+        starting = _target_linked()
+        fake_cursor.push_result([starting])                          # get_target_by_id
+        fake_cursor.push_result(
+            [{**starting, "crm_opportunity_id": None}]
+        )                                                            # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                  # list_assets
+        fake_cursor.push_result(
+            [{"crm_account_id": CRM_ID, "name": "Artemis RE", "website": None}]
+        )                                                            # crm_account_summary
+        # No crm_opportunity_summary call (updated.crm_opportunity_id is None)
+
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_opportunity_id": None},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["target"]["crm_opportunity_id"] is None
+        assert r.json()["crm_opportunity"] is None
+
+    def test_patch_cannot_clear_account_while_opportunity_linked(
+        self, client, fake_cursor
+    ):
+        """Clear-order guard: must fail at the route, NOT at the migration 612
+        CHECK constraint. Only one DB call (get_target_by_id) — no patch_target
+        invocation, exact operator message returned."""
+        fake_cursor.push_result([_target_linked()])  # get_target_by_id
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_account_id": None},
+        )
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"]
+            == "Clear the linked CRM opportunity before clearing the CRM account."
+        )
+
+    def test_patch_can_clear_both_in_one_call(self, client, fake_cursor):
+        """Atomic clear of both account + opportunity satisfies the CHECK and
+        the route guard."""
+        starting = _target_linked()
+        fake_cursor.push_result([starting])                          # get_target_by_id
+        fake_cursor.push_result(
+            [{**starting, "crm_account_id": None, "crm_opportunity_id": None}]
+        )                                                            # patch_target UPDATE
+        fake_cursor.push_result([_insight_asset()])                  # list_assets
+        # No crm_account_summary call (updated.crm_account_id None),
+        # no crm_opportunity_summary call (updated.crm_opportunity_id None).
+
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{TARGET_ID}",
+            json={"crm_account_id": None, "crm_opportunity_id": None},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["target"]["crm_account_id"] is None
+        assert body["target"]["crm_opportunity_id"] is None
+
+
+class TestAdvancePipeline:
+    URL = f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/advance-pipeline"
+
+    def test_fails_without_business_id(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked(business_id=None)])  # get_target_by_id
+        # Gate fails at step 1 — no further DB.
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"] == (
+            "Env has no business_id; pipeline operations unavailable."
+        )
+
+    def test_fails_without_crm_account(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked(crm_account_id=None)])
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"] == "Link a CRM account first."
+
+    def test_fails_without_opportunity(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked(crm_opportunity_id=None)])
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"]
+            == "Link a CRM opportunity to enable pipeline moves."
+        )
+
+    def test_fails_when_opportunity_business_mismatch(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked()])                  # get_target_by_id
+        # crm_opportunity_summary returns opp belonging to a different business
+        fake_cursor.push_result(
+            [_opp_summary(business_id="99999999-9999-9999-9999-999999999999")]
+        )
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"]
+            == "Linked opportunity belongs to a different business."
+        )
+
+    def test_fails_when_opportunity_closed(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked()])                  # get_target_by_id
+        fake_cursor.push_result([_opp_summary(status="won")])        # crm_opportunity_summary
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"]
+            == "Opportunity is closed; reopen it in CRM to advance."
+        )
+
+    def test_fails_when_current_stage_is_terminal(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked()])                  # get_target_by_id
+        fake_cursor.push_result(
+            [_opp_summary(is_closed=True, stage_label="Closed-Won")]
+        )                                                            # crm_opportunity_summary
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"] == "Opportunity already at terminal stage."
+        )
+
+    def test_fails_when_no_next_stage(self, client, fake_cursor):
+        fake_cursor.push_result([_target_linked()])                  # get_target_by_id
+        fake_cursor.push_result([_opp_summary(stage_order=99)])      # crm_opportunity_summary
+        fake_cursor.push_result([])                                  # _next_open_stage → None
+        r = client.post(self.URL, json={})
+        assert r.status_code == 400, r.text
+        assert (
+            r.json()["detail"] == "No valid next stage is configured."
+        )
+
+    def test_succeeds_with_valid_next_stage(self, client, fake_cursor):
+        """All four conditions met → calls crm_svc.move_opportunity_stage with
+        the deterministic computed next stage, returns moved opportunity and
+        recomputed gate state."""
+        from app.routes import outreach_personalizer as route
+
+        fake_cursor.push_result([_target_linked()])                  # get_target_by_id
+        fake_cursor.push_result([_opp_summary()])                    # gate: crm_opportunity_summary
+        fake_cursor.push_result([_next_stage_row()])                 # gate: _next_open_stage
+        # crm_svc.move_opportunity_stage mocked — no DB consumed.
+        fake_cursor.push_result([_target_linked()])                  # fresh get_target_by_id
+        fake_cursor.push_result(
+            [_opp_summary(stage_order=2, stage_label="Qualified")]
+        )                                                            # fresh gate: crm_opportunity_summary
+        fake_cursor.push_result([])                                  # fresh gate: _next_open_stage → terminal
+
+        moved_payload = {
+            "crm_opportunity_id": OPP_ID,
+            "name": "Verify Opp",
+            "amount": "0.00",
+            "status": "open",
+            "expected_close_date": None,
+            "stage_key": "qualified",
+            "stage_label": "Qualified",
+        }
+        with patch.object(
+            route.crm_svc,
+            "move_opportunity_stage",
+            return_value=moved_payload,
+        ) as m:
+            r = client.post(self.URL, json={"note": "smoke"})
+
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert body["opportunity"]["stage_label"] == "Qualified"
+        # Recomputed gate: we advanced into the last stage, so next call has no next stage.
+        assert body["pipeline"]["available"] is False
+        assert body["pipeline"]["blocking_reason"] == (
+            "No valid next stage is configured."
+        )
+        # The mock was called with the deterministic computed next stage id.
+        kwargs = m.call_args.kwargs
+        assert str(kwargs["crm_opportunity_id"]) == OPP_ID
+        assert str(kwargs["to_stage_id"]) == STAGE_NEXT_ID
+        assert str(kwargs["business_id"]) == BUSINESS_ID
+        assert kwargs["note"] == "smoke"
+
+    def test_unknown_target_404(self, client, fake_cursor):
+        fake_cursor.push_result([])  # get_target_by_id → None
+        r = client.post(self.URL, json={})
+        assert r.status_code == 404, r.text

@@ -6,14 +6,17 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import {
+  advancePipeline,
   getOutreachTarget,
   listCrmAccounts,
+  listCrmOpportunities,
   listOutreachTargets,
   logCrmActivity,
   patchOutreachTarget,
   regenerateOutreachAsset,
   seedOutreachTarget,
   type CrmAccount,
+  type CrmOpportunityListRow,
   type OutreachInsight,
   type OutreachTargetWithEngagement,
   type TargetResponse,
@@ -72,6 +75,10 @@ export default function OutreachPersonalizerPage({
   const [crmAccounts, setCrmAccounts] = useState<CrmAccount[]>([]);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
+  // Phase 2C: opportunity linkage + pipeline advance state
+  const [opportunityInput, setOpportunityInput] = useState("");
+  const [crmOpportunities, setCrmOpportunities] = useState<CrmOpportunityListRow[]>([]);
+
   const refresh = useCallback(async () => {
     if (!ready) return;
     try {
@@ -91,6 +98,7 @@ export default function OutreachPersonalizerPage({
     setLogoInput(d.target.logo_url ?? "");
     setAccentInput(d.target.accent_hsl ?? "");
     setAccountInput(d.target.crm_account_id ?? "");
+    setOpportunityInput(d.target.crm_opportunity_id ?? "");  // Phase 2C
     setSaveMsg(null);
   }, []);
 
@@ -117,6 +125,15 @@ export default function OutreachPersonalizerPage({
       .catch(() => setCrmAccounts([]));
   }, [ready, businessId]);
 
+  // Phase 2C: CRM opportunity picker — reuses the existing /api/crm/opportunities
+  // route. Same business_id precondition / manual-UUID fallback as the account picker.
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    listCrmOpportunities(businessId)
+      .then(setCrmOpportunities)
+      .catch(() => setCrmOpportunities([]));
+  }, [ready, businessId]);
+
   const saveDetails = useCallback(async () => {
     if (!detail) return;
     setBusy(true);
@@ -126,6 +143,8 @@ export default function OutreachPersonalizerPage({
       const updated = await patchOutreachTarget(detail.target.id, {
         loom_url: loomInput.trim() === "" ? null : loomInput.trim(),
         crm_account_id: accountInput.trim() === "" ? null : accountInput.trim(),
+        crm_opportunity_id:
+          opportunityInput.trim() === "" ? null : opportunityInput.trim(),
         logo_url: logoInput.trim() === "" ? null : logoInput.trim(),
         accent_hsl: accentInput.trim() === "" ? null : accentInput.trim(),
       });
@@ -138,7 +157,10 @@ export default function OutreachPersonalizerPage({
     } finally {
       setBusy(false);
     }
-  }, [detail, loomInput, accountInput, logoInput, accentInput, refresh, syncEditState]);
+  }, [
+    detail, loomInput, accountInput, opportunityInput, logoInput, accentInput,
+    refresh, syncEditState,
+  ]);
 
   const logActivity = useCallback(async () => {
     if (!detail) return;
@@ -155,6 +177,26 @@ export default function OutreachPersonalizerPage({
       setBusy(false);
     }
   }, [detail]);
+
+  // Phase 2C: advance the linked opportunity's pipeline stage by one step.
+  // Backend gate is the single authority; frontend just renders the result.
+  const advance = useCallback(async () => {
+    if (!detail) return;
+    setBusy(true);
+    setErr(null);
+    setSaveMsg(null);
+    try {
+      const res = await advancePipeline(detail.target.id);
+      const nextLabel = res.opportunity.stage_label ?? "next stage";
+      setSaveMsg(`Pipeline advanced to "${nextLabel}".`);
+      setDetail(await getOutreachTarget(detail.target.id));
+      await refresh();
+    } catch (e) {
+      setErr(fmtError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [detail, refresh]);
 
   const seedArtemis = useCallback(async () => {
     setBusy(true);
@@ -345,6 +387,51 @@ export default function OutreachPersonalizerPage({
                   )}
                 </label>
 
+                {/* Phase 2C: CRM opportunity picker. Mirrors the account picker
+                    above (select when businessId + list non-empty; manual UUID
+                    fallback otherwise). Linked state shows opp name + current
+                    stage label. */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                    CRM opportunity
+                  </span>
+                  {businessId && crmOpportunities.length > 0 ? (
+                    <select
+                      value={opportunityInput}
+                      onChange={(e) => setOpportunityInput(e.target.value)}
+                      className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                    >
+                      <option value="">— Not linked —</option>
+                      {crmOpportunities.map((o) => (
+                        <option key={o.crm_opportunity_id} value={o.crm_opportunity_id}>
+                          {o.name}
+                          {o.stage_label ? ` · ${o.stage_label}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={opportunityInput}
+                      onChange={(e) => setOpportunityInput(e.target.value)}
+                      placeholder="crm_opportunity_id (UUID) — blank to unlink"
+                      className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                    />
+                  )}
+                  {detail.crm_opportunity ? (
+                    <span className="text-[10px] text-bm-success">
+                      Linked: {detail.crm_opportunity.name}
+                      {detail.crm_opportunity.stage_label
+                        ? ` · ${detail.crm_opportunity.stage_label}`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-bm-muted2">
+                      No CRM opportunity linked
+                    </span>
+                  )}
+                </label>
+
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block space-y-1">
                     <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
@@ -471,14 +558,34 @@ export default function OutreachPersonalizerPage({
                       This env has no business_id; CRM activity logging is unavailable.
                     </span>
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled
-                    title="Pipeline advance is not available yet (Phase 2C)"
-                  >
-                    Advance pipeline — not available
-                  </Button>
+                  {/* Phase 2C: real "Advance pipeline" affordance. Backend
+                      compute_pipeline_advance_state is the single authority —
+                      we render available/disabled + exact blocking_reason. */}
+                  {detail.pipeline?.available && detail.pipeline.next_stage ? (
+                    <Button
+                      size="sm"
+                      onClick={() => void advance()}
+                      disabled={busy}
+                    >
+                      {busy
+                        ? "Advancing…"
+                        : `Advance to "${detail.pipeline.next_stage.label}"`}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled
+                      title={detail.pipeline?.blocking_reason ?? undefined}
+                    >
+                      Advance pipeline
+                    </Button>
+                  )}
+                  {detail.pipeline && !detail.pipeline.available ? (
+                    <span className="text-[10px] text-bm-warning">
+                      {detail.pipeline.blocking_reason}
+                    </span>
+                  ) : null}
                 </div>
               </section>
 
