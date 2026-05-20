@@ -3,67 +3,79 @@
 **Last updated:** 2026-05-19
 **Priority:** High — this is Novendor's internal operating system
 
-## Copy-paste prompt for next Claude Code session (Ticket 7 — assistant/CoWork retrieval over the brief)
+## Copy-paste prompt for next Claude Code session (Ticket 7 prod-deploy follow-up + Ticket 8 scoping)
 
-Tickets 1–6 are DONE & production-verified. Full Operator Control Plane chain works live:
+Tickets 1–7 are merged & verified in CI. The full Operator Control Plane chain is live:
 schema (Ticket 3) → read/display grouping (Ticket 4) → write-path (Ticket 5) → generated
-Morning Brief (Ticket 6). The live FlowYorker task surfaces under Website / content moves;
-grounded suggested prompts (`what_first`, `flowyorker`) are displayed but **do not execute
-anything yet**. This session wires Workstream H: a Novendor copilot/assistant retrieval
-path that answers natural-language questions over the **real board state** the brief
-already exposes.
+Morning Brief (Ticket 6) → read-only Brief Assistant retrieval (Ticket 7). **Ticket 7's
+production deploy is pending** because Railway had an active build-queue incident on
+2026-05-20 that paused hobby/free-plan builds — `POST /api/consulting/execution/brief-assistant/ask`
+returns 404 in production until Railway resumes; everything else (board, morning-checklist,
+hierarchy-options) is unaffected and returning 200.
 
-Read first: `docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`
-(Ticket 6 result + Workstream H spec), `docs/plans/novendor-crm-accounting/{architecture,backlog}.md`,
-`docs/plans/01-shared-standards/ai-runtime/{ai-runtime-charter,fail-closed-rules,prompt-contracts,tool-use-policy}.md`,
-`docs/plans/01-shared-standards/ai-runtime/canonical-event-contract.md`,
-`backend/app/services/morning_checklist.py` (read source),
-`backend/app/services/execution_tasks.py` (`list_tasks`),
-`backend/app/services/nv_ai_copilot.py` + `backend/app/routes/nv_ai_copilot.py`
-(existing Novendor copilot — extend, don't fork),
-`repo-b/src/components/consulting/execution/MorningBriefPanel.tsx`
-(where the suggested-prompt CTAs live today — they're inert).
-
+### First (mechanical, ~5 min)
 ```
-Wire the Morning Brief's suggested prompts to actually run against the
-existing Novendor AI copilot path. Read-only retrieval from real task data;
-no writes from the assistant in this ticket.
-
-Backend:
-- Add a small retrieval helper that the copilot can call to ground its
-  answers in the live board + brief. Reuse build_morning_checklist and
-  list_tasks — do NOT duplicate ranking/priority logic.
-- Map the four canonical questions ("what should I do this morning?",
-  "show FlowYorker tasks", "what outreach is overdue?", "what coding
-  ticket is next?") to deterministic slices of the brief/board data;
-  the LLM composes the prose, the data layer guarantees the facts.
-- Fail closed: if env/business context can't be resolved, the assistant
-  returns a clean refusal, not a fabricated answer. Match the existing
-  Novendor copilot fail-closed pattern + canonical event contract.
-- No write tools added in this ticket. Risky writes remain gated.
-
-Frontend:
-- Make each suggested prompt in MorningBriefPanel clickable; clicking
-  routes the prompt through the existing copilot UI (or opens it with
-  the prompt pre-populated). No new chat surface here.
-- Dark operator shell preserved; no new left-nav item.
-- If the copilot returns a refusal, surface it honestly — do not
-  re-prompt or fall back to a fabricated reply.
-
-Do NOT: persist conversation history into the brief itself, add write
-tools, change the schema, touch app.task_*/nv_tasks, alter unrelated
-environments. The brief stays read-only and grounded.
+Once Railway is healthy, deploy Ticket 7 backend and run the prod smoke:
+- `cd backend && railway up --service authentic-sparkle` from a fresh
+  worktree at origin/main (HEAD currently 5ad37b00).
+- Confirm `POST /bos/api/consulting/execution/brief-assistant/ask` 200s.
+- Smoke each of the six canonical questions; verify each `answer` is
+  grounded in real task data (the live FlowYorker task should appear
+  in the flowyorker slice). Capture request_id from logs.
+- Update dispatch 0002 Ticket 7 (PROD DEPLOY PENDING → DONE & VERIFIED)
+  and clear the "Ticket 7 prod-deploy follow-up" backlog item.
 ```
 
-Verification: backend route tests (new retrieval helper + at least one
-canonical-question end-to-end test with mocked LLM), CI Frontend Typecheck
-(fresh worktree → no node_modules, tips #20), prod smoke that clicking a
-suggested prompt routes to the copilot and the copilot's answer references
-real task data (no fabrication; cite the task_id when feasible). Fresh
-`git worktree` off `origin/main`. Deploy BOTH backend + frontend; the
-copilot path may already be live but the brief wiring is new. Repo
-Guardrails `1000` + repo-wide Backend Lint reds are documented baseline
-(tips #18) — do not chase.
+### Second (Ticket 8 — deliberate scope decision, do NOT auto-start)
+Ticket 7 shipped a read-only retrieval surface. Ticket 8 would add the **write-path**
+through the assistant: lets a user say "move the NCF task to today" or "create a coding
+task to fix the X bug" and have it execute. **This re-introduces the risky-action surface
+the entire ticket chain has deliberately avoided.** Before any code, do a scoping pass:
+
+```
+Decide whether Ticket 8 (assistant-driven task creation/editing) is worth
+adding now, and if yes, design the gating BEFORE writing code:
+
+Questions to answer first:
+1. Does the assistant create tasks, or only edit existing ones, or both?
+   (Recommend edit-only as a smaller, safer slice — the hierarchy
+   write-path from Ticket 5 already validates server-side.)
+2. What's the confirmation flow? (Recommend: every write goes through a
+   confirmation drawer or explicit "Confirm" affordance — never silent.)
+3. Where does intent-confidence get measured? (Below threshold → ask
+   for clarification, not commit.)
+4. How are write tools wired? (Reuse the existing tool-use policy from
+   `docs/plans/01-shared-standards/ai-runtime/tool-use-policy.md` —
+   don't invent a parallel one.)
+5. What's the audit trail? (Likely reuse cro_execution_task.updated_at
+   + an `evidence` jsonb entry — no new table.)
+6. What's the rollback path if the assistant gets it wrong?
+
+Only after these are answered does code start. Most likely shape:
+brief_assistant.answer() grows a `mode: "preview"|"execute"` flag;
+"execute" routes through update_task with `_*_set` sentinels and the
+same validate_hierarchy fail-closed path; the chat UI shows a confirm
+modal before the execute call. No new write tools at the gateway
+level — the brief assistant remains the single read+write surface for
+the consulting board.
+
+Do NOT in Ticket 8 (regardless of design):
+- bypass validate_hierarchy
+- silently overwrite existing fields the user didn't mention
+- add tools to the broad /api/ai/gateway/ask runtime
+- change the schema (10003 columns suffice)
+- fabricate task ids or pretend a missing task exists
+```
+
+Read first if you start Ticket 8 design:
+`docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`
+(Ticket 7 result), `docs/plans/01-shared-standards/ai-runtime/{tool-use-policy,fail-closed-rules,prompt-contracts}.md`,
+`backend/app/services/brief_assistant.py` (the read-only baseline),
+`backend/app/services/execution_tasks.py` (`update_task` + `validate_hierarchy`).
+
+Repo Guardrails `1000` / repo-wide Backend Lint reds remain pre-existing baseline
+(tips #18) — do not chase. Deploy parity rule (tips #18) still applies — Vercel and
+Railway have no auto-deploy.
 
 Update dispatch `0002`, `backlog.md`, `next-session.md`, `docs/tips.md`.
 
