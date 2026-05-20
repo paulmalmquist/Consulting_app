@@ -389,6 +389,152 @@ def compute_pipeline_advance_state(
 
 
 # ---------------------------------------------------------------------------
+# Phase 3: environment scaffolding gate. The outreach target gets a
+# scaffolded_env_id FK to app.environments. Single-env-per-target idempotency
+# is the operator contract; the v2 pipeline's slug-based idempotency is
+# defense-in-depth. Read-only against app.environments + app.environment_templates;
+# all WRITES to app.environments go through env_v2.create_environment_v2.
+# ---------------------------------------------------------------------------
+
+SCAFFOLD_READY_STATUSES: tuple[str, ...] = ("assets_ready", "microsite_live")
+_OUTREACH_SCAFFOLD_TEMPLATE_KEY = "repe"
+
+
+def _env_row_exists(*, env_id: UUID) -> bool:
+    """Quick existence check against app.environments (cross-schema)."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT 1 FROM app.environments WHERE env_id = %s::uuid",
+            (str(env_id),),
+        )
+        return cur.fetchone() is not None
+
+
+def env_summary(*, env_id: UUID) -> dict | None:
+    """Minimal env summary for the operator UI. `dashboard_url` is computed
+    using the same one-line substitution that
+    environment_pipeline_v2._build_response performs
+    (`default_home_route.replace("{env_id}", env_id)`); there is no sibling
+    helper in env_v2 to reuse, so the substitution is repeated here.
+
+    Single source-of-truth note: post-create the route uses
+    result.links["dashboard_url"] from CreateEnvironmentV2Response directly;
+    read-after-create computes from default_home_route here. Both paths
+    converge on the same string for the same env_id."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT env_id::text AS env_id, slug, template_key,
+                      lifecycle_state, default_home_route, theme_accent
+                 FROM app.environments
+                WHERE env_id = %s::uuid""",
+            (str(env_id),),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    home = row.get("default_home_route") or ""
+    dashboard_url = home.replace("{env_id}", row["env_id"]) if home else None
+    return {**row, "dashboard_url": dashboard_url}
+
+
+def _template_exists(template_key: str) -> bool:
+    """SELECT 1 against app.environment_templates."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT 1 FROM app.environment_templates
+                WHERE template_key = %s AND is_active = true LIMIT 1""",
+            (template_key,),
+        )
+        return cur.fetchone() is not None
+
+
+def get_scaffolded_env_id_bulk(*, target_ids: list[str]) -> dict[str, str]:
+    """Per-target scaffolded_env_id for the list view — single query, empty-
+    input short-circuit so existing Phase 1/2A/2B/2C list-view tests with
+    unscaffolded targets do not consume an extra FakeCursor push."""
+    if not target_ids:
+        return {}
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT id::text AS id, scaffolded_env_id::text AS scaffolded_env_id
+                 FROM cro_outreach_target
+                WHERE id = ANY(%s) AND scaffolded_env_id IS NOT NULL""",
+            ([str(t) for t in target_ids],),
+        )
+        rows = cur.fetchall()
+    return {r["id"]: r["scaffolded_env_id"] for r in rows}
+
+
+def set_scaffolded_env_id(*, target_id: UUID, env_id: UUID) -> dict:
+    """Persist the scaffolded-env link. Direct UPDATE — `scaffolded_env_id` is
+    intentionally NOT in `_PATCHABLE` because only the scaffold-env endpoint
+    may set it."""
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE cro_outreach_target
+                  SET scaffolded_env_id = %s::uuid, updated_at = now()
+                WHERE id = %s::uuid
+                RETURNING *""",
+            (str(env_id), str(target_id)),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise OutreachTargetNotFound(f"Target {target_id} not found")
+    return row
+
+
+def compute_scaffold_env_state(
+    *, target: dict, env: dict | None = None
+) -> dict:
+    """Single source of truth for the Phase 3 scaffold-env gate. Used by both
+    display (GET /targets/{id}) and enforcement (POST .../scaffold-env).
+    Failure mapping is 1-to-1 with operator-facing `blocking_reason` strings.
+
+    Returns:
+        {
+          "available": bool,
+          "blocking_reason": str | None,
+          "env_summary": <env_summary or None>,
+          "can_recreate": bool,           # reserved for Phase 3.5; always False
+        }
+
+    Callers may pass a pre-fetched `env` dict (from env_summary) to avoid a
+    duplicate SELECT when the route already needs the summary for its
+    response payload."""
+    def _fail(reason: str, env_summary_val: dict | None = None) -> dict:
+        return {"available": False, "blocking_reason": reason,
+                "env_summary": env_summary_val, "can_recreate": False}
+
+    # 1. business_id
+    if not target.get("business_id"):
+        return _fail("Env has no business_id; environment scaffolding unavailable.")
+    # 2. crm_account_id
+    if not target.get("crm_account_id"):
+        return _fail("Link a CRM account before creating an outreach environment.")
+    # 3. assets ready
+    if target.get("status") not in SCAFFOLD_READY_STATUSES:
+        return _fail("Outreach assets are not ready yet.")
+
+    # 4. already-scaffolded short-circuit. The UI treats this as a SUCCESS /
+    # LINK state (renders the "Open environment" link), NOT a warning — the
+    # backend just communicates "do not create again" via the unavailable
+    # flag + linked-env summary.
+    sid = target.get("scaffolded_env_id")
+    if sid is not None:
+        existing = env if env is not None else env_summary(env_id=sid)
+        if existing is None:
+            return _fail("Stored scaffolded environment was not found.")
+        return _fail("Environment already exists.", env_summary_val=existing)
+
+    # 5. template availability — last gate before the create path opens.
+    if not _template_exists(_OUTREACH_SCAFFOLD_TEMPLATE_KEY):
+        return _fail("Environment template is not available.")
+
+    return {"available": True, "blocking_reason": None,
+            "env_summary": None, "can_recreate": False}
+
+
+# ---------------------------------------------------------------------------
 # cro_outreach_asset
 # ---------------------------------------------------------------------------
 
