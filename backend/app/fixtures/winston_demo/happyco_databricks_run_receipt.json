@@ -1,0 +1,88 @@
+{
+  "demo_mode": true,
+  "data_source": "synthetic_demo",
+  "databricks_executed": true,
+  "started_at": "2026-05-20T20:26:33+00:00",
+  "finished_at": "2026-05-20T20:26:33+00:00",
+  "status": "completed",
+  "databricks_status": "completed",
+  "workspace_user": "pa***@gmail.com",
+  "job_id": 77917622473309,
+  "run_id": 1055219858155829,
+  "task_run_id": 755123592734347,
+  "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/77917622473309/run/1055219858155829",
+  "notebook_path": "/Users/<workspace-user>/happyco_property_ops_ml_happyco-property-ops-risk-databricks-v1",
+  "spark_version": "16.4.x-cpu-ml-scala2.12",
+  "node_type_id": "m5.large",
+  "compute_mode": "serverless",
+  "output_paths": {
+    "feature_table": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/feature_table.csv",
+    "predictions": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/predictions.csv",
+    "model_metrics": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/model_metrics.json",
+    "feature_importance": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/feature_importance.csv",
+    "model_card": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/model_card.md",
+    "model_registry_record": "driver:/tmp/happyco_property_ops_ml/happyco-property-ops-risk-databricks-v1/model_registry_record.json"
+  },
+  "model_name": "happyco_property_maintenance_escalation_risk",
+  "model_version": "happyco-property-ops-risk-databricks-v1",
+  "metrics": {
+    "model_name": "happyco_property_maintenance_escalation_risk",
+    "model_version": "happyco-property-ops-risk-databricks-v1",
+    "trained_at": "2026-05-20T20:26:33+00:00",
+    "total_rows": 30,
+    "positive_rows": 7,
+    "negative_rows": 23,
+    "accuracy": 0.6,
+    "roc_auc": 0.3125,
+    "training_backend": "databricks_sklearn_logistic_regression",
+    "metric_honesty_warning": "Metrics are from a tiny deterministic synthetic demo set and are not expected production performance.",
+    "demo_mode": true,
+    "data_source": "synthetic_demo",
+    "caveat": "Synthetic demo data. Not HappyCo production data."
+  },
+  "top_feature_importance": [
+    {
+      "feature": "trailing_30_day_work_order_count",
+      "coefficient": 0.844328,
+      "importance": 0.844328
+    },
+    {
+      "feature": "reopened_work_order_rate",
+      "coefficient": 0.620259,
+      "importance": 0.620259
+    },
+    {
+      "feature": "category__moisture",
+      "coefficient": -0.530888,
+      "importance": 0.530888
+    },
+    {
+      "feature": "plumbing_finding_count",
+      "coefficient": -0.494534,
+      "importance": 0.494534
+    },
+    {
+      "feature": "resident_impact_proxy_count",
+      "coefficient": 0.470702,
+      "importance": 0.470702
+    },
+    {
+      "feature": "hvac_finding_count",
+      "coefficient": -0.441308,
+      "importance": 0.441308
+    },
+    {
+      "feature": "repeat_work_order_rate",
+      "coefficient": 0.388364,
+      "importance": 0.388364
+    },
+    {
+      "feature": "category__plumbing",
+      "coefficient": 0.371872,
+      "importance": 0.371872
+    }
+  ],
+  "caveat": "Synthetic demo data. Not HappyCo production data.",
+  "claim_allowed": "Databricks ML training run executed on synthetic property operations data.",
+  "claim_not_allowed": "Production HappyCo model trained/deployed."
+}

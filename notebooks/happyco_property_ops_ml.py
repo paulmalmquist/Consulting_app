@@ -5,7 +5,7 @@
 # MAGIC Synthetic demo notebook for the HappyCo Property Ops Intelligence Kit.
 # MAGIC
 # MAGIC This notebook is Databricks-ready but does not claim a live Databricks run
-# MAGIC unless executed in a workspace and paired with a CLI/job receipt.
+# MAGIC unless executed in a workspace and paired with `databricks_run_receipt.json`.
 # MAGIC
 # MAGIC Architecture:
 # MAGIC
@@ -123,6 +123,8 @@ feature_rows[:3]
 # MAGIC - `artifacts/happyco/ml/feature_importance.csv`
 # MAGIC - `artifacts/happyco/ml/model_card.md`
 # MAGIC - `artifacts/happyco/ml/model_registry_record.json`
+# MAGIC - `artifacts/happyco/databricks/databricks_run_receipt.json` after a
+# MAGIC   verified Databricks job/notebook execution
 
 # COMMAND ----------
 
@@ -136,3 +138,32 @@ feature_rows[:3]
 # COMMAND ----------
 
 print("Databricks-ready notebook loaded. Run the local fallback script to generate artifacts.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 06. Live Databricks receipt contract
+# MAGIC
+# MAGIC After this notebook is executed as a Databricks notebook/job, export a receipt
+# MAGIC with these fields:
+# MAGIC
+# MAGIC - `demo_mode: true`
+# MAGIC - `data_source: synthetic_demo`
+# MAGIC - `databricks_executed: true`
+# MAGIC - `workspace_user`
+# MAGIC - `job_id` if a job was used
+# MAGIC - `run_id`
+# MAGIC - `run_page_url`
+# MAGIC - `notebook_path`
+# MAGIC - `started_at`
+# MAGIC - `finished_at`
+# MAGIC - `status`
+# MAGIC - `output_paths`
+# MAGIC - `model_name`
+# MAGIC - `model_version`
+# MAGIC - `caveat: Synthetic demo data. Not HappyCo production data.`
+# MAGIC - `claim_allowed: Databricks ML training run executed on synthetic property operations data.`
+# MAGIC - `claim_not_allowed: Production HappyCo model trained/deployed.`
+# MAGIC
+# MAGIC The Winston API/UI only shows "Databricks run completed" when that receipt
+# MAGIC exists and records a successful Databricks execution.
