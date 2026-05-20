@@ -14,6 +14,7 @@ import {
   logCrmActivity,
   patchOutreachTarget,
   regenerateOutreachAsset,
+  scaffoldEnv,
   seedOutreachTarget,
   type CrmAccount,
   type CrmOpportunityListRow,
@@ -198,6 +199,28 @@ export default function OutreachPersonalizerPage({
     }
   }, [detail, refresh]);
 
+  // Phase 3: provision (or return existing) outreach environment for this
+  // target. Backend gate is single authority; idempotent on
+  // target.scaffolded_env_id.
+  const scaffold = useCallback(async () => {
+    if (!detail) return;
+    setBusy(true);
+    setErr(null);
+    setSaveMsg(null);
+    try {
+      const res = await scaffoldEnv(detail.target.id);
+      setSaveMsg(
+        res.created ? "Environment created." : "Opened existing environment.",
+      );
+      setDetail(await getOutreachTarget(detail.target.id));
+      await refresh();
+    } catch (e) {
+      setErr(fmtError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [detail, refresh]);
+
   const seedArtemis = useCallback(async () => {
     setBusy(true);
     setErr(null);
@@ -286,6 +309,11 @@ export default function OutreachPersonalizerPage({
                     {t.engagement && t.engagement.total_ctas > 0 ? (
                       <span className="ml-2 rounded bg-bm-danger/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-bm-danger">
                         Hot
+                      </span>
+                    ) : null}
+                    {t.scaffold?.linked ? (
+                      <span className="ml-2 rounded bg-bm-accent/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-bm-accent">
+                        env
                       </span>
                     ) : null}
                   </span>
@@ -586,6 +614,53 @@ export default function OutreachPersonalizerPage({
                       {detail.pipeline.blocking_reason}
                     </span>
                   ) : null}
+                  {/* Phase 3: "Create outreach environment" affordance. Three
+                      render states:
+                      (a) env_summary present → SUCCESS/LINK state (Open env link
+                          + scaffolded label). NOT a warning — the backend's
+                          "Environment already exists." is an idempotency signal,
+                          not an error.
+                      (b) available=true (no env yet) → enabled primary button.
+                      (c) gate failure WITHOUT env_summary → disabled button +
+                          exact blocking_reason in warning tone. */}
+                  {detail.scaffold?.env_summary ? (
+                    <>
+                      <Link
+                        href={detail.scaffold.env_summary.dashboard_url ?? "#"}
+                        target="_blank"
+                        className="rounded border border-bm-accent/40 bg-bm-accent/10 px-3 py-1.5 text-xs font-semibold text-bm-accent"
+                      >
+                        Open environment ↗
+                      </Link>
+                      <span className="text-[10px] text-bm-success">
+                        Scaffolded · {detail.scaffold.env_summary.lifecycle_state}
+                      </span>
+                    </>
+                  ) : detail.scaffold?.available ? (
+                    <Button
+                      size="sm"
+                      onClick={() => void scaffold()}
+                      disabled={busy}
+                    >
+                      {busy ? "Creating…" : "Create outreach environment"}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled
+                        title={detail.scaffold?.blocking_reason ?? undefined}
+                      >
+                        Create outreach environment
+                      </Button>
+                      {detail.scaffold ? (
+                        <span className="text-[10px] text-bm-warning">
+                          {detail.scaffold.blocking_reason}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </section>
 

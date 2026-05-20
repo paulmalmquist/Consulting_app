@@ -25,10 +25,13 @@ from app.schemas.outreach_personalizer import (
     MicrositeUpdateIn,
     LogCrmActivityIn,
     AdvancePipelineIn,
+    ScaffoldEnvIn,
 )
+from app.schemas.lab_v2 import EnvironmentManifestV2
 from app.services import outreach_personalizer as op_db
 from app.services import outreach_personalizer_ai as op_ai
 from app.services import crm as crm_svc
+from app.services import environment_pipeline_v2 as env_v2
 from app.services.outreach_personalizer import (
     OutreachTargetNotFound,
     normalize_loom_url,
@@ -227,6 +230,12 @@ def list_targets(
                 if t.get("crm_opportunity_id")
             ]
         )
+        # Phase 3: per-row scaffolded-env indicator. Single bulk lookup;
+        # empty-input short-circuit keeps Phase 1/2A/2B/2C list-view tests
+        # with unscaffolded targets from consuming an extra FakeCursor push.
+        scaffold_links = op_db.get_scaffolded_env_id_bulk(
+            target_ids=[str(t["id"]) for t in targets]
+        )
         for t in targets:
             t["engagement"] = rollups.get(str(t["id"]), dict(op_db._EMPTY_ROLLUP))
             opp_id = t.get("crm_opportunity_id")
@@ -237,6 +246,8 @@ def list_targets(
                 "opportunity_name": (opp or {}).get("name") if opp else None,
                 "current_stage_label": (opp or {}).get("stage_label") if opp else None,
             }
+            sid = scaffold_links.get(str(t["id"]))
+            t["scaffold"] = {"linked": sid is not None, "env_id": sid}
         return {"targets": targets}
     except Exception as exc:
         status, code = classify_domain_error(exc)
@@ -263,6 +274,10 @@ def get_target(
         resp["pipeline"] = op_db.compute_pipeline_advance_state(
             target=target, opportunity=opp,
         )
+        # Phase 3: pre-fetch the env summary if scaffolded, attach to response,
+        # AND pass to compute_scaffold_env_state so it does not re-query.
+        env = _scaffolded_env_summary(target)
+        resp["scaffold"] = op_db.compute_scaffold_env_state(target=target, env=env)
         return resp
     except OutreachTargetNotFound as exc:
         return domain_error_response(
@@ -291,6 +306,18 @@ def _crm_opportunity_summary(target: dict) -> dict | None:
     if not oid:
         return None
     return op_db.crm_opportunity_summary(crm_opportunity_id=oid)
+
+
+def _scaffolded_env_summary(target: dict) -> dict | None:
+    """Phase 3 — read-only scaffolded-env summary attached to detail responses.
+    Mirrors `_crm_account_summary` / `_crm_opportunity_summary` exactly. None
+    if the target has no scaffolded env. `dashboard_url` is computed inside
+    op_db.env_summary using the same substitution that
+    environment_pipeline_v2._build_response performs."""
+    sid = target.get("scaffolded_env_id")
+    if not sid:
+        return None
+    return op_db.env_summary(env_id=sid)
 
 
 @router.patch("/targets/{target_id}")
@@ -533,6 +560,96 @@ def advance_pipeline(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="outreach-personalizer.advance-pipeline.failed",
+        )
+
+
+@router.post("/targets/{target_id}/scaffold-env")
+def scaffold_env(
+    target_id: UUID,
+    payload: ScaffoldEnvIn,
+    request: Request,
+):
+    """Phase 3: provision a REPE-flavored outreach environment for the target
+    via env_v2.create_environment_v2(), idempotent on target.scaffolded_env_id.
+
+    Single source of truth for the gate: compute_scaffold_env_state. When all
+    conditions pass and no env is linked yet, this endpoint calls the existing
+    env_v2 service with template_key="repe"; on success the returned env_id is
+    persisted on the target row. When the target is already scaffolded, this
+    endpoint returns the existing env summary with created=False (idempotent
+    branch; not a 400).
+
+    Public microsite NEVER reaches this endpoint — operator-only.
+    """
+    try:
+        target = op_db.get_target_by_id(target_id=target_id)
+        state = op_db.compute_scaffold_env_state(target=target)
+        if not state["available"]:
+            # Idempotent already-linked branch returns 200 with created=False
+            # (consistent with Phase 1's POST /targets idempotency). All other
+            # gate failures are 400 with the exact blocking_reason.
+            if (
+                state["env_summary"] is not None
+                and state["blocking_reason"] == "Environment already exists."
+            ):
+                return {
+                    "ok": True, "created": False,
+                    "env": state["env_summary"], "scaffold": state,
+                }
+            raise ValueError(state["blocking_reason"])
+
+        manifest = EnvironmentManifestV2(
+            client_name=target["firm_name"],
+            template_key="repe",
+            slug=str(target["firm_slug"]).lower(),  # citext → str; enforce lowercase
+            theme_tokens=(
+                {"accent": target["accent_hsl"]} if target.get("accent_hsl") else None
+            ),
+        )
+        result = env_v2.create_environment_v2(
+            manifest, actor="outreach_personalizer",
+        )
+        if result.errors or not result.env_id:
+            raise ValueError(
+                f"Environment pipeline failed: {'; '.join(result.errors) or 'unknown error'}"
+            )
+        op_db.set_scaffolded_env_id(target_id=target_id, env_id=result.env_id)
+
+        # Recompute the gate so the response carries the fresh
+        # "Environment already exists." + populated env_summary.
+        fresh_target = op_db.get_target_by_id(target_id=target_id)
+        fresh_state = op_db.compute_scaffold_env_state(target=fresh_target)
+        return {
+            "ok": True, "created": True,
+            "env": fresh_state["env_summary"], "scaffold": fresh_state,
+        }
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404,
+            code="outreach_personalizer.not_found",
+            detail=str(exc), action="outreach-personalizer.scaffold-env.failed",
+        )
+    except LookupError:
+        # env_v2.get_template raises LookupError on unknown template_key
+        return domain_error_response(
+            request=request, status_code=400,
+            code="outreach_personalizer.validation_error",
+            detail="Environment template is not available.",
+            action="outreach-personalizer.scaffold-env.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=400,
+            code="outreach_personalizer.validation_error",
+            detail=str(exc),
+            action="outreach-personalizer.scaffold-env.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=f"Environment pipeline failed: {exc}",
+            action="outreach-personalizer.scaffold-env.failed",
         )
 
 

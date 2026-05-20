@@ -88,3 +88,14 @@ class LogCrmActivityIn(BaseModel):
 
 class AdvancePipelineIn(BaseModel):
     note: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Scaffold environment (Phase 3). Optional operator note; current Phase 3 does
+# not record it anywhere downstream (env_v2.create_environment_v2 does not
+# accept a free-form note), but the field is reserved for symmetry with
+# AdvancePipelineIn / LogCrmActivityIn and future use.
+# ---------------------------------------------------------------------------
+
+class ScaffoldEnvIn(BaseModel):
+    note: str | None = None

@@ -1,15 +1,15 @@
-# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C)
+# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C + 3)
 
 **Created:** 2026-05-19
-**Status:** Phases 1 + 2A + 2B COMPLETE on `main` via PR #68 squash `d9f6733e`
-(2026-05-19). **Phase 2C IN PROGRESS 2026-05-20** — explicit `crm_opportunity_id`
-link + pipeline-advance gate (`compute_pipeline_advance_state`) + reuse of
-`crm_svc.move_opportunity_stage` (see "Phase 2C" section below). Migration `612`
-applied to Supabase (`ozboonlsplroialdwuxj`); 77/79 backend tests pass (2 skips
-pre-existing); repo-b typecheck clean; live DB smoke green (Pattern A throwaway
-opportunity; cleanup ran).
+**Status:** Phases 1 + 2A + 2B + 2C COMPLETE on `main` via PR #68 (`d9f6733e`) and
+PR #81 (`c22182ba`). **Phase 3 IN PROGRESS 2026-05-20** — explicit
+`scaffolded_env_id` link + "Create outreach environment" affordance + reuse of
+`environment_pipeline_v2.create_environment_v2()` (see "Phase 3" section below).
+Migration `613` applied to Supabase (`ozboonlsplroialdwuxj`); 101/103 backend
+tests pass (2 skips pre-existing); repo-b typecheck clean; live DB smoke green
+(real REPE env created + idempotent recall + dependency-ordered cleanup).
 **Environment:** Consulting / Novendor CRM
-**Deliverable type:** Multi-phase build (Phase 1 vertical slice + 2A/2B/2C operational layers)
+**Deliverable type:** Multi-phase build (Phase 1 vertical slice + 2A/2B/2C/3 operational layers)
 
 ---
 
@@ -326,8 +326,125 @@ Idempotent guards mirror `611`.
   `crm_opportunity_stage_history` row written; cleanup ran (smoke opp +
   history + target + microsite events all deleted).
 
+---
+
+## Phase 3 — Environment scaffolding (COMPLETE 2026-05-20)
+
+Closes the loop with: **target → REPE-flavored scaffolded environment** via
+`environment_pipeline_v2.create_environment_v2()`, idempotent on
+`cro_outreach_target.scaffolded_env_id`. The operator clicks "Create outreach
+environment", the env is provisioned in-band (synchronous, `lifecycle_state =
+verified` in one call), the target row persists `scaffolded_env_id`, the UI
+flips the button to an "Open environment ↗" success/link state.
+
+**Decision (verified against current main):** explicit `scaffolded_env_id` FK
+to `app.environments` (Option A). The v2 pipeline IS slug-idempotent
+(`environment_pipeline_v2._existing_env_by_slug`, lines 158–199) but that is
+defense-in-depth — the operator contract is one-env-per-target via the FK,
+enforced at the service-level gate `compute_scaffold_env_state`.
+
+**Pre-implementation precondition verified:** end-to-end pre-checks ran
+before any code: (1) `scaffolded_env_id` confirmed absent on `origin/main`
+611+612 AND live Supabase (information_schema query); (2)
+`environment_pipeline_v2._build_response` confirmed as the only place
+`default_home_route.replace("{env_id}", env_id)` is composed — no sibling
+helper to reuse, so `env_summary()` repeats the substitution and the route
+uses `result.links["dashboard_url"]` directly post-create. Both paths
+converge.
+
+**Migration `613_outreach_personalizer_scaffold_env.sql`** — applied.
+Additive only: `ADD COLUMN IF NOT EXISTS scaffolded_env_id uuid REFERENCES
+app.environments(env_id) ON DELETE SET NULL` (cross-schema FK, standard
+Postgres). Partial index `idx_cro_outreach_target_scaffolded_env`. No CHECK
+constraint — `scaffolded_env_id` is independent of account/opp linkage.
+
+**Backend** (`backend/app/services/outreach_personalizer.py`,
+`backend/app/routes/outreach_personalizer.py`,
+`backend/app/schemas/outreach_personalizer.py`):
+- `SCAFFOLD_READY_STATUSES = ("assets_ready", "microsite_live")`,
+  `_OUTREACH_SCAFFOLD_TEMPLATE_KEY = "repe"`.
+- `env_summary(env_id)` reads `app.environments` (cross-schema) and adds
+  `dashboard_url` via the same substitution `env_v2._build_response` uses.
+- `_template_exists("repe")` is the last gate check before the create path opens.
+- `get_scaffolded_env_id_bulk(target_ids)` — list-view bulk lookup with
+  empty-input short-circuit; existing Phase 1/2A/2B/2C list-view tests with
+  unscaffolded targets do NOT consume an extra FakeCursor push.
+- `set_scaffolded_env_id(target_id, env_id)` — direct UPDATE;
+  `scaffolded_env_id` is **NOT** in `_PATCHABLE` (only the new endpoint
+  writes it).
+- `compute_scaffold_env_state(target, env=None)` — single source of truth
+  for the 5-step gate, used by both display and enforcement. Accepts a
+  pre-fetched `env` to let the route avoid duplicate SELECTs.
+- Route: `_scaffolded_env_summary(target)` mirrors `_crm_account_summary` /
+  `_crm_opportunity_summary` exactly.
+- Route: `GET /targets/{id}` adds `scaffold` key (full gate state via
+  `compute_scaffold_env_state` with pre-fetched env).
+- Route: `GET /targets` per-row `scaffold: {linked, env_id}` via the bulk
+  lookup (no N+1).
+- Route: `POST /targets/{id}/scaffold-env` (new). Already-scaffolded branch
+  returns 200 with `created=False` (idempotency); gate failures return 400
+  with the exact `blocking_reason`; `LookupError` from `env_v2.get_template`
+  maps to 400 "Environment template is not available."; generic exceptions
+  → 500 with safe "Environment pipeline failed: …".
+- `ScaffoldEnvIn { note: str | None }` — symmetric with
+  `AdvancePipelineIn` / `LogCrmActivityIn`.
+
+**Frontend** (`repo-b/src/lib/outreach-personalizer-api.ts`,
+`repo-b/src/app/lab/env/[envId]/consulting/outreach-personalizer/page.tsx`):
+- New TS types `ScaffoldedEnvSummary`, `ScaffoldEnvState`,
+  `ScaffoldListSummary`; `OutreachTarget` gains `scaffolded_env_id`;
+  `TargetResponse` gains `scaffold`; `OutreachTargetWithEngagement` gains
+  `scaffold`.
+- New API call `scaffoldEnv(targetId, note?)` (POST `/scaffold-env`).
+- Operator page: **three-state render** for the affordance —
+  (a) `scaffold.env_summary` present → success/link state with "Open
+  environment ↗" and a small `Scaffolded · {lifecycle_state}` success label.
+  **NOT a warning**: the backend's `"Environment already exists."` is an
+  idempotency signal, not an error.
+  (b) `scaffold.available === true` → enabled primary "Create outreach
+  environment" button.
+  (c) gate failure WITHOUT env_summary → disabled secondary button + exact
+  `blocking_reason` in `text-bm-warning`.
+- List view: small "env" badge mirroring Phase 2B's "Hot" badge for rows
+  with `scaffold.linked === true`.
+- Public microsite untouched (operator-only affordance).
+
+**Accepted v1 behavior (NOT a bug):** Two outreach targets in different
+operator envs with the same `firm_slug` will resolve to the **same**
+scaffolded env via the v2 layer's slug-idempotency. This is the explicit v1
+design choice ("there should be one Artemis demo env"), not a sprawl bug.
+A more complex per-target slug scheme is reserved for an explicit follow-on
+decision, not retrofitted silently.
+
+**Verified:**
+- `python -m pytest backend/tests/test_outreach_personalizer.py
+   backend/tests/test_pitch_forge_constraints.py
+   backend/tests/test_environment_pipeline_v2.py -q` → 101 passed, 2 skipped
+  (51 outreach + 7 Phase 3 gate + 9 Phase 3 route mocking
+  `route.env_v2.create_environment_v2` + 26 pitch-forge + 8 env_pipeline_v2
+  regression; 2 skips pre-existing).
+- `cd repo-b && npm run typecheck` → clean.
+- `node apply.js --files 613 --dry-run` → 5 statements, OK.
+- `cat 613_*.sql | supabase db query --linked` → applied; column present.
+- **Live DB smoke** (`env_id="verify-artemis-3"`, unique short slug
+  `p3-smoke-art-{6hex}`): seeded target persists business_id, PATCH links
+  real CRM account, gate `available=True` pre-create, POST scaffold-env
+  creates a real env (`lifecycle_state="verified"`,
+  `dashboard_url="/lab/env/{env_id}/re"`, 5 pipeline-stage rows from
+  `repe_starter`), second call returns `created=False` + same env_id,
+  recomputed gate carries "Environment already exists." + populated
+  env_summary, public microsite payload contains **none** of `scaffold` /
+  `scaffolded_env_id` / `dashboard_url`. FK inspection printed
+  `(app.environments: 1, v1.environments: 1, v1.pipeline_stages: 5,
+  app.environment_memberships: 0)` before dependency-ordered cleanup deleted
+  all 7 rows + outreach target + microsite events.
+
 ## Next recommended ticket
 
-Phase 3: Environment scaffolding via `environment_pipeline_v2.create()` (a
-genuine new client → instant outreach environment loop), then Apollo /
-sales-intelligence enrichment to auto-populate `profile_json`.
+**Phase 3.5** (operator-selectable template + recreation affordance): allow
+the operator to pick the template (currently hard-coded `"repe"`) and add an
+explicit "Recreate environment" button gated on
+`scaffold.can_recreate` (currently always `false`).
+
+**Phase 4**: Apollo / sales-intelligence enrichment to auto-populate
+`profile_json` from `firm_name` + domain.
