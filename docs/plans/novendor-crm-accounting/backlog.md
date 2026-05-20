@@ -42,7 +42,7 @@ Tracked in `docs/plans/03-implementation-plans/active/0002-novendor-daily-operat
 - [x] **D — FlowYorker / Web Properties** — largely satisfied by Tickets 3–5 (seeded initiative + 7 workstreams, assignable via drawer). Deferred remainder: dedicated web-property UI affordance for `related_entity_type='web_property'`/`related_url` (low priority — columns + write-path exist).
 - [ ] **E — Outreach/CRM linkage** — tasks ↔ `crm_account`/`crm_contact`/`crm_opportunity`/`crm_activity`.
 - [ ] **F — Coding / impl-plan linkage** — `coding_platform` tasks ↔ active plans via `related_url`.
-- [ ] **G — Morning Checklist** — read-time generated view over `cro_execution_task` (no new table).
+- [x] **G / Ticket 6 — Morning Checklist generated brief** — **DONE & VERIFIED 2026-05-20.** PR #80 merged (`cb3a36db`). Read-only `GET /execution/morning-checklist` + `MorningBriefPanel` above the lanes; 8 sections derived from `cro_execution_task` (no persistence, no new table); grounded suggested prompts (display-only). Deployed Railway `02b341f0` + Vercel `repo-pc8uh3267`. Prod smoke: HTTP 200, FlowYorker task surfaces under Website / content moves (1 task), grounded prompts (`what_first`, `flowyorker`) emitted only when supported. 34 backend tests pass. See dispatch `0002` Ticket 6.
 - [ ] **H — Assistant/CoWork retrieval** — copilot answers over real board state, fail-closed.
 
 ## Completed
