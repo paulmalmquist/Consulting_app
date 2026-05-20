@@ -67,6 +67,7 @@ class MicrositeTrackIn(BaseModel):
 class MicrositeUpdateIn(BaseModel):
     loom_url: str | None = None
     crm_account_id: UUID | None = None
+    crm_opportunity_id: UUID | None = None  # Phase 2C
     logo_url: str | None = None
     accent_hsl: str | None = None
 
@@ -77,4 +78,13 @@ class MicrositeUpdateIn(BaseModel):
 # ---------------------------------------------------------------------------
 
 class LogCrmActivityIn(BaseModel):
+    note: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Advance pipeline (Phase 2C). Optional operator note recorded in the
+# crm_opportunity_stage_history row written by crm_svc.move_opportunity_stage.
+# ---------------------------------------------------------------------------
+
+class AdvancePipelineIn(BaseModel):
     note: str | None = None

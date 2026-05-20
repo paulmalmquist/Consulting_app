@@ -165,7 +165,8 @@ def update_target(
 # Columns the PATCH endpoint may set. Unlike update_target (Phase 1 seed path,
 # COALESCE — never clears), patch_target writes exactly the provided fields, so
 # loom_url can be explicitly set to NULL to clear it.
-_PATCHABLE = ("loom_url", "crm_account_id", "logo_url", "accent_hsl")
+_PATCHABLE = ("loom_url", "crm_account_id", "crm_opportunity_id", "logo_url", "accent_hsl")
+_UUID_PATCH_COLS = ("crm_account_id", "crm_opportunity_id")
 
 
 def patch_target(*, target_id: UUID, fields: dict) -> dict:
@@ -177,7 +178,7 @@ def patch_target(*, target_id: UUID, fields: dict) -> dict:
     params: list = []
     for c in cols:
         val = fields[c]
-        if c == "crm_account_id" and val is not None:
+        if c in _UUID_PATCH_COLS and val is not None:
             params.append(str(val))
         else:
             params.append(val)
@@ -218,6 +219,173 @@ def crm_account_summary(*, crm_account_id: UUID) -> dict | None:
             (str(crm_account_id),),
         )
         return cur.fetchone()
+
+
+# ---------------------------------------------------------------------------
+# crm_opportunity — read-only reuse (FK existence guard + summary) + pipeline
+# advance gate. NOT a CRM model; crm_opportunity / crm_pipeline_stage are owned
+# by 260_crm_native.sql / app.services.crm. Phase 2C.
+# ---------------------------------------------------------------------------
+
+# Single owner of the "closed/terminal" set. crm_opportunity.status was extended
+# by 10001_crm_opportunity_lifecycle.sql to include 'cold_hold' and 'archived';
+# only 'won', 'lost', 'archived' are terminal — 'on_hold' and 'cold_hold' are
+# active-but-paused, so the operator can still advance them.
+_CLOSED_OPP_STATUSES: tuple[str, ...] = ("won", "lost", "archived")
+
+
+def crm_opportunity_exists(*, crm_opportunity_id: UUID, business_id: UUID) -> bool:
+    """FK guard that ALSO enforces same-business linkage. Returns True only when
+    the opportunity row exists AND belongs to the given business_id."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT 1 FROM crm_opportunity
+               WHERE crm_opportunity_id = %s::uuid AND business_id = %s::uuid""",
+            (str(crm_opportunity_id), str(business_id)),
+        )
+        return cur.fetchone() is not None
+
+
+def list_opportunity_summaries_bulk(*, opp_ids: list[str]) -> dict[str, dict]:
+    """Per-opportunity name + current-stage label for the list view's linked
+    indicator. ONE round-trip via `WHERE crm_opportunity_id = ANY(%s)`. Returns
+    {opp_id: {crm_opportunity_id, name, stage_label}}. Empty input → empty dict
+    (no DB call), so existing list-view tests with unlinked targets do not
+    consume an extra FakeCursor push."""
+    if not opp_ids:
+        return {}
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT o.crm_opportunity_id, o.name, s.label AS stage_label
+                 FROM crm_opportunity o
+                 LEFT JOIN crm_pipeline_stage s
+                        ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
+                WHERE o.crm_opportunity_id = ANY(%s)""",
+            ([str(o) for o in opp_ids],),
+        )
+        rows = cur.fetchall()
+    return {
+        str(r["crm_opportunity_id"]): {
+            "crm_opportunity_id": r["crm_opportunity_id"],
+            "name": r["name"],
+            "stage_label": r.get("stage_label"),
+        }
+        for r in rows
+    }
+
+
+def crm_opportunity_summary(*, crm_opportunity_id: UUID) -> dict | None:
+    """Opportunity + joined current-stage fields the operator UI needs."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT o.crm_opportunity_id, o.name, o.amount, o.status,
+                      o.business_id, o.crm_account_id, o.crm_pipeline_stage_id,
+                      s.key AS stage_key, s.label AS stage_label,
+                      s.stage_order, s.is_closed, s.is_won
+                 FROM crm_opportunity o
+                 LEFT JOIN crm_pipeline_stage s
+                        ON s.crm_pipeline_stage_id = o.crm_pipeline_stage_id
+                WHERE o.crm_opportunity_id = %s::uuid""",
+            (str(crm_opportunity_id),),
+        )
+        return cur.fetchone()
+
+
+def _next_open_stage(*, cur, business_id: UUID, current_order: int) -> dict | None:
+    """Resolve the next non-closed stage strictly above current_order.
+
+    Deterministic tiebreaker on duplicate stage_order: secondary ASC by `key`
+    (the table's UNIQUE column within a business). Same business scope as the
+    current opportunity. This helper is the SINGLE owner of the "what counts
+    as the next stage" policy — do not reimplement at call sites.
+    """
+    cur.execute(
+        """SELECT crm_pipeline_stage_id, key, label, stage_order
+             FROM crm_pipeline_stage
+            WHERE business_id = %s::uuid
+              AND is_closed = false
+              AND stage_order > %s
+            ORDER BY stage_order ASC, key ASC
+            LIMIT 1""",
+        (str(business_id), current_order),
+    )
+    return cur.fetchone()
+
+
+def compute_pipeline_advance_state(
+    *, target: dict, opportunity: dict | None = None
+) -> dict:
+    """Single source of truth for the pipeline-advance gate.
+
+    Used for BOTH display (GET /targets/{id}) and enforcement
+    (POST /targets/{id}/advance-pipeline). Failure mapping is intentionally
+    1-to-1 with the operator-facing blocking_reason strings — earliest failure
+    short-circuits with the most actionable message.
+
+    Callers may pass a pre-fetched `opportunity` dict (from
+    crm_opportunity_summary) to avoid a duplicate SELECT when the route already
+    needs the summary for its response payload.
+
+    Returns:
+        {
+          "available": bool,
+          "blocking_reason": str | None,
+          "opportunity": <crm_opportunity_summary or None>,
+          "next_stage": {crm_pipeline_stage_id, key, label} | None,
+        }
+    """
+    def _fail(reason: str, opp: dict | None = None) -> dict:
+        return {"available": False, "blocking_reason": reason,
+                "opportunity": opp, "next_stage": None}
+
+    # 1. business_id
+    business_id = target.get("business_id")
+    if not business_id:
+        return _fail("Env has no business_id; pipeline operations unavailable.")
+    # 2. crm_account_id
+    if not target.get("crm_account_id"):
+        return _fail("Link a CRM account first.")
+    # 3. crm_opportunity_id
+    opp_id = target.get("crm_opportunity_id")
+    if not opp_id:
+        return _fail("Link a CRM opportunity to enable pipeline moves.")
+
+    opp = opportunity if opportunity is not None else crm_opportunity_summary(
+        crm_opportunity_id=opp_id
+    )
+    # 4. opportunity row exists AND same business
+    if opp is None:
+        return _fail("Linked opportunity belongs to a different business.")
+    if str(opp.get("business_id")) != str(business_id):
+        return _fail("Linked opportunity belongs to a different business.", opp)
+    # 5. opportunity not closed
+    if opp.get("status") in _CLOSED_OPP_STATUSES:
+        return _fail("Opportunity is closed; reopen it in CRM to advance.", opp)
+    # 6. current stage not terminal
+    current_order = opp.get("stage_order")
+    if opp.get("is_closed") is True:
+        return _fail("Opportunity already at terminal stage.", opp)
+    if current_order is None:
+        # No stage attached at all → no progression possible.
+        return _fail("No valid next stage is configured.", opp)
+    # 7. next stage exists
+    with get_cursor() as cur:
+        nxt = _next_open_stage(
+            cur=cur, business_id=business_id, current_order=current_order,
+        )
+    if not nxt:
+        return _fail("No valid next stage is configured.", opp)
+
+    return {
+        "available": True,
+        "blocking_reason": None,
+        "opportunity": opp,
+        "next_stage": {
+            "crm_pipeline_stage_id": nxt["crm_pipeline_stage_id"],
+            "key": nxt["key"],
+            "label": nxt["label"],
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
