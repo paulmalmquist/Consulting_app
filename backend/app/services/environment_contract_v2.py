@@ -23,8 +23,11 @@ unknown (the route maps LookupError -> HTTP 404).
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+from fastapi import HTTPException
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
@@ -42,7 +45,26 @@ SERVICE = "environment_contract_v2"
 # and there is no app.environment_capabilities table yet (verified absent in prod).
 # Until Phase 3 implements it, capability checks MUST report not_available/blocking —
 # never a silent pass. This is the single most dangerous failure mode.
+# (Phase 3a flips this to True once 10030 environment_capabilities lands.)
 _CAPABILITY_BINDING_IMPLEMENTED = False
+
+# Promotion state machine (DB-enforced by the promotion-guard migration's
+# environment_contract_enforce_promotion trigger; mirrored here so the gate fails
+# closed with a clean 4xx before the DB ever raises). Keep in lockstep with the migration.
+_LEGAL_TRANSITIONS: dict[str, set[str]] = {
+    "draft": {"seeded", "verified", "quarantined", "failed"},
+    "seeded": {"verified", "quarantined", "failed"},
+    "verified": {"staging", "quarantined", "failed"},
+    "staging": {"verified", "released", "quarantined", "failed"},
+    "released": set(),  # terminal — immutable
+    "quarantined": {"verified"},
+    "failed": {"draft", "quarantined"},
+}
+
+# Promotion into these states requires the env to be structurally healthy AND a
+# fresh verification with eligible_for_promotion = True.
+_STATES_REQUIRING_ELIGIBILITY: set[str] = {"staging", "released"}
+_LIFECYCLE_OK_FOR_PROMOTION: set[str] = {"verified", "live"}
 
 
 def _utcnow_iso() -> str:
@@ -521,3 +543,286 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
         },
     )
     return report
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Promotion gate + transitions (Dispatch 0004 — Ticket 2)
+#
+# Mirrors the re_trace_gate idiom: assert_environment_promotable returns a typed
+# result or raises HTTPException; the route must call the gate first and never
+# reach the transition write otherwise. The gate ALWAYS re-runs verification fresh
+# (materialize=True) — it must never promote on a stale/cached report.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class PromotableContract:
+    """Returned by the gate when a transition is permitted."""
+
+    env_id: str
+    from_state: str
+    to_state: str
+    lifecycle_state: str | None
+    report: ContractVerificationReport
+
+
+def _gate_409(code: str, message: str, **ctx: Any) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={"code": code, "message": message, **ctx},
+    )
+
+
+def assert_environment_promotable(
+    env_id: str, *, target: str, actor: str
+) -> PromotableContract:
+    """Fail-closed gate. Raises HTTPException (404/409) unless the transition to
+    `target` is legal AND, when target requires it, the env is structurally healthy
+    AND a FRESH verification says eligible_for_promotion.
+
+    The route must call this before any transition write; the transition write must
+    be unreachable when this raises.
+    """
+    if target not in _LEGAL_TRANSITIONS and target not in {
+        s for v in _LEGAL_TRANSITIONS.values() for s in v
+    }:
+        raise _gate_409(
+            "invalid_target_state",
+            f"unknown target promotion_state '{target}'",
+            target=target,
+        )
+
+    # Fresh verification — never trust a cached/stale report for a promotion.
+    report = verify_environment_contract(env_id, materialize=True)
+
+    with get_cursor() as cur:
+        contract = _load_contract_row(cur, env_id)
+        if contract is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "contract_not_found",
+                    "message": f"no environment contract for env_id {env_id}",
+                },
+            )
+        env_row = _load_env_row(cur, env_id) or {}
+
+    current = contract["promotion_state"]
+    lifecycle = env_row.get("lifecycle_state")
+
+    if current == "released":
+        raise _gate_409(
+            "released_is_terminal",
+            "released environment contracts are immutable",
+            env_id=env_id,
+            promotion_state=current,
+        )
+
+    allowed = _LEGAL_TRANSITIONS.get(current, set())
+    if target != current and target not in allowed:
+        raise _gate_409(
+            "invalid_transition",
+            f"illegal promotion transition {current} -> {target}",
+            env_id=env_id,
+            from_state=current,
+            to_state=target,
+            allowed=sorted(allowed),
+        )
+
+    if target in _STATES_REQUIRING_ELIGIBILITY:
+        if lifecycle not in _LIFECYCLE_OK_FOR_PROMOTION:
+            raise _gate_409(
+                "lifecycle_not_ready",
+                f"target '{target}' requires lifecycle_state in "
+                f"{sorted(_LIFECYCLE_OK_FOR_PROMOTION)}; env is "
+                f"'{lifecycle}'",
+                env_id=env_id,
+                lifecycle_state=lifecycle,
+                to_state=target,
+            )
+        if not report.eligible_for_promotion:
+            raise _gate_409(
+                "not_eligible",
+                f"target '{target}' requires a passing verification; "
+                f"{len(report.blocking_failures)} blocking check(s) failing",
+                env_id=env_id,
+                to_state=target,
+                blocking_failures=report.blocking_failures,
+            )
+
+    return PromotableContract(
+        env_id=env_id,
+        from_state=current,
+        to_state=target,
+        lifecycle_state=lifecycle,
+        report=report,
+    )
+
+
+def _record_event(
+    cur,
+    *,
+    env_id: str,
+    from_state: str,
+    to_state: str,
+    actor: str,
+    reason: str | None,
+    report: ContractVerificationReport | None,
+) -> None:
+    """Append-only audit row. Every transition (promote AND quarantine) writes
+    exactly one of these."""
+    cur.execute(
+        """
+        INSERT INTO app.environment_promotion_event
+          (env_id, from_state, to_state, actor, reason, verification)
+        VALUES (%s::uuid, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (
+            env_id,
+            from_state,
+            to_state,
+            actor,
+            reason,
+            _serialize_json(report.model_dump()) if report is not None else None,
+        ),
+    )
+
+
+def promote_environment(
+    env_id: str, *, target: str, actor: str, reason: str | None = None
+) -> ContractVerificationReport:
+    """Gate, then perform the single legal transition and write one event row.
+
+    Returns the fresh verification report the decision was made on. Raises
+    HTTPException (from the gate) when the transition is not permitted — in which
+    case NO transition and NO event row are written.
+    """
+    gate = assert_environment_promotable(env_id, target=target, actor=actor)
+
+    with get_cursor() as cur:
+        # released needs its provenance columns; the trigger only lets these +
+        # promotion_state change on a row entering/at released.
+        if target == "released":
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s,
+                          released_at = now(), released_by = %s
+                    WHERE env_id = %s::uuid""",
+                (target, actor, env_id),
+            )
+        elif target == "verified":
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s,
+                          verified_by = %s
+                    WHERE env_id = %s::uuid""",
+                (target, actor, env_id),
+            )
+        else:
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s
+                    WHERE env_id = %s::uuid""",
+                (target, env_id),
+            )
+        _record_event(
+            cur,
+            env_id=env_id,
+            from_state=gate.from_state,
+            to_state=target,
+            actor=actor,
+            reason=reason,
+            report=gate.report,
+        )
+
+    emit_log(
+        level="info",
+        service=SERVICE,
+        action="promote_environment",
+        message=f"environment promoted {gate.from_state} -> {target}",
+        context={"env_id": env_id, "from": gate.from_state, "to": target,
+                 "actor": actor},
+    )
+    return gate.report
+
+
+def quarantine_environment(
+    env_id: str, *, actor: str, reason: str
+) -> ContractVerificationReport:
+    """Operator fail-closed action. Always records an event row with the reason.
+
+    quarantine is reachable from every non-released state; a released contract is
+    terminal and cannot be quarantined (the gate enforces this fail-closed). reason
+    is required — a quarantine without a recorded reason is not auditable.
+    """
+    if not reason or not reason.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "reason_required",
+                    "message": "quarantine requires a non-empty reason"},
+        )
+    gate = assert_environment_promotable(
+        env_id, target="quarantined", actor=actor
+    )
+
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE app.environment_contract
+                  SET promotion_state = 'quarantined'
+                WHERE env_id = %s::uuid""",
+            (env_id,),
+        )
+        _record_event(
+            cur,
+            env_id=env_id,
+            from_state=gate.from_state,
+            to_state="quarantined",
+            actor=actor,
+            reason=reason,
+            report=gate.report,
+        )
+
+    emit_log(
+        level="warning",
+        service=SERVICE,
+        action="quarantine_environment",
+        message=f"environment quarantined ({gate.from_state} -> quarantined)",
+        context={"env_id": env_id, "from": gate.from_state, "actor": actor,
+                 "reason": reason},
+    )
+    return gate.report
+
+
+def check_promotion_drift() -> dict[str, Any]:
+    """Drift guard: any env in a promoted state (released/staging) that no longer
+    passes verification is drift. Mirrors the /v2/environments/health 503 idiom —
+    the route returns 503 when `drift` is non-empty.
+
+    Read-only: verifies with materialize=False so a drift probe never mutates
+    last_verification or promotion_state.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT env_id::text AS env_id, promotion_state
+                 FROM app.environment_contract
+                WHERE promotion_state IN ('released','staging')"""
+        )
+        promoted = [dict(r) for r in cur.fetchall()]
+
+    drift: list[dict[str, Any]] = []
+    for row in promoted:
+        report = verify_environment_contract(row["env_id"], materialize=False)
+        if not report.eligible_for_promotion:
+            drift.append(
+                {
+                    "env_id": row["env_id"],
+                    "promotion_state": row["promotion_state"],
+                    "blocking_failures": report.blocking_failures,
+                }
+            )
+
+    return {
+        "promoted_envs_checked": len(promoted),
+        "drift": drift,
+        "ok": not drift,
+    }

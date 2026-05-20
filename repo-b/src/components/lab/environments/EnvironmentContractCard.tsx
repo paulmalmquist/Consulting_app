@@ -13,7 +13,7 @@
  * proxy via bosFetch (no hard-coded backend origin).
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { bosFetch } from "@/lib/bos-api";
 
 type CheckStatus = "pass" | "fail" | "missing" | "unknown" | "not_available";
@@ -47,6 +47,20 @@ const PROMOTION_BADGE: Record<string, string> = {
   draft: "bg-bm-muted/15 text-bm-muted border-bm-border/40",
 };
 
+// The single "forward" promotion step offered per state (mirrors the backend
+// _LEGAL_TRANSITIONS happy path). staging/released are eligibility-gated; the
+// button is disabled unless eligible_for_promotion. released has no next step.
+const NEXT_PROMOTION: Record<string, string | null> = {
+  draft: "seeded",
+  seeded: "verified",
+  verified: "staging",
+  staging: "released",
+  released: null,
+  quarantined: "verified",
+  failed: "draft",
+};
+const ELIGIBILITY_GATED = new Set(["staging", "released"]);
+
 const STATUS_COLOR: Record<CheckStatus, string> = {
   pass: "text-bm-success",
   fail: "text-bm-danger",
@@ -68,26 +82,56 @@ export function EnvironmentContractCard({ envId }: { envId: string }) {
   const [report, setReport] = useState<VerificationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    bosFetch<VerificationReport>(`/v2/environments/${envId}/verify`)
-      .then((r) => {
-        if (!cancelled) setReport(r);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "verification failed");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      // Read-only by default — does not materialize or transition anything.
+      const r = await bosFetch<VerificationReport>(
+        `/v2/environments/${envId}/verify`,
+      );
+      setReport(r);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "verification failed");
+    } finally {
+      setLoading(false);
+    }
   }, [envId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const runAction = useCallback(
+    async (kind: "promote" | "quarantine", target?: string) => {
+      setActionBusy(true);
+      setActionError(null);
+      try {
+        await bosFetch(`/v2/environments/${envId}/${kind}`, {
+          method: "POST",
+          body: JSON.stringify(
+            kind === "promote"
+              ? { target, actor: "operator" }
+              : { actor: "operator", reason: "operator quarantine" },
+          ),
+          headers: { "Content-Type": "application/json" },
+        });
+        await load();
+      } catch (e: unknown) {
+        // The gate fails closed with a 409 + blocking reasons — surface it,
+        // do not swallow it into a success state.
+        setActionError(
+          e instanceof Error ? e.message : `${kind} failed`,
+        );
+      } finally {
+        setActionBusy(false);
+      }
+    },
+    [envId, load],
+  );
 
   if (loading) {
     return (
@@ -178,6 +222,56 @@ export function EnvironmentContractCard({ envId }: { envId: string }) {
           </li>
         ))}
       </ul>
+
+      {(() => {
+        const next = NEXT_PROMOTION[report.promotion_state] ?? null;
+        const gated = next ? ELIGIBILITY_GATED.has(next) : false;
+        const promoteDisabled =
+          !next ||
+          actionBusy ||
+          (gated && !report.eligible_for_promotion);
+        const canQuarantine =
+          report.promotion_state !== "released" &&
+          report.promotion_state !== "quarantined";
+        return (
+          <footer
+            data-testid="contract-actions"
+            className="mt-4 flex items-center gap-3 border-t border-bm-border/30 pt-3"
+          >
+            <button
+              type="button"
+              data-testid="promote-button"
+              disabled={promoteDisabled}
+              onClick={() => next && runAction("promote", next)}
+              className="rounded border border-bm-border/50 bg-bm-surface2/40 px-3 py-1 text-bm-text disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {next ? `Promote → ${next}` : "No further promotion"}
+            </button>
+            <button
+              type="button"
+              data-testid="quarantine-button"
+              disabled={!canQuarantine || actionBusy}
+              onClick={() => runAction("quarantine")}
+              className="rounded border border-bm-danger/40 bg-bm-danger/10 px-3 py-1 text-bm-danger disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Quarantine
+            </button>
+            {gated && !report.eligible_for_promotion ? (
+              <span className="text-bm-muted2">
+                Promotion to {next} requires a passing verification.
+              </span>
+            ) : null}
+            {actionError ? (
+              <span
+                data-testid="action-error"
+                className="text-bm-danger"
+              >
+                {actionError}
+              </span>
+            ) : null}
+          </footer>
+        );
+      })()}
     </section>
   );
 }

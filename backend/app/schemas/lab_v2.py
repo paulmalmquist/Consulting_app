@@ -152,6 +152,26 @@ class EnvironmentContractOut(BaseModel):
     promotion_state: PromotionState
 
 
+class PromoteRequest(BaseModel):
+    """Body for POST /v2/environments/{id}/promote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: PromotionState
+    actor: str = Field(..., min_length=1, max_length=120)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class QuarantineRequest(BaseModel):
+    """Body for POST /v2/environments/{id}/quarantine. reason is required so the
+    fail-closed action is always auditable."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor: str = Field(..., min_length=1, max_length=120)
+    reason: str = Field(..., min_length=1, max_length=2000)
+
+
 class ContractVerificationReport(BaseModel):
     """Structured fail-closed verification result.
 
