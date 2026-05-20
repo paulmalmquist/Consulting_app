@@ -19,6 +19,12 @@ FIXTURE_PATH = (
 LOCAL_ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "ml"
 ARTIFACT_ROOT = LOCAL_ARTIFACT_ROOT
 DATABRICKS_ARTIFACT_ROOT = Path(__file__).resolve().parents[3] / "artifacts" / "happyco" / "databricks"
+BUNDLED_DATABRICKS_RECEIPT_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "fixtures"
+    / "winston_demo"
+    / "happyco_databricks_run_receipt.json"
+)
 BUNDLED_ARTIFACT_ROOT = (
     Path(__file__).resolve().parent.parent
     / "fixtures"
@@ -854,8 +860,9 @@ def databricks_run_status(*, artifact_root: Path | None = None) -> dict[str, Any
     root = artifact_root or DATABRICKS_ARTIFACT_ROOT
     completed_path = root / "databricks_run_receipt.json"
     attempt_path = root / "databricks_run_attempt_receipt.json"
-    if completed_path.exists():
-        receipt = json.loads(completed_path.read_text(encoding="utf-8"))
+    receipt_path = completed_path
+    if receipt_path.exists():
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
         status = str(receipt.get("status") or "").lower()
         completed = bool(receipt.get("databricks_executed")) and status in {
             "completed",
@@ -873,6 +880,24 @@ def databricks_run_status(*, artifact_root: Path | None = None) -> dict[str, Any
         receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
         return {
             "databricks_status": receipt.get("databricks_status") or "attempted_failed",
+            "databricks_run_id": receipt.get("run_id"),
+            "databricks_run_url": receipt.get("run_page_url"),
+            "databricks_receipt": receipt,
+        }
+    bundled_completed_path = (
+        BUNDLED_DATABRICKS_RECEIPT_PATH if artifact_root is None else Path("__missing_bundled_databricks_receipt__")
+    )
+    if bundled_completed_path.exists():
+        receipt = json.loads(bundled_completed_path.read_text(encoding="utf-8"))
+        status = str(receipt.get("status") or "").lower()
+        completed = bool(receipt.get("databricks_executed")) and status in {
+            "completed",
+            "success",
+            "succeeded",
+            "terminated",
+        }
+        return {
+            "databricks_status": "completed" if completed else "attempted_failed",
             "databricks_run_id": receipt.get("run_id"),
             "databricks_run_url": receipt.get("run_page_url"),
             "databricks_receipt": receipt,

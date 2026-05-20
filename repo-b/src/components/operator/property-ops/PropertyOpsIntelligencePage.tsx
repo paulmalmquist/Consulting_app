@@ -335,7 +335,7 @@ export function PropertyOpsIntelligencePage({ envId }: { envId: string }) {
         {activeTab === "ml" && <MlRiskTab mlRisk={bundle.mlRisk} selectedMl={selectedMl} />}
         {activeTab === "automation" && <AutomationTab />}
         {activeTab === "artifacts" && <ArtifactFactoryTab mlRisk={bundle.mlRisk} />}
-        {activeTab === "build" && <BuildLogTab />}
+        {activeTab === "build" && <BuildLogTab mlRisk={bundle.mlRisk} />}
       </div>
     </div>
   );
@@ -686,7 +686,7 @@ function AutomationTab() {
   const rows = [
     ["Recruiter thread", "Outlook WinCOM skill", "Search + summarize", "Read-only", "Requirements brief"],
     ["Demo data update", "Benchmark engine", "Recompute KPIs", "Deterministic tests", "Metric cards + evidence"],
-    ["ML proof", "Databricks-ready notebook", "Train local fallback or Databricks job", "Receipt required", "Predictions + model card"],
+    ["ML proof", "Databricks notebook", "Train local fallback or Databricks job", "Receipt required", "Predictions + model card"],
     ["Artifact request", "Workbook/deck runner", "Generate Excel + PPT", "File validation", "Shareable gated package"],
     ["Follow-up needed", "Outlook draft skill", "Create email draft", "Explicit send gate", "Draft only"],
   ];
@@ -752,12 +752,12 @@ function ArtifactFactoryTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) {
   );
 }
 
-function BuildLogTab() {
+function BuildLogTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) {
   const tickets = [
     ["Ticket 1", "Plan expansion", "Complete"],
     ["Ticket 2", "Canonical seed data", "Complete"],
     ["Ticket 3A", "ML risk proof", "Complete"],
-    ["Ticket 3B", "Live Databricks run receipt", "Pending receipt"],
+    ["Ticket 3B", "Live Databricks run receipt", mlRisk.databricks_status === "completed" ? "Complete" : "Pending receipt"],
     ["Ticket 3", "Operator APIs", "Complete"],
     ["Ticket 4", "Frontend demo", "Complete"],
     ["Ticket 6/7", "Excel + PowerPoint", "Complete"],

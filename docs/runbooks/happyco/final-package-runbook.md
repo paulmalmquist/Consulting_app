@@ -4,8 +4,8 @@ Last updated: 2026-05-20
 
 This is a demo-grade, role-specific proof package for the HappyCo Head of Data
 role. It uses deterministic synthetic data only. It does not contain HappyCo
-production data, private recruiter email content, secrets, or live Databricks
-execution claims.
+production data, private recruiter email content, or secrets. Ticket 3B adds a
+receipt-backed live Databricks execution claim for synthetic demo data only.
 
 ## Routes
 
@@ -35,7 +35,9 @@ Backend routes added under `backend/app/routes/operator.py`:
 Every payload includes synthetic-demo metadata. `ml-risk` and recommendations
 fail soft with `ml_status: "not_available"` if local ML artifacts are absent.
 The `ml-risk` payload also reports `databricks_status` as `not_run`,
-`not_configured`, `attempted_failed`, or `completed`.
+`not_configured`, `attempted_failed`, or `completed`. A tracked sanitized
+receipt fixture lets deployed demos show the completed Databricks run without
+committing local ignored artifacts.
 
 Service-level API excerpt written locally:
 
@@ -83,7 +85,8 @@ Run from the repository root:
 
 ```powershell
 python scripts/happyco/train_property_ops_ml.py --fixture backend/app/fixtures/winston_demo/happyco_property_ops_seed.json --out artifacts/happyco/ml
-python scripts/happyco/run_databricks_ml.py --out artifacts/happyco/databricks
+python scripts/happyco/run_databricks_ml.py --profile PaulMain --out artifacts/happyco/databricks
+python scripts/happyco/run_databricks_ml.py --profile PaulMain --execute --out artifacts/happyco/databricks
 python scripts/happyco/build_property_ops_workbook.py
 python scripts/happyco/build_strategy_deck.py
 ```
@@ -120,7 +123,7 @@ Do not paste tokens into chat, commit tokens, or print token values into logs.
 Readiness / attempt receipt:
 
 ```powershell
-python scripts/happyco/run_databricks_ml.py --out artifacts/happyco/databricks
+python scripts/happyco/run_databricks_ml.py --profile PaulMain --out artifacts/happyco/databricks
 ```
 
 If CLI/auth is unavailable, this writes
@@ -128,8 +131,22 @@ If CLI/auth is unavailable, this writes
 will report `databricks_status` as `not_configured` or `attempted_failed`; it
 will not show "Databricks run completed."
 
-After running the Databricks notebook/job, export
-`artifacts/happyco/databricks/databricks_run_receipt.json` with:
+Completed execution:
+
+```powershell
+python scripts/happyco/run_databricks_ml.py --profile PaulMain --execute --out artifacts/happyco/databricks
+```
+
+The current successful run used serverless notebook execution and produced:
+
+- Run ID: `1055219858155829`
+- Job ID: `77917622473309`
+- Local ignored receipt:
+  `artifacts/happyco/databricks/databricks_run_receipt.json`
+- Tracked sanitized deployed receipt:
+  `backend/app/fixtures/winston_demo/happyco_databricks_run_receipt.json`
+
+The receipt contains:
 
 - `demo_mode`
 - `data_source`
@@ -149,7 +166,7 @@ After running the Databricks notebook/job, export
 - `claim_allowed`
 - `claim_not_allowed`
 
-Only then may the operator ML panel and gated page say:
+Because the completed receipt exists, the operator ML panel and gated page may say:
 
 > Databricks run completed on synthetic property operations data.
 
@@ -212,9 +229,9 @@ The templates are safe by default:
 
 ## Known Limitations
 
-- No live Databricks job was run in the original package. Ticket 3B adds a
-  receipt-gated path; only claim execution after a successful
-  `databricks_run_receipt.json` exists.
+- The Databricks job ran on deterministic synthetic property operations data, not
+  HappyCo production data. Claim only the Databricks execution pattern, not real
+  HappyCo predictive performance.
 - ML metrics are synthetic-demo validation signals. The model card and metrics
   JSON explicitly warn that deterministic labels can inflate performance.
 - Workbook and deck generation use local fallback tooling because artifact-tool

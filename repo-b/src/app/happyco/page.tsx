@@ -145,7 +145,7 @@ function GatedPackage() {
     {
       icon: BrainCircuit,
       title: "ML proof",
-      body: "Databricks-ready notebook plus local logistic model fallback with feature table, predictions, feature importance, model card, registry record, and a receipt gate for live Databricks execution.",
+      body: "Receipt-backed Databricks notebook run on synthetic property ops data, plus local logistic model fallback, feature table, predictions, feature importance, model card, and registry record.",
     },
   ];
 
@@ -182,7 +182,7 @@ function GatedPackage() {
           <Card className="p-5">
             <StatusPill>Ready</StatusPill>
             <div className="mt-3 text-2xl font-black text-[#35146B]">ML artifacts</div>
-            <p className="mt-2 text-sm leading-6 text-[#6F6590]">Local fallback trained; Databricks-ready notebook present; live Databricks run requires receipt.</p>
+            <p className="mt-2 text-sm leading-6 text-[#6F6590]">Local fallback trained; Databricks run completed on synthetic property operations data with receipt-backed caveats.</p>
           </Card>
           <Card className="p-5">
             <StatusPill>Ready</StatusPill>
@@ -224,8 +224,8 @@ function GatedPackage() {
             <ul className="space-y-3 text-sm leading-6 text-[#4D426A]">
               <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Synthetic data only; no HappyCo production data.</li>
               <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Model metrics are demo-pipeline evidence, not expected real-world performance.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />No live Databricks claim without CLI/job receipt.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Show "Databricks run completed" only after a successful run receipt exists.</li>
+              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Databricks execution claim is limited to the completed synthetic-data run receipt.</li>
+              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />No production Databricks deployment, real HappyCo data, or real HappyCo model claim.</li>
               <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Local artifacts are not public downloads from this route.</li>
               <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Outlook send remains disabled unless explicitly requested locally.</li>
             </ul>

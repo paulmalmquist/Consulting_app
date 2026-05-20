@@ -1,7 +1,7 @@
 # HappyCo Property Ops Intelligence Kit
 
 **Created:** 2026-05-20
-**Status:** Active - Tickets 2, 3A, 3, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete; Ticket 3B added for live Databricks run receipt
+**Status:** Active - Tickets 2, 3A, 3, 3B, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete
 **Environment:** Operator lab / gated HappyCo proof package
 **Deliverable type:** Multi-ticket interview demonstration package
 
@@ -515,9 +515,21 @@ No receipt means `databricks_status: "not_run"`. Attempt receipts never produce
 - Added receipt-aware API/service contract.
 - Added `scripts/happyco/run_databricks_ml.py` to check CLI/auth and write an
   attempt receipt without printing secrets.
-- Databricks CLI was not available in the current shell (`databricks` command not
-  found), so no live Databricks execution was performed and no completed receipt
-  exists yet.
+- Installed and authenticated Databricks CLI profile `PaulMain` outside the repo.
+- Initial classic-cluster submission failed because the workspace supports
+  serverless compute only; the script now submits a serverless notebook task by
+  default.
+- Executed a real Databricks serverless notebook job against the deterministic
+  synthetic HappyCo feature rows.
+- Completed Databricks run receipt:
+  `artifacts/happyco/databricks/databricks_run_receipt.json` (ignored local
+  evidence) and tracked sanitized fallback fixture
+  `backend/app/fixtures/winston_demo/happyco_databricks_run_receipt.json`.
+- Run ID: `1055219858155829`; job ID: `77917622473309`.
+- Allowed claim is now exactly: `Databricks ML training run executed on synthetic
+  property operations data.`
+- Still not allowed: real HappyCo production data/model, production deployment, or
+  model registry/deployment claims.
 
 ### Ticket 4 - Frontend Winston demo page
 
