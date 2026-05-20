@@ -1,0 +1,179 @@
+# HappyCo Property Ops Intelligence Kit - Runbook
+
+Last updated: 2026-05-20
+
+This is a demo-grade, role-specific proof package for the HappyCo Head of Data
+role. It uses deterministic synthetic data only. It does not contain HappyCo
+production data, private recruiter email content, secrets, or live Databricks
+execution claims.
+
+## Routes
+
+- Gated share package: `/happyco`
+- Local development invite fallback: `happyco-local-demo` when
+  `HAPPYCO_DEMO_INVITE_CODE` is unset and `NODE_ENV !== "production"`
+- Production invite variable: `HAPPYCO_DEMO_INVITE_CODE`
+- Live operator surface:
+  `/lab/env/[envId]/operator/property-ops-intelligence`
+- Suggested local env id for demo links:
+  `NEXT_PUBLIC_HAPPYCO_DEMO_ENV_ID=happyco-demo`
+
+The `/happyco` route sets an HTTP-only `happyco_demo_access` cookie scoped to
+`/happyco`. Tailored content is hidden until access is granted. Local ignored
+artifacts are not exposed as public downloads.
+
+## Operator API Endpoints
+
+Backend routes added under `backend/app/routes/operator.py`:
+
+- `GET /api/operator/v1/property-ops/entities`
+- `GET /api/operator/v1/property-ops/graph`
+- `GET /api/operator/v1/property-ops/benchmarks`
+- `GET /api/operator/v1/property-ops/recommendations`
+- `GET /api/operator/v1/property-ops/ml-risk`
+
+Every payload includes synthetic-demo metadata. `ml-risk` and recommendations
+fail soft with `ml_status: "not_available"` if local ML artifacts are absent.
+
+Service-level API excerpt written locally:
+
+`artifacts/happyco/qa/api_excerpts.json`
+
+Current excerpt highlights:
+
+- Parkline Commons repeat rate peer ratio: `3.5`
+- Parkline recommendation: `rec-parkline-hvac-audit`
+- ML status for Parkline Commons: `available`
+
+## Local Artifacts
+
+These paths are ignored by git and must be copied or attached locally:
+
+- Workbook:
+  `artifacts/happyco/excel/HappyCo_Property_Ops_Model.xlsx`
+- Deck:
+  `artifacts/happyco/deck/HappyCo_90_Day_Data_Strategy.pptx`
+- Architecture diagram:
+  `artifacts/happyco/architecture/happyco_property_ops_architecture.svg`
+- ML feature table:
+  `artifacts/happyco/ml/feature_table.csv`
+- ML predictions:
+  `artifacts/happyco/ml/predictions.csv`
+- Model metrics:
+  `artifacts/happyco/ml/model_metrics.json`
+- Feature importance:
+  `artifacts/happyco/ml/feature_importance.csv`
+- Model card:
+  `artifacts/happyco/ml/model_card.md`
+- Model registry record:
+  `artifacts/happyco/ml/model_registry_record.json`
+- Screenshots:
+  `artifacts/happyco/screenshots/happyco_locked.png`
+  `artifacts/happyco/screenshots/happyco_unlocked.png`
+
+## Rebuild Commands
+
+Run from the repository root:
+
+```powershell
+python scripts/happyco/train_property_ops_ml.py --fixture backend/app/fixtures/winston_demo/happyco_property_ops_seed.json --out artifacts/happyco/ml
+python scripts/happyco/build_property_ops_workbook.py
+python scripts/happyco/build_strategy_deck.py
+```
+
+Validate Outlook params:
+
+```powershell
+python -m json.tool docs/runbooks/happyco/outlook-wincom/happyco_search_recruiter_context.params.template.json > $null
+python -m json.tool docs/runbooks/happyco/outlook-wincom/happyco_draft_followup.params.template.json > $null
+python -m json.tool docs/runbooks/happyco/outlook-wincom/happyco_workflow_receipt.params.template.json > $null
+```
+
+Frontend validation:
+
+```powershell
+cd repo-b
+npm run typecheck
+```
+
+Backend validation:
+
+```powershell
+python -m pytest backend/tests/test_operator_property_ops.py -q
+python -m pytest backend/tests/test_operator_v1.py backend/tests/test_operator_permits.py backend/tests/test_operator_closeout.py -q
+```
+
+## Screenshot Smoke
+
+Temporary dev-server smoke used:
+
+```powershell
+cd repo-b
+npm run dev -- -p 3100
+```
+
+Then `/happyco` was loaded, the local development invite code was submitted, and
+the locked/unlocked screenshots were captured with Playwright. The dev server
+was stopped after capture.
+
+## Outlook Workflow
+
+Tracked templates:
+
+- `docs/runbooks/happyco/outlook-wincom/happyco_search_recruiter_context.params.template.json`
+- `docs/runbooks/happyco/outlook-wincom/happyco_draft_followup.params.template.json`
+- `docs/runbooks/happyco/outlook-wincom/happyco_workflow_receipt.params.template.json`
+
+Local runner pattern when the Outlook WinCOM skill is available:
+
+```powershell
+py skills\outlook-wincom-cowork\scripts\outlook_protocol.py --params artifacts\happyco\outlook\happyco_draft_followup.params.json
+```
+
+The templates are safe by default:
+
+- `dry_run: true`
+- draft-only email policy
+- no real recipient
+- no private recruiter context
+- sending requires explicit local override outside tracked templates
+
+## Known Limitations
+
+- No live Databricks job was run. The package includes a Databricks-ready
+  notebook/script and local fallback artifacts only.
+- ML metrics are synthetic-demo validation signals. The model card and metrics
+  JSON explicitly warn that deterministic labels can inflate performance.
+- Workbook and deck generation use local fallback tooling because artifact-tool
+  presentation/spreadsheet dependencies were unavailable in this workspace.
+- `/happyco` gates tailored content but does not expose local artifact downloads.
+  Attachments are handled manually or through the local Outlook workflow.
+- Operator page data is fixture-backed and deterministic; no DB migration or
+  production persistence is included in this vertical slice.
+- The clean worktree lacks `backend/.env`, so full ASGI smoke using `app.main`
+  was not run. Focused FastAPI route tests passed under pytest fixtures.
+
+## Ready To Demo
+
+- Synthetic canonical data spine and entity-resolution queue
+- Property operations graph service and operator endpoints
+- Parkline Commons underperformance benchmark
+- Evidence-backed deterministic recommendation
+- ML feature table, predictions, model metrics, feature importance, model card,
+  and registry record
+- HappyCo-colored operator page
+- Gated `/happyco` package route
+- Local Excel workbook
+- Local PowerPoint deck and architecture SVG
+- Outlook WinCOM dry-run/draft templates
+
+## Manual Actions Before Recruiter Send
+
+1. Set `HAPPYCO_DEMO_INVITE_CODE` in the deployment environment.
+2. Set `NEXT_PUBLIC_HAPPYCO_DEMO_ENV_ID` to the real demo env id if not using
+   `happyco-demo`.
+3. Review the generated workbook and deck locally.
+4. Copy Outlook params templates to ignored `artifacts/happyco/outlook/`.
+5. Fill real recruiter fields locally.
+6. Create an Outlook draft only.
+7. Review the draft in Outlook before any manual send.

@@ -1,0 +1,11 @@
+{
+  "model_name": "happyco_property_maintenance_escalation_risk",
+  "model_version": "happyco-property-ops-risk-v1",
+  "trained_at": "2026-05-20T15:11:24+00:00",
+  "feature_table_version": "happyco-property-ops-v1",
+  "metrics_path": "artifacts\\happyco\\ml\\model_metrics.json",
+  "prediction_path": "artifacts\\happyco\\ml\\predictions.csv",
+  "model_card_path": "artifacts\\happyco\\ml\\model_card.md",
+  "deployment_status": "local_demo_only",
+  "caveat": "Synthetic demo model trained on deterministic demo data. Not HappyCo production data and not evidence of real-world expected performance."
+}
