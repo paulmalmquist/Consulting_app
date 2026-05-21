@@ -3,30 +3,19 @@
 **Last updated:** 2026-05-19
 **Priority:** High — this is Novendor's internal operating system
 
-## Copy-paste prompt for next Claude Code session (Ticket 7 prod-deploy follow-up + Ticket 8 scoping)
+## Copy-paste prompt for next Claude Code session (Ticket 8 — deliberate design pass)
 
-Tickets 1–7 are merged & verified in CI. The full Operator Control Plane chain is live:
-schema (Ticket 3) → read/display grouping (Ticket 4) → write-path (Ticket 5) → generated
-Morning Brief (Ticket 6) → read-only Brief Assistant retrieval (Ticket 7). **Ticket 7's
-production deploy is pending** because Railway had an active build-queue incident on
-2026-05-20 that paused hobby/free-plan builds — `POST /api/consulting/execution/brief-assistant/ask`
-returns 404 in production until Railway resumes; everything else (board, morning-checklist,
-hierarchy-options) is unaffected and returning 200.
+Tickets 1–7 are **done and production-verified**, plus Ticket 7B (a consulting-router
+pool-exhaustion incident, fixed 2026-05-21). The full Operator Control Plane chain is
+live and stable: schema (Ticket 3) → read/display grouping (Ticket 4) → write-path
+(Ticket 5) → generated Morning Brief (Ticket 6) → read-only Brief Assistant retrieval
+(Ticket 7). Production smoke green: `/brief-assistant/ask` returns grounded answers;
+the board returns 200 in ~1.4s and survives 15 concurrent requests without hanging.
 
-### First (mechanical, ~5 min)
-```
-Once Railway is healthy, deploy Ticket 7 backend and run the prod smoke:
-- `cd backend && railway up --service authentic-sparkle` from a fresh
-  worktree at origin/main (HEAD currently 5ad37b00).
-- Confirm `POST /bos/api/consulting/execution/brief-assistant/ask` 200s.
-- Smoke each of the six canonical questions; verify each `answer` is
-  grounded in real task data (the live FlowYorker task should appear
-  in the flowyorker slice). Capture request_id from logs.
-- Update dispatch 0002 Ticket 7 (PROD DEPLOY PENDING → DONE & VERIFIED)
-  and clear the "Ticket 7 prod-deploy follow-up" backlog item.
-```
+This session is **Ticket 8 — a design pass, not implementation.** Do NOT auto-start
+coding.
 
-### Second (Ticket 8 — deliberate scope decision, do NOT auto-start)
+### Ticket 8 — deliberate scope decision, do NOT auto-start
 Ticket 7 shipped a read-only retrieval surface. Ticket 8 would add the **write-path**
 through the assistant: lets a user say "move the NCF task to today" or "create a coding
 task to fix the X bug" and have it execute. **This re-introduces the risky-action surface
