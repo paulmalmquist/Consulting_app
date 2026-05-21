@@ -1,25 +1,25 @@
-## Handoff scaffold — produce ONE Claude Code / Codex prompt
+## Implementation handoff scaffold
 
-The handoff prompt you emit is what the user will paste into the target agent. It should be tight enough to fit in a single coding session and rich enough that the agent can execute without re-asking for context.
+**Write the handoff prompt now.** This section defines the structure to use — it is not a checklist to summarize back. Your output for this part of the response is the actual prompt the user will paste into the target agent. The agent reading it has not seen this conversation.
 
-### Required sections in the handoff prompt
+Produce a single prompt with these sections, in this order:
 
-1. **Ticket scope** — one paragraph. What is being built. What is *not* being built (defer to later tickets).
-2. **Files to touch** — absolute or repo-relative paths. Distinguish `create` vs `modify`. If unsure, name the directory and let the agent confirm.
-3. **Acceptance criteria** — Screen / API / DB / AI / Evals / Regression Guard rows. Omit rows that genuinely don't apply.
-4. **Constraints** — anything from system invariants that bites this ticket (RLS, authoritative state, portability, dirty-tree, no new env vars without a plan).
-5. **Verification** — exact shell commands the agent should run to prove the change works. Prefer narrow tests + a smoke command over "run the full suite".
-6. **Out of scope** — list what the agent must not touch in this session. This is the most important section for keeping scope tight.
-7. **Reporting expectations** — at end of session, the agent should list: files changed, test results, plan-file updates, tips.md updates, commit hash, final status.
+1. **Ticket scope** — one paragraph. What is being built this session. State what is *not* being built (deferred to later tickets).
+2. **Files to touch** — repo-relative or absolute paths. Mark each `create` or `modify`. If a path is uncertain, name the directory and write `(confirm before editing)`.
+3. **Acceptance criteria** — Screen / API / DB / AI / Evals / Regression Guard rows. Omit a row only when it genuinely does not apply; do not leave silent gaps.
+4. **Constraints** — the specific system invariants that bite this ticket (RLS, authoritative-state lock, portability, dirty-tree discipline, no new env vars without a deploy plan). Name only the ones that apply.
+5. **Verification** — exact shell commands the agent runs to prove the change works. Prefer the narrowest tests plus one smoke command over "run the full suite".
+6. **Out of scope** — explicit list of what the agent must not touch this session. This is the section that keeps scope tight; do not skip it.
+7. **Reporting expectations** — instruct the agent to end with: files changed, test results, plan-file updates, tips.md updates, commit hash, final status.
 
-### Style for the handoff prompt
-- No filler. No "please" or "kindly". No "as you can see".
-- Imperative voice.
-- Concrete paths and commands, not gestures.
-- If a fact is uncertain, mark it `(verify before acting)` rather than asserting it.
+### Rules for the handoff prompt you write
+- Imperative voice. No "please", no "kindly", no "as you can see".
+- Concrete paths and commands, never gestures.
+- Mark any uncertain fact `(verify before acting)` instead of asserting it.
+- One ticket per handoff. Never bundle multiple tickets.
+- Do not paste the full plan file into the prompt — the agent has the path and can read it.
+- Do not restate background motivation — it is already in the plan's `## Context`.
+- Do not include speculative "future work" notes.
 
-### What NOT to put in the handoff prompt
-- The full plan file content. The agent has the path; it can read it.
-- Background motivation. Already in the plan's `## Context` section.
-- Multiple tickets. One per handoff.
-- Speculative "future work" notes.
+### Output shape
+Emit the handoff prompt as a single fenced block so the user can copy it cleanly. Nothing after it except, if the mode calls for it, a one-line deferral note.

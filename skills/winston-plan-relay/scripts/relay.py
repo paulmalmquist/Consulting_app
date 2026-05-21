@@ -147,6 +147,56 @@ def read_prompt_fragment(skill_dir: Path, name: str) -> str:
     return fp.read_text(encoding="utf-8", errors="replace")
 
 
+def fence_for(text: str) -> str:
+    """Return a backtick fence longer than any backtick run inside `text`.
+
+    The input file may itself contain ```fenced``` blocks. A plain 3-tick
+    wrapper would be closed prematurely by the first inner fence. We scan for
+    the longest run of backticks at the start of any line and return a fence
+    one tick longer (minimum 3).
+    """
+    longest = 0
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        run = 0
+        for ch in stripped:
+            if ch == "`":
+                run += 1
+            else:
+                break
+        longest = max(longest, run)
+    return "`" * max(3, longest + 1)
+
+
+# Per-mode imperative task line shown at the top of every bundle.
+MODE_TASK = {
+    "plan-review": (
+        "Review the plan in the \"## Input\" section and produce a response with "
+        "exactly these sections: **Critique**, **Refined ticket boundaries**, and "
+        "**Handoff prompt**. The handoff prompt must be complete and paste-ready — "
+        "not a description of what a handoff prompt should contain."
+    ),
+    "route-and-plan": (
+        "Convert the rough idea in the \"## Input\" section into a Winston "
+        "implementation plan. Produce exactly these sections: **Routing decision**, "
+        "**Drafted plan** (in the NNNN-environment-short-title skeleton), and "
+        "**Ticket 1 handoff prompt** (complete and paste-ready)."
+    ),
+    "handoff-only": (
+        "Produce a single complete, paste-ready handoff prompt for the next "
+        "ticket of the approved plan in the \"## Input\" section. Use the structure "
+        "in the \"## Implementation handoff scaffold\" section. Output only the "
+        "handoff prompt — no preamble, no commentary."
+    ),
+    "two-agent-loop": (
+        "Ticket 1 behavior: apply the plan-review pass to the \"## Input\" section "
+        "and produce **Critique**, **Refined ticket boundaries**, and a paste-ready "
+        "**Handoff prompt**. End with the note: \"Reviewer B / reconciliation "
+        "deferred to Ticket 2.\""
+    ),
+}
+
+
 def parse_reviewers(raw: str) -> list[str]:
     if not raw.strip():
         return []
@@ -188,6 +238,8 @@ def assemble_bundle(
             f"- templates in `{TEMPLATES_DIR_REL}/`: " + ", ".join(template_names)
         )
 
+    fence = fence_for(input_text)
+
     parts = []
     parts.append(f"# Winston Plan Relay — Assembled Bundle\n")
     parts.append(f"**Mode:** `{args.mode}`")
@@ -197,6 +249,15 @@ def assemble_bundle(
     parts.append(f"**Repo root:** `{args.repo_root}`")
     if suggested_plan_filename:
         parts.append(f"**Suggested next active-plan filename:** `{suggested_plan_filename}`")
+    parts.append("")
+    parts.append("## Your task\n")
+    parts.append(MODE_TASK.get(args.mode, f"Process the Input section per the `{args.mode}` mode instructions below."))
+    parts.append("")
+    parts.append(
+        "Follow the **Mode instructions** for the exact procedure and the "
+        "**System invariants** for the rules every output must respect. Use the "
+        "**Implementation handoff scaffold** when writing the handoff prompt."
+    )
     parts.append("")
     parts.append("## Context files read\n")
     parts.append("\n".join(found_ctx_lines))
@@ -209,9 +270,13 @@ def assemble_bundle(
     parts.append(mode_prompt)
     parts.append("---")
     parts.append("## Input\n")
-    parts.append("```markdown")
+    parts.append(
+        f"_The plan/idea under review, between the {len(fence)}-backtick fences "
+        f"below (the content itself contains 3-backtick code blocks)._\n"
+    )
+    parts.append(f"{fence}markdown")
     parts.append(input_text.rstrip("\n"))
-    parts.append("```")
+    parts.append(fence)
     parts.append("---")
     parts.append("## Implementation handoff scaffold\n")
     parts.append(handoff)
@@ -284,13 +349,48 @@ def assemble_receipt(
     return "\n".join(lines) + "\n", next_cmd
 
 
+def _has_acceptance_evidence(text: str) -> bool:
+    """True if the plan shows acceptance-criteria signal — either the literal
+    phrase, or the canonical Winston row labels, or concrete proof structure
+    (exit codes, status enums, verification commands). Avoids the false
+    positive where a well-shaped plan never uses the words "acceptance
+    criteria" but clearly defines pass/fail conditions."""
+    lowered = text.lower()
+    if "acceptance crit" in lowered:
+        return True
+    # Canonical Winston acceptance-row labels.
+    row_labels = ("regression guard", "screen:", "evals:", "out of scope", "non-goals")
+    if any(lbl in lowered for lbl in row_labels):
+        return True
+    # Concrete proof structure: exit codes, status enums, verification block.
+    if re.search(r"exit\s*code", lowered):
+        return True
+    if re.search(r"^#+\s*verification", text, re.MULTILINE | re.IGNORECASE):
+        return True
+    return False
+
+
+def _has_verification_evidence(text: str) -> bool:
+    lowered = text.lower()
+    if re.search(r"^#+\s*verification", text, re.MULTILINE | re.IGNORECASE):
+        return True
+    if "smoke test" in lowered or "pytest" in lowered or "exit code" in lowered:
+        return True
+    return False
+
+
 def flag_risks(input_text: str, mode: str) -> list[str]:
     risks = []
     lowered = input_text.lower()
-    if mode == "plan-review":
-        if "acceptance criteria" not in lowered:
-            risks.append("Input does not mention 'acceptance criteria' — relay flags this for the reviewer.")
-        if "verification" not in lowered and "test" not in lowered:
+    if mode in ("plan-review", "two-agent-loop"):
+        if not _has_acceptance_evidence(input_text):
+            risks.append(
+                "No acceptance-criteria signal found — no 'acceptance criteria' "
+                "phrase, no Screen/API/DB/Evals/Regression-Guard rows, no exit-code "
+                "or verification structure. Flag for the reviewer to add explicit "
+                "pass/fail conditions."
+            )
+        if not _has_verification_evidence(input_text):
             risks.append("Input has no verification/test section — flag for reviewer.")
     if mode == "route-and-plan":
         if "environment" not in lowered:
