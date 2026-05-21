@@ -2719,3 +2719,57 @@ The marketing surface uses its own design system (`docs/assets/Novendor_Design_S
 - **CTA / link URLs from operators must be validated on write AND re-validated at serve time.** `safe_cta_url()` allows only `http(s):`/`mailto:` and rejects `javascript:`/`data:` — mirrors the `normalize_loom_url` pattern. The PATCH route validates on write; `_microsite_payload` re-validates at serve time so a tampered or legacy DB value can never reach the public page as an unsafe `href` (it degrades to the next CTA fallback instead).
 - **"Regenerate all" must return the full refreshed pack, not fire-and-forget.** `POST /regenerate-all` regenerates insight → loom → email from one fresh insight set and returns the complete asset list, so the operator UI swaps in all three at once and never shows a half-old/half-new state. It is AI-required and fails closed (no deterministic fallback) — regeneration is an explicit operator action, and a half-deterministic result would be misleading.
 - **"Duplicate" can be pure frontend prefill — no endpoint needed.** Because `POST /targets` is idempotent on `(env_id, firm_slug)`, duplicating a microsite to a new firm is just prefilling the Create form (new blank slug) from an existing target's fields and submitting. Don't build a duplicate endpoint for what is a client-side form-population convenience.
+
+## Winston Plan Relay (`skills/winston-plan-relay/`)
+
+Use the relay when starting a non-trivial Claude Code or Codex session and you want the agent to get a tight, repo-grounded prompt instead of a vague brief.
+
+- **Dry-run only in Ticket 1.** `relay.py` always requires `--dry-run`. It assembles the prompt bundle and a sibling `<out>.receipt.md`; you paste the bundle into the target agent yourself. Subprocess invocation of Claude CLI / Codex CLI is intentionally deferred to Ticket 2 — don't build it until Ticket 1 has earned its keep on a real plan.
+- **Suggested-not-written plan filenames.** `--mode route-and-plan` scans `docs/plans/03-implementation-plans/active/` and proposes the next `NNNN-` number in the bundle and receipt. It never writes the active plan file — the user copies the drafted plan into place. This is the right default because the relay can suggest the wrong environment slug, and you want a human in that loop.
+- **Risks are flagged from the input, not the bundle.** The receipt's "Risks / assumptions flagged" section is computed in `flag_risks()` from a few cheap heuristics (missing "acceptance criteria" / "verification" / "environment" strings, very short inputs). Extend that function when a new recurring relay smell shows up — don't rely on the downstream agent to catch it.
+- **The relay's repo-root check is portable on purpose.** It accepts any of `CLAUDE.md`, `AGENTS.md`, or `.git/` as proof of repo root, and `--allow-missing-context` further relaxes both repo-root and required-context-files checks. This means you can dry-run the relay against a non-Winston repo for prompt-shape testing; do not interpret a successful run there as a passing Winston review.
+- **Prompt fragments are the unit of change.** When the system invariants or mode-specific instructions need updating, edit `skills/winston-plan-relay/prompts/*.md` directly. `relay.py` reads them at runtime; no code change needed.
+
+## Outlook MCP — multi-account search and attachment staging
+
+The local Outlook MCP server (`mcp-servers/outlook-mcp/server.py`) talks to Classic Outlook over COM. Two lessons from wiring up the `info@novendor.ai` document workflow:
+
+**Search the right mailbox.** A COM `MAPI` namespace exposes `GetDefaultFolder(...)` for the *default* account only. When the profile has more than one account, the default-folder path silently searches the wrong inbox. `outlook_search_mail` now takes an `account` argument: omitted, it keeps the default behavior; set, it resolves the store by iterating `namespace.Folders` and matching the store name, and **fails closed** (raises, lists available mailboxes) if there is no match — it never falls back to the default inbox. Always pass `account` when the user names a mailbox.
+
+**Stage attachments, do not file in place.** `outlook_save_attachments` writes extracted files to `.local/outlook-wincom/attachments/` (repo-ignored — `.local/` is in `.gitignore`). It requires `confirm_save: true`, sanitizes filenames (strips path components + illegal chars), never overwrites (`' (n)'` suffix), and never marks read / moves / deletes the source mail. Filing staged documents into Google Drive or another destination is a separate follow-up step — keep extraction and filing decoupled.
+
+**Testing FastMCP tools without COM.** `@mcp.tool(...)` returns the original function, so decorated tools are directly callable in tests. Keep COM-touching logic in small helpers (`resolve_mail_folder`, `resolve_message`, `sanitize_filename`, `unique_path`) that take a namespace/path argument — they unit-test cleanly against a mocked COM object tree, no Outlook or pywin32 required. Gates that short-circuit before COM (like `confirm_save`) are testable directly.
+
+**PowerShell registration scripts — keep Python `-c` probes quote-clean.** When a `.ps1` invokes `py.exe -c "<snippet>"`, PowerShell's native-command argument handling mangles embedded double-quotes and `%`. A probe like `print("%d.%d" % sys.version_info[:2])` reaches Python broken — it fails with `SyntaxError: File "<string>", line 1`. Fix: store each snippet in a variable and pass the variable as the argument (`& $py -c $snippet`), and write the snippet with no embedded double-quotes, no `%` formatting, and no slice syntax — e.g. `import platform; print(platform.python_version())` rather than `print("%d.%d" % sys.version_info[:2])`.
+
+## Skills framework v1 (2026-05-20) — `skills/<domain>/<skill-name>/` layout
+
+CLI-runnable skills that ingest deal materials and produce deterministic institutional artifacts (xlsx, md, json) follow the v1 contract at `docs/plans/01-shared-standards/skills-framework/charter.md`. Proving stub: `skills/repe/lbo-model/`. Template: `skills/_templates/skill-template/` (plural `_templates`).
+
+**Standard.** `SKILL.md` with YAML frontmatter (`runtime`, `entrypoint`, `inputs_contract`, `outputs_contract`, `deterministic`, `ai_dependency`, `db_dependency`, `network_dependency`) + `scripts/runner.py` + `examples/manifest.example.json` + `tests/test_runner_smoke.py`. No `__init__.py` in `tests/` — see pytest gotcha below.
+
+**CLI shape.** `runner.py --manifest <path> [--output-dir <path>] [--dry-run] [--strict] [--run-id <uuid>]`.
+
+**Status enum (8).** `completed`, `completed_with_warnings`, `dry_run_ok`, `failed_invalid_manifest`, `failed_missing_inputs`, `failed_validation`, `failed_io`, `failed_runtime`. **Exit codes:** 0 = completed/completed_with_warnings/dry_run_ok; 1 = failed_runtime; 2 = failed_invalid_manifest OR failed_validation; 3 = failed_missing_inputs; 4 = failed_io. No ad-hoc statuses.
+
+**Receipt.** Every run writes `run_receipt.json` even on failure (best-effort to `output_dir`; on IO failure, falls back to `./run_receipt.<timestamp>.json` in CWD). Schema `receipt.v1`: `manifest_hash` (canonicalized sorted-key JSON), per-input sha256 + bytes, per-artifact sha256 + bytes, per-stage timings, host metadata.
+
+**Stage order matters.** Prepare `output_dir` **before** semantic/input validation. Otherwise a missing-input failure leaves the receipt falling back to CWD instead of landing in `output_dir` — which breaks the contract's "on any failure status, only `run_receipt.json` is written" rule (which implies *to the output_dir*). The canonical order: `load_manifest → validate_manifest (schema) → prepare_output_dir → validate_semantics → validate_inputs → build_*`. Initial implementations got this wrong; the smoke test caught it.
+
+**Audit banner on every non-receipt artifact.** Keys: `skill`, `skill_version`, `artifact_contract`, `run_id`, `generated_at`, `manifest_hash`. xlsx: first 6 rows of the first (or dedicated `Audit`) sheet. md: first HTML comment block. Lets artifacts stay identifiable when detached from the receipt.
+
+**stdout/stderr discipline.** stdout = exactly one JSON line on completion: `{"status":"…","receipt_path":"…","run_id":"…"}`. All logs to stderr with `[<skill-name>] ` prefix. Downstream callers parse the last stdout line.
+
+**Hard constraints (inside a v1 skill).** No AI calls. No DB. No network. No frontend. No hidden fallbacks for missing inputs. All paths driven by `--manifest` / `--output-dir`. `pathlib.Path` throughout — no string-concat path math. Relative source paths resolve against the manifest directory first, CWD second.
+
+### Skill-runner-specific gotchas
+
+- **Pytest `__init__.py` collision.** Multiple skills each with their own `tests/__init__.py` cause `ModuleNotFoundError: No module named 'tests.test_X'` at collection time when pytest is invoked over both at once — both `tests/` directories become the same `tests` package. **Don't add `__init__.py` to skill `tests/` directories.** Pytest auto-discovers files without them.
+- **Validation order.** Schema must validate before output_dir prep (you need a trusted `output_dir` value), but output_dir prep must beat semantic + input validation (so failure receipts land in the right place). Schema → prep → semantics → inputs.
+- **openpyxl is the default Excel library** in this repo — already imported by `re_excel_export.py` and `pitch-forge-deck/runner.py`. No new requirement needed for v1 framework skills.
+- **JSON canonicalization for `manifest_hash`.** Use `json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")` then `sha256`. Anything else produces hash drift across runs that load the same file differently.
+- **Cross-platform deterministic IO-failure test.** Point `--output-dir` at a path *under* a non-directory: `blocked = tmp / "not_a_directory"; blocked.write_text("..."); output_dir = blocked / "child"`. `mkdir(parents=True)` fails reliably on both win32 and POSIX.
+
+Any newly discovered repo-specific convention, test command, path convention, or reusable implementation lesson hit during a skills-framework coding session should be appended here (under this section), not in the plan file.
+
+**Open follow-on:** real LBO math (IRR, debt amort, S&U, exit, returns) arrives in ticket 0007. The v1 stub deliberately produces empty-but-structured workbooks so the framework contract can be validated independently of the domain logic.

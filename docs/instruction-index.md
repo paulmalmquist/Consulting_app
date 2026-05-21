@@ -58,6 +58,10 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `historyrhymes` | `skill` | `active` | `cross-repo` | `yes` | `skills/historyrhymes/SKILL.md` |
 | `market-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/market-rotation-engine/SKILL.md` |
 | `msa-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/msa-rotation-engine/SKILL.md` |
+| `outlook-wincom-cowork` | `skill` | `active` | `cross-repo` | `yes` | `skills/outlook-wincom-cowork/SKILL.md` |
+| `winston-plan-relay` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-plan-relay/SKILL.md` |
+| `skill-template` | `skill` | `active` | `cross-repo` | `no` | `skills/_templates/skill-template/SKILL.md` |
+| `repe-lbo-model` | `skill` | `active` | `meridian-repe` | `yes` | `skills/repe/lbo-model/SKILL.md` |
 | `winston-agentic-prompt` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_AGENTIC_PROMPT.md` |
 | `winston-behavior-guardrails` | `prompt` | `active` | `docs, backend` | `yes` | `docs/WINSTON_BEHAVIOR_GUARDRAILS_PROMPT.md` |
 | `winston-document-asset-creation` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/WINSTON_DOCUMENT_ASSET_CREATION_PROMPT.md` |
@@ -73,6 +77,8 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `instruction-index` | `reference` | `active` | `docs, cross-repo` | `no` | `docs/instruction-index.md` |
 | `meta-prompt-chat-workspace` | `prompt` | `active` | `repo-b, backend` | `no` | `META_PROMPT_CHAT_WORKSPACE.md` |
 | `demo-features-meta-prompts` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/plans/DEMO_FEATURES_META_PROMPTS.md` |
+| `skills-framework-charter` | `standard` | `active` | `cross-repo` | `no` | `docs/plans/01-shared-standards/skills-framework/charter.md` |
+| `meridian-repe-skills-framework-v1-plan` | `plan` | `active` | `meridian-repe, cross-repo` | `no` | `docs/plans/03-implementation-plans/active/0006-meridian-repe-skills-framework-v1.md` |
 
 ## Archived Prompt References
 

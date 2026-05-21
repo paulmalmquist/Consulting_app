@@ -117,6 +117,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | chatgpt agent mode validation, hand off to chatgpt agent for browser check, produce a chatgpt prompt to verify the build, validate via chatgpt agent, independent visual verification of what we just shipped, give me an agent-mode prompt to verify, browser validation prompt | `skills/chatgpt-agent-validate/SKILL.md` |
 | read Rich's texts, what did Rich say, Rich work, check Rich's messages, Rich iMessage thread | `skills/rich-texts/SKILL.md` |
 | read [name]'s texts, what did [name] say, scrub [name]'s messages, check texts from [name], iMessage thread for [person] | `skills/read-texts/SKILL.md` |
+| read Outlook mail, Outlook COM, graph Outlook data, search mailbox, search my inbox, outlook-wincom-cowork, local Outlook runner, send email via Outlook, calendar event via Outlook | `skills/outlook-wincom-cowork/SKILL.md` |
 | schema, SQL, migrations, ETL, seeds | `agents/data.md` |
 | apply migration, apply the migration, run pending migrations, migration is all that's left, push the schema | `skills/apply-pending-migrations/SKILL.md` |
 | research ingestion from `docs/research/*` | `.skills/research-ingest/SKILL.md` |
@@ -130,6 +131,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | triaged execution, model triage, tiered execution, complexity-routed plan, cost-aware execution, run plan with model selection, scale thinking budget, scale verification effort | `skills/triaged-execution/SKILL.md` |
+| relay this plan, relay this idea, plan relay, normalize this idea into a Winston plan, critique this plan against Winston conventions, build me a handoff prompt for Claude Code, build me a handoff prompt for Codex, two-agent review on this plan, route and plan this idea | `skills/winston-plan-relay/SKILL.md` |
 | fix altered mind, altered mind shows empty state, altered mind dashboard not loading, the altered mind page is broken, altered mind production fix, /lab/env/.../altered-mind isn't rendering | `skills/altered-mind-prod-fix/SKILL.md` |
 | clean the tree, tidy up before deploy, commit and deploy, file away loose files, update gitignore and push | `skills/clean-tree/SKILL.md` |
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
@@ -404,6 +406,9 @@ This is not optional busywork — these files contain real production data (test
 - `/research compare assistant routing approaches` -> `agents/architect.md`
 - `ingest research: docs/research/2026-03-11-irr-libs.md` -> `.skills/research-ingest/SKILL.md`
 
+- `read my inbox and create a chart of messages by sender` -> `skills/outlook-wincom-cowork/SKILL.md`
+- `run the outlook WinCOM protocol` -> `skills/outlook-wincom-cowork/SKILL.md`
+- `search my Outlook inbox and export results` -> `skills/outlook-wincom-cowork/SKILL.md`
 - `verify the deploy landed` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `log in and check if the market intel fix worked` -> `skills/winston-post-deploy-verify/SKILL.md`
 - `give me a chatgpt agent prompt to verify this fix in the browser` -> `skills/chatgpt-agent-validate/SKILL.md`
@@ -422,3 +427,7 @@ This is not optional busywork — these files contain real production data (test
 - `dry-run a new trading research lab` -> `skills/winston-create-environment/SKILL.md`
 - `what templates are available for new environments` -> `skills/winston-create-environment/SKILL.md`
 - `scaffold a new environment for [client name]` -> `skills/winston-create-environment/SKILL.md`
+- `relay this plan and produce a tight Claude Code handoff prompt` -> `skills/winston-plan-relay/SKILL.md`
+- `normalize this rough idea into a Winston plan in the NNNN-env-title format` -> `skills/winston-plan-relay/SKILL.md`
+- `critique docs/plans/03-implementation-plans/active/0004-environment-contract-promotion-gate.md before I start Ticket 2` -> `skills/winston-plan-relay/SKILL.md`
+- `build me a handoff prompt for Codex CLI for the next ticket on this plan` -> `skills/winston-plan-relay/SKILL.md`
