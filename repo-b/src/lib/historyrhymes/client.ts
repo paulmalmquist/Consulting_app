@@ -261,3 +261,43 @@ export function fetchPlanningMarkdown(
     )}/planning-markdown`,
   );
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Morning Book v1 (backed by backend/app/routes/hr_morning_book.py).
+ * Regime-transition awareness only — the daily-open delta between the latest
+ * two research briefs. Backend owns the delta; the frontend renders it.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type TriageState = "Act Now" | "Watch" | "Research Only";
+
+export type ConfidenceStatus =
+  | "improving"
+  | "stable"
+  | "deteriorating"
+  | "unknown";
+
+export type FreshnessStatus = "fresh" | "stale" | "very_stale" | "unknown";
+
+export interface MorningBookData {
+  current_regime: string | null;
+  what_changed: string[];
+  confidence: {
+    current: number | null;
+    previous: number | null;
+    delta: number | null;
+    status: ConfidenceStatus;
+  };
+  freshness: {
+    latest_brief_date: string | null;
+    previous_brief_date: string | null;
+    status: FreshnessStatus;
+  };
+  top_risks: string[];
+  top_new_enhancements: string[];
+  triage: TriageState;
+  warnings: string[];
+}
+
+export function fetchMorningBook(): Promise<MorningBookData | null> {
+  return getJson<MorningBookData>("/api/hr/v1/research/morning-book");
+}

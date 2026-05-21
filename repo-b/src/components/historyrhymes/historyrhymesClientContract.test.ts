@@ -15,6 +15,7 @@ import {
   promoteCandidate,
   discardCandidate,
   fetchPlanningMarkdown,
+  fetchMorningBook,
 } from "@/lib/historyrhymes/client";
 
 function mockFetch(body: unknown, ok = true, status = 200) {
@@ -119,5 +120,21 @@ describe("historyrhymes research client contract", () => {
     await fetchEnhancementCandidates();
     expect(calledUrl(fn)).not.toContain("/api/historyrhymes/");
     expect(calledUrl(fn)).toContain("/api/hr/v1/research/");
+  });
+
+  it("fetchMorningBook GETs /api/hr/v1/research/morning-book", async () => {
+    const fn = mockFetch({
+      current_regime: "late_cycle",
+      what_changed: ["No material regime, confidence, risk, or enhancement changes vs previous brief."],
+      confidence: { current: 0.7, previous: 0.7, delta: 0, status: "stable" },
+      freshness: { latest_brief_date: "2026-05-18", previous_brief_date: "2026-05-11", status: "fresh" },
+      top_risks: [],
+      top_new_enhancements: [],
+      triage: "Research Only",
+      warnings: [],
+    });
+    const out = await fetchMorningBook();
+    expect(calledUrl(fn)).toBe("/api/hr/v1/research/morning-book");
+    expect(out?.triage).toBe("Research Only");
   });
 });

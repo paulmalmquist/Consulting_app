@@ -110,6 +110,7 @@ from app.routes import rhymes
 from app.routes import podcast_intelligence
 from app.routes import hr as hr_routes
 from app.routes import hr_research as hr_research_routes
+from app.routes import hr_morning_book as hr_morning_book_routes
 from app.routes import altered_mind as altered_mind_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
@@ -440,6 +441,7 @@ app.include_router(rhymes.router)
 app.include_router(podcast_intelligence.router)
 app.include_router(hr_routes.router)
 app.include_router(hr_research_routes.router)
+app.include_router(hr_morning_book_routes.router)
 app.include_router(altered_mind_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
