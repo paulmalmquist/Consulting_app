@@ -8,6 +8,7 @@
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 import { winstonLoader } from "@/lib/loading-state";
+import { createTimeoutSignal, FetchTimeoutError, isAbortError } from "@/lib/fetchTimeout";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type {
   AccountSummary,
@@ -105,7 +106,14 @@ function getRunIdForRequest(): string | null {
   }
 }
 
-export async function bosFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
+export async function bosFetch<T>(
+  path: string,
+  options: RequestInit & {
+    params?: Record<string, string | undefined>;
+    /** undefined → no timeout (default) · number → that many ms · null|0 → no timeout */
+    timeoutMs?: number | null;
+  } = {}
+): Promise<T> {
   const requestId = makeRequestId();
   const runId = getRunIdForRequest();
   const startedAt = Date.now();
@@ -144,10 +152,38 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
     ...(options.headers || {}),
   };
 
-  const res = await fetch(url.toString(), {
-    ...options,
-    headers: reqHeaders,
-  });
+  const { signal, timeoutMs, clear: clearTimeoutTimer } = createTimeoutSignal(
+    options.timeoutMs,
+    null
+  );
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      ...options,
+      signal,
+      headers: reqHeaders,
+    });
+  } catch (err) {
+    if (typeof window !== "undefined") winstonLoader.apiEnd();
+    if (isAbortError(err)) {
+      logError("api.request_timeout", "API request timed out", {
+        path,
+        method: options.method || "GET",
+        request_id: requestId,
+        run_id: runId,
+        timeout_ms: timeoutMs ?? undefined,
+        duration_ms: Date.now() - startedAt,
+      });
+      throw new FetchTimeoutError(
+        `Request timed out after ${timeoutMs}ms (req: ${requestId})`,
+        timeoutMs ?? undefined
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeoutTimer();
+  }
   const durationMs = Date.now() - startedAt;
   const responseRequestId = res.headers.get("X-Request-Id") || undefined;
 
@@ -10293,8 +10329,11 @@ export function getDataStudioContext(envId: string, businessId?: string): Promis
 }
 
 export function getOperatorContext(envId: string, businessId?: string): Promise<DomainContext & { workspace_template_key: string }> {
+  // Workspace-context resolution gates the whole operator shell — it must
+  // fail closed rather than hang the loading screen forever.
   return bosFetch("/api/operator/v1/context", {
     params: { env_id: envId, business_id: businessId },
+    timeoutMs: 30_000,
   });
 }
 

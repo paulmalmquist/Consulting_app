@@ -1,5 +1,24 @@
 {
-  "schema_duplicate_prefixes": [],
+  "schema_duplicate_prefixes": [
+    "274",
+    "275",
+    "277",
+    "281",
+    "283",
+    "303",
+    "311",
+    "312",
+    "320",
+    "324",
+    "340",
+    "425",
+    "442",
+    "457",
+    "460",
+    "517",
+    "522",
+    "540"
+  ],
   "page_local_api_base_files": [
     "repo-b/src/app/app/compliance/page.tsx",
     "repo-b/src/app/lab/env/[envId]/data-studio/entities/page.tsx",

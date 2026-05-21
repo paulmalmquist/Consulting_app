@@ -4,11 +4,21 @@
 // forward to the canonical FastAPI backend. Single code path for local
 // dev and production.
 import { winstonLoader } from "@/lib/loading-state";
+import {
+  createTimeoutSignal,
+  DEFAULT_FETCH_TIMEOUT_MS,
+  FetchTimeoutError,
+  isAbortError,
+} from "@/lib/fetchTimeout";
 
 export const API_BASE_URL =
   typeof window !== "undefined" ? window.location.origin : "";
 
-type ApiOptions = RequestInit & { params?: Record<string, string | undefined> };
+type ApiOptions = RequestInit & {
+  params?: Record<string, string | undefined>;
+  /** undefined → 30s default · number → that many ms · null|0 → no timeout */
+  timeoutMs?: number | null;
+};
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
   if (!API_BASE_URL) {
@@ -33,11 +43,17 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
     });
   }
 
+  const { signal, timeoutMs, clear: clearTimeoutTimer } = createTimeoutSignal(
+    options.timeoutMs,
+    DEFAULT_FETCH_TIMEOUT_MS
+  );
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
       ...options,
       credentials: "include",
+      signal,
       headers: {
         "Content-Type": "application/json",
         "x-bm-request-id": requestId,
@@ -46,6 +62,14 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
     });
   } catch (err) {
     if (typeof window !== "undefined") winstonLoader.apiEnd();
+    if (isAbortError(err)) {
+      // eslint-disable-next-line no-console
+      console.error("apiFetch timed out", { requestId, url: url.toString(), timeoutMs });
+      throw new FetchTimeoutError(
+        `Request timed out after ${timeoutMs}ms (req: ${requestId})`,
+        timeoutMs ?? undefined
+      );
+    }
     // eslint-disable-next-line no-console
     console.error("apiFetch network error", {
       requestId,
@@ -53,6 +77,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}) {
       error: err instanceof Error ? { name: err.name, message: err.message } : String(err)
     });
     throw new Error(`Network error (req: ${requestId})`);
+  } finally {
+    clearTimeoutTimer();
   }
 
   if (!response.ok) {

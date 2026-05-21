@@ -36,7 +36,10 @@ async function collectSchemaDuplicatePrefixes() {
   const files = await fs.readdir(schemaDir);
   const counts = new Map();
   for (const file of files) {
-    const match = file.match(/^(\d{4})[^/]*\.sql$/);
+    // Capture the full numeric prefix before the first underscore. A fixed
+    // \d{4} window silently skipped 3-digit prefixes and collapsed 5-digit
+    // prefixes (10000, 10001, ...) onto a shared "1000" — a false duplicate.
+    const match = file.match(/^(\d+)_.*\.sql$/);
     if (!match) continue;
     counts.set(match[1], (counts.get(match[1]) || 0) + 1);
   }

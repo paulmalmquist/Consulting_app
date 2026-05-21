@@ -21,7 +21,10 @@ def _xnpv(rate: float, cashflows: list[tuple[date, Decimal]]) -> float:
 
 
 def xirr(cashflows: list[tuple[date, Decimal]]) -> Decimal | None:
-    if len(cashflows) < 4:
+    # XIRR is well-defined for any series with >=2 dated flows and at least
+    # one sign change (e.g. a single invest/exit pair). The sign-change check
+    # below is the real solvability gate.
+    if len(cashflows) < 2:
         return None
 
     values = [float(to_decimal(v)) for _, v in cashflows]
