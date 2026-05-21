@@ -423,7 +423,7 @@ start.** The brief provides a stable, grounded ground-truth read surface for a c
 to answer "what should I do this morning / show FlowYorker tasks / what outreach is
 overdue / what coding ticket is next" — those questions now have real data to read.
 
-## Workstream H / Ticket 7 — Morning Brief Assistant read-only retrieval — MERGED 2026-05-20; PROD DEPLOY PENDING
+## Workstream H / Ticket 7 — Morning Brief Assistant read-only retrieval — DONE & VERIFIED 2026-05-21
 
 PR **#83** merged to `main` (merge commit `5ad37b00dec6e22b8045bd5094941bb5fd2e008c`).
 Read-only retrieval over board + brief; **no writes, no tools, no LLM call in this layer**,
@@ -461,21 +461,58 @@ input is a separate, deliberate Ticket 8 decision.
 - Backend AST + ruff clean. **51 tests pass** (17 new + 34 regression). DB-free per
   tips #23. CI **DB Schema Gate = SUCCESS** + **Frontend Lint + Typecheck + Unit =
   SUCCESS** (CI ran frontend even though I didn't change it).
-- **Production deploy: PENDING.** Railway returned "Deploys have been paused
-  temporarily" — confirmed via Railway status page as an active incident
-  (2026-05-20 12:16 UTC investigating, 13:48 UTC monitoring): hobby/free-plan builds
-  paused while clearing a build-queue backlog from a prior incident. Running services
-  unaffected — Tickets 1–6 endpoints all still return 200 (board, morning-checklist,
-  hierarchy-options verified). The new `/brief-assistant/ask` endpoint returns 404 in
-  prod until Railway resumes; merged code is correct and will go live on the next
-  successful `railway up`. **Not retrying** to avoid adding to the queue.
+- **Production deploy + smoke: DONE 2026-05-21.** Ticket 7's code reached production via
+  Railway deploy `c227d641` (2026-05-20 16:36 UTC, after Railway's build-queue incident
+  cleared) — but the endpoint was unreachable, see Ticket 7B below. After the Ticket 7B
+  fix shipped (Railway deploy `978431c1`), the `/brief-assistant/ask` smoke passed: all 3
+  canonical questions tested via the Vercel proxy return HTTP 200 with grounded answers
+  (`morning_brief` → real Morning Brief incl. the FlowYorker NCF task; `flowyorker` → the
+  1 live FlowYorker task; `next_coding` → honest "No Coding tasks queued" empty state),
+  every response `tool_calls: []` + `refused: false` — read-only confirmed, no writes.
+
+---
+
+## Ticket 7B — Consulting router pool-exhaustion incident — DONE & VERIFIED 2026-05-21
+
+**Incident:** after Ticket 7 deployed (`c227d641`), the entire `/api/consulting/*` router
+hung in production — `board`, `morning-checklist`, and `brief-assistant/ask` all timed
+out (40–90s direct to the Railway backend; `502 UPSTREAM_UNREACHABLE` via the Vercel
+proxy). Sibling routers on the same process stayed fast (~100ms), so the backend itself
+was healthy — only the consulting router was wedged.
+
+**Root cause:** `run_auto_generation` (`backend/app/services/execution_auto.py`) opened
+one `with get_cursor()` and held that pooled connection across all 8 auto-generation
+passes. `get_cursor()` checks out a whole connection; pool was `max_size=10`. Every
+`GET /execution/board` calls `run_auto_generation`, so each in-flight board request
+pinned 1 of 10 connections for the whole multi-second run. Under concurrency the pool
+drained → every consulting request (even light ones) blocked on pool acquisition →
+router-wide hang. Self-reinforcing via the frontend's 502-retry loop.
+
+**Fix (PR #91, merge `700de249`, Railway deploy `978431c1`):**
+- **Stage 1 (the fix):** each of the 8 independent passes in `run_auto_generation` now
+  gets its own short-lived `with get_cursor()` block — the pooled connection returns to
+  the pool between passes. SQL, pass order, `report` shape, and fail-closed behavior
+  byte-for-byte unchanged; only cursor scoping + indentation changed.
+- **Stage 2 (defense in depth):** `backend/app/db.py` pool `max_size` 10→20, `timeout`
+  5→10. Verified safe — Supabase Postgres `max_connections=60` (3 reserved, ~16 baseline
+  in use). Margin, not the fix.
+- **Regression guard:** `tests/test_execution_auto_cursor_scoping.py` instruments
+  `get_cursor` to assert `run_auto_generation` never holds >1 cursor at once and
+  acquires one per pass (≥8).
+
+**Verification:** 52 backend tests pass (1 new + 51 regression); AST + ruff clean; CI
+DB Schema Gate SUCCESS. Production smoke after deploy: board endpoint that hung 90s now
+returns **HTTP 200 in 1.4s**; **15 concurrent board requests all return 200 in ~1–1.5s,
+none hang** (the exact scenario that drained the pool before); morning-checklist,
+hierarchy-options, and sibling `tasks/projects` all 200 — zero regression. `tips.md`
+updated with the cursor-scoping lesson.
 
 **Ticket 8 (assistant-driven task creation/editing — write-path through the brief
 assistant) is plannable, but gate it deliberately.** The read-only retrieval surface
-shipped here is the foundation; adding writes means re-introducing risky-action gating,
-LLM intent confidence thresholds, and confirmation flows that this ticket explicitly
-excluded. Recommend treating Ticket 8 as its own scoped design pass, not an automatic
-next step.
+shipped in Ticket 7 is the foundation; adding writes means re-introducing risky-action
+gating, LLM intent-confidence thresholds, confirmation flow, audit trail, and a
+rollback/undo story — all explicitly out of scope so far. Recommend treating Ticket 8 as
+its own scoped **design pass**, not an automatic next step.
 
 ## Workstream H — original parent description (kept for reference)
 
