@@ -64,7 +64,10 @@ def _safe_insert_auto(
 
 
 def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
-    """Run all five passes. Returns AutoGenerateReport-shaped dict."""
+    """Run all eight auto-generation passes. Returns AutoGenerateReport-shaped dict.
+
+    Each pass uses its own short-lived get_cursor() block so the pooled DB
+    connection is released between passes (Ticket 7B — see the comment below)."""
     report = {
         "pipeline_no_next_action": 0,
         "pipeline_stale_3d": 0,
@@ -76,8 +79,17 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
         "waiting_re_engaged": 0,
     }
 
+    # Ticket 7B: each pass below is independent (its own SELECT/UPDATE +
+    # optional insert loop, no cross-pass cursor state). Each pass gets its
+    # OWN short-lived `with get_cursor()` so the pooled connection is returned
+    # between passes — a board request must not pin one connection for the
+    # whole multi-pass run, which drains the pool and wedges the consulting
+    # router under concurrency. `report` (a plain dict) accumulates across
+    # passes as before; `_safe_insert_auto` takes `cur` and stays inside its
+    # pass's block.
+
+    # ── 1. Promote overdue This Week → Today ────────────────────────────────
     with get_cursor() as cur:
-        # ── 1. Promote overdue This Week → Today ────────────────────────────
         cur.execute(
             """
             UPDATE cro_execution_task
@@ -92,9 +104,10 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
         )
         report["promoted_to_today"] = len(cur.fetchall())
 
-        # ── 2. Open deals with no committed next action ──────────────────────
-        # An open deal has no open execution task. (Deals that already have a
-        # task in today/this_week/waiting are considered to have a next move.)
+    # ── 2. Open deals with no committed next action ─────────────────────────
+    # An open deal has no open execution task. (Deals that already have a
+    # task in today/this_week/waiting are considered to have a next move.)
+    with get_cursor() as cur:
         cur.execute(
             """
             SELECT o.crm_opportunity_id, o.name, a.name AS account_name
@@ -132,11 +145,12 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             if inserted:
                 report["pipeline_no_next_action"] += 1
 
-        # ── 3. Open deals stale > 3 days ─────────────────────────────────────
-        # "Stale" = max(crm_activity.activity_at, cro_outreach_log.sent_at,
-        # cro_execution_task.completed_at, crm_opportunity.created_at) was
-        # > 3 days ago. Only fire when an open task isn't already pressuring
-        # the deal (the partial unique index handles dedupe per deal).
+    # ── 3. Open deals stale > 3 days ────────────────────────────────────────
+    # "Stale" = max(crm_activity.activity_at, cro_outreach_log.sent_at,
+    # cro_execution_task.completed_at, crm_opportunity.created_at) was
+    # > 3 days ago. Only fire when an open task isn't already pressuring
+    # the deal (the partial unique index handles dedupe per deal).
+    with get_cursor() as cur:
         cur.execute(
             """
             WITH last_activity AS (
@@ -184,7 +198,8 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             if inserted:
                 report["pipeline_stale_3d"] += 1
 
-        # ── 4. Outbound outreach with no reply in 2 days ────────────────────
+    # ── 4. Outbound outreach with no reply in 2 days ────────────────────────
+    with get_cursor() as cur:
         cur.execute(
             """
             SELECT ol.id AS outreach_id, ol.crm_account_id, ol.crm_contact_id,
@@ -237,7 +252,8 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             if inserted:
                 report["outreach_no_reply_2d"] += 1
 
-        # ── 5. Top of proof backlog ──────────────────────────────────────────
+    # ── 5. Top of proof backlog ─────────────────────────────────────────────
+    with get_cursor() as cur:
         cur.execute(
             """
             SELECT id, title
@@ -268,10 +284,11 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             if inserted:
                 report["proof_backlog_top"] += 1
 
-        # ── 6. Waiting → Today when re_engage_at hits ───────────────────────
-        # The engine that keeps WAITING from becoming a graveyard. When the
-        # date the user picked at drag-to-WAITING arrives, the card returns
-        # to TODAY and re_engage_at is cleared so it doesn't bounce again.
+    # ── 6. Waiting → Today when re_engage_at hits ───────────────────────────
+    # The engine that keeps WAITING from becoming a graveyard. When the
+    # date the user picked at drag-to-WAITING arrives, the card returns
+    # to TODAY and re_engage_at is cleared so it doesn't bounce again.
+    with get_cursor() as cur:
         cur.execute(
             """
             UPDATE cro_execution_task
@@ -288,8 +305,9 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
         )
         report["waiting_re_engaged"] = len(cur.fetchall())
 
-        # ── 7. Open deals never touched ─────────────────────────────────────
-        # 12h grace before we nag — the user may have just created the deal.
+    # ── 7. Open deals never touched ─────────────────────────────────────────
+    # 12h grace before we nag — the user may have just created the deal.
+    with get_cursor() as cur:
         cur.execute(
             """
             SELECT o.crm_opportunity_id, o.name, a.name AS account_name
@@ -331,12 +349,13 @@ def run_auto_generation(*, env_id: str, business_id: UUID) -> dict:
             if inserted:
                 report["pipeline_no_outreach"] += 1
 
-        # ── 8. Stage = proposal AND last touch > 2d → check response ────────
-        # Stage is a FK: crm_opportunity.crm_pipeline_stage_id → crm_pipeline_stage.
-        # There is no crm_opportunity.stage column; the proposal stage is
-        # crm_pipeline_stage.key = 'proposal' (stable machine key, not label).
-        # The 2-day window matches the no-reply pass; together they form a tight
-        # follow-up loop on the most-revenue-sensitive part of the funnel.
+    # ── 8. Stage = proposal AND last touch > 2d → check response ────────────
+    # Stage is a FK: crm_opportunity.crm_pipeline_stage_id → crm_pipeline_stage.
+    # There is no crm_opportunity.stage column; the proposal stage is
+    # crm_pipeline_stage.key = 'proposal' (stable machine key, not label).
+    # The 2-day window matches the no-reply pass; together they form a tight
+    # follow-up loop on the most-revenue-sensitive part of the funnel.
+    with get_cursor() as cur:
         cur.execute(
             """
             WITH proposal_deals AS (
