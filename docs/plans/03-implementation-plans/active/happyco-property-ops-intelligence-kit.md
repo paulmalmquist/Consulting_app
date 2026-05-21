@@ -1,7 +1,7 @@
 # HappyCo Property Ops Intelligence Kit
 
 **Created:** 2026-05-20
-**Status:** Active - Tickets 2, 3A, 3, 3B, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete
+**Status:** Active - Tickets 2, 3A, 3, 3B, 3C, 4, 5/5A, 6, 7, 8, 9, and optional 10 complete
 **Environment:** Operator lab / gated HappyCo proof package
 **Deliverable type:** Multi-ticket interview demonstration package
 
@@ -530,6 +530,49 @@ No receipt means `databricks_status: "not_run"`. Attempt receipts never produce
   property operations data.`
 - Still not allowed: real HappyCo production data/model, production deployment, or
   model registry/deployment claims.
+
+
+### Ticket 3C - Weather-aware maintenance risk Databricks proof integration
+
+**Goal:** integrate the completed weather + maintenance risk Databricks proof into
+the gated HappyCo package without exposing raw artifacts or making production
+claims.
+
+**Source proof:** commit `ad634bfa` from
+`feature/happyco-weather-maintenance-risk-ml`.
+
+**Completed Databricks run:**
+
+- Job ID: `172758362681895`
+- Run ID: `924781458483845`
+- Data: public weather + synthetic property operations
+- Output: predictions, metrics, MLflow run metadata, validated receipt
+- Allowed claim: `Databricks ML training run executed on public weather and synthetic property operations data.`
+
+**Claims still not allowed:**
+
+- HappyCo production data.
+- Production HappyCo model.
+- Production deployment.
+- Serving endpoint.
+
+**Technical caveats:**
+
+- The workspace used `hive_metastore.property_ops_risk_ml` because `main` catalog
+  was unavailable.
+- Serverless SparkML artifact logging was fail-soft without a UC Volume temp path,
+  but MLflow params/metrics/run IDs, tables, predictions, and receipt validation
+  completed.
+
+**Integration scope:**
+
+- `/happyco` shows a gated Databricks receipt card and Automation Control Room row.
+- The final HappyCo runbook records the allowed claim, run IDs, namespace fallback,
+  and UC Volume follow-up.
+- No public artifact downloads are added.
+- No backend route or DB behavior changes are required.
+
+**Risk:** Low, provided copy remains receipt-backed and caveated.
 
 ### Ticket 4 - Frontend Winston demo page
 

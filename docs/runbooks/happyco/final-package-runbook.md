@@ -1,8 +1,8 @@
 # HappyCo Property Ops Intelligence Kit - Runbook
 
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 
-This is a demo-grade, role-specific proof package for the HappyCo Head of Data
+This is a private proof-of-work package for the HappyCo Head of Data
 role. It uses deterministic synthetic data only. It does not contain HappyCo
 production data, private recruiter email content, or secrets. Ticket 3B adds a
 receipt-backed live Databricks execution claim for synthetic demo data only.
@@ -90,6 +90,43 @@ python scripts/happyco/run_databricks_ml.py --profile PaulMain --execute --out a
 python scripts/happyco/build_property_ops_workbook.py
 python scripts/happyco/build_strategy_deck.py
 ```
+
+
+## Weather + Maintenance Risk Databricks Proof
+
+The newer weather-aware maintenance risk extension is a separate Databricks proof
+using public weather data and synthetic property operations data. It is source
+controlled in the proof branch commit `ad634bfa` and integrated into the gated
+HappyCo package only as sanitized receipt metadata.
+
+Allowed claim:
+
+> Databricks ML training run executed on public weather and synthetic property operations data.
+
+Run receipt summary:
+
+- Job ID: `172758362681895`
+- Run ID: `924781458483845`
+- Data: public weather + synthetic property operations
+- Output: predictions, metrics, MLflow run metadata, validated receipt
+- Local ignored receipt path:
+  `artifacts/happyco/weather-risk/databricks_run_receipt.json`
+
+Claims still not allowed:
+
+- HappyCo production data
+- Production HappyCo model
+- Production deployment
+- Serving endpoint
+
+Technical note:
+
+- The Databricks workspace did not expose `main`, so the job used the
+  `hive_metastore.property_ops_risk_ml` fallback namespace.
+- Future serverless SparkML model artifact logging should configure a UC Volume
+  path for `MLFLOW_DFS_TMP` or `dfs_tmpdir`.
+- MLflow params/metrics/run IDs, tables, predictions, and receipt validation
+  completed despite fail-soft SparkML artifact logging.
 
 ## Databricks Ticket 3B Runbook
 
