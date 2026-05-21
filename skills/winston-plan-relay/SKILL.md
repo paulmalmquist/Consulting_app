@@ -1,6 +1,6 @@
 ---
 name: winston-plan-relay
-description: Automate the manual planning relay between ChatGPT, Claude Code, and Codex CLI. Takes a rough idea or existing plan file, reads Winston context (CLAUDE.md, plan-maintenance rules, dispatch routing), and emits a fully-assembled prompt bundle + sibling receipt for the target agent. Ticket 1 is dry-run only — no model subprocess invocation; the relay assembles the prompt and you paste it into the agent yourself.
+description: Automate the manual planning relay between ChatGPT, Claude Code, and Codex CLI. Takes a rough idea or existing plan file, reads Winston context (CLAUDE.md, plan-maintenance rules, dispatch routing), and assembles a behavior-driving prompt bundle. With --dry-run (default-safe) it writes the bundle + receipt for you to paste into a reviewer; without --dry-run it invokes the Claude or Codex CLI implied by --target-agent and writes the reviewer output. Adapters shell out to a locally installed CLI only — no API keys.
 kind: skill
 status: active
 source_of_truth: true
@@ -36,11 +36,14 @@ when_not_to_use: "Do not use for trivial one-line changes — overhead exceeds b
 
 # Winston Plan Relay
 
-Automated prompt assembler for the planning relay loop. Reads Winston context, applies the right mode-specific prompt fragment to your input, and writes a bundle + receipt that you paste into Claude Code or Codex CLI.
+Prompt assembler for the planning relay loop. Reads Winston context, applies the right mode-specific prompt fragment to your input, and either writes a bundle for you to paste into a reviewer (`--dry-run`) or invokes a reviewer CLI directly.
 
 ## What it does
 
-You have an idea or a plan file. You want the same critique-and-refinement loop you've been running manually between ChatGPT and Claude Code, but deterministic and repo-aware. The relay does the *context gathering* and *prompt assembly* steps automatically. You still run the model yourself in Ticket 1 (by pasting the bundle into your agent).
+You have an idea or a plan file. You want the same critique-and-refinement loop you've been running manually between ChatGPT and Claude Code, but deterministic and repo-aware. The relay does the *context gathering* and *prompt assembly* automatically.
+
+- **`--dry-run` (default-safe):** writes the assembled bundle to `--out` plus a sibling receipt. You paste the bundle into your reviewer. No external process runs.
+- **Adapter run (drop `--dry-run`):** the relay feeds the bundle to the CLI implied by `--target-agent` (`claude-code` → `claude`, `codex` → `codex`), writes the reviewer output to `--out`, the exact prompt to `<out>.bundle.md`, and an audit receipt to `<out>.receipt.md`. A missing CLI fails loud (exit 3) with the attempted command and a `--dry-run` fallback. A non-zero reviewer exit fails the relay (exit 1) — the relay never claims a failed review succeeded. `--target-agent human` is dry-run-only.
 
 Modes:
 
@@ -49,7 +52,7 @@ Modes:
 | `plan-review` | existing plan file | critique + refined handoff prompt |
 | `route-and-plan` | rough idea | dispatch routing decision + drafted plan + Ticket 1 handoff prompt |
 | `handoff-only` | approved plan | tight Claude Code / Codex prompt for one ticket |
-| `two-agent-loop` | idea or plan | Ticket 1: same as plan-review with a Ticket-2 note; Ticket 2 (deferred): runs Claude CLI + Codex CLI and reconciles |
+| `two-agent-loop` | idea or plan | same as plan-review with a deferral note; full Claude+Codex reconciliation is not built (out of Ticket 2 scope) |
 
 ## How to invoke
 
@@ -77,12 +80,16 @@ skills/winston-plan-relay/
   README.md                      # quick-start narrative
   scripts/
     relay.py                     # CLI (Python 3.10+, stdlib only)
+    adapters/
+      __init__.py                # shared: detection, subprocess runner, result types
+      claude_cli.py              # `claude --print` adapter
+      codex_cli.py               # `codex exec -` adapter
   prompts/
     system.md                    # Winston invariants (always included)
     plan_review.md               # critique existing plan
     route_and_plan.md            # raw idea → drafted plan
     implementation_handoff.md    # handoff scaffold (always included)
-    adversarial_review.md        # two-agent-loop (Ticket 1 placeholder)
+    adversarial_review.md        # two-agent-loop
   templates/
     session_brief.md             # session-tracking template
     implementation_plan.md       # plan skeleton matching NNNN-env-title format
@@ -95,15 +102,17 @@ skills/winston-plan-relay/
 
 ## Ticket boundaries
 
-**Ticket 1 (this version):** dry-run only. Assembles the prompt. Writes bundle + receipt. No model subprocess.
-
-**Ticket 2 (deferred):** add `scripts/adapters/claude_cli.py` and `scripts/adapters/codex_cli.py`. Allow `relay.py` without `--dry-run` to actually invoke the reviewer CLIs and write their output to `--out`. Don't build until you've used Ticket 1 on at least one real plan and confirmed it saves time.
+- **Ticket 1** — dry-run bundle assembler.
+- **Ticket 1.6** — made the bundle behavior-driving (imperative prompt fragments, `## Your task` header, collision-proof fences).
+- **Ticket 2** — Claude/Codex CLI subprocess adapters under `scripts/adapters/`. Dry-run stays the default-safe path; adapter invocation is opt-in by dropping `--dry-run`. Single-reviewer invocation only — no reconciliation engine.
 
 ## Safety rules
 
 - Never auto-writes into `docs/plans/03-implementation-plans/active/`. The relay only *suggests* the next plan filename. The user copies the drafted plan into place.
 - Fails closed when required context files are missing. Pass `--allow-missing-context` only when running outside the Winston repo.
-- No model API calls in Ticket 1.
+- No model API calls. Adapters shell out to a locally installed CLI only.
+- A missing reviewer CLI fails loud (exit 3). A non-zero reviewer exit fails the relay (exit 1) — a failed review is never reported as success.
+- The exact prompt sent to a reviewer is always preserved at `<out>.bundle.md`.
 
 ## See also
 

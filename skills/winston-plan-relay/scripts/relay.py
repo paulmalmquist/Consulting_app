@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""winston-plan-relay — dry-run prompt-bundle assembler (Ticket 1).
+"""winston-plan-relay — prompt-bundle assembler with optional CLI adapters.
 
-Takes an idea or existing plan file, reads Winston context, and writes a
-fully-assembled prompt bundle + sibling receipt. Does NOT invoke any model
-in Ticket 1. Adapter-driven CLI execution is deferred to Ticket 2.
+Takes an idea or existing plan file, reads Winston context, and assembles a
+fully-assembled prompt bundle.
+
+- With --dry-run (the default-safe path): writes the bundle + sibling receipt
+  and invokes no external process.
+- Without --dry-run: hands the bundle to the reviewer CLI implied by
+  --target-agent (Claude or Codex), writes the reviewer output to --out, the
+  exact prompt to <out>.bundle.md, and an audit receipt to <out>.receipt.md.
 
 Run with --help for full argument list. See SKILL.md and examples/.
 """
@@ -15,6 +20,16 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+# Adapters live in scripts/adapters/. Importing as a sibling package works
+# whether relay.py is run directly or imported.
+try:
+    from adapters import AdapterResult, AdapterUnavailable
+    from adapters import claude_cli, codex_cli
+except ImportError:  # run from outside scripts/ — add it to sys.path
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from adapters import AdapterResult, AdapterUnavailable
+    from adapters import claude_cli, codex_cli
 
 
 MODES = ("plan-review", "route-and-plan", "handoff-only", "two-agent-loop")
@@ -57,7 +72,7 @@ class ContextFile:
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="relay.py",
-        description="winston-plan-relay dry-run prompt assembler (Ticket 1).",
+        description="winston-plan-relay prompt assembler with optional CLI adapters.",
     )
     p.add_argument("--repo-root", required=True, type=Path)
     p.add_argument("--input", dest="input_path", required=True, type=Path)
@@ -65,11 +80,31 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("--target-agent", default="claude-code", choices=TARGET_AGENTS)
     p.add_argument("--reviewers", default="", help="Comma list, subset of claude,codex")
     p.add_argument("--out", required=True, type=Path)
-    p.add_argument("--dry-run", action="store_true")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Assemble the bundle + receipt only; invoke no external process "
+        "(default-safe path).",
+    )
     p.add_argument("--allow-missing-context", action="store_true")
     p.add_argument("--max-input-kb", type=int, default=200)
     p.add_argument("--print-next-command", action="store_true")
+    p.add_argument(
+        "--adapter-timeout",
+        type=int,
+        default=600,
+        help="Seconds to wait for the reviewer CLI before timing out "
+        "(non-dry-run only).",
+    )
     return p.parse_args(argv)
+
+
+# Maps --target-agent to its adapter module. `human` has no adapter — it is
+# a dry-run-only target.
+ADAPTER_FOR_AGENT = {
+    "claude-code": claude_cli,
+    "codex": codex_cli,
+}
 
 
 def err(msg: str) -> None:
@@ -283,7 +318,28 @@ def assemble_bundle(
     return "\n".join(parts) + "\n"
 
 
-def next_command_for(args: argparse.Namespace) -> str:
+def next_command_for(
+    args: argparse.Namespace,
+    adapter_result: Optional["AdapterResult"] = None,
+    unavailable: Optional["AdapterUnavailable"] = None,
+) -> str:
+    """The recommended next shell step. Differs for dry-run (paste the bundle
+    yourself), an adapter run (reviewer output is already at --out), and a
+    CLI-unavailable miss (re-run with --dry-run)."""
+    if unavailable is not None:
+        return (
+            f"# The {unavailable.agent} CLI is not installed.\n"
+            f"# Either install it, or re-run with --dry-run to assemble the bundle:\n"
+            f"#   python skills/winston-plan-relay/scripts/relay.py ... --dry-run"
+        )
+    if adapter_result is not None:
+        if adapter_result.ok:
+            return f"# Reviewer output is ready. Read it:\n#   cat {args.out}"
+        return (
+            "# The reviewer run FAILED — see the receipt's stderr excerpt.\n"
+            f"#   cat {args.out}.receipt.md\n"
+            "# Re-run with --dry-run to inspect the assembled bundle without invoking a model."
+        )
     if args.mode == "plan-review":
         return (
             "# Hand the bundle to your reviewer. Suggested:\n"
@@ -301,8 +357,8 @@ def next_command_for(args: argparse.Namespace) -> str:
             f"#   cat {args.out}"
         )
     return (
-        "# Ticket 2 will run adversarial review automatically.\n"
-        f"# For now: cat {args.out} and run reviews manually."
+        "# two-agent-loop: run reviews manually, or drop --dry-run to invoke one reviewer CLI.\n"
+        f"# For now: cat {args.out}"
     )
 
 
@@ -315,10 +371,26 @@ def assemble_receipt(
     input_size_bytes: int,
     over_cap: bool,
     risks: list[str],
+    adapter_result: Optional["AdapterResult"] = None,
+    bundle_path: Optional[Path] = None,
+    unavailable: Optional["AdapterUnavailable"] = None,
 ) -> tuple[str, str]:
-    next_cmd = next_command_for(args)
+    """Render the receipt. Three shapes:
+    - dry-run: `adapter_result` and `unavailable` both None — describes the bundle.
+    - adapter run: `adapter_result` set — records command, exit code, duration,
+      and (on failure) a stderr excerpt.
+    - CLI unavailable: `unavailable` set — records the attempted command and the
+      dry-run fallback. A failure is never silent."""
+    next_cmd = next_command_for(args, adapter_result, unavailable)
     lines = []
     lines.append("# Winston Plan Relay — Receipt\n")
+    if unavailable is not None:
+        lines.append("**Run type:** adapter invocation — **CLI UNAVAILABLE**\n")
+    elif adapter_result is not None:
+        status = "SUCCESS" if adapter_result.ok else "FAILURE"
+        lines.append(f"**Run type:** adapter invocation — **{status}**\n")
+    else:
+        lines.append("**Run type:** dry-run (no model invoked)\n")
     lines.append(f"- **Input:** `{args.input_path}` ({input_size_bytes / 1024:.1f} KB)")
     if over_cap:
         lines.append(
@@ -336,8 +408,37 @@ def assemble_receipt(
         lines.append(f"    - {marker} `{cf.rel_path}` ({cf.size_kb})")
     if suggested_plan_filename:
         lines.append(f"- **Suggested next plan number:** `{suggested_plan_filename}`")
-    lines.append(f"- **Output bundle:** `{args.out}`")
+
+    if unavailable is not None:
+        lines.append("")
+        lines.append("## Adapter invocation — CLI unavailable\n")
+        lines.append(f"- **Target agent:** `{unavailable.agent}`")
+        lines.append(f"- **Command attempted:** `{unavailable.command}`")
+        if unavailable.detail:
+            lines.append(f"- **Detail:** {unavailable.detail}")
+        lines.append(f"- **Prompt bundle (preserved):** `{bundle_path}`")
+        lines.append("- **Reviewer output:** not written — the CLI never ran.")
+    elif adapter_result is not None:
+        lines.append("")
+        lines.append("## Adapter invocation\n")
+        lines.append(f"- **Adapter:** `{adapter_result.adapter}`")
+        lines.append(f"- **Command attempted:** `{adapter_result.command_str}`")
+        lines.append(f"- **Exit code:** `{adapter_result.exit_code}`")
+        lines.append(f"- **Duration:** {adapter_result.duration_ms} ms")
+        lines.append(f"- **Prompt bundle:** `{bundle_path}`")
+        lines.append(f"- **Reviewer output:** `{args.out}`")
+        if not adapter_result.ok:
+            excerpt = adapter_result.stderr_excerpt()
+            lines.append("- **stderr excerpt:**")
+            lines.append("")
+            lines.append("```")
+            lines.append(excerpt if excerpt else "(empty)")
+            lines.append("```")
+    else:
+        lines.append(f"- **Output bundle:** `{args.out}`")
+
     if risks:
+        lines.append("")
         lines.append("- **Risks / assumptions flagged:**")
         for r in risks:
             lines.append(f"    - {r}")
@@ -403,8 +504,12 @@ def flag_risks(input_text: str, mode: str) -> list[str]:
 def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
 
-    if not args.dry_run:
-        err("Ticket 1 supports dry-run only; pass --dry-run.")
+    # --target-agent human has no adapter — it is a dry-run-only target.
+    if not args.dry_run and args.target_agent == "human":
+        err(
+            "--target-agent human has no reviewer CLI to invoke. "
+            "Re-run with --dry-run to assemble the bundle for manual paste."
+        )
         return 2
 
     repo_root: Path = args.repo_root.resolve()
@@ -473,6 +578,62 @@ def main(argv: Optional[list[str]] = None) -> int:
         reviewers=reviewers,
     )
 
+    # Sibling-file paths. "<out>.receipt.md" and "<out>.bundle.md".
+    receipt_path = out_path.parent / (out_path.name + ".receipt.md")
+    bundle_path = out_path.parent / (out_path.name + ".bundle.md")
+
+    # ---- Dry-run path: unchanged from Ticket 1.6. Bundle -> --out, plus receipt.
+    if args.dry_run:
+        receipt, next_cmd = assemble_receipt(
+            args=args,
+            required_ctx=required_ctx,
+            optional_ctx=optional_ctx,
+            suggested_plan_filename=suggested_plan_filename,
+            reviewers=reviewers,
+            input_size_bytes=input_size,
+            over_cap=over_cap,
+            risks=risks,
+        )
+        out_path.write_text(bundle, encoding="utf-8")
+        receipt_path.write_text(receipt, encoding="utf-8")
+        sys.stdout.write(f"Wrote bundle:  {out_path}\n")
+        sys.stdout.write(f"Wrote receipt: {receipt_path}\n")
+        if args.print_next_command:
+            sys.stdout.write("\nNext recommended command:\n")
+            sys.stdout.write(next_cmd + "\n")
+        return 0
+
+    # ---- Adapter path: invoke the reviewer CLI for --target-agent.
+    adapter = ADAPTER_FOR_AGENT[args.target_agent]
+
+    # Always preserve the exact prompt sent — debugging an adapter run without
+    # the bundle is painful.
+    bundle_path.write_text(bundle, encoding="utf-8")
+
+    try:
+        adapter_result = adapter.invoke(bundle, timeout_s=args.adapter_timeout)
+    except AdapterUnavailable as exc:
+        # Fail loud. The bundle is on disk; the receipt records the miss.
+        err(str(exc))
+        receipt, _ = assemble_receipt(
+            args=args,
+            required_ctx=required_ctx,
+            optional_ctx=optional_ctx,
+            suggested_plan_filename=suggested_plan_filename,
+            reviewers=reviewers,
+            input_size_bytes=input_size,
+            over_cap=over_cap,
+            risks=risks,
+            unavailable=exc,
+            bundle_path=bundle_path,
+        )
+        receipt_path.write_text(receipt, encoding="utf-8")
+        sys.stdout.write(f"Wrote bundle:  {bundle_path}\n")
+        sys.stdout.write(f"Wrote receipt: {receipt_path}\n")
+        return 3
+
+    # Write reviewer output (even on non-zero exit — partial output can help).
+    out_path.write_text(adapter_result.stdout, encoding="utf-8")
     receipt, next_cmd = assemble_receipt(
         args=args,
         required_ctx=required_ctx,
@@ -482,19 +643,25 @@ def main(argv: Optional[list[str]] = None) -> int:
         input_size_bytes=input_size,
         over_cap=over_cap,
         risks=risks,
+        adapter_result=adapter_result,
+        bundle_path=bundle_path,
     )
-
-    out_path.write_text(bundle, encoding="utf-8")
-    receipt_path = out_path.with_suffix(out_path.suffix + ".receipt.md") if out_path.suffix else out_path.parent / (out_path.name + ".receipt.md")
-    # Prefer "<out>.receipt.md" sibling style:
-    receipt_path = out_path.parent / (out_path.stem + out_path.suffix + ".receipt.md")
     receipt_path.write_text(receipt, encoding="utf-8")
 
-    sys.stdout.write(f"Wrote bundle:  {out_path}\n")
+    sys.stdout.write(f"Wrote bundle:  {bundle_path}\n")
+    sys.stdout.write(f"Wrote output:  {out_path}\n")
     sys.stdout.write(f"Wrote receipt: {receipt_path}\n")
     if args.print_next_command:
         sys.stdout.write("\nNext recommended command:\n")
         sys.stdout.write(next_cmd + "\n")
+
+    if not adapter_result.ok:
+        # Never pretend the reviewer succeeded.
+        err(
+            f"reviewer exited {adapter_result.exit_code}. "
+            f"See {receipt_path} for the stderr excerpt."
+        )
+        return 1
     return 0
 
 
