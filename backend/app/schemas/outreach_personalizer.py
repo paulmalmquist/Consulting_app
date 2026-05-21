@@ -99,3 +99,4 @@ class AdvancePipelineIn(BaseModel):
 
 class ScaffoldEnvIn(BaseModel):
     note: str | None = None
+    template_key: str | None = None  # Phase 3.5; defaults to "repe" when None

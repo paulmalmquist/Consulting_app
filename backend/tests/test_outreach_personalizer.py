@@ -947,18 +947,24 @@ def _env_summary_row(
     env_id: str = SCAFFOLDED_ENV_ID,
     lifecycle_state: str = "verified",
     default_home_route: str = "/lab/env/{env_id}/re",
+    template_key: str = "repe",
+    template_display_name: str | None = "Real Estate Private Equity",
+    template_seed_pack: str | None = "repe_starter",
 ) -> dict:
-    """The op_db.env_summary() shape: row from app.environments + computed
-    dashboard_url via the same substitution env_v2._build_response uses."""
+    """The op_db.env_summary() row shape — matches the SELECT in
+    backend/app/services/outreach_personalizer.env_summary, including the
+    Phase 3.5 LEFT JOIN to app.environment_templates that surfaces
+    template_display_name + template_seed_pack. dashboard_url is added in
+    Python by the helper after the SELECT; tests push only the SELECT row."""
     return {
         "env_id": env_id,
         "slug": "artemis-real-estate-partners",
-        "template_key": "repe",
+        "template_key": template_key,
         "lifecycle_state": lifecycle_state,
         "default_home_route": default_home_route,
         "theme_accent": "271 62% 63%",
-        # Note: op_db.env_summary computes dashboard_url in Python after the
-        # SELECT — tests push the SELECT result; the helper adds the URL.
+        "template_display_name": template_display_name,
+        "template_seed_pack": template_seed_pack,
     }
 
 
@@ -1027,11 +1033,12 @@ class TestScaffoldEnvGate:
         assert state["env_summary"] is None
 
     def test_available_when_template_present(self, fake_cursor):
-        """Happy path → available=True with no env_summary. Pushes empty result
-        for the template existence check (returns truthy via push_result with a
-        non-empty list)."""
+        """Happy path → available=True with no env_summary. Phase 3.5 added
+        the sprawl-quota query before the template-exists check, so we push a
+        zero-count result first."""
         from app.services import outreach_personalizer as op_db
 
+        fake_cursor.push_result([{"n": 0}])         # _active_env_count_for_business → 0
         fake_cursor.push_result([{"?column?": 1}])  # _template_exists → True
         state = op_db.compute_scaffold_env_state(target=_scaffold_target())
         assert state["available"] is True
@@ -1041,7 +1048,8 @@ class TestScaffoldEnvGate:
     def test_fails_when_template_missing(self, fake_cursor):
         from app.services import outreach_personalizer as op_db
 
-        fake_cursor.push_result([])  # _template_exists → False
+        fake_cursor.push_result([{"n": 0}])  # _active_env_count_for_business → 0
+        fake_cursor.push_result([])          # _template_exists → False
         state = op_db.compute_scaffold_env_state(target=_scaffold_target())
         assert state["available"] is False
         assert state["blocking_reason"] == "Environment template is not available."
@@ -1112,6 +1120,7 @@ class TestScaffoldEnv:
         from app.schemas.lab_v2 import CreateEnvironmentV2Response
 
         fake_cursor.push_result([_scaffold_target()])  # get_target_by_id
+        fake_cursor.push_result([{"n": 0}])            # Phase 3.5 sprawl quota → 0
         fake_cursor.push_result([{"?column?": 1}])     # _template_exists → True
 
         bad_result = CreateEnvironmentV2Response(
@@ -1135,6 +1144,7 @@ class TestScaffoldEnv:
         from app.routes import outreach_personalizer as route
 
         fake_cursor.push_result([_scaffold_target()])  # get_target_by_id
+        fake_cursor.push_result([{"n": 0}])            # Phase 3.5 sprawl quota → 0
         fake_cursor.push_result([{"?column?": 1}])     # _template_exists → True
 
         with patch.object(
@@ -1156,6 +1166,7 @@ class TestScaffoldEnv:
         from app.schemas.lab_v2 import CreateEnvironmentV2Response
 
         fake_cursor.push_result([_scaffold_target()])           # get_target_by_id (initial)
+        fake_cursor.push_result([{"n": 0}])                     # Phase 3.5 sprawl quota → 0
         fake_cursor.push_result([{"?column?": 1}])              # _template_exists → True
         # env_v2.create_environment_v2 is mocked — no DB consumed by it.
         fake_cursor.push_result([
@@ -1214,5 +1225,397 @@ class TestScaffoldEnv:
         assert "scaffolded_env_id" not in payload
         assert "dashboard_url" not in payload
         # The pre-existing payload contract is still intact.
+        assert payload["ready"] is True
+        assert "firm" in payload and "loom" in payload and "cta" in payload
+
+
+# ---------------------------------------------------------------------------
+# Phase 3.5 — template choice, recreate flow, sprawl guard
+# ---------------------------------------------------------------------------
+
+class TestScaffoldEnvGate35:
+    """Phase 3.5 extensions to compute_scaffold_env_state. Service-level unit
+    tests — direct calls, no route plumbing. Mirrors TestScaffoldEnvGate."""
+
+    def test_already_scaffolded_healthy_env_is_not_recreatable(self, fake_cursor):
+        """Healthy env (lifecycle_state != 'retired') → unavailable with the
+        'Environment already exists.' idempotency signal AND can_recreate=False.
+        Phase 3.5 deliberately refuses to recreate a working env."""
+        from app.services import outreach_personalizer as op_db
+
+        target = _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID)
+        # Pre-fetched env_summary passed in → no DB call inside the gate.
+        env = _env_summary_row(lifecycle_state="verified")
+        state = op_db.compute_scaffold_env_state(target=target, env=env)
+        assert state["available"] is False
+        assert state["blocking_reason"] == "Environment already exists."
+        assert state["env_summary"] is not None
+        assert state["can_recreate"] is False
+
+    def test_retired_env_sets_can_recreate_true(self, fake_cursor):
+        """Retired env → unavailable + can_recreate=True + env_summary populated
+        so the UI can surface lifecycle_state='retired' alongside the recreate
+        affordance."""
+        from app.services import outreach_personalizer as op_db
+
+        target = _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID)
+        env = _env_summary_row(lifecycle_state="retired")
+        state = op_db.compute_scaffold_env_state(target=target, env=env)
+        assert state["available"] is False
+        assert state["blocking_reason"] == "Linked environment is retired."
+        assert state["env_summary"] is not None
+        assert state["env_summary"]["lifecycle_state"] == "retired"
+        assert state["can_recreate"] is True
+
+    def test_stored_env_missing_sets_can_recreate_true(self, fake_cursor):
+        """Orphaned link (FK should have cleared the column on env delete but
+        a race or direct-SQL deletion left the link stale) — recreate is the
+        only sensible next step."""
+        from app.services import outreach_personalizer as op_db
+
+        target = _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID)
+        # No env passed → gate calls env_summary internally; push empty result.
+        fake_cursor.push_result([])  # env_summary SELECT → None
+        state = op_db.compute_scaffold_env_state(target=target)
+        assert state["available"] is False
+        assert state["blocking_reason"] == "Stored scaffolded environment was not found."
+        assert state["env_summary"] is None
+        assert state["can_recreate"] is True
+
+    def test_quota_exceeded_blocks_create(self, fake_cursor):
+        """Per-business sprawl guard fires when active-env count >= quota.
+        Default quota is 25 (OUTREACH_ENV_QUOTA_PER_BUSINESS); the count query
+        is mocked to return 25 → blocking_reason carries the exact format."""
+        from app.services import outreach_personalizer as op_db
+
+        # Phase 3.5 quota query → returns 25 (= default cap).
+        fake_cursor.push_result([{"n": 25}])
+        state = op_db.compute_scaffold_env_state(target=_scaffold_target())
+        assert state["available"] is False
+        assert state["blocking_reason"] == (
+            "Outreach environment quota reached (25/25) for this business; "
+            "archive an old env to proceed."
+        )
+        assert state["can_recreate"] is False
+
+
+class TestScaffoldEnvTemplateChoice:
+    """Phase 3.5: operator-selectable template via ScaffoldEnvIn.template_key.
+    Defaults to "repe" when omitted; unknown template surfaces as the existing
+    400 'Environment template is not available.' via LookupError."""
+
+    URL = f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/scaffold-env"
+
+    def _success_pushes(self, fake_cursor):
+        """Push the FakeCursor sequence for a happy-path scaffold (defaults
+        match the Phase 3 happy-path test, including the new Phase 3.5 quota
+        query)."""
+        fake_cursor.push_result([_scaffold_target()])              # get_target_by_id
+        fake_cursor.push_result([{"n": 0}])                        # sprawl quota → 0
+        fake_cursor.push_result([{"?column?": 1}])                 # _template_exists → True
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID)}
+        ])                                                          # set_scaffolded_env_id UPDATE
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID)}
+        ])                                                          # get_target_by_id (fresh)
+        fake_cursor.push_result([_env_summary_row()])              # env_summary (fresh gate)
+
+    def test_default_template_is_repe_when_omitted(self, client, fake_cursor):
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        self._success_pushes(fake_cursor)
+        good_result = CreateEnvironmentV2Response(
+            env_id=SCAFFOLDED_ENV_ID, slug="artemis-real-estate-partners",
+            template_key="repe", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ) as m:
+            r = client.post(self.URL, json={})  # No template_key
+
+        assert r.status_code == 200, r.text
+        kwargs = m.call_args.kwargs or {}
+        positional = m.call_args.args
+        # create_environment_v2(manifest, actor=...) — manifest is positional[0]
+        manifest = positional[0] if positional else kwargs.get("manifest")
+        assert manifest.template_key == "repe"
+
+    def test_operator_selected_template_passes_through(self, client, fake_cursor):
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        self._success_pushes(fake_cursor)
+        good_result = CreateEnvironmentV2Response(
+            env_id=SCAFFOLDED_ENV_ID, slug="artemis-real-estate-partners",
+            template_key="internal_ops", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ) as m:
+            r = client.post(self.URL, json={"template_key": "internal_ops"})
+
+        assert r.status_code == 200, r.text
+        positional = m.call_args.args
+        manifest = positional[0] if positional else m.call_args.kwargs.get("manifest")
+        assert manifest.template_key == "internal_ops"
+
+    def test_unknown_template_returns_400_template_unavailable(
+        self, client, fake_cursor,
+    ):
+        """env_v2.get_template raises LookupError for an unknown template_key.
+        The route's existing handler maps it to 400 with the exact
+        'Environment template is not available.' message."""
+        from app.routes import outreach_personalizer as route
+
+        fake_cursor.push_result([_scaffold_target()])  # get_target_by_id
+        fake_cursor.push_result([{"n": 0}])            # sprawl quota → 0
+        fake_cursor.push_result([{"?column?": 1}])     # _template_exists default → True (gate uses "repe")
+
+        with patch.object(
+            route.env_v2, "create_environment_v2",
+            side_effect=LookupError("Unknown template_key: bogus"),
+        ):
+            r = client.post(self.URL, json={"template_key": "bogus"})
+
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"] == "Environment template is not available."
+
+
+class TestScaffoldEnvRecreate:
+    """Phase 3.5: /scaffold-env/recreate. Healthy envs are NOT recreatable;
+    only orphaned (missing row) or retired envs can be recreated."""
+
+    URL = f"/api/outreach-personalizer/v1/targets/{TARGET_ID}/scaffold-env/recreate"
+
+    def _recreate_pushes_retired(self, fake_cursor, new_env_id, template_key="repe"):
+        """Push sequence for a recreate on a retired env. The route:
+          1. get_target_by_id (initial) → push target with scaffolded_env_id
+          2. compute_scaffold_env_state → env_summary returns retired env
+          3. _compute_recreate_slug → count query
+          4. env_v2.create_environment_v2 (mocked)
+          5. set_scaffolded_env_id UPDATE → push updated target
+          6. get_target_by_id (fresh) → push refreshed target
+          7. compute_scaffold_env_state (fresh) → env_summary returns new env
+        """
+        fake_cursor.push_result([
+            _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID),
+        ])                                                          # 1
+        fake_cursor.push_result([
+            _env_summary_row(
+                lifecycle_state="retired", template_key=template_key,
+            ),
+        ])                                                          # 2
+        fake_cursor.push_result([{"n": 1}])                         # 3 — slug count → 1 (one prior)
+        # 4: env_v2 mocked — no push
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=new_env_id)},
+        ])                                                          # 5
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=new_env_id)},
+        ])                                                          # 6
+        fake_cursor.push_result([
+            _env_summary_row(env_id=new_env_id, template_key=template_key),
+        ])                                                          # 7
+
+    def test_recreate_rejects_healthy_env(self, client, fake_cursor):
+        """Healthy env → 400 with the explicit retire-first message. No env_v2
+        call and no recreate slug query — gate fails at can_recreate check."""
+        from app.routes import outreach_personalizer as route
+
+        fake_cursor.push_result([
+            _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID),
+        ])
+        fake_cursor.push_result([_env_summary_row(lifecycle_state="verified")])
+
+        with patch.object(
+            route.env_v2, "create_environment_v2",
+            side_effect=AssertionError("env_v2 must not be called on healthy env"),
+        ) as m:
+            r = client.post(self.URL, json={})
+
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"] == (
+            "Cannot recreate a healthy environment. "
+            "Retire it in the env UI first."
+        )
+        assert m.call_count == 0
+
+    def test_recreate_succeeds_on_retired_env(self, client, fake_cursor):
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        new_env_id = "88888888-8888-8888-8888-888888888888"
+        self._recreate_pushes_retired(fake_cursor, new_env_id)
+
+        good_result = CreateEnvironmentV2Response(
+            env_id=new_env_id, slug="artemis-real-estate-partners-r1",
+            template_key="repe", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ) as m:
+            r = client.post(self.URL, json={})
+
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["recreated"] is True
+        assert body["env"]["env_id"] == new_env_id
+        # The new manifest must carry the -r1 suffix
+        positional = m.call_args.args
+        manifest = positional[0] if positional else m.call_args.kwargs.get("manifest")
+        assert manifest.slug == "artemis-real-estate-partners-r1"
+
+    def test_recreate_succeeds_on_orphaned_env(self, client, fake_cursor):
+        """Orphaned link (env row gone) → gate returns can_recreate=True via
+        the missing-env branch; recreate proceeds."""
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        new_env_id = "99999999-9999-9999-9999-999999999999"
+        fake_cursor.push_result([
+            _scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID),
+        ])                                                          # get_target_by_id
+        fake_cursor.push_result([])                                 # env_summary → None (orphan)
+        fake_cursor.push_result([{"n": 1}])                         # _compute_recreate_slug count
+        # env_v2 mocked
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=new_env_id)},
+        ])                                                          # set_scaffolded_env_id
+        fake_cursor.push_result([
+            {**_scaffold_target(scaffolded_env_id=new_env_id)},
+        ])                                                          # get_target_by_id (fresh)
+        fake_cursor.push_result([_env_summary_row(env_id=new_env_id)])  # env_summary fresh
+
+        good_result = CreateEnvironmentV2Response(
+            env_id=new_env_id, slug="artemis-real-estate-partners-r1",
+            template_key="repe", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ):
+            r = client.post(self.URL, json={})
+
+        assert r.status_code == 200, r.text
+        assert r.json()["recreated"] is True
+
+    def test_recreate_preserves_prior_template_when_payload_omits_it(
+        self, client, fake_cursor,
+    ):
+        """Prior env had template_key='internal_ops'; recreate payload is {};
+        the new manifest should carry internal_ops forward."""
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        new_env_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        self._recreate_pushes_retired(
+            fake_cursor, new_env_id, template_key="internal_ops",
+        )
+        good_result = CreateEnvironmentV2Response(
+            env_id=new_env_id, slug="artemis-real-estate-partners-r1",
+            template_key="internal_ops", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ) as m:
+            r = client.post(self.URL, json={})
+
+        assert r.status_code == 200, r.text
+        positional = m.call_args.args
+        manifest = positional[0] if positional else m.call_args.kwargs.get("manifest")
+        assert manifest.template_key == "internal_ops"
+
+    def test_recreate_uses_payload_template_when_provided(
+        self, client, fake_cursor,
+    ):
+        """Operator overrides the prior choice in the payload — payload wins."""
+        from app.routes import outreach_personalizer as route
+        from app.schemas.lab_v2 import CreateEnvironmentV2Response
+
+        new_env_id = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+        self._recreate_pushes_retired(
+            fake_cursor, new_env_id, template_key="internal_ops",
+        )
+        good_result = CreateEnvironmentV2Response(
+            env_id=new_env_id, slug="artemis-real-estate-partners-r1",
+            template_key="client_delivery", template_version=1,
+            lifecycle_state="verified", stages=[], links={},
+            warnings=[], errors=[], dry_run=False,
+        )
+        with patch.object(
+            route.env_v2, "create_environment_v2", return_value=good_result
+        ) as m:
+            r = client.post(self.URL, json={"template_key": "client_delivery"})
+
+        assert r.status_code == 200, r.text
+        positional = m.call_args.args
+        manifest = positional[0] if positional else m.call_args.kwargs.get("manifest")
+        assert manifest.template_key == "client_delivery"
+
+
+class TestPublicMicrositeExcludesTemplateChoice:
+    """Phase 3.5 regression guard: the public microsite payload must NOT
+    leak template metadata or any scaffold-related field even when the target
+    is scaffolded with a populated env_summary including template fields."""
+
+    SLUG = "artemis-real-estate-partners"
+    URL = f"/api/outreach-personalizer/v1/microsite/{SLUG}"
+
+    def test_public_payload_has_no_template_or_scaffold_keys(
+        self, client, fake_cursor,
+    ):
+        from app.services.outreach_personalizer_ai import generate_asset_pack
+
+        pack = generate_asset_pack(firm_name=FIRM, sector="REPE", profile={})
+        target = {
+            **_scaffold_target(scaffolded_env_id=SCAFFOLDED_ENV_ID),
+            "firm_slug": self.SLUG,
+            "microsite_url": f"/for/{self.SLUG}",
+        }
+        fake_cursor.push_result([target])                          # get_public_target_by_slug
+        fake_cursor.push_result([
+            {
+                "id": "a0000000-0000-0000-0000-000000000001",
+                "target_id": target["id"], "asset_type": "insight", "position": 0,
+                "payload": {"insights": pack["insights"], "source": "deterministic_seed"},
+                "generated_at": "x", "regenerated_count": 0,
+            },
+            {
+                "id": "a0000000-0000-0000-0000-000000000002",
+                "target_id": target["id"], "asset_type": "loom_script", "position": 0,
+                "payload": {**pack["loom_script"], "source": "deterministic_seed"},
+                "generated_at": "x", "regenerated_count": 0,
+            },
+            {
+                "id": "a0000000-0000-0000-0000-000000000003",
+                "target_id": target["id"], "asset_type": "cold_email", "position": 0,
+                "payload": {**pack["cold_email"], "source": "deterministic_seed"},
+                "generated_at": "x", "regenerated_count": 0,
+            },
+        ])                                                          # list_assets
+
+        r = client.get(self.URL)
+        assert r.status_code == 200, r.text
+        payload = r.json()
+        # Regression guards — every Phase 3.5 surface field must be absent.
+        for forbidden in (
+            "scaffold", "scaffolded_env_id", "dashboard_url",
+            "template_key", "template_display_name", "template_seed_pack",
+        ):
+            assert forbidden not in payload, (
+                f"Public microsite leaked Phase 3+ field: {forbidden}"
+            )
+        # Public contract still intact.
         assert payload["ready"] is True
         assert "firm" in payload and "loom" in payload and "cta" in payload

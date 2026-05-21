@@ -422,11 +422,18 @@ def env_summary(*, env_id: UUID) -> dict | None:
     read-after-create computes from default_home_route here. Both paths
     converge on the same string for the same env_id."""
     with get_cursor() as cur:
+        # Phase 3.5: LEFT JOIN app.environment_templates to surface
+        # display_name + default_seed_pack on the operator audit line.
         cur.execute(
-            """SELECT env_id::text AS env_id, slug, template_key,
-                      lifecycle_state, default_home_route, theme_accent
-                 FROM app.environments
-                WHERE env_id = %s::uuid""",
+            """SELECT e.env_id::text AS env_id, e.slug, e.template_key,
+                      e.lifecycle_state, e.default_home_route, e.theme_accent,
+                      t.display_name        AS template_display_name,
+                      t.default_seed_pack   AS template_seed_pack
+                 FROM app.environments e
+                 LEFT JOIN app.environment_templates t
+                        ON t.template_key = e.template_key
+                       AND t.is_latest = true
+                WHERE e.env_id = %s::uuid""",
             (str(env_id),),
         )
         row = cur.fetchone()
@@ -495,15 +502,20 @@ def compute_scaffold_env_state(
           "available": bool,
           "blocking_reason": str | None,
           "env_summary": <env_summary or None>,
-          "can_recreate": bool,           # reserved for Phase 3.5; always False
+          "can_recreate": bool,
         }
+
+    `can_recreate` (Phase 3.5) is True only when the stored env is missing or
+    retired (lifecycle_state='retired'). Healthy envs are NOT recreatable through
+    this gate — the operator must retire the env in the v2 env UI first.
 
     Callers may pass a pre-fetched `env` dict (from env_summary) to avoid a
     duplicate SELECT when the route already needs the summary for its
     response payload."""
-    def _fail(reason: str, env_summary_val: dict | None = None) -> dict:
+    def _fail(reason: str, env_summary_val: dict | None = None,
+              can_recreate: bool = False) -> dict:
         return {"available": False, "blocking_reason": reason,
-                "env_summary": env_summary_val, "can_recreate": False}
+                "env_summary": env_summary_val, "can_recreate": can_recreate}
 
     # 1. business_id
     if not target.get("business_id"):
@@ -515,23 +527,79 @@ def compute_scaffold_env_state(
     if target.get("status") not in SCAFFOLD_READY_STATUSES:
         return _fail("Outreach assets are not ready yet.")
 
-    # 4. already-scaffolded short-circuit. The UI treats this as a SUCCESS /
-    # LINK state (renders the "Open environment" link), NOT a warning — the
-    # backend just communicates "do not create again" via the unavailable
-    # flag + linked-env summary.
+    # 4. already-scaffolded branch — Phase 3.5: 3 cases distinguished by
+    # whether the stored env exists and its lifecycle_state.
     sid = target.get("scaffolded_env_id")
     if sid is not None:
         existing = env if env is not None else env_summary(env_id=sid)
         if existing is None:
-            return _fail("Stored scaffolded environment was not found.")
-        return _fail("Environment already exists.", env_summary_val=existing)
+            # Hard-deleted or direct-SQL tampering (the FK ON DELETE SET NULL
+            # should normally clear the column when the env row is dropped).
+            # Recreate is the only sensible next step.
+            return _fail("Stored scaffolded environment was not found.",
+                         can_recreate=True)
+        if existing.get("lifecycle_state") == _LIFECYCLE_RETIRED:
+            return _fail("Linked environment is retired.",
+                         env_summary_val=existing, can_recreate=True)
+        # Healthy env — render as SUCCESS/LINK state in the UI. can_recreate
+        # stays False; Phase 3.5 deliberately refuses recreate on healthy envs.
+        return _fail("Environment already exists.",
+                     env_summary_val=existing, can_recreate=False)
 
-    # 5. template availability — last gate before the create path opens.
+    # 5. sprawl guard (Phase 3.5) — create-path only. Recreate bypasses by
+    # construction (net env count does not increase). Reads from app.config so
+    # prod can tune without redeploying.
+    from app.config import OUTREACH_ENV_QUOTA_PER_BUSINESS
+    quota = OUTREACH_ENV_QUOTA_PER_BUSINESS
+    active = _active_env_count_for_business(business_id=target["business_id"])
+    if active >= quota:
+        return _fail(
+            f"Outreach environment quota reached ({active}/{quota}) for this "
+            "business; archive an old env to proceed."
+        )
+
+    # 6. template availability — last gate before the create path opens.
     if not _template_exists(_OUTREACH_SCAFFOLD_TEMPLATE_KEY):
         return _fail("Environment template is not available.")
 
     return {"available": True, "blocking_reason": None,
             "env_summary": None, "can_recreate": False}
+
+
+_LIFECYCLE_RETIRED = "retired"
+
+
+def _active_env_count_for_business(*, business_id: UUID) -> int:
+    """Count app.environments rows for this business that are NOT retired.
+    Used by compute_scaffold_env_state's Phase 3.5 sprawl guard."""
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT count(*) AS n FROM app.environments
+                WHERE business_id = %s::uuid AND lifecycle_state != %s""",
+            (str(business_id), _LIFECYCLE_RETIRED),
+        )
+        row = cur.fetchone()
+    return int((row or {}).get("n") or 0)
+
+
+def _compute_recreate_slug(*, target: dict) -> str:
+    """Phase 3.5 — pick `{firm_slug}-r{n}` where n is one more than the count
+    of existing envs whose slug matches the firm's slug or any prior recreate.
+    Cheap derive-by-query approach; no counter column. Race window (two
+    simultaneous recreates picking the same n) is closed by the v2 unique-slug
+    constraint (`idx_app_environments_slug`) — one INSERT wins, the other
+    returns the existing-by-slug branch and both targets end up linked to the
+    same fresh env. Operator-benign outcome."""
+    firm_slug = str(target["firm_slug"]).lower()
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT count(*) AS n FROM app.environments
+                WHERE slug = %s OR slug LIKE %s""",
+            (firm_slug, f"{firm_slug}-r%"),
+        )
+        n = int((cur.fetchone() or {}).get("n") or 0)
+    # n includes the original (no suffix); first recreate is -r1.
+    return f"{firm_slug}-r{n}"
 
 
 # ---------------------------------------------------------------------------

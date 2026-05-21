@@ -1,13 +1,15 @@
-# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C + 3)
+# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C + 3 + 3.5)
 
 **Created:** 2026-05-19
-**Status:** Phases 1 + 2A + 2B + 2C COMPLETE on `main` via PR #68 (`d9f6733e`) and
-PR #81 (`c22182ba`). **Phase 3 IN PROGRESS 2026-05-20** — explicit
-`scaffolded_env_id` link + "Create outreach environment" affordance + reuse of
-`environment_pipeline_v2.create_environment_v2()` (see "Phase 3" section below).
-Migration `613` applied to Supabase (`ozboonlsplroialdwuxj`); 101/103 backend
-tests pass (2 skips pre-existing); repo-b typecheck clean; live DB smoke green
-(real REPE env created + idempotent recall + dependency-ordered cleanup).
+**Status:** Phases 1 + 2A + 2B + 2C + 3 LANDED on `main` via PR #68 (`d9f6733e`),
+PR #81 (`c22182ba`), and PR #85 (`53d0e9d0`). **Phase 3.5 IN PROGRESS 2026-05-20** —
+operator-selectable template + visible template summary + explicit
+`/scaffold-env/recreate` flow + per-business sprawl guard (see "Phase 3.5"
+section below). **Zero-migration ticket** — all required columns
+(`scaffolded_env_id`, `app.environments.slug` + unique index,
+`app.environment_templates.display_name` + `default_seed_pack`) already exist.
+80/80 outreach tests pass + 34 pitch-forge/env_pipeline_v2 regression pass + 2
+skips pre-existing; repo-b typecheck clean.
 **Environment:** Consulting / Novendor CRM
 **Deliverable type:** Multi-phase build (Phase 1 vertical slice + 2A/2B/2C/3 operational layers)
 
@@ -439,12 +441,115 @@ decision, not retrofitted silently.
   app.environment_memberships: 0)` before dependency-ordered cleanup deleted
   all 7 rows + outreach target + microsite events.
 
+## Phase 3.5 — Operator-controlled scaffolding (template picker + recreate + sprawl guard)
+
+**Scope:** add operator agency on top of Phase 3's one-click REPE scaffold —
+operator-selectable template (default still `repe`), visible template summary
+on the success/link state, explicit `/scaffold-env/recreate` flow gated to
+stale/retired stored envs only, and a per-business sprawl soft cap. **Zero
+migration.** Reuses `GET /v2/environments/templates` (no new endpoint),
+`env_v2.create_environment_v2` (still the only env creation path),
+`_template_exists`, `_existing_env_by_slug`. Public microsite invariant
+preserved — no template choice / env link / recreate affordance ever surfaces
+on the public payload.
+
+**Backend (config + schema)**
+- `backend/app/config.py`: `OUTREACH_ENV_QUOTA_PER_BUSINESS: int =
+  int(os.getenv("OUTREACH_ENV_QUOTA_PER_BUSINESS", "25"))` — soft cap;
+  bypassed on the recreate path by construction (net env count unchanged).
+- `backend/app/schemas/outreach_personalizer.py`: `ScaffoldEnvIn` extended
+  with `template_key: str | None = None` (default `repe` if absent).
+
+**Backend (service — `outreach_personalizer.py`)**
+- `env_summary` extended via LEFT JOIN on `app.environment_templates` (latest
+  row) — adds `template_display_name`, `template_seed_pack`. Existing call
+  sites need no change; the dict simply carries more keys.
+- `compute_scaffold_env_state` already-scaffolded branch reshaped into
+  three cases distinguishable by `lifecycle_state`:
+
+| Stored env state | `available` | `blocking_reason` | `env_summary` | `can_recreate` |
+|---|---|---|---|---|
+| Row found, lifecycle not `retired` (healthy) | False | `Environment already exists.` | populated | **False** |
+| Row found, `lifecycle_state = 'retired'` | False | `Linked environment is retired.` | populated | **True** |
+| Row not found (FK auto-cleared or direct-SQL deletion) | False | `Stored scaffolded environment was not found.` | None | **True** |
+
+  Healthy envs are deliberately **not** recreatable through the recreate
+  endpoint; operator must retire in the v2 env UI first (honors "idempotency
+  beats cleverness" — one healthy env per target, full stop).
+- New sprawl-quota step on the **create path only**, after the
+  already-scaffolded branch and before `_template_exists`:
+  `count(*) FROM app.environments WHERE business_id = ? AND lifecycle_state
+  != 'retired'`. If `count >= OUTREACH_ENV_QUOTA_PER_BUSINESS`, return
+  `Outreach environment quota reached (N/Q) for this business; archive an old
+  env to proceed.`
+- `_active_env_count_for_business(*, business_id) -> int` helper.
+- `_compute_recreate_slug(*, target) -> str` — derives `{firm_slug}-r{n}`
+  where `n = count(*) WHERE slug = '{firm_slug}' OR slug LIKE
+  '{firm_slug}-r%'`. n monotone; first recreate is `-r1`. Race window
+  (two simultaneous recreates picking the same n) is closed by
+  `idx_app_environments_slug` UNIQUE — one wins, the other re-enters the
+  existing-by-slug branch, both operators end up linked to the same fresh
+  env (benign).
+
+**Backend (routes — `outreach_personalizer.py`)**
+- `POST /targets/{id}/scaffold-env`: now reads
+  `payload.template_key or _OUTREACH_SCAFFOLD_TEMPLATE_KEY` and threads it
+  through the manifest. Unknown template → existing `LookupError` handler →
+  400 `"Environment template is not available."`
+- `POST /targets/{id}/scaffold-env/recreate` (new). Precondition:
+  `compute_scaffold_env_state(target)` MUST return `can_recreate=True`.
+  Healthy-env case rejects with the exact `"Cannot recreate a healthy
+  environment. Retire it in the env UI first."` Template choice cascade:
+  payload `template_key` → prior env's `template_key` (preserves operator's
+  prior choice) → `"repe"`. New slug from `_compute_recreate_slug`. Calls
+  `env_v2.create_environment_v2` with `actor="outreach_personalizer_recreate"`,
+  then `set_scaffolded_env_id` overwrites the target's link. Old env is
+  **not** auto-retired — operator manages lifecycle in the v2 env UI.
+
+**Frontend**
+- `repo-b/src/lib/outreach-personalizer-api.ts`: `ScaffoldedEnvSummary`
+  carries `template_display_name`, `template_seed_pack`; `scaffoldEnv`
+  accepts `templateKey?`; new `recreateScaffoldEnv(targetId, opts?)` →
+  `POST /scaffold-env/recreate`; new `listEnvironmentTemplates()` thin
+  wrapper over `GET /bos/api/v2/environments/templates`.
+- operator page: `<details>` template picker (collapsed-by-default
+  disclosure) with `<select>` filtered client-side to the outreach
+  allowlist `{repe (default), internal_ops, client_delivery,
+  trading_research, legal_ops}`. Excludes `public_profile`,
+  `public_content`, `empty_lab` — not prospect-demo material. Template
+  summary line `Template: {display_name} · home: {dashboard_url} · seed:
+  {default_seed_pack}` rendered next to "Open environment ↗" on the
+  success/link state. "Recreate environment" secondary button conditional
+  on `detail.scaffold?.can_recreate === true`, with `window.confirm()`
+  before firing. Quota-exceeded state renders the exact backend
+  `blocking_reason` verbatim in the existing warning span.
+
+**Public microsite invariant**
+- `MicrositeView.tsx` and `_microsite_payload` are untouched. Phase 3
+  regression test (`test_public_microsite_payload_excludes_scaffold`)
+  passes unmodified. Phase 3.5 adds a parallel guard:
+  `test_public_microsite_payload_excludes_template_choice` asserts the
+  public payload contains none of `scaffold`, `template_key`,
+  `template_display_name`, `dashboard_url`.
+
+**Verified:**
+- `python -m pytest backend/tests/test_outreach_personalizer.py
+   backend/tests/test_pitch_forge_constraints.py
+   backend/tests/test_environment_pipeline_v2.py -q` →
+  80 outreach + 34 regression passed, 2 skips pre-existing.
+- `cd repo-b && npm run typecheck` → clean.
+- **Live DB smoke** under `env_id="verify-artemis-3-5"`:
+  *deferred — Supabase DB endpoint was unreachable at scoped-commit time
+  (REST gateway alive, DB pooler returning `ECHECKOUTTIMEOUT`); will
+  retry on recovery before PR merge.*
+
 ## Next recommended ticket
 
-**Phase 3.5** (operator-selectable template + recreation affordance): allow
-the operator to pick the template (currently hard-coded `"repe"`) and add an
-explicit "Recreate environment" button gated on
-`scaffold.can_recreate` (currently always `false`).
+**Phase 3.6** (lifecycle round-trip): "Retire and recreate" combo
+affordance — wires a retire-then-recreate in a single click for operators
+who genuinely need to swap a healthy env's template. Phase 3.5
+deliberately blocks healthy-env recreate; Phase 3.6 unblocks it through
+an explicit two-step affordance, not a single endpoint surprise.
 
 **Phase 4**: Apollo / sales-intelligence enrichment to auto-populate
 `profile_json` from `firm_name` + domain.

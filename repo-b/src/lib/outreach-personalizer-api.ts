@@ -127,10 +127,26 @@ export type ScaffoldedEnvSummary = {
   env_id: string;
   slug: string;
   template_key: string;
+  template_display_name: string | null;  // Phase 3.5
+  template_seed_pack: string | null;     // Phase 3.5
   lifecycle_state: string;
   default_home_route: string | null;
   theme_accent: string | null;
   dashboard_url: string | null;
+};
+
+// Phase 3.5 — minimal row shape returned by GET /v2/environments/templates.
+// Reused as-is from the existing lab_v2 templates endpoint; no new endpoint.
+export type EnvironmentTemplate = {
+  template_key: string;
+  version: number;
+  display_name: string;
+  description: string | null;
+  env_kind_default: string;
+  industry_type: string | null;
+  default_home_route: string | null;
+  default_seed_pack: string | null;
+  is_latest: boolean;
 };
 
 // Phase 3 — gate state surfaced by GET /targets/{id}. `available` is true
@@ -318,15 +334,23 @@ export function advancePipeline(targetId: string, note?: string) {
 }
 
 /**
- * Phase 3 — scaffold a REPE-flavored outreach environment for this target via
+ * Phase 3 — scaffold an outreach environment for this target via
  * env_v2.create_environment_v2(). Idempotent: a second call with the target
  * already linked returns 200 with `created=false` and the existing env summary
  * (same as a successful first call) — NOT a 400. Gate failures (no
  * business_id, no CRM account, assets not ready, template unavailable, stored
- * env missing) return 400 with the exact backend blocking_reason. The public
- * microsite NEVER reaches this endpoint — operator-only.
+ * env missing, quota exceeded) return 400 with the exact backend
+ * blocking_reason. The public microsite NEVER reaches this endpoint —
+ * operator-only.
+ *
+ * Phase 3.5 — `opts.templateKey` lets the operator pick a non-default template
+ * (defaults to "repe" when omitted). Unknown template → 400 with exact
+ * "Environment template is not available." message.
  */
-export function scaffoldEnv(targetId: string, note?: string) {
+export function scaffoldEnv(
+  targetId: string,
+  opts?: { note?: string; templateKey?: string },
+) {
   return apiFetch<{
     ok: boolean;
     created: boolean;
@@ -334,8 +358,52 @@ export function scaffoldEnv(targetId: string, note?: string) {
     scaffold: ScaffoldEnvState;
   }>(`${OP_BASE}/targets/${targetId}/scaffold-env`, {
     method: "POST",
-    body: JSON.stringify({ note: note ?? null }),
+    body: JSON.stringify({
+      note: opts?.note ?? null,
+      template_key: opts?.templateKey ?? null,
+    }),
   });
+}
+
+/**
+ * Phase 3.5 — replace the target's stale or retired scaffolded env with a
+ * fresh one. Gated by `scaffold.can_recreate === true` (only when stored env
+ * is missing or `lifecycle_state === "retired"`). Healthy envs are NOT
+ * recreatable through this endpoint — the operator must retire the env in
+ * the v2 env UI first; calling here on a healthy env returns 400 with
+ * "Cannot recreate a healthy environment. Retire it in the env UI first."
+ *
+ * Template preservation: opts.templateKey wins; otherwise the prior env's
+ * template_key is carried forward; otherwise the "repe" default.
+ *
+ * Recreate bypasses the per-business sprawl quota by construction.
+ */
+export function recreateScaffoldEnv(
+  targetId: string,
+  opts?: { note?: string; templateKey?: string },
+) {
+  return apiFetch<{
+    ok: boolean;
+    recreated: boolean;
+    env: ScaffoldedEnvSummary | null;
+    scaffold: ScaffoldEnvState;
+  }>(`${OP_BASE}/targets/${targetId}/scaffold-env/recreate`, {
+    method: "POST",
+    body: JSON.stringify({
+      note: opts?.note ?? null,
+      template_key: opts?.templateKey ?? null,
+    }),
+  });
+}
+
+/**
+ * Phase 3.5 — lists active environment templates via the EXISTING
+ * /v2/environments/templates route. Reused, not duplicated. Cached 5min
+ * server-side. Frontend filters to an outreach-appropriate allowlist
+ * client-side (e.g. excludes `public_*`).
+ */
+export function listEnvironmentTemplates() {
+  return apiFetch<EnvironmentTemplate[]>(`/bos/api/v2/environments/templates`);
 }
 
 export function regenerateOutreachAsset(

@@ -11,17 +11,31 @@ import {
   listCrmAccounts,
   listCrmOpportunities,
   listOutreachTargets,
+  listEnvironmentTemplates,
   logCrmActivity,
   patchOutreachTarget,
+  recreateScaffoldEnv,
   regenerateOutreachAsset,
   scaffoldEnv,
   seedOutreachTarget,
   type CrmAccount,
   type CrmOpportunityListRow,
+  type EnvironmentTemplate,
   type OutreachInsight,
   type OutreachTargetWithEngagement,
   type TargetResponse,
 } from "@/lib/outreach-personalizer-api";
+
+// Phase 3.5 — outreach-appropriate template allowlist. Excludes the
+// `public_*` templates (prospect-facing, not demos) and `empty_lab`
+// (no preloaded surface). `repe` stays the default.
+const ALLOWED_OUTREACH_TEMPLATES = new Set([
+  "repe",
+  "internal_ops",
+  "client_delivery",
+  "trading_research",
+  "legal_ops",
+]);
 
 function fmtTs(ts: string | null | undefined): string {
   if (!ts) return "never";
@@ -80,6 +94,11 @@ export default function OutreachPersonalizerPage({
   const [opportunityInput, setOpportunityInput] = useState("");
   const [crmOpportunities, setCrmOpportunities] = useState<CrmOpportunityListRow[]>([]);
 
+  // Phase 3.5: template picker state. Default `repe`; collapsed-by-default
+  // disclosure (operators who don't expand always get the REPE default).
+  const [templateKey, setTemplateKey] = useState<string>("repe");
+  const [envTemplates, setEnvTemplates] = useState<EnvironmentTemplate[]>([]);
+
   const refresh = useCallback(async () => {
     if (!ready) return;
     try {
@@ -134,6 +153,20 @@ export default function OutreachPersonalizerPage({
       .then(setCrmOpportunities)
       .catch(() => setCrmOpportunities([]));
   }, [ready, businessId]);
+
+  // Phase 3.5: template picker — reuses the existing /v2/environments/templates
+  // route. Filtered client-side to an outreach-appropriate allowlist. Public
+  // and empty templates are excluded.
+  useEffect(() => {
+    if (!ready) return;
+    listEnvironmentTemplates()
+      .then((rows) =>
+        setEnvTemplates(
+          rows.filter((t) => ALLOWED_OUTREACH_TEMPLATES.has(t.template_key)),
+        ),
+      )
+      .catch(() => setEnvTemplates([]));
+  }, [ready]);
 
   const saveDetails = useCallback(async () => {
     if (!detail) return;
@@ -202,13 +235,18 @@ export default function OutreachPersonalizerPage({
   // Phase 3: provision (or return existing) outreach environment for this
   // target. Backend gate is single authority; idempotent on
   // target.scaffolded_env_id.
+  //
+  // Phase 3.5: pass the operator's chosen template_key (or undefined to let
+  // the backend default to "repe").
   const scaffold = useCallback(async () => {
     if (!detail) return;
     setBusy(true);
     setErr(null);
     setSaveMsg(null);
     try {
-      const res = await scaffoldEnv(detail.target.id);
+      const res = await scaffoldEnv(detail.target.id, {
+        templateKey: templateKey || undefined,
+      });
       setSaveMsg(
         res.created ? "Environment created." : "Opened existing environment.",
       );
@@ -219,7 +257,35 @@ export default function OutreachPersonalizerPage({
     } finally {
       setBusy(false);
     }
-  }, [detail, refresh]);
+  }, [detail, refresh, templateKey]);
+
+  // Phase 3.5: replace a stale/retired scaffolded env. Only available when
+  // backend.gate.can_recreate === true (orphaned or retired stored env).
+  // Confirmation gesture before firing because this creates a new env row.
+  const recreate = useCallback(async () => {
+    if (!detail) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Create a new environment for this target? The previous link will be replaced.",
+      );
+      if (!ok) return;
+    }
+    setBusy(true);
+    setErr(null);
+    setSaveMsg(null);
+    try {
+      const res = await recreateScaffoldEnv(detail.target.id, {
+        templateKey: templateKey || undefined,
+      });
+      setSaveMsg(`Environment recreated (slug ${res.env?.slug ?? "?"}).`);
+      setDetail(await getOutreachTarget(detail.target.id));
+      await refresh();
+    } catch (e) {
+      setErr(fmtError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [detail, refresh, templateKey]);
 
   const seedArtemis = useCallback(async () => {
     setBusy(true);
@@ -635,15 +701,80 @@ export default function OutreachPersonalizerPage({
                       <span className="text-[10px] text-bm-success">
                         Scaffolded · {detail.scaffold.env_summary.lifecycle_state}
                       </span>
+                      {/* Phase 3.5: template summary audit line. Operator-only
+                          (the public microsite never renders this).  */}
+                      <span className="text-[10px] text-bm-muted2">
+                        Template:{" "}
+                        {detail.scaffold.env_summary.template_display_name
+                          ?? detail.scaffold.env_summary.template_key}
+                        {detail.scaffold.env_summary.dashboard_url ? (
+                          <>
+                            {" · home: "}
+                            <span className="text-bm-text">
+                              {detail.scaffold.env_summary.dashboard_url}
+                            </span>
+                          </>
+                        ) : null}
+                        {detail.scaffold.env_summary.template_seed_pack ? (
+                          <>
+                            {" · seed: "}
+                            <span className="text-bm-text">
+                              {detail.scaffold.env_summary.template_seed_pack}
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
+                      {/* Phase 3.5: recreate affordance. Backend sets
+                          can_recreate=True only for orphaned or retired stored
+                          envs; healthy envs are NOT recreatable through this
+                          endpoint (operator must retire in the v2 env UI first). */}
+                      {detail.scaffold.can_recreate ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void recreate()}
+                          disabled={busy}
+                          title="The stored env is missing or retired. Create a new one."
+                        >
+                          {busy ? "Recreating…" : "Recreate environment"}
+                        </Button>
+                      ) : null}
                     </>
                   ) : detail.scaffold?.available ? (
-                    <Button
-                      size="sm"
-                      onClick={() => void scaffold()}
-                      disabled={busy}
-                    >
-                      {busy ? "Creating…" : "Create outreach environment"}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        onClick={() => void scaffold()}
+                        disabled={busy}
+                      >
+                        {busy ? "Creating…" : "Create outreach environment"}
+                      </Button>
+                      {/* Phase 3.5: template picker (collapsed-by-default).
+                          Operators who don't expand always get the REPE
+                          default. Allowlisted templates only. */}
+                      {envTemplates.length > 0 ? (
+                        <details className="text-[10px] text-bm-muted2">
+                          <summary className="cursor-pointer">
+                            Template:{" "}
+                            <span className="text-bm-text">
+                              {envTemplates.find((t) => t.template_key === templateKey)
+                                ?.display_name ?? templateKey}
+                            </span>
+                          </summary>
+                          <select
+                            value={templateKey}
+                            onChange={(e) => setTemplateKey(e.target.value)}
+                            className="mt-1 rounded border border-bm-border/70 bg-bm-bg px-2 py-1 text-xs text-bm-text"
+                          >
+                            {envTemplates.map((t) => (
+                              <option key={t.template_key} value={t.template_key}>
+                                {t.display_name} ({t.template_key})
+                              </option>
+                            ))}
+                          </select>
+                        </details>
+                      ) : null}
+                    </div>
                   ) : (
                     <>
                       <Button

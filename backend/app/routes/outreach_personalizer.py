@@ -598,9 +598,15 @@ def scaffold_env(
                 }
             raise ValueError(state["blocking_reason"])
 
+        # Phase 3.5: operator-selectable template; defaults to "repe" when
+        # payload omits template_key. Unknown template surfaces as LookupError
+        # from env_v2.get_template, caught below and mapped to a clean 400.
+        chosen_template = (
+            payload.template_key or op_db._OUTREACH_SCAFFOLD_TEMPLATE_KEY
+        )
         manifest = EnvironmentManifestV2(
             client_name=target["firm_name"],
-            template_key="repe",
+            template_key=chosen_template,
             slug=str(target["firm_slug"]).lower(),  # citext → str; enforce lowercase
             theme_tokens=(
                 {"accent": target["accent_hsl"]} if target.get("accent_hsl") else None
@@ -650,6 +656,109 @@ def scaffold_env(
             request=request, status_code=status, code=code,
             detail=f"Environment pipeline failed: {exc}",
             action="outreach-personalizer.scaffold-env.failed",
+        )
+
+
+@router.post("/targets/{target_id}/scaffold-env/recreate")
+def scaffold_env_recreate(
+    target_id: UUID,
+    payload: ScaffoldEnvIn,
+    request: Request,
+):
+    """Phase 3.5: replace the target's stale or retired scaffolded env with a
+    fresh one. Gated on compute_scaffold_env_state.can_recreate == True (only
+    when stored env is missing or lifecycle_state='retired'). Healthy envs are
+    NOT recreatable through this endpoint — operator must retire the env in
+    the v2 env UI first.
+
+    Slug pattern: `{firm_slug}-r{n}` (derive-by-count; the v2 unique-slug
+    constraint closes the race window cheaply). Old env is NOT auto-retired —
+    the target row simply now points to the new env. Recreate bypasses the
+    per-business sprawl quota by construction (net env count does not increase).
+    Template preservation: payload.template_key wins; else the prior env's
+    template_key is carried forward; else "repe" default.
+
+    Public microsite NEVER reaches this endpoint — operator-only.
+    """
+    try:
+        target = op_db.get_target_by_id(target_id=target_id)
+        state = op_db.compute_scaffold_env_state(target=target)
+        if not state["can_recreate"]:
+            # Distinguish the healthy-env case from any other gate failure so
+            # the operator sees actionable copy. Healthy → specific message.
+            if (state["env_summary"] is not None
+                    and state["blocking_reason"] == "Environment already exists."):
+                raise ValueError(
+                    "Cannot recreate a healthy environment. "
+                    "Retire it in the env UI first."
+                )
+            raise ValueError(
+                state["blocking_reason"]
+                or "Recreate is not available for this target."
+            )
+
+        # Preserve the operator's prior template choice unless payload overrides
+        prior_template = (state["env_summary"] or {}).get("template_key")
+        chosen_template = (
+            payload.template_key
+            or prior_template
+            or op_db._OUTREACH_SCAFFOLD_TEMPLATE_KEY
+        )
+        recreate_slug = op_db._compute_recreate_slug(target=target)
+
+        manifest = EnvironmentManifestV2(
+            client_name=target["firm_name"],
+            template_key=chosen_template,
+            slug=recreate_slug,
+            theme_tokens=(
+                {"accent": target["accent_hsl"]} if target.get("accent_hsl") else None
+            ),
+        )
+        result = env_v2.create_environment_v2(
+            manifest, actor="outreach_personalizer_recreate",
+        )
+        if result.errors or not result.env_id:
+            raise ValueError(
+                f"Environment pipeline failed: {'; '.join(result.errors) or 'unknown error'}"
+            )
+        op_db.set_scaffolded_env_id(target_id=target_id, env_id=result.env_id)
+
+        # Recompute the gate so the response reflects the new (now healthy)
+        # link with a fresh env_summary populated.
+        fresh_target = op_db.get_target_by_id(target_id=target_id)
+        fresh_state = op_db.compute_scaffold_env_state(target=fresh_target)
+        return {
+            "ok": True, "recreated": True,
+            "env": fresh_state["env_summary"], "scaffold": fresh_state,
+        }
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404,
+            code="outreach_personalizer.not_found",
+            detail=str(exc),
+            action="outreach-personalizer.scaffold-env-recreate.failed",
+        )
+    except LookupError:
+        # env_v2.get_template raises LookupError on unknown template_key
+        return domain_error_response(
+            request=request, status_code=400,
+            code="outreach_personalizer.validation_error",
+            detail="Environment template is not available.",
+            action="outreach-personalizer.scaffold-env-recreate.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=400,
+            code="outreach_personalizer.validation_error",
+            detail=str(exc),
+            action="outreach-personalizer.scaffold-env-recreate.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=f"Environment pipeline failed: {exc}",
+            action="outreach-personalizer.scaffold-env-recreate.failed",
         )
 
 

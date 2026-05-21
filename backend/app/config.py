@@ -97,6 +97,12 @@ OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-mini")
 OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 AI_GATEWAY_ENABLED: bool = OPENAI_API_KEY != ""
 AI_PERF_STUB_ENABLED: bool = os.getenv("AI_PERF_STUB_ENABLED", "false").lower() == "true"
+
+# Outreach Personalizer Phase 3.5: soft cap on non-retired scaffolded envs per
+# business. Used by op_db.compute_scaffold_env_state on the create path only;
+# recreate bypasses the check (net env count does not increase). Configurable
+# via env var so prod can tune without a redeploy.
+OUTREACH_ENV_QUOTA_PER_BUSINESS: int = int(os.getenv("OUTREACH_ENV_QUOTA_PER_BUSINESS", "25"))
 AI_MAX_TOOL_ROUNDS: int = int(os.getenv("AI_MAX_TOOL_ROUNDS", "5"))
 RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "5"))
 RAG_CHUNK_TOKENS: int = int(os.getenv("RAG_CHUNK_TOKENS", "400"))
