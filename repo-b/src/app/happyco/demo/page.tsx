@@ -14,7 +14,7 @@ function LockedDemo() {
         <div className="rounded-[34px] border border-[#DDD8EA] bg-white p-8 shadow-sm">
           <h1 className="text-4xl font-black tracking-tight text-[#35146B]">HappyCo demo access required.</h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4D426A]">
-            Unlock the HappyCo proof package first. The clean demo uses the same invite-code gate and does not render inside the Winston/Hall Boys shell.
+            Unlock the HappyCo proof package first. This route renders the same clean presentation component as the env demo URL.
           </p>
           <Link href="/happyco" className="mt-6 inline-flex rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white hover:bg-[#5430C0]">
             Unlock HappyCo package

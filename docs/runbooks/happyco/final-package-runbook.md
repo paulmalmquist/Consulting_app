@@ -10,22 +10,25 @@ receipt-backed live Databricks execution claim for synthetic demo data only.
 ## Routes
 
 - Gated share package: `/happyco`
-- Clean external demo: `/happyco/demo`
+- Clean env demo URL: `/lab/env/[envId]/operator/property-ops-intelligence`
+- Gated clean demo copy: `/happyco/demo`
 - Gated artifact hub: `/happyco/artifacts`
 - Gated artifact API: `/api/happyco/artifacts/[artifactKey]`
 - Local development invite fallback: `happyco-local-demo` when
   `HAPPYCO_DEMO_INVITE_CODE` is unset and `NODE_ENV !== "production"`
 - Production invite variable: `HAPPYCO_DEMO_INVITE_CODE`
 - Live clean demo surface:
-  `/happyco/demo`
-- Winston implementation evidence surface:
   `/lab/env/[envId]/operator/property-ops-intelligence`
+- Gated duplicate presentation surface:
+  `/happyco/demo`
 - Suggested local env id for demo links:
   `NEXT_PUBLIC_HAPPYCO_DEMO_ENV_ID=happyco-demo`
 
 The `/happyco` route sets an HTTP-only `happyco_demo_access` cookie scoped to
-`/happyco`. Tailored content is hidden until access is granted. Local ignored
-artifacts are not exposed as public downloads.
+`/happyco`. Tailored package content is hidden until access is granted. The env
+demo URL is route-specific presentation mode: it keeps the env/API URL but
+bypasses the Hall Boys/Winston operator shell. Other operator routes keep the
+normal shell. Local ignored artifacts are not exposed as public downloads.
 
 ## Operator API Endpoints
 

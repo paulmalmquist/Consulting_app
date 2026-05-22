@@ -67,7 +67,7 @@ function PublicGate({ invalid }: { invalid: boolean }) {
             <div className="rounded-2xl bg-[#C6F4DF] p-4">
               <div className="text-sm font-black uppercase tracking-[0.18em] text-[#35146B]">Invite access</div>
               <p className="mt-2 text-sm leading-6 text-[#241437]">
-                Enter the HappyCo demo invite code to view tailored content, artifact statuses, and the Winston demo route.
+                Enter the HappyCo demo invite code to view tailored content, artifact statuses, and the environment demo route.
               </p>
             </div>
             <form action="/happyco/access" method="post" className="mt-5 space-y-3">
@@ -220,10 +220,10 @@ function GatedPackage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/happyco/demo"
+                href={operatorDemoHref}
                 className="rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]"
               >
-                Open clean demo
+                Open HappyCo demo
               </Link>
               <Link
                 href="/happyco/artifacts"
@@ -232,10 +232,10 @@ function GatedPackage() {
                 View artifacts
               </Link>
               <Link
-                href={operatorDemoHref}
+                href="/happyco/demo"
                 className="rounded-2xl border border-[#35146B]/20 bg-[#FBFAF7] px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-white"
               >
-                Open Winston implementation view
+                Open gated demo copy
               </Link>
             </div>
           </div>

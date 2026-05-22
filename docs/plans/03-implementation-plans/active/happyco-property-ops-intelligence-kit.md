@@ -753,19 +753,23 @@ for future role/client proof packages.
 
 **Tracking:** Azure Boards story `AB#380` with child tasks `381`, `382`, `383`, and `384`.
 
-**Goal:** make `/happyco/demo` the primary external reviewer route, add a gated
-artifact hub, and keep the Winston operator route as implementation evidence only.
+**Goal:** make the existing env operator URL render as the primary clean HappyCo
+presentation surface, keep `/happyco/demo` as a gated copy, and add a gated
+artifact hub.
 
 **Implementation decisions:**
 
 - `/happyco` remains the gated executive package and navigation hub.
-- `/happyco/demo` is the clean light-theme presentation route with no Hall
-  Boys/Winston shell dependency.
+- `/lab/env/[envId]/operator/property-ops-intelligence` is the shareable clean
+  HappyCo presentation route. `OperatorShell` bypasses its Hall Boys/Winston
+  chrome for this route only.
+- `/happyco/demo` is a gated copy of the same clean light-theme presentation
+  component.
 - `/happyco/artifacts` is manifest-first and gated; files download only through
   allowlisted `/api/happyco/artifacts/[artifactKey]` when present server-side.
 - Missing deployed artifacts are labeled local/private with gated-storage upload
   pending. No fake downloads.
-- Operator route gets an implementation-view banner and link to `/happyco/demo`.
+- Other operator routes keep the normal Winston shell.
 
 **Required visuals:**
 
@@ -779,7 +783,10 @@ artifact hub, and keep the Winston operator route as implementation evidence onl
 
 - `/happyco` shows primary clean-demo CTA, artifact CTA, and secondary Winston
   implementation CTA.
-- `/happyco/demo` is invite-gated and has no Hall Boys shell.
+- `/lab/env/[envId]/operator/property-ops-intelligence` renders standalone with
+  no Hall Boys Operating System header, Winston operator shell, workspace
+  switcher, or unrelated operator tabs.
+- `/happyco/demo` is invite-gated and uses the same clean component.
 - `/happyco/artifacts` is invite-gated and does not expose public artifact URLs.
 - Artifact API verifies the invite cookie and uses an allowlist only.
 - Visuals are synthetic/demo-safe and decision-focused.
