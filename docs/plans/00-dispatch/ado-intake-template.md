@@ -10,7 +10,7 @@ Org `paulmalmquist1984` · project `Novendor`.
 
 **Date:** YYYY-MM-DD
 **Source:** [Conversation / session discovery / test failure / sales call / observation]
-**Status:** Classified / Proposed / Approved / In Dev / In Review / Closed
+**Status:** Classified / Proposed / Approved / Active / Resolved / Closed
 
 ---
 
@@ -146,7 +146,7 @@ cd repo-b && npx playwright test [flow]
 
 ## End-of-session checklist
 
-- [ ] ADO state moved (In Review, or Closed only if merged + deploy/smoke verified)
+- [ ] ADO state moved (Resolved, or Closed only if merged + deploy/smoke verified)
 - [ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
 - [ ] PR/branch/artifact links attached to the work item
 - [ ] Active plan/docs updated
