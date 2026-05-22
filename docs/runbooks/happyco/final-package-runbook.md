@@ -1,11 +1,72 @@
 # HappyCo Property Ops Intelligence Kit - Runbook
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 This is a private proof-of-work package for the HappyCo Head of Data
 role. It uses deterministic synthetic data only. It does not contain HappyCo
 production data, private recruiter email content, or secrets. Ticket 3B adds a
 receipt-backed live Databricks execution claim for synthetic demo data only.
+
+## Package Index
+
+The HappyCo package spans routes, a Databricks pipeline, local artifacts, an
+ADO-tracked PR program, and a Claude CoWork automation cadence. This section is
+the map; the sections below it hold the detail.
+
+### Docs in this package
+
+| Doc | What it covers |
+|---|---|
+| `final-package-runbook.md` (this file) | Routes, APIs, artifacts, rebuild commands, Databricks proof, known limitations |
+| `automation-cadence.md` | The nightly + weekly Claude CoWork operating cadence and how to schedule it later |
+| `claude-cowork-nightly-tasks.md` | The 5 nightly + 2 weekly task prompts as copy-pasteable blocks |
+| `loom-storyboard.md` | The 5-7 minute, 7-beat Loom recording script |
+| `pre-recording-checklist.md` | What to open/close/verify before recording; what not to show |
+| `claims-and-caveats.md` | The allowed / not-allowed claim sheet — source of truth for all copy |
+| `post-merge-deploy-smoke.md` | The post-merge / post-deploy smoke checklist |
+| `reusable-proof-system-backlog.md` | Reusable Winston proof-system patterns from this build |
+| `outlook-wincom/` | Draft-only Outlook WinCOM recruiter workflow templates |
+
+### The 6-PR program (Feature 391, Epic 386)
+
+| PR | ADO | Scope |
+|---|---|---|
+| #100 | AB#392 | Azure DevOps relay workflow |
+| #101 | AB#380 | HappyCo demo UX core |
+| #102 | AB#394 | Databricks modular refactor |
+| #103 | AB#395 | Databricks export contract + sample bundle |
+| #104 | AB#393 | Weather-risk surfacing |
+| PR-4 | AB#396 | Automation-cadence + Loom documentation package (this docs PR) |
+
+### Routes at a glance
+
+- `/happyco` — invite-gated landing; sets the `happyco_demo_access` cookie.
+- `/happyco/demo` — clean demo; no Winston login, no Hall Boys shell.
+- `/happyco/artifacts` — gated artifact hub.
+- `/happyco/weather-risk` — KPI strip, risk table, market summary, model/run
+  receipt evidence, chart gallery.
+- `/lab/env/[envId]/operator/property-ops-intelligence` — implementation
+  evidence only; the env operator route behind the demo.
+
+### The cadence in one line
+
+Nightly: QA, control-room refresh, Databricks receipt check, artifact
+regeneration, recruiter draft prep. Weekly: role-fit gap analysis, Loom
+storyboard refresh. Full detail in `automation-cadence.md`.
+
+### Remaining gated steps
+
+These are deliberately not done and are the honest next steps:
+
+- Live Databricks `bundle deploy` + score run for the weather-risk bundle —
+  blocked on an interactive `databricks auth login` (CLI v1.0.0). The current
+  sample bundle is `mode: local_fallback` with placeholder chart PNGs.
+- Uploading local artifacts to gated storage so the artifact hub can serve real
+  downloads instead of local/private status.
+- Turning the Claude CoWork cadence into a real recurring schedule — a separate
+  ADO Task, not part of any current PR.
+- Setting `HAPPYCO_DEMO_INVITE_CODE` in the deployment environment and filling
+  real recruiter fields before any send.
 
 ## Routes
 
@@ -326,6 +387,56 @@ The templates are safe by default:
 - Local Excel workbook
 - Local PowerPoint deck and architecture SVG
 - Outlook WinCOM dry-run/draft templates
+
+## Weather-Risk Route And Sample Bundle
+
+`/happyco/weather-risk` surfaces a public NOAA/FEMA hazard layer joined to the
+synthetic property-ops layer. It shows a KPI strip, a risk table, a market
+summary, model/run-receipt evidence, and a chart gallery.
+
+The Databricks side is a modular `weather_risk` Python package plus a bundle.
+`databricks bundle validate -t dev` PASSES against the workspace — the bundle
+config is real and valid.
+
+`bundle deploy` and `bundle run` are NOT done. Databricks CLI v1.0.0 needs an
+interactive `databricks auth login` first.
+
+The weather-risk sample bundle at `repo-b/public/happyco/weather-risk/latest/` is
+`mode: local_fallback`. Its chart PNGs are local-contract placeholders
+(roughly 67 bytes), not real charts.
+
+Exact wording for the weather-risk state:
+
+> The site contract is wired. The local fallback bundle validates the interface,
+> and the live Databricks score run is the next gated step to replace
+> placeholder chart artifacts with real generated charts.
+
+Allowed claim for the current bundle:
+
+> Databricks-validated modular pipeline with a local fallback export bundle.
+
+A separate, prior receipt-backed Databricks run exists (job/run IDs in
+`repo-b/src/lib/happyco/proof.ts`, `HAPPYCO_DATABRICKS_RECEIPT`). Its allowed
+claim is:
+
+> Databricks ML training run executed on public weather and synthetic property
+> operations data.
+
+Keep these two claims separate — see `claims-and-caveats.md`.
+
+## Automation Cadence
+
+The package is kept honest after sharing by a Claude CoWork cadence: 5 nightly
+tasks and 2 weekly tasks. The cadence is documented, not yet scheduled. No
+recurring schedule is created by PR-4.
+
+- Nightly: Proof Package QA, Automation Control Room Refresh, Databricks Weather
+  Risk Run / Receipt Check, Artifact Regeneration, Recruiter Draft Prep.
+- Weekly: Role-Fit Gap Analysis, Loom/Demo Storyboard Refresh.
+
+Full design is in `automation-cadence.md`. The copy-pasteable task prompts are in
+`claude-cowork-nightly-tasks.md`. Safety gates: no auto-send, no fake runs, no
+exposed invite codes, no public artifact leaks.
 
 ## Manual Actions Before Recruiter Send
 

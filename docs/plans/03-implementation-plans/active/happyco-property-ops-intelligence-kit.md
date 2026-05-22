@@ -857,3 +857,58 @@ Implement Ticket 10 for the HappyCo Property Ops Intelligence Kit:
 
 Report proposed reusable improvements, expected owning surfaces, and risks.
 ```
+
+---
+
+## Program status — 6-PR polish program (2026-05-22)
+
+The original ticket sequence above is complete. The package then moved into a
+six-PR polish program tracked in Azure DevOps under **Epic 386 → Feature 391**.
+The Novendor board uses Agile states New/Active/Resolved/Closed.
+
+| PR | ADO | Scope | Notes |
+|---|---|---|---|
+| #100 | AB#392 | Azure DevOps relay workflow | open |
+| #101 | AB#380 | HappyCo demo UX core | open |
+| #102 | AB#394 | Databricks modular refactor | open |
+| #103 | AB#395 | Databricks export contract + sample bundle | open |
+| #104 | AB#393 | Weather-risk surfacing | open |
+| PR-4 | AB#396 | Automation-cadence + Loom documentation package | docs-only |
+
+**PR-4 (AB#396) — this PR.** Docs-only. Authored the HappyCo automation-cadence
+and Loom documentation package under `docs/runbooks/happyco/`:
+`automation-cadence.md`, `claude-cowork-nightly-tasks.md`, `loom-storyboard.md`,
+`pre-recording-checklist.md`, `claims-and-caveats.md`, and
+`post-merge-deploy-smoke.md`; updated `final-package-runbook.md` with a package
+index. No runtime, pipeline, or routing code was touched.
+
+### Current route surface
+
+- `/happyco` — invite-gated landing (`happyco_demo_access` cookie).
+- `/happyco/demo` — clean demo; no Winston login, no Hall Boys shell.
+- `/happyco/artifacts` — gated artifact hub.
+- `/happyco/weather-risk` — KPI strip, risk table, market summary, model/run
+  receipt evidence, chart gallery.
+- `/lab/env/[envId]/operator/property-ops-intelligence` — implementation
+  evidence only.
+
+### Databricks state — verified
+
+- A modular `weather_risk` Python package plus a bundle.
+- `databricks bundle validate -t dev` PASSES against the workspace.
+- `bundle deploy` / `run` are NOT done — CLI v1.0.0 needs an interactive
+  `databricks auth login`.
+- The weather-risk sample bundle (`repo-b/public/happyco/weather-risk/latest/`)
+  is `mode: local_fallback`; its chart PNGs are local-contract placeholders
+  (~67 bytes), not real charts.
+- A prior receipt-backed Databricks run exists (job/run IDs in
+  `repo-b/src/lib/happyco/proof.ts`, `HAPPYCO_DATABRICKS_RECEIPT`).
+
+### Remaining gated steps
+
+- Live Databricks `bundle deploy` + score run for the weather-risk bundle.
+- Uploading local artifacts to gated storage for real downloads.
+- Turning the Claude CoWork cadence into a real recurring schedule — a separate
+  ADO Task, not part of any current PR.
+- Setting `HAPPYCO_DEMO_INVITE_CODE` and filling real recruiter fields before
+  any send.
