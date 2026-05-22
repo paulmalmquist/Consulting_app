@@ -1,0 +1,69 @@
+{
+  "markets": [
+    {
+      "market": "Charlotte",
+      "property_count": 31,
+      "avg_risk_score": 0.99,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 3.26,
+      "avg_work_order_surge_probability": 0.99
+    },
+    {
+      "market": "Denver",
+      "property_count": 31,
+      "avg_risk_score": 0.99,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 4.1,
+      "avg_work_order_surge_probability": 0.99
+    },
+    {
+      "market": "Dallas",
+      "property_count": 32,
+      "avg_risk_score": 0.99,
+      "high_risk_properties": 32,
+      "avg_make_ready_delay_days": 4.65,
+      "avg_work_order_surge_probability": 0.99
+    },
+    {
+      "market": "Raleigh",
+      "property_count": 31,
+      "avg_risk_score": 0.99,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 4.89,
+      "avg_work_order_surge_probability": 0.99
+    },
+    {
+      "market": "Phoenix",
+      "property_count": 31,
+      "avg_risk_score": 0.99,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 3.78,
+      "avg_work_order_surge_probability": 0.99
+    },
+    {
+      "market": "Tampa",
+      "property_count": 32,
+      "avg_risk_score": 0.9893,
+      "high_risk_properties": 32,
+      "avg_make_ready_delay_days": 2.52,
+      "avg_work_order_surge_probability": 0.9893
+    },
+    {
+      "market": "Nashville",
+      "property_count": 31,
+      "avg_risk_score": 0.9889,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 2.67,
+      "avg_work_order_surge_probability": 0.9889
+    },
+    {
+      "market": "Atlanta",
+      "property_count": 31,
+      "avg_risk_score": 0.9879,
+      "high_risk_properties": 31,
+      "avg_make_ready_delay_days": 3.1,
+      "avg_work_order_surge_probability": 0.9879
+    }
+  ],
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+}
