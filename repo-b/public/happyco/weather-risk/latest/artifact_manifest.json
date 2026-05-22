@@ -1,0 +1,61 @@
+{
+  "charts": [
+    {
+      "artifact_name": "weather_ops_risk_by_market.png",
+      "path": "charts/weather_ops_risk_by_market.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    },
+    {
+      "artifact_name": "property_maintenance_surge_top_50.png",
+      "path": "charts/property_maintenance_surge_top_50.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    },
+    {
+      "artifact_name": "inspection_failure_risk_by_asset_age.png",
+      "path": "charts/inspection_failure_risk_by_asset_age.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    },
+    {
+      "artifact_name": "make_ready_delay_risk_by_market.png",
+      "path": "charts/make_ready_delay_risk_by_market.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    },
+    {
+      "artifact_name": "feature_importance.png",
+      "path": "charts/feature_importance.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    },
+    {
+      "artifact_name": "actual_vs_predicted_damage.png",
+      "path": "charts/actual_vs_predicted_damage.png",
+      "available": true,
+      "source_table": "gold_property_weather_ops_features",
+      "synthetic_data_flag": true,
+      "caveat": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+    }
+  ],
+  "json_artifacts": [
+    "run_receipt.json",
+    "kpis.json",
+    "top_property_risks.json",
+    "market_summary.json",
+    "model_metrics.json",
+    "artifact_manifest.json"
+  ],
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+}
