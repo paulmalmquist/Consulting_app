@@ -748,6 +748,44 @@ for future role/client proof packages.
   readers, route-scoped gates, artifact builder receipts, Outlook params
   templates, and a proof-package QA command.
 
+
+### Ticket 11 - HappyCo proof package polish: clean demo, gated artifacts, automation visuals
+
+**Tracking:** Azure Boards story `AB#380` with child tasks `381`, `382`, `383`, and `384`.
+
+**Goal:** make `/happyco/demo` the primary external reviewer route, add a gated
+artifact hub, and keep the Winston operator route as implementation evidence only.
+
+**Implementation decisions:**
+
+- `/happyco` remains the gated executive package and navigation hub.
+- `/happyco/demo` is the clean light-theme presentation route with no Hall
+  Boys/Winston shell dependency.
+- `/happyco/artifacts` is manifest-first and gated; files download only through
+  allowlisted `/api/happyco/artifacts/[artifactKey]` when present server-side.
+- Missing deployed artifacts are labeled local/private with gated-storage upload
+  pending. No fake downloads.
+- Operator route gets an implementation-view banner and link to `/happyco/demo`.
+
+**Required visuals:**
+
+- Automation Pipeline Graph.
+- Maintenance Risk Heatmap.
+- Weather Risk Timeline.
+- Secondary visuals when practical: Benchmark Variance Chart and Vendor
+  Performance Matrix.
+
+**Acceptance criteria:**
+
+- `/happyco` shows primary clean-demo CTA, artifact CTA, and secondary Winston
+  implementation CTA.
+- `/happyco/demo` is invite-gated and has no Hall Boys shell.
+- `/happyco/artifacts` is invite-gated and does not expose public artifact URLs.
+- Artifact API verifies the invite cookie and uses an allowlist only.
+- Visuals are synthetic/demo-safe and decision-focused.
+- No claims of HappyCo production data, production model, production deployment,
+  serving endpoint, or sent email.
+
 ---
 
 ## Tomorrow-deadline priority order

@@ -177,7 +177,7 @@ function GatedPackage() {
       icon: Network,
       title: "Microsite/package",
       status: "Gated page ready",
-      body: "This route is invite-code gated. Local artifact downloads are not exposed publicly unless a safe handler is added later.",
+      body: "This route is invite-code gated. The artifact hub lists local/private outputs and streams only server-available files through an allowlisted gated API.",
     },
   ];
 
@@ -215,15 +215,25 @@ function GatedPackage() {
                 Property Ops Intelligence Kit
               </h1>
               <p className="mt-4 max-w-4xl text-base leading-7 text-[#241437]">
-                A private proof-of-work and hands-on architecture prototype for a Head of Data package spanning strategy,
-                canonical modeling, graph APIs, benchmark analytics, ML workflows, AI recommendations, Excel, PowerPoint,
-                and Outlook automation.
+                A private proof-of-work, synthetic-data proof package, and receipt-backed automation package for a Head of Data role spanning strategy, hands-on architecture prototype, canonical modeling, graph APIs, benchmark analytics, Databricks ML workflows, AI recommendations, Excel, PowerPoint, and Outlook automation.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
-                href={operatorDemoHref}
+                href="/happyco/demo"
                 className="rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]"
+              >
+                Open clean demo
+              </Link>
+              <Link
+                href="/happyco/artifacts"
+                className="rounded-2xl border border-[#35146B]/20 bg-white px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-[#F5F1FF]"
+              >
+                View artifacts
+              </Link>
+              <Link
+                href={operatorDemoHref}
+                className="rounded-2xl border border-[#35146B]/20 bg-[#FBFAF7] px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-white"
               >
                 Open Winston implementation view
               </Link>

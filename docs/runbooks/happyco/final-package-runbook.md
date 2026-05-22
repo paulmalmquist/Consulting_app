@@ -10,10 +10,15 @@ receipt-backed live Databricks execution claim for synthetic demo data only.
 ## Routes
 
 - Gated share package: `/happyco`
+- Clean external demo: `/happyco/demo`
+- Gated artifact hub: `/happyco/artifacts`
+- Gated artifact API: `/api/happyco/artifacts/[artifactKey]`
 - Local development invite fallback: `happyco-local-demo` when
   `HAPPYCO_DEMO_INVITE_CODE` is unset and `NODE_ENV !== "production"`
 - Production invite variable: `HAPPYCO_DEMO_INVITE_CODE`
-- Live operator surface:
+- Live clean demo surface:
+  `/happyco/demo`
+- Winston implementation evidence surface:
   `/lab/env/[envId]/operator/property-ops-intelligence`
 - Suggested local env id for demo links:
   `NEXT_PUBLIC_HAPPYCO_DEMO_ENV_ID=happyco-demo`
@@ -48,6 +53,31 @@ Current excerpt highlights:
 - Parkline Commons repeat rate peer ratio: `3.5`
 - Parkline recommendation: `rec-parkline-hvac-audit`
 - ML status for Parkline Commons: `available`
+
+
+## Gated Artifact Access
+
+The HappyCo package uses a manifest-first artifact hub at `/happyco/artifacts`.
+The hub is protected by the same invite cookie as `/happyco` and never links to
+public static artifact paths.
+
+Current behavior:
+
+- The hub lists Excel, PowerPoint, architecture SVG, Databricks receipt, API
+  excerpts, screenshots, model card, feature importance, and predictions.
+- `/api/happyco/artifacts/[artifactKey]` checks the HappyCo invite cookie and
+  streams only allowlisted server-side files.
+- Unknown keys return `404`; missing invite access returns `403`.
+- If a file is not present in the deployed filesystem, the UI says
+  `Local/private artifact available; upload to gated storage pending`.
+
+Future storage path:
+
+- Upload generated artifacts to private blob storage, Supabase Storage, or Vercel
+  Blob with non-public objects.
+- Keep direct storage URLs private or signed.
+- Continue streaming through the gated API so invite access remains the control
+  point.
 
 ## Local Artifacts
 
