@@ -181,6 +181,12 @@ function GatedPackage() {
                 View artifacts
               </Link>
               <Link
+                href="/happyco/weather-risk"
+                className="rounded-2xl border border-[#35146B]/20 bg-white px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-[#F5F1FF]"
+              >
+                Weather-risk intelligence
+              </Link>
+              <Link
                 href={operatorDemoHref}
                 className="rounded-2xl border border-[#35146B]/20 bg-[#FBFAF7] px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-white"
               >
