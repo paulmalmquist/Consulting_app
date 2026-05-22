@@ -74,8 +74,8 @@ Read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Con
 - **ADO precondition**: confirm an approved Session Brief exists for this work
   (ADO work item ID + acceptance criteria). If none exists, STOP — route back to
   `.skills/azure-devops-intake/SKILL.md`. Do not start coding without a brief.
-- Move the ADO work item to **`In Dev`**:
-  `& $az boards work-item update --id <id> --state "In Dev" --org https://dev.azure.com/paulmalmquist1984`
+- Move the ADO work item to **`Active`**:
+  `& $az boards work-item update --id <id> --state "Active" --org https://dev.azure.com/paulmalmquist1984`
 - Read CLAUDE.md: `cat CLAUDE.md`
 - If schema may change, read ARCHITECTURE.md: `cat ARCHITECTURE.md`
 - Identify which runtime owns this feature (repo-b, backend, repo-c)
@@ -136,15 +136,15 @@ curl -s "$RAIL/api/<your-route>?env_id=$ENV&business_id=$BIZ" | python3 -m json.
 
 ## ADO state-transition discipline — no fake completion status
 
-- `In Dev` — set in the **orienting** state when implementation starts.
-- `In Review` — set when code, tests, and evidence are ready for review.
+- `Active` — set in the **orienting** state when implementation starts.
+- `Resolved` — set when code, tests, and evidence are ready for review.
 - `Closed` — set **only** when the PR is merged AND the required deploy/smoke
   criteria below are actually verified. If merge or deploy did not happen,
-  leave the work item at `In Review`. Never close on local success alone.
+  leave the work item at `Resolved`. Never close on local success alone.
 
 ```powershell
 $az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-& $az boards work-item update --id <id> --state "In Review" --org https://dev.azure.com/paulmalmquist1984
+& $az boards work-item update --id <id> --state "Resolved" --org https://dev.azure.com/paulmalmquist1984
 ```
 
 ## ADO audit comment — required every session
@@ -171,7 +171,7 @@ the real system of record.
 [ ] Deploy command executed — output included
 [ ] Smoke test returns expected HTTP status — output included
 [ ] Browser screenshot confirms feature visible on paulmalmquist.com
-[ ] ADO work item state moved (In Review, or Closed only if merged + deploy/smoke verified)
+[ ] ADO work item state moved (Resolved, or Closed only if merged + deploy/smoke verified)
 [ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
 [ ] PR/branch/artifact links attached to the ADO work item
 ```

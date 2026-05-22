@@ -65,10 +65,10 @@ proceed without it.
 
 Every session ends with a **Final Report** and an ADO update:
 
-- **State transition**: `In Dev` when implementation starts → `In Review` when
+- **State transition**: `Active` when implementation starts → `Resolved` when
   code/tests/evidence are ready → `Closed` **only** when the PR is merged and
   required deploy/smoke criteria are actually verified. If merge/deploy did not
-  happen, leave it `In Review`. No fake completion status.
+  happen, leave it `Resolved`. No fake completion status.
 - **Audit comment**: append an ADO discussion comment with branch/commit/PR,
   files changed, tests run, evidence, risks, and next recommended work item.
 - **Link attachment**: any PR, branch, commit, screenshot, Playwright trace,

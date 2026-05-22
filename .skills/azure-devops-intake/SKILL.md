@@ -272,7 +272,7 @@ If any item is missing, fix the board first — do not start coding.
 [ ] Tests added/updated and actually run (or failure-to-run documented)
 [ ] UI change has screenshot/visual receipt; API change has response/log receipt;
     DB change has migration + verification receipt; AI change has event-stream receipt
-[ ] ADO work item state moved (In Review, or Closed only if merged + deploy/smoke verified)
+[ ] ADO work item state moved (Resolved, or Closed only if merged + deploy/smoke verified)
 [ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
 [ ] PR/branch/artifact links attached to the work item
 [ ] Active plan/docs updated; reusable lesson added to tips.md if discovered
