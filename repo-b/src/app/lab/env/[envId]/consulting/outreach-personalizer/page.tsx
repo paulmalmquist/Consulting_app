@@ -15,12 +15,14 @@ import {
   logCrmActivity,
   patchOutreachTarget,
   recreateScaffoldEnv,
+  regenerateAllAssets,
   regenerateOutreachAsset,
   scaffoldEnv,
   seedOutreachTarget,
   type CrmAccount,
   type CrmOpportunityListRow,
   type EnvironmentTemplate,
+  type MicrositeProfilePatch,
   type OutreachInsight,
   type OutreachTargetWithEngagement,
   type TargetResponse,
@@ -43,12 +45,23 @@ function fmtTs(ts: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "never" : d.toLocaleString();
 }
 
-const ARTEMIS = {
+// firm_slug must match the backend constraint ^[a-z0-9][a-z0-9-]{0,39}$.
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+}
+
+// Phase 4 — Artemis is now just a one-click prefill example for the Create
+// Microsite form, not a hard-coded seed path.
+const ARTEMIS_EXAMPLE = {
   firm_name: "Artemis Real Estate Partners",
   firm_slug: "artemis-real-estate-partners",
-  profile_json: {
-    sector: "Real estate investment management / real estate private equity",
-  },
+  sector: "Real estate investment management / real estate private equity",
 };
 
 function fmtError(err: unknown): string {
@@ -99,6 +112,31 @@ export default function OutreachPersonalizerPage({
   const [templateKey, setTemplateKey] = useState<string>("repe");
   const [envTemplates, setEnvTemplates] = useState<EnvironmentTemplate[]>([]);
 
+  // Phase 4: Create Microsite form state. The form is the operator's entry
+  // point for any firm; "Use Artemis example" just prefills it. Slug
+  // auto-derives from the firm name until the operator edits it directly.
+  const [showForm, setShowForm] = useState(false);
+  const [cfName, setCfName] = useState("");
+  const [cfSlug, setCfSlug] = useState("");
+  const [cfSlugTouched, setCfSlugTouched] = useState(false);
+  const [cfSector, setCfSector] = useState("");
+  const [cfWebsite, setCfWebsite] = useState("");
+  const [cfLogo, setCfLogo] = useState("");
+  const [cfAccent, setCfAccent] = useState("");
+  const [cfCtaLabel, setCfCtaLabel] = useState("");
+  const [cfCtaUrl, setCfCtaUrl] = useState("");
+  const [cfNotes, setCfNotes] = useState("");
+
+  // Phase 4: profile-field edit state for the detail panel (sector / CTA /
+  // positioning notes / proof points). proofInput is one proof point per line.
+  const [sectorInput, setSectorInput] = useState("");
+  const [ctaLabelInput, setCtaLabelInput] = useState("");
+  const [ctaUrlInput, setCtaUrlInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
+  const [proofInput, setProofInput] = useState("");
+
+  const effectiveSlug = cfSlugTouched ? cfSlug : slugify(cfName);
+
   const refresh = useCallback(async () => {
     if (!ready) return;
     try {
@@ -119,6 +157,17 @@ export default function OutreachPersonalizerPage({
     setAccentInput(d.target.accent_hsl ?? "");
     setAccountInput(d.target.crm_account_id ?? "");
     setOpportunityInput(d.target.crm_opportunity_id ?? "");  // Phase 2C
+    // Phase 4: hydrate the profile-field editors from profile_json.
+    const p = (d.target.profile_json ?? {}) as Record<string, unknown>;
+    setSectorInput(typeof p.sector === "string" ? p.sector : "");
+    setCtaLabelInput(typeof p.cta_label === "string" ? p.cta_label : "");
+    setCtaUrlInput(typeof p.cta_url === "string" ? p.cta_url : "");
+    setNotesInput(typeof p.positioning_notes === "string" ? p.positioning_notes : "");
+    setProofInput(
+      Array.isArray(p.proof_points)
+        ? (p.proof_points as unknown[]).filter((x) => typeof x === "string").join("\n")
+        : "",
+    );
     setSaveMsg(null);
   }, []);
 
@@ -174,6 +223,10 @@ export default function OutreachPersonalizerPage({
     setErr(null);
     setSaveMsg(null);
     try {
+      const proofPoints = proofInput
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
       const updated = await patchOutreachTarget(detail.target.id, {
         loom_url: loomInput.trim() === "" ? null : loomInput.trim(),
         crm_account_id: accountInput.trim() === "" ? null : accountInput.trim(),
@@ -181,6 +234,14 @@ export default function OutreachPersonalizerPage({
           opportunityInput.trim() === "" ? null : opportunityInput.trim(),
         logo_url: logoInput.trim() === "" ? null : logoInput.trim(),
         accent_hsl: accentInput.trim() === "" ? null : accentInput.trim(),
+        // Phase 4: profile fields merged into profile_json (null clears).
+        profile: {
+          sector: sectorInput.trim() === "" ? null : sectorInput.trim(),
+          cta_label: ctaLabelInput.trim() === "" ? null : ctaLabelInput.trim(),
+          cta_url: ctaUrlInput.trim() === "" ? null : ctaUrlInput.trim(),
+          positioning_notes: notesInput.trim() === "" ? null : notesInput.trim(),
+          proof_points: proofPoints.length > 0 ? proofPoints : null,
+        },
       });
       setDetail(updated);
       syncEditState(updated);
@@ -193,6 +254,7 @@ export default function OutreachPersonalizerPage({
     }
   }, [
     detail, loomInput, accountInput, opportunityInput, logoInput, accentInput,
+    sectorInput, ctaLabelInput, ctaUrlInput, notesInput, proofInput,
     refresh, syncEditState,
   ]);
 
@@ -287,20 +349,89 @@ export default function OutreachPersonalizerPage({
     }
   }, [detail, refresh, templateKey]);
 
-  const seedArtemis = useCallback(async () => {
+  // Phase 4: create a microsite from the operator's form inputs. The backend
+  // is idempotent on (env_id, firm_slug) — a repeat slug returns the existing
+  // target rather than erroring.
+  const createMicrosite = useCallback(async () => {
+    const name = cfName.trim();
+    const slug = (cfSlugTouched ? cfSlug : slugify(cfName)).trim();
+    if (!name) {
+      setErr("Firm name is required.");
+      return;
+    }
+    if (!slug) {
+      setErr("Firm slug is required (letters, numbers, and dashes).");
+      return;
+    }
     setBusy(true);
     setErr(null);
+    setSaveMsg(null);
     try {
-      const res = await seedOutreachTarget(envId, ARTEMIS, businessId || undefined);
+      const profile: MicrositeProfilePatch = {};
+      if (cfSector.trim()) profile.sector = cfSector.trim();
+      if (cfWebsite.trim()) profile.website = cfWebsite.trim();
+      if (cfCtaLabel.trim()) profile.cta_label = cfCtaLabel.trim();
+      if (cfCtaUrl.trim()) profile.cta_url = cfCtaUrl.trim();
+      if (cfNotes.trim()) profile.positioning_notes = cfNotes.trim();
+      const res = await seedOutreachTarget(
+        envId,
+        {
+          firm_name: name,
+          firm_slug: slug,
+          logo_url: cfLogo.trim() || null,
+          accent_hsl: cfAccent.trim() || null,
+          profile,
+        },
+        businessId || undefined,
+      );
       setDetail(res);
       syncEditState(res);
+      setShowForm(false);
+      setSaveMsg(res.created ? "Microsite created." : "Opened existing microsite.");
       await refresh();
     } catch (e) {
       setErr(fmtError(e));
     } finally {
       setBusy(false);
     }
-  }, [envId, businessId, refresh, syncEditState]);
+  }, [
+    cfName, cfSlug, cfSlugTouched, cfSector, cfWebsite, cfLogo, cfAccent,
+    cfCtaLabel, cfCtaUrl, cfNotes, envId, businessId, refresh, syncEditState,
+  ]);
+
+  const resetForm = useCallback(() => {
+    setCfName(""); setCfSlug(""); setCfSlugTouched(false);
+    setCfSector(""); setCfWebsite(""); setCfLogo(""); setCfAccent("");
+    setCfCtaLabel(""); setCfCtaUrl(""); setCfNotes("");
+  }, []);
+
+  const prefillArtemisExample = useCallback(() => {
+    setCfName(ARTEMIS_EXAMPLE.firm_name);
+    setCfSlug(ARTEMIS_EXAMPLE.firm_slug);
+    setCfSlugTouched(true);
+    setCfSector(ARTEMIS_EXAMPLE.sector);
+    setCfWebsite(""); setCfLogo(""); setCfAccent("");
+    setCfCtaLabel(""); setCfCtaUrl(""); setCfNotes("");
+    setShowForm(true);
+  }, []);
+
+  // Phase 4: Duplicate — prefill the Create form from an existing target under
+  // a fresh (blank) slug. Pure frontend; no duplicate endpoint.
+  const duplicateTarget = useCallback(() => {
+    if (!detail) return;
+    const p = (detail.target.profile_json ?? {}) as Record<string, unknown>;
+    setCfName(`${detail.target.firm_name} (copy)`);
+    setCfSlug("");
+    setCfSlugTouched(false);
+    setCfSector(typeof p.sector === "string" ? p.sector : "");
+    setCfWebsite(typeof p.website === "string" ? p.website : "");
+    setCfLogo(detail.target.logo_url ?? "");
+    setCfAccent(detail.target.accent_hsl ?? "");
+    setCfCtaLabel(typeof p.cta_label === "string" ? p.cta_label : "");
+    setCfCtaUrl(typeof p.cta_url === "string" ? p.cta_url : "");
+    setCfNotes(typeof p.positioning_notes === "string" ? p.positioning_notes : "");
+    setShowForm(true);
+  }, [detail]);
 
   const regenerate = useCallback(
     async (type: "insight" | "loom_script" | "cold_email") => {
@@ -319,6 +450,24 @@ export default function OutreachPersonalizerPage({
     [detail],
   );
 
+  // Phase 4: regenerate the full copy pack in one call (AI required). Returns
+  // the refreshed full asset list so the UI never shows a mixed old/new state.
+  const regenerateAll = useCallback(async () => {
+    if (!detail) return;
+    setBusy(true);
+    setErr(null);
+    setSaveMsg(null);
+    try {
+      await regenerateAllAssets(detail.target.id);
+      setDetail(await getOutreachTarget(detail.target.id));
+      setSaveMsg("All microsite copy regenerated.");
+    } catch (e) {
+      setErr(fmtError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [detail]);
+
   const insights = (assetPayload(detail, "insight").insights as OutreachInsight[]) || [];
   const loom = assetPayload(detail, "loom_script");
   const email = assetPayload(detail, "cold_email");
@@ -329,12 +478,26 @@ export default function OutreachPersonalizerPage({
         <div>
           <h1 className="text-lg font-semibold text-bm-text">Outreach Personalizer</h1>
           <p className="text-xs text-bm-muted2">
-            Seed a firm, generate a personalized case, publish a public microsite.
+            Create a personalized microsite for a firm, edit it, share the
+            public link, and track engagement.
           </p>
         </div>
-        <Button onClick={() => void seedArtemis()} disabled={busy || !ready}>
-          {busy ? "Working…" : "Seed Artemis Real Estate Partners"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={prefillArtemisExample}
+            disabled={busy || !ready}
+          >
+            Use Artemis example
+          </Button>
+          <Button
+            onClick={() => setShowForm((v) => !v)}
+            disabled={busy || !ready}
+          >
+            {showForm ? "Close form" : "Create microsite"}
+          </Button>
+        </div>
       </div>
 
       {envError ? (
@@ -348,6 +511,135 @@ export default function OutreachPersonalizerPage({
         </Card>
       ) : null}
 
+      {showForm ? (
+        <Card>
+          <CardContent className="space-y-3 py-4">
+            <h2 className="text-sm font-semibold text-bm-text">Create microsite</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Firm name *
+                </span>
+                <input
+                  type="text"
+                  value={cfName}
+                  onChange={(e) => setCfName(e.target.value)}
+                  placeholder="Artemis Real Estate Partners"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Slug * (public path /for/&lt;slug&gt;)
+                </span>
+                <input
+                  type="text"
+                  value={effectiveSlug}
+                  onChange={(e) => {
+                    setCfSlug(e.target.value);
+                    setCfSlugTouched(true);
+                  }}
+                  placeholder="artemis-real-estate-partners"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Sector
+                </span>
+                <input
+                  type="text"
+                  value={cfSector}
+                  onChange={(e) => setCfSector(e.target.value)}
+                  placeholder="Real estate investment management"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Website
+                </span>
+                <input
+                  type="url"
+                  value={cfWebsite}
+                  onChange={(e) => setCfWebsite(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Logo URL
+                </span>
+                <input
+                  type="url"
+                  value={cfLogo}
+                  onChange={(e) => setCfLogo(e.target.value)}
+                  placeholder="https://…/logo.png"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  Accent HSL
+                </span>
+                <input
+                  type="text"
+                  value={cfAccent}
+                  onChange={(e) => setCfAccent(e.target.value)}
+                  placeholder="210 90% 60%"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  CTA label
+                </span>
+                <input
+                  type="text"
+                  value={cfCtaLabel}
+                  onChange={(e) => setCfCtaLabel(e.target.value)}
+                  placeholder="Talk to Novendor"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                  CTA URL (http(s) or mailto:)
+                </span>
+                <input
+                  type="text"
+                  value={cfCtaUrl}
+                  onChange={(e) => setCfCtaUrl(e.target.value)}
+                  placeholder="https://cal.com/… or mailto:you@firm.com"
+                  className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                />
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                Positioning notes (operator framing — guides the generated copy)
+              </span>
+              <textarea
+                value={cfNotes}
+                onChange={(e) => setCfNotes(e.target.value)}
+                rows={3}
+                placeholder="What angle should the microsite take for this firm?"
+                className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+              />
+            </label>
+            <div className="flex items-center gap-3">
+              <Button onClick={() => void createMicrosite()} disabled={busy || !ready}>
+                {busy ? "Creating…" : "Create microsite"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={resetForm} disabled={busy}>
+                Clear
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[260px,1fr]">
         <Card>
           <CardContent className="space-y-1 py-3">
@@ -356,7 +648,7 @@ export default function OutreachPersonalizerPage({
             </p>
             {targets.length === 0 ? (
               <p className="py-2 text-xs text-bm-muted2">
-                No targets yet. Seed Artemis to start.
+                No targets yet. Create a microsite to start.
               </p>
             ) : (
               targets.map((t) => (
@@ -405,13 +697,24 @@ export default function OutreachPersonalizerPage({
                     {detail.target.status}
                   </p>
                 </div>
-                <Link
-                  href={detail.public_path}
-                  target="_blank"
-                  className="rounded border border-bm-accent/40 bg-bm-accent/10 px-3 py-1.5 text-xs font-semibold text-bm-accent"
-                >
-                  Open microsite ↗
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={duplicateTarget}
+                    disabled={busy}
+                    title="Prefill the Create form from this target under a new slug"
+                  >
+                    Duplicate
+                  </Button>
+                  <Link
+                    href={detail.public_path}
+                    target="_blank"
+                    className="rounded border border-bm-accent/40 bg-bm-accent/10 px-3 py-1.5 text-xs font-semibold text-bm-accent"
+                  >
+                    Open microsite ↗
+                  </Link>
+                </div>
               </div>
 
               <p className="text-xs text-bm-muted2">
@@ -552,6 +855,75 @@ export default function OutreachPersonalizerPage({
                     />
                   </label>
                 </div>
+
+                {/* Phase 4: editable microsite profile fields (merged into
+                    profile_json). Saved together with the Save button below. */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                    Sector
+                  </span>
+                  <input
+                    type="text"
+                    value={sectorInput}
+                    onChange={(e) => setSectorInput(e.target.value)}
+                    placeholder="Real estate investment management"
+                    className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block space-y-1">
+                    <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      CTA label
+                    </span>
+                    <input
+                      type="text"
+                      value={ctaLabelInput}
+                      onChange={(e) => setCtaLabelInput(e.target.value)}
+                      placeholder="Talk to Novendor"
+                      className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                      CTA URL (http(s) or mailto:)
+                    </span>
+                    <input
+                      type="text"
+                      value={ctaUrlInput}
+                      onChange={(e) => setCtaUrlInput(e.target.value)}
+                      placeholder="https://cal.com/… or mailto:…"
+                      className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                    />
+                  </label>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                    Positioning notes (operator framing — guides generated copy)
+                  </span>
+                  <textarea
+                    value={notesInput}
+                    onChange={(e) => setNotesInput(e.target.value)}
+                    rows={3}
+                    placeholder="What angle should this microsite take?"
+                    className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wide text-bm-muted2">
+                    Proof points — one per line, operator-written, max 5
+                  </span>
+                  <textarea
+                    value={proofInput}
+                    onChange={(e) => setProofInput(e.target.value)}
+                    rows={4}
+                    placeholder={"Shipped X in 3 weeks\nReferenceable client in REPE\n…"}
+                    className="w-full rounded border border-bm-border/70 bg-bm-bg px-3 py-1.5 text-xs text-bm-text"
+                  />
+                  <span className="text-[10px] text-bm-muted2">
+                    These render verbatim on the public microsite — operator
+                    facts only, never AI-generated.
+                  </span>
+                </label>
 
                 <div className="flex items-center gap-3">
                   <Button size="sm" onClick={() => void saveDetails()} disabled={busy}>
@@ -795,6 +1167,19 @@ export default function OutreachPersonalizerPage({
                 </div>
               </section>
 
+              <div className="flex items-center justify-between border-t border-bm-border/40 pt-3">
+                <h3 className="text-sm font-semibold text-bm-text">Microsite copy</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void regenerateAll()}
+                  disabled={busy}
+                  title="Regenerate insights, Loom script, and cold email together (AI required)"
+                >
+                  {busy ? "Regenerating…" : "Regenerate all copy"}
+                </Button>
+              </div>
+
               <section className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-bm-text">Insights</h3>
@@ -865,7 +1250,7 @@ export default function OutreachPersonalizerPage({
         ) : (
           <Card>
             <CardContent className="py-10 text-center text-sm text-bm-muted2">
-              Select a target or seed Artemis Real Estate Partners.
+              Select a target or create a microsite.
             </CardContent>
           </Card>
         )}

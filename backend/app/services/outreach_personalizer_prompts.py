@@ -27,6 +27,10 @@ private facts. Public, firm-level observations are acceptable ONLY when framed a
 likely / research-derived using cautious language ("likely", "firms of this
 profile typically", "based on public positioning"). If a fact is not given and
 not safely inferable, do not state it.
+
+If the profile includes a `positioning_notes` field, treat it as the operator's
+intended framing for this firm and align the output to that angle. Never treat
+operator notes as verified private facts — they are framing, not claims.
 """.strip()
 
 

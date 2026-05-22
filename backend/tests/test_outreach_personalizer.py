@@ -1619,3 +1619,240 @@ class TestPublicMicrositeExcludesTemplateChoice:
         # Public contract still intact.
         assert payload["ready"] is True
         assert "firm" in payload and "loom" in payload and "cta" in payload
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Microsite Generator v1
+# ---------------------------------------------------------------------------
+
+GEN_ENV = "test-env-microsite-gen"
+GEN_SLUG = "northwind-capital"
+GEN_FIRM = "Northwind Capital"
+GEN_TARGET_ID = "44444444-4444-4444-4444-444444444444"
+
+
+def _gen_target_row(profile=None, status: str = "pending", microsite_url=None) -> dict:
+    """A non-Artemis target row — proves the generator works for any firm."""
+    return {
+        "id": GEN_TARGET_ID,
+        "env_id": GEN_ENV,
+        "business_id": None,
+        "crm_account_id": None,
+        "crm_opportunity_id": None,
+        "scaffolded_env_id": None,
+        "firm_name": GEN_FIRM,
+        "firm_slug": GEN_SLUG,
+        "status": status,
+        "logo_url": None,
+        "accent_hsl": None,
+        "profile_json": profile if profile is not None else {},
+        "microsite_url": microsite_url,
+        "loom_url": None,
+    }
+
+
+class TestMicrositeGenerator:
+    """Phase 4 — operator creates a microsite from manual inputs, edits its
+    profile fields, regenerates copy. No enrichment, no web research."""
+
+    def test_create_microsite_from_operator_inputs(self, client, fake_cursor):
+        fake_cursor.push_result([])                          # get_target_by_slug -> None
+        fake_cursor.push_result([_gen_target_row()])         # create_target RETURNING
+        fake_cursor.push_result([_insight_asset()])          # insert_asset insight
+        fake_cursor.push_result([_loom_asset()])             # insert_asset loom
+        fake_cursor.push_result([_email_asset()])            # insert_asset cold_email
+        fake_cursor.push_result(
+            [_gen_target_row(status="assets_ready", microsite_url=f"/for/{GEN_SLUG}")]
+        )                                                    # update_target RETURNING
+        fake_cursor.push_result(
+            [_gen_target_row(status="assets_ready", microsite_url=f"/for/{GEN_SLUG}")]
+        )                                                    # get_target_by_id
+        fake_cursor.push_result(
+            [_insight_asset(), _loom_asset(), _email_asset()]
+        )                                                    # list_assets
+
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets?env_id={GEN_ENV}",
+            json={
+                "firm_name": GEN_FIRM,
+                "firm_slug": GEN_SLUG,
+                "profile": {
+                    "sector": "Private credit",
+                    "website": "https://northwind.example",
+                    "cta_label": "Book a call",
+                    "cta_url": "https://cal.com/northwind",
+                    "positioning_notes": "Lead with reporting speed.",
+                },
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["created"] is True
+        assert r.json()["public_path"] == f"/for/{GEN_SLUG}"
+        # The typed `profile` was folded into the create_target INSERT.
+        create_sql, create_params = fake_cursor.queries[1]
+        assert "INSERT INTO cro_outreach_target" in create_sql
+        stored = json.loads(create_params[6])
+        assert stored["sector"] == "Private credit"
+        assert stored["cta_url"] == "https://cal.com/northwind"
+        assert stored["positioning_notes"] == "Lead with reporting speed."
+
+    def test_create_is_idempotent_on_slug(self, client, fake_cursor):
+        fake_cursor.push_result(
+            [_gen_target_row(status="assets_ready", microsite_url=f"/for/{GEN_SLUG}")]
+        )                                                    # get_target_by_slug -> existing
+        fake_cursor.push_result([_insight_asset(), _email_asset()])  # list_assets
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets?env_id={GEN_ENV}",
+            json={
+                "firm_name": GEN_FIRM, "firm_slug": GEN_SLUG,
+                "profile": {"sector": "Private credit"},
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["created"] is False
+
+    def test_patch_profile_merges_without_clobber(self, client, fake_cursor):
+        base = {"sector": "old sector", "website": "https://keep.example"}
+        fake_cursor.push_result(
+            [_gen_target_row(profile=base, status="assets_ready")]
+        )                                                    # get_target_by_id (404 guard)
+        fake_cursor.push_result(
+            [_gen_target_row(profile=base, status="assets_ready")]
+        )                                                    # patch_target (no flat cols) -> get_target_by_id
+        fake_cursor.push_result([{"profile_json": base}])    # merge_profile_json SELECT
+        merged = {**base, "cta_label": "Talk now", "positioning_notes": "New angle."}
+        fake_cursor.push_result(
+            [_gen_target_row(profile=merged, status="assets_ready")]
+        )                                                    # merge_profile_json UPDATE RETURNING
+        fake_cursor.push_result([_insight_asset()])          # list_assets
+
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{GEN_TARGET_ID}",
+            json={"profile": {"cta_label": "Talk now", "positioning_notes": "New angle."}},
+        )
+        assert r.status_code == 200, r.text
+        # The merge UPDATE preserved the keys the operator did NOT touch.
+        update_q = next(
+            q for q in fake_cursor.queries if "SET profile_json = %s::jsonb" in q[0]
+        )
+        written = json.loads(update_q[1][0])
+        assert written["sector"] == "old sector"             # preserved
+        assert written["website"] == "https://keep.example"  # preserved
+        assert written["cta_label"] == "Talk now"            # new
+        assert written["positioning_notes"] == "New angle."  # new
+
+    def test_microsite_payload_renders_cta_and_proof(self, client, fake_cursor):
+        profile = {
+            "sector": "Private credit",
+            "cta_label": "Book a 20-min call",
+            "cta_url": "https://cal.com/northwind",
+            "proof_points": ["Shipped in 3 weeks", "Referenceable REPE client"],
+            "positioning_notes": "Reporting speed angle.",
+        }
+        fake_cursor.push_result(
+            [_gen_target_row(profile=profile, status="assets_ready",
+                             microsite_url=f"/for/{GEN_SLUG}")]
+        )                                                    # get_public_target_by_slug
+        fake_cursor.push_result(
+            [_insight_asset(), _email_asset()]
+        )                                                    # list_assets
+        r = client.get(f"/api/outreach-personalizer/v1/microsite/{GEN_SLUG}")
+        assert r.status_code == 200, r.text
+        p = r.json()
+        assert p["cta"]["label"] == "Book a 20-min call"
+        assert p["cta"]["href"] == "https://cal.com/northwind"
+        assert p["cta"]["kind"] == "link"
+        assert p["proof_points"] == ["Shipped in 3 weeks", "Referenceable REPE client"]
+        assert p["positioning_notes"] == "Reporting speed angle."
+        assert p["loom"]["state"] == "pending"               # no loom_url -> pending
+
+    def test_patch_rejects_unsafe_cta_url(self, client, fake_cursor):
+        fake_cursor.push_result([_gen_target_row(status="assets_ready")])  # get_target_by_id
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{GEN_TARGET_ID}",
+            json={"profile": {"cta_url": "javascript:alert(1)"}},
+        )
+        assert r.status_code == 400, r.text
+        assert "cta_url" in r.json()["detail"]
+
+    def test_proof_points_cap_rejected(self, client, fake_cursor):
+        # 6 proof points exceeds the cap of 5 -> route-level domain 400.
+        fake_cursor.push_result([_gen_target_row(status="assets_ready")])  # get_target_by_id
+        r = client.patch(
+            f"/api/outreach-personalizer/v1/targets/{GEN_TARGET_ID}",
+            json={"profile": {"proof_points": ["a", "b", "c", "d", "e", "f"]}},
+        )
+        assert r.status_code == 400, r.text
+        assert "proof_points is capped" in r.json()["detail"]
+
+    def test_regenerate_all_returns_full_pack(self, client, fake_cursor):
+        from app.services import outreach_personalizer_ai as ai
+
+        fake_cursor.push_result(
+            [_gen_target_row(profile={"sector": "Private credit"}, status="assets_ready")]
+        )                                                    # get_target_by_id
+        fake_cursor.push_result([{**_insight_asset(), "regenerated_count": 1}])  # regen insight
+        fake_cursor.push_result([{**_loom_asset(), "regenerated_count": 1}])     # regen loom
+        fake_cursor.push_result([{**_email_asset(), "regenerated_count": 1}])    # regen email
+        fake_cursor.push_result(
+            [_insight_asset(), _loom_asset(), _email_asset()]
+        )                                                    # list_assets
+
+        insights_json = json.dumps({"insights": [{
+            "title": "Investor reporting runs on spreadsheets",
+            "observation": "Likely manual quarterly reporting.",
+            "novendor_angle": "Novendor builds a controlled reporting layer.",
+            "confidence": "medium",
+        }]})
+        loom_json = json.dumps({
+            "script": "A short personal walkthrough for the team.",
+            "duration_seconds_estimate": 55,
+            "references_insight": "Investor reporting runs on spreadsheets",
+        })
+        email_json = json.dumps({
+            "subject": "Investor reporting without the scramble",
+            "body": (
+                "Firms like yours run investor reporting on spreadsheets under "
+                "deadline. Novendor builds a controlled internal reporting layer. "
+                "It carries provenance and fail-closed behavior. If useful, I will "
+                "send a short walkthrough."
+            ),
+            "references_insight": "Investor reporting runs on spreadsheets",
+        })
+        with patch.object(ai, "ai_available", return_value=True):
+            with patch.object(ai, "_chat", side_effect=[insights_json, loom_json, email_json]):
+                r = client.post(
+                    f"/api/outreach-personalizer/v1/targets/{GEN_TARGET_ID}/regenerate-all"
+                )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert {a["asset_type"] for a in body["assets"]} == {
+            "insight", "loom_script", "cold_email",
+        }
+
+    def test_regenerate_all_fails_closed_without_ai(self, client, fake_cursor):
+        # No OPENAI_API_KEY in the test env -> regenerate_pack fails closed.
+        fake_cursor.push_result([_gen_target_row(status="assets_ready")])  # get_target_by_id
+        r = client.post(
+            f"/api/outreach-personalizer/v1/targets/{GEN_TARGET_ID}/regenerate-all"
+        )
+        assert r.status_code == 422, r.text
+        assert "AI is not configured" in r.json()["detail"]
+
+    def test_public_payload_excludes_internal_fields(self, client, fake_cursor):
+        profile = {"cta_url": "https://cal.com/x", "proof_points": ["P1"]}
+        fake_cursor.push_result(
+            [_gen_target_row(profile=profile, status="assets_ready",
+                             microsite_url=f"/for/{GEN_SLUG}")]
+        )                                                    # get_public_target_by_slug
+        fake_cursor.push_result([_insight_asset(), _email_asset()])  # list_assets
+        r = client.get(f"/api/outreach-personalizer/v1/microsite/{GEN_SLUG}")
+        assert r.status_code == 200, r.text
+        p = r.json()
+        for forbidden in (
+            "scaffold", "scaffolded_env_id", "crm_account", "crm_opportunity",
+            "business_id", "env_id", "profile_json", "pipeline",
+        ):
+            assert forbidden not in p, f"public microsite payload leaked: {forbidden}"
+        assert p["ready"] is True
