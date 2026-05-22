@@ -748,6 +748,51 @@ for future role/client proof packages.
   readers, route-scoped gates, artifact builder receipts, Outlook params
   templates, and a proof-package QA command.
 
+
+### Ticket 11 - HappyCo proof package polish: clean demo, gated artifacts, automation visuals
+
+**Tracking:** Azure Boards story `AB#380` with child tasks `381`, `382`, `383`, and `384`.
+
+**Goal:** make the existing env operator URL render as the primary clean HappyCo
+presentation surface, keep `/happyco/demo` as a gated copy, and add a gated
+artifact hub.
+
+**Implementation decisions:**
+
+- `/happyco` remains the gated executive package and navigation hub.
+- `/lab/env/[envId]/operator/property-ops-intelligence` is the shareable clean
+  HappyCo presentation route. `OperatorShell` bypasses its Hall Boys/Winston
+  chrome for this route only.
+- `/happyco/demo` is a gated copy of the same clean light-theme presentation
+  component.
+- `/happyco/artifacts` is manifest-first and gated; files download only through
+  allowlisted `/api/happyco/artifacts/[artifactKey]` when present server-side.
+- Missing deployed artifacts are labeled local/private with gated-storage upload
+  pending. No fake downloads.
+- Other operator routes keep the normal Winston shell.
+
+**Required visuals:**
+
+- Automation Pipeline Graph.
+- Maintenance Risk Heatmap.
+- Weather Risk Timeline.
+- Secondary visuals when practical: Benchmark Variance Chart and Vendor
+  Performance Matrix.
+
+**Acceptance criteria:**
+
+- `/happyco` shows primary clean-demo CTA, artifact CTA, and secondary Winston
+  implementation CTA.
+- `/lab/env/[envId]/operator/property-ops-intelligence` renders standalone with
+  no Hall Boys Operating System header, Winston operator shell, workspace
+  switcher, or unrelated operator tabs.
+- `/happyco/demo` is invite-gated and uses the same clean component.
+- `/happyco/artifacts` is invite-gated and does not expose public artifact URLs.
+- Artifact API verifies the invite cookie and uses an allowlist only.
+- Visuals are synthetic/demo-safe and decision-focused.
+- No claims of HappyCo production data, production model, production deployment,
+  serving endpoint, or sent email.
+
 ---
 
 ## Tomorrow-deadline priority order

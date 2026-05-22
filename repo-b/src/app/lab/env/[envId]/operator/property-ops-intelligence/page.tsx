@@ -1,4 +1,4 @@
-import { PropertyOpsIntelligencePage } from "@/components/operator/property-ops/PropertyOpsIntelligencePage";
+import { HappyCoDemoClient } from "@/components/happyco/HappyCoDemoClient";
 
 interface Props {
   params: Promise<{ envId: string }>;
@@ -6,5 +6,5 @@ interface Props {
 
 export default async function OperatorPropertyOpsIntelligenceRoute({ params }: Props) {
   const { envId } = await params;
-  return <PropertyOpsIntelligencePage envId={envId} />;
+  return <HappyCoDemoClient envId={envId} />;
 }

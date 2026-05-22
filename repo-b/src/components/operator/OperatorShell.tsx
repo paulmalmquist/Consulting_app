@@ -141,6 +141,7 @@ function isExecutivePath(pathname: string, base: string): boolean {
 
 export default function OperatorShell({ envId, children }: OperatorShellProps) {
   const pathname = usePathname();
+  const isHappyCoPresentationRoute = pathname.includes("/operator/property-ops-intelligence");
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -181,6 +182,10 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       document.body.style.overflow = previousOverflow;
     };
   }, [drawerOpen]);
+
+  if (isHappyCoPresentationRoute) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return <WorkspaceContextLoader label="Loading Hall Boys operator workspace" />;
