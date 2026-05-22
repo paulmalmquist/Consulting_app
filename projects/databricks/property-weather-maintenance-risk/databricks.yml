@@ -1,0 +1,87 @@
+bundle:
+  name: property_weather_maintenance_risk
+
+# Task model: thin-notebook adapters.
+# Each notebook (notebooks/0X_*.py) is a thin adapter that imports the matching
+# weather_risk.stages.* module and calls its run_spark(). All pipeline logic
+# lives in the package, not the notebooks. The notebooks add ../src to sys.path
+# so the deployed bundle resolves the package without a wheel install.
+#
+# A python_wheel_task model was considered; the thin-notebook model was chosen
+# because it keeps the existing job graph intact, needs no per-stage wheel
+# entrypoints, and still meets the acceptance bar (package-driven logic). The
+# pyproject.toml in this directory builds a wheel if a wheel-task migration is
+# preferred later.
+
+variables:
+  catalog:
+    default: main
+  schema:
+    default: property_ops_risk_ml
+  experiment_name:
+    default: /Shared/property_ops_weather_maintenance_risk_ml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: ~/.bundle/property-weather-maintenance-risk/${bundle.target}
+
+resources:
+  jobs:
+    property_weather_maintenance_risk_job:
+      name: property_weather_maintenance_risk_job
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: ./notebooks/00_setup.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              experiment_name: ${var.experiment_name}
+              start_year: "2015"
+              end_year: "2025"
+              holdout_year: "2025"
+              event_types: tornado,hail,thunderstorm wind,flash flood,flood,hurricane/typhoon,winter storm,wildfire,drought
+              sample_frac: "1.0"
+              damage_threshold: "25000"
+              synthetic_property_ops_enabled: "true"
+              synthetic_property_count: "250"
+              synthetic_unit_count: "25000"
+              random_seed: "42"
+        - task_key: ingest_public_sources
+          depends_on:
+            - task_key: setup
+          notebook_task:
+            notebook_path: ./notebooks/01_ingest_public_sources.py
+        - task_key: generate_property_ops
+          depends_on:
+            - task_key: ingest_public_sources
+          notebook_task:
+            notebook_path: ./notebooks/02_generate_or_ingest_property_ops_data.py
+        - task_key: clean_and_standardize
+          depends_on:
+            - task_key: generate_property_ops
+          notebook_task:
+            notebook_path: ./notebooks/03_clean_and_standardize.py
+        - task_key: feature_engineering
+          depends_on:
+            - task_key: clean_and_standardize
+          notebook_task:
+            notebook_path: ./notebooks/04_feature_engineering.py
+        - task_key: train_models
+          depends_on:
+            - task_key: feature_engineering
+          notebook_task:
+            notebook_path: ./notebooks/05_train_models.py
+        - task_key: score_and_visualize
+          depends_on:
+            - task_key: train_models
+          notebook_task:
+            notebook_path: ./notebooks/06_score_and_visualize.py
+        - task_key: validate_and_receipt
+          depends_on:
+            - task_key: score_and_visualize
+          notebook_task:
+            notebook_path: ./notebooks/07_validate_and_receipt.py
