@@ -279,3 +279,37 @@ def regenerate_asset(
     return generate_cold_email(
         firm_name=firm_name, sector=sector, profile=profile, insights=insights
     )
+
+
+def regenerate_pack(*, firm_name: str, sector: str, profile: dict) -> dict:
+    """Phase 4 — regenerate the FULL 3-asset pack in one call.
+
+    AI REQUIRED — fails closed (parity with regenerate_asset). Unlike
+    generate_asset_pack there is NO deterministic fallback: regeneration is an
+    explicit operator action, and a half-deterministic / half-AI result would
+    be misleading. Insights are generated first, then loom_script and
+    cold_email derive from those fresh insights, so the returned pack is
+    internally consistent (the UI never shows a mixed old/new state).
+
+    Returns {"source": "ai", "insights": [...], "loom_script": {...},
+             "cold_email": {...}} — the same shape as generate_asset_pack.
+    """
+    if not ai_available():
+        raise ValueError(
+            "AI is not configured. Regenerating microsite copy requires "
+            "OPENAI_API_KEY. (Seeding a target still works via the "
+            "deterministic pack.)"
+        )
+    insights = generate_insights(firm_name=firm_name, sector=sector, profile=profile)
+    loom = generate_loom_script(
+        firm_name=firm_name, sector=sector, profile=profile, insights=insights
+    )
+    email = generate_cold_email(
+        firm_name=firm_name, sector=sector, profile=profile, insights=insights
+    )
+    return {
+        "source": "ai",
+        "insights": insights,
+        "loom_script": loom,
+        "cold_email": email,
+    }

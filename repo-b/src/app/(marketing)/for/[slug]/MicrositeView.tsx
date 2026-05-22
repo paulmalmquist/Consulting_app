@@ -5,6 +5,7 @@ import { FirmHeader } from "@/components/marketing/personalizer/FirmHeader";
 import { InsightCards } from "@/components/marketing/personalizer/InsightCards";
 import { LoomEmbed } from "@/components/marketing/personalizer/LoomEmbed";
 import { CtaButton } from "@/components/marketing/personalizer/CtaButton";
+import { ProofSection } from "@/components/marketing/personalizer/ProofSection";
 import {
   getMicrosite,
   trackMicrosite,
@@ -99,6 +100,8 @@ export function MicrositeView({ slug }: { slug: string }) {
 
       <div className="space-y-14">
         <InsightCards insights={data.insights} accentHsl={accent} />
+
+        <ProofSection points={data.proof_points} accentHsl={accent} />
 
         <LoomEmbed url={data.loom.url} state={data.loom.state} />
 
