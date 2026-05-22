@@ -14,6 +14,7 @@ import {
   Presentation,
   ShieldCheck,
 } from "lucide-react";
+import { HAPPYCO_AUTOMATION_ROWS, HAPPYCO_DATABRICKS_RECEIPT } from "@/lib/happyco/proof";
 
 const COOKIE_NAME = "happyco_demo_access";
 
@@ -99,60 +100,8 @@ function PublicGate({ invalid }: { invalid: boolean }) {
 }
 
 function GatedPackage() {
-  const databricksReceipt = {
-    title: "Weather-aware maintenance risk Databricks run",
-    jobId: "172758362681895",
-    runId: "924781458483845",
-    data: "public weather + synthetic property operations",
-    output: "predictions, metrics, MLflow run metadata, validated receipt",
-    claim: "Databricks ML training run executed on public weather and synthetic property operations data.",
-    caveat: "Not HappyCo production data; not a production model; no serving endpoint.",
-  };
-
-  const automationRows = [
-    {
-      trigger: "recruiter/job context",
-      tool: "HappyCo prompt stack + Codex planning",
-      output: "role-specific proof scope and active implementation plan",
-      control: "human-approved scope; no private recruiter content committed",
-    },
-    {
-      trigger: "deterministic data fixture",
-      tool: "canonical fixture generator + operator service",
-      output: "property, unit, inspection, work-order, vendor, benchmark, and recommendation spine",
-      control: "synthetic data only; API payloads carry demo metadata and caveats",
-    },
-    {
-      trigger: "weather/property risk feature pipeline",
-      tool: "Databricks bundle/job",
-      output: "maintenance-risk predictions + MLflow metrics + run receipt",
-      control: "public weather + synthetic ops only; receipt-backed claim; no production serving endpoint",
-    },
-    {
-      trigger: "operator APIs",
-      tool: "FastAPI operator routes",
-      output: "entities, graph, benchmarks, recommendations, and ML-risk JSON",
-      control: "demo_mode/data_source/caveat fields on product-facing responses",
-    },
-    {
-      trigger: "artifact package",
-      tool: "Excel, PowerPoint, and architecture generators",
-      output: "workbook, strategy deck, and architecture diagram",
-      control: "local artifacts only; no public downloads from this route",
-    },
-    {
-      trigger: "Outlook follow-up workflow",
-      tool: "WinCOM params templates",
-      output: "draft-only recruiter follow-up workflow template",
-      control: "no send without explicit local confirmation",
-    },
-    {
-      trigger: "gated deployment",
-      tool: "Next.js invite-code route + deployment env vars",
-      output: "private proof package at /happyco",
-      control: "invite-gated access; invite code remains server-side",
-    },
-  ];
+  const databricksReceipt = HAPPYCO_DATABRICKS_RECEIPT;
+  const automationRows = HAPPYCO_AUTOMATION_ROWS;
 
   const artifacts = [
     {
@@ -220,7 +169,7 @@ function GatedPackage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
-                href={operatorDemoHref}
+                href="/happyco/demo"
                 className="rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]"
               >
                 Open HappyCo demo
@@ -232,10 +181,10 @@ function GatedPackage() {
                 View artifacts
               </Link>
               <Link
-                href="/happyco/demo"
+                href={operatorDemoHref}
                 className="rounded-2xl border border-[#35146B]/20 bg-[#FBFAF7] px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-white"
               >
-                Open gated demo copy
+                Winston implementation view
               </Link>
             </div>
           </div>
