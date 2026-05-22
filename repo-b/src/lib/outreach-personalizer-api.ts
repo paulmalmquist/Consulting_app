@@ -200,12 +200,27 @@ export type CrmAccount = {
   created_at: string;
 };
 
+// Phase 4 — typed partial of the microsite profile fields stored inside
+// profile_json. Mirrors the backend MicrositeProfilePatch schema. Every field
+// optional; an explicit null clears that key on merge. proof_points are
+// operator-supplied bullets, capped to 5 server-side.
+export type MicrositeProfilePatch = {
+  sector?: string | null;
+  website?: string | null;
+  calendar_url?: string | null;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  positioning_notes?: string | null;
+  proof_points?: string[] | null;
+};
+
 export type PatchTargetPayload = {
   loom_url?: string | null;
   crm_account_id?: string | null;
   crm_opportunity_id?: string | null;  // Phase 2C
   logo_url?: string | null;
   accent_hsl?: string | null;
+  profile?: MicrositeProfilePatch;  // Phase 4 — merged into profile_json
 };
 
 // crm_opportunity row as returned by the existing /api/crm/opportunities
@@ -230,6 +245,7 @@ export type SeedTargetPayload = {
   logo_url?: string | null;
   accent_hsl?: string | null;
   profile_json?: Record<string, unknown>;
+  profile?: MicrositeProfilePatch;  // Phase 4 — folded into profile_json by route
   loom_url?: string | null;
 };
 
@@ -240,7 +256,9 @@ export type MicrositePayload =
       insights: OutreachInsight[];
       loom: { url: string | null; script: string | null; state: "ready" | "pending" };
       cold_email_preview: { subject: string | null; body: string | null };
-      cta: { label: string; kind: "email" | "calendar"; href: string };
+      cta: { label: string; kind: "email" | "calendar" | "link"; href: string };
+      proof_points: string[];               // Phase 4 — operator-supplied bullets
+      positioning_notes: string | null;     // Phase 4 — operator framing
       styling: { accent_hsl: string | null; logo_url: string | null };
       source: string | null;
     }
@@ -412,6 +430,19 @@ export function regenerateOutreachAsset(
 ) {
   return apiFetch<{ asset: OutreachAsset }>(
     `${OP_BASE}/targets/${targetId}/regenerate/${assetType}`,
+    { method: "POST" },
+  );
+}
+
+/**
+ * Phase 4 — regenerate the full microsite copy pack (insight + loom_script +
+ * cold_email) in one call. AI REQUIRED — 422 with the exact backend message
+ * when OPENAI_API_KEY is unset. Returns the refreshed FULL asset list so the
+ * UI can swap in all three at once and never show a mixed old/new state.
+ */
+export function regenerateAllAssets(targetId: string) {
+  return apiFetch<{ ok: boolean; assets: OutreachAsset[] }>(
+    `${OP_BASE}/targets/${targetId}/regenerate-all`,
     { method: "POST" },
   );
 }

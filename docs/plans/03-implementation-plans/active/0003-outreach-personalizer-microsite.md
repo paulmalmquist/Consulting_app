@@ -1,15 +1,15 @@
-# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C + 3 + 3.5)
+# Dispatch Record 0003 — Outreach Personalizer Microsite (Phases 1 + 2A + 2B + 2C + 3 + 3.5 + 4)
 
 **Created:** 2026-05-19
-**Status:** Phases 1 + 2A + 2B + 2C + 3 LANDED on `main` via PR #68 (`d9f6733e`),
-PR #81 (`c22182ba`), and PR #85 (`53d0e9d0`). **Phase 3.5 IN PROGRESS 2026-05-20** —
-operator-selectable template + visible template summary + explicit
-`/scaffold-env/recreate` flow + per-business sprawl guard (see "Phase 3.5"
-section below). **Zero-migration ticket** — all required columns
-(`scaffolded_env_id`, `app.environments.slug` + unique index,
-`app.environment_templates.display_name` + `default_seed_pack`) already exist.
-80/80 outreach tests pass + 34 pitch-forge/env_pipeline_v2 regression pass + 2
-skips pre-existing; repo-b typecheck clean.
+**Status:** Phases 1 + 2A + 2B + 2C + 3 + 3.5 LANDED on `main` via PR #68
+(`d9f6733e`), PR #81 (`c22182ba`), PR #85 (`53d0e9d0`), and PR #88. **Phase 4 —
+Microsite Generator v1 IN PROGRESS 2026-05-21** — operator Create Microsite
+form, editable `profile_json` fields (sector / CTA / positioning / proof),
+operator-driven public CTA + proof section, regenerate-all (see "Phase 4"
+section below). Phase 4 deliberately dropped enrichment / Apollo / web search.
+**Zero-migration ticket** — all Phase 4 fields live inside the existing
+`profile_json` JSONB. 123 tests pass (89 outreach + 34 pitch-forge/
+env_pipeline_v2 regression) + 2 skips pre-existing; repo-b typecheck clean.
 **Environment:** Consulting / Novendor CRM
 **Deliverable type:** Multi-phase build (Phase 1 vertical slice + 2A/2B/2C/3 operational layers)
 
@@ -543,6 +543,78 @@ on the public payload.
   (REST gateway alive, DB pooler returning `ECHECKOUTTIMEOUT`); will
   retry on recovery before PR merge.*
 
+## Phase 4 — Microsite Generator v1 (operator-controlled, no enrichment)
+
+**Scope pivot:** Phase 4 was originally scoped as Apollo / web-research
+enrichment. That was deliberately dropped — the microsite generator already
+existed end-to-end, just hard-wired to Artemis. Phase 4 is a productization
+ticket: make the generator usable for any firm from operator-typed inputs.
+**No web search, no Apollo, no scraping, no enrichment tables. Zero
+migration** — every new field lives inside the existing `profile_json` JSONB.
+
+**Documented `profile_json` keys** (free-form JSONB storage, typed at the API
+edge by `MicrositeProfilePatch`): `sector`, `website`, `calendar_url`,
+`cta_label`, `cta_url`, `positioning_notes`, `proof_points` (operator-written
+bullets, capped at 5). `logo_url` / `accent_hsl` / `loom_url` / `microsite_url`
+stay as columns.
+
+**Backend**
+- `schemas/outreach_personalizer.py`: `MicrositeProfilePatch` — typed partial
+  of the profile keys; `TargetCreateIn.profile` and `MicrositeUpdateIn.profile`
+  carry it. The schema validator only normalizes proof_points (trim/drop
+  empties); the cap is enforced at the route layer (see below).
+- `services/outreach_personalizer.py`: `safe_cta_url()` (http(s)/mailto only —
+  rejects `javascript:`/`data:`, mirrors `normalize_loom_url`);
+  `merge_profile_json()` (shallow-merge a partial into `profile_json`, an
+  explicit null clears a key, untouched keys preserved);
+  `validate_proof_points()` (cap 5, per-item length ≤ 280, raises ValueError).
+- `services/outreach_personalizer_ai.py`: `regenerate_pack()` — regenerate the
+  full 3-asset pack in one call, AI-REQUIRED (fails closed, no deterministic
+  fallback), returns the consistent full pack.
+- `services/outreach_personalizer_prompts.py`: `_PROFILE_GUIDANCE` now tells
+  the model to treat `positioning_notes` as operator framing (not facts).
+- `routes/outreach_personalizer.py`: `POST /targets` folds the typed `profile`
+  into `profile_json`; `PATCH /targets/{id}` accepts `profile` and merges it
+  via `merge_profile_json`; `_microsite_payload` resolves the CTA from
+  operator fields (`cta_label`/`cta_url`, http(s)→`link` / mailto→`email` /
+  calendar fallback) and emits `proof_points` + `positioning_notes`; new
+  `POST /targets/{id}/regenerate-all`.
+
+**Frontend**
+- `outreach-personalizer-api.ts`: `MicrositeProfilePatch` type; `profile` on
+  the seed + patch payloads; `regenerateAllAssets()`; `MicrositePayload`
+  carries `proof_points` + `positioning_notes` and `cta.kind` gains `"link"`.
+- operator page: a **Create Microsite form** (firm name, auto-derived editable
+  slug, sector, website, logo, accent, CTA label/URL, positioning notes)
+  replaces the hard-coded "Seed Artemis" button; Artemis is now a one-click
+  *prefill* example. Profile-field editors (sector / CTA / positioning notes /
+  proof points) added to the detail panel. **Duplicate** prefills the form
+  from an existing target (frontend-only, no duplicate endpoint).
+  **Regenerate all copy** button.
+- public microsite: new `ProofSection` component renders operator
+  `proof_points` (only when present); `MicrositeView` CTA is operator-driven.
+
+**Deferred (Phase 4.1):** direct in-place editing of generated insight/Loom/
+email copy (v1 ships regenerate-all only). Microsite template variants were
+dropped entirely — a reliable single-template generator beats template variety.
+
+**Invariants:** zero migration; public microsite payload still excludes
+scaffold / env / CRM / pipeline fields (regression-tested); deterministic
+asset fallback intact; AI generation uses only operator-supplied fields.
+
+**Verified:**
+- `pytest backend/tests/test_outreach_personalizer.py
+   backend/tests/test_pitch_forge_constraints.py
+   backend/tests/test_environment_pipeline_v2.py -q` → 123 passed, 2 skipped
+  (89 outreach incl. 9-test `TestMicrositeGenerator`).
+- `cd repo-b && npm run typecheck` → clean.
+- **Live DB smoke** (`env_id=verify-microsite-gen-4`): created a non-Artemis
+  microsite from operator inputs, merge-edited the profile (proof_points +
+  cta_label) with no clobber of `sector`/`website`, rendered the public
+  payload (operator CTA + proof + positioning_notes, no internal-field leak),
+  confirmed `safe_cta_url` / `validate_proof_points` fail closed; target
+  hard-deleted (assets cascaded). 19/19 checks passed.
+
 ## Next recommended ticket
 
 **Phase 3.6** (lifecycle round-trip): "Retire and recreate" combo
@@ -551,5 +623,5 @@ who genuinely need to swap a healthy env's template. Phase 3.5
 deliberately blocks healthy-env recreate; Phase 3.6 unblocks it through
 an explicit two-step affordance, not a single endpoint surprise.
 
-**Phase 4**: Apollo / sales-intelligence enrichment to auto-populate
-`profile_json` from `firm_name` + domain.
+**Phase 4.1** (microsite copy editing): let the operator edit generated
+insight / Loom / cold-email copy in place, not just regenerate it.

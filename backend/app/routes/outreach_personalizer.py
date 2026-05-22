@@ -35,6 +35,8 @@ from app.services import environment_pipeline_v2 as env_v2
 from app.services.outreach_personalizer import (
     OutreachTargetNotFound,
     normalize_loom_url,
+    safe_cta_url,
+    validate_proof_points,
 )
 
 router = APIRouter(prefix="/api/outreach-personalizer/v1", tags=["outreach-personalizer"])
@@ -120,11 +122,53 @@ def _seed_assets(target: dict) -> None:
     )
 
 
+def _microsite_cta(target: dict, profile: dict) -> dict:
+    """Phase 4 — resolve the public CTA from operator-supplied profile fields.
+
+    Precedence for the href: explicit `cta_url` > `calendar_url` > a mailto:
+    fallback. Both operator URLs are re-validated at serve time via
+    safe_cta_url so a tampered/legacy DB value can never reach the public page
+    as a javascript:/data: href; an invalid value silently degrades to the
+    next fallback. `cta_label` overrides the default button text.
+    """
+    def _safe(value):
+        try:
+            return safe_cta_url(value)
+        except ValueError:
+            return None
+
+    cta_url = _safe(profile.get("cta_url"))
+    calendar_url = _safe(profile.get("calendar_url"))
+    if cta_url:
+        href = cta_url
+        kind = "email" if cta_url.lower().startswith("mailto:") else "link"
+    elif calendar_url:
+        href = calendar_url
+        kind = "calendar"
+    else:
+        href = "mailto:info@novendor.ai?subject=" + target["firm_name"].replace(" ", "%20")
+        kind = "email"
+    label = (profile.get("cta_label") or "").strip() or "Talk to Novendor"
+    return {"label": label, "kind": kind, "href": href}
+
+
+def _microsite_proof_points(profile: dict) -> list[str]:
+    """Phase 4 — operator-supplied proof bullets for the public proof section.
+    Operator text ONLY (never AI-generated). Defensively capped/cleaned at
+    serve time even though the schema already validates on write."""
+    raw = profile.get("proof_points")
+    if not isinstance(raw, list):
+        return []
+    cleaned = [str(p).strip() for p in raw if isinstance(p, str) and str(p).strip()]
+    return cleaned[:5]
+
+
 def _microsite_payload(target: dict, assets: list[dict]) -> dict:
     by_type = _assets_by_type(assets)
     insights = _insights_from_assets(by_type)
     loom_payload = (by_type.get("loom_script") or {}).get("payload") or {}
     email_payload = (by_type.get("cold_email") or {}).get("payload") or {}
+    profile = target.get("profile_json") or {}
     # Re-validate the stored loom_url at serve time so a tampered/legacy DB value
     # can never reach the public page as an arbitrary iframe src. Anything that
     # is not a recognizable Loom URL degrades to the "pending" state.
@@ -149,12 +193,9 @@ def _microsite_payload(target: dict, assets: list[dict]) -> dict:
             "subject": email_payload.get("subject"),
             "body": email_payload.get("body"),
         },
-        "cta": {
-            "label": "Talk to Novendor",
-            "kind": "email" if not target.get("profile_json", {}).get("calendar_url") else "calendar",
-            "href": target.get("profile_json", {}).get("calendar_url")
-            or "mailto:info@novendor.ai?subject=" + target["firm_name"].replace(" ", "%20"),
-        },
+        "cta": _microsite_cta(target, profile),
+        "proof_points": _microsite_proof_points(profile),
+        "positioning_notes": (profile.get("positioning_notes") or "").strip() or None,
         "styling": {
             "accent_hsl": target.get("accent_hsl"),
             "logo_url": target.get("logo_url"),
@@ -178,6 +219,10 @@ def create_or_seed_target(
 
     On first creation, generate the default asset pack (AI or deterministic).
     No external scraping, no environment scaffolding.
+
+    Phase 4: the typed `profile` field is folded into profile_json (profile
+    wins on key conflicts) so the operator's Create Microsite form can set
+    sector / CTA / positioning / proof in one request. cta_url is validated.
     """
     try:
         resolved_env, resolved_business = _resolve_env(env_id, business_id, payload)
@@ -187,10 +232,25 @@ def create_or_seed_target(
         if existing:
             return {**_target_response(existing), "created": False}
 
+        # Phase 4: fold the typed profile fields into profile_json.
+        profile_fields = (
+            payload.profile.model_dump(exclude_unset=True) if payload.profile else {}
+        )
+        if "cta_url" in profile_fields:
+            profile_fields["cta_url"] = safe_cta_url(profile_fields["cta_url"])
+        if "proof_points" in profile_fields:
+            profile_fields["proof_points"] = validate_proof_points(
+                profile_fields["proof_points"]
+            )
+        create_payload = payload.model_dump()
+        create_payload["profile_json"] = {
+            **(payload.profile_json or {}),
+            **profile_fields,
+        }
         target = op_db.create_target(
             env_id=resolved_env,
             business_id=resolved_business,
-            payload=payload.dict(),
+            payload=create_payload,
         )
         try:
             _seed_assets(target)
@@ -327,10 +387,14 @@ def patch_target(
     request: Request,
 ):
     """Phase 2A: edit/save loom_url + link a CRM account (+ optional logo/accent).
+    Phase 4: also edit the microsite profile fields (sector / CTA / positioning
+    / proof) via the typed `profile` partial.
 
     Only explicitly-provided fields are written. loom_url is validated and
     normalized to a safe Loom embed URL (or null to clear). crm_account_id must
-    reference an existing crm_account. No env scaffolding, no CRM model changes.
+    reference an existing crm_account. `profile` fields are shallow-merged into
+    profile_json (an explicit null clears that key). No env scaffolding, no CRM
+    model changes.
     """
     try:
         target = op_db.get_target_by_id(target_id=target_id)  # 404 early if missing
@@ -338,6 +402,20 @@ def patch_target(
 
         if "loom_url" in provided:
             provided["loom_url"] = normalize_loom_url(provided["loom_url"])
+
+        # Phase 4: typed profile partial → validated, then merged into
+        # profile_json. exclude_unset on the nested model means only the keys
+        # the operator actually sent are touched.
+        profile_fields: dict = {}
+        if payload.profile is not None:
+            profile_fields = payload.profile.model_dump(exclude_unset=True)
+            if "cta_url" in profile_fields:
+                profile_fields["cta_url"] = safe_cta_url(profile_fields["cta_url"])
+            if "proof_points" in profile_fields:
+                profile_fields["proof_points"] = validate_proof_points(
+                    profile_fields["proof_points"]
+                )
+        provided.pop("profile", None)  # not a flat column; merged separately
 
         # Phase 2C clear-order guard: prevent the impossible state
         # (crm_opportunity_id NOT NULL AND crm_account_id NULL) at the route
@@ -376,6 +454,10 @@ def patch_target(
                 )
 
         updated = op_db.patch_target(target_id=target_id, fields=provided)
+        if profile_fields:
+            updated = op_db.merge_profile_json(
+                target_id=target_id, partial=profile_fields
+            )
         resp = _target_response(updated)
         resp["crm_account"] = _crm_account_summary(updated)
         resp["crm_opportunity"] = _crm_opportunity_summary(updated)
@@ -441,6 +523,58 @@ def regenerate_asset(
         return domain_error_response(
             request=request, status_code=status, code=code,
             detail=str(exc), action="outreach-personalizer.regenerate.failed",
+        )
+
+
+@router.post("/targets/{target_id}/regenerate-all")
+def regenerate_all_assets(
+    target_id: UUID,
+    request: Request,
+):
+    """Phase 4 — regenerate the full microsite copy pack (insight + loom_script
+    + cold_email) in one call. AI REQUIRED — fails closed if unconfigured.
+
+    Returns the refreshed FULL asset list so the operator UI never shows a
+    mixed half-old / half-new state. The three assets derive from one fresh
+    insight set (op_ai.regenerate_pack), so they stay internally consistent.
+    """
+    try:
+        target = op_db.get_target_by_id(target_id=target_id)
+        profile = target.get("profile_json") or {}
+        pack = op_ai.regenerate_pack(
+            firm_name=target["firm_name"],
+            sector=_sector(profile),
+            profile=profile,
+        )
+        source = pack["source"]
+        op_db.regenerate_asset_row(
+            target_id=target_id, asset_type="insight",
+            payload={"insights": pack["insights"], "source": source},
+        )
+        op_db.regenerate_asset_row(
+            target_id=target_id, asset_type="loom_script",
+            payload={**pack["loom_script"], "source": source},
+        )
+        op_db.regenerate_asset_row(
+            target_id=target_id, asset_type="cold_email",
+            payload={**pack["cold_email"], "source": source},
+        )
+        return {"ok": True, "assets": op_db.list_assets(target_id=target_id)}
+    except OutreachTargetNotFound as exc:
+        return domain_error_response(
+            request=request, status_code=404, code="outreach_personalizer.not_found",
+            detail=str(exc), action="outreach-personalizer.regenerate-all.failed",
+        )
+    except ValueError as exc:
+        return domain_error_response(
+            request=request, status_code=422, code="outreach_personalizer.regenerate_error",
+            detail=str(exc), action="outreach-personalizer.regenerate-all.failed",
+        )
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code,
+            detail=str(exc), action="outreach-personalizer.regenerate-all.failed",
         )
 
 

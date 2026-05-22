@@ -8,7 +8,42 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# ---------------------------------------------------------------------------
+# Microsite profile (Phase 4) — typed schema for the known profile_json keys.
+# profile_json stays free-form JSONB in the DB; this model is the typed edge so
+# the API does not accept arbitrary object soup. Every field optional: a PATCH
+# sends only what it changes; an explicit null clears that key on merge.
+# ---------------------------------------------------------------------------
+
+class MicrositeProfilePatch(BaseModel):
+    """Typed partial of the microsite profile fields stored inside profile_json.
+
+    Used by both create (TargetCreateIn.profile) and PATCH (MicrositeUpdateIn.
+    profile). The route folds/merges this into cro_outreach_target.profile_json.
+
+    proof_points are operator-supplied microsite proof bullets. The cap +
+    per-item length limit are enforced at the route layer via
+    outreach_personalizer.validate_proof_points (so the failure is a clean
+    domain 400, not a request-parse error) — see that function. This schema's
+    validator only normalizes (trim + drop empties).
+    """
+    sector: str | None = None
+    website: str | None = None
+    calendar_url: str | None = None
+    cta_label: str | None = None
+    cta_url: str | None = None
+    positioning_notes: str | None = None
+    proof_points: list[str] | None = None
+
+    @field_validator("proof_points")
+    @classmethod
+    def _normalize_proof_points(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        return [str(p).strip() for p in v if str(p).strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -20,6 +55,10 @@ class TargetCreateIn(BaseModel):
 
     env_id / business_id may also arrive as query params (mirrors pitch_forge);
     if present here they take precedence for the seed flow.
+
+    Phase 4: `profile` is the typed way to set microsite profile fields; it is
+    merged into profile_json by the route (profile wins over profile_json on
+    key conflicts). `profile_json` is kept for back-compat with the seed path.
     """
     env_id: str | None = None
     business_id: UUID | None = None
@@ -28,6 +67,7 @@ class TargetCreateIn(BaseModel):
     logo_url: str | None = None
     accent_hsl: str | None = None
     profile_json: dict[str, Any] = Field(default_factory=dict)
+    profile: MicrositeProfilePatch | None = None
     loom_url: str | None = None
 
 
@@ -70,6 +110,11 @@ class MicrositeUpdateIn(BaseModel):
     crm_opportunity_id: UUID | None = None  # Phase 2C
     logo_url: str | None = None
     accent_hsl: str | None = None
+    # Phase 4 — typed partial of profile_json fields. When provided, the route
+    # shallow-merges model_dump(exclude_unset=True) into profile_json so the
+    # operator can edit CTA / sector / positioning / proof after create. An
+    # explicit null on a profile field clears that key.
+    profile: MicrositeProfilePatch | None = None
 
 
 # ---------------------------------------------------------------------------

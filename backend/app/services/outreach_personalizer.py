@@ -47,6 +47,61 @@ def normalize_loom_url(value: str | None) -> str | None:
     return f"https://www.loom.com/embed/{m.group(1)}"
 
 
+# Phase 4 — CTA URL safety. The operator-supplied CTA href reaches the public
+# microsite as an anchor target, so it must never be a javascript:/data: URL.
+# Allow only http(s) links and mailto:. Validated on write (PATCH) AND
+# re-validated at serve time in _microsite_payload (defense in depth, mirrors
+# the normalize_loom_url pattern).
+_SAFE_CTA_RE = re.compile(r"^(?:https?://|mailto:)", re.IGNORECASE)
+
+
+def safe_cta_url(value: str | None) -> str | None:
+    """Return a safe CTA URL, or None to clear.
+
+    Raises ValueError for any non-empty value that is not an http(s) or
+    mailto: URL (this rejects javascript:/data:/relative/scheme-relative URLs).
+    """
+    if value is None:
+        return None
+    v = value.strip()
+    if v == "":
+        return None
+    if not _SAFE_CTA_RE.match(v):
+        raise ValueError(
+            "cta_url must be an http(s) link or a mailto: address."
+        )
+    return v
+
+
+# Phase 4 — proof_points are operator-supplied microsite proof bullets. Capped
+# so the proof section stays short and can never become a place for invented
+# or sprawling claims. Enforced at the route layer (clean domain 400).
+PROOF_POINTS_MAX = 5
+PROOF_POINT_MAX_LEN = 280
+
+
+def validate_proof_points(value: list | None) -> list[str] | None:
+    """Return the cleaned proof_points list, or None.
+
+    Raises ValueError when there are more than PROOF_POINTS_MAX items or any
+    item exceeds PROOF_POINT_MAX_LEN characters. Empty/whitespace items are
+    dropped. proof_points are operator text ONLY — never AI-generated.
+    """
+    if value is None:
+        return None
+    cleaned = [str(p).strip() for p in value if str(p).strip()]
+    if len(cleaned) > PROOF_POINTS_MAX:
+        raise ValueError(
+            f"proof_points is capped at {PROOF_POINTS_MAX} items."
+        )
+    for p in cleaned:
+        if len(p) > PROOF_POINT_MAX_LEN:
+            raise ValueError(
+                f"each proof point must be {PROOF_POINT_MAX_LEN} characters or fewer."
+            )
+    return cleaned
+
+
 # ---------------------------------------------------------------------------
 # Domain errors
 # ---------------------------------------------------------------------------
@@ -195,6 +250,41 @@ def patch_target(*, target_id: UUID, fields: dict) -> dict:
     if not row:
         raise OutreachTargetNotFound(f"Target {target_id} not found")
     return row
+
+
+def merge_profile_json(*, target_id: UUID, partial: dict) -> dict:
+    """Phase 4 — shallow-merge `partial` into the target's profile_json.
+
+    Keys present in `partial` overwrite; a key whose value is None is removed
+    (operator clear). Unlisted keys are preserved — this never clobbers the
+    rest of profile_json. Empty `partial` is a no-op read. Used by the PATCH
+    route so the operator can edit CTA / sector / positioning / proof after
+    create without disturbing other profile fields.
+    """
+    if not partial:
+        return get_target_by_id(target_id=target_id)
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT profile_json FROM cro_outreach_target WHERE id = %s::uuid",
+            (str(target_id),),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise OutreachTargetNotFound(f"Target {target_id} not found")
+        merged = dict(row.get("profile_json") or {})
+        for key, val in partial.items():
+            if val is None:
+                merged.pop(key, None)
+            else:
+                merged[key] = val
+        cur.execute(
+            """UPDATE cro_outreach_target
+                  SET profile_json = %s::jsonb, updated_at = now()
+                WHERE id = %s::uuid
+                RETURNING *""",
+            (json.dumps(merged), str(target_id)),
+        )
+        return cur.fetchone()
 
 
 # ---------------------------------------------------------------------------
