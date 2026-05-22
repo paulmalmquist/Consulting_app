@@ -83,12 +83,31 @@ When a request touches client portability or white-labeling, keep the three-laye
 3. Dominant intent in the request
 4. Supporting docs from the selected doc's `handoff_to`
 
+## Work Intake Gate
+
+Azure DevOps is the front door for all non-trivial work. Before routing any
+implementation request to `.skills/feature-dev/SKILL.md` or an owning agent,
+route it through `.skills/azure-devops-intake/SKILL.md` first — unless an
+approved Session Brief already exists for the current session. Intake
+classifies the request, finds or proposes the `Epic → Feature → User Story/Bug
+→ Task` hierarchy on the Novendor board, and produces the Session Brief that
+`feature-dev` and the owning agents consume. `feature-dev` and the owning
+agents are downstream of intake, not parallel to it.
+
+Trivial bypass — skip intake only for harmless copyedits, typos, pure
+formatting, one-line non-behavioral tweaks, or an explicit "throwaway
+experiment." The bypass never applies to instruction/governance files
+(`CLAUDE.md`, `skills/`, `.skills/`, `docs/plans/`, AI runtime behavior docs,
+deployment docs, security/compliance docs). Full standard:
+[`docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`](docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md).
+
 ## Intent Taxonomy
 
 | Intent | Primary target |
 |---|---|
+| any non-trivial coding request — feature, bug, refactor, design change, AI behavior change, data/schema change, deploy task, research spike — when no approved Session Brief exists yet | `.skills/azure-devops-intake/SKILL.md` (then handoff to `.skills/feature-dev/SKILL.md`) |
 | bootstrap, session startup, repo identity, working directory sanity check | `skills/winston-session-bootstrap/SKILL.md` |
-| implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` |
+| implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` (downstream of `azure-devops-intake`) |
 | chat workspace, response blocks, inline charts/tables, conversational transforms | `skills/winston-chat-workspace/SKILL.md` |
 | dashboard composition, intent parsing, query transparency, blank widgets, entity_ids | `skills/winston-dashboard-composition/SKILL.md` |
 | REPE write tools, mutation flow, AdvancedDrawer, live status | `skills/winston-agentic-build/SKILL.md` |

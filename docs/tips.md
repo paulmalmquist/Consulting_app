@@ -2719,3 +2719,33 @@ The marketing surface uses its own design system (`docs/assets/Novendor_Design_S
 - **CTA / link URLs from operators must be validated on write AND re-validated at serve time.** `safe_cta_url()` allows only `http(s):`/`mailto:` and rejects `javascript:`/`data:` — mirrors the `normalize_loom_url` pattern. The PATCH route validates on write; `_microsite_payload` re-validates at serve time so a tampered or legacy DB value can never reach the public page as an unsafe `href` (it degrades to the next CTA fallback instead).
 - **"Regenerate all" must return the full refreshed pack, not fire-and-forget.** `POST /regenerate-all` regenerates insight → loom → email from one fresh insight set and returns the complete asset list, so the operator UI swaps in all three at once and never shows a half-old/half-new state. It is AI-required and fails closed (no deterministic fallback) — regeneration is an explicit operator action, and a half-deterministic result would be misleading.
 - **"Duplicate" can be pure frontend prefill — no endpoint needed.** Because `POST /targets` is idempotent on `(env_id, firm_slug)`, duplicating a microsite to a new firm is just prefilling the Create form (new blank slug) from an existing target's fields and submitting. Don't build a duplicate endpoint for what is a client-side form-population convenience.
+
+## Azure DevOps Board Management (2026-05-21)
+
+CLI quirks (Azure CLI `az` on Windows, devops extension):
+
+- The `az` binary lives at `C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`. A fresh shell after MSI install does not have it on PATH; reference the full path.
+- `az devops configure --defaults organization=... project=...` persists defaults, **but** any command that passes an explicit `--org` flag stops honoring the default `--project`. When you pass `--org`, always also pass `--project Novendor`. This silently produced "must be specified" errors on `work-item create`.
+- Iteration path format for `work-item update --iteration` is `\Novendor\Sprint N` — **not** `\Novendor\Iteration\Sprint N`, even though the iteration tree shows the `\Iteration\` segment. The tree path and the assignment path differ.
+- Area path creation needs the absolute parent: `--path "\Novendor\Area"` (the root area node), not `--path "\Novendor"`. Discover the root node with `az boards area project list --depth 1` (it returns `\Novendor\Area`).
+- `--assigned-to` requires the real identity, not a display name. `"Paul Malmquist"` fails with "unknown identity"; use the account `paulmalmquist1984@outlook.com`.
+- `az boards work-item relation add` succeeds silently but **piping its output to `Out-Null` discards the result you need to verify the link took**. Capture the JSON and assert `fields.'System.Parent' -eq <parentId>`. A whole batch of parent links failed silently this way before being caught.
+- `WIQL` queries via `az boards query` do not return `System.Parent` in table output by default even when selected. Verify parent links with `az boards work-item show --id <id> --expand Relations` and read the `relations` array (`rel: "Parent"`).
+- PowerShell 5.1: redirecting native stderr with `2>&1` into `ConvertFrom-Json` wraps lines in ErrorRecord objects ("Invalid JSON primitive: WARNING"). Use `2>$null`.
+- Test Plans REST API rejects MSA OAuth tokens (`az account get-access-token`); it needs a dedicated ADO PAT. Workaround: use the `Test Case` **work item type** through the standard Boards API instead.
+- There is no in-place process change for an ADO project. Basic process boards have 3 fixed columns; to get configurable columns you must recreate the project with the Agile process and restore work items from a backup JSON.
+
+Hierarchy + board hygiene decisions:
+
+- Canonical hierarchy is **Epic → Feature → User Story → Task/Bug**. Every Story gets a parent Feature; every Feature gets a parent Epic. Do not parent Stories directly to Epics.
+- A work item has exactly one parent. `relation add` only adds — it does not replace. To re-parent, `relation remove` the old parent first, then add.
+- Always export a backup JSON (`az boards query` → `ConvertTo-Json`) before bulk changes or deletes.
+- Do not create speculative empty Epics. Domains that are really Features of an existing Epic (AI Runtime under AI Training, Reporting/Compliance under Investment Engine, Documents under Legal/RAG) should be Features, not peer Epics. Five empty Epics created speculatively were closed during cleanup.
+- Do not make `Platform-Core` an area-path dumping ground. Each Epic domain gets its own area path; Investment Engine Features were created in `Platform-Core` by mistake and had to be moved to `Investment-Engine` to match their Epic.
+- Keep an Epic's Features and Stories in the **same area path** as the Epic.
+- Test scenarios belong as `Test Case` items linked to their Story (via parent relation), or as Tasks under a test Story — not as peer User Stories.
+- Sprint 1 of a new ADO operating rhythm should be foundation work (board cleanup, CI confidence, app shell, auth, multi-tenant isolation, capability manifest), 5–8 Stories max. Defer not-yet-started feature work (Morning Book, REPE, IE) to later sprints even if it was drafted first.
+- Only create child Tasks for the current sprint's Stories. Do not pre-task the whole backlog.
+- ADO-first is now the default way of working. Every non-trivial coding request routes through `.skills/azure-devops-intake/SKILL.md` (classify → locate → propose → create → Session Brief → handoff to `feature-dev`) before any code is written. The only bypass is an explicit throwaway experiment or a harmless copyedit/typo/one-line non-behavioral tweak — and the bypass never applies to instruction/governance files (`CLAUDE.md`, `skills/`, `.skills/`, `docs/plans/`, AI behavior/deploy/security docs). Full standard: `docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`.
+- ADO state discipline for coding agents: `In Dev` at start, `In Review` when code/tests/evidence are ready, `Closed` only when the PR is merged and deploy/smoke is verified. A local-only pass never closes a work item. Every session also appends an ADO discussion comment (branch/commit/PR, files, tests, evidence, risks, next item) — a bare state change is not an audit trail.
+- If the Azure DevOps CLI is unavailable or unauthenticated during intake, stop before coding and emit an "ADO Unavailable Blocker" note with the exact command and error. Do not silently proceed; proceed only on an explicit, marked user exception.
