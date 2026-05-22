@@ -71,6 +71,11 @@ Read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Con
 7. Add `COMMENT ON TABLE` for every new table.
 
 ### STATE: orienting
+- **ADO precondition**: confirm an approved Session Brief exists for this work
+  (ADO work item ID + acceptance criteria). If none exists, STOP — route back to
+  `.skills/azure-devops-intake/SKILL.md`. Do not start coding without a brief.
+- Move the ADO work item to **`Active`**:
+  `& $az boards work-item update --id <id> --state "Active" --org https://dev.azure.com/paulmalmquist1984`
 - Read CLAUDE.md: `cat CLAUDE.md`
 - If schema may change, read ARCHITECTURE.md: `cat ARCHITECTURE.md`
 - Identify which runtime owns this feature (repo-b, backend, repo-c)
@@ -129,6 +134,35 @@ curl -s "$RAIL/api/<your-route>?env_id=$ENV&business_id=$BIZ" | python3 -m json.
 
 ---
 
+## ADO state-transition discipline — no fake completion status
+
+- `Active` — set in the **orienting** state when implementation starts.
+- `Resolved` — set when code, tests, and evidence are ready for review.
+- `Closed` — set **only** when the PR is merged AND the required deploy/smoke
+  criteria below are actually verified. If merge or deploy did not happen,
+  leave the work item at `Resolved`. Never close on local success alone.
+
+```powershell
+$az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
+& $az boards work-item update --id <id> --state "Resolved" --org https://dev.azure.com/paulmalmquist1984
+```
+
+## ADO audit comment — required every session
+
+Append a discussion comment to the work item — a state change alone is not
+enough. Include branch/commit/PR, files changed, tests run, evidence, risks,
+and the next recommended work item:
+
+```powershell
+& $az boards work-item update --id <id> --discussion "<audit comment text>" --org https://dev.azure.com/paulmalmquist1984
+```
+
+Attach links: any PR, branch, commit, screenshot, Playwright trace, deployment
+URL, or test artifact that exists must be linked from the work item so ADO is
+the real system of record.
+
+---
+
 ## Completion Criteria — ALL must be true before declaring done
 
 ```
@@ -137,6 +171,9 @@ curl -s "$RAIL/api/<your-route>?env_id=$ENV&business_id=$BIZ" | python3 -m json.
 [ ] Deploy command executed — output included
 [ ] Smoke test returns expected HTTP status — output included
 [ ] Browser screenshot confirms feature visible on paulmalmquist.com
+[ ] ADO work item state moved (Resolved, or Closed only if merged + deploy/smoke verified)
+[ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
+[ ] PR/branch/artifact links attached to the ADO work item
 ```
 
 Produce this block at the end of every response:
