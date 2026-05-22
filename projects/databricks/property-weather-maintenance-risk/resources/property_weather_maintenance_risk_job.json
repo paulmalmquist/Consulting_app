@@ -1,0 +1,26 @@
+{
+  "name": "property_weather_maintenance_risk_job",
+  "tasks": [
+    {
+      "task_key": "setup",
+      "notebook_task": {
+        "notebook_path": "/Shared/property-weather-maintenance-risk/notebooks/00_setup.py",
+        "base_parameters": {
+          "start_year": "2015",
+          "end_year": "2025",
+          "holdout_year": "2025",
+          "event_types": "tornado,hail,thunderstorm wind,flash flood,flood,hurricane/typhoon,winter storm,wildfire,drought",
+          "sample_frac": "1.0",
+          "catalog": "main",
+          "schema": "property_ops_risk_ml",
+          "experiment_name": "/Shared/property_ops_weather_maintenance_risk_ml",
+          "damage_threshold": "25000",
+          "synthetic_property_ops_enabled": "true",
+          "synthetic_property_count": "250",
+          "synthetic_unit_count": "25000",
+          "random_seed": "42"
+        }
+      }
+    }
+  ]
+}
