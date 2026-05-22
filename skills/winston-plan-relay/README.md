@@ -66,6 +66,30 @@ Behavior notes:
 - `--target-agent human` only works with `--dry-run` — there is no `human` CLI to invoke.
 - `--adapter-timeout <seconds>` caps the reviewer run (default 600).
 
+## Session launcher — `session.py`
+
+`relay.py` operates on one plan file you name. `session.py` is the front door: it lists the active implementation plans, lets you pick one, and runs the relay against it — optionally inside an isolated git worktree.
+
+```powershell
+# Interactive: pick a plan from a numbered menu, assemble the bundle (dry-run)
+python skills/winston-plan-relay/scripts/session.py --repo-root .
+
+# Explicit plan, headless review — invokes the claude CLI, writes the review
+python skills/winston-plan-relay/scripts/session.py --repo-root . --plan 0001 `
+  --mode plan-review --headless
+
+# Run inside an isolated git worktree (review needs no isolation, so opt-in)
+python skills/winston-plan-relay/scripts/session.py --repo-root . --plan 0001 `
+  --mode plan-review --headless --worktree
+```
+
+Session artifacts land under `tmp/relay-sessions/<plan-stem>/`: the relay output, `<...>.bundle.md`, the relay receipt, and a `<...>.session.md` session receipt (plan, execution class, worktree path/branch, relay command, exit code, review commands).
+
+Behavior notes:
+- **Ticket 3A is a review launcher only.** `--execution-class coding` is rejected — coding mode arrives in Ticket 3B with an explicit permission posture.
+- **Worktree is opt-in (`--worktree`).** A review run edits nothing, so isolation buys nothing and a full second checkout is pure overhead. `--worktree` creates `git worktree add` on a fresh `session/<id>-<ts>` branch, runs the relay with `--repo-root` pointed at it, and leaves it intact for review — `session.py` never commits, merges, pushes, or removes a worktree.
+- A `--worktree` run requires a clean base branch (tracked modifications only — untracked files are ignored). Dirty tracked files fail the run loud.
+
 ## When to reach for this skill
 
 - You're about to start a Claude Code or Codex session and want to hand the agent a tight, repo-grounded prompt instead of a vague brief.
@@ -83,5 +107,7 @@ Behavior notes:
 - **Ticket 1** — dry-run bundle assembler.
 - **Ticket 1.6** — made the bundle behavior-driving (imperative prompts, `## Your task` header, collision-proof fences).
 - **Ticket 2** — Claude/Codex CLI subprocess adapters. Dry-run remains the default-safe path; adapter invocation is opt-in by dropping `--dry-run`.
+- **Ticket 3A** — `session.py` session launcher: interactive plan picker, review-class launch, opt-in git-worktree isolation. Review only — no coding permissions.
+- **Ticket 3B** (next) — coding-class launch with an explicit permission posture (`acceptEdits` / `workspace-write`), worktree mandatory.
 
 The adapters shell out to a locally installed CLI only — no API keys, no network calls of their own.

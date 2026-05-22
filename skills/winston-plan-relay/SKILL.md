@@ -79,7 +79,8 @@ skills/winston-plan-relay/
   SKILL.md                       # this file
   README.md                      # quick-start narrative
   scripts/
-    relay.py                     # CLI (Python 3.10+, stdlib only)
+    relay.py                     # bundle assembler + adapter dispatch (Python 3.10+, stdlib only)
+    session.py                   # session launcher: plan picker + worktree + relay run
     adapters/
       __init__.py                # shared: detection, subprocess runner, result types
       claude_cli.py              # `claude --print` adapter
@@ -105,6 +106,8 @@ skills/winston-plan-relay/
 - **Ticket 1** — dry-run bundle assembler.
 - **Ticket 1.6** — made the bundle behavior-driving (imperative prompt fragments, `## Your task` header, collision-proof fences).
 - **Ticket 2** — Claude/Codex CLI subprocess adapters under `scripts/adapters/`. Dry-run stays the default-safe path; adapter invocation is opt-in by dropping `--dry-run`. Single-reviewer invocation only — no reconciliation engine.
+- **Ticket 3A** — `session.py` session launcher: interactive plan picker, review-class launch over the relay adapter path, opt-in git-worktree isolation. Review only — `--execution-class coding` is rejected.
+- **Ticket 3B** (next) — coding-class launch with explicit permission posture (`claude --permission-mode acceptEdits` / `codex exec -s workspace-write`), worktree mandatory. Built only after the posture is signed off.
 
 ## Safety rules
 
@@ -113,6 +116,7 @@ skills/winston-plan-relay/
 - No model API calls. Adapters shell out to a locally installed CLI only.
 - A missing reviewer CLI fails loud (exit 3). A non-zero reviewer exit fails the relay (exit 1) — a failed review is never reported as success.
 - The exact prompt sent to a reviewer is always preserved at `<out>.bundle.md`.
+- `session.py` never commits, merges, pushes, or removes a git worktree — a session worktree is left intact for human review, and cleanup is the operator's call.
 
 ## See also
 
