@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
-import { LeftSidebar } from "@/components/operator/command-desk/layout/LeftSidebar";
-import { consultingSidebarSections } from "@/app/lab/env/[envId]/operator/_sidebar";
+import { ConsultingPageFrame } from "@/components/consulting/ConsultingPageFrame";
 import {
   createContact as apiCreateContact,
   fetchContacts,
@@ -34,21 +33,6 @@ function fmtRelDate(iso: string | null | undefined): string {
   return d.toLocaleDateString();
 }
 
-const winstonBrand: ReactNode = (
-  <span
-    className="font-command"
-    style={{
-      fontSize: "1rem",
-      fontWeight: 700,
-      letterSpacing: "0.08em",
-      textTransform: "uppercase",
-      color: "#ffffff",
-      textShadow: "0 0 12px rgba(255,255,255,0.07)",
-    }}
-  >
-    WINSTON
-  </span>
-);
 
 export default function ContactsPage({ params }: { params: { envId: string } }) {
   const { businessId, ready } = useConsultingEnv();
@@ -169,35 +153,11 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
   }
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "240px minmax(0, 1fr)",
-        gridTemplateRows: "52px minmax(0, 1fr)",
-        height: "100%",
-        minHeight: 0,
-        background: "#05070B",
-      }}
-    >
-      <LeftSidebar
-        mode="brand"
-        brand={winstonBrand}
-        sections={consultingSidebarSections(params.envId)}
-        activeKey="contacts"
-      />
-
-      <div
-        style={{
-          height: 52,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 16px",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          minWidth: 0,
-          gap: 12,
-        }}
-      >
+    <ConsultingPageFrame
+      envId={params.envId}
+      activeKey="contacts"
+      headerContent={
+        <>
         <span
           style={{
             fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
@@ -252,14 +212,9 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
             {showAdd ? "Cancel" : "+ Contact"}
           </button>
         </div>
-      </div>
-
-      <LeftSidebar
-        mode="nav"
-        sections={consultingSidebarSections(params.envId)}
-        activeKey="contacts"
-      />
-
+        </>
+      }
+    >
       <div
         style={{
           minWidth: 0,
@@ -617,7 +572,7 @@ export default function ContactsPage({ params }: { params: { envId: string } }) 
           </div>
         )}
       </div>
-    </div>
+    </ConsultingPageFrame>
   );
 }
 
