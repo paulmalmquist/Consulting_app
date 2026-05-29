@@ -106,6 +106,10 @@ Shared dimensions and reference tables currently exempt by design:
 - `module_dependency`
 - `object_type`
 
+Pre-tenant public intake tables currently exempt by design:
+
+- `nv_ai_roi_leads` - captures AI ROI calculator, discovery, and resource leads before a visitor maps to an environment or business. RLS must be enabled, no public read policy may be added, and server-side writes must go through the marketing API route.
+
 If a new shared reference table is introduced, add it to this exemption list in the same PR.
 
 ## Authoritative Snapshot Fixture Convention

@@ -115,6 +115,7 @@ deal-opportunities-*.md
 # Binary files and outputs
 *.pdf
 !backend/tests/fixtures/sample_text.pdf
+!repo-b/public/assets/ai-roi/*.pdf
 *.docx
 *.pptx
 *.xlsx

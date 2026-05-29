@@ -29,6 +29,7 @@ const ALLOWED_NAV_ITEMS = new Set([
   'What We Do',
   'Industries',
   'Operational Assessment',
+  'AI ROI',
   'AI Concierge',
   'Comprehensive Data Strategy',
   'About',
@@ -54,6 +55,7 @@ type NvIcon = ComponentType<NvIconProps>;
 const NAV_ICON_BY_LABEL: Record<string, NvIcon> = {
   Home: IconHome,
   'AI Concierge': IconCompass,
+  'AI ROI': IconBarChart,
   'What We Do': IconWorkflow,
   'Comprehensive Data Strategy': IconBarChart,
   Industries: IconIndustries,

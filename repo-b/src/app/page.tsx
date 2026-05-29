@@ -1,44 +1,5 @@
-import type { Metadata } from "next";
-import ResumeThemeInit from "@/app/paul/ResumeThemeInit";
-import PersonalPageBody from "@/components/resume/PersonalPageBody";
-
-export const metadata: Metadata = {
-  title: "Paul Malmquist — AI Data Platform Architect",
-  description:
-    "Director-level data engineer who built governed AI and data platforms managing $4B+ AUM. 11 years of compounding investment data systems — from BI service lines to AI-powered analytics.",
-  openGraph: {
-    title: "Paul Malmquist — AI Data Platform Architect",
-    description:
-      "Built governed data and AI systems for Kayne Anderson and JLL. 500+ properties automated, 160 hrs/month eliminated, $4B+ AUM governed.",
-    type: "profile",
-    url: "https://paulmalmquist.com",
-    images: [
-      {
-        url: "/og-paul.png",
-        width: 1200,
-        height: 630,
-        alt: "Paul Malmquist — AI Data Platform Architect",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Paul Malmquist — AI Data Platform Architect",
-    description:
-      "Built governed data and AI systems for Kayne Anderson and JLL. 500+ properties automated, $4B+ AUM governed.",
-    images: ["/og-paul.png"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+import { permanentRedirect } from "next/navigation";
 
 export default function RootPage() {
-  return (
-    <div className="min-h-screen" style={{ background: "var(--ros-bg, #f8f5f0)" }}>
-      <ResumeThemeInit />
-      <PersonalPageBody />
-    </div>
-  );
+  permanentRedirect("/what-we-do");
 }
