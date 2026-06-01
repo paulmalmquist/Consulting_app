@@ -3,15 +3,88 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 5)
+## Status (2026-06-01, end of Phase 6)
 
-All phases complete. **Phase 5 (deploy) is done:** the backend is live on Railway (telemetry routes
-serving real data, `/version` = the Phase 4 commit), and the frontend is live on Vercel
-(`novendor.ai`), with `/api/telemetry/*` reachable through the production proxy and the lab routes
-auth-gated. The full operated loop — Databricks → MLflow registry → FastAPI → Supabase → dashboard →
-monitoring — runs end to end on live URLs.
+All phases complete through Phase 6 (operated-history data enrichment + Option B Lab Workbench UI).
+The demo now reads operated, not thin: a fleet of real test runs, hundreds of real predictions, real
+anomaly events, and a real PSI drift series — all derived from the real pipeline — rendered in a
+telemetry-only operator console with no executive chrome. Live on novendor.ai.
 
 **Live URLs:**
+- Backend API: `https://authentic-sparkle-production-7f37.up.railway.app` (git_sha `62dcab4a`)
+- Frontend: `https://novendor.ai` (Vercel project `consulting-app`, root dir `repo-b`)
+- Reviewer demo route: `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`
+  (authenticated lab tenant — log in first)
+
+## Phase 6 — operated-history enrichment + Lab Workbench UI
+
+### Data enrichment (telemetry-demo tenant; real pipeline outputs only)
+
+Backfill `telemetry-platform/databricks/13_backfill_serving.py` → committed
+`seed_serving_backfill.sql`. Heavy aggregation in Databricks SQL; champion rule + PSI applied locally.
+
+| Table | Before | After |
+|---|---|---|
+| `tel_test_runs` | 1 | 42 (30 SMAP/MSL channels + 12 C-MAPSS units) |
+| `tel_predictions` | 3 | 364 (360 backfilled + 3 live; verdicts 259 GO / 31 REVIEW / 74 NO_GO) |
+| `tel_anomaly_events` | 0 | 102 (30 real NASA labels + 72 model-detected) |
+| `tel_drift_metrics` | 0 | 104 (PSI + rolling-rate; 8 monitored channels) |
+| `tel_model_runs` | 4 | 4 (unchanged — the real models) |
+
+Every row traces to a real source: predictions are the frozen champion (MAD, threshold 0.135467)
+scored over real `gold_smap_msl_windows` per-channel windows; anomaly events are the real
+`anomaly_sequences` labels (point/contextual); PSI is computed from real train-vs-test 10-bin
+histograms. The 71% GO / 9% REVIEW / 20% NO_GO mix emerged from a representative fleet selection
+(mostly-nominal channels by real anomaly fraction + a degraded minority), not from tuning.
+
+Integrity:
+- **Idempotent + live-preserving:** rows carry `is_backfilled=true` + `backfill_batch_id='phase6-backfill-v1'`
+  (migration `10008`). Re-applying held counts steady (363→363, no doubling). The 3 live `/score`
+  receipts (`is_backfilled=false`) are preserved; `tel_model_runs` untouched.
+- **Timestamps** spread over ~45 days and flagged as backfill; values/verdicts/PSI are real.
+- **Fail-closed PSI:** computed from real histograms (would leave drift empty + report otherwise).
+- Traceability: the backfill prints 5 sample rows per table with source-trace fields.
+
+### Backend (lean — no new deps)
+
+- `score_window`: GO/REVIEW/NO_GO band (REVIEW = score 1–2× threshold) so live scoring matches the
+  backfill; live receipts stamped `is_backfilled=false`.
+- New `GET /api/telemetry/summary`: single KPI + serving-inventory contract for the Overview. Live:
+  `{runs 42, predictions 364, anomaly_events 102, drift_monitors 8, verdicts {GO 259, REVIEW 31, NO_GO 74}}`.
+
+### UI — Option B Lab Workbench
+
+- Executive chrome removed via the proven seam: `telemetry` added to `LabEnvironmentShell.isDomainRoute`
+  (full-bleed) + breadcrumb skip in `LabEnvTopBar`. Scoped to telemetry; other envs unaffected.
+- Ported the Option B look (the `C` palette + `Tag`/`Panel`/`MetricCard`/`ModelCard`/`EmptyState`):
+  single TEL ANOMALY / WORKBENCH rail (5 sections), 4-up metric strip, champion-vs-challenger model
+  registry, verdict-distribution bar, ingested test-run fleet, serving-data inventory, all bound to
+  `/summary` (single KPI source). Backfill-vs-live disclosure label on Overview + Monitoring.
+- Replay money-shot preserved: GO→NO-GO flip at t=728 from the real champion fixture.
+- Frontend typecheck 0 errors. Screenshots: `telemetry-platform/docs/screenshots/p6_*.png`
+  (`p6_overview`, `p6_replay_initial`, `p6_replay_flip`, `p6_runs`, `p6_model_performance`, `p6_monitoring`).
+
+### Live verification (novendor.ai)
+
+```
+GET https://novendor.ai/api/telemetry/summary  -> runs 42, predictions 364, events 102, drift_monitors 8,
+                                                   verdicts {GO 259, REVIEW 31, NO_GO 74}, disclosure note present
+GET https://novendor.ai/api/telemetry/runs     -> 42 runs
+GET https://novendor.ai/api/telemetry/replay    -> first_model_fire_t 728
+cold session  /lab/env/dc82d39d-.../telemetry  -> 307 redirect to /login (route live + auth-gated)
+backend /version = 62dcab4a ; Vercel prod consulting-rhoklh0rf = Ready
+```
+
+Known gap (unchanged from Phase 5): the authenticated production screenshot of the live UI was not
+captured — the `info@novendor.ai` login password is not reachable from this session (not in the
+pulled Vercel/prod env). The identical deployed UI is proven by the local-stack `p6_*` screenshots,
+and the production API + auth gate are verified live above.
+
+---
+
+## (Phase 5 record below)
+
+**Live URLs (as of Phase 5):**
 - Backend API: `https://authentic-sparkle-production-7f37.up.railway.app` (git_sha `f178c5c1`)
 - Frontend: `https://novendor.ai` (Vercel project `consulting-app`, root dir `repo-b`)
 - Reviewer demo route: `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`

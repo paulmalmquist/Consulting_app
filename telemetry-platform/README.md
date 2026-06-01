@@ -120,6 +120,8 @@ their READMEs.
 
 ## Status
 
-Phase 0 (planning + skeleton + demo contract) complete. Phase 1 (Databricks ingestion) is gated on
-`DATABRICKS_PAT`. Plan: `docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`.
-Environment notes: `docs/plans/telemetry-platform/`.
+COMPLETE — Phases 0–6, live on novendor.ai. Phase 6 enriched the demo to an operated history (42 real
+test runs, 364 predictions, 102 anomaly events, real PSI drift — all from the real pipeline) and
+rebuilt the UI as the Option B telemetry-only "Lab Workbench" (no executive chrome). Backend git_sha
+`62dcab4a`. Plan: `docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`.
+Environment notes: `docs/plans/telemetry-platform/`. Evidence: `PROOF.md`. Screenshots: `docs/screenshots/p6_*`.

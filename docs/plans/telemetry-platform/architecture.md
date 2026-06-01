@@ -1,7 +1,10 @@
 # Telemetry Platform — Architecture
 
 **Last updated:** 2026-06-01
-**Status:** COMPLETE (Phases 1–5) — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered
+**Status:** COMPLETE (Phases 1–6). Phase 6 added an operated-history backfill (42 real test runs, 364
+predictions, 102 anomaly events, 104 drift rows — all real pipeline outputs, `is_backfilled` flagged)
+and the Option B telemetry-only Lab Workbench UI. Backend `62dcab4a`. See PROOF.md Phase 6.
+**Prior status (Phases 1–5)** — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered
 champions behind gates; Supabase `tel_*` + FastAPI serving; dashboard as a Winston lab env
 (env `dc82d39d…`); deployed live — API on Railway (`authentic-sparkle-production-7f37`), frontend on
 Vercel (novendor.ai). Reviewer access: authenticated lab tenant. Open: authenticated prod screenshot

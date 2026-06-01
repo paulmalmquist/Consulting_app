@@ -1,7 +1,7 @@
 # Dispatch Record 0003 — Telemetry Anomaly Platform Build
 
 **Created:** 2026-06-01
-**Status:** COMPLETE — Phases 0–5 DONE 2026-06-01. Live: Railway API + novendor.ai frontend, full operated loop end to end. One documented gap: authenticated production screenshot (needs login cred); core readiness proven via live API + cold-session auth-gating + local UI screenshots.
+**Status:** COMPLETE — Phases 0–6 DONE 2026-06-01. Live: Railway API (`62dcab4a`) + novendor.ai. Phase 6 added an operated-history backfill (42 runs / 364 predictions / 102 events / 104 drift, real pipeline outputs) + the Option B telemetry-only Lab Workbench UI. One documented gap: authenticated production screenshot (login cred not reachable); deployed UI proven by local screenshots + live API + cold-session auth-gating.
 **Environment:** Telemetry Platform (NASA aerospace analog) — `docs/plans/telemetry-platform/`
 **Deliverable type:** Multi-phase greenfield platform build (portfolio proof-of-work)
 
@@ -133,6 +133,7 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 3. ~~Supabase `tel_*` migration + FastAPI serving + API tests~~ — **DONE 2026-06-01** (`10006_telemetry_serving.sql`, 6 RLS tables; `/api/telemetry/*` live; 0→2 receipts persisted; 7 tests pass; proof in PROOF.md)
 4. ~~Dashboard lab environment + v2 provisioning + deterministic replay~~ — **DONE 2026-06-01** (env `dc82d39d…`; 5 dark-console pages live from the API; GO→NO-GO replay flip verified by screenshots; proof in PROOF.md)
 5. ~~Deploy API (Railway) + frontend (Vercel) + smoke tests~~ — **DONE 2026-06-01** (backend live `/version`=f178c5c1; novendor.ai serves telemetry; 7 endpoints smoke-tested live incl. persisted `/score` receipt; cold session auth-gates correctly; proof in PROOF.md)
+6. ~~Operated-history data enrichment (real pipeline backfill) + Option B Lab Workbench UI~~ — **DONE 2026-06-01** (tel_* enriched: 42 runs / 364 predictions / 102 events / 104 drift, all real; REVIEW band + `/summary`; executive chrome stripped; telemetry-only console; redeployed `62dcab4a`; proof + p6 screenshots in PROOF.md)
 
 ---
 
