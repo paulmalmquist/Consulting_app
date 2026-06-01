@@ -31,6 +31,17 @@ _REPLAY_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "data" / "teleme
 _replay_cache: dict | None = None
 
 
+def _verdict_for(score: float | None) -> str:
+    """GO / REVIEW / NO_GO band on the champion anomaly_score (= peak residual / threshold)."""
+    if score is None:
+        return "GO"
+    if score < 1.0:
+        return "GO"
+    if score <= 2.0:
+        return "REVIEW"
+    return "NO_GO"
+
+
 def _champion(cur, env_id: str, business_id: UUID, model_kind: str) -> dict | None:
     cur.execute(
         """SELECT model_name, model_version, model_alias, mlflow_run_id, metrics, gate
@@ -76,18 +87,19 @@ def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: 
         resids = [abs(v - float(m)) for v, m in zip(values, rmeans)]
         peak_resid = max(resids)
         threshold = MAD_K * GLOBAL_TRAIN_SCALE
-        fired = peak_resid > threshold
         # Display score = peak residual in units of the threshold (>1 means past the redline).
         anomaly_score = round(peak_resid / threshold, 6) if threshold else None
-        verdict = "NO_GO" if fired else "GO"
+        # Verdict band (matches the Phase 6 backfill): GO < 1, REVIEW 1-2, NO_GO > 2 x threshold.
+        verdict = _verdict_for(anomaly_score)
 
         attribution = [{"channel_name": channel_name, "contribution": round(peak_resid, 6)}]
 
         cur.execute(
             """INSERT INTO tel_predictions
                  (env_id, business_id, run_id, channel_name, window_start_t, window_end_t,
-                  anomaly_score, threshold, verdict, model_name, model_version, mlflow_run_id, attribution)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                  anomaly_score, threshold, verdict, model_name, model_version, mlflow_run_id,
+                  attribution, is_backfilled)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,false)
                RETURNING id""",
             (env_id, str(business_id), run_id, channel_name,
              window[0]["t"], window[-1]["t"], anomaly_score, threshold, verdict,
@@ -237,6 +249,77 @@ def model_performance(*, env_id: str, business_id: UUID) -> dict:
         if not rows:
             return {"models": [], "null_reason": "model_not_promoted"}
         return {"models": [dict(r) for r in rows], "null_reason": None}
+
+
+def summary(*, env_id: str, business_id: UUID) -> dict:
+    """Single KPI + inventory contract for the Overview. One bundled set of queries returning per-table
+    row counts and headline KPIs, so the frontend does not re-derive counts from multiple endpoints."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+
+        def count(table: str) -> int:
+            cur.execute(f"SELECT count(*) AS n FROM {table} WHERE env_id = %s AND business_id = %s",
+                        (env_id, str(business_id)))
+            return int(cur.fetchone()["n"])
+
+        inventory = {t: count(f"tel_{t}") for t in
+                     ("test_runs", "telemetry_channels", "predictions", "anomaly_events",
+                      "model_runs", "drift_metrics")}
+
+        # verdict distribution + last score
+        cur.execute(
+            """SELECT verdict, count(*) AS n FROM tel_predictions
+               WHERE env_id = %s AND business_id = %s GROUP BY verdict""",
+            (env_id, str(business_id)))
+        verdicts = {r["verdict"]: int(r["n"]) for r in cur.fetchall()}
+        cur.execute(
+            "SELECT max(created_at) AS last FROM tel_predictions WHERE env_id = %s AND business_id = %s",
+            (env_id, str(business_id)))
+        last_scored = cur.fetchone()["last"]
+
+        # promoted champions (anomaly F1, RUL RMSE) for the headline metric strip
+        cur.execute(
+            """SELECT model_kind, metrics FROM tel_model_runs
+               WHERE env_id = %s AND business_id = %s AND promotion_state = 'promoted'""",
+            (env_id, str(business_id)))
+        champs = {r["model_kind"]: (r["metrics"] or {}) for r in cur.fetchall()}
+
+        # distinct drift monitors (feature/channel before the ':' in window_label) + worst PSI
+        cur.execute(
+            """SELECT count(distinct split_part(window_label, ':', 1)) AS monitors,
+                      max(metric_value) AS worst_psi
+               FROM tel_drift_metrics
+               WHERE env_id = %s AND business_id = %s AND metric_name = 'psi'""",
+            (env_id, str(business_id)))
+        d = cur.fetchone()
+
+        total_pred = sum(verdicts.values()) or 0
+        return {
+            "inventory": inventory,
+            "kpi": {
+                "test_runs": inventory["test_runs"],
+                "predictions": total_pred,
+                "anomaly_events": inventory["anomaly_events"],
+                "promoted_models": _count_promoted(cur, env_id, business_id),
+                "drift_monitors": int(d["monitors"] or 0),
+                "anomaly_f1": (champs.get("anomaly") or {}).get("f1"),
+                "rul_rmse": (champs.get("rul") or {}).get("rmse"),
+                "last_scored_at": last_scored,
+            },
+            "verdicts": verdicts,
+            "verdict_pct": {k: round(v / total_pred, 4) for k, v in verdicts.items()} if total_pred else {},
+            "note": ("Operational history is a deterministic backfill from public NASA analog data "
+                     "(real champion outputs, real labeled windows, real PSI). Live /score receipts "
+                     "continue from current time."),
+        }
+
+
+def _count_promoted(cur, env_id: str, business_id: UUID) -> int:
+    cur.execute(
+        """SELECT count(*) AS n FROM tel_model_runs
+           WHERE env_id = %s AND business_id = %s AND promotion_state = 'promoted'""",
+        (env_id, str(business_id)))
+    return int(cur.fetchone()["n"])
 
 
 def health() -> dict:

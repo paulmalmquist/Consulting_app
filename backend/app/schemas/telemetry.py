@@ -35,7 +35,7 @@ class ChannelAttribution(BaseModel):
 
 
 class ScoreResponse(BaseModel):
-    verdict: str                              # GO | NO_GO | NOT_AVAILABLE
+    verdict: str                              # GO | REVIEW | NO_GO | NOT_AVAILABLE
     anomaly_score: float | None = None
     threshold: float | None = None
     model_name: str | None = None

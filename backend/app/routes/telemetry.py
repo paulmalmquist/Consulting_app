@@ -100,3 +100,12 @@ def model_performance(env_id: str = Query(...), business_id: UUID = Query(...)):
         return svc.model_performance(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/summary")
+def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Single KPI + serving-inventory contract for the Overview (counts + headline metrics)."""
+    try:
+        return svc.summary(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
