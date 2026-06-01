@@ -46,14 +46,36 @@ environment (dashboard), Railway (API deploy), Vercel (frontend deploy).
 
 ## Results
 
-Pending Phase 2. Metrics are reported exactly as computed — no rounding, no aspirational values. A
-model that misses its promotion gate is recorded as held back.
+Trained in Databricks, logged to MLflow, gated before promotion. Metrics are exactly as computed —
+no rounding, no aspirational values. Full run IDs and gate decisions are in [PROOF.md](PROOF.md).
 
-| Model | Metric | Value |
-|---|---|---|
-| Anomaly detector — baseline (dynamic threshold) | precision / recall / F1 | pending Phase 2 |
-| Anomaly detector — LSTM autoencoder | precision / recall / F1 | pending Phase 2 |
-| RUL model — C-MAPSS FD001 | RMSE / PHM score | pending Phase 2 |
+Anomaly detection (SMAP/MSL, point-adjusted F1 on the labeled test split, base rate 12.5%):
+
+| Model | Precision | Recall | F1 | Promotion |
+|---|---|---|---|---|
+| Baseline — rolling-MAD dynamic threshold | 0.5460 | 0.7691 | **0.6387** | promoted (champion) |
+| Stronger — PCA reconstruction error | 0.8726 | 0.2762 | 0.4196 | not selected (lower F1) |
+
+The simple baseline beat the PCA model on F1, so the baseline was promoted. The stronger model was
+not faked into a win.
+
+Remaining useful life (C-MAPSS FD001, 100 test units, RUL capped at 125):
+
+| Model | RMSE | PHM score | Promotion |
+|---|---|---|---|
+| Baseline — linear regression | 21.70 | 1036.1 | not selected (higher RMSE) |
+| Stronger — gradient boosting | **20.32** | 1423.3 | promoted (champion) |
+
+Promotion gates (declared before training): anomaly F1 ≥ 0.30, RUL RMSE ≤ 25. Champions registered in
+the Unity Catalog Model Registry as `novendor_1.telemetry.tel_anomaly_detector@champion` and
+`tel_rul_regressor@champion`.
+
+### Validation discipline
+
+Phase 1's first feature build exposed train/test split leakage: rolling windows partitioned by
+`(subset, unit)` averaged a train unit's and a test unit's readings together because they share a
+unit id. Fixed by partitioning rolling windows on `(subset, split, unit)`. The kind of bug that
+quietly inflates offline metrics if you don't look for it.
 
 ## How to verify in 4 minutes
 

@@ -34,7 +34,12 @@ person could own our test-telemetry platform." They verify three things without 
 | `design-adaptation.md` | stub — filled in Phase 4 |
 | `release-readiness.md` | stub — filled in Phase 5 |
 
+## Status
+
+Phases 0–2 complete (planning/skeleton; Databricks medallion ingestion; MLflow models + registry +
+gates). Phase 3 (Supabase `tel_*` + FastAPI serving) is next — see `next-session.md`.
+
 ## Hard gate
 
-Phase 1 (Databricks ingestion) does not start until `DATABRICKS_PAT` is exported and verified by a
-read-only call. See `next-session.md`.
+Every Databricks session starts with the read-only auth gate (`telemetry-platform/databricks/auth_gate.py`):
+`DATABRICKS_PAT` is sourced from `claude_token.txt` if unset and verified before any work. STOP if it fails.

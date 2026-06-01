@@ -23,8 +23,10 @@ import sys
 
 from _bootstrap import get_client, TEL
 
-# A fixed channel for the deterministic demo replay. T-1 (SMAP) has a clear labeled anomaly window.
-REPLAY_CHANNEL = "T-1"
+# A fixed channel for the deterministic demo replay. D-4 (MSL) has a labeled anomaly window that the
+# promoted MAD detector actually fires inside (verified: 3,248 model-fired ticks within its labeled
+# anomalies), so the demo's go/no-go flip is the model's own output — not a hand-authored flag.
+REPLAY_CHANNEL = "D-4"
 
 # Sensors that actually vary in C-MAPSS (several are constant); pick a representative informative set.
 CMAPSS_FEATURE_SENSORS = [2, 3, 4, 7, 11, 12, 15]

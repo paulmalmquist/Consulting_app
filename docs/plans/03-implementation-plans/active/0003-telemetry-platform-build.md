@@ -1,7 +1,7 @@
 # Dispatch Record 0003 — Telemetry Anomaly Platform Build
 
 **Created:** 2026-06-01
-**Status:** Active — Phase 0 DONE; Phase 1 (Databricks Bronze/Silver/Gold) DONE 2026-06-01; Phases 2–5 open
+**Status:** Active — Phase 0 DONE; Phase 1 (Bronze/Silver/Gold) DONE; Phase 2 (MLflow models + registry + gates) DONE 2026-06-01; Phases 3–5 open
 **Environment:** Telemetry Platform (NASA aerospace analog) — `docs/plans/telemetry-platform/`
 **Deliverable type:** Multi-phase greenfield platform build (portfolio proof-of-work)
 
@@ -129,8 +129,8 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 
 0. ~~Planning + skeleton + demo contract + `tel_` registration~~ — **DONE 2026-06-01**
 1. ~~Databricks Bronze/Silver/Gold ingestion (gated on `DATABRICKS_PAT`)~~ — **DONE 2026-06-01** (13 Delta tables, real NASA data; proof in `telemetry-platform/PROOF.md`)
-2. MLflow models + registry + promotion gates ← **NEXT**
-3. Supabase `tel_*` migration + FastAPI serving + API tests
+2. ~~MLflow models + registry + promotion gates~~ — **DONE 2026-06-01** (4 models, 2 champions registered; baseline beat PCA on anomaly F1; proof in PROOF.md)
+3. Supabase `tel_*` migration + FastAPI serving + API tests ← **NEXT**
 4. Dashboard lab environment + v2 provisioning + deterministic replay
 5. Deploy API (Railway) + frontend (Vercel) + smoke tests
 
@@ -164,6 +164,26 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 
 13 Delta tables exist with real row counts. Full evidence + sample rows + exact commands in
 `telemetry-platform/PROOF.md`.
+
+## Verification (Phase 2) — results
+
+| Step | Check | Result |
+|---|---|---|
+| Mechanism | Databricks-native serverless notebook jobs log to MLflow (sklearn 1.4.2) | validated (probe run `f5c8525f…`); shared client serverless job-create fixed in `_jobs.py` |
+| Anomaly baseline | rolling-MAD, point-adjusted F1 on test split | F1 **0.6387** (P 0.546 / R 0.769), run `4a48cb6a…` |
+| Anomaly stronger | PCA reconstruction error | F1 0.4196 (P 0.873 / R 0.276), run `8e99b411…` |
+| Anomaly gate | F1 ≥ 0.30; promote higher-F1 model | baseline promoted (beat PCA) — honest "simple beat fancy" |
+| RUL baseline | linear regression, 100 FD001 test units | RMSE 21.70 / PHM 1036.1, run `b3c8ddc1…` |
+| RUL stronger | gradient boosting | RMSE **20.32** / PHM 1423.3, run `c970fdcc…` |
+| RUL gate | RMSE ≤ 25; promote lower-RMSE model | GBM promoted (lower RMSE; higher PHM tradeoff recorded) |
+| Registry | UC Model Registry, champion alias | `tel_anomaly_detector` v1, `tel_rul_regressor` v1 (champion) |
+| Registry honesty | first attempts failed (no artifact → added log_model; no signature → added infer_signature) | fixed, recorded in PROOF |
+| Replay scored | champion scores `gold_replay_feed_scored` | D-4: 8,473 ticks, model fires 4,488 (first t=728), covers all 3,248 label ticks |
+| No-look-ahead | thresholds calibrated on train only, frozen for test | verified |
+| Secret hygiene | PAT never printed; jobs serverless/auto-stop | held |
+
+Experiment `/Users/paulmalmquist@gmail.com/HistoryRhymesML` (id `3740651530987773`). Full metrics,
+run IDs, comparison tables, and commands in `telemetry-platform/PROOF.md`.
 
 ---
 

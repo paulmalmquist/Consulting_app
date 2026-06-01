@@ -20,4 +20,10 @@ can act on it without asking questions.
 - Confirm the `claude_token.txt` token is a Databricks `dapi…` PAT, not an Anthropic key — checked at
   the Phase 1 gate.
 - Whether the serving API needs the `mlflow` client in `backend/requirements.txt` or can read
-  promoted-model metadata from `tel_model_runs` — decided in Phase 3.
+  promoted-model metadata from `tel_model_runs` — decided in Phase 3. (Phase 2 note: the anomaly
+  champion is a cheap rule — per-channel scale + k threshold on `abs(value - value_rmean50)` — so the
+  serving layer can re-implement it without any MLflow/pyspark dependency. The RUL champion is an
+  sklearn GBM; serving RUL would need either the sklearn artifact loaded or the model re-fit offline.)
+- **PCA anomaly model underperformed the baseline (F1 0.42 vs 0.64).** Not a blocker — the baseline
+  was promoted honestly. If a stronger anomaly model is wanted later, an LSTM/temporal autoencoder on
+  the rolling-feature sequence is the natural next attempt (deferred; not required for the demo).

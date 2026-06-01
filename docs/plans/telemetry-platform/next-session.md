@@ -1,65 +1,58 @@
-# Next Session — Telemetry Platform (Phase 2)
+# Next Session — Telemetry Platform (Phase 3)
 
-**Last updated:** 2026-06-01 (Phase 1 complete)
+**Last updated:** 2026-06-01 (Phase 2 complete)
 
-Phase 1 landed real NASA data in `novendor_1.telemetry` (13 Delta tables; proof in
-`telemetry-platform/PROOF.md`). Phase 2 trains real models and logs real metrics to MLflow.
+Phases 1–2 done: real NASA Bronze/Silver/Gold in `novendor_1.telemetry`, 4 models trained in
+Databricks, 2 champions in the UC Model Registry, deterministic replay feed scored. Phase 3 adds the
+Supabase `tel_*` schema and the FastAPI serving layer.
 
 ## Copy-paste prompt for the next Claude Code session
 
 ```
-You are starting Phase 2 of the Telemetry Platform build (dispatch 0003): train real models on the
-Gold tables and log real metrics + run IDs to MLflow, with a promotion gate that refuses to promote
-sub-threshold models. Do NOT sprawl into the dashboard (Phase 4) or serving (Phase 3).
-
-PREREQUISITE GATE (same as Phase 1) — run first, never print the token:
-  cd telemetry-platform/databricks
-  python auth_gate.py            # must print PASS; STOP if it fails
+You are starting Phase 3 of the Telemetry Platform build (dispatch 0003): the Supabase tel_* schema
+migration + the FastAPI serving layer in backend/. Do NOT start the dashboard (Phase 4) or deploy
+(Phase 5).
 
 Read first:
 - docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md
-- docs/plans/telemetry-platform/architecture.md   (Phase 1 outcome + Databricks reference)
-- docs/plans/telemetry-platform/roadmap.md         (Phase 2 tickets — authoritative)
-- telemetry-platform/PROOF.md                      (Phase 1 table inventory + counts)
-- telemetry-platform/databricks/_bootstrap.py      (get_client, TEL='novendor_1.telemetry')
-- skills/historyrhymes/scripts/databricks_client.py  (create_mlflow_run / log_metric / log_param /
-                                                       end_mlflow_run / search_mlflow_runs)
+- docs/plans/telemetry-platform/architecture.md   (tel_* table list + Phase 2 outcome / serving note)
+- docs/plans/telemetry-platform/roadmap.md          (Phase 3 tickets)
+- docs/plans/telemetry-platform/eval-plan.md        (negative tests / null_reasons)
+- ARCHITECTURE.md                                   (RLS template, env_id/business_id, migration naming)
+- telemetry-platform/PROOF.md                       (champion run IDs + replay feed)
 
-Gold tables available:
-- novendor_1.telemetry.gold_smap_msl_windows  (per chan_id,split,t: value + rolling features +
-                                               is_anomaly label on the test split). 705,876 rows.
-- novendor_1.telemetry.gold_cmapss_features   (per subset,unit,cycle: rolling features + rul_target
-                                               train label). 265,256 rows.
-- novendor_1.telemetry.gold_replay_feed       (T-1 SMAP test sequence, 8,612 ticks, labeled).
+Champions registered (Unity Catalog Model Registry):
+- novendor_1.telemetry.tel_anomaly_detector@champion  (rule-based MAD: per-channel scale + k=4 on
+  abs(value - value_rmean50). Cheap to re-implement in the serving layer — no pyspark needed.)
+- novendor_1.telemetry.tel_rul_regressor@champion     (sklearn GBM)
 
-Phase 2 tickets (from roadmap.md):
-1. Baseline anomaly detector on SMAP/MSL — dynamic/nonparametric thresholding on reconstruction or
-   rolling-z error. Evaluate precision/recall/F1 against is_anomaly on the TEST split. Log to MLflow
-   experiment 3740651530987773.
-2. LSTM autoencoder on SMAP/MSL — reconstruction-error scoring; precision/recall/F1; walk-forward,
-   no look-ahead (train only on train split / earlier ticks).
-3. RUL model on C-MAPSS FD001 — RMSE + PHM score; holdout by unit; compare vs gold_cmapss_rul truth.
-4. Registry + promotion gate — register passing models; gate refuses promotion if thresholds missed
-   (echo the eligible_for_promotion / ContractVerificationReport idiom in backend/app/routes/lab_v2.py).
-   Record held-back models honestly (e.g. "F1 0.62 < gate 0.70 -> not promoted").
-5. Mirror model metadata for Phase 3 serving (name, version, run_id, gate decision, metrics).
+Phase 3 tickets (from roadmap.md):
+1. Migration repo-b/db/schema/NNN_telemetry_*.sql — resolve NNN live against
+   supabase_migrations.schema_migrations (project ozboonlsplroialdwuxj); do NOT hardcode. Tables:
+   tel_test_runs, tel_telemetry_channels, tel_predictions, tel_anomaly_events, tel_model_runs,
+   tel_drift_metrics. Each: env_id TEXT NOT NULL + business_id UUID NOT NULL + ENABLE RLS +
+   tenant_isolation policy USING (env_id = current_setting('app.env_id', true)) + WITH CHECK +
+   COMMENT ON TABLE. Match the prevailing repo RLS form (look at a recent migration first).
+2. Seed tel_model_runs from the registered champions (run IDs, metrics, gate decisions from PROOF.md).
+3. Schema backend/app/schemas/telemetry.py (Pydantic request/response shapes).
+4. Services backend/app/services/telemetry_{scoring,runs,monitoring}.py. Set app.env_id before tenant
+   queries. Scoring re-implements the MAD champion (or loads the registered model). Write one
+   tel_predictions row per /score.
+5. Routes backend/app/routes/telemetry.py: GET /health, POST /score (anomaly score + per-channel
+   attribution + go/no-go + model version/run_id + Supabase receipt), GET /runs, GET /run/{id},
+   GET /monitoring (PSI + rolling anomaly rate + counts + drift). Register the router.
+6. Fail-closed: no promoted model -> model_not_promoted; channel without scores -> channel_not_scored.
+7. Tests backend/tests/test_telemetry_*.py: /score persists a row + returns all fields; /monitoring
+   returns PSI; fail-closed null_reasons return correct codes.
 
-Decisions to make and record in architecture.md:
-- Whether training runs inside a Databricks notebook job (heavier, needs notebook upload via the
-  Jobs API the client already supports) OR locally pulling Gold via execute_sql then logging metrics
-  back through the MLflow REST endpoints on the client. Pick the simpler path that produces REAL run
-  IDs and REAL metrics; document it.
-- The exact promotion thresholds (state them before training so the gate is honest, not retrofit).
+Credentials: pull backend secrets via `vercel env pull backend/.env --environment production --yes`
+(repo-b project) per CLAUDE.md — do not ask the user for DATABASE_URL / SUPABASE keys. Supabase work
+via the Supabase CLI (project ozboonlsplroialdwuxj).
 
-Proof to append to telemetry-platform/PROOF.md (Phase 2 section):
-- MLflow experiment path + run IDs (baseline, autoencoder, RUL)
-- exact non-round metrics, baseline-vs-autoencoder comparison, promotion decisions (incl. held-back)
-- flip the README results table from "pending Phase 2" to real numbers
+Proof to append to telemetry-platform/PROOF.md (Phase 3): migration applied + RLS verified
+(cross-tenant read blocked), curl /health, curl /score (full response), tel_predictions row count
+before/after, curl /monitoring, test output.
 
-Honesty + secret rules (unchanged): metrics exactly as computed, no rounding; a missed gate is
-recorded as missed; never read/print/log/commit the PAT; start the warehouse before work and stop
-after.
-
-PHASE GATE: stop after Phase 2. Append PROOF, update dispatch 0003 + docs/plans/telemetry-platform/*,
-record lessons in docs/tips.md (canonical). Do NOT start Phase 3 without approval.
+Honesty + secret rules unchanged. PHASE GATE: stop after Phase 3, append PROOF, update dispatch 0003 +
+env docs, lessons to docs/tips.md. Do NOT start Phase 4 without approval.
 ```

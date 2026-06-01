@@ -1,8 +1,9 @@
 # Telemetry Platform — Architecture
 
 **Last updated:** 2026-06-01
-**Status:** Phase 1 done — Databricks Bronze/Silver/Gold built on real NASA data (13 Delta tables in
-`novendor_1.telemetry`). No MLflow runs, no Supabase migration, no dashboard yet (Phases 2–4).
+**Status:** Phases 1–2 done — Bronze/Silver/Gold built on real NASA data (13 Delta tables); 4 models
+trained in Databricks + 2 champions registered in the UC Model Registry behind promotion gates;
+deterministic replay feed scored by the champion. No Supabase migration, no dashboard yet (Phases 3–4).
 
 ## Pipeline
 
@@ -138,7 +139,60 @@ unprompted.
 - Ingestion mechanism: parse locally → stage gzip CSV to Unity Catalog volume
   `novendor_1.telemetry.raw` via the Files API → `CREATE TABLE AS read_files(...)`.
 
-## Needs verification (carried into Phase 2+)
+## Phase 2 design — declared before training (so gates are honest, not retrofit)
+
+**Training mechanism: Databricks-native.** Models train inside serverless notebook jobs on the
+Databricks ML runtime (sklearn 1.4.2 + numpy 1.26.4 available natively), reading the Gold tables that
+already live in `novendor_1.telemetry`, logging to MLflow experiment `3740651530987773` natively. The
+driver (`telemetry-platform/databricks/`) uploads each notebook via the Workspace API and runs it as
+a serverless job (`_jobs.py`; the shared client's job-create lacked the serverless `environments`
+block, fixed in the helper). No local ML libraries are used for training — local numpy/pandas is only
+for proof parsing. Validated end-to-end by a probe job (MLflow run `f5c8525f79f044f5946a17fb29e70728`,
+read `gold_replay_feed` = 8,612 rows).
+
+**Models:**
+- Baseline anomaly (SMAP/MSL): rolling-median/MAD dynamic threshold on the telemetry value — a real,
+  hard-to-beat-dishonestly baseline. Point-adjusted precision/recall/F1 vs `is_anomaly` on the test
+  split.
+- Stronger anomaly (SMAP/MSL): PCA reconstruction-error over the rolling-feature vector (sklearn),
+  thresholded the same way. LSTM autoencoder is explicitly optional and not required — a smaller real
+  model with MLflow proof beats a fancy model that risks breaking the run.
+- RUL (C-MAPSS FD001): gradient-boosted / random-forest regression on the Gold rolling features,
+  evaluated on the held-out test units against `silver_cmapss_rul` truth. RMSE + NASA PHM asymmetric
+  score (penalizes late predictions more than early).
+
+**Promotion gates (declared now):**
+- Anomaly model promoted only if **F1 ≥ 0.30** (point-adjusted) on the labeled SMAP/MSL test windows.
+  Telemanom-era F1 on this set sits ~0.25–0.40, so 0.30 is a real bar.
+- The stronger anomaly model becomes the promoted anomaly model only if its F1 **beats the baseline**;
+  if the baseline wins, the baseline is promoted and that is recorded honestly.
+- RUL model promoted only if **RMSE ≤ 25** cycles on FD001 test. Literature baseline is ~20–30.
+- A model that misses its gate is recorded with `model_not_promoted` — never faked into a promoted state.
+
+Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (Phase 2 section).
+
+## Phase 2 outcome (2026-06-01)
+
+- **Training mechanism:** Databricks-native serverless notebook jobs (driver in
+  `telemetry-platform/databricks/08–11_*.py`, notebooks in `databricks/notebooks/*.py`); MLflow logged
+  natively. No local ML libs used for training. Helper `_jobs.py` fixes the shared client's serverless
+  job-create (missing `environments` block).
+- **Models (experiment `3740651530987773`):**
+  - Anomaly baseline (rolling-MAD): F1 **0.6387** (run `4a48cb6a…`) — **promoted champion**.
+  - Anomaly PCA recon: F1 0.4196 (run `8e99b411…`) — not selected (lower F1; the simple baseline won).
+  - RUL linear: RMSE 21.70 (run `b3c8ddc1…`).
+  - RUL GBM: RMSE **20.32** (run `c970fdcc…`) — **promoted champion** (lower RMSE; higher PHM tradeoff noted).
+- **Promotion gates** (declared before training): anomaly F1 ≥ 0.30, RUL RMSE ≤ 25. Gate notebook
+  reads metrics from the MLflow store and registers champions in the UC Model Registry:
+  `novendor_1.telemetry.tel_anomaly_detector@champion` (v1), `tel_rul_regressor@champion` (v1).
+- **Replay:** `gold_replay_feed` moved to channel **D-4** (T-1 was contextual-only; the residual
+  detector correctly never fired on it). `gold_replay_feed_scored` carries the champion's `model_pred`
+  (fires at t=728, covers all 3,248 labeled ticks) — the demo flips on the real model output.
+- **Serving note for Phase 3:** the champion anomaly model is the rule-based MAD detector; serving can
+  re-implement its scoring (per-channel scale + k threshold) cheaply, or load the registered pyfunc.
+  The RUL champion is an sklearn GBM. Keep the serving deps lean (don't ship pyspark).
+
+## Needs verification (carried into Phase 3+)
 
 - [ ] The exact next free migration number (`supabase_migrations.schema_migrations`, project `ozboonlsplroialdwuxj`) — Phase 3.
 - [ ] The prevailing `tel_*` RLS policy form vs this sketch (match repo convention; document adjustment) — Phase 3.
