@@ -71,6 +71,32 @@ export interface TestRun {
   created_at: string;
 }
 
+export interface TelemetrySummary {
+  inventory: Record<string, number>;
+  kpi: {
+    test_runs: number;
+    predictions: number;
+    anomaly_events: number;
+    promoted_models: number;
+    drift_monitors: number;
+    anomaly_f1: number | null;
+    rul_rmse: number | null;
+    last_scored_at: string | null;
+  };
+  verdicts: Record<string, number>;
+  verdict_pct: Record<string, number>;
+  note: string;
+}
+
+export interface AnomalyEvent {
+  channel_name: string | null;
+  start_t: number | null;
+  end_t: number | null;
+  anomaly_class: string | null;
+  confidence: number | null;
+  source: string;
+}
+
 const params = (env: string, biz: string) => ({ env_id: env, business_id: biz });
 
 export const getReplayFeed = () => apiFetch<ReplayFeed>("/api/telemetry/replay");
@@ -84,3 +110,6 @@ export const getMonitoring = (env: string, biz: string) =>
 
 export const getRuns = (env: string, biz: string) =>
   apiFetch<TestRun[]>("/api/telemetry/runs", { params: params(env, biz) });
+
+export const getSummary = (env: string, biz: string) =>
+  apiFetch<TelemetrySummary>("/api/telemetry/summary", { params: params(env, biz) });

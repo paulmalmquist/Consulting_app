@@ -2,14 +2,44 @@
 
 import { useEffect, useState } from "react";
 import {
-  getModelPerformance, type ModelRun,
-  TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
+  getModelPerformance, type ModelRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { Card, Loading, ErrorState, Unavailable, PublicDataFooter } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
 
 function metric(m: ModelRun, k: string): string {
-  const v = m.metrics[k];
+  const v = (m.metrics || {})[k];
   return v == null ? "—" : Number(v).toFixed(k === "rmse" || k === "phm" ? 2 : 4);
+}
+
+function StatusTag({ m }: { m: ModelRun }) {
+  return m.model_alias === "champion" || m.promotion_state === "promoted"
+    ? <Tag color={C.green}>promoted</Tag>
+    : <Tag color={C.faint}>{m.promotion_state}</Tag>;
+}
+
+function Table({ title, cols, rows }: { title: string; cols: string[]; rows: ModelRun[] }) {
+  const isRul = rows[0]?.model_kind === "rul";
+  const grid = "1.4fr 0.8fr 0.8fr 0.9fr 0.9fr";
+  return (
+    <Panel title={title}>
+      <div style={{ display: "grid", gridTemplateColumns: grid, gap: 8, fontFamily: C.mono, fontSize: 10,
+        color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
+        {cols.map((c) => <span key={c}>{c}</span>)}
+      </div>
+      <div style={{ borderTop: `1px solid ${C.border}` }}>
+        {rows.map((m) => (
+          <div key={`${m.model_name}-${m.model_version}`} style={{ display: "grid", gridTemplateColumns: grid, gap: 8,
+            alignItems: "center", fontFamily: C.mono, fontSize: 12, color: C.text, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+            <span>{m.model_name}</span>
+            <span style={{ fontWeight: 600 }}>{isRul ? metric(m, "rmse") : metric(m, "precision")}</span>
+            <span style={{ color: C.dim }}>{isRul ? metric(m, "phm") : metric(m, "recall")}</span>
+            <span style={{ color: isRul ? C.dim : C.text, fontWeight: isRul ? 400 : 600 }}>{isRul ? "" : metric(m, "f1")}</span>
+            <span><StatusTag m={m} /></span>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
 }
 
 export default function ModelPerformance() {
@@ -23,85 +53,32 @@ export default function ModelPerformance() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  if (error) return <ErrorState message={error} />;
-  if (!models) return <Loading label="Loading model metrics…" />;
-  if (nullReason) return <Unavailable reason={nullReason} />;
+  const heading = <PageHeading eyebrow="Model Performance" title="Champions, metrics, and promotion gates"
+    blurb="Exact metrics from the registry-backed serving API, no hardcoded numbers. Baseline vs stronger model side by side, with the promotion decision shown honestly." />;
+  if (error) return <>{heading}<ErrorState message={error} /></>;
+  if (!models) return <>{heading}<Loading label="Loading model metrics…" /></>;
+  if (nullReason) return <>{heading}<ErrorState message={nullReason} /></>;
 
   const anomaly = models.filter((m) => m.model_kind === "anomaly");
   const rul = models.filter((m) => m.model_kind === "rul");
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-bm-muted2">
-          Anomaly detection — SMAP/MSL (point-adjusted, labeled test split)
-        </p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-bm-border/60 text-left text-[11px] uppercase tracking-wider text-bm-muted2">
-              <th className="pb-2">Model</th><th className="pb-2">Precision</th>
-              <th className="pb-2">Recall</th><th className="pb-2">F1</th>
-              <th className="pb-2">Run</th><th className="pb-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {anomaly.map((m) => (
-              <tr key={m.mlflow_run_id} className="border-b border-bm-border/30">
-                <td className="py-2 text-bm-text">{m.model_name}</td>
-                <td className="tabular-nums text-bm-muted">{metric(m, "precision")}</td>
-                <td className="tabular-nums text-bm-muted">{metric(m, "recall")}</td>
-                <td className="tabular-nums font-semibold text-bm-text">{metric(m, "f1")}</td>
-                <td className="font-mono text-[11px] text-bm-muted2">{m.mlflow_run_id.slice(0, 10)}</td>
-                <td>
-                  <span className={m.model_alias === "champion"
-                    ? "rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300"
-                    : "rounded-full border border-bm-border/60 bg-bm-surface/40 px-2 py-0.5 text-[11px] text-bm-muted"}>
-                    {m.model_alias === "champion" ? "promoted" : m.promotion_state}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <Card>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-bm-muted2">
-          Remaining useful life — C-MAPSS FD001 (100 test units)
-        </p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-bm-border/60 text-left text-[11px] uppercase tracking-wider text-bm-muted2">
-              <th className="pb-2">Model</th><th className="pb-2">RMSE</th>
-              <th className="pb-2">PHM</th><th className="pb-2">Run</th><th className="pb-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rul.map((m) => (
-              <tr key={m.mlflow_run_id} className="border-b border-bm-border/30">
-                <td className="py-2 text-bm-text">{m.model_name}</td>
-                <td className="tabular-nums font-semibold text-bm-text">{metric(m, "rmse")}</td>
-                <td className="tabular-nums text-bm-muted">{metric(m, "phm")}</td>
-                <td className="font-mono text-[11px] text-bm-muted2">{m.mlflow_run_id.slice(0, 10)}</td>
-                <td>
-                  <span className={m.model_alias === "champion"
-                    ? "rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300"
-                    : "rounded-full border border-bm-border/60 bg-bm-surface/40 px-2 py-0.5 text-[11px] text-bm-muted"}>
-                    {m.model_alias === "champion" ? "promoted" : m.promotion_state}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <Card className="text-[11px] leading-relaxed text-bm-muted2">
-        Gates declared before training: anomaly F1 ≥ 0.30, RUL RMSE ≤ 25. Values fetched live from the
-        registry-backed serving API (tel_model_runs). The simpler MAD baseline beat the PCA model on
-        F1, so it was promoted — recorded honestly rather than forcing a fancier model to win.
-      </Card>
-      <PublicDataFooter />
-    </div>
+    <>
+      {heading}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Table title="Anomaly detection — SMAP/MSL (point-adjusted, labeled test split)"
+          cols={["Model", "Precision", "Recall", "F1", "Status"]} rows={anomaly} />
+        <Table title="Remaining useful life — C-MAPSS FD001 (100 test units)"
+          cols={["Model", "RMSE", "PHM", "", "Status"]} rows={rul} />
+        <Panel pad={14}>
+          <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>
+            Gates declared before training: anomaly F1 ≥ 0.30, RUL RMSE ≤ 25. Values fetched live from the
+            registry-backed serving API (tel_model_runs). The simpler MAD baseline beat the PCA model on F1,
+            so it was promoted, recorded honestly rather than forcing a fancier model to win.
+          </span>
+        </Panel>
+      </div>
+      <DisclosureFooter />
+    </>
   );
 }

@@ -1,80 +1,112 @@
-import { cn } from "@/lib/cn";
+"use client";
 
-export function PageHeader({
-  eyebrow,
-  title,
-  blurb,
-}: {
-  eyebrow: string;
-  title: string;
-  blurb: string;
+import type { CSSProperties, ReactNode } from "react";
+
+// Option B "Lab Workbench" palette — ported verbatim from OptionB_DataBound_Overview.jsx.
+// Self-contained inline-style tokens so the telemetry console is dark regardless of the global theme.
+export const C = {
+  bg: "#06090d", rail: "#0a0e14", panel: "#0e141d", panelHi: "#121a25",
+  border: "rgba(110,150,190,0.12)", borderHi: "rgba(110,150,190,0.24)",
+  text: "#e6edf4", dim: "#8a98aa", faint: "#56616f",
+  cyan: "#3fb1e8", green: "#3ddc97", amber: "#f3b14a", red: "#ef7066",
+  mono: "'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace",
+  sans: "'Söhne', 'Inter', -apple-system, system-ui, sans-serif",
+};
+
+// Verdict -> accent color (GO green, REVIEW amber, NO_GO red, else dim).
+export function verdictColor(v?: string | null): string {
+  if (v === "GO") return C.green;
+  if (v === "REVIEW") return C.amber;
+  if (v === "NO_GO" || v === "NO-GO") return C.red;
+  return C.dim;
+}
+
+export function Tag({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase",
+      color, background: color + "18", border: `1px solid ${color}40`, borderRadius: 5, padding: "2px 7px" }}>
+      {children}
+    </span>
+  );
+}
+
+export function Panel({ title, right, children, pad = 18, style }: {
+  title?: string; right?: ReactNode; children: ReactNode; pad?: number; style?: CSSProperties;
 }) {
   return (
-    <header className="mb-6 space-y-1.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-bm-muted2">
-        {eyebrow}
-      </p>
-      <h1 className="text-2xl font-semibold text-bm-text lg:text-3xl">{title}</h1>
-      <p className="max-w-3xl text-sm text-bm-muted">{blurb}</p>
-    </header>
-  );
-}
-
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("rounded-lg border border-bm-border/70 bg-bm-surface/35 p-4", className)}>
-      {children}
+    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, ...style }}>
+      {title && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.13em", color: C.faint, textTransform: "uppercase" }}>{title}</span>
+          {right}
+        </div>
+      )}
+      <div style={{ padding: pad }}>{children}</div>
     </div>
   );
 }
 
-export function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
+export function MetricCard({ label, value, sub, accent }: {
+  label: string; value: ReactNode; sub?: ReactNode; accent?: string;
+}) {
   return (
-    <Card>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-bm-muted2">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-bm-text">{value}</p>
-      {sub ? <p className="mt-0.5 text-xs text-bm-muted">{sub}</p> : null}
-    </Card>
-  );
-}
-
-export function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="text-bm-muted2">{label}</span>
-      <span className="text-right tabular-nums text-bm-text">{value}</span>
+    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 9, padding: 14 }}>
+      <div style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.1em", color: C.faint, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontFamily: C.sans, fontSize: 26, fontWeight: 600, color: accent || C.text, marginTop: 6, lineHeight: 1 }}>{value}</div>
+      {sub != null && <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 6 }}>{sub}</div>}
     </div>
   );
 }
 
-/** Public-data disclaimer footer (must appear on the demo surface). */
-export function PublicDataFooter() {
+export function EmptyState({ label, hint }: { label: string; hint: string }) {
   return (
-    <p className="mt-8 border-t border-bm-border/60 pt-3 text-[11px] leading-relaxed text-bm-muted2">
-      Built on public NASA aerospace analog datasets (C-MAPSS turbofan, SMAP/MSL telemanom, IMS
-      bearing). Not proprietary data. Datasets are analogs chosen because they share engine-test
-      telemetry characteristics.
-    </p>
+    <div style={{ border: `1px dashed ${C.borderHi}`, borderRadius: 8, padding: "18px 16px", textAlign: "center" }}>
+      <div style={{ fontFamily: C.mono, fontSize: 12, color: C.amber }}>{label}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 6, lineHeight: 1.5 }}>{hint}</div>
+    </div>
   );
 }
 
-/** Explicit, fail-closed states — never blank, never a silent zero. */
 export function Loading({ label = "Loading…" }: { label?: string }) {
-  return <Card className="text-sm text-bm-muted">{label}</Card>;
+  return <Panel><span style={{ fontFamily: C.mono, fontSize: 12, color: C.dim }}>{label}</span></Panel>;
 }
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <Card className="border-rose-400/40 bg-rose-400/10 text-sm text-rose-300">
-      Could not load this panel: {message}
-    </Card>
+    <Panel style={{ borderColor: C.red + "55" }}>
+      <span style={{ fontFamily: C.mono, fontSize: 12, color: C.red }}>Could not load: {message}</span>
+    </Panel>
   );
 }
 
-export function Unavailable({ reason }: { reason: string }) {
+// Page heading (eyebrow + title + optional blurb), Option B style.
+export function PageHeading({ eyebrow, title, blurb, right }: {
+  eyebrow: string; title: string; blurb?: string; right?: ReactNode;
+}) {
   return (
-    <Card className="border-amber-400/40 bg-amber-400/10 text-sm text-amber-200">
-      Not available — <span className="font-mono">{reason}</span>
-    </Card>
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.14em", color: C.cyan, textTransform: "uppercase" }}>{eyebrow}</div>
+          <h1 style={{ fontFamily: C.sans, fontSize: 26, fontWeight: 700, letterSpacing: "-0.01em", marginTop: 6, color: C.text }}>{title}</h1>
+        </div>
+        {right}
+      </div>
+      {blurb && <p style={{ fontFamily: C.sans, fontSize: 14, color: C.dim, lineHeight: 1.55, marginTop: 12, maxWidth: 760 }}>{blurb}</p>}
+    </div>
+  );
+}
+
+// Public-data + backfill disclosure (the UI never overclaims).
+export function DisclosureFooter() {
+  return (
+    <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6,
+      borderTop: `1px solid ${C.border}`, paddingTop: 18, marginTop: 18 }}>
+      Built on public NASA aerospace analog datasets (C-MAPSS turbofan, SMAP/MSL telemanom, IMS
+      bearing). Not proprietary data. Operational history is a deterministic backfill from those public
+      datasets (real champion outputs, real labeled windows, real PSI); live /score receipts continue
+      from current time.
+    </p>
   );
 }

@@ -3,75 +3,63 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import TelemetrySidebar from "./TelemetrySidebar";
+import { C } from "./primitives";
 
-export default function TelemetryShell({
-  envId,
-  children,
-}: {
-  envId: string;
-  children: React.ReactNode;
-}) {
+// Option B "Lab Workbench" shell: a single 224px rail (TEL ANOMALY / WORKBENCH identity, the five
+// telemetry sections, serving + auth status pinned at the bottom) and a full-bleed main column.
+// No executive chrome (the lab shell yields full-bleed for /telemetry).
+export default function TelemetryShell({ envId, children }: { envId: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [pathname]);
+  const Rail = (
+    <aside style={{ width: 224, flexShrink: 0, background: C.rail, borderRight: `1px solid ${C.border}`,
+      display: "flex", flexDirection: "column", padding: "20px 14px", minHeight: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 6px 18px" }}>
+        <div style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${C.cyan}55`,
+          background: "rgba(63,177,232,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="13" height="13" viewBox="0 0 14 14">
+            <path d="M1 10l3-4 2.5 2L9 4l4 6" stroke={C.cyan} strokeWidth="1.4" fill="none" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", color: C.text }}>TEL ANOMALY</div>
+          <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.1em" }}>WORKBENCH</div>
+        </div>
+      </div>
+      <TelemetrySidebar envId={envId} onNavigate={() => setDrawerOpen(false)} />
+      <div style={{ marginTop: "auto", paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
+          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>serving · prod</span>
+        </div>
+        <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 8 }}>reviewer access · auth</div>
+      </div>
+    </aside>
+  );
 
   return (
-    <div className="min-h-screen bg-bm-bg text-bm-text">
-      <div className="border-b border-bm-border/70 bg-bm-surface/30">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3 lg:px-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-bm-muted2">
-              Telemetry Anomaly Platform
-            </p>
-            <p className="text-xs text-bm-muted">Engine-test telemetry → automated go/no-go</p>
-          </div>
-          <button
-            type="button"
-            className="rounded-md border border-bm-border/70 px-3 py-1.5 text-xs text-bm-muted hover:text-bm-text lg:hidden"
-            onClick={() => setDrawerOpen(true)}
-          >
-            Menu
-          </button>
-        </div>
-      </div>
+    <div style={{ display: "flex", background: C.bg, minHeight: "100vh", fontFamily: C.sans, color: C.text }}>
+      <div className="hidden lg:flex">{Rail}</div>
 
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-5 lg:px-6">
-        <div className="grid gap-6 lg:grid-cols-[240px,1fr]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-4 rounded-lg border border-bm-border/70 bg-bm-surface/30 p-3">
-              <TelemetrySidebar envId={envId} />
-            </div>
-          </aside>
-          <main className="min-w-0">{children}</main>
-        </div>
-      </div>
+      {/* mobile menu button */}
+      <button type="button" onClick={() => setDrawerOpen(true)}
+        className="lg:hidden"
+        style={{ position: "fixed", top: 12, left: 12, zIndex: 30, fontFamily: C.mono, fontSize: 12,
+          color: C.dim, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 10px" }}>
+        Menu
+      </button>
 
-      {drawerOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/60"
-            aria-label="Close navigation"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="absolute left-0 top-0 h-full w-72 max-w-[88vw] border-r border-bm-border/70 bg-bm-bg p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-medium text-bm-text">Navigate</p>
-              <button
-                type="button"
-                className="rounded-md border border-bm-border/70 px-2 py-1 text-xs text-bm-muted hover:text-bm-text"
-                onClick={() => setDrawerOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            <TelemetrySidebar envId={envId} onNavigate={() => setDrawerOpen(false)} />
-          </div>
+      <main style={{ flex: 1, minWidth: 0, padding: "24px 28px 40px" }}>{children}</main>
+
+      {drawerOpen && (
+        <div className="lg:hidden" style={{ position: "fixed", inset: 0, zIndex: 40 }}>
+          <button type="button" aria-label="Close" onClick={() => setDrawerOpen(false)}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", border: "none" }} />
+          <div style={{ position: "absolute", left: 0, top: 0 }}>{Rail}</div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
