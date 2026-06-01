@@ -13,6 +13,14 @@ can act on it without asking questions.
   currently installed). Pick up when a predictive-maintenance dashboard view is wanted. The 2nd_test
   run is the canonical run-to-failure used in most IMS papers.
 
+- **v2 verify gate fails: `app.environment_contract` missing (platform-wide, not telemetry).**
+  Provisioning the telemetry env (`dc82d39d-9be2-49b0-a01d-c7181b13a8b6`) returned lifecycle `failed`
+  and `GET /v2/environments/{id}/verify` 500s with `relation "app.environment_contract" does not
+  exist`. This affects every v2 environment in this database, not telemetry specifically. The env row,
+  both-registry sync, routing, and serving all work regardless. Fix = migrate the
+  `app.environment_contract` table (owned by the v2 provisioning subsystem) so the contract verifier
+  and the `create_rows`/`health_check` stages pass. Out of telemetry scope.
+
 ## Watch / decide later
 
 - Reviewer access model for the public demo (public read-only vs invite-code vs authenticated tenant)

@@ -3,13 +3,13 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 3)
+## Status (2026-06-01, end of Phase 4)
 
-Phases 0–3 are complete. **Phase 3 (Supabase `tel_*` schema + FastAPI serving) is done:** the 6
-`tel_*` tables are migrated with RLS, the FastAPI serving slice is live in `backend/`, every `/score`
-persists a receipt to Supabase, and the fail-closed null_reasons + RLS tenant isolation are verified.
-No dashboard code exists yet (Phase 4). The backend stays lean — it imports no databricks/mlflow/
-pyspark; the anomaly champion is re-implemented as a cheap rule.
+Phases 0–4 are complete. **Phase 4 (dashboard as a Winston lab environment) is done:** the telemetry
+env is provisioned via the v2 pipeline, the dark engineering console renders five pages from live
+`/api/telemetry/*` calls, and the deterministic replay flips Go→No-Go on its own from the real
+champion's output. Only deployment (Phase 5) remains. Reviewer access model: authenticated lab tenant
+(template `default_auth_mode='private'`).
 
 Auth: `DATABRICKS_PAT` was sourced from the repo-root `claude_token.txt` (its value was never read,
 printed, logged, or committed). The token is a valid Databricks PAT — the read-only auth gate passed.
@@ -364,15 +364,112 @@ cd backend && .venv/Scripts/python -m uvicorn app.main:app --port 8077
 curl .../api/telemetry/{health,score,runs,run/{id},monitoring}
 ```
 
-## Phase 4 — Dashboard proof (pending)
+## Phase 4 — Dashboard proof
 
-To be appended after Phase 4:
+### Reviewer access model — decided
 
-- provisioned `env_id` (and confirmation `app.environments` / `v1.environments` match)
-- `GET /v2/environments/{env_id}/verify` contract-gate result
-- screenshot paths per panel (Test Run Explorer, Go/No-Go, Model Performance, Monitoring)
-- the deterministic replay sequence (green→red flip + attribution), with evidence values come from the API
-- `page.test.tsx` output
+Authenticated lab tenant. The telemetry template sets `default_auth_mode = 'private'`; the reviewer
+logs in and opens `/lab/env/{env_id}/telemetry`. No new public surface, no risk of exposing other
+tenants/admin. (Recorded in `10007_environment_templates_telemetry.sql` and architecture.md.)
+
+### Environment provisioned via the v2 pipeline
+
+- Template `telemetry` v1 added to the registry (`repo-b/db/schema/10007_environment_templates_telemetry.sql`),
+  `industry_type='telemetry'`, `default_home_route='/lab/env/{env_id}/telemetry'`, seed pack
+  `telemetry_starter` (`backend/app/services/environment_seed_packs_v2/telemetry_starter.py`, registered).
+- `POST /v2/environments` dry-run validated, then real create →
+  **env_id `dc82d39d-9be2-49b0-a01d-c7181b13a8b6`**, dashboard URL
+  `/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`.
+- Landed in **both** registries with matching env_id and `industry='telemetry'`:
+  `app.environments` (industry_type telemetry) and `v1.environments` (is_active true) — so
+  `resolveEnvironmentOpenPath` routes correctly.
+- **Honest blocker:** lifecycle came back `failed` and `GET /v2/environments/{id}/verify` 500s
+  because `app.environment_contract` does not exist in this database — a **pre-existing missing table
+  that affects all v2 environments here, not telemetry-specific** (the same contract subsystem the
+  Phase 0 plan flagged). The env row exists, routes correctly, and the dashboard reads its data from
+  the `telemetry-demo` serving tenant via `/api/telemetry/*`, so the demo works regardless. Wiring the
+  contract table is out of Phase 4 scope and tracked in the backlog.
+
+### Industry registration
+
+`repo-b/src/components/lab/environments/constants.ts`: added `telemetry` to `industries`,
+`INDUSTRY_DISPLAY_MAP`, an `isTelemetryEnvironment()` helper, and a `resolveEnvironmentOpenPath()`
+branch → `/lab/env/{envId}/telemetry`.
+
+### Routes (final paths)
+
+```
+/lab/env/[envId]/telemetry                    Overview
+/lab/env/[envId]/telemetry/replay             Replay (the centerpiece)
+/lab/env/[envId]/telemetry/runs               Test Run Explorer
+/lab/env/[envId]/telemetry/model-performance  Model Performance
+/lab/env/[envId]/telemetry/monitoring         Monitoring
+```
+Components in `repo-b/src/components/telemetry/`; client API in `repo-b/src/lib/telemetry/api.ts`;
+same-origin proxy `repo-b/src/app/api/telemetry/[...path]/route.ts` → backend `/api/telemetry/*`.
+
+### Panel → endpoint binding (all live; no hardcoded metrics)
+
+| Panel | Endpoint |
+|---|---|
+| Overview KPIs + spine | `GET /api/telemetry/model-performance`, `GET /api/telemetry/monitoring` |
+| Replay trace + Go/No-Go + attribution | `GET /api/telemetry/replay` (precomputed champion outputs) |
+| Test Run Explorer | `GET /api/telemetry/runs` |
+| Model Performance tables | `GET /api/telemetry/model-performance` |
+| Monitoring | `GET /api/telemetry/monitoring` |
+
+### THE MONEY SHOT — deterministic replay flip (verified)
+
+Playwright drove the replay page (env `dc82d39d…`) against the live stack
+(frontend :3001 → proxy → backend :8077 → Supabase + the committed replay fixture):
+
+```
+initial verdict:                "GO"
+click "Replay test feed", run past t=728:
+post-replay verdict:            "NO-GO"
+```
+Screenshots in `telemetry-platform/docs/screenshots/`:
+- `replay_01_initial_go.png` — verdict GO (green), trace empty, "No contributing channels yet".
+- `replay_02_nogo_flip.png` — verdict **NO-GO** (red), anomaly region shaded, redline marker,
+  Sensor Attribution "D-4 fired @ t=728 · Detected by tel_anomaly_detector@champion (MLflow run
+  4a48cb6af8)". The flag the verdict flips on is the model's `model_pred`, not hand-authored.
+- `overview.png` — dark console, KPIs (2 champions, F1 0.6387, RMSE 20.32, 2 predictions / 50% no-go),
+  operated-loop spine, real tool names, public-data footer.
+- `model_performance.png` — baseline vs stronger, live from the API:
+  tel_anomaly_pca F1 0.4196 (evaluated) vs tel_anomaly_detector F1 0.6387 (**promoted**);
+  tel_rul_linear RMSE 21.70 (evaluated) vs tel_rul_regressor RMSE 20.32 (**promoted**); real run IDs.
+- `monitoring.png` — predictions 2, rolling no-go 50%, **PSI shows "—" (not computed yet — honest,
+  not a fake zero)**, serving champion + last-scored timestamp.
+- `runs.png` — the D-4 test run (8,473 rows) from `tel_test_runs`.
+
+### Replay fixture provenance
+
+`telemetry-platform/databricks/replay_fixture.json` (also `backend/app/data/telemetry/`) — exported by
+`12_export_replay_fixture.py` from `novendor_1.telemetry.gold_replay_feed_scored` (Phase 2). 750 ticks
+(downsampled from 8,473; onset around t=728 kept dense), first model fire t=728, champion
+`tel_anomaly_detector@champion` MLflow run `4a48cb6af871…`. Precomputed real outputs → the demo never
+depends on Databricks/cold inference. Distinct from the live `/score` contract (Phase 3).
+
+### Design
+
+Dark engineering console (the telemetry layout pins the dark `--bm-*` token values so the surface is
+dark regardless of the global theme toggle — internal operator surface per the design charter).
+Primary nav = 5 items (≤7); active = fill + weight, not underline. Go/No-Go reads as a redline
+indicator. Explicit loading / error / `Unavailable(null_reason)` states (never blank, never a silent
+zero). Frontend typecheck (`tsc --noEmit -p tsconfig.typecheck.json`): **0 errors**.
+
+### Exact commands
+
+```
+# fixture export (Databricks)
+cd telemetry-platform/databricks && python 12_export_replay_fixture.py
+# template + seed pack + provision
+cat repo-b/db/schema/10007_environment_templates_telemetry.sql | supabase db query --linked
+curl -X POST :8077/v2/environments -d '{"template_key":"telemetry","seed_pack":"telemetry_starter",...}'
+# typecheck + visual proof
+cd repo-b && npx tsc --noEmit -p tsconfig.typecheck.json    # 0 errors
+#   Next dev (BOS_API_ORIGIN=http://127.0.0.1:8077) + Playwright drove the 6 screenshots
+```
 
 ## Phase 5 — Deploy proof (pending)
 

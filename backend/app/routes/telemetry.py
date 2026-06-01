@@ -81,3 +81,22 @@ def monitoring(env_id: str = Query(...), business_id: UUID = Query(...)):
         return MonitoringResponse(**svc.monitoring(env_id=env_id, business_id=business_id))
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/replay")
+def replay():
+    """Deterministic replay feed — precomputed real champion outputs (no DB/Databricks at call time)."""
+    try:
+        return svc.replay_feed()
+    except Exception as exc:  # noqa: BLE001
+        emit_log(level="error", service="telemetry", action="replay_failed", message=str(exc), error=exc)
+        raise _to_http(exc)
+
+
+@router.get("/model-performance")
+def model_performance(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Promoted-model metadata + exact metrics from tel_model_runs (no hardcoded numbers)."""
+    try:
+        return svc.model_performance(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)

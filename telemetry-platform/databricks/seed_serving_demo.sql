@@ -37,6 +37,28 @@ VALUES
 ON CONFLICT (env_id, business_id, model_name, model_version) DO UPDATE
     SET metrics = EXCLUDED.metrics, gate = EXCLUDED.gate, model_alias = EXCLUDED.model_alias;
 
+-- Runner-up models (real MLflow runs from Phase 2) so the dashboard shows the baseline-vs-stronger
+-- comparison. These are NOT promoted (model_alias NULL, promotion_state 'evaluated'): the simple MAD
+-- baseline beat the PCA model on F1; the GBM beat the linear baseline on RMSE.
+INSERT INTO tel_model_runs
+    (env_id, business_id, model_name, model_kind, model_version, model_alias,
+     mlflow_run_id, experiment_id, metrics, gate, promotion_state)
+VALUES
+    ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001',
+     'tel_anomaly_pca', 'anomaly', '1', NULL,
+     '8e99b41142c14948b37aadade59e5aad', '3740651530987773',
+     '{"precision":0.8725776874659266,"recall":0.2762245442279331,"f1":0.4196150866948698}'::jsonb,
+     '{"metric":"f1","threshold":0.30,"decision":"evaluated","note":"lower F1 than MAD baseline"}'::jsonb,
+     'evaluated'),
+    ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001',
+     'tel_rul_linear', 'rul', '1', NULL,
+     'b3c8ddc1df974875b9ddbb4f3621e0d5', '3740651530987773',
+     '{"rmse":21.702448390120548,"phm":1036.1390874014483}'::jsonb,
+     '{"metric":"rmse","threshold":25.0,"decision":"evaluated","note":"higher RMSE than GBM"}'::jsonb,
+     'evaluated')
+ON CONFLICT (env_id, business_id, model_name, model_version) DO UPDATE
+    SET metrics = EXCLUDED.metrics, gate = EXCLUDED.gate, promotion_state = EXCLUDED.promotion_state;
+
 -- Demo test run: the D-4 (MSL) replay channel scored by the champion (Phase 2 gold_replay_feed_scored).
 INSERT INTO tel_test_runs
     (id, env_id, business_id, run_key, dataset, unit_or_channel, spacecraft, row_count, ingest_at, status)

@@ -14,7 +14,8 @@ registered model falls back to the global train scale; serving mirrors that fall
 """
 from __future__ import annotations
 
-import statistics
+import json
+from pathlib import Path
 from uuid import UUID
 
 from app.db import get_cursor
@@ -23,6 +24,11 @@ from app.services.reporting_common import resolve_tenant_id
 # Champion hyperparameters (frozen from the Phase 2 promoted model).
 MAD_K = 4.0
 GLOBAL_TRAIN_SCALE = 0.033866801182436346   # median abs residual across all SMAP/MSL train channels
+
+# Deterministic replay fixture: precomputed REAL champion outputs exported from
+# novendor_1.telemetry.gold_replay_feed_scored (Phase 2). Loaded once, cached in-process.
+_REPLAY_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "data" / "telemetry" / "replay_fixture.json"
+_replay_cache: dict | None = None
 
 
 def _champion(cur, env_id: str, business_id: UUID, model_kind: str) -> dict | None:
@@ -202,6 +208,35 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
             "window_label": "recent",
             "null_reason": None,
         }
+
+
+def replay_feed() -> dict:
+    """Return the deterministic replay fixture (precomputed real champion outputs). No DB, no
+    Databricks — fast and identical every call. Fails closed if the fixture is missing."""
+    global _replay_cache
+    if _replay_cache is None:
+        if not _REPLAY_FIXTURE_PATH.exists():
+            return {"feed": [], "null_reason": "data_not_ingested",
+                    "note": "replay fixture not present"}
+        _replay_cache = json.loads(_REPLAY_FIXTURE_PATH.read_text(encoding="utf-8"))
+    return _replay_cache
+
+
+def model_performance(*, env_id: str, business_id: UUID) -> dict:
+    """Return promoted-model metadata + metrics from tel_model_runs (no hardcoded numbers)."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        cur.execute(
+            """SELECT model_name, model_kind, model_version, model_alias, mlflow_run_id,
+                      experiment_id, metrics, gate, promotion_state
+               FROM tel_model_runs WHERE env_id = %s AND business_id = %s
+               ORDER BY model_kind, created_at DESC""",
+            (env_id, str(business_id)),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return {"models": [], "null_reason": "model_not_promoted"}
+        return {"models": [dict(r) for r in rows], "null_reason": None}
 
 
 def health() -> dict:

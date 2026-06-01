@@ -1,7 +1,7 @@
 # Dispatch Record 0003 — Telemetry Anomaly Platform Build
 
 **Created:** 2026-06-01
-**Status:** Active — Phases 0–3 DONE 2026-06-01 (planning; Bronze/Silver/Gold; MLflow models + registry + gates; Supabase `tel_*` + FastAPI serving). Phases 4–5 open.
+**Status:** Active — Phases 0–4 DONE 2026-06-01 (planning; Bronze/Silver/Gold; MLflow models + registry + gates; Supabase `tel_*` + FastAPI serving; dashboard lab env + deterministic replay). Phase 5 (deploy) open.
 **Environment:** Telemetry Platform (NASA aerospace analog) — `docs/plans/telemetry-platform/`
 **Deliverable type:** Multi-phase greenfield platform build (portfolio proof-of-work)
 
@@ -131,8 +131,8 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 1. ~~Databricks Bronze/Silver/Gold ingestion (gated on `DATABRICKS_PAT`)~~ — **DONE 2026-06-01** (13 Delta tables, real NASA data; proof in `telemetry-platform/PROOF.md`)
 2. ~~MLflow models + registry + promotion gates~~ — **DONE 2026-06-01** (4 models, 2 champions registered; baseline beat PCA on anomaly F1; proof in PROOF.md)
 3. ~~Supabase `tel_*` migration + FastAPI serving + API tests~~ — **DONE 2026-06-01** (`10006_telemetry_serving.sql`, 6 RLS tables; `/api/telemetry/*` live; 0→2 receipts persisted; 7 tests pass; proof in PROOF.md)
-4. Dashboard lab environment + v2 provisioning + deterministic replay ← **NEXT**
-5. Deploy API (Railway) + frontend (Vercel) + smoke tests
+4. ~~Dashboard lab environment + v2 provisioning + deterministic replay~~ — **DONE 2026-06-01** (env `dc82d39d…`; 5 dark-console pages live from the API; GO→NO-GO replay flip verified by screenshots; proof in PROOF.md)
+5. Deploy API (Railway) + frontend (Vercel) + smoke tests ← **NEXT**
 
 ---
 
@@ -203,6 +203,25 @@ run IDs, comparison tables, and commands in `telemetry-platform/PROOF.md`.
 | Live vs replay | `/score` is live; demo replay reads precomputed `gold_replay_feed_scored` | documented in PROOF |
 
 Full request/response bodies, receipts, and commands in `telemetry-platform/PROOF.md`.
+
+## Verification (Phase 4) — results
+
+| Step | Check | Result |
+|---|---|---|
+| Access model | reviewer access decided | authenticated lab tenant (template auth_mode `private`) |
+| Template | `10007_environment_templates_telemetry.sql` applied | `telemetry` v1 registered |
+| Seed pack | `telemetry_starter.py` registered in SEED_PACKS | resolves in dry-run |
+| Industry | `constants.ts` (`industries`, display map, helper, resolver) | typechecks; routes to `/telemetry` |
+| Provision | `POST /v2/environments` | env_id `dc82d39d…`; both registries; industry telemetry |
+| Provision gap | lifecycle `failed` / verify 500 | pre-existing missing `app.environment_contract` (affects all v2 envs; not telemetry) — backlogged |
+| Money shot | Playwright replay flip | GO → **NO-GO** at t=728; attribution shows champion run; screenshots saved |
+| Pages | overview/runs/model-perf/monitoring | live from `/api/telemetry/*`; no hardcoded metrics |
+| Honest states | monitoring PSI with no drift | renders "—" not a fake zero |
+| Design | dark console, ≤7 nav, redline verdict | conformed (theme pinned on the telemetry layout) |
+| Typecheck | `tsc --noEmit` | 0 errors |
+| Lean | no databricks/mlflow/pyspark added to backend | held; replay served from a committed fixture |
+
+Screenshots: `telemetry-platform/docs/screenshots/`. Full evidence in `telemetry-platform/PROOF.md`.
 
 ---
 

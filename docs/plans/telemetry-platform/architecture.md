@@ -1,9 +1,10 @@
 # Telemetry Platform — Architecture
 
 **Last updated:** 2026-06-01
-**Status:** Phases 1–3 done — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered champions
-behind gates; replay feed scored; Supabase `tel_*` schema (6 RLS tables) + live FastAPI serving
-(`/api/telemetry/*`) with persisted receipts. No dashboard yet (Phase 4).
+**Status:** Phases 1–4 done — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered champions
+behind gates; Supabase `tel_*` (6 RLS tables) + live FastAPI serving; dashboard as a Winston lab env
+(env `dc82d39d…`, 5 dark-console pages, deterministic GO→NO-GO replay). Phase 5 (deploy) open.
+Reviewer access model: authenticated lab tenant (`default_auth_mode='private'`).
 
 ## Pipeline
 
@@ -218,8 +219,31 @@ Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (
 - **Tests:** `backend/tests/test_telemetry_serving.py` (7 pass); `conftest.py` `_GET_CURSOR_TARGETS`
   extended with `app.services.telemetry_serving.get_cursor`.
 
-## Needs verification (carried into Phase 4+)
+## Phase 4 outcome (2026-06-01)
 
-- [ ] Whether a new `telemetry` template + seed pack is needed or `empty_lab` + a custom seed suffices — Phase 4.
-- [ ] Reviewer access model for the demo env (public read-only vs invite vs authenticated tenant) — Phase 4 decision.
-- [ ] Whether the dashboard reads `gold_replay_feed_scored` via a backend proxy endpoint or a seeded `tel_*` copy — Phase 4.
+- **Reviewer access:** authenticated lab tenant. Template `telemetry`
+  (`repo-b/db/schema/10007_environment_templates_telemetry.sql`) sets `default_auth_mode='private'`.
+- **Provisioned env:** `dc82d39d-9be2-49b0-a01d-c7181b13a8b6` via `POST /v2/environments` (template
+  `telemetry`, seed pack `telemetry_starter`). Landed in both `app.environments` and `v1.environments`
+  with `industry='telemetry'`; `resolveEnvironmentOpenPath` routes to `/telemetry`.
+- **Known gap (not telemetry-specific):** v2 lifecycle reports `failed` and `.../verify` 500s because
+  `app.environment_contract` is absent in this DB. Affects all v2 envs here; the env row + routing +
+  serving all work. Backlogged.
+- **Frontend:** pages under `repo-b/src/app/lab/env/[envId]/telemetry/` (overview, replay, runs,
+  model-performance, monitoring); components in `repo-b/src/components/telemetry/`; client API
+  `repo-b/src/lib/telemetry/api.ts`; same-origin proxy `repo-b/src/app/api/telemetry/[...path]/route.ts`
+  → backend `/api/telemetry/*`. Industry registered in `constants.ts`.
+- **Replay decision:** the dashboard reads a committed JSON fixture
+  (`backend/app/data/telemetry/replay_fixture.json`, exported from `gold_replay_feed_scored` by
+  `databricks/12_export_replay_fixture.py`) served at `GET /api/telemetry/replay`. Precomputed real
+  champion outputs → no Databricks/cold-inference dependency at replay time. Distinct from live `/score`.
+- **Money shot:** GO→NO-GO flip verified by Playwright (screenshots in
+  `telemetry-platform/docs/screenshots/`); the verdict flips on the champion's `model_pred` at t=728.
+- **Design:** dark console pinned on the telemetry layout (`--bm-*` token values) so the operator
+  surface is dark regardless of the global theme toggle. ≤7 nav, redline verdict, explicit
+  loading/error/unavailable states. Typecheck 0 errors. Backend stayed lean (replay from fixture).
+
+## Needs verification (carried into Phase 5+)
+
+- [ ] Wire `app.environment_contract` so the v2 verify gate passes (pre-existing, platform-wide) — backlog.
+- [ ] Phase 5: Railway API deploy footprint (keep lean; no pyspark), Vercel deploy (repo-b manual), env vars.
