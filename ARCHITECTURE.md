@@ -27,6 +27,7 @@ Approved durable prefixes for new public tables:
 - `stg_`
 - `hr_` — History Rhymes analytics module. **Exempt from `env_id`/RLS requirements**: single-tenant by construction (analytics/research data, not per-client business data). Existing tables (`hr_predictions`, `hr_pending_predictions`, `hr_agent_calibration`, `hr_episode_balance`, `hr_latest_agents`) established this convention; new `hr_*` tables should match.
 - `am_` — Altered Mind operator analytics module. Per-client business data (therapy practice metrics, referrals, reflections). Full RLS and `env_id` required.
+- `tel_` — Telemetry Platform module (NASA aerospace analog: turbofan RUL, satellite/bearing anomaly detection). Per-client business data. Full RLS and `env_id` required.
 
 Experimental or frozen prefixes. Do not expand these without an explicit architecture review:
 

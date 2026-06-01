@@ -2721,3 +2721,69 @@ Dual-root files in the same app cause build-time ambiguity. Vercel's post-build 
 **Prevention:** Before committing a new root page, check `git ls-files | grep 'src/app/.*page\.tsx' | grep -v '\['` to list all root-level page routes. Should be exactly one (`page.tsx` in `src/app/`).
 
 **Why this happens:** Route groups `(marketing)` control *grouping and layout* but do NOT prevent a `page.tsx` inside from routing to `/`. The Next.js compiler resolves both as canonical roots, and Vercel's artifact check cannot determine which one should generate the manifest.
+
+### Scheduled QA tasks on non-main branches: always read source via `git show main:` (2026-05-26)
+
+Scheduled tasks (cron-style, like `happyco-nightly-qa`) run against whatever branch is checked out — often a long-lived feature branch that predates the feature being QA'd. Grepping the working tree returns nothing for files that only exist on `main`, making it look like routes and pages are missing when they aren't.
+
+**Rule:** For any QA or smoke-check task, source verification must use `git show main:<path>` (or the relevant canonical branch), never grep/read from the working tree.
+
+```bash
+# Correct
+git show main:repo-b/src/app/happyco/page.tsx
+git show main:backend/app/routes/operator.py | grep "property-ops"
+
+# Wrong on a stale branch
+grep -r "property_ops" backend/app/routes/  # returns nothing if branch predates the feature
+cat repo-b/src/app/happyco/page.tsx         # file doesn't exist on the branch
+```
+
+**Why this matters:** A false "missing" result will generate a spurious FAIL ticket and erode trust in the QA log. A false "present" result from cached working-tree state can mask a real regression on main.
+
+**Prevention:** At the top of any QA task, run `git log --oneline HEAD..main | head -5` to see what main has that the current branch doesn't. If the output is non-empty, assume working-tree reads are unreliable for those files and switch to `git show main:`.
+
+### Manifest `available` flags must match actual file state — verify both (2026-05-29)
+
+When a JSON manifest (like `artifact_manifest.json`) declares files as `available: true`, a scheduled task can only trust that claim if it also verifies the target files exist and have non-trivial byte counts. A 67-byte PNG is a placeholder, not a real chart — the manifest can be out of sync with reality.
+
+**Rule:** Any task that reads an artifact manifest should spot-check at least one of the claimed-available files for byte size. If size ≤ 100 bytes for a binary artifact, treat it as a stub regardless of what the manifest says.
+
+```bash
+# Check actual PNG size via git
+git show origin/main:repo-b/public/happyco/weather-risk/latest/charts/weather_ops_risk_by_market.png | wc -c
+# If ≤ 100 bytes → stub. Manifest flag should be false.
+```
+
+**Why this matters:** A manifest claiming `available: true` on stub files is an inaccuracy that can propagate to the frontend and mislead reviewers. In this case, the pending branch (`65251e33`) corrected all 6 chart entries to `available: false` — catching this before the branch merged prevented a false claim from reaching production.
+
+**Prevention:** On any PR that updates a manifest or bundle JSON, include a verification step that cross-references the listed files' actual byte counts.
+
+### Databricks is configured but not reachable by default in a coding session (2026-06-01)
+
+The repo has a real Databricks workspace wired up — `dbc-2504bec5-b5ab.cloud.databricks.com`, Unity Catalog `novendor_1`, SQL Warehouse `0e56420fb707d861`, MLflow experiment `3740651530987773`, with a working REST client at `skills/historyrhymes/scripts/databricks_client.py` (config in `skills/historyrhymes/config/databricks.json`). But a fresh session usually **cannot** reach it: `DATABRICKS_PAT` is unset, the Databricks CLI isn't installed, `backend/app/data/databricks_source.py` is a `NotImplementedError` stub, and `mlflow`/`databricks-sql-connector`/`pyspark` are not in `backend/requirements.txt`.
+
+**Rule:** Before promising live Databricks work, gate on `DATABRICKS_PAT` and verify with a read-only call (`DatabricksClient().warehouse_status()`). The repo-root `claude_token.txt` (gitignored) may hold the PAT — but it's named "claude", so confirm it's a Databricks `dapi…` token and not an Anthropic key before trusting it. Fail closed and document the blocker rather than silently falling back to local processing.
+
+**Reuse, don't rebuild:** `DatabricksClient` already implements warehouse start/stop, `execute_sql`, MLflow run create/log, notebook import, Unity Catalog listing, and the Jobs API. To use a different Unity Catalog schema without disturbing historyrhymes, pass fully-qualified SQL (`novendor_1.<schema>.<table>`) — do not edit the shared `databricks.json`.
+
+### New telemetry environment uses the lab-env + v2-provisioning conventions (2026-06-01)
+
+Dispatch 0003 set up the Telemetry Platform as a hybrid build: ML/Databricks code + portfolio docs under top-level `telemetry-platform/`, but the serving API in `backend/` and the dashboard as a real Winston lab env at `repo-b/src/app/lab/env/[envId]/telemetry/` provisioned via `POST /v2/environments`. Migrations go to `repo-b/db/schema/NNN_*.sql` (not a per-project supabase dir). New table prefix `tel_` was registered in `ARCHITECTURE.md` first (the guardrail requires the file be updated before any migration), with full `env_id`/`business_id`/RLS.
+
+**Rule:** A standalone-feeling build still routes through repo conventions. Put pointer-READMEs in the tempting-but-wrong folders (`telemetry-platform/{api,frontend,supabase}/README.md`) so a later session doesn't build a second orphaned implementation in the wrong place. The dispatch-record numbering is `NNNN-` (next was 0003); the migration number is non-monotonic on disk, so resolve it live against `supabase_migrations.schema_migrations`, never hardcode.
+
+### Databricks ingestion without local PySpark: volume + Files API + read_files (2026-06-01)
+
+The shared `DatabricksClient` (`skills/historyrhymes/scripts/databricks_client.py`) only exposes `execute_sql` against the SQL Warehouse plus the Jobs API — no Spark session, no Files API. To land real local data in Delta without installing pyspark locally, the working pattern (used for the telemetry platform) is: parse locally (pandas/numpy/stdlib) → write gzip CSV → upload to a Unity Catalog **managed volume** via the Files API (`PUT /api/2.0/fs/files/Volumes/<cat>/<schema>/<vol>/<path>?overwrite=true`, raw bytes, Bearer PAT) → `CREATE TABLE AS SELECT * FROM read_files('<volume path>', format=>'csv', header=>true, inferSchema=>true)`. `read_files` infers schema and handles gzip. Round-trips ~700K rows fine. The client has no upload method, so add a thin `_volume.py` helper rather than editing the shared client.
+
+**Cost:** the warehouse (`0e56420fb707d861`) auto-stops after 15 min, but start it explicitly before a batch of statements and stop it in a `finally` — don't leave it running between scripts.
+
+### Public NASA dataset sources rot — validate magic bytes, not just size (2026-06-01)
+
+For the telemetry platform: C-MAPSS is reliably mirrored on GitHub (`hankroark/Turbofan-Engine-Degradation`, full FD001–FD004). The telemanom SMAP/MSL **labels** are on `khundman/telemanom` (`labeled_anomalies.csv`), but the original `data.zip` (Dropbox) now returns an HTML interstitial instead of the archive — the raw `.npy` channel arrays are mirrored on HuggingFace `appleparan/telemanom` under `data/data/{train,test}/*.npy` (resolve URLs, directly downloadable). The NASA PCoE IMS bearing direct link (`ti.arc.nasa.gov/.../IMS.7z`) 301-redirects to a generic landing page; the real 1.075 GB archive is on `phm-datasets.s3.amazonaws.com/NASA/4.+Bearings.zip` (zip → IMS.7z → three run-to-failure `.rar` + Readme).
+
+**Rule:** a size check is not enough — a NASA redirect returns a *large* HTML page (344 KB) that passes `bytes > 1000`. Validate downloaded archives by magic bytes (`377abcaf271c` 7z, `PK\x03\x04` zip, `1f8b` gzip) and reject anything starting with `<`. When a source genuinely fails, record the blocker in the manifest and continue with what landed — do not synthesize data.
+
+### No-look-ahead leakage from a too-coarse window partition (2026-06-01)
+
+C-MAPSS train and test units share `(subset, unit)` ids. A rolling feature partitioned by `(subset, unit)` averaged a train unit's and the test unit's readings together at the same cycle — silent train/test leakage that a size/row-count check never catches. The tell: unit 1 cycle 1 `sensor_2_rmean5` = mean of the two splits' values instead of each row's own value. Fix: partition rolling windows by `(subset, split, unit)`. **Rule:** when building no-look-ahead rolling features, the window PARTITION must include every column that distinguishes independent series — including the split — or features leak across boundaries that share a natural key.

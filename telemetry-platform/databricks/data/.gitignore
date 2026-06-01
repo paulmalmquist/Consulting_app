@@ -1,0 +1,6 @@
+# Downloaded raw datasets are large and reproducible from the download scripts — do not commit them.
+# The scripts, manifests, and SHA records ARE committed; the payloads are not.
+*
+!.gitignore
+!.gitkeep
+!manifest_*.json

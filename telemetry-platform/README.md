@@ -1,0 +1,83 @@
+# Telemetry Anomaly Platform
+
+Turning raw engine-test telemetry into automated go/no-go decisions.
+
+> **Public-data disclaimer.** This platform is built on **public NASA aerospace analog datasets**,
+> chosen because they share the characteristics of engine-test telemetry: run-to-failure
+> trajectories, multivariate sensor streams, and labeled off-nominal windows. It uses **no
+> proprietary data** from any company. The datasets are analogs, not a stand-in for a specific
+> firm's test stand.
+
+## What this is
+
+An end-to-end platform that ingests sensor telemetry, detects anomalies, predicts remaining useful
+life, serves scored windows behind an API, persists every prediction, and monitors itself for drift.
+The point is the operated loop, not a single model:
+
+```
+NASA datasets
+  → download scripts (telemetry-platform/databricks/data/)
+  → Databricks Bronze   (novendor_1.telemetry.bronze_*)        raw, as-landed
+  → Databricks Silver   (novendor_1.telemetry.silver_*)        typed, time-ordered, no look-ahead
+  → Databricks Gold     (novendor_1.telemetry.gold_*)          features + labeled windows + RUL targets
+  → MLflow training      (experiment 3740651530987773)         baseline + LSTM-AE + RUL
+  → Model Registry + promotion gate                            refuses to promote sub-threshold models
+  → FastAPI serving      (backend/app/routes/telemetry.py)     /score, /runs, /run/{id}, /monitoring
+  → Supabase tel_*       (prediction log, tenant-scoped)       one row per prediction + receipt
+  → Winston lab dashboard (repo-b .../lab/env/[envId]/telemetry) live console, deterministic replay
+  → Monitoring           (/monitoring)                         PSI, rolling anomaly rate, drift
+  → PROOF.md                                                   real row counts, run IDs, URLs
+```
+
+## Datasets
+
+| Dataset | Source | Used for |
+|---|---|---|
+| NASA C-MAPSS Turbofan Degradation | NASA PCoE | Remaining useful life (RUL) regression, degradation modeling |
+| NASA/JPL SMAP & MSL Telemetry (Telemanom) | NASA/JPL | Multivariate anomaly detection against labeled anomaly windows |
+| NASA PCoE / IMS Bearing Run-to-Failure | NASA PCoE | Vibration feature engineering, predictive maintenance |
+
+## Tools
+
+Databricks (lakehouse, Spark, Delta), Unity Catalog `novendor_1.telemetry`, SQL Warehouse
+`0e56420fb707d861`, MLflow experiment `3740651530987773` (model tracking + registry), FastAPI
+(serving), Supabase project `ozboonlsplroialdwuxj` (prediction log + tenant state), Winston lab
+environment (dashboard), Railway (API deploy), Vercel (frontend deploy).
+
+## Results
+
+Pending Phase 2. Metrics are reported exactly as computed — no rounding, no aspirational values. A
+model that misses its promotion gate is recorded as held back.
+
+| Model | Metric | Value |
+|---|---|---|
+| Anomaly detector — baseline (dynamic threshold) | precision / recall / F1 | pending Phase 2 |
+| Anomaly detector — LSTM autoencoder | precision / recall / F1 | pending Phase 2 |
+| RUL model — C-MAPSS FD001 | RMSE / PHM score | pending Phase 2 |
+
+## How to verify in 4 minutes
+
+See [DEMO.md](DEMO.md) for the reviewer journey and [PROOF.md](PROOF.md) for the runnable evidence
+(row counts, MLflow run IDs, live API responses, deployed URLs).
+
+## Repository layout
+
+This build is split deliberately. The portfolio artifacts and ML/Databricks code live here; the
+serving API and the dashboard live in their conventional places inside the monorepo.
+
+| Concern | Location |
+|---|---|
+| Databricks notebooks, training, dataset scripts | `telemetry-platform/databricks/` |
+| Docs (README, PROOF, DEMO, wireframe) | `telemetry-platform/` and `telemetry-platform/docs/` |
+| Serving API (FastAPI) | `backend/app/routes/telemetry.py`, `backend/app/services/telemetry_*.py` |
+| Dashboard (Next.js) | `repo-b/src/app/lab/env/[envId]/telemetry/` (a Winston lab environment) |
+| Database migrations | `repo-b/db/schema/NNN_telemetry_*.sql` |
+
+The `api/`, `frontend/`, and `supabase/` folders here are pointers to those real locations — see
+their READMEs.
+
+## Status
+
+Phase 0 (planning + skeleton + demo contract) complete. Phase 1 (Databricks ingestion) is gated on
+`DATABRICKS_PAT`. Plan: `docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`.
+Environment notes: `docs/plans/telemetry-platform/`.
