@@ -1,10 +1,11 @@
 # Telemetry Platform — Architecture
 
 **Last updated:** 2026-06-01
-**Status:** Phases 1–4 done — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered champions
-behind gates; Supabase `tel_*` (6 RLS tables) + live FastAPI serving; dashboard as a Winston lab env
-(env `dc82d39d…`, 5 dark-console pages, deterministic GO→NO-GO replay). Phase 5 (deploy) open.
-Reviewer access model: authenticated lab tenant (`default_auth_mode='private'`).
+**Status:** COMPLETE (Phases 1–5) — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered
+champions behind gates; Supabase `tel_*` + FastAPI serving; dashboard as a Winston lab env
+(env `dc82d39d…`); deployed live — API on Railway (`authentic-sparkle-production-7f37`), frontend on
+Vercel (novendor.ai). Reviewer access: authenticated lab tenant. Open: authenticated prod screenshot
+(see release-readiness.md).
 
 ## Pipeline
 

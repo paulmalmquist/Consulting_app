@@ -3,13 +3,19 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 4)
+## Status (2026-06-01, end of Phase 5)
 
-Phases 0–4 are complete. **Phase 4 (dashboard as a Winston lab environment) is done:** the telemetry
-env is provisioned via the v2 pipeline, the dark engineering console renders five pages from live
-`/api/telemetry/*` calls, and the deterministic replay flips Go→No-Go on its own from the real
-champion's output. Only deployment (Phase 5) remains. Reviewer access model: authenticated lab tenant
-(template `default_auth_mode='private'`).
+All phases complete. **Phase 5 (deploy) is done:** the backend is live on Railway (telemetry routes
+serving real data, `/version` = the Phase 4 commit), and the frontend is live on Vercel
+(`novendor.ai`), with `/api/telemetry/*` reachable through the production proxy and the lab routes
+auth-gated. The full operated loop — Databricks → MLflow registry → FastAPI → Supabase → dashboard →
+monitoring — runs end to end on live URLs.
+
+**Live URLs:**
+- Backend API: `https://authentic-sparkle-production-7f37.up.railway.app` (git_sha `f178c5c1`)
+- Frontend: `https://novendor.ai` (Vercel project `consulting-app`, root dir `repo-b`)
+- Reviewer demo route: `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`
+  (authenticated lab tenant — log in first)
 
 Auth: `DATABRICKS_PAT` was sourced from the repo-root `claude_token.txt` (its value was never read,
 printed, logged, or committed). The token is a valid Databricks PAT — the read-only auth gate passed.
@@ -471,11 +477,99 @@ cd repo-b && npx tsc --noEmit -p tsconfig.typecheck.json    # 0 errors
 #   Next dev (BOS_API_ORIGIN=http://127.0.0.1:8077) + Playwright drove the 6 screenshots
 ```
 
-## Phase 5 — Deploy proof (pending)
+## Phase 5 — Deploy proof
 
-To be appended after Phase 5:
+### Backend → Railway
 
-- Railway API URL + `curl /health` and `curl /score` against it
-- Vercel production URL + confirmation the live env loads
-- smoke-test transcript
-- final results table (real metrics only)
+Deployed the shared FastAPI backend (telemetry routes registered) to the existing Railway service
+`authentic-sparkle` (project production). `railway up` ships the local tree; the working SHA is
+captured into `backend/app/_git_sha.txt` (gitignored) and exposed at `/version`.
+
+```
+# before: /version = 719653b5...  (telemetry routes 404)
+cd backend && railway up --service authentic-sparkle --detach
+# after ~120s: /version = f178c5c11883adfbb44c50627408f894bf82f120  (the Phase 4 commit)
+curl https://authentic-sparkle-production-7f37.up.railway.app/api/telemetry/health
+  -> {"status":"ok","promoted_models":2,"module":"telemetry"}
+```
+
+Deploy hygiene: the 3 uncommitted unrelated working-tree edits (CLAUDE.md, outlook-mcp, a report)
+were stashed before deploy so only committed work shipped, then restored. No databricks/mlflow/
+pyspark added to `backend/requirements.txt` — backend stayed lean; replay is served from the
+committed fixture.
+
+Blast-radius note (decided with the user): the backend is one shared app serving all of production.
+This branch was 19 commits ahead of what was live, so the deploy shipped the whole branch, not just
+telemetry — an accepted, deliberate choice.
+
+### Live API smoke — against the Railway URL
+
+```
+GET  /api/telemetry/health           -> {"status":"ok","promoted_models":2,...}
+GET  /api/telemetry/runs             -> smap_msl:D-4:test, 8473 rows
+GET  /api/telemetry/run/{id}         -> run smap_msl:D-4:test, 1 channel, 2 recent predictions
+GET  /api/telemetry/model-performance-> 4 models (tel_anomaly_detector promoted F1 0.6387; tel_anomaly_pca
+                                        evaluated 0.4196; tel_rul_regressor promoted RMSE 20.32; tel_rul_linear 21.70)
+GET  /api/telemetry/monitoring       -> preds 2, no-go rate 0.5, psi null, serving tel_anomaly_detector
+GET  /api/telemetry/replay           -> channel D-4, 750 ticks, first_fire t=728, champion run 4a48cb6af8
+POST /api/telemetry/score            -> verdict NO_GO, score 2.953, model tel_anomaly_detector v1,
+                                        receipt bf89dfc6-81c0-49e6-a13b-906dace8d44c
+```
+The live `POST /score` persisted a real receipt to **production Supabase**: `tel_predictions` count
+rose 2 → 3. The full loop runs on the deployed URL.
+
+### Frontend → Vercel
+
+The lab/app frontend deploys via the Vercel project **`consulting-app`** whose Root Directory is
+`repo-b` (serves `novendor.ai`). The local `repo-b/.vercel` link was stale (pointed at an
+inaccessible project); re-linked the repo root to `consulting-app` and deployed.
+
+```
+# .vercelignore added to exclude non-frontend dirs from the upload — the 1.075 GB NASA IMS
+# archive under telemetry-platform/databricks/data/ exceeded Vercel's 100 MB file limit.
+vercel deploy --prod --yes   (from repo root; root dir repo-b)
+  -> READY, production: consulting-rj7i89zhh-paulmalmquists-projects.vercel.app -> novendor.ai
+```
+
+`BOS_API_ORIGIN` was already set on `consulting-app` production (the telemetry proxy reuses it), so no
+env-var change was needed. Verified the production proxy reaches the deployed backend:
+
+```
+GET https://novendor.ai/api/telemetry/health            -> {"status":"ok","promoted_models":2,...}
+GET https://novendor.ai/api/telemetry/replay            -> channel D-4, first_fire 728, champion 4a48cb6af8
+GET https://novendor.ai/api/telemetry/model-performance -> 4 models with promotion states
+```
+
+### Cold-session test ("like a stranger")
+
+A fresh Playwright browser (no cookies, no dev server) hitting
+`https://novendor.ai/lab/env/dc82d39d-.../telemetry/replay` **redirects to
+`/login?returnTo=...telemetry/replay`** — confirming the routes are live and correctly auth-gated per
+the chosen access model (authenticated lab tenant). A reviewer logs in, then reaches the journey.
+
+### Known gap (honest, distinguished from core readiness)
+
+- **Authenticated production screenshot not captured.** Driving the live replay flip in a browser
+  needs the `info@novendor.ai` login password, which is not available to this session (ENV_KEYS
+  points to env vars rather than storing the literal; it is not in `backend/.env`). I did not reset
+  the production auth password to obtain it (that would be an unwanted outward side effect).
+  - **Core demo readiness IS proven:** the production API end-to-end (incl. a persisted `/score`
+    receipt), the production proxy, and auth gating all verified live; the identical authenticated UI
+    (GO→NO-GO flip, model performance, monitoring) is proven on the local stack in the Phase 4
+    screenshots (`prod_*`/local screenshots in `docs/screenshots/`), running the same committed code
+    now deployed. The remaining item is purely capturing that flip *screenshot on the production
+    domain*, which requires the reviewer login.
+  - **To close it:** with the `info@novendor.ai` password, log in at `https://novendor.ai/login`, open
+    the reviewer demo route, click "Replay test feed", and screenshot the NO-GO flip.
+- **v2 verify gate** still 500s (pre-existing missing `app.environment_contract`, platform-wide) —
+  does not affect the deployed telemetry route. Backlogged.
+
+### Commands
+
+```
+cd backend && railway up --service authentic-sparkle --detach   # backend
+# repo root:
+vercel link --yes --project consulting-app --scope paulmalmquists-projects
+vercel deploy --prod --yes --scope paulmalmquists-projects      # frontend (.vercelignore excludes ML data)
+# smoke: curl the 7 endpoints on the Railway URL and via https://novendor.ai/api/telemetry/*
+```

@@ -36,10 +36,11 @@ person could own our test-telemetry platform." They verify three things without 
 
 ## Status
 
-Phases 0–4 complete (planning; Databricks medallion ingestion; MLflow models + registry + gates;
-Supabase `tel_*` serving; dashboard as a Winston lab env with the deterministic GO→NO-GO replay).
-Phase 5 (deploy to Railway + Vercel) is next — see `next-session.md`. Demo env_id:
-`dc82d39d-9be2-49b0-a01d-c7181b13a8b6`. Screenshots: `telemetry-platform/docs/screenshots/`.
+COMPLETE — Phases 0–5. The full operated loop is live: Databricks medallion → MLflow registry gates →
+FastAPI serving (Railway) → Supabase prediction log → dashboard (novendor.ai) → drift monitoring.
+Demo env_id `dc82d39d-9be2-49b0-a01d-c7181b13a8b6`. One open item: an authenticated production
+screenshot (see `release-readiness.md`). Evidence: `PROOF.md`. Screenshots:
+`telemetry-platform/docs/screenshots/`.
 
 ## Hard gate
 

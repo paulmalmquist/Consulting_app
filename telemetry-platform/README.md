@@ -8,6 +8,26 @@ Turning raw engine-test telemetry into automated go/no-go decisions.
 > proprietary data** from any company. The datasets are analogs, not a stand-in for a specific
 > firm's test stand.
 
+## Results (live, exact)
+
+Trained in Databricks, gated before promotion, served behind a live API. Metrics are exactly as
+computed. Full run IDs, gate decisions, and live-URL transcripts in [PROOF.md](PROOF.md).
+
+**Anomaly detection champion — rolling-MAD dynamic threshold** (SMAP/MSL, point-adjusted, labeled
+test split):
+- precision **0.5460**, recall **0.7691**, F1 **0.6387** — beat the PCA model (F1 0.4196) honestly.
+
+**RUL champion — gradient boosting** (C-MAPSS FD001, 100 test units):
+- RMSE **20.32**, PHM **1423.3** — beat the linear baseline (RMSE 21.70) on RMSE.
+
+**MLflow champion aliases** (Unity Catalog Model Registry):
+- `novendor_1.telemetry.tel_anomaly_detector@champion`
+- `novendor_1.telemetry.tel_rul_regressor@champion`
+
+**Live:** API `https://authentic-sparkle-production-7f37.up.railway.app` · demo
+`https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry` (authenticated). See
+[DEMO.md](DEMO.md) for the 3–4 minute reviewer script.
+
 ## What this is
 
 An end-to-end platform that ingests sensor telemetry, detects anomalies, predicts remaining useful
@@ -44,7 +64,7 @@ Databricks (lakehouse, Spark, Delta), Unity Catalog `novendor_1.telemetry`, SQL 
 (serving), Supabase project `ozboonlsplroialdwuxj` (prediction log + tenant state), Winston lab
 environment (dashboard), Railway (API deploy), Vercel (frontend deploy).
 
-## Results
+## Results — detail (baseline vs champion)
 
 Trained in Databricks, logged to MLflow, gated before promotion. Metrics are exactly as computed —
 no rounding, no aspirational values. Full run IDs and gate decisions are in [PROOF.md](PROOF.md).

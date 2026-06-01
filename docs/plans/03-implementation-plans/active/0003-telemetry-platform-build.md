@@ -1,7 +1,7 @@
 # Dispatch Record 0003 — Telemetry Anomaly Platform Build
 
 **Created:** 2026-06-01
-**Status:** Active — Phases 0–4 DONE 2026-06-01 (planning; Bronze/Silver/Gold; MLflow models + registry + gates; Supabase `tel_*` + FastAPI serving; dashboard lab env + deterministic replay). Phase 5 (deploy) open.
+**Status:** COMPLETE — Phases 0–5 DONE 2026-06-01. Live: Railway API + novendor.ai frontend, full operated loop end to end. One documented gap: authenticated production screenshot (needs login cred); core readiness proven via live API + cold-session auth-gating + local UI screenshots.
 **Environment:** Telemetry Platform (NASA aerospace analog) — `docs/plans/telemetry-platform/`
 **Deliverable type:** Multi-phase greenfield platform build (portfolio proof-of-work)
 
@@ -132,7 +132,7 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 2. ~~MLflow models + registry + promotion gates~~ — **DONE 2026-06-01** (4 models, 2 champions registered; baseline beat PCA on anomaly F1; proof in PROOF.md)
 3. ~~Supabase `tel_*` migration + FastAPI serving + API tests~~ — **DONE 2026-06-01** (`10006_telemetry_serving.sql`, 6 RLS tables; `/api/telemetry/*` live; 0→2 receipts persisted; 7 tests pass; proof in PROOF.md)
 4. ~~Dashboard lab environment + v2 provisioning + deterministic replay~~ — **DONE 2026-06-01** (env `dc82d39d…`; 5 dark-console pages live from the API; GO→NO-GO replay flip verified by screenshots; proof in PROOF.md)
-5. Deploy API (Railway) + frontend (Vercel) + smoke tests ← **NEXT**
+5. ~~Deploy API (Railway) + frontend (Vercel) + smoke tests~~ — **DONE 2026-06-01** (backend live `/version`=f178c5c1; novendor.ai serves telemetry; 7 endpoints smoke-tested live incl. persisted `/score` receipt; cold session auth-gates correctly; proof in PROOF.md)
 
 ---
 
@@ -222,6 +222,26 @@ Full request/response bodies, receipts, and commands in `telemetry-platform/PROO
 | Lean | no databricks/mlflow/pyspark added to backend | held; replay served from a committed fixture |
 
 Screenshots: `telemetry-platform/docs/screenshots/`. Full evidence in `telemetry-platform/PROOF.md`.
+
+## Verification (Phase 5) — results
+
+| Step | Check | Result |
+|---|---|---|
+| Backend deploy | `railway up` → Railway service `authentic-sparkle` | `/version` flipped to `f178c5c1` |
+| Deploy hygiene | unrelated WIP stashed, only committed work shipped, restored after | held |
+| Backend lean | no databricks/mlflow/pyspark added | confirmed |
+| Live API | 7 endpoints on the Railway URL | all return real data |
+| Live `/score` | POST against prod | NO_GO, receipt `bf89dfc6…`; `tel_predictions` 2→3 in prod Supabase |
+| Frontend deploy | `vercel deploy --prod` → `consulting-app` (root `repo-b`) → novendor.ai | READY; routes live |
+| Upload fix | `.vercelignore` excludes the 1 GB NASA IMS archive (>100 MB limit) | resolved |
+| Prod proxy | `novendor.ai/api/telemetry/{health,replay,model-performance}` | reaches the Railway backend |
+| Cold session | fresh browser hits the demo route | redirects to `/login` (auth-gated, route live) |
+| Gap | authenticated production screenshot | not captured — needs login cred; core readiness proven otherwise |
+| Blast radius | shared backend, whole branch shipped | accepted by the user with the divergence in view |
+
+Live: API `https://authentic-sparkle-production-7f37.up.railway.app`; demo
+`https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`. Full transcript in
+`telemetry-platform/PROOF.md`.
 
 ---
 
