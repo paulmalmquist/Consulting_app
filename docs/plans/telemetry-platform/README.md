@@ -36,8 +36,9 @@ person could own our test-telemetry platform." They verify three things without 
 
 ## Status
 
-Phases 0–2 complete (planning/skeleton; Databricks medallion ingestion; MLflow models + registry +
-gates). Phase 3 (Supabase `tel_*` + FastAPI serving) is next — see `next-session.md`.
+Phases 0–3 complete (planning/skeleton; Databricks medallion ingestion; MLflow models + registry +
+gates; Supabase `tel_*` schema + live FastAPI serving with persisted receipts). Phase 4 (dashboard
+as a Winston lab env) is next — see `next-session.md`.
 
 ## Hard gate
 

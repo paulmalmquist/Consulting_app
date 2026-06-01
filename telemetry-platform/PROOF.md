@@ -3,13 +3,13 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 2)
+## Status (2026-06-01, end of Phase 3)
 
-Phases 0–2 are complete. **Phase 2 (MLflow models + registry + promotion gates) is done:** four real
-models trained in Databricks, logged to MLflow with real run IDs and exact metrics, two champions
-registered in the Unity Catalog Model Registry behind promotion gates, and the deterministic replay
-feed re-scored by the champion anomaly model. No Supabase migration and no dashboard code exist yet
-(Phases 3–4).
+Phases 0–3 are complete. **Phase 3 (Supabase `tel_*` schema + FastAPI serving) is done:** the 6
+`tel_*` tables are migrated with RLS, the FastAPI serving slice is live in `backend/`, every `/score`
+persists a receipt to Supabase, and the fail-closed null_reasons + RLS tenant isolation are verified.
+No dashboard code exists yet (Phase 4). The backend stays lean — it imports no databricks/mlflow/
+pyspark; the anomaly champion is re-implemented as a cheap rule.
 
 Auth: `DATABRICKS_PAT` was sourced from the repo-root `claude_token.txt` (its value was never read,
 printed, logged, or committed). The token is a valid Databricks PAT — the read-only auth gate passed.
@@ -235,16 +235,134 @@ python 11_score_replay_feed.py # score gold_replay_feed with the champion -> gol
 Notebooks: `databricks/notebooks/{train_anomaly,train_rul,promote_models,score_replay_feed}.py`.
 The PAT value was never printed; the warehouse/jobs are serverless and auto-stop.
 
-## Phase 3 — Serving proof (pending)
+## Phase 3 — Serving proof
 
-To be appended after Phase 3:
+### Migration
 
-- migration filename + applied confirmation + RLS verification (cross-tenant read blocked)
-- `curl GET /health` response
-- `curl POST /score` response (anomaly score, per-channel attribution, go/no-go, model version/run_id, persistence receipt)
-- Supabase `tel_predictions` row count before/after a `/score` call
-- `curl GET /monitoring` response (PSI, rolling anomaly rate, counts, drift)
-- API test output
+`repo-b/db/schema/10006_telemetry_serving.sql` (number resolved live: on-disk max was 10005;
+`supabase_migrations.schema_migrations` is a separate legacy sequence at 1007 — the
+`repo-b/db/schema/` files use the 10000-series, so the next file number is 10006). Applied via the
+Supabase CLI against project `ozboonlsplroialdwuxj`. The migration's verification `DO` block requires
+6 `tel_` tables all with RLS or it raises — it passed. Independent check:
+
+```
+tel_anomaly_events     rowsecurity=true   policy tel_anomaly_events_tenant
+tel_drift_metrics      rowsecurity=true   policy tel_drift_metrics_tenant
+tel_model_runs         rowsecurity=true   policy tel_model_runs_tenant
+tel_predictions        rowsecurity=true   policy tel_predictions_tenant
+tel_telemetry_channels rowsecurity=true   policy tel_telemetry_channels_tenant
+tel_test_runs          rowsecurity=true   policy tel_test_runs_tenant
+```
+
+Convention note (documented adjustment): the repo's serving code does **not** rely on the
+`current_setting('app.env_id')` GUC at query time — it filters by `business_id` and validates the
+business via `public.business` (`resolve_tenant_id`), exactly like `cro_*`/`crm_*`. The `tel_*` tables
+carry both: `env_id`/`business_id` columns **and** the `current_setting('app.env_id', true)` RLS policy
+(matching `525_execution_board.sql`), so the policy is defense-in-depth on top of explicit column
+filtering. This matches the existing repo convention rather than the plan's GUC-first sketch.
+
+### RLS tenant isolation — verified
+
+```sql
+SET ROLE authenticated; SET app.env_id = 'some-other-env';
+SELECT count(*) FROM tel_predictions;   -- visible_cross_tenant = 0
+```
+A non-owner role scoped to a different env sees 0 rows. (The CLI's default owner role bypasses RLS,
+so the check was run as `authenticated`.)
+
+### Serving layer
+
+- Routes: `backend/app/routes/telemetry.py` (registered in `backend/app/main.py`).
+- Services: `backend/app/services/telemetry_serving.py` (no databricks/mlflow/pyspark import).
+- Schema: `backend/app/schemas/telemetry.py`.
+- The anomaly champion is re-implemented as the rule it is: `resid = abs(value - rolling_mean)`,
+  `fired = resid > k * effective_scale` with `k=4` and `effective_scale = global train scale
+  (0.033867)` because D-4's per-channel train scale is ~0 — mirroring the registered model's fallback.
+- `tel_model_runs` seeded from the Phase 2 champions (run IDs + exact metrics + gate decisions).
+
+### Live endpoints (local backend on :8077, real Supabase)
+
+```
+GET /api/telemetry/health
+  {"status":"ok","promoted_models":2,"module":"telemetry"}
+
+POST /api/telemetry/score   (calm window -> GO)
+  {"verdict":"GO","anomaly_score":0.0,"threshold":0.13546720472974538,
+   "model_name":"tel_anomaly_detector","model_version":"1","model_alias":"champion",
+   "mlflow_run_id":"4a48cb6af8714609b9581d66e904544c",
+   "attribution":[{"channel_name":"value","contribution":0.0}],
+   "null_reason":null,"receipt_id":"18a3721d-8bf3-4e69-b771-4adddc9b26a4"}
+
+POST /api/telemetry/score   (deviation -> NO_GO)
+  {"verdict":"NO_GO","anomaly_score":2.46062,"threshold":0.13546720472974538,
+   "model_name":"tel_anomaly_detector","model_version":"1","mlflow_run_id":"4a48cb6af871...",
+   "attribution":[{"channel_name":"value","contribution":0.333333}],
+   "receipt_id":"f8e8f23e-1da9-4f27-8785-175bd59d9e6b"}
+
+GET /api/telemetry/runs
+  [{"id":"7e1e7a00-...","run_key":"smap_msl:D-4:test","dataset":"smap_msl",
+    "unit_or_channel":"D-4","spacecraft":"MSL","row_count":8473,"status":"ingested",...}]
+
+GET /api/telemetry/run/{id}
+  {"run":{...D-4...},"channels":[{"channel_name":"value","unit":"normalized",...}],
+   "recent_predictions":[{"verdict":"NO_GO","anomaly_score":2.46062,...},
+                         {"verdict":"GO","anomaly_score":0.0,...}],"anomaly_events":[],"null_reason":null}
+
+GET /api/telemetry/monitoring
+  {"rolling_anomaly_rate":0.5,"prediction_count":2,"latest_model_name":"tel_anomaly_detector",
+   "latest_model_version":"1","latest_model_alias":"champion","last_scored_at":"2026-06-01T...",
+   "psi":null,"window_label":"recent","null_reason":null}
+```
+
+### Persistence receipts — Supabase row count 0 → 2
+
+`tel_predictions` (env `telemetry-demo`): **0 before** the two `/score` calls, **2 after**. Persisted
+rows tie back to the registered champion:
+
+```
+id=18a3721d...  verdict=GO     score=0.0000  model=tel_anomaly_detector v1  run=4a48cb6af871  window t[10..12]
+id=f8e8f23e...  verdict=NO_GO  score=2.4606  model=tel_anomaly_detector v1  run=4a48cb6af871  window t[726..728]
+```
+
+### Fail-closed paths — verified live
+
+```
+POST /score (env with no promoted model)
+  -> {"verdict":"NOT_AVAILABLE","null_reason":"model_not_promoted","receipt_id":null}
+POST /score (business_id not in public.business)
+  -> HTTP 404 NOT_FOUND   (resolve_tenant_id fails closed)
+```
+The serving layer also returns `missing_run` (run_key not found) and `no_prediction_rows`
+(`/monitoring` with no scores) — covered by tests. No fake success is returned when model metadata,
+the run, or persistence is unavailable.
+
+### What is live-scored vs replayed (explicit, per the Phase 3 brief)
+
+- **`/score`** is the live API contract: it scores a submitted window with the champion rule and
+  persists a receipt every call. This is the operational loop.
+- **The demo replay** (Phase 4) reads precomputed real champion outputs from
+  `novendor_1.telemetry.gold_replay_feed_scored` (Phase 2) for deterministic, no-stall playback. The
+  reviewer demo will NOT depend on cold model loading or Databricks latency.
+
+### Tests
+
+`backend/tests/test_telemetry_serving.py` — **7 passed** (TestClient + `fake_cursor`): GO + receipt,
+NO_GO on spike, `model_not_promoted`, `missing_run`, `/runs`, `/monitoring` with data,
+`/monitoring` no-prediction null_reason. (`conftest.py` `_GET_CURSOR_TARGETS` extended with
+`app.services.telemetry_serving.get_cursor`.)
+
+### Exact commands
+
+```
+# migration + verification + seed
+cat repo-b/db/schema/10006_telemetry_serving.sql | supabase db query --linked
+cat telemetry-platform/databricks/seed_serving_demo.sql | supabase db query --linked
+# tests
+cd backend && python -m pytest tests/test_telemetry_serving.py -q     # 7 passed
+# live serving (local)
+cd backend && .venv/Scripts/python -m uvicorn app.main:app --port 8077
+curl .../api/telemetry/{health,score,runs,run/{id},monitoring}
+```
 
 ## Phase 4 — Dashboard proof (pending)
 

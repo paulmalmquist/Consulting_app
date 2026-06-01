@@ -83,6 +83,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.materialization.get_cursor",
     "app.services.reports.get_cursor",
     "app.services.crm.get_cursor",
+    "app.services.telemetry_serving.get_cursor",
     "app.services.underwriting.get_cursor",
     "app.services.real_estate.get_cursor",
     "app.services.repe.get_cursor",

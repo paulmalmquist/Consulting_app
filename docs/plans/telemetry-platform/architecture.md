@@ -1,9 +1,9 @@
 # Telemetry Platform — Architecture
 
 **Last updated:** 2026-06-01
-**Status:** Phases 1–2 done — Bronze/Silver/Gold built on real NASA data (13 Delta tables); 4 models
-trained in Databricks + 2 champions registered in the UC Model Registry behind promotion gates;
-deterministic replay feed scored by the champion. No Supabase migration, no dashboard yet (Phases 3–4).
+**Status:** Phases 1–3 done — Bronze/Silver/Gold (13 Delta tables); 4 models + 2 registered champions
+behind gates; replay feed scored; Supabase `tel_*` schema (6 RLS tables) + live FastAPI serving
+(`/api/telemetry/*`) with persisted receipts. No dashboard yet (Phase 4).
 
 ## Pipeline
 
@@ -192,8 +192,34 @@ Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (
   re-implement its scoring (per-channel scale + k threshold) cheaply, or load the registered pyfunc.
   The RUL champion is an sklearn GBM. Keep the serving deps lean (don't ship pyspark).
 
-## Needs verification (carried into Phase 3+)
+## Phase 3 outcome (2026-06-01)
 
-- [ ] The exact next free migration number (`supabase_migrations.schema_migrations`, project `ozboonlsplroialdwuxj`) — Phase 3.
-- [ ] The prevailing `tel_*` RLS policy form vs this sketch (match repo convention; document adjustment) — Phase 3.
+- **Migration:** `repo-b/db/schema/10006_telemetry_serving.sql` — 6 `tel_*` tables, each with
+  `env_id`/`business_id` + RLS `tenant_isolation` policy (`current_setting('app.env_id', true)`) +
+  `WITH CHECK` + `COMMENT`. Number resolved live (on-disk 10000-series max was 10005 → 10006).
+- **Convention adjustment (documented):** serving filters by `business_id` + `resolve_tenant_id`
+  (canonical `public.business`), NOT by setting the `app.env_id` GUC — matching `cro_*`/`crm_*`. The
+  RLS policy is defense-in-depth. Cross-tenant read returns 0 rows under a non-owner role (verified).
+- **Serving (lean, no databricks/mlflow/pyspark import):** `backend/app/routes/telemetry.py`
+  (registered in `main.py`), `backend/app/services/telemetry_serving.py`,
+  `backend/app/schemas/telemetry.py`. Endpoints: `GET /api/telemetry/health`, `POST /api/telemetry/score`,
+  `GET /api/telemetry/runs`, `GET /api/telemetry/run/{id}`, `GET /api/telemetry/monitoring`.
+- **Champion as a rule:** `/score` re-implements the MAD detector (`resid > 4 × effective_scale`,
+  `effective_scale = global train scale 0.033867` since D-4's per-channel scale ≈ 0 — mirrors the
+  registered model's fallback). Reads promoted-model metadata from `tel_model_runs`; writes one
+  `tel_predictions` receipt per call (verified 0 → 2).
+- **Fail-closed:** `model_not_promoted`, `missing_run`, `no_prediction_rows`, plus 404 for an unknown
+  business. No fake success.
+- **Demo serving fixture:** a dedicated `telemetry-demo` tenant
+  (business `7e1eb000-0000-4000-a000-000000000001`) seeded by
+  `telemetry-platform/databricks/seed_serving_demo.sql` with the 2 champions + the D-4 run/channel.
+- **Live vs replay:** `/score` is the live contract; the Phase 4 demo replay reads precomputed
+  `gold_replay_feed_scored` (no cold-start dependency).
+- **Tests:** `backend/tests/test_telemetry_serving.py` (7 pass); `conftest.py` `_GET_CURSOR_TARGETS`
+  extended with `app.services.telemetry_serving.get_cursor`.
+
+## Needs verification (carried into Phase 4+)
+
 - [ ] Whether a new `telemetry` template + seed pack is needed or `empty_lab` + a custom seed suffices — Phase 4.
+- [ ] Reviewer access model for the demo env (public read-only vs invite vs authenticated tenant) — Phase 4 decision.
+- [ ] Whether the dashboard reads `gold_replay_feed_scored` via a backend proxy endpoint or a seeded `tel_*` copy — Phase 4.

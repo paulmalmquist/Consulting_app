@@ -1,7 +1,7 @@
 # Dispatch Record 0003 — Telemetry Anomaly Platform Build
 
 **Created:** 2026-06-01
-**Status:** Active — Phase 0 DONE; Phase 1 (Bronze/Silver/Gold) DONE; Phase 2 (MLflow models + registry + gates) DONE 2026-06-01; Phases 3–5 open
+**Status:** Active — Phases 0–3 DONE 2026-06-01 (planning; Bronze/Silver/Gold; MLflow models + registry + gates; Supabase `tel_*` + FastAPI serving). Phases 4–5 open.
 **Environment:** Telemetry Platform (NASA aerospace analog) — `docs/plans/telemetry-platform/`
 **Deliverable type:** Multi-phase greenfield platform build (portfolio proof-of-work)
 
@@ -130,8 +130,8 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 0. ~~Planning + skeleton + demo contract + `tel_` registration~~ — **DONE 2026-06-01**
 1. ~~Databricks Bronze/Silver/Gold ingestion (gated on `DATABRICKS_PAT`)~~ — **DONE 2026-06-01** (13 Delta tables, real NASA data; proof in `telemetry-platform/PROOF.md`)
 2. ~~MLflow models + registry + promotion gates~~ — **DONE 2026-06-01** (4 models, 2 champions registered; baseline beat PCA on anomaly F1; proof in PROOF.md)
-3. Supabase `tel_*` migration + FastAPI serving + API tests ← **NEXT**
-4. Dashboard lab environment + v2 provisioning + deterministic replay
+3. ~~Supabase `tel_*` migration + FastAPI serving + API tests~~ — **DONE 2026-06-01** (`10006_telemetry_serving.sql`, 6 RLS tables; `/api/telemetry/*` live; 0→2 receipts persisted; 7 tests pass; proof in PROOF.md)
+4. Dashboard lab environment + v2 provisioning + deterministic replay ← **NEXT**
 5. Deploy API (Railway) + frontend (Vercel) + smoke tests
 
 ---
@@ -184,6 +184,25 @@ closed; RLS verified; live API values on the dashboard (no frontend constants).
 
 Experiment `/Users/paulmalmquist@gmail.com/HistoryRhymesML` (id `3740651530987773`). Full metrics,
 run IDs, comparison tables, and commands in `telemetry-platform/PROOF.md`.
+
+## Verification (Phase 3) — results
+
+| Step | Check | Result |
+|---|---|---|
+| Migration | `repo-b/db/schema/10006_telemetry_serving.sql` applied (number resolved live) | 6 `tel_` tables, all RLS + tenant policy |
+| RLS isolation | `SET ROLE authenticated; SET app.env_id='other'; SELECT count(*) FROM tel_predictions` | 0 rows (cross-tenant blocked) |
+| Convention | serving filters by `business_id` + `resolve_tenant_id` (not the GUC); RLS is defense-in-depth | matches `cro_*`/`525_execution_board.sql`; documented |
+| Lean backend | no databricks/mlflow/pyspark import; champion re-implemented as a rule | confirmed |
+| /health | live | `{"status":"ok","promoted_models":2}` |
+| /score GO | calm window | verdict GO, receipt `18a3721d…` |
+| /score NO_GO | deviation | verdict NO_GO, score 2.46, receipt `f8e8f23e…` |
+| Persistence | `tel_predictions` count before/after | 0 → 2 (one row per `/score`) |
+| /runs, /run/{id}, /monitoring | live | real D-4 run, recent predictions, rolling rate 0.5 |
+| Fail-closed | no model / missing run / no business / no predictions | `model_not_promoted`, `missing_run`, 404, `no_prediction_rows` |
+| Tests | `backend/tests/test_telemetry_serving.py` | 7 passed |
+| Live vs replay | `/score` is live; demo replay reads precomputed `gold_replay_feed_scored` | documented in PROOF |
+
+Full request/response bodies, receipts, and commands in `telemetry-platform/PROOF.md`.
 
 ---
 

@@ -1,58 +1,62 @@
-# Next Session — Telemetry Platform (Phase 3)
+# Next Session — Telemetry Platform (Phase 4)
 
-**Last updated:** 2026-06-01 (Phase 2 complete)
+**Last updated:** 2026-06-01 (Phase 3 complete)
 
-Phases 1–2 done: real NASA Bronze/Silver/Gold in `novendor_1.telemetry`, 4 models trained in
-Databricks, 2 champions in the UC Model Registry, deterministic replay feed scored. Phase 3 adds the
-Supabase `tel_*` schema and the FastAPI serving layer.
+Phases 1–3 done: real NASA medallion data in Databricks; 4 models + 2 registered champions behind
+gates; Supabase `tel_*` schema + live FastAPI serving (`/api/telemetry/*`) with persisted receipts.
+Phase 4 builds the dashboard as a real Winston lab environment and wires the deterministic replay.
 
 ## Copy-paste prompt for the next Claude Code session
 
 ```
-You are starting Phase 3 of the Telemetry Platform build (dispatch 0003): the Supabase tel_* schema
-migration + the FastAPI serving layer in backend/. Do NOT start the dashboard (Phase 4) or deploy
-(Phase 5).
+You are starting Phase 4 of the Telemetry Platform build (dispatch 0003): the Next.js dashboard as a
+Winston lab environment, provisioned via the v2 pipeline, reading the live /api/telemetry/* endpoints
+and the deterministic replay feed. Do NOT start deployment (Phase 5).
 
 Read first:
 - docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md
-- docs/plans/telemetry-platform/architecture.md   (tel_* table list + Phase 2 outcome / serving note)
-- docs/plans/telemetry-platform/roadmap.md          (Phase 3 tickets)
-- docs/plans/telemetry-platform/eval-plan.md        (negative tests / null_reasons)
-- ARCHITECTURE.md                                   (RLS template, env_id/business_id, migration naming)
-- telemetry-platform/PROOF.md                       (champion run IDs + replay feed)
+- docs/plans/telemetry-platform/architecture.md          (Phase 3 outcome: endpoints + serving)
+- docs/plans/telemetry-platform/roadmap.md                (Phase 4 tickets)
+- telemetry-platform/docs/frontend-wireframe.md           (screen-by-screen spec + API binding table)
+- telemetry-platform/DEMO.md                              (4-min journey + replay storyboard, D-4)
+- repo-b/src/components/lab/environments/constants.ts     (industry registration + route resolver)
+- repo-b/src/app/lab/env/[envId]/supply-chain/            (closest multi-page lab-env precedent)
+- repo-b/src/lib/api.ts                                   (apiFetch, same-origin /v1 proxy)
+- skills/winston-create-environment/SKILL.md              (v2 provisioning POST /v2/environments)
 
-Champions registered (Unity Catalog Model Registry):
-- novendor_1.telemetry.tel_anomaly_detector@champion  (rule-based MAD: per-channel scale + k=4 on
-  abs(value - value_rmean50). Cheap to re-implement in the serving layer — no pyspark needed.)
-- novendor_1.telemetry.tel_rul_regressor@champion     (sklearn GBM)
+Live serving contract (Phase 3, prefix /api/telemetry):
+  GET /health  POST /score  GET /runs  GET /run/{id}  GET /monitoring
+  (run the backend locally: cd backend && .venv/Scripts/python -m uvicorn app.main:app --port 8077)
+Demo tenant fixture: env_id 'telemetry-demo', business_id 7e1eb000-0000-4000-a000-000000000001,
+run smap_msl:D-4:test. Champions in tel_model_runs.
 
-Phase 3 tickets (from roadmap.md):
-1. Migration repo-b/db/schema/NNN_telemetry_*.sql — resolve NNN live against
-   supabase_migrations.schema_migrations (project ozboonlsplroialdwuxj); do NOT hardcode. Tables:
-   tel_test_runs, tel_telemetry_channels, tel_predictions, tel_anomaly_events, tel_model_runs,
-   tel_drift_metrics. Each: env_id TEXT NOT NULL + business_id UUID NOT NULL + ENABLE RLS +
-   tenant_isolation policy USING (env_id = current_setting('app.env_id', true)) + WITH CHECK +
-   COMMENT ON TABLE. Match the prevailing repo RLS form (look at a recent migration first).
-2. Seed tel_model_runs from the registered champions (run IDs, metrics, gate decisions from PROOF.md).
-3. Schema backend/app/schemas/telemetry.py (Pydantic request/response shapes).
-4. Services backend/app/services/telemetry_{scoring,runs,monitoring}.py. Set app.env_id before tenant
-   queries. Scoring re-implements the MAD champion (or loads the registered model). Write one
-   tel_predictions row per /score.
-5. Routes backend/app/routes/telemetry.py: GET /health, POST /score (anomaly score + per-channel
-   attribution + go/no-go + model version/run_id + Supabase receipt), GET /runs, GET /run/{id},
-   GET /monitoring (PSI + rolling anomaly rate + counts + drift). Register the router.
-6. Fail-closed: no promoted model -> model_not_promoted; channel without scores -> channel_not_scored.
-7. Tests backend/tests/test_telemetry_*.py: /score persists a row + returns all fields; /monitoring
-   returns PSI; fail-closed null_reasons return correct codes.
+Decision to make + record (explicit): reviewer access model — public read-only demo vs invite-code
+vs authenticated lab tenant. Default template auth_mode is private; widening it is a recorded choice.
 
-Credentials: pull backend secrets via `vercel env pull backend/.env --environment production --yes`
-(repo-b project) per CLAUDE.md — do not ask the user for DATABASE_URL / SUPABASE keys. Supabase work
-via the Supabase CLI (project ozboonlsplroialdwuxj).
+Phase 4 tickets (from roadmap.md):
+1. Template: add a 'telemetry' template to repo-b/db/schema/516_environment_templates_seed.sql (or
+   reuse empty_lab + custom seed): default_home_route '/lab/env/{env_id}/telemetry', industry_type
+   'telemetry', dark theme tokens.
+2. Seed pack backend/app/services/environment_seed_packs_v2/telemetry_starter.py + register in
+   __init__.py SEED_PACKS (mirror supply_chain_starter). Seed minimal tel_test_runs/tel_telemetry_channels.
+3. Industry registration in constants.ts: add 'telemetry' to industries, INDUSTRY_DISPLAY_MAP,
+   isTelemetryEnvironment(), resolveEnvironmentOpenPath() -> /lab/env/{envId}/telemetry.
+4. Pages repo-b/src/app/lab/env/[envId]/telemetry/ (root + runs/, replay/, model-performance/,
+   monitoring/, optional copilot/); components repo-b/src/components/telemetry/. Data via apiFetch
+   against /api/telemetry/*. No hardcoded metrics in the frontend.
+5. Deterministic replay: read precomputed champion outputs (gold_replay_feed_scored). Either add a
+   backend proxy endpoint that serves the scored feed, or seed a tel_* copy. Pre-warm; fire-tick
+   flips Go/No-Go (D-4 model_pred fires at t=728, covers all 3,248 labeled ticks); never stalls.
+6. Provision the tenant: POST /v2/environments {client_name, template_key:'telemetry', slug,
+   env_kind:'demo', seed_pack:'telemetry_starter', dry_run:false}; ensure app.environments and
+   v1.environments env_id match; run GET /v2/environments/{env_id}/verify.
 
-Proof to append to telemetry-platform/PROOF.md (Phase 3): migration applied + RLS verified
-(cross-tenant read blocked), curl /health, curl /score (full response), tel_predictions row count
-before/after, curl /monitoring, test output.
+Design: dark console only; <=7 nav; active = fill+weight; go/no-go reads as a redline indicator.
+Use the --bm-* tokens in repo-b/src/app/globals.css.
 
-Honesty + secret rules unchanged. PHASE GATE: stop after Phase 3, append PROOF, update dispatch 0003 +
-env docs, lessons to docs/tips.md. Do NOT start Phase 4 without approval.
+Proof to append to telemetry-platform/PROOF.md (Phase 4): env_id, verify-gate result, screenshots per
+panel, the replay sequence (green->red + attribution), evidence values come from the API (network tab).
+
+PHASE GATE: stop after Phase 4, append PROOF, update dispatch 0003 + env docs, lessons to docs/tips.md.
+Do NOT start Phase 5 without approval.
 ```
