@@ -81,6 +81,8 @@ from app.routes.ai_audit import router as ai_audit_router
 from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
+from app.routes import telemetry
+from app.routes import telemetry_copilot
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -110,6 +112,8 @@ from app.routes import market_research_state
 from app.routes import rhymes
 from app.routes import podcast_intelligence
 from app.routes import hr as hr_routes
+from app.routes import hr_research as hr_research_routes
+from app.routes import hr_morning_book as hr_morning_book_routes
 from app.routes import altered_mind as altered_mind_routes
 from app.routes import ncf_grant_friction
 from app.routes import trading
@@ -348,7 +352,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         message="Request validation failed",
         context={"path": request.url.path, "errors": errors},
     )
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    # Return the sanitized errors (loc/msg/type). Never return raw exc.errors() — for a body-parse
+    # failure Pydantic v2 puts the raw request bytes in each error's `input`, which JSONResponse cannot
+    # serialize (TypeError: Object of type bytes is not JSON serializable) and the outer handler then
+    # turns into a 500. The sanitized list is bytes-free and leaks no raw payload.
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.exception_handler(Exception)
@@ -439,6 +447,8 @@ app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
 app.include_router(podcast_intelligence.router)
 app.include_router(hr_routes.router)
+app.include_router(hr_research_routes.router)
+app.include_router(hr_morning_book_routes.router)
 app.include_router(altered_mind_routes.router)
 app.include_router(ncf_grant_friction.router)
 app.include_router(trading.router)
@@ -460,6 +470,8 @@ app.include_router(website_content.router)
 app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
 app.include_router(consulting.router)
+app.include_router(telemetry.router)
+app.include_router(telemetry_copilot.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)

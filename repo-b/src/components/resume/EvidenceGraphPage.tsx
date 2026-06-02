@@ -7,6 +7,7 @@ import { EvidenceCapabilityTable } from "./EvidenceCapabilityTable";
 import { EvidenceFilterBar, type FilterState } from "./EvidenceFilterBar";
 import { EvidenceGapTracker } from "./EvidenceGapTracker";
 import { ProofArtifactCard } from "./ProofArtifactCard";
+import { ProofSummaryCards } from "./ProofSummaryCards";
 import {
   CAPABILITIES,
   GAP_ITEMS,
@@ -199,21 +200,45 @@ export default function EvidenceGraphPage() {
             className="resume-editorial mt-3 text-[clamp(2.2rem,7vw,4.8rem)] uppercase leading-[1.05]"
             style={{ color: "var(--ros-text-bright)", fontWeight: 500, letterSpacing: "0.08em" }}
           >
-            Evidence Graph
+            Evidence Ledger
           </h1>
           <p
             className="mx-auto mt-5 max-w-2xl text-[14px] leading-relaxed md:text-[15px]"
             style={{ color: "var(--ros-text-muted)" }}
           >
-            A transparent map of my data engineering, finance, real estate, and AI platform experience. It
-            separates shipped professional work, Winston platform work, prototypes, and active gaps.
+            Claims are weighted by shipped production systems, demoable artifacts, source strength,
+            confidence in the evidence behind each claim, and named gaps with planned proof.
           </p>
           <p
-            className="mx-auto mt-3 max-w-2xl text-[12px] leading-relaxed"
+            className="mx-auto mt-4 max-w-2xl text-[12px] leading-relaxed"
             style={{ color: "var(--ros-text-dim)" }}
           >
             Production = shipped at Kayne Anderson or JLL · Winston = Novendor internal platform · Prototype = working but not enterprise-hardened · Advisory = consulted, not owned · Gap = honest, with a plan.
           </p>
+
+          {/* Confidence legend */}
+          <div
+            className="mx-auto mt-5 max-w-2xl rounded border px-4 py-3"
+            style={{ borderColor: "var(--ros-border)", backgroundColor: "rgba(0,0,0,0.15)" }}
+          >
+            <p
+              className="text-[10px] font-semibold tracking-[0.12em] uppercase"
+              style={{ color: "var(--ros-text-dim)" }}
+            >
+              Confidence Scale
+            </p>
+            <p className="mt-2 text-[12px] leading-relaxed" style={{ color: "var(--ros-text-muted)" }}>
+              Confidence = strength of evidence behind the claim, <span style={{ color: "var(--ros-text-bright)" }}>not self-rated skill</span>.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-left text-[11px]" style={{ color: "var(--ros-text-muted)" }}>
+              <div>
+                <span style={{ color: "var(--ros-accent-gold)" }}>●●●●●</span> — shipped production system, independently verified, demoable
+              </div>
+              <div>
+                <span style={{ color: "var(--ros-text-dim)" }}>●</span> — adjacent exposure, limited proof, learning in progress
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* KPI strip */}
@@ -261,6 +286,35 @@ export default function EvidenceGraphPage() {
               />
             </div>
           </div>
+        </ResumeModuleBoundary>
+
+        {/* Proof summary cards */}
+        <ResumeModuleBoundary
+          boundaryId="proof-summary"
+          eyebrow="Evidence Overview"
+          title="Proof summary unavailable"
+          message="The summary cards could not render."
+          resetKey="proof-summary-v1"
+        >
+          <ProofSummaryCards
+            capabilities={filtered}
+            gaps={GAP_ITEMS}
+            artifacts={PROOF_ARTIFACTS}
+            onCapabilityClick={(id) => {
+              if (id.startsWith("prod:")) {
+                const sys = id.replace("prod:", "");
+                setFilters({ ...filters, statuses: new Set(["Production"]) });
+              } else {
+                setExpandedId(id);
+              }
+            }}
+            onGapClick={(id) => {
+              const gapItem = GAP_ITEMS.find((g) => g.id === id);
+              if (gapItem) {
+                window.scrollTo({ behavior: "smooth", top: document.documentElement.scrollHeight });
+              }
+            }}
+          />
         </ResumeModuleBoundary>
 
         {/* Filter bar */}

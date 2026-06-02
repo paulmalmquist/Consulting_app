@@ -44,6 +44,8 @@ Standard null_reasons across all environments:
 | `context_expired` | Session context is too old to be reliable |
 | `out_of_scope_environment` | Request exceeds this environment's declared scope |
 | `no_relevant_documents` | RAG found no relevant context for this query |
+| `model_not_promoted` | No promoted model version exists for the requested channel/model (Telemetry) |
+| `channel_not_scored` | Channel exists but has no prediction rows yet (Telemetry) |
 
 ## Rule for eval coverage
 

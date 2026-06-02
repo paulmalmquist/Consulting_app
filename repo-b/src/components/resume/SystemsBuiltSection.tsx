@@ -110,10 +110,18 @@ function SystemCard({
   const hasMore = bullets.length > 2;
 
   return (
-    <button
-      type="button"
+    <article
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className="group w-full border-t text-left transition-all duration-200"
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className="group w-full cursor-pointer border-t text-left transition-all duration-200"
       style={{
         borderColor: isHighlighted
           ? "rgba(200,146,58,0.55)"
@@ -226,7 +234,7 @@ function SystemCard({
           </button>
         )}
       </div>
-    </button>
+    </article>
   );
 }
 
