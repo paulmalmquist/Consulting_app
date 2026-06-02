@@ -176,7 +176,7 @@ export default function GovernanceDashboard() {
         <Panel title="Unsupported claims blocked (post-validator)">
           {g.unsupported_blocked_examples.length === 0 ? (
             <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>
-              None recorded — every live answer's ids/numbers traced to evidence.
+              None recorded — every live answer had its ids and numbers traced to evidence.
             </span>
           ) : g.unsupported_blocked_examples.map((r, i) => (
             <div key={i} style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, padding: "5px 0", borderBottom: `1px solid ${C.border}`, lineHeight: 1.4 }}>
