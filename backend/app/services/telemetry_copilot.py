@@ -16,6 +16,7 @@ import json
 import re
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Callable
 
 from app.config import OPENAI_API_KEY
@@ -31,6 +32,10 @@ DEMO_RUN_KEY = "smap_msl:D-4:test"
 DEMO_FIRE_TICK = 728
 CHAMPION_ANOMALY_MODEL = "tel_anomaly_detector"
 LLM_TIMEOUT_S = 15.0
+
+# Committed governance artifacts live under backend/app/data/telemetry/ (same place as the replay
+# fixture) so the Docker image ships them and the endpoints can serve them in prod.
+_ARTIFACT_DIR = Path(__file__).resolve().parent.parent / "data" / "telemetry"
 
 # Prompt version: stable id over the policy that produces every answer.
 ALLOW_LIST = ["get_triggering_prediction", "get_prediction", "get_predictions_by_window",
@@ -361,26 +366,32 @@ async def answer(*, env_id: str, business_id, question: str | None = None,
         _log(env_id, business_id, question, result, t0)
         return result
 
-    # 7-8. compose live (timeout) -> post-validate -> fallback
+    # 7-8. compose live (timeout) -> post-validate -> fallback. Record WHY a fallback happened so the
+    # governance surface reports real post-validator block counts (not all fallbacks lumped together).
     q = question or "Why did this run flip to NO-GO?"
     answer_source = "live_llm"
+    fallback_reason = None
     prose = None
     if OPENAI_API_KEY:
         try:
             prose = await asyncio.wait_for(_compose_answer_llm(q, evidence), LLM_TIMEOUT_S)
             ok, _offenders = _postvalidate(prose, evidence)
-            if not prose or len(prose.strip()) < 40 or not ok:
-                prose, answer_source = None, "fallback_template"
-        except (asyncio.TimeoutError, Exception):  # noqa: BLE001
-            prose, answer_source = None, "fallback_template"
+            if not prose or len(prose.strip()) < 40:
+                prose, answer_source, fallback_reason = None, "fallback_template", "empty_response"
+            elif not ok:
+                prose, answer_source, fallback_reason = None, "fallback_template", "postvalidate_block"
+        except asyncio.TimeoutError:
+            prose, answer_source, fallback_reason = None, "fallback_template", "timeout"
+        except Exception:  # noqa: BLE001
+            prose, answer_source, fallback_reason = None, "fallback_template", "llm_error"
     else:
-        answer_source = "fallback_template"
+        answer_source, fallback_reason = "fallback_template", "no_api_key"
     if prose is None:
         prose = _fallback_template_answer(intent, state, evidence)
         answer_source = "fallback_template"
 
     result = {**base, "answer": prose, "is_refusal": False, "intent": intent,
-              "null_reason": None, "answer_source": answer_source}
+              "null_reason": None, "answer_source": answer_source, "fallback_reason": fallback_reason}
     _log(env_id, business_id, question, result, t0)
     return result
 
@@ -591,11 +602,55 @@ def governance_summary(*, env_id: str, business_id) -> dict:
                ORDER BY created_at DESC LIMIT 1""",
             (env_id, str(business_id)))
         active = cur.fetchone()
+        # fallback reasons (post-validator block count comes from here — a real number, not invented)
+        cur.execute(
+            """SELECT coalesce(fallback_reason,'(none)') AS fr, count(*) AS n
+               FROM tel_copilot_interactions WHERE env_id=%s AND business_id=%s
+               GROUP BY fallback_reason""",
+            (env_id, str(business_id)))
+        fb = {r["fr"]: int(r["n"]) for r in cur.fetchall()}
+        # tool-call success/failure across all logged tool_trace entries
+        cur.execute(
+            """SELECT (e->>'status') AS st, count(*) AS n
+               FROM tel_copilot_interactions, jsonb_array_elements(tool_trace) e
+               WHERE env_id=%s AND business_id=%s GROUP BY (e->>'status')""",
+            (env_id, str(business_id)))
+        tool_stats = {r["st"]: int(r["n"]) for r in cur.fetchall()}
+        # recent interactions table
+        cur.execute(
+            """SELECT created_at, intent, is_refusal, answer_source, fallback_reason, null_reason,
+                      evidence_count, elapsed_ms, left(coalesce(question,''), 90) AS question
+               FROM tel_copilot_interactions WHERE env_id=%s AND business_id=%s
+               ORDER BY created_at DESC LIMIT 15""",
+            (env_id, str(business_id)))
+        recent = [dict(r) for r in cur.fetchall()]
+        # recent refusal examples
+        cur.execute(
+            """SELECT created_at, left(coalesce(question,''),120) AS question, null_reason
+               FROM tel_copilot_interactions WHERE env_id=%s AND business_id=%s AND is_refusal=true
+               ORDER BY created_at DESC LIMIT 6""",
+            (env_id, str(business_id)))
+        refusals = [dict(r) for r in cur.fetchall()]
+        # unsupported-claim blocked examples (the post-validator caught an ungrounded id/number)
+        cur.execute(
+            """SELECT created_at, left(coalesce(question,''),120) AS question
+               FROM tel_copilot_interactions WHERE env_id=%s AND business_id=%s
+                 AND fallback_reason='postvalidate_block'
+               ORDER BY created_at DESC LIMIT 6""",
+            (env_id, str(business_id)))
+        blocked = [dict(r) for r in cur.fetchall()]
         n = int(agg.get("n") or 0)
+        live = int(source_mix.get("live_llm", 0))
+        fallback = int(source_mix.get("fallback_template", 0))
         return {
             "total_interactions": n,
             "refusal_rate": round(float(agg["refusal_rate"]), 4) if agg.get("refusal_rate") is not None else None,
             "grounded_rate": round(float(agg["grounded_rate"]), 4) if agg.get("grounded_rate") is not None else None,
+            "live_llm_rate": round(live / n, 4) if n else None,
+            "fallback_rate": round(fallback / n, 4) if n else None,
+            "postvalidator_block_count": int(fb.get("postvalidate_block", 0)),
+            "fallback_reason_breakdown": fb,
+            "tool_call_stats": tool_stats,
             "p50_ms": int(agg["p50_ms"]) if agg.get("p50_ms") is not None else None,
             "p95_ms": int(agg["p95_ms"]) if agg.get("p95_ms") is not None else None,
             "answer_source_mix": source_mix,
@@ -604,8 +659,33 @@ def governance_summary(*, env_id: str, business_id) -> dict:
             "active_model": (active or {}).get("model", COPILOT_MODEL),
             "allow_list": ALLOW_LIST,
             "refusal_rule_count": len(policy.REFUSAL_PATTERNS),
+            "recent_interactions": recent,
+            "recent_refusals": refusals,
+            "unsupported_blocked_examples": blocked,
+            "production_smoke": _read_artifact(_SMOKE_PATH, {"status": "not_available",
+                                                            "null_reason": "smoke_not_recorded"}),
             "null_reason": None if n else "no_prediction_rows",
         }
+
+
+# ── Phase 8: committed artifacts (eval results + last manual prod smoke) ───────
+_SMOKE_PATH = _ARTIFACT_DIR / "last_smoke.json"
+_EVAL_PATH = _ARTIFACT_DIR / "eval_results.json"
+
+
+def _read_artifact(path, default: dict) -> dict:
+    import json as _json
+    try:
+        return _json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def evals(*, env_id: str = "", business_id=None) -> dict:
+    """Serve the last recorded eval-suite results (real pytest run, committed artifact). Honest about
+    staleness: returns the run timestamp + source. Fails closed if the artifact is absent."""
+    return _read_artifact(_EVAL_PATH, {"available": False, "null_reason": "eval_results_not_recorded",
+                                       "cases": []})
 
 
 def _log(env_id, business_id, question, result: dict, t0: float) -> None:

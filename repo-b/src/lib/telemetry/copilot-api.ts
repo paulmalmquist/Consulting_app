@@ -33,10 +33,38 @@ export interface CopilotResponse {
   request_id: string;
 }
 
+export interface RecentInteraction {
+  created_at: string | null;
+  intent: string | null;
+  is_refusal: boolean;
+  answer_source: string;
+  fallback_reason: string | null;
+  null_reason: string | null;
+  evidence_count: number;
+  elapsed_ms: number | null;
+  question: string;
+}
+
+export interface ProductionSmoke {
+  status: string;            // pass | not_available | ...
+  recorded_at?: string;
+  automated?: boolean;
+  source?: string;
+  deployed_backend_sha?: string;
+  checks?: { name: string; result: string }[];
+  null_reason?: string | null;
+  note?: string;
+}
+
 export interface GovernanceSummary {
   total_interactions: number;
   refusal_rate: number | null;
   grounded_rate: number | null;
+  live_llm_rate: number | null;
+  fallback_rate: number | null;
+  postvalidator_block_count: number;
+  fallback_reason_breakdown: Record<string, number>;
+  tool_call_stats: Record<string, number>;
   p50_ms: number | null;
   p95_ms: number | null;
   answer_source_mix: Record<string, number>;
@@ -45,8 +73,32 @@ export interface GovernanceSummary {
   active_model: string;
   allow_list: string[];
   refusal_rule_count: number;
+  recent_interactions: RecentInteraction[];
+  recent_refusals: { created_at: string | null; question: string; null_reason: string | null }[];
+  unsupported_blocked_examples: { created_at: string | null; question: string }[];
+  production_smoke: ProductionSmoke;
   null_reason: string | null;
 }
+
+export interface EvalCase {
+  key: string;
+  title: string;
+  status: string;          // pass | fail
+  pytest_summary?: string;
+}
+
+export interface EvalResults {
+  available: boolean;
+  null_reason?: string;
+  generated_at?: string;
+  source?: string;
+  summary?: { passed: number; total: number };
+  cases: EvalCase[];
+  note?: string;
+}
+
+export const getEvals = () =>
+  apiFetch<EvalResults>("/api/telemetry/copilot/evals", {});
 
 // NOTE: do NOT set a content-type header here. apiFetch already sets `Content-Type:
 // application/json`; adding a lowercase `content-type` produced a DUPLICATE header

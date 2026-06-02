@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "recorded_at": "2026-06-02",
+  "automated": false,
+  "source": "manual cold curl via https://novendor.ai (no auth cookies); recorded in telemetry-platform/PROOF.md",
+  "deployed_backend_sha": "dc67da11",
+  "checks": [
+    {"name": "replay flips GO->NO-GO at t=728", "result": "pass"},
+    {"name": "explain-verdict 200 / live_llm, cites real receipt+score+threshold+champion+mlflow+F1", "result": "pass"},
+    {"name": "refusal fires pre-LLM (unsupported_question, 0 tools)", "result": "pass"},
+    {"name": "draft-report 200, requires_human_review + full provenance", "result": "pass"},
+    {"name": "get report by id returns run_id/receipt/model/mlflow + disclaimer", "result": "pass"},
+    {"name": "malformed body -> clean 422 (not 500)", "result": "pass"},
+    {"name": "missing run/report -> fail closed", "result": "pass"}
+  ],
+  "null_reason": null,
+  "note": "Production cold smoke is not yet machine-automated; this is the last manually recorded run. The governance dashboard surfaces it as such (timestamp + source), never as a live status."
+}

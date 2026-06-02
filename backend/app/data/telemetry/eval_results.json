@@ -1,0 +1,47 @@
+{
+  "available": true,
+  "generated_at": "2026-06-02T17:04:52.283523Z",
+  "source": "pytest backend/tests/test_copilot_telemetry.py",
+  "summary": {
+    "passed": 5,
+    "total": 5
+  },
+  "cases": [
+    {
+      "key": "grounded_no_go",
+      "title": "Grounded NO-GO explanation cites the real receipt",
+      "k": "test_get_triggering_prediction_returns_no_go_receipt or test_postvalidate_passes_grounded_prose",
+      "status": "pass",
+      "pytest_summary": "2 passed, 14 deselected in 0.41s"
+    },
+    {
+      "key": "refusal_proprietary_root_cause",
+      "title": "Proprietary / physical-root-cause questions refused before tools/LLM",
+      "k": "test_phase6_refusals_fire_pre_llm or test_flagship_question_is_not_refused",
+      "status": "pass",
+      "pytest_summary": "2 passed, 14 deselected in 0.07s"
+    },
+    {
+      "key": "report_evidence_and_disclaimer",
+      "title": "Draft report includes the evidence trail + human-review disclaimer",
+      "k": "test_report_md_contains_required_evidence_trail or test_report_md_includes_human_review_disclaimer",
+      "status": "pass",
+      "pytest_summary": "2 passed, 14 deselected in 0.08s"
+    },
+    {
+      "key": "fail_closed_missing_input",
+      "title": "Malformed / missing input fails closed (no fabricated answer/report)",
+      "k": "test_draft_report_missing_run_fails_closed or test_get_triggering_prediction_missing_run",
+      "status": "pass",
+      "pytest_summary": "2 passed, 14 deselected in 0.11s"
+    },
+    {
+      "key": "no_invented_cause_or_disposition",
+      "title": "No invented root cause or safety disposition; ungrounded tokens blocked",
+      "k": "test_report_md_omits_root_cause_and_safety_disposition or test_postvalidate_rejects_fabricated_id",
+      "status": "pass",
+      "pytest_summary": "2 passed, 14 deselected in 0.08s"
+    }
+  ],
+  "note": "Deterministic structural evals (no live LLM). Live-LLM faithfulness is exercised separately by the production cold smoke recorded in last_smoke.json / PROOF.md."
+}
