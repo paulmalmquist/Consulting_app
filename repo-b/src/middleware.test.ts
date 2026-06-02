@@ -87,3 +87,59 @@ describe("middleware", () => {
     expect(setCookie).toContain("bm_env_slug=trading");
   });
 });
+
+describe("middleware — telemetry reviewer scope", () => {
+  const TENV = "dc82d39d-9be2-49b0-a01d-c7181b13a8b6";
+
+  function reviewerClaims(): PlatformSessionClaims {
+    return buildClaims({
+      platform_admin: false,
+      active_env_id: TENV,
+      active_env_slug: "novendor",
+      active_role: "telemetry_reviewer",
+      memberships: [
+        { env_id: TENV, env_slug: "novendor", role: "telemetry_reviewer", status: "active", is_default: true },
+      ],
+    });
+  }
+
+  beforeEach(() => {
+    process.env.BM_SESSION_SECRET = "test-secret";
+    delete process.env.PLAYWRIGHT_BYPASS_AUTH;
+  });
+
+  it("allows the reviewer into its env's /telemetry routes (no redirect)", async () => {
+    for (const p of [`/lab/env/${TENV}/telemetry`, `/lab/env/${TENV}/telemetry/replay`, `/lab/env/${TENV}/telemetry/governance`]) {
+      const res = await middleware(await makeRequest(p, reviewerClaims()));
+      expect(res.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("redirects the reviewer away from non-telemetry departments in the same env", async () => {
+    const res = await middleware(await makeRequest(`/lab/env/${TENV}/consulting`, reviewerClaims()));
+    expect(res.headers.get("location")).toBe(`http://localhost:3001/lab/env/${TENV}/telemetry`);
+  });
+
+  it("redirects the reviewer away from another environment", async () => {
+    const res = await middleware(await makeRequest("/lab/env/env-trading/telemetry", reviewerClaims()));
+    expect(res.headers.get("location")).toBe(`http://localhost:3001/lab/env/${TENV}/telemetry`);
+  });
+
+  it("redirects the reviewer away from /app, /lab/system, and top-level slug surfaces", async () => {
+    for (const p of ["/app", "/lab/system/control-tower", "/novendor"]) {
+      const res = await middleware(await makeRequest(p, reviewerClaims()));
+      expect(res.headers.get("location")).toBe(`http://localhost:3001/lab/env/${TENV}/telemetry`);
+    }
+  });
+
+  it("returns 403 (not a redirect) when the reviewer hits a non-telemetry API", async () => {
+    const res = await middleware(await makeRequest("/api/commands/run", reviewerClaims()));
+    expect(res.status).toBe(403);
+  });
+
+  it("does NOT affect a normal admin/member session", async () => {
+    // member with trading membership still rotates into trading (unchanged behavior)
+    const res = await middleware(await makeRequest("/lab/env/env-trading/markets", buildClaims()));
+    expect((res.headers.get("set-cookie") || "")).toContain("demo_lab_env_id=env-trading");
+  });
+});

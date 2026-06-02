@@ -10,7 +10,9 @@ export const SUPPORTED_ENVIRONMENT_SLUGS = [
 export type EnvironmentSlug = (typeof SUPPORTED_ENVIRONMENT_SLUGS)[number];
 
 export type EnvironmentAuthMode = "private" | "public" | "hybrid";
-export type EnvironmentMembershipRole = "owner" | "admin" | "member" | "viewer";
+// `telemetry_reviewer` is a scoped, read-only role minted only by /api/auth/telemetry-login.
+// It is NOT a platform admin and is confined by middleware to its env's /telemetry routes.
+export type EnvironmentMembershipRole = "owner" | "admin" | "member" | "viewer" | "telemetry_reviewer";
 export type EnvironmentMembershipStatus = "active" | "invited" | "suspended" | "revoked";
 
 export type EnvironmentBranding = {
