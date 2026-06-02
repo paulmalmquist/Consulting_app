@@ -113,6 +113,71 @@ def test_get_triggering_prediction_missing_run(fake_cursor):
     assert out["null_reason"] == "missing_run"
 
 
+# ── Phase 7: Test Report Workflow ──────────────────────────────────────────────
+_REPORT_STATE = {
+    "run": {"id": "7e1e7a00-0000-4000-a000-000000000001", "run_key": "smap_msl:D-4:test",
+            "dataset": "smap_msl", "spacecraft": "MSL"},
+    "prediction": {"id": "f8e8f23e-1da9-4f27-8785-175bd59d9e6b", "verdict": "NO_GO",
+                   "channel_name": "value", "window_start_t": 726, "window_end_t": 728,
+                   "anomaly_score": 2.46062, "threshold": 0.135467204729745,
+                   "model_name": "tel_anomaly_detector", "model_version": "1",
+                   "mlflow_run_id": "4a48cb6af8714609b9581d66e904544c",
+                   "attribution": [{"channel_name": "value", "contribution": 0.333333}]},
+    "model": {"model_name": "tel_anomaly_detector", "model_version": "1", "model_alias": "champion",
+              "promotion_state": "promoted", "mlflow_run_id": "4a48cb6af8714609b9581d66e904544c",
+              "metrics": {"f1": 0.6386571, "precision": 0.5460287, "recall": 0.7691330}},
+    "events": [],
+}
+
+
+def test_report_md_contains_required_evidence_trail():
+    import uuid
+    md = tc._build_report_md(_REPORT_STATE, report_id=uuid.uuid4(), prompt_version="testver",
+                             generated_at="2026-06-02T00:00:00Z")
+    # the report must cite the real evidence chain
+    for token in ["smap_msl:D-4:test", "f8e8f23e-1da9-4f27-8785-175bd59d9e6b", "2.46062",
+                  "0.135467", "tel_anomaly_detector", "4a48cb6af8714609b9581d66e904544c", "0.638657"]:
+        assert token in md, f"report missing evidence token {token}"
+
+
+def test_report_md_includes_human_review_disclaimer():
+    import uuid
+    md = tc._build_report_md(_REPORT_STATE, report_id=uuid.uuid4(), prompt_version="v",
+                             generated_at="t")
+    assert tc.REVIEW_DISCLAIMER in md
+    assert "REQUIRES HUMAN REVIEW" in md
+
+
+def test_report_md_omits_root_cause_and_safety_disposition():
+    import uuid
+    md = tc._build_report_md(_REPORT_STATE, report_id=uuid.uuid4(), prompt_version="v",
+                             generated_at="t").lower()
+    # statistical interpretation only — must explicitly NOT claim physical cause / safety disposition
+    assert "physical root cause" in md
+    assert "does not infer physical root cause" in md
+    assert "final engineering or safety disposition" in md
+
+
+def test_draft_report_unsupported_root_cause_is_refused_pre_llm():
+    # The report is built from a fixed evidence chain; an out-of-scope "root cause" question never
+    # reaches report generation because the classifier refuses it first.
+    intent, refusal = policy.classify("Write a report on the physical root cause of the D-4 failure")
+    assert intent is None and refusal == policy.NULL_UNSUPPORTED
+
+
+def test_draft_report_missing_run_fails_closed(fake_cursor, monkeypatch):
+    # get_triggering_prediction -> missing_run; no evidence -> no report, no persisted row.
+    from app.services import telemetry_serving as svc
+    fake_cursor.push_result([{"tenant_id": TENANT}])   # resolve_tenant_id
+    fake_cursor.push_result([])                        # run lookup -> none
+    out = tc.draft_report(env_id=ENV, business_id=BIZ, run_key="smap_msl:NOPE:test", fire_tick=728)
+    assert out["report_id"] is None
+    assert out["generated_markdown"] is None
+    assert out["null_reason"] in ("missing_run", "no_prediction_rows")
+    # fail-closed: no INSERT into tel_copilot_reports was issued
+    assert not any("INSERT INTO tel_copilot_reports" in q[0] for q in fake_cursor.queries)
+
+
 def test_get_triggering_prediction_returns_no_go_receipt(fake_cursor):
     from app.services import telemetry_serving as svc
     fake_cursor.push_result([{"tenant_id": TENANT}])                 # resolve_tenant_id

@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
-  askCopilot, explainVerdict, getGovernance,
+  askCopilot, explainVerdict, getGovernance, draftReport,
   type CopilotResponse, type EvidenceItem, type ToolTraceItem, type GovernanceSummary,
+  type DraftReportResponse,
 } from "@/lib/telemetry/copilot-api";
 import { C, Tag, Panel, Loading } from "./primitives";
+
+export interface ReportContext { runKey: string; fireTick: number; channel?: string }
 
 // ── source / status colors ────────────────────────────────────────────────────
 const sourceColor = (s?: string) =>
@@ -123,8 +126,81 @@ function AnswerBody({ r }: { r: CopilotResponse }) {
   );
 }
 
-// ── Full result (answer + evidence + trail + governance) ───────────────────────
-export function CopilotResult({ r }: { r: CopilotResponse }) {
+// ── Draft test report (Phase 7) — the reviewable artifact ──────────────────────
+function downloadMarkdown(name: string, md: string) {
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function DraftReportCard({ report }: { report: DraftReportResponse }) {
+  if (report.null_reason && !report.generated_markdown) {
+    return (
+      <Panel title="Draft test report" right={<Tag color={C.amber}>{report.null_reason}</Tag>}>
+        <span style={{ fontFamily: C.mono, fontSize: 12, color: C.amber }}>
+          Cannot draft a report: no grounded evidence for this run ({report.null_reason}). Fail-closed —
+          nothing was generated or stored.
+        </span>
+      </Panel>
+    );
+  }
+  const md = report.generated_markdown || "";
+  return (
+    <Panel title="Draft test report"
+      right={<Tag color={C.amber}>requires human review</Tag>}>
+      <div style={{ border: `1px solid ${C.amber}55`, background: C.amber + "12", borderRadius: 8,
+        padding: "8px 12px", marginBottom: 12 }}>
+        <span style={{ fontFamily: C.mono, fontSize: 11, color: C.amber, letterSpacing: "0.04em" }}>
+          ASSISTANT-GENERATED DRAFT — REQUIRES HUMAN REVIEW
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
+        <Meta k="report receipt" v={report.report_id || "—"} />
+        <Meta k="run" v={report.run_key || "—"} />
+        <Meta k="prediction receipt" v={report.receipt_id || "—"} />
+        <Meta k="prompt" v={report.prompt_version} />
+      </div>
+      <pre style={{ fontFamily: C.mono, fontSize: 11.5, color: C.text, lineHeight: 1.55,
+        whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`,
+        borderRadius: 8, padding: 14, margin: 0, maxHeight: 460, overflow: "auto" }}>{md}</pre>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button onClick={() => downloadMarkdown(`test-report-${report.run_key || "run"}.md`, md)}
+          style={{ fontFamily: C.mono, fontSize: 12, color: C.bg, background: C.cyan, border: "none",
+            borderRadius: 7, padding: "8px 14px", cursor: "pointer" }}>
+          Download .md
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+function Meta({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <span style={{ fontFamily: C.mono, fontSize: 9.5, letterSpacing: "0.1em", color: C.faint, textTransform: "uppercase" }}>{k}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, wordBreak: "break-all" }}>{v}</span>
+    </div>
+  );
+}
+
+// ── Full result (answer + evidence + trail + governance + draft-report action) ──
+export function CopilotResult({ r, reportContext }: { r: CopilotResponse; reportContext?: ReportContext }) {
+  const [report, setReport] = useState<DraftReportResponse | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const canDraft = !!reportContext && !r.is_refusal && r.evidence.length > 0;
+
+  const onDraft = () => {
+    if (!reportContext) return;
+    setDrafting(true); setReport(null);
+    draftReport({ run_key: reportContext.runKey, fire_tick: reportContext.fireTick, channel: reportContext.channel })
+      .then(setReport)
+      .catch((e) => setReport({ report_id: null, review_status: null, null_reason: String(e),
+        generated_markdown: null, evidence: [], prompt_version: "" }))
+      .finally(() => setDrafting(false));
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <Panel title="Answer"><AnswerBody r={r} /></Panel>
@@ -141,6 +217,15 @@ export function CopilotResult({ r }: { r: CopilotResponse }) {
         </Panel>
       )}
       <GovernanceStrip r={r} />
+      {canDraft && !report && (
+        <button onClick={onDraft} disabled={drafting}
+          style={{ alignSelf: "flex-start", fontFamily: C.mono, fontSize: 12, fontWeight: 600,
+            color: C.bg, background: C.amber, border: "none", borderRadius: 8, padding: "9px 16px",
+            cursor: drafting ? "default" : "pointer", opacity: drafting ? 0.6 : 1 }}>
+          {drafting ? "Drafting report…" : "Draft test report →"}
+        </button>
+      )}
+      {report && <DraftReportCard report={report} />}
     </div>
   );
 }
@@ -163,7 +248,7 @@ export function CopilotExplanationPanel({ runKey, fireTick, channel }: {
 
   if (error) return <Panel title="Explain this verdict"><span style={{ fontFamily: C.mono, fontSize: 12, color: C.red }}>Could not load: {error}</span></Panel>;
   if (!r) return <Loading label="Grounding the explanation in real run evidence…" />;
-  return <CopilotResult r={r} />;
+  return <CopilotResult r={r} reportContext={{ runKey, fireTick, channel }} />;
 }
 
 // ── Dedicated /copilot workbench page ──────────────────────────────────────────
@@ -237,7 +322,7 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
 
       <div style={{ marginTop: 16 }}>
         {loading && <Loading label="Classifying intent, running allow-listed tools, grounding the answer…" />}
-        {!loading && r && <CopilotResult r={r} />}
+        {!loading && r && <CopilotResult r={r} reportContext={{ runKey: "smap_msl:D-4:test", fireTick: 728, channel: "D-4" }} />}
         {!loading && !r && (
           <Panel><span style={{ fontFamily: C.mono, fontSize: 12, color: C.dim }}>
             Pick a question above. Try the refusal demo chip to see the copilot decline an

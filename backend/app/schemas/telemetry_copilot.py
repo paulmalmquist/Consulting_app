@@ -22,6 +22,15 @@ class ExplainVerdictRequest(BaseModel):
     channel: str | None = None
 
 
+class DraftReportRequest(BaseModel):
+    """Phase 7: assemble + persist a draft test report from the run's real evidence."""
+    env_id: str
+    business_id: UUID
+    run_key: str
+    fire_tick: int
+    channel: str | None = None
+
+
 class AskRequest(BaseModel):
     """Free-form question — classified deterministically; unmatched intents are refused (not a chatbot)."""
     env_id: str

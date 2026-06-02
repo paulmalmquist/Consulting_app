@@ -81,3 +81,35 @@ export const getGovernance = () =>
   apiFetch<GovernanceSummary>("/api/telemetry/copilot/governance", {
     params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID },
   });
+
+// ── Phase 7: Test Report Workflow ──────────────────────────────────────────────
+export interface DraftReportResponse {
+  report_id: string | null;
+  review_status: string | null;       // requires_human_review
+  null_reason: string | null;
+  generated_markdown: string | null;
+  evidence: EvidenceItem[];
+  prompt_version: string;
+  run_key?: string;
+  receipt_id?: string;
+  verdict?: string;
+  anomaly_score?: number;
+  threshold?: number;
+  champion_model?: string;
+  model_version?: string;
+  mlflow_run_id?: string;
+}
+
+export const draftReport = (args: { run_key: string; fire_tick: number; channel?: string }) =>
+  jsonPost<DraftReportResponse>("/api/telemetry/copilot/draft-report", {
+    env_id: TELEMETRY_DEMO_ENV_ID,
+    business_id: TELEMETRY_DEMO_BUSINESS_ID,
+    run_key: args.run_key,
+    fire_tick: args.fire_tick,
+    channel: args.channel ?? null,
+  });
+
+export const getReport = (reportId: string) =>
+  apiFetch<{ report: Record<string, unknown> | null; null_reason: string | null }>(
+    `/api/telemetry/copilot/report/${reportId}`,
+    { params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID } });

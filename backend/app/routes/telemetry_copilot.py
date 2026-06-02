@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.observability.logger import emit_log
 from app.schemas.telemetry_copilot import (
-    AskRequest, CopilotAnswerResponse, ExplainVerdictRequest,
+    AskRequest, CopilotAnswerResponse, DraftReportRequest, ExplainVerdictRequest,
 )
 from app.services import telemetry_copilot as svc
 
@@ -62,6 +62,28 @@ async def ask(req: AskRequest):
     except Exception as exc:  # noqa: BLE001
         emit_log(level="error", service="telemetry_copilot", action="ask_failed",
                  message=str(exc), error=exc)
+        raise _to_http(exc)
+
+
+@router.post("/draft-report")
+def draft_report(req: DraftReportRequest):
+    """Phase 7: assemble + persist a DRAFT test report (requires_human_review) from real evidence.
+    Fails closed with null_reason if the triggering receipt is absent — never invents a report."""
+    try:
+        return svc.draft_report(env_id=req.env_id, business_id=req.business_id,
+                                run_key=req.run_key, fire_tick=req.fire_tick)
+    except Exception as exc:  # noqa: BLE001
+        emit_log(level="error", service="telemetry_copilot", action="draft_report_failed",
+                 message=str(exc), error=exc)
+        raise _to_http(exc)
+
+
+@router.get("/report/{report_id}")
+def get_report(report_id: UUID, env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Fetch a stored draft report by receipt id (preview/detail)."""
+    try:
+        return svc.get_report(env_id=env_id, business_id=business_id, report_id=report_id)
+    except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
 
 

@@ -301,6 +301,78 @@ Phase 5/6).
 
 ---
 
+## Applied-AI Layer — Phase 7: Test Report Workflow
+
+Turns the Phase 6 grounded evidence into a **reviewable operational artifact**. The chain a reviewer
+sees: GO→NO-GO → Explain verdict → **Draft test report** → evidence trail attached → human review
+required. Narrow by design: no new broad copilot behavior, no retraining, no dashboard redesign, no
+document-management system. Draft → persist → preview → evidence trail → human-review flag.
+
+### What it does
+
+- **Deterministic report assembler (no LLM).** `draft_report()` reuses the Phase 6 tool chain
+  (`get_triggering_prediction` → `get_model_run_detail` → `get_anomaly_events_in_window`), assembles
+  the same grounded `evidence[]`, then builds a structured markdown report **purely from those real
+  values** — verdict, triggering receipt, anomaly score + threshold (with the MAD math), model basis
+  (champion/version/MLflow/F1·precision·recall), labeled-anomaly overlap, a fixed *statistical*
+  interpretation, false-positive/missed-anomaly considerations, recommended human follow-up, and
+  limits. No inference, so nothing can be fabricated.
+- **Labeled `ASSISTANT-GENERATED DRAFT — REQUIRES HUMAN REVIEW`** in the header banner and footer.
+  The interpretation explicitly states it is *not* a physical root cause; the limits section states
+  the assistant does not infer physical cause or issue flight/safety dispositions.
+- **Fail-closed.** No triggering receipt (missing run / no NO_GO) ⇒ `null_reason`, **no markdown, no
+  persisted row** — verified.
+- **Persisted with full provenance** to `tel_copilot_reports` (migration `10011`): `run_id`,
+  `run_key`, `receipt_id`, `verdict`, `anomaly_score`, `threshold`, `champion_model`, `model_version`,
+  `mlflow_run_id`, `prompt_version`, `evidence_payload` (jsonb), `generated_markdown`,
+  `review_status='requires_human_review'`, `created_at`. The report id is the report receipt.
+- **Guardrails intact.** Out-of-scope "write a report on the physical root cause…" is refused by the
+  same deterministic pre-LLM classifier (`unsupported_question`). The fixed intents, allow-listed
+  tools, and audit receipts from Phase 6 are unchanged.
+
+### Surface
+
+- `POST /api/telemetry/copilot/draft-report` (run_key, fire_tick) → report receipt + markdown +
+  provenance; `GET /api/telemetry/copilot/report/{id}` → fetch a stored report (preview/detail).
+- `DraftReportCard` (dark C palette): amber `REQUIRES HUMAN REVIEW` banner, provenance row (report
+  receipt, run, prediction receipt, prompt version), the markdown body, and a **Download .md** button.
+  A "Draft test report →" button appears under any grounded copilot result (replay explanation panel
+  and the `/copilot` workbench).
+
+### Verification (real values)
+
+```
+pytest tests/test_copilot_telemetry.py tests/test_telemetry_serving.py  -> 23 passed
+  report contains evidence trail (run, receipt f8e8f23e, 2.46062, 0.135467, champion, mlflow, F1)
+  report includes REQUIRES HUMAN REVIEW disclaimer
+  report omits root-cause / safety-disposition claims (statistical only)
+  unsupported root-cause report request -> refused pre-LLM (unsupported_question)
+  missing run -> fail closed (null_reason missing_run, NO INSERT into tel_copilot_reports)
+HTTP E2E (TestClient, real Supabase):
+  POST /draft-report (D-4)  -> 200, report_id, review_status=requires_human_review,
+                               cites receipt f8e8f23e, verdict NO_GO, score 2.46062     PASS
+  GET  /report/{id}         -> stored report fetched, review_status requires_human_review PASS
+  POST /draft-report (NOPE) -> report_id null, null_reason missing_run, no markdown       PASS
+  regression: explain-verdict live_llm; /replay first_model_fire_t 728                    PASS
+tsc --noEmit  -> 0 errors
+```
+
+### Sample report receipt (real)
+
+A persisted draft for `smap_msl:D-4:test` (~2,047-char markdown) citing prediction receipt
+`f8e8f23e-1da9-4f27-8785-175bd59d9e6b`, score `2.46062`, threshold `0.135467204729745`, champion
+`tel_anomaly_detector v1` (MLflow `4a48cb6af871…`, F1 `0.638657`), `review_status=requires_human_review`,
+stored in `tel_copilot_reports` and re-fetchable via `GET /report/{id}`.
+
+Files: migration `repo-b/db/schema/10011_telemetry_copilot_reports.sql`; backend
+`app/services/telemetry_copilot.py` (assembler + `draft_report`/`get_report`),
+`app/schemas/telemetry_copilot.py` (`DraftReportRequest`), `app/routes/telemetry_copilot.py` (2
+routes), `backend/tests/test_copilot_telemetry.py` (5 Phase-7 tests); frontend
+`repo-b/src/lib/telemetry/copilot-api.ts` (`draftReport`/`getReport`),
+`repo-b/src/components/telemetry/Copilot.tsx` (`DraftReportCard` + button + `.md` download).
+
+---
+
 ## Phase 6 — operated-history enrichment + Lab Workbench UI
 
 ### Data enrichment (telemetry-demo tenant; real pipeline outputs only)

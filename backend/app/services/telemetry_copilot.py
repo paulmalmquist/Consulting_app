@@ -385,6 +385,179 @@ async def answer(*, env_id: str, business_id, question: str | None = None,
     return result
 
 
+# ── Phase 7: Test Report Workflow ──────────────────────────────────────────────
+REVIEW_DISCLAIMER = "ASSISTANT-GENERATED DRAFT — REQUIRES HUMAN REVIEW"
+
+
+def _fmt(v) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, float):
+        return f"{v:.6f}".rstrip("0").rstrip(".")
+    return str(v)
+
+
+def _build_report_md(state: dict, *, report_id, prompt_version: str, generated_at: str) -> str:
+    """Assemble the report markdown DETERMINISTICALLY from real evidence. No inference, no LLM — every
+    value is a recorded fact; the interpretation/follow-up text is fixed and statistical (never a
+    physical root cause or safety disposition)."""
+    pred = state.get("prediction") or {}
+    run = state.get("run") or {}
+    model = state.get("model") or {}
+    m = model.get("metrics") or {}
+    events = state.get("events") or []
+    run_key = run.get("run_key", "(unknown run)")
+    ws, we = pred.get("window_start_t"), pred.get("window_end_t")
+
+    lines = [
+        f"# Test Run {run_key} — Off-Nominal Event Report",
+        "",
+        f"> **{REVIEW_DISCLAIMER}**",
+        f"> Generated {generated_at} · report receipt `{report_id}` · prompt `{prompt_version}` · "
+        "public NASA aerospace analog data.",
+        "",
+        "## Verdict",
+        f"**{pred.get('verdict', '—')}** on channel `{pred.get('channel_name', '—')}` over window "
+        f"`[{_fmt(ws)}–{_fmt(we)}]` of run `{run_key}` "
+        f"({run.get('spacecraft', '—')} / {run.get('dataset', '—')}).",
+        "",
+        "## Triggering evidence",
+        f"- Prediction receipt: `{pred.get('id', '—')}`",
+        f"- Anomaly score: **{_fmt(pred.get('anomaly_score'))}** (redline threshold "
+        f"**{_fmt(pred.get('threshold'))}** = MAD_K {svc.MAD_K} × train scale "
+        f"{_fmt(svc.GLOBAL_TRAIN_SCALE)})",
+        f"- Window: `[{_fmt(ws)}–{_fmt(we)}]`",
+        f"- Attribution: {pred.get('attribution', [])}",
+        "",
+        "## Model basis",
+        f"- Champion: `{model.get('model_name', pred.get('model_name', '—'))}` "
+        f"v{_fmt(model.get('model_version', pred.get('model_version')))} "
+        f"({model.get('model_alias') or model.get('promotion_state') or '—'})",
+        f"- MLflow run: `{pred.get('mlflow_run_id', model.get('mlflow_run_id', '—'))}`",
+        f"- Out-of-sample metrics: F1 {_fmt(m.get('f1'))} · precision {_fmt(m.get('precision'))} · "
+        f"recall {_fmt(m.get('recall'))}",
+        "",
+        "## Labeled anomaly overlap",
+    ]
+    if events:
+        for e in events:
+            lines.append(f"- {e.get('anomaly_class')} ({e.get('source')}) "
+                         f"`[{_fmt(e.get('start_t'))}–{_fmt(e.get('end_t'))}]`"
+                         + (f" · confidence {_fmt(e.get('confidence'))}" if e.get('confidence') is not None else ""))
+    else:
+        lines.append("- No labeled anomaly window overlaps the triggering window in the recorded data.")
+    lines += [
+        "",
+        "## Engineering interpretation (statistical)",
+        "The promoted detector's anomaly score crossed its trained redline threshold in this window. "
+        "This is a statistical reading of recorded telemetry — it is **not** a physical root cause and "
+        "carries no claim about hardware or any proprietary system.",
+        "",
+        "## False-positive / missed-anomaly considerations",
+        f"The champion operates at recall {_fmt(m.get('recall'))} and precision {_fmt(m.get('precision'))} "
+        "out of sample, so both false positives and missed events are possible. Confirm this event "
+        "against nearby nominal behavior and the labeled anomaly windows before acting.",
+        "",
+        "## Recommended follow-up (for a human reviewer)",
+        f"1. Inspect channel `{pred.get('channel_name', '—')}` around `[{_fmt(ws)}–{_fmt(we)}]` versus "
+        "prior nominal runs.",
+        "2. Confirm whether the window aligns with an expected labeled event.",
+        "3. Record a disposition. This draft is **not** a final engineering or safety disposition.",
+        "",
+        "## Limits",
+        "Built on public NASA aerospace analog datasets (SMAP/MSL, C-MAPSS) — not proprietary data. "
+        "The assistant does not infer physical root cause or issue flight/safety dispositions.",
+        "",
+        f"_{REVIEW_DISCLAIMER}_",
+    ]
+    return "\n".join(lines)
+
+
+def draft_report(*, env_id: str, business_id, run_key: str | None = None,
+                 fire_tick: int | None = None) -> dict:
+    """Phase 7: assemble + persist a DRAFT test report from real evidence. Fails closed (null_reason,
+    no row written) when the triggering receipt is absent. Reuses the Phase-6 tool chain + evidence."""
+    import json as _json
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    ctx = {"env_id": env_id, "business_id": business_id, "run_key": run_key, "fire_tick": fire_tick}
+    state: dict = {}
+    for tool_name in INTENT_PLAN["draft_report"]["tools"]:
+        fn = ALLOWED_TOOLS.get(tool_name)
+        if fn is None:
+            continue
+        try:
+            fn(ctx, state)
+        except Exception:  # noqa: BLE001
+            pass
+    evidence = _assemble_evidence(state)
+    pred = state.get("prediction")
+    if not evidence or not pred:
+        # fail closed — never invent a report
+        nr = "missing_run" if not state.get("run") and not pred else "no_prediction_rows"
+        return {"report_id": None, "review_status": None, "null_reason": nr,
+                "generated_markdown": None, "evidence": [], "prompt_version": PROMPT_VERSION}
+
+    report_id = _uuid.uuid4()
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    md = _build_report_md(state, report_id=report_id, prompt_version=PROMPT_VERSION,
+                          generated_at=generated_at)
+    run = state.get("run") or {}
+    model = state.get("model") or {}
+    provenance = {
+        "run_id": run.get("id"), "run_key": run.get("run_key"),
+        "receipt_id": pred.get("id"), "verdict": pred.get("verdict"),
+        "anomaly_score": pred.get("anomaly_score"), "threshold": pred.get("threshold"),
+        "champion_model": model.get("model_name") or pred.get("model_name"),
+        "model_version": pred.get("model_version"),
+        "mlflow_run_id": pred.get("mlflow_run_id"),
+    }
+
+    try:
+        from app.db import get_cursor
+        with get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO tel_copilot_reports
+                     (id, env_id, business_id, run_id, run_key, receipt_id, verdict, anomaly_score,
+                      threshold, champion_model, model_version, mlflow_run_id, prompt_version,
+                      evidence_payload, generated_markdown, review_status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)""",
+                (str(report_id), env_id, str(business_id), provenance["run_id"], provenance["run_key"],
+                 provenance["receipt_id"], provenance["verdict"], provenance["anomaly_score"],
+                 provenance["threshold"], provenance["champion_model"], provenance["model_version"],
+                 provenance["mlflow_run_id"], PROMPT_VERSION, _json.dumps(evidence, default=str), md,
+                 "requires_human_review"))
+    except Exception as exc:  # noqa: BLE001
+        from app.observability.logger import emit_log
+        emit_log(level="error", service="telemetry_copilot", action="report_persist_failed",
+                 message=str(exc), error=exc)
+        # surface the markdown anyway, but signal it wasn't stored
+        return {"report_id": None, "review_status": "requires_human_review",
+                "null_reason": "report_not_persisted", "generated_markdown": md,
+                "evidence": evidence, "prompt_version": PROMPT_VERSION, **provenance}
+
+    return {"report_id": report_id, "review_status": "requires_human_review", "null_reason": None,
+            "generated_markdown": md, "evidence": evidence, "prompt_version": PROMPT_VERSION,
+            "model": COPILOT_MODEL, **provenance}
+
+
+def get_report(*, env_id: str, business_id, report_id) -> dict:
+    """Fetch a stored report by receipt id (for the preview/detail view)."""
+    from app.db import get_cursor
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT id, run_key, receipt_id, verdict, anomaly_score, threshold, champion_model,
+                      model_version, mlflow_run_id, prompt_version, evidence_payload,
+                      generated_markdown, review_status, created_at
+               FROM tel_copilot_reports
+               WHERE env_id=%s AND business_id=%s AND id=%s""",
+            (env_id, str(business_id), str(report_id)))
+        row = cur.fetchone()
+        if not row:
+            return {"report": None, "null_reason": "missing_report"}
+        return {"report": dict(row), "null_reason": None}
+
+
 def governance_summary(*, env_id: str, business_id) -> dict:
     """Aggregate the copilot audit log for the governance surface. All numbers are real (logged
     interactions); never hardcoded. Empty until interactions exist (the eval run seeds them)."""
