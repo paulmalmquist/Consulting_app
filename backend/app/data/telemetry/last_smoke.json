@@ -3,16 +3,16 @@
   "recorded_at": "2026-06-02",
   "automated": false,
   "source": "manual cold curl via https://novendor.ai (no auth cookies); recorded in telemetry-platform/PROOF.md",
-  "deployed_backend_sha": "dc67da11",
+  "deployed_backend_sha": "5267202b",
   "checks": [
     {"name": "replay flips GO->NO-GO at t=728", "result": "pass"},
-    {"name": "explain-verdict 200 / live_llm, cites real receipt+score+threshold+champion+mlflow+F1", "result": "pass"},
+    {"name": "explain-verdict cites real receipt+score+threshold+champion+mlflow+F1 (live_llm or grounded fallback)", "result": "pass"},
     {"name": "refusal fires pre-LLM (unsupported_question, 0 tools)", "result": "pass"},
-    {"name": "draft-report 200, requires_human_review + full provenance", "result": "pass"},
-    {"name": "get report by id returns run_id/receipt/model/mlflow + disclaimer", "result": "pass"},
-    {"name": "malformed body -> clean 422 (not 500)", "result": "pass"},
-    {"name": "missing run/report -> fail closed", "result": "pass"}
+    {"name": "draft-report requires_human_review + full provenance", "result": "pass"},
+    {"name": "governance exposes real aggregates (postvalidator block count, tool-call stats, recent rows)", "result": "pass"},
+    {"name": "evals endpoint serves 5/5 from a real pytest run", "result": "pass"},
+    {"name": "malformed body -> clean 422; missing run/report -> fail closed", "result": "pass"}
   ],
   "null_reason": null,
-  "note": "Production cold smoke is not yet machine-automated; this is the last manually recorded run. The governance dashboard surfaces it as such (timestamp + source), never as a live status."
+  "note": "Production cold smoke is not yet machine-automated; this is the last manually recorded run. The governance dashboard surfaces it as such (timestamp + source), never as a live status, and reflects the last DEPLOYED artifact (updates on the next backend deploy)."
 }
