@@ -201,3 +201,9 @@ Hone_work/
 
 # Outreach skill runtime state (SKILL.md is tracked; the bounce-resolution receipt regenerates).
 skills/novendor-repe-outreach/resolved_bounces.json
+
+# Client execution plans (root, per-client) and lead-gen research prompts — work product kept
+# locally, not shipped as repo source.
+/capgemini_tpm_microsite_execution_plan.md
+/happyco_winston_sequential_execution_plan.md
+docs/prompts/
