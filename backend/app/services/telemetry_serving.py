@@ -322,6 +322,54 @@ def _count_promoted(cur, env_id: str, business_id: UUID) -> int:
     return int(cur.fetchone()["n"])
 
 
+def fused_vector_info(*, env_id: str, business_id: UUID) -> dict:
+    """Phase 7A: 256-d fused state-vector summary for the model-detail panel (no huge vectors dumped).
+    Reads tel_fused_state_vectors + tel_feature_manifest. Fails closed if not yet built."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        cur.execute(
+            """SELECT count(*) AS n, max(vector_dim) AS dim,
+                      count(DISTINCT split) AS splits,
+                      count(*) FILTER (WHERE split='test' AND label_any_anomaly=1) AS anomalous_test
+               FROM tel_fused_state_vectors WHERE env_id=%s AND business_id=%s""",
+            (env_id, str(business_id)))
+        v = cur.fetchone()
+        if not v or int(v["n"] or 0) == 0:
+            return {"available": False, "null_reason": "data_not_ingested"}
+        cur.execute(
+            """SELECT count(*) AS feats, count(DISTINCT chan_id) AS channels
+               FROM tel_feature_manifest WHERE env_id=%s AND business_id=%s""",
+            (env_id, str(business_id)))
+        m = cur.fetchone()
+        cur.execute(
+            """SELECT DISTINCT feature_name FROM tel_feature_manifest
+               WHERE env_id=%s AND business_id=%s ORDER BY feature_name""",
+            (env_id, str(business_id)))
+        feat_names = [r["feature_name"] for r in cur.fetchall()]
+        cur.execute(
+            """SELECT DISTINCT source_channels FROM tel_fused_state_vectors
+               WHERE env_id=%s AND business_id=%s LIMIT 1""",
+            (env_id, str(business_id)))
+        sc = cur.fetchone()
+        channels = (sc["source_channels"].split(",") if sc and sc["source_channels"] else [])
+        n_channels = int(m["channels"] or 0)
+        return {
+            "available": True,
+            "vector_dim": int(v["dim"] or 0),
+            "n_channels": n_channels,
+            "features_per_channel": (int(m["feats"]) // n_channels) if n_channels else 0,
+            "feature_names": feat_names,
+            "channels": channels,
+            "d4_included": "D-4" in channels,
+            "fused_vectors": int(v["n"]),
+            "anomalous_test_vectors": int(v["anomalous_test"] or 0),
+            "model": "dense autoencoder-style bottleneck network + PCA-256 baseline",
+            "alignment": "normalized sequence progress per channel (analog representation; not "
+                         "simultaneous multi-sensor vehicle telemetry)",
+            "source": "public_nasa_analog_dataset",
+        }
+
+
 def health() -> dict:
     """Lean health check: confirm the serving tables are reachable and report promoted-model count."""
     with get_cursor() as cur:

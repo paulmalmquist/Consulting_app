@@ -109,3 +109,12 @@ def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
         return svc.summary(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/fused-vector-info")
+def fused_vector_info(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """256-d fused state-vector summary (dim, channels, features, alignment caveat). No raw vectors."""
+    try:
+        return svc.fused_vector_info(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)

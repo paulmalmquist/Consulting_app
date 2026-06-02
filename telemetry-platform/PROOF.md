@@ -3,18 +3,167 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 6)
+## Status (2026-06-01, end of Phase 7A)
 
-All phases complete through Phase 6 (operated-history data enrichment + Option B Lab Workbench UI).
-The demo now reads operated, not thin: a fleet of real test runs, hundreds of real predictions, real
-anomaly events, and a real PSI drift series — all derived from the real pipeline — rendered in a
-telemetry-only operator console with no executive chrome. Live on novendor.ai.
+All phases complete through Phase 6 (operated-history data enrichment + Option B Lab Workbench UI),
+plus Phase 7A: a real 256-dimensional fused NASA telemetry state vector (32 channels × 8 window
+features), a dense autoencoder-style reconstruction model + PCA-256 baseline, and real per-channel
+divergence ranking — all built and verified, surfaced read-only in the UI. **Not deployed** (Phase 7A
+is committed but not pushed; the live site still reflects Phase 6). The demo reads operated, not thin:
+a fleet of real test runs, hundreds of real predictions, real anomaly events, and a real PSI drift
+series — all derived from the real pipeline — rendered in a telemetry-only operator console.
 
 **Live URLs:**
 - Backend API: `https://authentic-sparkle-production-7f37.up.railway.app` (git_sha `62dcab4a`)
 - Frontend: `https://novendor.ai` (Vercel project `consulting-app`, root dir `repo-b`)
 - Reviewer demo route: `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`
   (authenticated lab tenant — log in first)
+
+## Phase 7A — 256-dimensional fused NASA telemetry state vector
+
+A single résumé-grade claim made true and verifiable: a real **256-dimensional fused multi-signal
+state vector**, a **dense autoencoder-style reconstruction model** (+ PCA-256 baseline), and real
+**per-channel divergence ranking**. Built in Databricks, persisted to Supabase, served read-only.
+Nothing padded, nothing duplicated, no labels used as inputs. Phases 7B–7G are deferred.
+
+### What the 256 dimensions actually are
+
+**256 = 32 real SMAP/MSL channels × 8 computed window features.** Not 256 sensors, not zero-padding,
+not duplicated columns. The 8 features per (channel, window) are computed from the real telemetry
+`value` series (and its rolling mean/std) already in `novendor_1.telemetry.gold_smap_msl_windows`:
+
+```
+value_last, value_mean, value_std, value_min, value_max,
+value_slope (linear fit over the window),
+residual_last  = value − value_rmean50,
+residual_z     = (value − value_rmean50) / value_rstd50
+```
+
+Channel selection (`fused_channel_selection.json`, 32 rows): from 81 SMAP/MSL channels, keep those
+with adequate history (train ≥ 1500 & test ≥ 2000 rows) → 68 candidates; build all 8 features for each;
+**quality filter** — every one of the 8 features must be non-constant (variance > 1e-12) → drop
+near-flat channels; select 32 with a spacecraft + anomaly-class mix and **D-4 force-included** (the
+replay channel). Result: **SMAP = 22, MSL = 10.** If <32 had passed, the build was instructed to stop
+and report the maximum honest dimension rather than pad — it did not need to.
+
+**Alignment caveat (disclosed, not buried):** the 32 channels are aligned by **normalized sequence
+progress** per channel/split (128 buckets over each channel's own length), **not** by physical
+simultaneity. The result is a fused NASA *analog* telemetry representation for model development and
+retrieval — it is **not** a claim of simultaneous multi-sensor readings from one vehicle, and the
+serving API states this in its `alignment` field. Public NASA analog data, labeled as such.
+
+### Feature manifest (256 rows — every dimension traceable)
+
+`fused_feature_manifest.json` + `tel_feature_manifest` (256 rows). Each row: `feature_index`,
+`chan_id`, `feature_name`, `source_table` (`novendor_1.telemetry.gold_smap_msl_windows`), `calc`,
+`leakage_risk` (`none (past-only rolling features; train-median imputation)`), `included`. Anomaly
+labels appear only in evaluation, never as a feature.
+
+### Models on the fused vector (real metrics, copied from the seeded run)
+
+Both trained X→X on the standardized vectors (StandardScaler fit on train only, then winsorized to
+±8 to stop a near-degenerate feature from blowing up test error — disclosed, not hidden):
+
+- **Dense autoencoder-style bottleneck network** — `sklearn MLPRegressor`, layers `256→128→32→16→32→128→256`.
+  This is honestly a dense reconstruction network trained as an autoencoder-style bottleneck, **not** a
+  PyTorch/LSTM production autoencoder. No torch in the backend.
+- **PCA-256 reconstruction** — honest linear baseline, trained alongside.
+
+Reconstruction error (mean squared error over the 256 features), over the 256 fused vectors
+(128 train / 128 test):
+
+| Metric | Value |
+|---|---|
+| Mean AE recon error (all) | 739.43 |
+| Mean PCA-256 recon error (all) | 411.90 |
+| Mean AE recon error — **labeled-anomalous test windows** | **1634.23** |
+| Mean AE recon error — nominal test windows | 347.32 |
+
+The honest read: AE reconstruction error is **~4.7× higher on labeled-anomalous windows** (1634 vs
+347) — the separation you want from a reconstruction-based detector. And PCA-256 reconstructs *lower
+on average* (412 vs 739) — recorded as-is; the simpler baseline is not beaten on raw recon MSE, which
+is exactly the kind of result this project refuses to tune away. The live `/score` champion is still
+the frozen MAD rule (Phase 2); the fused models are challengers, not promoted over it.
+
+### Per-channel divergence ranking (real, multi-channel)
+
+Per-feature squared reconstruction error aggregated to 8-feature-per-channel totals → ranked →
+`top_contributors` jsonb. Sample (highest-AE-error anomalous test vector, `window_index=113`,
+AE 2479.74 / PCA 1344.94):
+
+```
+rank 1  D-3  total_recon_error 465.90  top_features [residual_last, value_mean, value_last]
+rank 2  D-4  total_recon_error 461.62  top_features [value_min, value_max, value_mean]
+rank 3  D-5  total_recon_error ...     top_features [residual_last, value_std, value_max]
+```
+
+That is real channel-divergence ranking across the fused vector — not a single scored channel.
+
+### Persistence (migration 10009, applied)
+
+`repo-b/db/schema/10009_telemetry_fused_vectors.sql`:
+- `tel_fused_state_vectors` — `feature_vector vector(256)` (pgvector 0.8.0), `source_channels`,
+  `split`, `window_index`, `label_any_anomaly`, `recon_error_ae`, `recon_error_pca`,
+  `top_contributors` jsonb, `source='public_nasa_analog_dataset'`, RLS by `env_id`.
+- `tel_feature_manifest` — 256 manifest rows, RLS by `env_id`.
+- Backfilled into the `telemetry-demo` tenant via the idempotent `14_backfill_fused.sql`
+  (`is_backfilled=true`, `backfill_batch_id='phase7a-fused-v1'`). **256 vectors + 256 manifest rows.**
+
+### Verification (`verify_fused_vector.py` — ALL CHECKS PASS)
+
+```
+selected_channels      = 32 (expect 32)   D-4 included = True
+features_per_channel   = 8 (expect 8)
+manifest features      = 256 (expect 256)
+stored vectors         = 256 ; manifest rows = 256
+stored vector_dim/len  = {'hi': 256, 'lo': 256, 'vhi': 256, 'vlo': 256}
+constant-pad columns   = 0 (expect 0)
+alignment              = normalized sequence progress per channel/split (NOT physical simultaneity)
+sample anomalous vector: eb55cb2c-c4f split=test window_index=113 -> traces to source_channels A-1..D-1... label=1
+SMAP/MSL mix           = SMAP=22 MSL=10
+ALL CHECKS PASS — 256-d fused vector is real, 32 channels x 8 features, D-4 included, no padding,
+traceable, leakage-free.
+```
+
+Eight assertions: 32 selected channels, 8 features/channel, dim 256, 256 manifest rows, every stored
+vector length 256, **0 constant-pad columns**, D-4 present, a sample vector traces to its NASA source
+channels + window. (An earlier draft had 2 constant-pad columns from a near-flat channel and an AE
+test error of 1.3e31 from an un-winsorized degenerate feature; both were found and fixed before this
+PASS — recorded in `docs/tips.md`.)
+
+### Backend + UI (read-only surfacing; no overclaim)
+
+- `GET /api/telemetry/fused-vector-info` (lean, psycopg3 only) → `{available, vector_dim 256,
+  n_channels 32, features_per_channel 8, feature_names, channels, d4_included, fused_vectors 256,
+  anomalous_test_vectors 78, model, alignment, source}`. Fails closed (`null_reason:data_not_ingested`)
+  if not built.
+- Overview "Fused state vector" panel shows the **actual** dim from the API ("256 features · 32 NASA
+  channels × 8 window features · incl. D-4"), the feature names, the model description, and the
+  alignment caveat verbatim. The line appeared only after the verifier passed.
+- Backend stays lean (no mlflow/torch/pyspark added). Frontend typecheck: 0 errors.
+- **Phase-6 regression intact:** `/replay` still flips GO→NO-GO at t=728; `/summary` still reports 364
+  predictions; the 4 real `tel_model_runs` are untouched.
+
+### Résumé-claim audit (as of Phase 7A)
+
+What the repo verifiably supports today. Claims still aspirational are marked deferred and must not
+appear in résumé copy yet.
+
+| Claim | Supported now? | Evidence | Caveats |
+|---|---|---|---|
+| 256-dimensional multi-signal state vector | **Yes** | `tel_fused_state_vectors` (256 vectors, `vector(256)`), `fused_feature_manifest.json` (256 rows), `verify_fused_vector.py` PASS | 32 real NASA SMAP/MSL channels × 8 computed features; aligned by **normalized sequence progress**, not physical simultaneity; public analog data, not proprietary vehicle telemetry or simultaneous rocket sensors |
+| Autoencoder-style reconstruction model | **Yes (worded carefully)** | MLPRegressor `256→128→32→16→32→128→256`, recon MSE in this section | "Dense reconstruction model trained as an autoencoder-style bottleneck," **not** a PyTorch/LSTM production AE; PCA-256 baseline logged alongside; challenger, not promoted over the MAD champion |
+| Channel divergence ranking | **Yes** | `top_contributors` jsonb (per-channel aggregated recon error, ranked), sample above | per-channel AE reconstruction error; fused-vector path (live `/score` still single-channel until 7B) |
+| Anomaly detection that fires autonomously | Yes (Phase 2/4) | `/replay` GO→NO-GO flip at t=728 from the frozen MAD champion | real model output, not scripted |
+| RUL / remaining-useful-life regression | Yes (Phase 2) | `tel_model_runs` (C-MAPSS FD001, RMSE + PHM) | held-out test split |
+| Classification (anomalous vs nominal) | **Deferred (7C)** | — | not built — keep out of résumé copy |
+| Directional forecasting | **Deferred (7C)** | — | not built |
+| pgvector / HNSW analog retrieval | **Deferred (7D)** | `vector(256)` column exists; pgvector 0.8.0 confirmed | HNSW index + `/analogs` endpoint not built yet |
+| Brier score / calibration | **Deferred (7E)** | — | not built |
+| Walk-forward / rolling-origin validation | **Deferred (7F)** | — | current wording stays "held-out, no-look-ahead split" |
+| Drift alerts + retrain trigger | **Deferred (7G)** | real PSI drift series exists (Phase 6) | alerts table + trigger not built |
+
+---
 
 ## Phase 6 — operated-history enrichment + Lab Workbench UI
 

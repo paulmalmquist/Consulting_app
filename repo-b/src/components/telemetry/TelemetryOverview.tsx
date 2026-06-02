@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  getModelPerformance, getSummary, getRuns, type ModelRun, type TelemetrySummary, type TestRun,
+  getModelPerformance, getSummary, getRuns, getFusedVectorInfo,
+  type ModelRun, type TelemetrySummary, type TestRun, type FusedVectorInfo,
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
 import { C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
@@ -64,6 +65,7 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
   const [summary, setSummary] = useState<TelemetrySummary | null>(null);
   const [models, setModels] = useState<ModelRun[] | null>(null);
   const [runs, setRuns] = useState<TestRun[] | null>(null);
+  const [fused, setFused] = useState<FusedVectorInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,8 +73,9 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
       getSummary(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID),
       getModelPerformance(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID),
       getRuns(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID),
+      getFusedVectorInfo(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID).catch(() => null),
     ])
-      .then(([s, mp, r]) => { setSummary(s); setModels(mp.models); setRuns(r); })
+      .then(([s, mp, r, fv]) => { setSummary(s); setModels(mp.models); setRuns(r); setFused(fv); })
       .catch((e) => setError(String(e)));
   }, []);
 
@@ -133,6 +136,29 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
           </Panel>
         </div>
       </div>
+
+      {/* Fused state vector (Phase 7A) — only when built + verified; shows the ACTUAL dim */}
+      {fused?.available && (
+        <Panel title="Fused state vector"
+          right={<Tag color={C.cyan}>{fused.vector_dim}-d</Tag>} style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.sans, fontSize: 18, fontWeight: 600, color: C.text }}>
+              {fused.vector_dim} features
+            </span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.dim }}>
+              {fused.n_channels} NASA channels × {fused.features_per_channel} window features
+              {fused.d4_included ? " · incl. D-4" : ""}
+            </span>
+          </div>
+          <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 8 }}>
+            {fused.feature_names?.join(" · ")}
+          </div>
+          <div style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 10, lineHeight: 1.5 }}>
+            {fused.model}. {fused.fused_vectors} fused vectors ({fused.anomalous_test_vectors} labeled
+            anomalous in test). {fused.alignment}
+          </div>
+        </Panel>
+      )}
 
       {/* test runs + serving inventory */}
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginTop: 16 }}>

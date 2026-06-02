@@ -113,3 +113,22 @@ export const getRuns = (env: string, biz: string) =>
 
 export const getSummary = (env: string, biz: string) =>
   apiFetch<TelemetrySummary>("/api/telemetry/summary", { params: params(env, biz) });
+
+export interface FusedVectorInfo {
+  available: boolean;
+  null_reason?: string;
+  vector_dim?: number;
+  n_channels?: number;
+  features_per_channel?: number;
+  feature_names?: string[];
+  channels?: string[];
+  d4_included?: boolean;
+  fused_vectors?: number;
+  anomalous_test_vectors?: number;
+  model?: string;
+  alignment?: string;
+  source?: string;
+}
+
+export const getFusedVectorInfo = (env: string, biz: string) =>
+  apiFetch<FusedVectorInfo>("/api/telemetry/fused-vector-info", { params: params(env, biz) });
