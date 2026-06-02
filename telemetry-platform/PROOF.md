@@ -723,9 +723,10 @@ python telemetry-platform/eval_honest_metrics.py --data-dir telemetry-platform/d
 ```
 
 Result snapshot: [docs/honest_metrics_result.json](docs/honest_metrics_result.json). Full critique and
-our reporting stance: [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md). The expansion roadmap
-(N-CMAPSS / IMS, range-aware metrics, conformal budget) is in
-[docs/CREDIBILITY_ROADMAP.md](docs/CREDIBILITY_ROADMAP.md).
+our reporting stance: [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md). The three-track roadmap
+(range-aware metrics, conformal budget, usefulness A/B) is in
+[docs/CREDIBILITY_ROADMAP.md](docs/CREDIBILITY_ROADMAP.md); the N-CMAPSS / IMS run-to-failure expansion
+plan is in [docs/DATA_EXPANSION_PLAN.md](docs/DATA_EXPANSION_PLAN.md).
 
 ### Remaining useful life — C-MAPSS FD001 (evaluated on all 100 test units, RUL capped at 125)
 
