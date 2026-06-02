@@ -181,3 +181,23 @@ novendor_business_to_ai_visual_directions.html
 # Host runner output (per-run JSON, not worth versioning)
 scripts/results/*.json
 !scripts/results/.gitkeep
+
+# Client-engagement scratch — receipts, drafts, gap-analysis, storyboards, and
+# per-client work product that regenerates and shouldn't ship as source.
+docs/happyco/
+docs/outreach-rewrites-*.md
+Hone_work/
+
+# Loose root scratch: a stray running-lessons file (the tracked one is docs/tips.md);
+# Option B UI reference mockups (already ported into repo-b/src/components/telemetry/);
+# one-off outreach/draft automation scripts that belong in scripts/ if they earn a place.
+/tips.md
+/OptionB_*.jsx
+/OptionB_handoff_prompt.md
+/apply_firm_specific_drafts.py
+/collect_bounces.py
+/update_outlook_drafts.py
+/update_quick_intro_drafts.py
+
+# Outreach skill runtime state (SKILL.md is tracked; the bounce-resolution receipt regenerates).
+skills/novendor-repe-outreach/resolved_bounces.json
