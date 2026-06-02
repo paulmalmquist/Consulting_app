@@ -305,6 +305,69 @@ Phase 5/6).
 
 ---
 
+## Applied-AI Layer — Phase 8: AI Governance + Eval Dashboard
+
+A thin **observability layer** over the existing copilot — no new copilot behavior, no retraining, no
+replay/explain/report redesign. The page answers one question: *"Can we trust the AI layer, and how
+do we know?"* — entirely from real logged data and a real eval run. Route:
+`/lab/env/[envId]/telemetry/governance` (nav: "AI Governance").
+
+### One new signal, instrumented honestly
+
+To report a **real post-validator block count** (not lump all fallbacks together), the answer flow now
+records *why* it fell back — `postvalidate_block | timeout | empty_response | llm_error | no_api_key`
+— in a new `tel_copilot_interactions.fallback_reason` column (migration `10012`). Pure observability;
+behavior unchanged. Everything else the dashboard shows was already logged.
+
+### What the page surfaces (all real, never hardcoded)
+
+From `GET /api/telemetry/copilot/governance` (extended): total interactions, grounded-answer rate,
+refusal rate, live-LLM vs fallback rate, **post-validator block count**, fallback-reason breakdown,
+**tool-call success/error/skipped**, p50/p95 latency, active prompt hash + model, allow-list size,
+refusal-rule count, a **recent-interactions table**, **recent refusal examples**, and
+**unsupported-claim-blocked examples**. From `GET /api/telemetry/copilot/evals` (new): the last eval
+run's per-case pass/fail with run timestamp + source. Production-smoke status is the **last manually
+recorded** cold smoke (timestamp + source), explicitly labeled — not a live status.
+
+Honesty rules enforced in the UI: a null metric renders **"Not available"**, never a misleading zero;
+empty example lists render "None recorded"; eval/smoke panels show their run timestamp + source so
+staleness is visible. A **"What this proves"** strip names the six controls (fixed intent planning,
+allow-listed tools, pre-tool refusals, post-generation validation, audit receipts,
+human-review-required reports).
+
+### Verification (real values)
+
+```
+GET /copilot/governance  -> total 26, grounded 0.7692, refusal 0.2308, fallback 0.0, live 0.7692,
+                            postvalidator_block_count 0 (LLM stayed grounded — a real 0, not invented),
+                            tool_call_stats {success 34, skipped 15}, recent 15 / refusals 6 / blocked 0,
+                            production_smoke pass (recorded 2026-06-02), prompt e1d3a0daab52, gpt-5-mini
+GET /copilot/evals       -> available, 5/5 pass, source "pytest backend/tests/test_copilot_telemetry.py"
+   grounded_no_go · refusal_proprietary_root_cause · report_evidence_and_disclaimer ·
+   fail_closed_missing_input · no_invented_cause_or_disposition
+pytest tests/test_copilot_telemetry.py tests/test_telemetry_serving.py -> 26 passed
+   (3 new Phase-8: evals artifact served, evals fail-closed when artifact missing, governance aggregates)
+tsc --noEmit -> 0 errors
+```
+
+The eval artifact (`backend/app/data/telemetry/eval_results.json`) is produced by a **real pytest run**
+via `telemetry-platform/run_governance_evals.py` (re-run after any copilot change); the endpoint serves
+it labeled with the run timestamp — eval pass/fail on the page is never invented.
+
+Files: migration `repo-b/db/schema/10012_telemetry_copilot_fallback_reason.sql`; backend
+`telemetry_copilot.py` (fallback_reason in `answer()`, extended `governance_summary`, new `evals`),
+`copilot_logger.py`, `routes/telemetry_copilot.py` (`/evals`), `schemas/telemetry_copilot.py`;
+artifacts `backend/app/data/telemetry/{eval_results,last_smoke}.json` + `run_governance_evals.py`;
+frontend `GovernanceDashboard.tsx`, `…/telemetry/governance/page.tsx`, `TelemetrySidebar.tsx` (nav),
+`copilot-api.ts`.
+
+**Known gaps:** production-smoke is **not yet machine-automated** — the dashboard shows the last
+*manually recorded* cold smoke (timestamp/source), as designed. An authenticated production screenshot
+of the rendered dashboard is not capturable from the build session (same limitation since Phase 5); the
+data-level proof above + the route stand in.
+
+---
+
 ## Applied-AI Layer — Phase 7: Test Report Workflow
 
 Turns the Phase 6 grounded evidence into a **reviewable operational artifact**. The chain a reviewer

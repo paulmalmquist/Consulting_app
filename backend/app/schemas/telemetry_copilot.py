@@ -63,6 +63,7 @@ class CopilotAnswerResponse(BaseModel):
     is_refusal: bool = False
     intent: str | None = None
     answer_source: str = "live_llm"   # live_llm | fallback_template | refusal
+    fallback_reason: str | None = None  # postvalidate_block | timeout | empty_response | llm_error | no_api_key
     prompt_version: str
     model: str
     draft_report_md: str | None = None

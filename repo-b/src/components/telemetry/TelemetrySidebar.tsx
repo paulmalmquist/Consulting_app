@@ -9,6 +9,7 @@ const NAV: { slug: string; label: string; icon: string }[] = [
   { slug: "", label: "Overview", icon: "M2 9h3v5H2zM7 4h3v10H7zM12 7h3v7h-3z" },
   { slug: "replay", label: "Replay", icon: "M4 3l9 6-9 6z" },
   { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z" },
+  { slug: "governance", label: "AI Governance", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z" },
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z" },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7" },
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3" },

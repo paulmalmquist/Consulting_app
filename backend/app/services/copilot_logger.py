@@ -37,12 +37,12 @@ def emit_copilot_interaction(*, env_id: str, business_id: UUID, question: str | 
             cur.execute(
                 """INSERT INTO tel_copilot_interactions
                      (request_id, env_id, business_id, intent, is_refusal, null_reason,
-                      answer_source, prompt_version, model, evidence_count, tool_trace,
-                      elapsed_ms, question, answer)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)""",
+                      answer_source, fallback_reason, prompt_version, model, evidence_count,
+                      tool_trace, elapsed_ms, question, answer)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)""",
                 (str(result.get("request_id")), env_id, str(business_id), intent, is_refusal,
-                 null_reason, answer_source, prompt_version, model, len(evidence),
-                 json.dumps(tool_trace, default=str), elapsed_ms,
+                 null_reason, answer_source, result.get("fallback_reason"), prompt_version, model,
+                 len(evidence), json.dumps(tool_trace, default=str), elapsed_ms,
                  (question or "")[:2000], (result.get("answer") or "")[:8000]))
     except Exception as exc:  # noqa: BLE001 — never block the answer on an audit write
         emit_log(level="warning", service="telemetry_copilot", action="audit_write_failed",
