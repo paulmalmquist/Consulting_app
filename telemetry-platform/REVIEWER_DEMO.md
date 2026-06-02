@@ -106,5 +106,26 @@ curl -s -X POST $B/copilot/draft-report   -H 'content-type: application/json' \
 - **Branch history:** this shipped via PR #118 from the legacy-named branch `feat/hr-morning-book-v1`
   (a naming holdover) — it is **merged to `main`**; the branch name is not meaningful.
 
+## 7. Screenshots
+
+Captured (real, in repo — `telemetry-platform/docs/screenshots/`):
+
+- **Replay after GO→NO-GO at t=728** — ![replay NO-GO](docs/screenshots/p6_replay_flip.png)
+- **Model performance** (champion vs challenger, exact metrics) — ![model performance](docs/screenshots/p6_model_performance.png)
+
+To capture (authenticated, ~2 min in a logged-in browser — these pages are auth-gated, so they
+can't be captured headlessly from the build session). Save each into
+`telemetry-platform/docs/screenshots/` with the exact filename, then embed it here with
+`![…](docs/screenshots/<name>.png)`:
+
+| # | Page / state to show | Route (after login) | Save as |
+|---|---|---|---|
+| 1 | **Explain verdict** — the grounded answer + evidence cards + tool/evidence trail, after clicking "Explain this verdict →" on the NO-GO replay | `/lab/env/dc82d39d-…/telemetry/replay` → Replay → wait for NO-GO → Explain this verdict | `copilot_explain_verdict.png` |
+| 2 | **Draft test report** — the `DraftReportCard` with the amber `REQUIRES HUMAN REVIEW` banner + provenance + report body | `/lab/env/dc82d39d-…/telemetry/copilot` → ask "Why NO-GO?" → Draft test report → | `copilot_draft_report.png` |
+| 3 | **AI Governance dashboard** — "What this proves" strip + metric strip + eval table + recent interactions | `/lab/env/dc82d39d-…/telemetry/governance` | `governance.png` |
+
+(Full env id in §2. The replay-NO-GO and model-performance shots above already cover 2 of the 5 the
+reviewer pack calls for; the three here complete it.)
+
 See `telemetry-platform/docs/portfolio-proof.md` for the 2-minute written summary, and
 `telemetry-platform/PROOF.md` for the full per-phase evidence log.

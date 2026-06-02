@@ -37,8 +37,14 @@ Databricks NASA ingest (Bronze/Silver/Gold medallion)
   (`tel_copilot_reports`) labeled `ASSISTANT-GENERATED DRAFT — REQUIRES HUMAN REVIEW`, re-fetchable by
   receipt.
 - **It's measured.** A governance panel reports grounded rate, refusal rate, latency, answer-source
-  mix, and the active prompt hash — all from real logged interactions.
+  mix, post-validator block count, and the active prompt hash — all from real logged interactions.
   ![overview](screenshots/p6_overview.png)
+- **The models are gated.** Champion-vs-challenger metrics with the declared promotion gate.
+  ![model performance](screenshots/p6_model_performance.png)
+
+> Screenshot gallery (replay-NO-GO + model-performance embedded above) and a 2-minute capture
+> checklist for the authenticated Explain-verdict / Draft-report / Governance pages are in
+> [`../REVIEWER_DEMO.md`](../REVIEWER_DEMO.md) §7.
 
 ## Applied-AI controls (the safety story)
 

@@ -362,9 +362,11 @@ frontend `GovernanceDashboard.tsx`, `…/telemetry/governance/page.tsx`, `Teleme
 `copilot-api.ts`.
 
 **Known gaps:** production-smoke is **not yet machine-automated** — the dashboard shows the last
-*manually recorded* cold smoke (timestamp/source), as designed. An authenticated production screenshot
-of the rendered dashboard is not capturable from the build session (same limitation since Phase 5); the
-data-level proof above + the route stand in.
+*manually recorded* cold smoke (timestamp/source), as designed. Authenticated screenshots of the
+rendered Explain-verdict / Draft-report / Governance pages are not capturable headlessly from the
+build session (same limitation since Phase 5) — the real replay-NO-GO and model-performance shots are
+wired into the reviewer pack, and a 2-minute manual-capture checklist for the remaining three is in
+`REVIEWER_DEMO.md` §7; the data-level proof above + the live routes stand in.
 
 ---
 
