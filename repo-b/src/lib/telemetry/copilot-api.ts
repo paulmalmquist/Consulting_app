@@ -48,10 +48,14 @@ export interface GovernanceSummary {
   null_reason: string | null;
 }
 
+// NOTE: do NOT set a content-type header here. apiFetch already sets `Content-Type:
+// application/json`; adding a lowercase `content-type` produced a DUPLICATE header
+// (`content-type: application/json, application/json`) under undici/fetch, which mangled the JSON
+// body — the backend received a non-dict and returned a 422 (model_attributes_type). Matching the
+// other working POST callers (they pass only method + body) fixes it.
 const jsonPost = <T>(path: string, body: Record<string, unknown>) =>
   apiFetch<T>(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 
