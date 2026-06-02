@@ -701,6 +701,32 @@ The PCA model is more precise (0.87) but far less sensitive (recall 0.28). On F1
 baseline wins** (0.639 vs 0.420). No-look-ahead: both thresholds were calibrated on the train split
 only and frozen before scoring the test split.
 
+**Honest metrics beside the legacy point-adjusted F1.** The F1 above is *point-adjusted*: one in-window
+hit credits the whole labeled segment. On the same champion predictions, the honest tick-level numbers
+are much lower, and both are recorded in the champion's `tel_model_runs.metrics` row (keys
+`f1_pointwise`, `precision_pointwise`, `recall_pointwise`, `event_recall`, `alarm_precision`):
+
+| Metric | Value |
+|---|---|
+| F1 (point-adjusted — legacy) | 0.6387 |
+| F1 (point-wise — honest) | **0.3130** |
+| Precision / Recall (point-wise) | 0.3279 / 0.2993 |
+| Event recall (80 of 104 labeled segments) | 0.7692 |
+| Alarm precision | 0.3279 |
+
+Reproduce offline from the raw arrays + labels, no Databricks and no retrain — applies the exact frozen
+rule and re-derives the point-adjusted F1 as a fidelity check (**0.645 local vs 0.639 stored**, recall
+matches to three decimals, MLflow run `4a48cb6af8714609b9581d66e904544c`):
+
+```
+python telemetry-platform/eval_honest_metrics.py --data-dir telemetry-platform/databricks/data/smap_msl
+```
+
+Result snapshot: [docs/honest_metrics_result.json](docs/honest_metrics_result.json). Full critique and
+our reporting stance: [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md). The expansion roadmap
+(N-CMAPSS / IMS, range-aware metrics, conformal budget) is in
+[docs/CREDIBILITY_ROADMAP.md](docs/CREDIBILITY_ROADMAP.md).
+
 ### Remaining useful life — C-MAPSS FD001 (evaluated on all 100 test units, RUL capped at 125)
 
 | Model | Run ID | RMSE | PHM score |
