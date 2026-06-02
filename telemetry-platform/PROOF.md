@@ -3,6 +3,10 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
+**Reviewer entry points:** [`REVIEWER_DEMO.md`](REVIEWER_DEMO.md) (login, routes, 4-minute script,
+expected evidence values, caveats) · [`docs/portfolio-proof.md`](docs/portfolio-proof.md) (2-minute
+written summary for a recruiter / hiring manager). This file is the full per-phase evidence log.
+
 ## Status (2026-06-02, end of Applied-AI Phase 6 — Test Intelligence Copilot)
 
 All ML-platform phases complete (ingestion → training → gating → serving → Lab Workbench UI →
