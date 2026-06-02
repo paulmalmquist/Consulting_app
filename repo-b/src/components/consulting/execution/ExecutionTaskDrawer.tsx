@@ -5,11 +5,13 @@ import { X } from "lucide-react";
 import {
   updateExecutionTask,
   deleteExecutionTask,
+  fetchExecutionHierarchyOptions,
   type ExecutionTask,
   type ExecutionTaskStatus,
   type ExecutionTaskType,
   type ExecutionRevenueTag,
   type ExecutionTaskUpdate,
+  type ExecutionHierarchyOptions,
 } from "@/lib/cro-api";
 
 const TYPES: ExecutionTaskType[] = [
@@ -39,8 +41,6 @@ export function ExecutionTaskDrawer({
   onUpdated: (taskId: string) => void;
   onDeleted: () => void;
 }) {
-  void envId;
-  void businessId;
   const [title, setTitle] = useState(task.title);
   const [nextAction, setNextAction] = useState(task.next_action);
   const [whyNow, setWhyNow] = useState(task.why_now);
@@ -55,8 +55,30 @@ export function ExecutionTaskDrawer({
     task.re_engage_at ? task.re_engage_at.slice(0, 10) : "",
   );
   const [blockedReason, setBlockedReason] = useState(task.blocked_reason ?? "");
+  const [domainKey, setDomainKey] = useState(task.domain_key ?? "");
+  const [initiativeKey, setInitiativeKey] = useState(task.initiative_key ?? "");
+  const [workstreamKey, setWorkstreamKey] = useState(task.workstream_key ?? "");
+  const [hierOpts, setHierOpts] = useState<ExecutionHierarchyOptions | null>(null);
+  const [hierOptsFailed, setHierOptsFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Load seeded hierarchy options once per env. Degrades cleanly: if the
+  // fetch fails, the selectors fall back to showing only the task's current
+  // values (no fabricated choices, write-path still validated server-side).
+  useEffect(() => {
+    let alive = true;
+    fetchExecutionHierarchyOptions(envId, businessId)
+      .then((o) => {
+        if (alive) setHierOpts(o);
+      })
+      .catch(() => {
+        if (alive) setHierOptsFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [envId, businessId]);
 
   useEffect(() => {
     setTitle(task.title);
@@ -71,13 +93,26 @@ export function ExecutionTaskDrawer({
     setDueDate(task.due_date ?? "");
     setReEngageAt(task.re_engage_at ? task.re_engage_at.slice(0, 10) : "");
     setBlockedReason(task.blocked_reason ?? "");
-  }, [task.id, task.title, task.next_action, task.why_now, task.description, task.expected_outcome, task.type, task.status, task.impact, task.revenue_tag, task.due_date, task.re_engage_at, task.blocked_reason]);
+    setDomainKey(task.domain_key ?? "");
+    setInitiativeKey(task.initiative_key ?? "");
+    setWorkstreamKey(task.workstream_key ?? "");
+  }, [task.id, task.title, task.next_action, task.why_now, task.description, task.expected_outcome, task.type, task.status, task.impact, task.revenue_tag, task.due_date, task.re_engage_at, task.blocked_reason, task.domain_key, task.initiative_key, task.workstream_key]);
 
   const canSave =
     title.trim().length > 0 &&
     nextAction.trim().length > 0 &&
     whyNow.trim().length > 0 &&
     !saving;
+
+  // Dependent option lists. Initiatives filtered by selected domain;
+  // workstreams by selected domain+initiative. Honest empty states.
+  const domainOpts = hierOpts?.domains ?? [];
+  const initiativeOpts = (hierOpts?.initiatives ?? []).filter(
+    (i) => i.domain_key === domainKey,
+  );
+  const workstreamOpts = (hierOpts?.workstreams ?? []).filter(
+    (w) => w.domain_key === domainKey && w.initiative_key === initiativeKey,
+  );
 
   async function save() {
     if (!canSave) return;
@@ -100,6 +135,12 @@ export function ExecutionTaskDrawer({
         // task that just happened to carry an old date.
         re_engage_at: status === "waiting" ? (reEngageAt ? `${reEngageAt}T00:00:00Z` : null) : null,
         blocked_reason: status === "waiting" ? (blockedReason.trim() || null) : null,
+        // Hierarchy: empty string → null (clears → Ungrouped). Child keys are
+        // only sent when their parent is set; server validates authoritatively.
+        domain_key: domainKey || null,
+        initiative_key: domainKey ? initiativeKey || null : null,
+        workstream_key:
+          domainKey && initiativeKey ? workstreamKey || null : null,
       };
       await updateExecutionTask(task.id, body);
       onUpdated(task.id);
@@ -286,6 +327,77 @@ export function ExecutionTaskDrawer({
               />
             </Field>
           </div>
+
+          <Field
+            label="Operating hierarchy"
+            hint={
+              hierOptsFailed
+                ? "Options unavailable — keeping current assignment."
+                : "Domain → Initiative → Workstream. Leave blank for Ungrouped."
+            }
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <select
+                aria-label="Domain"
+                value={domainKey}
+                onChange={(e) => {
+                  setDomainKey(e.target.value);
+                  // Changing domain invalidates child selections.
+                  setInitiativeKey("");
+                  setWorkstreamKey("");
+                }}
+                style={inputStyle}
+              >
+                <option value="">Ungrouped</option>
+                {domainOpts.map((d) => (
+                  <option key={d.key} value={d.key}>{d.label}</option>
+                ))}
+                {/* Preserve an unknown current value so we never silently drop it */}
+                {domainKey && !domainOpts.some((d) => d.key === domainKey) ? (
+                  <option value={domainKey}>{domainKey}</option>
+                ) : null}
+              </select>
+              <select
+                aria-label="Initiative"
+                value={initiativeKey}
+                disabled={!domainKey}
+                onChange={(e) => {
+                  setInitiativeKey(e.target.value);
+                  setWorkstreamKey("");
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  {domainKey ? "No linked initiative" : "—"}
+                </option>
+                {initiativeOpts.map((i) => (
+                  <option key={i.key} value={i.key}>{i.label}</option>
+                ))}
+                {initiativeKey &&
+                !initiativeOpts.some((i) => i.key === initiativeKey) ? (
+                  <option value={initiativeKey}>{initiativeKey}</option>
+                ) : null}
+              </select>
+              <select
+                aria-label="Workstream"
+                value={workstreamKey}
+                disabled={!domainKey || !initiativeKey}
+                onChange={(e) => setWorkstreamKey(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">
+                  {domainKey && initiativeKey ? "No linked workstream" : "—"}
+                </option>
+                {workstreamOpts.map((w) => (
+                  <option key={w.key} value={w.key}>{w.label}</option>
+                ))}
+                {workstreamKey &&
+                !workstreamOpts.some((w) => w.key === workstreamKey) ? (
+                  <option value={workstreamKey}>{workstreamKey}</option>
+                ) : null}
+              </select>
+            </div>
+          </Field>
 
           {status === "waiting" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

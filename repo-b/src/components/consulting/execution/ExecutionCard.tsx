@@ -9,6 +9,31 @@ import type {
   ExecutionAutoSource,
 } from "@/lib/cro-api";
 
+// Local fallback labels — board API also returns *_label when the reference
+// row resolves; this keeps the crumb working if labels aren't joined yet.
+const DOMAIN_LABELS: Record<string, string> = {
+  web_properties: "Web Properties",
+  outreach_crm: "Outreach / CRM",
+  coding_platform: "Coding / Winston Platform",
+  novendor_web: "Novendor Web / Industry Sections",
+  admin_ops: "Admin / Accounting / Operations",
+};
+const INITIATIVE_LABELS: Record<string, string> = {
+  flowyorker: "FlowYorker.com",
+};
+
+function hierarchyCrumb(task: ExecutionTask): string | null {
+  if (!task.domain_key) return null; // flat task — no crumb (filter shows "Ungrouped")
+  const domain =
+    task.domain_label || DOMAIN_LABELS[task.domain_key] || task.domain_key;
+  if (!task.initiative_key) return domain;
+  const initiative =
+    task.initiative_label ||
+    INITIATIVE_LABELS[task.initiative_key] ||
+    task.initiative_key;
+  return `${domain} → ${initiative}`;
+}
+
 const TYPE_LABEL: Record<string, string> = {
   outreach: "Outreach",
   follow_up: "Follow-up",
@@ -92,6 +117,7 @@ export function ExecutionCard({
   const dueTone = DUE_TONE[due.tone];
   const typeColor = TYPE_COLOR[task.type] || "rgba(220,230,240,0.72)";
   const autoText = task.auto_source ? AUTO_LABEL[task.auto_source] : "";
+  const crumb = hierarchyCrumb(task);
 
   return (
     <div
@@ -161,6 +187,20 @@ export function ExecutionCard({
           </span>
         ) : null}
       </div>
+
+      {crumb ? (
+        <div
+          style={{
+            fontSize: 9.5,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "rgba(167,139,250,0.78)",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+          }}
+        >
+          {crumb}
+        </div>
+      ) : null}
 
       <div style={{ fontWeight: 600, lineHeight: 1.3 }}>{task.title}</div>
 

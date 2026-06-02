@@ -1,0 +1,20 @@
+{
+  "models": [
+    {
+      "created_at": "2026-05-22T19:20:11+00:00",
+      "feature_columns_json": "[\"average_delay_days_prior\", \"county_fips\", \"emergency_maintenance_flag\", \"emergency_work_orders_prior_90d\", \"flood_zone_flag\", \"hvac_age_years\", \"inspection_failure_flag\", \"last_inspection_score\", \"make_ready_backlog_prior\", \"make_ready_delay_days\", \"market\", \"property_age\", \"property_id\", \"reopened_work_orders_prior_12m\", \"resident_impact_incident_count\", \"resident_impact_incident_flag\", \"roof_age_years\", \"run_id\", \"sla_breach_rate_prior_12m\", \"state\", \"synthetic_data\", \"unit_count\", \"vendor_capacity_index\", \"vendor_capacity_risk\", \"weather_related_work_orders_prior_12m\", \"weather_sensitivity\", \"work_order_surge_14d_flag\", \"work_orders_prior_90d\"]",
+      "is_best": true,
+      "metric_honesty_warning": "Local contract metric is a synthetic validation signal, not expected production performance.",
+      "metric_name": "synthetic_top_decile_capture_rate",
+      "metric_value": 0.72,
+      "mlflow_run_id": null,
+      "model_name": "local_contract_weather_ops_baseline",
+      "params_json": "{\"model\": \"deterministic local contract baseline\"}",
+      "run_id": "local-20260522192010",
+      "task_type": "classification",
+      "test_count": 50,
+      "train_count": 200
+    }
+  ],
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+}

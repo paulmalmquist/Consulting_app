@@ -1,0 +1,43 @@
+{
+  "dry_run": true,
+  "output_dir": "C:/Projects/Consulting_app_happyco/artifacts/happyco/outlook/search_context",
+  "mailbox": "default",
+  "folder": "Inbox",
+  "mode": "read_graph_email",
+  "read": {
+    "max_items": 25,
+    "unread_only": false,
+    "from_contains": "",
+    "subject_contains": "HappyCo",
+    "body_contains": "",
+    "received_after": "2026-05-01",
+    "received_before": "",
+    "save_attachments": false,
+    "attachment_extensions": [".pdf", ".docx", ".txt"]
+  },
+  "graph": {
+    "enabled": false,
+    "source": "messages",
+    "chart_type": "bar",
+    "group_by": "sender",
+    "metric": "count",
+    "title": "HappyCo Recruiter Context Messages",
+    "filename": "happyco_messages_by_sender.png"
+  },
+  "email": {
+    "enabled": false,
+    "send_policy": "draft",
+    "to": [],
+    "cc": [],
+    "bcc": [],
+    "subject": "",
+    "body_template": "",
+    "attach_outputs": false,
+    "attachments": []
+  },
+  "happyco_notes": {
+    "purpose": "Search and summarize recruiter context locally. Do not commit exported email content.",
+    "expected_output": "Local message summary and receipt under output_dir.",
+    "send_allowed": false
+  }
+}

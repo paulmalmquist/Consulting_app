@@ -2380,6 +2380,21 @@ export type ExecutionTask = {
   updated_at: string;
   deal_name: string | null;
   contact_name: string | null;
+  // Operator Control Plane hierarchy (additive, read-only). All nullable:
+  // flat tasks have NULL hierarchy → "Ungrouped"; missing reference rows
+  // leave *_label null → "No linked initiative/workstream".
+  domain_key?: string | null;
+  initiative_key?: string | null;
+  workstream_key?: string | null;
+  parent_task_id?: string | null;
+  source_kind?: string | null;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
+  related_url?: string | null;
+  last_reviewed_at?: string | null;
+  domain_label?: string | null;
+  initiative_label?: string | null;
+  workstream_label?: string | null;
 };
 
 export type ExecutionBoardSummary = {
@@ -2441,7 +2456,100 @@ export type ExecutionTaskUpdate = Partial<{
   due_date: string | null;
   re_engage_at: string | null;
   blocked_reason: string | null;
+  // Operator Control Plane hierarchy write-path (Ticket 5). Passing null
+  // clears the field (task → Ungrouped). Server validates keys.
+  domain_key: string | null;
+  initiative_key: string | null;
+  workstream_key: string | null;
+  source_kind: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  related_url: string | null;
+  last_reviewed_at: string | null;
 }>;
+
+export type ExecutionHierarchyOption = {
+  key: string;
+  label: string;
+  domain_key?: string | null;
+  initiative_key?: string | null;
+};
+
+export type ExecutionHierarchyOptions = {
+  domains: ExecutionHierarchyOption[];
+  initiatives: ExecutionHierarchyOption[];
+  workstreams: ExecutionHierarchyOption[];
+};
+
+export function fetchExecutionHierarchyOptions(
+  envId: string,
+  businessId: string,
+) {
+  return apiFetch<ExecutionHierarchyOptions>(
+    `${CRO_BASE}/execution/hierarchy-options?env_id=${encodeURIComponent(
+      envId,
+    )}&business_id=${encodeURIComponent(businessId)}`,
+  );
+}
+
+// Morning Checklist (Ticket 6) — read-only generated brief over
+// cro_execution_task. No persistence; suggested prompts are display-only.
+export type MorningChecklistItem = {
+  task_id: string;
+  title: string | null;
+  reason: string;
+  domain_key: string | null;
+  domain_label: string | null;
+  initiative_key: string | null;
+  initiative_label: string | null;
+  workstream_key: string | null;
+  workstream_label: string | null;
+  next_action: string | null;
+  status: string | null;
+  impact: number | null;
+  due_date: string | null;
+  revenue_tag: string | null;
+  blocked_reason: string | null;
+  related_url: string | null;
+};
+
+export type MorningChecklistSuggestedPrompt = {
+  key: string;
+  prompt: string;
+  reason: string;
+};
+
+export type MorningChecklistSection = {
+  key: string;
+  label: string;
+  // Heterogeneous: domain/priority sections hold MorningChecklistItem;
+  // suggested_prompts holds MorningChecklistSuggestedPrompt.
+  items: Array<MorningChecklistItem | MorningChecklistSuggestedPrompt>;
+};
+
+export type MorningChecklistSummary = {
+  total_items: number;
+  overdue_count: number;
+  blocked_count: number;
+  web_properties_count: number;
+  outreach_count: number;
+  coding_count: number;
+  admin_count: number;
+};
+
+export type MorningChecklist = {
+  date: string;
+  sections: MorningChecklistSection[];
+  summary: MorningChecklistSummary;
+};
+
+export function fetchMorningChecklist(envId: string, businessId: string) {
+  return apiFetch<MorningChecklist>(
+    `${CRO_BASE}/execution/morning-checklist?env_id=${encodeURIComponent(
+      envId,
+    )}&business_id=${encodeURIComponent(businessId)}`,
+  );
+}
 
 export type QuickCaptureRequest = {
   env_id: string;

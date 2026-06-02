@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Search, X as XIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider";
+import { winstonBrand } from "@/components/consulting/ConsultingPageFrame";
 import {
   DndContext,
   DragOverlay,
@@ -783,15 +784,6 @@ export default function PipelinePage({
     : dataError;
   const isLoading = contextLoading || (ready && loading);
   const openDeals = allCards.length;
-
-  const winstonBrand: ReactNode = (
-    <span
-      className="font-command"
-      style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ffffff", textShadow: "0 0 12px rgba(255,255,255,0.07)" }}
-    >
-      WINSTON
-    </span>
-  );
 
   if (isLoading) {
     return (

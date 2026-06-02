@@ -23,6 +23,7 @@ import { useConsultingEnv } from "@/components/consulting/ConsultingEnvProvider"
 import { ExecutionColumn } from "./ExecutionColumn";
 import { ExecutionTaskDrawer } from "./ExecutionTaskDrawer";
 import { GenerateActionsModal } from "./GenerateActionsModal";
+import { MorningBriefPanel } from "./MorningBriefPanel";
 import { CompletionFeedbackModal } from "./CompletionFeedbackModal";
 
 type ColumnKey = Exclude<ExecutionTaskStatus, never>;
@@ -39,6 +40,22 @@ const TODAY_WARN = 5;
 const TODAY_HARD_CAP = 8;
 
 const REVENUE_RANK: Record<string, number> = { high: 0, mid: 1, low: 2 };
+
+// Controlled operating domains (seeded by migration 10003). Local fallback
+// label map so domain grouping never blocks on a label API; the board API
+// also returns domain_label when the reference row resolves.
+const DOMAIN_FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "web_properties", label: "Web Properties" },
+  { key: "outreach_crm", label: "Outreach / CRM" },
+  { key: "coding_platform", label: "Coding / Winston Platform" },
+  { key: "novendor_web", label: "Novendor Web / Industry Sections" },
+  { key: "admin_ops", label: "Admin / Accounting / Operations" },
+  { key: "ungrouped", label: "Ungrouped" },
+];
+
+// Per-card "Domain → Initiative" crumb lives in ExecutionCard.tsx. The
+// filter strip uses DOMAIN_FILTERS (above) for its labels.
 
 function isOverdue(t: ExecutionTask): boolean {
   if (!t.due_date) return false;
@@ -93,6 +110,7 @@ export function ExecutionBoard({
   const [quickToast, setQuickToast] = useState<string | null>(null);
   const [highlightSeqGroup, setHighlightSeqGroup] = useState<string | null>(null);
   const [doneCollapsed, setDoneCollapsed] = useState(true);
+  const [domainFilter, setDomainFilter] = useState<string>("all");
   const toastTimer = useRef<number | null>(null);
 
   const flashToast = useCallback((msg: string) => {
@@ -126,7 +144,13 @@ export function ExecutionBoard({
       done: [],
     };
     if (!data) return out;
+    const matchesDomain = (t: ExecutionTask): boolean => {
+      if (domainFilter === "all") return true;
+      if (domainFilter === "ungrouped") return !t.domain_key;
+      return t.domain_key === domainFilter;
+    };
     for (const t of data.tasks) {
+      if (!matchesDomain(t)) continue;
       out[t.status as ColumnKey].push(t);
     }
     out.today.sort(sortToday);
@@ -144,6 +168,20 @@ export function ExecutionBoard({
     });
     out.done.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
     return out;
+  }, [data, domainFilter]);
+
+  // Domain counts for the filter strip (computed off the full set, not the
+  // filtered view, so the chips always show true totals).
+  const domainCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let ungrouped = 0;
+    for (const t of data?.tasks ?? []) {
+      if (t.domain_key) counts[t.domain_key] = (counts[t.domain_key] ?? 0) + 1;
+      else ungrouped += 1;
+    }
+    counts.all = data?.tasks.length ?? 0;
+    counts.ungrouped = ungrouped;
+    return counts;
   }, [data]);
 
   const summary = data?.summary;
@@ -429,6 +467,63 @@ export function ExecutionBoard({
             Generate
           </button>
         </div>
+      </div>
+
+      {/* Morning Brief — Ticket 6, read-only generated view above the lanes.
+          Failure to load degrades to an in-panel error + Retry; the rest of
+          the board still works. */}
+      <MorningBriefPanel envId={envId} businessId={businessId} />
+
+      {/* Domain grouping strip — display/filter only. Lanes below are
+          unchanged; "All" (default) preserves the original flat board. */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 6,
+          padding: "8px 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "#05070B",
+        }}
+      >
+        {DOMAIN_FILTERS.map((d) => {
+          const active = domainFilter === d.key;
+          const count = domainCounts[d.key] ?? 0;
+          return (
+            <button
+              key={d.key}
+              type="button"
+              onClick={() => setDomainFilter(d.key)}
+              style={{
+                padding: "5px 10px",
+                borderRadius: 3,
+                border: active
+                  ? "1px solid rgba(0,220,255,0.45)"
+                  : "1px solid rgba(255,255,255,0.10)",
+                background: active
+                  ? "rgba(0,220,255,0.12)"
+                  : "rgba(255,255,255,0.03)",
+                color: active ? "rgba(0,220,255,0.95)" : "rgba(220,230,240,0.66)",
+                fontSize: 11,
+                letterSpacing: "0.04em",
+                cursor: "pointer",
+                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              }}
+            >
+              {d.label}
+              <span
+                style={{
+                  marginLeft: 6,
+                  color: active
+                    ? "rgba(0,220,255,0.7)"
+                    : "rgba(220,230,240,0.4)",
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {todayPressure === "warn" ? (

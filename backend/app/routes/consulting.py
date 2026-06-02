@@ -125,6 +125,10 @@ from app.schemas.consulting import (
     ExecutionTask,
     ExecutionTaskCreate,
     ExecutionTaskUpdate,
+    ExecutionHierarchyOptions,
+    MorningChecklistOut,
+    BriefAssistantAskRequest,
+    BriefAssistantAskResponse,
     ExecutionBoardOutV2,
     GenerateActionsRequest,
     GenerateActionsResponse,
@@ -197,6 +201,8 @@ from app.services import (
     execution_tasks as execution_tasks_svc,
     execution_auto,
     execution_actions,
+    morning_checklist as morning_checklist_svc,
+    brief_assistant as brief_assistant_svc,
     execution_quick_capture,
     engagement_routing as engagement_routing_svc,
 )
@@ -2554,10 +2560,31 @@ def update_execution_task_route(
             update_kwargs["_re_engage_at_set"] = True
         if "blocked_reason" in update_kwargs:
             update_kwargs["_blocked_reason_set"] = True
+        # Hierarchy write-path (Ticket 5): sentinel flags so explicitly passing
+        # null clears the field (task → Ungrouped).
+        for _hk in (
+            "domain_key",
+            "initiative_key",
+            "workstream_key",
+            "source_kind",
+            "related_entity_type",
+            "related_entity_id",
+            "related_url",
+            "last_reviewed_at",
+        ):
+            if _hk in update_kwargs:
+                update_kwargs[f"_{_hk}_set"] = True
         result = execution_tasks_svc.update_task(task_id=task_id, **update_kwargs)
         if not result:
             raise HTTPException(404, "Execution task not found")
         return result
+    except execution_tasks_svc.HierarchyValidationError as exc:
+        # Unknown domain/initiative/workstream key — clean 400, never a 500,
+        # never a silent write.
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_hierarchy", "message": str(exc)},
+        )
     except execution_tasks_svc.TodayFullError as exc:
         raise HTTPException(
             status_code=422,
@@ -2565,6 +2592,81 @@ def update_execution_task_route(
         )
     except HTTPException:
         raise
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get(
+    "/execution/hierarchy-options",
+    response_model=ExecutionHierarchyOptions,
+)
+def execution_hierarchy_options_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Seeded domain/initiative/workstream options for the task form.
+
+    Read-only. Returns honest empty lists if nothing is seeded — the form
+    degrades cleanly rather than fabricating choices."""
+    try:
+        return execution_tasks_svc.list_hierarchy_options(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get(
+    "/execution/morning-checklist",
+    response_model=MorningChecklistOut,
+)
+def execution_morning_checklist_route(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+):
+    """Daily Operator Brief — read-time-generated from cro_execution_task.
+
+    No persistence, no schema change, no task mutation. Empty board returns
+    sections with `items: []` rather than erroring (honest empty state).
+    Suggested prompts are display-only and grounded in real task state
+    (assistant retrieval is a later ticket)."""
+    try:
+        return morning_checklist_svc.build_morning_checklist(
+            env_id=env_id, business_id=business_id,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.post(
+    "/execution/brief-assistant/ask",
+    response_model=BriefAssistantAskResponse,
+)
+def execution_brief_assistant_ask_route(payload: BriefAssistantAskRequest):
+    """Morning Brief Assistant — read-only retrieval over board + brief.
+
+    Answers the six canonical operator questions ("what should I do this
+    morning", "show FlowYorker tasks", "what outreach is overdue", "what
+    coding ticket is next", "what's waiting or blocked", "what should I
+    ask Claude Code to work on next") by reading real task data via
+    morning_checklist + list_tasks.
+
+    Read-only by construction:
+      * no writes, no tool calls, no mutation surface
+      * `tool_calls` in the response is always [] (explicit for the contract)
+      * fails closed on resolver errors — never fabricates an answer
+      * never falls back to generic productivity advice; if a slice is
+        empty the assistant says so plainly
+
+    Does NOT touch the streaming `/api/ai/gateway/ask` chat surface — that
+    is the broad gateway with tool use. This is a focused retrieval surface
+    a chat UI can call once and render the structured payload."""
+    try:
+        return brief_assistant_svc.answer(
+            env_id=payload.env_id,
+            business_id=payload.business_id,
+            question=payload.question,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

@@ -51,6 +51,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `novendor-proposals` | `agent` | `active` | `cross-repo` | `yes` | `agents/proposals.md` |
 | `qa-winston` | `agent` | `active` | `cross-repo` | `yes` | `agents/qa.md` |
 | `sync-winston` | `agent` | `active` | `scripts, cross-repo` | `yes` | `agents/sync.md` |
+| `azure-devops-intake` | `skill` | `active` | `cross-repo, orchestration` | `yes` | `.skills/azure-devops-intake/SKILL.md` |
 | `feature-dev` | `skill` | `active` | `backend, repo-b, repo-c, scripts, orchestration` | `yes` | `.skills/feature-dev/SKILL.md` |
 | `research-ingest` | `skill` | `active` | `docs, cross-repo` | `yes` | `.skills/research-ingest/SKILL.md` |
 | `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |

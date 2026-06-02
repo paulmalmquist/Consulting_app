@@ -36,6 +36,7 @@ function anchorSections(pathname: string): AnchorItem[] {
   if (pathname.includes("/operator/capital-raising")) return [];
   if (pathname.includes("/operator/engagements")) return [];
   if (pathname.includes("/operator/product")) return [];
+  if (pathname.includes("/operator/property-ops-intelligence")) return [];
   if (pathname.includes("/operator/research")) return [];
   if (pathname.includes("/operator/tasks")) return [];
   if (pathname.includes("/operator/finance")) {
@@ -140,10 +141,15 @@ function isExecutivePath(pathname: string, base: string): boolean {
 
 export default function OperatorShell({ envId, children }: OperatorShellProps) {
   const pathname = usePathname();
+  const isHappyCoPresentationRoute = pathname.includes("/operator/property-ops-intelligence");
   const { environment, businessId, loading, error, requestId, retry } = useDomainEnv();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const base = `/lab/env/${envId}/operator`;
+  // Workspace label is data-driven from the active environment — never a
+  // hardcoded tenant name. "Hall Boys" was stale demo copy that bled into
+  // every operator workspace regardless of the actual environment.
+  const workspaceName = environment?.client_name?.trim() || "Operator";
   const tabs = useMemo<NavItem[]>(
     () => [
       { href: base, label: "Executive", exact: true },
@@ -158,6 +164,7 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
       { href: `${base}/finance`, label: "Finance" },
       { href: `${base}/pipeline`, label: "Pipeline" },
       { href: `${base}/accounting`, label: "Accounting" },
+      { href: `${base}/property-ops-intelligence`, label: "Property Ops" },
     ],
     [base]
   );
@@ -180,15 +187,19 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
     };
   }, [drawerOpen]);
 
+  if (isHappyCoPresentationRoute) {
+    return <>{children}</>;
+  }
+
   if (loading) {
-    return <WorkspaceContextLoader label="Loading Hall Boys operator workspace" />;
+    return <WorkspaceContextLoader label="Loading operator workspace" />;
   }
 
   if (error) {
     return (
       <div data-testid="operator-context-error">
         <OperatorUnavailableState
-          title="Unable to load Hall Boys operator workspace"
+          title="Unable to load operator workspace"
           detail={error}
           onRetry={() => void retry()}
           requestId={requestId}
@@ -207,10 +218,10 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
               title={`Business ID: ${businessId || "—"} · Industry: ${environment?.industry_type || environment?.industry || "multi_entity_operator"}`}
             >
               <Building2 size={12} />
-              Hall Boys Operating System
+              {workspaceName} Operating System
             </span>
             <h1 className="truncate text-lg font-semibold text-bm-text sm:text-xl">
-              {environment?.client_name || "Hall Boys Holdings"}
+              {environment?.client_name || workspaceName}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -263,7 +274,7 @@ export default function OperatorShell({ envId, children }: OperatorShellProps) {
           <div className="absolute right-0 top-0 flex h-full w-80 max-w-[92vw] flex-col border-l border-bm-border/70 bg-bm-bg p-4">
             <div className="flex items-center justify-between border-b border-bm-border/50 pb-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">Hall Boys</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-bm-muted2">{workspaceName}</p>
                 <p className="text-sm font-semibold text-bm-text">Operator Navigation</p>
               </div>
               <button
