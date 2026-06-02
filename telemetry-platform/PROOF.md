@@ -252,8 +252,52 @@ earlier wording made it regurgitate the evidence block). All grounded; the fallb
 unchanged at **364**; `/api/telemetry/fused-vector-info` still `vector_dim=256`, `n_channels=32`. The
 copilot is strictly additive — no edits to existing serving functions.
 
-> Not yet deployed at time of writing this section (committed locally; deploy is the next step per the
-> "deploy after verification" decision).
+### Deployed + post-fix cold production verification (2026-06-02)
+
+Deployed (per the "deploy after verification" decision): backend on Railway, frontend on Vercel
+`consulting-app` (novendor.ai). A live browser walkthrough found the copilot 500ing in the browser
+while curl worked — a genuine production-only bug. Root-caused and fixed:
+
+- **Frontend root cause (commit `aec59fe2`):** `copilot-api.ts` set a `content-type` header even
+  though `apiFetch` already sets `Content-Type`. The two case-differing keys merged into a DUPLICATE
+  header (`content-type: application/json, application/json`) under fetch/undici, which mangled the
+  POST body — the backend parsed it to a non-dict and returned `422 model_attributes_type` (surfaced
+  in the UI as "Could not load"). curl sent a single header, so it never reproduced. Fix: drop the
+  redundant header (match the repo's other POST callers). Verified 200 + grounded answer.
+- **Backend hardening (commit `9803df57`):** the app-wide `RequestValidationError` handler returned
+  raw `exc.errors()`, which for a body-parse failure contains the request **bytes** in `input` —
+  `JSONResponse` can't serialize it (`TypeError: Object of type bytes is not JSON serializable`), so
+  the outer handler turned every body-parse 422 into a 500. Now returns the sanitized loc/msg/type
+  list → clean 422. Kept even though it wasn't the primary cause.
+- **Tree cleanup (commits `daaf3b5a`, `14101c48`):** gitignored client-engagement scratch (Happyco
+  receipts/drafts, Hone work, root mockups/scripts, client execution plans, lead-gen prompts);
+  committed `skills/novendor-repe-outreach/SKILL.md` (router skill). Working tree clean.
+- **Intentionally left alone** (pre-existing tracked edits, not this work): `CLAUDE.md`,
+  `mcp-servers/outlook-mcp/server.py`, `orchestration/parallel_test_report.md`.
+
+**Cold verification (no auth cookies = stranger path; live `aec59fe2` bundle + backend `9803df57`):**
+
+```
+1. GET /replay                      first_model_fire_t = 728                               PASS
+2. POST /copilot/explain-verdict    HTTP 200 ~4s, answer_source=live_llm; cites
+                                    receipt f8e8f23e-1da9-4f27-8785-175bd59d9e6b,
+                                    score 2.46062, threshold 0.135467204729745,
+                                    champion tel_anomaly_detector v1,
+                                    mlflow 4a48cb6af8714609b9581d66e904544c, F1 0.6386571   PASS
+   tool_trace: get_triggering_prediction success -> get_model_run_detail success ->
+               get_anomaly_events_in_window skipped (no labeled overlap)
+3. POST /copilot/ask "what physically caused..."  is_refusal=true,
+                                    null_reason=unsupported_question, 0 tools, 0 LLM        PASS
+4. governance total 22 -> 24 (explain + refusal both logged), grounded_rate 0.75           PASS
+5. POST /copilot/explain-verdict  --data 'not json'  ->  HTTP 422 (json_invalid), not 500  PASS
+```
+
+Caveat: the above is the cold API/contract layer (curl, no cookies — the copilot API is not
+cookie-gated; the page is). The visual UI render is confirmed by a hard-refresh browser pass; an
+authenticated production screenshot is not capturable from this session (same limitation noted in
+Phase 5/6).
+
+---
 
 ---
 
