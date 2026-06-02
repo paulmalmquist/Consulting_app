@@ -351,7 +351,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         message="Request validation failed",
         context={"path": request.url.path, "errors": errors},
     )
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    # Return the sanitized errors (loc/msg/type). Never return raw exc.errors() — for a body-parse
+    # failure Pydantic v2 puts the raw request bytes in each error's `input`, which JSONResponse cannot
+    # serialize (TypeError: Object of type bytes is not JSON serializable) and the outer handler then
+    # turns into a 500. The sanitized list is bytes-free and leaks no raw payload.
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.exception_handler(Exception)
