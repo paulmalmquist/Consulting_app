@@ -42,6 +42,41 @@ function Table({ title, cols, rows }: { title: string; cols: string[]; rows: Mod
   );
 }
 
+function HonestStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: tone || C.text }}>{value}</span>
+    </div>
+  );
+}
+
+// Renders ONLY when the champion row carries the honest keys (Stage 0 jsonb merge). Absent → null,
+// so older registry rows / other environments are unaffected.
+function HonestMetrics({ rows }: { rows: ModelRun[] }) {
+  const champ = rows.find((m) => (m.metrics || {}).f1_pointwise != null);
+  if (!champ) return null;
+  const note = String((champ.metrics || {}).honest_metrics_note || "");
+  return (
+    <Panel title="Honest metrics — same frozen champion, no point adjustment">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 16, padding: "4px 0 12px" }}>
+        <HonestStat label="F1 (point-adjusted — legacy)" value={metric(champ, "f1")} tone={C.dim} />
+        <HonestStat label="F1 (point-wise — honest)" value={metric(champ, "f1_pointwise")} tone={C.text} />
+        <HonestStat label="Precision (point-wise)" value={metric(champ, "precision_pointwise")} />
+        <HonestStat label="Recall (point-wise)" value={metric(champ, "recall_pointwise")} />
+        <HonestStat label="Event recall" value={metric(champ, "event_recall")} tone={C.green} />
+        <HonestStat label="Alarm precision" value={metric(champ, "alarm_precision")} />
+      </div>
+      {note && (
+        <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6, display: "block",
+          borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+          {note}
+        </span>
+      )}
+    </Panel>
+  );
+}
+
 export default function ModelPerformance() {
   const [models, setModels] = useState<ModelRun[] | null>(null);
   const [nullReason, setNullReason] = useState<string | null>(null);
@@ -66,8 +101,9 @@ export default function ModelPerformance() {
     <>
       {heading}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Table title="Anomaly detection — SMAP/MSL (point-adjusted, labeled test split)"
-          cols={["Model", "Precision", "Recall", "F1", "Status"]} rows={anomaly} />
+        <Table title="Anomaly detection — SMAP/MSL (legacy baseline · point-adjusted, labeled test split)"
+          cols={["Model", "Precision", "Recall", "F1 (legacy)", "Status"]} rows={anomaly} />
+        <HonestMetrics rows={anomaly} />
         <Table title="Remaining useful life — C-MAPSS FD001 (100 test units)"
           cols={["Model", "RMSE", "PHM", "", "Status"]} rows={rul} />
         <Panel pad={14}>

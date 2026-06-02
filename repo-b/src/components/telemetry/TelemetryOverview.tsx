@@ -96,7 +96,7 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
     <>
       <PageHeading eyebrow="Overview"
         title="Turning engine-test telemetry into automated go/no-go"
-        blurb="Public NASA telemetry ingested in Databricks, trained and gated in MLflow, served behind FastAPI, every score persisted to a prediction log, monitored for drift. Every value below is read from the serving API."
+        blurb="Public NASA telemetry ingested in Databricks, trained and gated in MLflow, served behind FastAPI, every score persisted to a prediction log, monitored for drift. The headline is run-to-failure prognostics (C-MAPSS RUL today; N-CMAPSS and IMS planned); SMAP/MSL anomaly detection is a legacy baseline. Every value below is read from the serving API."
         right={
           <Link href={`/lab/env/${envId}/telemetry/replay`}
             style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,

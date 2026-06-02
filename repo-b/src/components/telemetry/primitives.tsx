@@ -103,10 +103,12 @@ export function DisclosureFooter() {
   return (
     <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6,
       borderTop: `1px solid ${C.border}`, paddingTop: 18, marginTop: 18 }}>
-      Built on public NASA aerospace analog datasets (C-MAPSS turbofan, SMAP/MSL telemanom, IMS
-      bearing). Not proprietary data. Operational history is a deterministic backfill from those public
-      datasets (real champion outputs, real labeled windows, real PSI); live /score receipts continue
-      from current time.
+      Built on public NASA aerospace analog datasets — C-MAPSS turbofan RUL (active), N-CMAPSS and IMS
+      bearing (planned), SMAP/MSL telemanom (legacy anomaly baseline). Not proprietary data. SMAP/MSL
+      has documented benchmark criticism and its point-adjusted F1 inflates; it is reported with the
+      adjustment named, beside honest point-wise metrics. Operational history is a deterministic backfill
+      from those public datasets (real champion outputs, real labeled windows, real PSI); live /score
+      receipts continue from current time.
     </p>
   );
 }

@@ -88,7 +88,8 @@ The flagship D-4 explanation/report cite these real values (verifiable in the an
 | Triggering window | **[726–728]** |
 | Champion model | **`tel_anomaly_detector` v1** (alias `champion`) |
 | MLflow run | **`4a48cb6a…`** (`4a48cb6af8714609b9581d66e904544c`) |
-| Out-of-sample F1 / precision / recall | **0.6387** / 0.5460 / 0.7691 |
+| Out-of-sample F1 / precision / recall | **0.6387** / 0.5460 / 0.7691 (point-adjusted — legacy) |
+| Honest point-wise F1 (same predictions) | **0.313** (event recall 0.77) — see [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md) |
 
 Cold API spot-checks (no login needed — the copilot API isn't cookie-gated; the page is):
 

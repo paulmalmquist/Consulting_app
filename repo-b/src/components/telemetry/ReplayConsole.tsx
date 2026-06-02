@@ -46,8 +46,8 @@ export default function ReplayConsole() {
   const vMax = useMemo(() => (ticks.length ? Math.max(...ticks.map((p) => p.value)) : 1), [ticks]);
 
   const heading = (
-    <PageHeading eyebrow="Replay test feed" title="Hot-fire replay → automated go/no-go"
-      blurb="Replay a recorded test run in accelerated time. The promoted anomaly model scores each tick; when it detects off-nominal behavior the verdict flips on its own. Nothing here is hand-authored; the flag is the model's output." />
+    <PageHeading eyebrow="Replay test feed · legacy baseline" title="Hot-fire replay → automated go/no-go"
+      blurb="Replays a recorded run from the legacy SMAP/MSL anomaly baseline in accelerated time. The promoted anomaly model scores each tick; when it detects off-nominal behavior the verdict flips on its own. Nothing here is hand-authored; the flag is the model's output." />
   );
   if (error) return <>{heading}<ErrorState message={error} /></>;
   if (!feed) return <>{heading}<Loading label="Loading replay feed…" /></>;
