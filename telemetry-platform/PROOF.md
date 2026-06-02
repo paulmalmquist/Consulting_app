@@ -371,6 +371,27 @@ routes), `backend/tests/test_copilot_telemetry.py` (5 Phase-7 tests); frontend
 `repo-b/src/lib/telemetry/copilot-api.ts` (`draftReport`/`getReport`),
 `repo-b/src/components/telemetry/Copilot.tsx` (`DraftReportCard` + button + `.md` download).
 
+### Deployed + final production contract smoke (commit `dc67da11`)
+
+Deployed to Railway + Vercel. A focused contract pass also drove two fixes: `GET /report/{id}` now
+returns `run_id` (was stored but unselected), and the Verdict line now explicitly attributes the call
+to the model — *"The promoted telemetry anomaly detector (`tel_anomaly_detector`) returned a NO_GO
+verdict … This is a model output over recorded telemetry — not a statement that the test, vehicle, or
+hardware failed."* (evidence-based analytics, never a final engineering/safety disposition).
+
+Final cold smoke via novendor.ai (no auth cookies), all **PASS**:
+```
+POST /copilot/draft-report   200; report_id; review_status=requires_human_review; generated_markdown;
+                             evidence; provenance receipt/run/model/mlflow; verdict attributed to the
+                             detector; no "test failed"/"unsafe" framing; no invented root cause.
+GET  /copilot/report/{id}    200; same report_id; receipt_id; run_id; champion_model; mlflow_run_id;
+                             REQUIRES HUMAN REVIEW disclaimer; markdown returned.
+GET  /copilot/report/<bogus> -> null_reason=missing_report (fail closed)
+POST /copilot/draft-report (unknown run) -> report_id null, null_reason=missing_run, no row (fail closed)
+```
+Reviewer chain complete end-to-end in prod: **GO→NO-GO → Explain verdict → Draft test report →
+evidence trail → human review required.**
+
 ---
 
 ## Phase 6 — operated-history enrichment + Lab Workbench UI
