@@ -11,13 +11,28 @@ detection). Not proprietary data.
 
 ## 1. Login / auth flow
 
-1. Go to **https://novendor.ai**.
-2. Click the **person icon** in the top-right header (or go straight to `https://novendor.ai/login`).
-3. Sign in with Supabase email/password:
-   - email: `info@novendor.ai`
-   - password: in `docs/reference/ENV_KEYS.md`, field `NOVENDOR_ADMIN_PASSWORD` (not printed here).
-4. After login you land on `/app`. The telemetry environment is reachable via the reviewer routes
-   below.
+**Reviewer credential (recommended — scoped to telemetry only).** On the standard login page
+(**https://novendor.ai/login**), sign in with the dedicated reviewer username/password:
+
+- username: `telemetry`
+- password: `relativity_11`
+
+You land **directly** on the Telemetry Demo Console
+(`/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`). This credential is **scoped**: it can
+reach only the telemetry pages below and the telemetry API; it has **no** admin, provisioning,
+other-environment, or general Winston-workspace access (the middleware redirects/403s anything else).
+Wrong credentials return a normal login error.
+
+Credentials are configured server-side via env vars (not in source): `TELEMETRY_REVIEWER_USERNAME`,
+`TELEMETRY_REVIEWER_PASSWORD`, `TELEMETRY_REVIEWER_ENV_ID`. If they are unset, reviewer login is
+disabled (fail closed). Mechanics: the login form routes a non-email username to
+`POST /api/auth/telemetry-login`, which mints a scoped `bm_session` (role `telemetry_reviewer`,
+`platform_admin: false`, a single membership on the telemetry env) — it never touches the Supabase
+admin path.
+
+**Admin (unchanged).** Click the **person icon** top-right (or `/login`) and sign in with Supabase
+email/password — email `info@novendor.ai`, password in `docs/reference/ENV_KEYS.md`
+(`NOVENDOR_ADMIN_PASSWORD`). The reviewer credential does not affect this path.
 
 The app is auth-gated. A cold (no-cookie) hit on a reviewer route correctly `307`-redirects to
 `/login` — that proves the route is live *and* gated.

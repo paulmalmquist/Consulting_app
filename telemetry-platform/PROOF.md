@@ -305,6 +305,42 @@ Phase 5/6).
 
 ---
 
+## Access boundary — scoped Telemetry Reviewer login
+
+A dedicated reviewer credential (`telemetry` / env-var password) on the existing login page grants
+access to **only** the Telemetry Demo Console — env `dc82d39d-…/telemetry*` — and nothing else. It is
+**not** an admin, cannot reach other environments, provisioning, `/lab/system`, `/app`, non-telemetry
+departments, top-level slug surfaces, or private APIs. The Supabase / `info@novendor.ai` admin path is
+untouched.
+
+How: a non-email username on the login form routes to `POST /api/auth/telemetry-login`, which (only if
+`TELEMETRY_REVIEWER_USERNAME/PASSWORD/ENV_ID` are all set — else fail-closed 401) mints a scoped,
+signed `bm_session` (role `telemetry_reviewer`, `platform_admin:false`, a single membership on the
+telemetry env). `middleware.ts` confines that role: a `telemetry_reviewer` session may reach only
+`/lab/env/<its env>/telemetry*` — pages redirect to that home, APIs return 403 — so the credential
+exposes exactly one environment. No DB migration; no Supabase user; no change to telemetry data,
+models, reports, or governance logs. The AI runtime safeguards (fixed intents, allow-listed tools,
+pre-tool refusals, post-validation) are unchanged and not bypassed.
+
+**Verification (vitest, 31 passed):**
+```
+telemetryReviewer.test.ts        good creds -> config; bad user/pass -> null; missing env -> disabled
+                                 (fail closed); scoped claims (platform_admin false, single telemetry
+                                 membership, email not @novendor.ai); allowed-path matcher
+telemetry-login/route.test.ts    valid -> 200 + bm_session cookie + redirectTo /…/telemetry;
+                                 wrong pass/user -> 401 no cookie; env unset -> 401 (fail closed)
+middleware.test.ts (+5)          reviewer allowed into /…/telemetry*; other dept / other env / /app /
+                                 /lab/system / /novendor -> redirect to telemetry home; non-telemetry
+                                 API -> 403; normal admin/member session unaffected
+   + existing sessionAuth / login-route / environmentAuth suites still pass; tsc 0 errors.
+```
+Env vars required at deploy (Vercel): `TELEMETRY_REVIEWER_USERNAME=telemetry`,
+`TELEMETRY_REVIEWER_PASSWORD=relativity_11`, `TELEMETRY_REVIEWER_ENV_ID=dc82d39d-9be2-49b0-a01d-c7181b13a8b6`
+(`BM_SESSION_SECRET` already set). **Not yet deployed** — auth change held for review before the prod
+cutover; the env vars must be added to Vercel as part of that cutover.
+
+---
+
 ## Applied-AI Layer — Phase 8: AI Governance + Eval Dashboard
 
 A thin **observability layer** over the existing copilot — no new copilot behavior, no retraining, no
