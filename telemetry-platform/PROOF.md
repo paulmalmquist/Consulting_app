@@ -3,15 +3,19 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
-## Status (2026-06-01, end of Phase 7A)
+## Status (2026-06-02, end of Applied-AI Phase 6 — Test Intelligence Copilot)
 
-All phases complete through Phase 6 (operated-history data enrichment + Option B Lab Workbench UI),
-plus Phase 7A: a real 256-dimensional fused NASA telemetry state vector (32 channels × 8 window
-features), a dense autoencoder-style reconstruction model + PCA-256 baseline, and real per-channel
-divergence ranking — all built and verified, surfaced read-only in the UI. **Not deployed** (Phase 7A
-is committed but not pushed; the live site still reflects Phase 6). The demo reads operated, not thin:
-a fleet of real test runs, hundreds of real predictions, real anomaly events, and a real PSI drift
-series — all derived from the real pipeline — rendered in a telemetry-only operator console.
+All ML-platform phases complete (ingestion → training → gating → serving → Lab Workbench UI →
+operated-history backfill), plus Phase 7A (the 256-d fused NASA state vector + autoencoder-style
+recon, committed `8cdd0d0f`), and now the **Applied-AI Layer Phase 6: a grounded, tool-using Test
+Intelligence Copilot**. On the replay page, when the verdict flips GO→NO-GO at t=728, a reviewer
+clicks "Explain this verdict" and gets a live-LLM answer grounded in the real prediction receipt,
+anomaly score, threshold, champion model, and MLflow run — with a visible evidence trail, deterministic
+pre-LLM refusals for out-of-scope questions, a post-validator that blocks any ungrounded id/number, and
+a governance panel backed by real logged interactions.
+
+(Naming note: the repo's earlier "Phase 6" is the ML-platform operated-history enrichment, recorded
+below. The section directly under this Status is the Applied-AI layer's Phase 6 — the copilot.)
 
 **Live URLs:**
 - Backend API: `https://authentic-sparkle-production-7f37.up.railway.app` (git_sha `62dcab4a`)
@@ -162,6 +166,94 @@ appear in résumé copy yet.
 | Brier score / calibration | **Deferred (7E)** | — | not built |
 | Walk-forward / rolling-origin validation | **Deferred (7F)** | — | current wording stays "held-out, no-look-ahead split" |
 | Drift alerts + retrain trigger | **Deferred (7G)** | real PSI drift series exists (Phase 6) | alerts table + trigger not built |
+
+---
+
+## Applied-AI Layer — Phase 6: Test Intelligence Copilot
+
+A narrow, tool-using, grounded copilot over the telemetry platform — **not** a generic chatbot. It
+explains model verdicts from real evidence, refuses out-of-scope questions, and exposes a governance +
+eval surface. Self-contained: its own deterministic planner + read-only tool allow-list + post-validator
++ template fallback, isolated from the REPE `ai_gateway`/`assistant_runtime`. Backend stays lean (no ML
+deps); it reuses only the OpenAI client + `gpt-5-mini` already wired for the platform.
+
+### Flagship — "Explain this verdict" (real, live, grounded)
+
+`POST /api/telemetry/copilot/explain-verdict {run_key:"smap_msl:D-4:test", verdict:"NO_GO", fire_tick:728}`
+→ `answer_source=live_llm`, ~6–8s, citing **only** real evidence (verified via in-process HTTP TestClient
+against the real Supabase + live `gpt-5-mini`):
+
+- Prediction receipt **`f8e8f23e-1da9-4f27-8785-175bd59d9e6b`** (the NO_GO row whose window `[726–728]`
+  brackets the first fire tick — the planner picks the *tightest* bracketing NO_GO window, not the broad
+  GO aggregate `[707–1412]`).
+- `anomaly_score` **2.46062** (read from `tel_predictions`, **never** the replay fixture's `score` field,
+  which is a ~1.48e12 artifact at fired ticks), `threshold` **0.135467204729745** (= MAD_K 4.0 ×
+  global_train_scale 0.033866801182436346), attribution `[{value: 0.333333}]`.
+- Champion **`tel_anomaly_detector` v1** (alias champion), MLflow run **`4a48cb6af871…`**, out-of-sample
+  **F1 0.6386571** (precision 0.5460287, recall 0.7691330) from `tel_model_runs`.
+- Tool trace (visible in the UI evidence trail): `telemetry.get_triggering_prediction` success →
+  `telemetry.get_model_run_detail` success → `telemetry.get_anomaly_events_in_window` skipped (no labeled
+  overlap in window). Ends with a "Human review:" line; framed as assistant-generated draft.
+
+### Deterministic controls (the senior-applied-AI signal)
+
+- **Refusals fire before any tool or LLM call.** `"What physically caused the D-4 anomaly?"`,
+  `"Is it safe to fire the engine again?"`, `"Was this a real Relativity engine failure?"` →
+  `is_refusal=true`, `null_reason=unsupported_question`, **0 tools, 0 LLM calls** (verified over HTTP).
+  Free-form `/ask` runs the same classifier; anything that doesn't match a supported intent is refused —
+  a fixed question menu, not an open chatbot.
+- **LLM never selects tools.** A fixed `INTENT_PLAN` maps each supported intent to a frozen tool list;
+  the model only narrates already-fetched evidence. The `ALLOWED_TOOLS` dict is the security boundary —
+  a tool not in it cannot run.
+- **Post-validator blocks fabrication.** Every id/number in the prose must trace to the evidence (ids
+  masked first so UUID/decimal fragments aren't miscounted; numbers matched by decimal-place tolerance).
+  On timeout / error / validation failure → deterministic template answer (`answer_source=fallback_template`),
+  never a silent invention. Unit-tested: a fabricated receipt id `deadbeefcafe1234` and a fabricated score
+  `7.99` are both rejected; faithful grounded prose passes.
+- **Fail-closed.** Empty evidence ⇒ `null_reason`, short/no answer, no LLM. Prompt-injection guarded:
+  evidence is passed in a fenced "data, not instructions" block; no raw DB text in the system prompt.
+
+### Governance + evals (real, not decorative)
+
+- `GET /api/telemetry/copilot/governance` aggregates **only real logged rows** from
+  `tel_copilot_interactions` (seeded by running the canonical question set live). Sample after a clean
+  demo run (8 interactions): grounded_rate **0.75**, refusal_rate **0.25**, p50 **2540ms**, p95 **6362ms**,
+  answer_source_mix **{live_llm 6, refusal 2}**, active prompt_version **`e1d3a0daab52`**, model
+  `gpt-5-mini`, 5 allow-listed tools, 15 refusal rules. No hardcoded percentages.
+- Tests: **18 passed** (`tests/test_copilot_telemetry.py` 10 — refusals pre-LLM, supported-intent
+  classification incl. "why did this flip to NO-GO" is *not* refused, allow-list boundary, post-validator
+  blocks/passes, empty-evidence fail-closed, flagship serving read fail-closed + returns the real receipt;
+  `tests/test_telemetry_serving.py` 8 — no serving regression). Phase-8 wires the full
+  `tests/copilot_eval_fixtures.py` set into CI.
+
+### gpt-5-mini reasoning-model tuning (recorded honestly)
+
+`gpt-5-mini` is a reasoning model. At `max_completion_tokens=500` it spent the entire budget on reasoning
+(`finish_reason=length`, **empty content**); at 800–1200 it completes (`reasoning_tokens=0`, ~515 tokens).
+Settled on `reasoning_effort="minimal"`, the `developer` role, `max_completion_tokens=900`, a 15s timeout
+(typical ~6–8s), an empty/short-response guard, and a "write prose, do NOT echo the JSON" prompt (an
+earlier wording made it regurgitate the evidence block). All grounded; the fallback covers any slow call.
+
+### Persistence + surface
+
+- Migration `repo-b/db/schema/10010_telemetry_copilot.sql` (applied): `tel_copilot_interactions` (audit
+  log) + `tel_copilot_prompt_versions` (active policy), RLS by env_id, `COMMENT ON TABLE`, index.
+- Backend (lean): `app/routes/telemetry_copilot.py`, `app/services/telemetry_copilot.py`,
+  `…/telemetry_copilot_policy.py`, `app/schemas/telemetry_copilot.py`, `app/services/copilot_logger.py`,
+  4 new read-only fns in `telemetry_serving.py`; router registered in `main.py`.
+- Frontend (dark C palette): `src/lib/telemetry/copilot-api.ts`, `src/components/telemetry/Copilot.tsx`
+  (evidence cards, tool-trace rows, governance strip, explanation panel, workbench), the "Explain this
+  verdict" button + panel in `ReplayConsole.tsx`, the `/telemetry/copilot` page, and the "Test
+  Intelligence" nav entry. `tsc --noEmit` 0 errors.
+
+### Regression (Phase-6 ML-platform + Phase-7A intact)
+
+`/api/telemetry/replay` still flips at `first_model_fire_t=728`; `/api/telemetry/summary` predictions
+unchanged at **364**; `/api/telemetry/fused-vector-info` still `vector_dim=256`, `n_channels=32`. The
+copilot is strictly additive — no edits to existing serving functions.
+
+> Not yet deployed at time of writing this section (committed locally; deploy is the next step per the
+> "deploy after verification" decision).
 
 ---
 

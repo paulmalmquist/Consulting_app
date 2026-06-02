@@ -82,6 +82,7 @@ from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_rou
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import telemetry
+from app.routes import telemetry_copilot
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -465,6 +466,7 @@ app.include_router(website_rankings.router)
 app.include_router(website_analytics.router)
 app.include_router(consulting.router)
 app.include_router(telemetry.router)
+app.include_router(telemetry_copilot.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)

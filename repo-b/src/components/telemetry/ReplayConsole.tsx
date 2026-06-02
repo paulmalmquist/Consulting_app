@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getReplayFeed, type ReplayFeed, type ReplayTick } from "@/lib/telemetry/api";
 import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
+import { CopilotExplanationPanel } from "./Copilot";
 
 const W = 900, H = 280, PAD = 28;
 const TICKS_PER_SECOND = 80;
@@ -20,6 +21,7 @@ export default function ReplayConsole() {
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [explain, setExplain] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { getReplayFeed().then(setFeed).catch((e) => setError(String(e))); }, []);
@@ -101,6 +103,13 @@ export default function ReplayConsole() {
             <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 10 }}>
               {firedSoFar ? "Off-nominal: channel D-4 crossed the detector redline." : "Nominal: channel within bounds."}
             </div>
+            {firedSoFar && (
+              <button onClick={() => setExplain((e) => !e)}
+                style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.bg, background: C.cyan,
+                  border: "none", borderRadius: 8, padding: "9px 14px", marginTop: 14, cursor: "pointer", width: "100%" }}>
+                {explain ? "Hide explanation" : "Explain this verdict →"}
+              </button>
+            )}
           </div>
           <Panel title="Sensor attribution" pad={14}>
             {firedSoFar ? (
@@ -121,6 +130,15 @@ export default function ReplayConsole() {
           </Panel>
         </div>
       </div>
+
+      {explain && firedSoFar && (
+        <div style={{ marginTop: 16 }}>
+          <CopilotExplanationPanel
+            runKey={`smap_msl:${feed.channel}:test`}
+            fireTick={ticks[firstFireIdx]?.t ?? 728}
+            channel={feed.channel} />
+        </div>
+      )}
 
       <Panel style={{ marginTop: 16 }} pad={14}>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>

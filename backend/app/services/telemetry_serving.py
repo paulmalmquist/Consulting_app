@@ -370,6 +370,130 @@ def fused_vector_info(*, env_id: str, business_id: UUID) -> dict:
         }
 
 
+# ── Phase 6 copilot read-only tools ───────────────────────────────────────────
+# Thin SQL reads that back the Test Intelligence Copilot's fixed tool allow-list. No ML deps. Every
+# function is RLS-scoped by env_id + business_id and returns plain dicts/lists (or a null_reason).
+
+_PRED_COLS = ("id, run_id, channel_name, window_start_t, window_end_t, anomaly_score, threshold, "
+              "verdict, model_name, model_version, mlflow_run_id, attribution, created_at")
+
+
+def _run_id_for_key(cur, env_id: str, business_id: UUID, run_key: str):
+    cur.execute(
+        "SELECT id FROM tel_test_runs WHERE env_id = %s AND business_id = %s AND run_key = %s",
+        (env_id, str(business_id), run_key))
+    row = cur.fetchone()
+    return row["id"] if row else None
+
+
+def get_triggering_prediction(*, env_id: str, business_id: UUID, run_key: str,
+                              fire_tick: int) -> dict:
+    """The receipt that explains a NO_GO verdict: the NO_GO prediction whose window brackets the first
+    fire tick, choosing the TIGHTEST window (so we cite the precise trigger, not a broad GO aggregate
+    that also spans the tick). Fails closed when the run or a bracketing NO_GO row is absent."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        run_id = _run_id_for_key(cur, env_id, business_id, run_key)
+        if run_id is None:
+            return {"prediction": None, "run": None, "null_reason": "missing_run"}
+        cur.execute(
+            f"""SELECT {_PRED_COLS} FROM tel_predictions
+                WHERE env_id = %s AND business_id = %s AND run_id = %s
+                  AND verdict = 'NO_GO'
+                  AND window_start_t <= %s AND window_end_t >= %s
+                ORDER BY (window_end_t - window_start_t) ASC, anomaly_score DESC NULLS LAST
+                LIMIT 1""",
+            (env_id, str(business_id), str(run_id), fire_tick, fire_tick))
+        pred = cur.fetchone()
+        if pred is None:
+            return {"prediction": None, "run": None, "null_reason": "no_prediction_rows"}
+        cur.execute(
+            """SELECT id, run_key, dataset, unit_or_channel, spacecraft, row_count, status, created_at
+               FROM tel_test_runs WHERE env_id = %s AND business_id = %s AND id = %s""",
+            (env_id, str(business_id), str(run_id)))
+        run = cur.fetchone()
+        return {"prediction": dict(pred), "run": dict(run) if run else None, "null_reason": None}
+
+
+def get_prediction(*, env_id: str, business_id: UUID, receipt_id: UUID) -> dict:
+    """A single prediction receipt by id (the canonical 'evidence' object)."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        cur.execute(
+            f"""SELECT {_PRED_COLS} FROM tel_predictions
+                WHERE env_id = %s AND business_id = %s AND id = %s""",
+            (env_id, str(business_id), str(receipt_id)))
+        row = cur.fetchone()
+        if row is None:
+            return {"prediction": None, "null_reason": "insufficient_evidence"}
+        return {"prediction": dict(row), "null_reason": None}
+
+
+def get_predictions_by_window(*, env_id: str, business_id: UUID, run_key: str,
+                              t_start: int, t_end: int, channel_name: str | None = None) -> dict:
+    """Prediction receipts overlapping [t_start, t_end] for a run (evidence + point/contextual)."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        run_id = _run_id_for_key(cur, env_id, business_id, run_key)
+        if run_id is None:
+            return {"predictions": [], "null_reason": "missing_run"}
+        params = [env_id, str(business_id), str(run_id), t_end, t_start]
+        chan_clause = ""
+        if channel_name:
+            chan_clause = " AND channel_name = %s"
+            params.append(channel_name)
+        cur.execute(
+            f"""SELECT {_PRED_COLS} FROM tel_predictions
+                WHERE env_id = %s AND business_id = %s AND run_id = %s
+                  AND window_start_t <= %s AND window_end_t >= %s{chan_clause}
+                ORDER BY window_start_t""",
+            tuple(params))
+        rows = [dict(r) for r in cur.fetchall()]
+        return {"predictions": rows, "null_reason": None if rows else "no_prediction_rows"}
+
+
+def get_model_run_detail(*, env_id: str, business_id: UUID, model_name: str,
+                         model_version: str | None = None) -> dict:
+    """A single tel_model_runs row (champion metadata + metrics). Latest version when unspecified."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        params = [env_id, str(business_id), model_name]
+        ver_clause = ""
+        if model_version:
+            ver_clause = " AND model_version = %s"
+            params.append(str(model_version))
+        cur.execute(
+            f"""SELECT model_name, model_kind, model_version, model_alias, mlflow_run_id,
+                       experiment_id, metrics, gate, promotion_state, created_at
+                FROM tel_model_runs
+                WHERE env_id = %s AND business_id = %s AND model_name = %s{ver_clause}
+                ORDER BY created_at DESC LIMIT 1""",
+            tuple(params))
+        row = cur.fetchone()
+        if row is None:
+            return {"model": None, "null_reason": "model_not_promoted"}
+        return {"model": dict(row), "null_reason": None}
+
+
+def get_anomaly_events_in_window(*, env_id: str, business_id: UUID, run_key: str,
+                                 t_start: int, t_end: int) -> dict:
+    """Labeled / detected anomaly events overlapping [t_start, t_end] (point vs contextual class)."""
+    with get_cursor() as cur:
+        resolve_tenant_id(cur, business_id)
+        run_id = _run_id_for_key(cur, env_id, business_id, run_key)
+        if run_id is None:
+            return {"events": [], "null_reason": "missing_run"}
+        cur.execute(
+            """SELECT channel_name, start_t, end_t, anomaly_class, confidence, source
+               FROM tel_anomaly_events
+               WHERE env_id = %s AND business_id = %s AND run_id = %s
+                 AND start_t <= %s AND end_t >= %s
+               ORDER BY start_t""",
+            (env_id, str(business_id), str(run_id), t_end, t_start))
+        rows = [dict(r) for r in cur.fetchall()]
+        return {"events": rows, "null_reason": None if rows else "no_anomaly_label"}
+
+
 def health() -> dict:
     """Lean health check: confirm the serving tables are reachable and report promoted-model count."""
     with get_cursor() as cur:
