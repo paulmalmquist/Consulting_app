@@ -138,6 +138,10 @@ def test_report_md_contains_required_evidence_trail():
     for token in ["smap_msl:D-4:test", "f8e8f23e-1da9-4f27-8785-175bd59d9e6b", "2.46062",
                   "0.135467", "tel_anomaly_detector", "4a48cb6af8714609b9581d66e904544c", "0.638657"]:
         assert token in md, f"report missing evidence token {token}"
+    # the verdict must be attributed to the detector (model output), not framed as a test/hardware failure
+    low = md.lower()
+    assert "telemetry anomaly detector" in low and "returned a" in low
+    assert "not a statement that the test, vehicle, or hardware failed" in low
 
 
 def test_report_md_includes_human_review_disclaimer():

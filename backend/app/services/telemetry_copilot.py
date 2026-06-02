@@ -417,9 +417,12 @@ def _build_report_md(state: dict, *, report_id, prompt_version: str, generated_a
         "public NASA aerospace analog data.",
         "",
         "## Verdict",
-        f"**{pred.get('verdict', '—')}** on channel `{pred.get('channel_name', '—')}` over window "
-        f"`[{_fmt(ws)}–{_fmt(we)}]` of run `{run_key}` "
-        f"({run.get('spacecraft', '—')} / {run.get('dataset', '—')}).",
+        f"The promoted telemetry anomaly detector "
+        f"(`{model.get('model_name', pred.get('model_name', 'tel_anomaly_detector'))}`) returned a "
+        f"**{pred.get('verdict', '—')}** verdict on channel `{pred.get('channel_name', '—')}` over "
+        f"window `[{_fmt(ws)}–{_fmt(we)}]` of run `{run_key}` "
+        f"({run.get('spacecraft', '—')} / {run.get('dataset', '—')}). This is a model output over "
+        f"recorded telemetry — not a statement that the test, vehicle, or hardware failed.",
         "",
         "## Triggering evidence",
         f"- Prediction receipt: `{pred.get('id', '—')}`",
@@ -546,8 +549,8 @@ def get_report(*, env_id: str, business_id, report_id) -> dict:
     from app.db import get_cursor
     with get_cursor() as cur:
         cur.execute(
-            """SELECT id, run_key, receipt_id, verdict, anomaly_score, threshold, champion_model,
-                      model_version, mlflow_run_id, prompt_version, evidence_payload,
+            """SELECT id, run_id, run_key, receipt_id, verdict, anomaly_score, threshold,
+                      champion_model, model_version, mlflow_run_id, prompt_version, evidence_payload,
                       generated_markdown, review_status, created_at
                FROM tel_copilot_reports
                WHERE env_id=%s AND business_id=%s AND id=%s""",
