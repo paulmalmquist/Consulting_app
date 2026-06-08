@@ -332,10 +332,22 @@ def list_conversations(request: Request, business_id: str, include_archived: boo
     require_authenticated_request(request)
     from uuid import UUID
 
-    rows = convo_svc.list_conversations(
-        business_id=UUID(business_id),
-        include_archived=include_archived,
-    )
+    # Conversation history is a non-critical assistant panel. Any failure here
+    # (malformed business_id, missing table, DB error) must fail closed with an
+    # empty list — never an unhandled 500 — which is exactly what the frontend
+    # (`listConversations`) already expects on a non-OK response.
+    try:
+        rows = convo_svc.list_conversations(
+            business_id=UUID(business_id),
+            include_archived=include_archived,
+        )
+    except Exception:
+        logger.exception(
+            "list_conversations failed for business=%s; returning empty list",
+            business_id,
+        )
+        return {"conversations": []}
+
     return {
         "conversations": [
             {

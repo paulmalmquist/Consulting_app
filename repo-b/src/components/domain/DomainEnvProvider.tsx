@@ -35,6 +35,7 @@ import {
 } from "@/lib/bos-api";
 import { getVultrContext } from "@/lib/vultr-api";
 import { useBusinessContext } from "@/lib/business-context";
+import { isFetchTimeoutError } from "@/lib/fetchTimeout";
 import { publishAssistantEnvironmentContext } from "@/lib/commandbar/appContextBridge";
 import { resolveWorkspaceTemplateKey } from "@/lib/workspaceTemplates";
 
@@ -140,7 +141,11 @@ export function DomainEnvProvider({
       setResolvedBusinessId(context.business_id);
       setBusinessId(context.business_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resolve environment context.");
+      if (isFetchTimeoutError(err)) {
+        setError("Workspace context request timed out. Retry below.");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to resolve environment context.");
+      }
       setRequestId(parseRequestId(err));
     } finally {
       setLoading(false);

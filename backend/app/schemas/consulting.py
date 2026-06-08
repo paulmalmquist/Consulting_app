@@ -1708,6 +1708,21 @@ class ExecutionTask(BaseModel):
     updated_at: datetime
     deal_name: str | None = None
     contact_name: str | None = None
+    # Operator Control Plane hierarchy (additive, read-only for Ticket 4).
+    # All nullable: existing flat tasks have NULL hierarchy and group as
+    # "Ungrouped"; missing reference rows leave *_label NULL ("No linked …").
+    domain_key: str | None = None
+    initiative_key: str | None = None
+    workstream_key: str | None = None
+    parent_task_id: UUID | None = None
+    source_kind: str | None = None
+    related_entity_type: str | None = None
+    related_entity_id: UUID | None = None
+    related_url: str | None = None
+    last_reviewed_at: datetime | None = None
+    domain_label: str | None = None
+    initiative_label: str | None = None
+    workstream_label: str | None = None
 
 
 class ExecutionTaskCreate(BaseModel):
@@ -1742,6 +1757,108 @@ class ExecutionTaskUpdate(BaseModel):
     due_date: date | None = None
     re_engage_at: datetime | None = None
     blocked_reason: str | None = None
+    # Operator Control Plane hierarchy write-path (Ticket 5). All optional;
+    # explicitly passing null clears the field (task → Ungrouped). Keys are
+    # validated server-side against the seeded reference tables.
+    domain_key: str | None = None
+    initiative_key: str | None = None
+    workstream_key: str | None = None
+    source_kind: str | None = None
+    related_entity_type: str | None = None
+    related_entity_id: UUID | None = None
+    related_url: str | None = None
+    last_reviewed_at: datetime | None = None
+
+
+class ExecutionHierarchyOption(BaseModel):
+    key: str
+    label: str
+    domain_key: str | None = None
+    initiative_key: str | None = None
+
+
+class ExecutionHierarchyOptions(BaseModel):
+    domains: list[ExecutionHierarchyOption]
+    initiatives: list[ExecutionHierarchyOption]
+    workstreams: list[ExecutionHierarchyOption]
+
+
+# ── Morning Checklist (Ticket 6) ─────────────────────────────────────────────
+# Read-time-generated daily brief derived from cro_execution_task. No
+# persistence, no schema change. Items may also appear in their domain
+# section because the brief is a view, not a partition.
+
+
+class MorningChecklistItem(BaseModel):
+    task_id: str
+    title: str | None = None
+    reason: str
+    domain_key: str | None = None
+    domain_label: str | None = None
+    initiative_key: str | None = None
+    initiative_label: str | None = None
+    workstream_key: str | None = None
+    workstream_label: str | None = None
+    next_action: str | None = None
+    status: str | None = None
+    impact: int | None = None
+    due_date: str | None = None
+    revenue_tag: str | None = None
+    blocked_reason: str | None = None
+    related_url: str | None = None
+
+
+class MorningChecklistSuggestedPrompt(BaseModel):
+    key: str
+    prompt: str
+    reason: str
+
+
+class MorningChecklistSection(BaseModel):
+    key: str
+    label: str
+    # Items are heterogeneous: most sections hold MorningChecklistItem;
+    # suggested_prompts holds MorningChecklistSuggestedPrompt. Keep loose
+    # to avoid a discriminated-union schema explosion for a read-only view.
+    items: list[dict]
+
+
+class MorningChecklistSummary(BaseModel):
+    total_items: int = 0
+    overdue_count: int = 0
+    blocked_count: int = 0
+    web_properties_count: int = 0
+    outreach_count: int = 0
+    coding_count: int = 0
+    admin_count: int = 0
+
+
+class MorningChecklistOut(BaseModel):
+    date: str
+    sections: list[MorningChecklistSection]
+    summary: MorningChecklistSummary
+
+
+# ── Brief Assistant (Ticket 7) — read-only retrieval ────────────────────────
+
+
+class BriefAssistantAskRequest(BaseModel):
+    env_id: str
+    business_id: UUID
+    question: str | None = None
+
+
+class BriefAssistantAskResponse(BaseModel):
+    intent: str
+    question: str | None = None
+    answer: str
+    # Items / brief loosely typed because they pass through the morning
+    # checklist + list_tasks projections; existing schemas would force
+    # double-validation. Keep loose for a read-only response.
+    items: list[dict] = []
+    brief: dict | None = None
+    tool_calls: list[dict] = []  # always empty by construction — no writes
+    refused: bool = False
 
 
 class ExecutionBoardSummary(BaseModel):

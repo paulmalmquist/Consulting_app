@@ -1,0 +1,15 @@
+{
+  "model_name": "happyco_property_maintenance_escalation_risk",
+  "model_version": "happyco-property-ops-risk-v1",
+  "trained_at": "2026-05-20T15:11:24+00:00",
+  "total_rows": 30,
+  "positive_rows": 7,
+  "negative_rows": 23,
+  "accuracy": 0.9,
+  "roc_auc": 0.9375,
+  "training_backend": "numpy_logistic_regression_fallback",
+  "metric_honesty_warning": "Synthetic labels may be deterministic or partially separable; treat metrics as a demo-data validation signal, not expected production performance.",
+  "demo_mode": true,
+  "data_source": "synthetic_demo",
+  "caveat": "Synthetic demo model trained on deterministic demo data. Not HappyCo production data and not evidence of real-world expected performance."
+}

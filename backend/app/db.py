@@ -14,12 +14,18 @@ _pool: ConnectionPool | None = None
 def _get_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
+        # Ticket 7B: max_size raised 10→20, timeout 5→10 as defense-in-depth
+        # headroom. Verified safe — Supabase Postgres max_connections=60
+        # (3 reserved, ~16 baseline in use), so 20 pool connections leave
+        # ample margin. NOTE: this is margin, not the fix — the real fix is
+        # scoping cursors per unit of work (see execution_auto.run_auto_generation)
+        # so a long multi-step run does not pin one connection for its whole span.
         _pool = ConnectionPool(
             prefer_ipv4_hostaddr(require_database_url()),
             min_size=2,
-            max_size=10,
+            max_size=20,
             open=False,
-            timeout=5,
+            timeout=10,
             kwargs={
                 "prepare_threshold": DB_PREPARE_THRESHOLD,
                 "row_factory": psycopg.rows.dict_row,

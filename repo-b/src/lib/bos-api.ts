@@ -8,6 +8,7 @@
  */
 import { logError, logInfo } from "@/lib/logging/logger";
 import { winstonLoader } from "@/lib/loading-state";
+import { createTimeoutSignal, FetchTimeoutError, isAbortError } from "@/lib/fetchTimeout";
 import type { AssistantResponseBlock } from "@/lib/commandbar/types";
 import type {
   AccountSummary,
@@ -105,7 +106,14 @@ function getRunIdForRequest(): string | null {
   }
 }
 
-export async function bosFetch<T>(path: string, options: RequestInit & { params?: Record<string, string | undefined> } = {}): Promise<T> {
+export async function bosFetch<T>(
+  path: string,
+  options: RequestInit & {
+    params?: Record<string, string | undefined>;
+    /** undefined → no timeout (default) · number → that many ms · null|0 → no timeout */
+    timeoutMs?: number | null;
+  } = {}
+): Promise<T> {
   const requestId = makeRequestId();
   const runId = getRunIdForRequest();
   const startedAt = Date.now();
@@ -144,10 +152,38 @@ export async function bosFetch<T>(path: string, options: RequestInit & { params?
     ...(options.headers || {}),
   };
 
-  const res = await fetch(url.toString(), {
-    ...options,
-    headers: reqHeaders,
-  });
+  const { signal, timeoutMs, clear: clearTimeoutTimer } = createTimeoutSignal(
+    options.timeoutMs,
+    null
+  );
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      ...options,
+      signal,
+      headers: reqHeaders,
+    });
+  } catch (err) {
+    if (typeof window !== "undefined") winstonLoader.apiEnd();
+    if (isAbortError(err)) {
+      logError("api.request_timeout", "API request timed out", {
+        path,
+        method: options.method || "GET",
+        request_id: requestId,
+        run_id: runId,
+        timeout_ms: timeoutMs ?? undefined,
+        duration_ms: Date.now() - startedAt,
+      });
+      throw new FetchTimeoutError(
+        `Request timed out after ${timeoutMs}ms (req: ${requestId})`,
+        timeoutMs ?? undefined
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeoutTimer();
+  }
   const durationMs = Date.now() - startedAt;
   const responseRequestId = res.headers.get("X-Request-Id") || undefined;
 
@@ -10293,8 +10329,11 @@ export function getDataStudioContext(envId: string, businessId?: string): Promis
 }
 
 export function getOperatorContext(envId: string, businessId?: string): Promise<DomainContext & { workspace_template_key: string }> {
+  // Workspace-context resolution gates the whole operator shell — it must
+  // fail closed rather than hang the loading screen forever.
   return bosFetch("/api/operator/v1/context", {
     params: { env_id: envId, business_id: businessId },
+    timeoutMs: 30_000,
   });
 }
 
@@ -10337,6 +10376,200 @@ export function listOperatorSites(envId: string, businessId?: string): Promise<O
 export function getOperatorSiteDetail(siteId: string, envId: string, businessId?: string): Promise<OperatorLegacySiteDetail> {
   return bosFetch(`/api/operator/v1/sites/${siteId}`, {
     params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export interface OperatorPropertyOpsMetadata {
+  fixture_version?: string;
+  model_version?: string;
+  generated_at?: string;
+  demo_mode: boolean;
+  data_source: "synthetic_demo" | string;
+  caveat: string;
+  as_of_date?: string;
+}
+
+export interface OperatorPropertyOpsProperty {
+  property_id: string;
+  operator_id: string;
+  name: string;
+  market: string;
+  address: string;
+  unit_count: number;
+  peer_group: string;
+  risk_profile: "high" | "medium" | "low" | string;
+  story: string;
+}
+
+export interface OperatorPropertyOpsResolutionRecord {
+  source_record_id: string;
+  source_system: string;
+  source_id: string;
+  entity_type: string;
+  source_label: string;
+  canonical_id: string;
+  canonical_label: string;
+  match_confidence: number;
+  match_reason: string;
+  requires_human_review: boolean;
+  evidence: string[];
+}
+
+export interface OperatorPropertyOpsEntities extends OperatorPropertyOpsMetadata {
+  operators: Array<Record<string, unknown>>;
+  properties: OperatorPropertyOpsProperty[];
+  buildings: Array<Record<string, unknown>>;
+  units: Array<Record<string, unknown>>;
+  inspections: Array<Record<string, unknown>>;
+  findings: Array<Record<string, unknown>>;
+  work_orders: Array<Record<string, unknown>>;
+  vendors: Array<Record<string, unknown>>;
+  resolution_events: Array<Record<string, unknown>>;
+  resident_impact_events: Array<Record<string, unknown>>;
+  source_records: OperatorPropertyOpsResolutionRecord[];
+  entity_resolution: OperatorPropertyOpsResolutionRecord[];
+}
+
+export interface OperatorPropertyOpsGraphNode {
+  id: string;
+  type: string;
+  label: string;
+  risk_level: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface OperatorPropertyOpsGraphEdge {
+  source: string;
+  target: string;
+  relationship: string;
+  evidence_ids: string[];
+}
+
+export interface OperatorPropertyOpsGraph extends OperatorPropertyOpsMetadata {
+  nodes: OperatorPropertyOpsGraphNode[];
+  edges: OperatorPropertyOpsGraphEdge[];
+}
+
+export interface OperatorPropertyOpsBenchmark {
+  property_id: string;
+  property_name: string;
+  peer_group: string;
+  work_order_count: number;
+  repeat_work_order_count: number;
+  repeat_work_order_rate: number | null;
+  peer_repeat_work_order_rate_median: number | null;
+  repeat_rate_variance_to_peer: number | null;
+  repeat_rate_peer_ratio: number | null;
+  average_aging_days: number | null;
+  reopened_rate: number | null;
+  inspection_severity_score: number | null;
+  vendor_first_time_fix_rate: number | null;
+  resident_impact_proxy_count: number;
+  risk_flag: "high" | "medium" | "low" | string;
+}
+
+export interface OperatorPropertyOpsBenchmarks extends OperatorPropertyOpsMetadata {
+  benchmarks: OperatorPropertyOpsBenchmark[];
+}
+
+export interface OperatorPropertyOpsEvidence {
+  evidence_id: string;
+  source_type: string;
+  source_ids: string[];
+  statement: string;
+}
+
+export interface OperatorPropertyOpsRecommendation {
+  recommendation_id: string;
+  property_id: string;
+  title: string;
+  recommendation: string;
+  confidence: number;
+  risk_level: "high" | "medium" | "low" | string;
+  recommended_action: string;
+  human_review_required: boolean;
+  evidence_ids: string[];
+  evidence: OperatorPropertyOpsEvidence[];
+  ml_status: "available" | "not_available" | string;
+  ml_risk_score?: number;
+  risk_band?: string;
+  top_model_drivers?: OperatorPropertyOpsDriver[];
+  model_version?: string;
+  trained_at?: string;
+  caveats: string[];
+}
+
+export interface OperatorPropertyOpsRecommendations extends OperatorPropertyOpsMetadata {
+  ml_status: "available" | "not_available" | string;
+  recommendations: OperatorPropertyOpsRecommendation[];
+}
+
+export interface OperatorPropertyOpsDriver {
+  feature: string;
+  coefficient?: number;
+  feature_value?: number;
+  contribution?: number;
+}
+
+export interface OperatorPropertyOpsMlPrediction {
+  property_id: string;
+  risk_score: number;
+  risk_band: "high" | "medium" | "low" | string;
+  top_drivers: OperatorPropertyOpsDriver[];
+  model_version: string;
+  trained_at: string;
+  demo_mode: boolean;
+  data_source: string;
+  caveat: string;
+  source_feature_row_id: string;
+  source_building_id: string;
+  source_category: string;
+}
+
+export interface OperatorPropertyOpsMlRisk extends OperatorPropertyOpsMetadata {
+  ml_status: "available" | "not_available" | string;
+  databricks_status: "not_configured" | "not_run" | "attempted_failed" | "completed" | string;
+  databricks_run_id?: string | null;
+  databricks_run_url?: string | null;
+  databricks_receipt?: Record<string, unknown> | null;
+  predictions: OperatorPropertyOpsMlPrediction[];
+  model_metrics: Record<string, unknown> | null;
+  feature_importance: Array<Record<string, string>>;
+  model_registry: Record<string, unknown> | null;
+  missing_artifacts?: string[];
+}
+
+export function getOperatorPropertyOpsEntities(envId: string, businessId?: string): Promise<OperatorPropertyOpsEntities> {
+  return bosFetch("/api/operator/v1/property-ops/entities", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPropertyOpsGraph(envId: string, businessId?: string): Promise<OperatorPropertyOpsGraph> {
+  return bosFetch("/api/operator/v1/property-ops/graph", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPropertyOpsBenchmarks(envId: string, businessId?: string): Promise<OperatorPropertyOpsBenchmarks> {
+  return bosFetch("/api/operator/v1/property-ops/benchmarks", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPropertyOpsRecommendations(envId: string, businessId?: string): Promise<OperatorPropertyOpsRecommendations> {
+  return bosFetch("/api/operator/v1/property-ops/recommendations", {
+    params: { env_id: envId, business_id: businessId },
+  });
+}
+
+export function getOperatorPropertyOpsMlRisk(
+  envId: string,
+  businessId?: string,
+  propertyId?: string,
+): Promise<OperatorPropertyOpsMlRisk> {
+  return bosFetch("/api/operator/v1/property-ops/ml-risk", {
+    params: { env_id: envId, business_id: businessId, property_id: propertyId },
   });
 }
 

@@ -201,3 +201,41 @@ def test_get_triggering_prediction_returns_no_go_receipt(fake_cursor):
     assert out["prediction"]["verdict"] == "NO_GO"
     assert out["prediction"]["id"] == "f8e8f23e-1da9-4f27-8785-175bd59d9e6b"
     assert out["run"]["run_key"] == "smap_msl:D-4:test"
+
+
+# ── Phase 8: governance + evals (observability) ────────────────────────────────
+def test_evals_reads_committed_artifact():
+    # Serves the real pytest-run results artifact; never invents pass/fail.
+    e = tc.evals()
+    assert e["available"] is True
+    assert e["summary"]["total"] == len(e["cases"]) and e["summary"]["total"] >= 5
+    assert {"grounded_no_go", "refusal_proprietary_root_cause", "fail_closed_missing_input"} <= {c["key"] for c in e["cases"]}
+    assert e.get("source", "").startswith("pytest")
+
+
+def test_evals_fail_closed_when_artifact_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(tc, "_EVAL_PATH", tmp_path / "nope.json")
+    e = tc.evals()
+    assert e["available"] is False and e["null_reason"] == "eval_results_not_recorded"
+
+
+def test_governance_summary_aggregates(fake_cursor):
+    # 9 queries in order: agg, source_mix, null_reasons, active, fallback, tool_stats, recent,
+    # refusals, blocked. production_smoke reads the committed artifact (no DB).
+    fake_cursor.push_result([{"n": 10, "refusal_rate": 0.2, "grounded_rate": 0.8, "p50_ms": 2500, "p95_ms": 6000}])
+    fake_cursor.push_result([{"answer_source": "live_llm", "n": 7}, {"answer_source": "fallback_template", "n": 2}, {"answer_source": "refusal", "n": 1}])
+    fake_cursor.push_result([{"nr": "(none)", "n": 9}, {"nr": "unsupported_question", "n": 1}])
+    fake_cursor.push_result([{"prompt_version": "e1d3a0daab52", "model": "gpt-5-mini"}])
+    fake_cursor.push_result([{"fr": "(none)", "n": 8}, {"fr": "postvalidate_block", "n": 2}])
+    fake_cursor.push_result([{"st": "success", "n": 20}, {"st": "skipped", "n": 5}, {"st": "error", "n": 1}])
+    fake_cursor.push_result([{"created_at": "2026-06-02T10:00:00", "intent": "why_no_go", "is_refusal": False, "answer_source": "live_llm", "fallback_reason": None, "null_reason": None, "evidence_count": 5, "elapsed_ms": 3000, "question": "why no-go"}])
+    fake_cursor.push_result([{"created_at": "2026-06-02T10:01:00", "question": "what caused it", "null_reason": "unsupported_question"}])
+    fake_cursor.push_result([{"created_at": "2026-06-02T10:02:00", "question": "fabricated claim attempt"}])
+    g = tc.governance_summary(env_id=ENV, business_id=BIZ)
+    assert g["total_interactions"] == 10
+    assert g["fallback_rate"] == 0.2 and g["live_llm_rate"] == 0.7
+    assert g["postvalidator_block_count"] == 2
+    assert g["tool_call_stats"] == {"success": 20, "skipped": 5, "error": 1}
+    assert len(g["recent_interactions"]) == 1 and len(g["recent_refusals"]) == 1 and len(g["unsupported_blocked_examples"]) == 1
+    assert g["production_smoke"]["status"] in ("pass", "not_available")  # reads committed artifact
+    assert g["active_prompt_version"] == "e1d3a0daab52"

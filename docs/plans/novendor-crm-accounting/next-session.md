@@ -3,52 +3,70 @@
 **Last updated:** 2026-05-19
 **Priority:** High — this is Novendor's internal operating system
 
-## Copy-paste prompt for next Claude Code session (Ticket 3 — hierarchy migration)
+## Copy-paste prompt for next Claude Code session (Ticket 8 — deliberate design pass)
 
-Ticket 1 (logger bug) and the schema inventory are DONE. This session is **Ticket 3 only**.
-Read first: `docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`,
-`docs/plans/novendor-crm-accounting/{architecture,backlog}.md`, `ARCHITECTURE.md`,
-`repo-b/db/schema/525_execution_board.sql` + `604_cro_execution_task_re_engage.sql`,
-`repo-b/db/schema/10002_history_rhymes_research_planning.sql` (numbering convention).
+Tickets 1–7 are **done and production-verified**, plus Ticket 7B (a consulting-router
+pool-exhaustion incident, fixed 2026-05-21). The full Operator Control Plane chain is
+live and stable: schema (Ticket 3) → read/display grouping (Ticket 4) → write-path
+(Ticket 5) → generated Morning Brief (Ticket 6) → read-only Brief Assistant retrieval
+(Ticket 7). Production smoke green: `/brief-assistant/ask` returns grounded answers;
+the board returns 200 in ~1.4s and survives 15 concurrent requests without hanging.
+
+This session is **Ticket 8 — a design pass, not implementation.** Do NOT auto-start
+coding.
+
+### Ticket 8 — deliberate scope decision, do NOT auto-start
+Ticket 7 shipped a read-only retrieval surface. Ticket 8 would add the **write-path**
+through the assistant: lets a user say "move the NCF task to today" or "create a coding
+task to fix the X bug" and have it execute. **This re-introduces the risky-action surface
+the entire ticket chain has deliberately avoided.** Before any code, do a scoping pass:
 
 ```
-Before writing migration `10003_consulting_task_hierarchy.sql`, verify the current live
-schema for `cro_execution_task` in Supabase project `ozboonlsplroialdwuxj`.
+Decide whether Ticket 8 (assistant-driven task creation/editing) is worth
+adding now, and if yes, design the gating BEFORE writing code:
 
-Do not assume the local schema files perfectly match production.
+Questions to answer first:
+1. Does the assistant create tasks, or only edit existing ones, or both?
+   (Recommend edit-only as a smaller, safer slice — the hierarchy
+   write-path from Ticket 5 already validates server-side.)
+2. What's the confirmation flow? (Recommend: every write goes through a
+   confirmation drawer or explicit "Confirm" affordance — never silent.)
+3. Where does intent-confidence get measured? (Below threshold → ask
+   for clarification, not commit.)
+4. How are write tools wired? (Reuse the existing tool-use policy from
+   `docs/plans/01-shared-standards/ai-runtime/tool-use-policy.md` —
+   don't invent a parallel one.)
+5. What's the audit trail? (Likely reuse cro_execution_task.updated_at
+   + an `evidence` jsonb entry — no new table.)
+6. What's the rollback path if the assistant gets it wrong?
 
-Confirm:
-- existing columns
-- existing enum/check constraints
-- existing indexes
-- existing RLS policies
-- env scoping pattern
-- current migration history / latest applied migration
+Only after these are answered does code start. Most likely shape:
+brief_assistant.answer() grows a `mode: "preview"|"execute"` flag;
+"execute" routes through update_task with `_*_set` sentinels and the
+same validate_hierarchy fail-closed path; the chat UI shows a confirm
+modal before the execute call. No new write tools at the gateway
+level — the brief assistant remains the single read+write surface for
+the consulting board.
 
-Then write an additive-only migration that:
-- extends `cro_execution_task` without duplicating existing status/type/priority/date fields
-- adds hierarchy fields only where missing
-- adds `cro_operating_domain`, `cro_initiative`, and `cro_workstream` reference tables if not already present
-- keeps RLS/env scoping consistent
-- seeds the five controlled domains
-- seeds FlowYorker under `web_properties`
-- seeds Novendor industry initiatives under `novendor_web`
-- includes verification queries
-- updates the active implementation plan and `docs/tips.md`
-
-Do not change frontend UI in this ticket.
-Do not add assistant retrieval yet.
-Do not persist Morning Checklist rows yet.
+Do NOT in Ticket 8 (regardless of design):
+- bypass validate_hierarchy
+- silently overwrite existing fields the user didn't mention
+- add tools to the broad /api/ai/gateway/ask runtime
+- change the schema (10003 columns suffice)
+- fabricate task ids or pretend a missing task exists
 ```
 
-Migration dry-run mindset (even without a formal dry-run tool): inspect live schema first,
-then write the migration, then verify against a Supabase branch / local test DB — or at
-minimum produce exact verification SQL in the migration file. Hierarchy column list and the
-five controlled domain keys are in dispatch `0002` ("Domain model"). Do NOT touch
-`app.task_*` or `nv_tasks` (unrelated task systems). The error-envelope normalization in
-backlog.md is explicitly out of scope for Ticket 3.
+Read first if you start Ticket 8 design:
+`docs/plans/03-implementation-plans/active/0002-novendor-daily-operator-control-plane.md`
+(Ticket 7 result), `docs/plans/01-shared-standards/ai-runtime/{tool-use-policy,fail-closed-rules,prompt-contracts}.md`,
+`backend/app/services/brief_assistant.py` (the read-only baseline),
+`backend/app/services/execution_tasks.py` (`update_task` + `validate_hierarchy`).
 
-Update dispatch `0002`, `backlog.md`, `next-session.md`, and `docs/tips.md` before finishing.
+Repo Guardrails `1000` / repo-wide Backend Lint reds remain pre-existing baseline
+(tips #18) — do not chase. Deploy parity rule (tips #18) still applies — Vercel and
+Railway have no auto-deploy.
+
+Update dispatch `0002`, `backlog.md`, `next-session.md`, `docs/tips.md`.
 
 ## Deferred (older session — Accounting Command Desk verification)
 

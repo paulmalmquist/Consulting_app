@@ -94,3 +94,13 @@ def governance(env_id: str = Query(...), business_id: UUID = Query(...)):
         return svc.governance_summary(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/evals")
+def evals(env_id: str = Query(default=""), business_id: UUID | None = Query(default=None)):
+    """Last recorded eval-suite results (real pytest run, committed artifact) with run timestamp +
+    source. Fails closed (available=false) if the artifact is absent — never invents pass/fail."""
+    try:
+        return svc.evals(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)

@@ -13,9 +13,12 @@ Turning raw engine-test telemetry into automated go/no-go decisions.
 Trained in Databricks, gated before promotion, served behind a live API. Metrics are exactly as
 computed. Full run IDs, gate decisions, and live-URL transcripts in [PROOF.md](PROOF.md).
 
-**Anomaly detection champion — rolling-MAD dynamic threshold** (SMAP/MSL, point-adjusted, labeled
-test split):
-- precision **0.5460**, recall **0.7691**, F1 **0.6387** — beat the PCA model (F1 0.4196) honestly.
+**Anomaly detection — rolling-MAD dynamic threshold** (SMAP/MSL, a *legacy anomaly baseline*; see
+[docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md)):
+- point-adjusted F1 **0.6387** (precision 0.5460, recall 0.7691) — beat the PCA model (F1 0.4196).
+- honest **point-wise F1 0.313** on the same predictions (event recall 0.77, alarm precision 0.33).
+  Point-adjusted F1 inflates by crediting a whole labeled segment for one in-window hit; we report it
+  with the adjustment named, beside the honest metrics.
 
 **RUL champion — gradient boosting** (C-MAPSS FD001, 100 test units):
 - RMSE **20.32**, PHM **1423.3** — beat the linear baseline (RMSE 21.70) on RMSE.
@@ -78,6 +81,13 @@ Anomaly detection (SMAP/MSL, point-adjusted F1 on the labeled test split, base r
 
 The simple baseline beat the PCA model on F1, so the baseline was promoted. The stronger model was
 not faked into a win.
+
+On the **same champion predictions**, the honest point-wise F1 is **0.313** (precision 0.328, recall
+0.299), with event recall 0.769 and alarm precision 0.328. Point-adjusted F1 inflates by crediting a
+whole labeled segment for one in-window hit. Reproduce offline, no retrain and no Databricks:
+`python eval_honest_metrics.py --data-dir databricks/data/smap_msl`
+([result](docs/honest_metrics_result.json)). Full critique:
+[docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md).
 
 Remaining useful life (C-MAPSS FD001, 100 test units, RUL capped at 125):
 

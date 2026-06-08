@@ -5,6 +5,7 @@ import WorkspaceIdentityBar from "./WorkspaceIdentityBar";
 
 export default function LabEnvTopBar({ envId }: { envId: string }) {
   const pathname = usePathname();
+  if (/\/operator\/property-ops-intelligence(\/|$)/.test(pathname)) return null;
   if (/\/consulting\/pipeline(\/|$)/.test(pathname)) return null;
   if (/\/re(\/|$)/.test(pathname)) return null;
   if (/\/ncf(\/|$)/.test(pathname)) return null;

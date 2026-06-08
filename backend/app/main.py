@@ -92,6 +92,7 @@ from app.routes import (
     nv_receipt_intake, nv_accounting_desk,
 )
 from app.routes import pitch_forge as pitch_forge_routes
+from app.routes import outreach_personalizer as outreach_personalizer_routes
 from app.routes import epi as epi_routes
 from app.routes import re_query
 from app.routes import semantic_catalog, analytics
@@ -491,6 +492,7 @@ app.include_router(nv_receipt_intake.router)
 app.include_router(nv_accounting_desk.router)
 app.include_router(epi_routes.router)
 app.include_router(pitch_forge_routes.router)
+app.include_router(outreach_personalizer_routes.router)
 app.include_router(semantic_catalog.router)
 app.include_router(unified_metrics.router)
 app.include_router(analytics.router)

@@ -1,0 +1,24 @@
+{
+  "frozen_rule": "rolling-MAD, K=4.0, per-channel TRAIN-residual scale (global fallback)",
+  "test_channels": 81,
+  "test_ticks": 509555,
+  "test_anomaly_rate": 0.124781,
+  "f1_point_adjusted_reproduced": 0.645297,
+  "point_adjusted_detail": {
+    "precision": 0.556102,
+    "recall": 0.76857,
+    "f1": 0.645297,
+    "tp": 48868,
+    "fp": 39008,
+    "fn": 14715
+  },
+  "honest": {
+    "f1_pointwise": 0.312953,
+    "precision_pointwise": 0.3279,
+    "recall_pointwise": 0.29931,
+    "event_recall": 0.769231,
+    "alarm_precision": 0.3279,
+    "labeled_segments": 104
+  },
+  "note": "Point-adjusted F1 inflates by crediting a whole labeled segment for one in-window hit. Point-wise/event metrics are the honest floor. VUS-PR/VUS-ROC + formal affiliation metrics are deferred to Track A."
+}

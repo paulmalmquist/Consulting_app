@@ -3,6 +3,10 @@
 Every value in this file is copied from a real run. No rounding, no hand-edits. If a metric missed
 its gate, it is recorded as missed. If a step could not run, the blocker is written here honestly.
 
+**Reviewer entry points:** [`REVIEWER_DEMO.md`](REVIEWER_DEMO.md) (login, routes, 4-minute script,
+expected evidence values, caveats) · [`docs/portfolio-proof.md`](docs/portfolio-proof.md) (2-minute
+written summary for a recruiter / hiring manager). This file is the full per-phase evidence log.
+
 ## Status (2026-06-02, end of Applied-AI Phase 6 — Test Intelligence Copilot)
 
 All ML-platform phases complete (ingestion → training → gating → serving → Lab Workbench UI →
@@ -298,6 +302,107 @@ authenticated production screenshot is not capturable from this session (same li
 Phase 5/6).
 
 ---
+
+---
+
+## Access boundary — scoped Telemetry Reviewer login
+
+A dedicated reviewer credential (`telemetry` / env-var password) on the existing login page grants
+access to **only** the Telemetry Demo Console — env `dc82d39d-…/telemetry*` — and nothing else. It is
+**not** an admin, cannot reach other environments, provisioning, `/lab/system`, `/app`, non-telemetry
+departments, top-level slug surfaces, or private APIs. The Supabase / `info@novendor.ai` admin path is
+untouched.
+
+How: a non-email username on the login form routes to `POST /api/auth/telemetry-login`, which (only if
+`TELEMETRY_REVIEWER_USERNAME/PASSWORD/ENV_ID` are all set — else fail-closed 401) mints a scoped,
+signed `bm_session` (role `telemetry_reviewer`, `platform_admin:false`, a single membership on the
+telemetry env). `middleware.ts` confines that role: a `telemetry_reviewer` session may reach only
+`/lab/env/<its env>/telemetry*` — pages redirect to that home, APIs return 403 — so the credential
+exposes exactly one environment. No DB migration; no Supabase user; no change to telemetry data,
+models, reports, or governance logs. The AI runtime safeguards (fixed intents, allow-listed tools,
+pre-tool refusals, post-validation) are unchanged and not bypassed.
+
+**Verification (vitest, 31 passed):**
+```
+telemetryReviewer.test.ts        good creds -> config; bad user/pass -> null; missing env -> disabled
+                                 (fail closed); scoped claims (platform_admin false, single telemetry
+                                 membership, email not @novendor.ai); allowed-path matcher
+telemetry-login/route.test.ts    valid -> 200 + bm_session cookie + redirectTo /…/telemetry;
+                                 wrong pass/user -> 401 no cookie; env unset -> 401 (fail closed)
+middleware.test.ts (+5)          reviewer allowed into /…/telemetry*; other dept / other env / /app /
+                                 /lab/system / /novendor -> redirect to telemetry home; non-telemetry
+                                 API -> 403; normal admin/member session unaffected
+   + existing sessionAuth / login-route / environmentAuth suites still pass; tsc 0 errors.
+```
+Env vars required at deploy (Vercel): `TELEMETRY_REVIEWER_USERNAME=telemetry`,
+`TELEMETRY_REVIEWER_PASSWORD=relativity_11`, `TELEMETRY_REVIEWER_ENV_ID=dc82d39d-9be2-49b0-a01d-c7181b13a8b6`
+(`BM_SESSION_SECRET` already set). **Not yet deployed** — auth change held for review before the prod
+cutover; the env vars must be added to Vercel as part of that cutover.
+
+---
+
+## Applied-AI Layer — Phase 8: AI Governance + Eval Dashboard
+
+A thin **observability layer** over the existing copilot — no new copilot behavior, no retraining, no
+replay/explain/report redesign. The page answers one question: *"Can we trust the AI layer, and how
+do we know?"* — entirely from real logged data and a real eval run. Route:
+`/lab/env/[envId]/telemetry/governance` (nav: "AI Governance").
+
+### One new signal, instrumented honestly
+
+To report a **real post-validator block count** (not lump all fallbacks together), the answer flow now
+records *why* it fell back — `postvalidate_block | timeout | empty_response | llm_error | no_api_key`
+— in a new `tel_copilot_interactions.fallback_reason` column (migration `10012`). Pure observability;
+behavior unchanged. Everything else the dashboard shows was already logged.
+
+### What the page surfaces (all real, never hardcoded)
+
+From `GET /api/telemetry/copilot/governance` (extended): total interactions, grounded-answer rate,
+refusal rate, live-LLM vs fallback rate, **post-validator block count**, fallback-reason breakdown,
+**tool-call success/error/skipped**, p50/p95 latency, active prompt hash + model, allow-list size,
+refusal-rule count, a **recent-interactions table**, **recent refusal examples**, and
+**unsupported-claim-blocked examples**. From `GET /api/telemetry/copilot/evals` (new): the last eval
+run's per-case pass/fail with run timestamp + source. Production-smoke status is the **last manually
+recorded** cold smoke (timestamp + source), explicitly labeled — not a live status.
+
+Honesty rules enforced in the UI: a null metric renders **"Not available"**, never a misleading zero;
+empty example lists render "None recorded"; eval/smoke panels show their run timestamp + source so
+staleness is visible. A **"What this proves"** strip names the six controls (fixed intent planning,
+allow-listed tools, pre-tool refusals, post-generation validation, audit receipts,
+human-review-required reports).
+
+### Verification (real values)
+
+```
+GET /copilot/governance  -> total 26, grounded 0.7692, refusal 0.2308, fallback 0.0, live 0.7692,
+                            postvalidator_block_count 0 (LLM stayed grounded — a real 0, not invented),
+                            tool_call_stats {success 34, skipped 15}, recent 15 / refusals 6 / blocked 0,
+                            production_smoke pass (recorded 2026-06-02), prompt e1d3a0daab52, gpt-5-mini
+GET /copilot/evals       -> available, 5/5 pass, source "pytest backend/tests/test_copilot_telemetry.py"
+   grounded_no_go · refusal_proprietary_root_cause · report_evidence_and_disclaimer ·
+   fail_closed_missing_input · no_invented_cause_or_disposition
+pytest tests/test_copilot_telemetry.py tests/test_telemetry_serving.py -> 26 passed
+   (3 new Phase-8: evals artifact served, evals fail-closed when artifact missing, governance aggregates)
+tsc --noEmit -> 0 errors
+```
+
+The eval artifact (`backend/app/data/telemetry/eval_results.json`) is produced by a **real pytest run**
+via `telemetry-platform/run_governance_evals.py` (re-run after any copilot change); the endpoint serves
+it labeled with the run timestamp — eval pass/fail on the page is never invented.
+
+Files: migration `repo-b/db/schema/10012_telemetry_copilot_fallback_reason.sql`; backend
+`telemetry_copilot.py` (fallback_reason in `answer()`, extended `governance_summary`, new `evals`),
+`copilot_logger.py`, `routes/telemetry_copilot.py` (`/evals`), `schemas/telemetry_copilot.py`;
+artifacts `backend/app/data/telemetry/{eval_results,last_smoke}.json` + `run_governance_evals.py`;
+frontend `GovernanceDashboard.tsx`, `…/telemetry/governance/page.tsx`, `TelemetrySidebar.tsx` (nav),
+`copilot-api.ts`.
+
+**Known gaps:** production-smoke is **not yet machine-automated** — the dashboard shows the last
+*manually recorded* cold smoke (timestamp/source), as designed. Authenticated screenshots of the
+rendered Explain-verdict / Draft-report / Governance pages are not capturable headlessly from the
+build session (same limitation since Phase 5) — the real replay-NO-GO and model-performance shots are
+wired into the reviewer pack, and a 2-minute manual-capture checklist for the remaining three is in
+`REVIEWER_DEMO.md` §7; the data-level proof above + the live routes stand in.
 
 ---
 
@@ -631,6 +736,33 @@ Test split: 509,555 rows, 63,738 labeled anomaly ticks, base rate 0.125085613918
 The PCA model is more precise (0.87) but far less sensitive (recall 0.28). On F1 the **simple
 baseline wins** (0.639 vs 0.420). No-look-ahead: both thresholds were calibrated on the train split
 only and frozen before scoring the test split.
+
+**Honest metrics beside the legacy point-adjusted F1.** The F1 above is *point-adjusted*: one in-window
+hit credits the whole labeled segment. On the same champion predictions, the honest tick-level numbers
+are much lower, and both are recorded in the champion's `tel_model_runs.metrics` row (keys
+`f1_pointwise`, `precision_pointwise`, `recall_pointwise`, `event_recall`, `alarm_precision`):
+
+| Metric | Value |
+|---|---|
+| F1 (point-adjusted — legacy) | 0.6387 |
+| F1 (point-wise — honest) | **0.3130** |
+| Precision / Recall (point-wise) | 0.3279 / 0.2993 |
+| Event recall (80 of 104 labeled segments) | 0.7692 |
+| Alarm precision | 0.3279 |
+
+Reproduce offline from the raw arrays + labels, no Databricks and no retrain — applies the exact frozen
+rule and re-derives the point-adjusted F1 as a fidelity check (**0.645 local vs 0.639 stored**, recall
+matches to three decimals, MLflow run `4a48cb6af8714609b9581d66e904544c`):
+
+```
+python telemetry-platform/eval_honest_metrics.py --data-dir telemetry-platform/databricks/data/smap_msl
+```
+
+Result snapshot: [docs/honest_metrics_result.json](docs/honest_metrics_result.json). Full critique and
+our reporting stance: [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md). The three-track roadmap
+(range-aware metrics, conformal budget, usefulness A/B) is in
+[docs/CREDIBILITY_ROADMAP.md](docs/CREDIBILITY_ROADMAP.md); the N-CMAPSS / IMS run-to-failure expansion
+plan is in [docs/DATA_EXPANSION_PLAN.md](docs/DATA_EXPANSION_PLAN.md).
 
 ### Remaining useful life — C-MAPSS FD001 (evaluated on all 100 test units, RUL capped at 125)
 

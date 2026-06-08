@@ -83,12 +83,31 @@ When a request touches client portability or white-labeling, keep the three-laye
 3. Dominant intent in the request
 4. Supporting docs from the selected doc's `handoff_to`
 
+## Work Intake Gate
+
+Azure DevOps is the front door for all non-trivial work. Before routing any
+implementation request to `.skills/feature-dev/SKILL.md` or an owning agent,
+route it through `.skills/azure-devops-intake/SKILL.md` first — unless an
+approved Session Brief already exists for the current session. Intake
+classifies the request, finds or proposes the `Epic → Feature → User Story/Bug
+→ Task` hierarchy on the Novendor board, and produces the Session Brief that
+`feature-dev` and the owning agents consume. `feature-dev` and the owning
+agents are downstream of intake, not parallel to it.
+
+Trivial bypass — skip intake only for harmless copyedits, typos, pure
+formatting, one-line non-behavioral tweaks, or an explicit "throwaway
+experiment." The bypass never applies to instruction/governance files
+(`CLAUDE.md`, `skills/`, `.skills/`, `docs/plans/`, AI runtime behavior docs,
+deployment docs, security/compliance docs). Full standard:
+[`docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`](docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md).
+
 ## Intent Taxonomy
 
 | Intent | Primary target |
 |---|---|
+| any non-trivial coding request — feature, bug, refactor, design change, AI behavior change, data/schema change, deploy task, research spike — when no approved Session Brief exists yet | `.skills/azure-devops-intake/SKILL.md` (then handoff to `.skills/feature-dev/SKILL.md`) |
 | bootstrap, session startup, repo identity, working directory sanity check | `skills/winston-session-bootstrap/SKILL.md` |
-| implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` |
+| implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` (downstream of `azure-devops-intake`) |
 | chat workspace, response blocks, inline charts/tables, conversational transforms | `skills/winston-chat-workspace/SKILL.md` |
 | dashboard composition, intent parsing, query transparency, blank widgets, entity_ids | `skills/winston-dashboard-composition/SKILL.md` |
 | REPE write tools, mutation flow, AdvancedDrawer, live status | `skills/winston-agentic-build/SKILL.md` |
@@ -126,6 +145,7 @@ When a request touches client portability or white-labeling, keep the three-laye
 | scan Gmail for leads, scan Gmail for recruiter outreach, what inbound came in this week, surface new leads from Gmail, add this email signal to the CRM, check info@novendor.ai for inbound | `skills/novendor-crm-supabase/SKILL.md` |
 | demo idea generation, demo script, demo pipeline, demo concepts for Winston sales, what should we demo, demo for this week | `skills/winston-demo-generator/SKILL.md` |
 | pitch deck, build me a deck, presentation for [client], pitch forge, give me 3 iterations, here's an idea for a presentation, Sarat review, run pitch forge | `skills/pitch-forge-deck/SKILL.md` |
+| personalize outreach for [firm], build microsite for [firm], outreach personalizer for [firm], make a microsite for [firm], personalized BD page | `skills/outreach-personalizer/SKILL.md` |
 | create environment, new environment, provision environment, scaffold environment, set up client workspace, new REPE environment, new PDS environment, new lab environment, new consulting environment, new client portal | `skills/winston-create-environment/SKILL.md` |
 | autonomous loop setup, self-improving environment, autonomous coding schedule, set up autonomous improvement | `skills/winston-autonomous-loop/SKILL.md` |
 | triaged execution, model triage, tiered execution, complexity-routed plan, cost-aware execution, run plan with model selection, scale thinking budget, scale verification effort | `skills/triaged-execution/SKILL.md` |
@@ -365,6 +385,8 @@ This is not optional busywork — these files contain real production data (test
 - `here's an idea for a presentation, give me 3 iterations` -> `skills/pitch-forge-deck/SKILL.md`
 - `run pitch forge on [topic]` -> `skills/pitch-forge-deck/SKILL.md`
 - `Sarat review this deck` -> `skills/pitch-forge-deck/SKILL.md`
+- `personalize outreach for Artemis Real Estate Partners` -> `skills/outreach-personalizer/SKILL.md`
+- `build a microsite for [firm]` -> `skills/outreach-personalizer/SKILL.md`
 - `audit Winston so it can be forked cleanly for a new client` -> `agents/architect.md` with `PORTABILITY.MD` as reference
 - `design a client pack or tenant pack model` -> `agents/architect.md` with `PORTABILITY.MD` as reference
 - `remove hardcoded Winston branding from the shared UI` -> `.skills/feature-dev/SKILL.md` with `agents/frontend.md` and `PORTABILITY.MD` as reference
