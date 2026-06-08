@@ -78,6 +78,47 @@ def test_score_missing_run(client, fake_cursor):
     assert d["null_reason"] == "missing_run"
 
 
+def test_verdict_for_bands_frozen():
+    """Track A is surface-only: the live GO/REVIEW/NO_GO bands must never shift. Freeze them."""
+    from app.services.telemetry_serving import _verdict_for
+    assert _verdict_for(None) == "GO"
+    assert _verdict_for(0.0) == "GO"
+    assert _verdict_for(0.999) == "GO"
+    assert _verdict_for(1.0) == "REVIEW"
+    assert _verdict_for(2.0) == "REVIEW"
+    assert _verdict_for(2.0001) == "NO_GO"
+    assert _verdict_for(5.0) == "NO_GO"
+
+
+def test_monitoring_surfaces_conformal_budget(client, fake_cursor):
+    # query order in monitoring(): resolve_tenant_id, agg, champion (with metrics), psi
+    champ = {**CHAMP, "metrics": {
+        "conformal_alpha": 0.05, "conformal_measured_false_alarm_rate": 0.067307,
+        "conformal_calib_coverage": 0.932693, "conformal_threshold_quantile": 6.663272,
+        "conformal_frozen_k": 4.0}}
+    fake_cursor.push_result([{"tenant_id": TENANT}])
+    fake_cursor.push_result([{"n": 10, "rate": 0.2, "last_at": None}])
+    fake_cursor.push_result([champ])
+    fake_cursor.push_result([{"metric_value": 0.05}])
+    resp = client.get("/api/telemetry/monitoring", params={"env_id": ENV, "business_id": BIZ})
+    assert resp.status_code == 200
+    b = resp.json()["conformal_budget"]
+    assert b is not None
+    assert b["alpha"] == 0.05
+    assert b["status"] == "approaching"          # 0.0673 > 0.05 (alpha) and <= 0.075 (1.5*alpha)
+    assert b["frozen_k"] == 4.0
+
+
+def test_monitoring_no_conformal_budget_when_absent(client, fake_cursor):
+    fake_cursor.push_result([{"tenant_id": TENANT}])
+    fake_cursor.push_result([{"n": 10, "rate": 0.2, "last_at": None}])
+    fake_cursor.push_result([CHAMP])             # metrics={} -> no conformal fields
+    fake_cursor.push_result([{"metric_value": 0.05}])
+    resp = client.get("/api/telemetry/monitoring", params={"env_id": ENV, "business_id": BIZ})
+    assert resp.status_code == 200
+    assert resp.json()["conformal_budget"] is None
+
+
 def test_runs_lists(client, fake_cursor):
     fake_cursor.push_result([{"tenant_id": TENANT}])
     fake_cursor.push_result([{

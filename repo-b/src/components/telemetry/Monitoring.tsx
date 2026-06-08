@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  getMonitoring, getSummary, type MonitoringResponse, type TelemetrySummary,
+  getMonitoring, getSummary, type MonitoringResponse, type TelemetrySummary, type ConformalBudget,
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
 import { C, Tag, Panel, MetricCard, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter } from "./primitives";
@@ -54,11 +54,36 @@ export default function Monitoring() {
         </Panel>
       </div>
 
+      {mon.conformal_budget && <ConformalBudgetPanel b={mon.conformal_budget} liveRate={rate} />}
+
       <Panel style={{ marginTop: 16 }} pad={14}>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>{summary.note}</span>
       </Panel>
       <DisclosureFooter />
     </>
+  );
+}
+
+// Conformal false-alarm budget — Track A surface-only diagnostic (renders only when the champion row
+// carries the conformal fields). The live GO/NO-GO verdict bands are NOT changed by this.
+function ConformalBudgetPanel({ b, liveRate }: { b: ConformalBudget; liveRate: number | null }) {
+  const pct = (x: number | null | undefined) => (x != null ? `${(x * 100).toFixed(1)}%` : "—");
+  const color = b.status === "within" ? C.green : b.status === "approaching" ? C.amber : b.status === "over" ? C.red : C.faint;
+  return (
+    <Panel title="Conformal false-alarm budget (diagnostic)" style={{ marginTop: 16 }}
+      right={b.status ? <Tag color={color}>{b.status} budget</Tag> : undefined}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <MetricCard label="Target false-alarm budget (α)" value={pct(b.alpha)} />
+        <MetricCard label="Measured calibration FA rate" value={pct(b.measured_false_alarm_rate)} accent={color} />
+        <MetricCard label="Calibration coverage" value={pct(b.calib_coverage)} accent={C.green} />
+        <MetricCard label="Live rolling no-go rate" value={pct(liveRate)} accent={C.amber} />
+      </div>
+      <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6, display: "block", marginTop: 10 }}>
+        Measured on a blocked (contiguous) nominal-train calibration slice against the frozen detector
+        (K={b.frozen_k ?? "—"}); to hold false alarms at α you would set K≈{b.threshold_quantile ?? "—"}. This is a
+        diagnostic — the live GO/NO-GO verdict bands are unchanged.
+      </span>
+    </Panel>
   );
 }
 

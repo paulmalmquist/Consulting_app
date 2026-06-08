@@ -16,10 +16,23 @@ Frozen rule (verified in notebooks/train_anomaly.py + 06_gold.py):
   pred           = resid_test > 4.0 * scale            (BASELINE_K = 4.0)
   is_anomaly     = 1 if t in any inclusive [start,end] of the channel's labeled anomaly_sequences (test)
 
-Honest metrics (transparent, no risky deps; VUS-PR/ROC + formal affiliation are deferred to Track A):
+Honest metrics (transparent):
   point-wise precision/recall/F1  (NO point adjustment — the defensible floor)
   event_recall                    (fraction of labeled anomaly segments with >=1 in-window alarm)
   alarm_precision                 (fraction of alarm ticks that fall inside a labeled window)
+
+Track A additions (all on the SAME frozen-champion predictions — still no retrain):
+  affiliation precision/recall/F1 — CAPPED temporal proximity, normalized to [0,1] by a FIXED tick
+    budget D (AFFIL_CAP_D, NOT the window length), so long labeled windows cannot inflate the score.
+    prox = max(0, 1 - dist/D); precision = mean prox over predicted positives (to nearest event);
+    recall = mean prox over events (to nearest predicted positive). Distances are within-channel.
+  conformal false-alarm DIAGNOSTIC — on a blocked/contiguous (NOT i.i.d.-shuffled) calibration slice of
+    the nominal TRAIN residuals: at the frozen K, the measured false-alarm rate / coverage, plus the K
+    that would bound false alarms at the declared alpha. This is a diagnostic, NOT a distribution-free
+    guarantee (residuals are autocorrelated time-series; we use a blocked split but make no coverage
+    guarantee claim).
+  VUS-PR / VUS-ROC — computed ONLY if a vetted library (`vus` / `tsb-uad`) imports + runs cleanly;
+    otherwise null with vus_status="pending: <reason>". No homegrown VUS.
 
 Usage:  python telemetry-platform/eval_honest_metrics.py --data-dir <path-to>/databricks/data/smap_msl
 """
@@ -33,6 +46,9 @@ from pathlib import Path
 import numpy as np
 
 BASELINE_K = 4.0
+AFFIL_CAP_D = 50      # fixed tick budget for affiliation proximity (NOT window length) — un-gameable cap
+CONFORMAL_ALPHA = 0.05
+CALIB_TAIL_FRAC = 0.20  # blocked/contiguous calibration slice = last 20% of each channel's train residuals
 
 
 def trailing_rmean(values: np.ndarray, window: int = 50) -> np.ndarray:
@@ -89,6 +105,97 @@ def _prf(tp: int, fp: int, fn: int) -> dict:
             "tp": tp, "fp": fp, "fn": fn}
 
 
+def _pt_to_intervals_dist(idx: np.ndarray, intervals: list[tuple[int, int]]) -> np.ndarray:
+    """Min tick-distance from each position in `idx` to any inclusive [a,b] interval (0 if inside)."""
+    if idx.size == 0:
+        return np.empty(0, dtype=np.float64)
+    if not intervals:
+        return np.full(idx.shape, np.inf)
+    d = np.full(idx.shape, np.inf)
+    for a, b in intervals:
+        dd = np.where(idx < a, a - idx, np.where(idx > b, idx - b, 0)).astype(np.float64)
+        d = np.minimum(d, dd)
+    return d
+
+
+def affiliation_metrics(per_chan: list[dict], cap_d: int = AFFIL_CAP_D) -> dict:
+    """Capped-proximity affiliation P/R/F1. Distances are WITHIN-channel; proximity = max(0, 1-dist/D),
+    so a labeled window's length cannot inflate the score (each event contributes exactly one recall
+    term; each predicted positive exactly one precision term)."""
+    prec_prox_sum = 0.0
+    prec_count = 0
+    rec_prox_sum = 0.0
+    rec_count = 0
+    for ch in per_chan:
+        events = ch["events"]            # list[(a,b)] inclusive, clipped to channel length
+        pred_idx = ch["pred_idx"]        # np.ndarray of predicted-positive positions
+        # precision: each predicted positive -> nearest event
+        if pred_idx.size:
+            d = _pt_to_intervals_dist(pred_idx, events)        # inf where channel has no events
+            prox = np.clip(1.0 - d / cap_d, 0.0, 1.0)
+            prox[~np.isfinite(d)] = 0.0
+            prec_prox_sum += float(prox.sum())
+            prec_count += int(pred_idx.size)
+        # recall: each event -> nearest predicted positive
+        for (a, b) in events:
+            if pred_idx.size:
+                dist = float(_pt_to_intervals_dist(pred_idx, [(a, b)]).min())
+                prox = max(0.0, 1.0 - dist / cap_d) if np.isfinite(dist) else 0.0
+            else:
+                prox = 0.0
+            rec_prox_sum += prox
+            rec_count += 1
+    p = prec_prox_sum / prec_count if prec_count else 0.0
+    r = rec_prox_sum / rec_count if rec_count else 0.0
+    f1 = 2 * p * r / (p + r) if (p + r) else 0.0
+    return {"affiliation_precision": round(p, 6), "affiliation_recall": round(r, 6),
+            "affiliation_f1": round(f1, 6), "cap_d_ticks": cap_d,
+            "predicted_positives": prec_count, "events": rec_count}
+
+
+def conformal_diagnostic(calib_norm_scores: np.ndarray, frozen_k: float = BASELINE_K,
+                         alpha: float = CONFORMAL_ALPHA) -> dict:
+    """DIAGNOSTIC (not a guarantee): on a blocked nominal-train calibration slice of normalized scores
+    (resid/scale, i.e. the same quantity the rule thresholds at K), report the measured false-alarm rate
+    & coverage at the frozen K, and the K that would bound false alarms at `alpha`."""
+    n = int(calib_norm_scores.size)
+    if n == 0:
+        return {"conformal_alpha": alpha, "conformal_threshold_quantile": None,
+                "conformal_calib_coverage": None, "conformal_measured_false_alarm_rate": None,
+                "conformal_frozen_k": frozen_k, "calib_block_n": 0}
+    far = float(np.mean(calib_norm_scores > frozen_k))   # nominal calib => exceedances are false alarms
+    k_for_alpha = float(np.quantile(calib_norm_scores, 1.0 - alpha))
+    return {
+        "conformal_alpha": alpha,
+        "conformal_threshold_quantile": round(k_for_alpha, 6),   # the K that bounds FA at alpha
+        "conformal_calib_coverage": round(1.0 - far, 6),
+        "conformal_measured_false_alarm_rate": round(far, 6),
+        "conformal_frozen_k": frozen_k,
+        "calib_block_n": n,
+        "method": "blocked (contiguous per-channel train tail), not i.i.d. shuffle; diagnostic only",
+    }
+
+
+def try_vus(score: np.ndarray, label: np.ndarray) -> dict:
+    """Compute VUS-PR/VUS-ROC ONLY via a vetted library if it imports + runs cleanly; else pending."""
+    try:
+        from vus.metrics import get_range_vus_roc  # type: ignore
+    except Exception as e:  # not installed / import error
+        return {"vus_pr": None, "vus_roc": None, "vus_status": f"pending: import failed ({type(e).__name__}: {e})"}
+    try:
+        res = get_range_vus_roc(score.astype(float), label.astype(int), AFFIL_CAP_D)
+        if isinstance(res, dict):
+            vroc = res.get("VUS_ROC") or res.get("R_AUC_ROC")
+            vpr = res.get("VUS_PR") or res.get("R_AUC_PR")
+        else:
+            vroc, vpr = (res[0], res[1]) if len(res) >= 2 else (None, None)
+        return {"vus_pr": (round(float(vpr), 6) if vpr is not None else None),
+                "vus_roc": (round(float(vroc), 6) if vroc is not None else None),
+                "vus_status": "computed via vus package"}
+    except Exception as e:
+        return {"vus_pr": None, "vus_roc": None, "vus_status": f"pending: run failed ({type(e).__name__}: {e})"}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", required=True, help="path to .../databricks/data/smap_msl")
@@ -97,20 +204,24 @@ def main() -> int:
     root = Path(args.data_dir)
     seqs = load_sequences(root / "labeled_anomalies.csv")
 
-    # TRAIN residual scale (per channel + global), no labels needed.
-    train_resids: list[np.ndarray] = []
+    # TRAIN residual scale (per channel + global), no labels needed. Keep per-channel residuals for the
+    # blocked conformal calibration split.
+    train_resid_by_chan: dict[str, np.ndarray] = {}
     scale: dict[str, float] = {}
     for npy in sorted((root / "arrays" / "train").glob("*.npy")):
         v = channel_values(npy)
         r = np.abs(v - trailing_rmean(v))
-        train_resids.append(r)
+        train_resid_by_chan[npy.stem] = r
         scale[npy.stem] = float(np.median(r))
-    global_scale = float(np.median(np.concatenate(train_resids))) or 1.0
+    global_scale = float(np.median(np.concatenate(list(train_resid_by_chan.values())))) or 1.0
     scale = {c: (s if s and s > 0 else global_scale) for c, s in scale.items()}
 
-    # TEST: reproduce champion predictions + labels, concatenated in chan order.
+    # TEST: reproduce champion predictions + labels, concatenated in chan order. Retain per-channel
+    # structures (events, predicted-positive positions, normalized scores) for affiliation + VUS.
     y_all: list[np.ndarray] = []
     p_all: list[np.ndarray] = []
+    score_all: list[np.ndarray] = []
+    per_chan: list[dict] = []
     offsets: list[tuple[int, int]] = []
     seg_total = seg_hit = 0
     cursor = 0
@@ -119,21 +230,30 @@ def main() -> int:
         v = channel_values(npy)
         r = np.abs(v - trailing_rmean(v))
         s = scale.get(chan, global_scale)
-        pred = (r > BASELINE_K * s).astype(int)
+        norm = r / s                              # normalized score (for affiliation/conformal/VUS only)
+        pred = (r > BASELINE_K * s).astype(int)   # EXACT Stage-0 formula — preserve champion parity
         y = np.zeros(len(v), dtype=int)
+        events: list[tuple[int, int]] = []
         for seq in seqs.get(chan, []):
             a, b = int(seq[0]), int(seq[1])
-            y[a:b + 1] = 1                     # inclusive, matches BETWEEN start AND end
+            b = min(b, len(v) - 1)
+            if a > b:
+                continue
+            y[a:b + 1] = 1                        # inclusive, matches BETWEEN start AND end
+            events.append((a, b))
             seg_total += 1
             if pred[a:b + 1].any():
                 seg_hit += 1
         y_all.append(y)
         p_all.append(pred)
+        score_all.append(norm)
+        per_chan.append({"events": events, "pred_idx": np.flatnonzero(pred)})
         offsets.append((cursor, cursor + len(v)))
         cursor += len(v)
 
     y = np.concatenate(y_all)
     p = np.concatenate(p_all)
+    score = np.concatenate(score_all)
 
     pa = point_adjust(y, p, offsets)                         # legacy reproduction (fidelity check)
     tp = int(((p == 1) & (y == 1)).sum())
@@ -144,6 +264,49 @@ def main() -> int:
     alarms = int((p == 1).sum())
     alarm_precision = round(int(((p == 1) & (y == 1)).sum()) / alarms, 6) if alarms else 0.0
 
+    affil = affiliation_metrics(per_chan)
+
+    # Blocked conformal calibration: last CALIB_TAIL_FRAC (contiguous) of each channel's nominal TRAIN
+    # normalized residuals (resid/scale). Time order preserved within channel; no i.i.d. shuffle.
+    calib_blocks: list[np.ndarray] = []
+    for chan, r in train_resid_by_chan.items():
+        s = scale.get(chan, global_scale)
+        nrm = r / s
+        k = int(len(nrm) * CALIB_TAIL_FRAC)
+        if k:
+            calib_blocks.append(nrm[-k:])
+    calib_norm = np.concatenate(calib_blocks) if calib_blocks else np.empty(0)
+    conformal = conformal_diagnostic(calib_norm)
+
+    vus = try_vus(score, y)
+
+    honest = {
+        "f1_pointwise": pw["f1"],
+        "precision_pointwise": pw["precision"],
+        "recall_pointwise": pw["recall"],
+        "event_recall": event_recall,
+        "alarm_precision": alarm_precision,
+        "labeled_segments": seg_total,
+    }
+
+    # Declared gate — thresholds fixed BEFORE this recompute (see plan / docs). Fail-closed.
+    gate_thresholds = {
+        "f1_pointwise": 0.10, "event_recall": 0.50,
+        "alarm_precision": 0.20, "affiliation_f1": 0.25,
+    }
+    gate_values = {
+        "f1_pointwise": honest["f1_pointwise"], "event_recall": honest["event_recall"],
+        "alarm_precision": honest["alarm_precision"], "affiliation_f1": affil["affiliation_f1"],
+    }
+    gate_checks = {k: bool(gate_values[k] >= thr) for k, thr in gate_thresholds.items()}
+    honest_gate = {
+        "thresholds": gate_thresholds,
+        "values": gate_values,
+        "checks": gate_checks,
+        "passed": all(gate_checks.values()),
+        "declared_before_recompute": True,
+    }
+
     summary = {
         "frozen_rule": "rolling-MAD, K=4.0, per-channel TRAIN-residual scale (global fallback)",
         "test_channels": len(offsets),
@@ -151,17 +314,15 @@ def main() -> int:
         "test_anomaly_rate": round(float(y.mean()), 6),
         "f1_point_adjusted_reproduced": pa["f1"],   # fidelity check vs stored champion f1 (~0.6387)
         "point_adjusted_detail": pa,
-        "honest": {
-            "f1_pointwise": pw["f1"],
-            "precision_pointwise": pw["precision"],
-            "recall_pointwise": pw["recall"],
-            "event_recall": event_recall,
-            "alarm_precision": alarm_precision,
-            "labeled_segments": seg_total,
-        },
+        "honest": honest,
+        "affiliation": affil,
+        "conformal": conformal,
+        "vus": vus,
+        "honest_gate": honest_gate,
         "note": "Point-adjusted F1 inflates by crediting a whole labeled segment for one in-window hit. "
-                "Point-wise/event metrics are the honest floor. VUS-PR/VUS-ROC + formal affiliation "
-                "metrics are deferred to Track A.",
+                "Point-wise/event/affiliation metrics are the honest floor. Affiliation uses a fixed cap "
+                "D so long windows can't inflate it. Conformal is a blocked-calibration DIAGNOSTIC, not a "
+                "distribution-free guarantee. VUS only if a vetted library runs cleanly.",
     }
     print(json.dumps(summary, indent=2))
     if args.out:

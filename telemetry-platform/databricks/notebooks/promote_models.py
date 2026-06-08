@@ -15,9 +15,17 @@ CATALOG, SCHEMA = "novendor_1", "telemetry"
 client = MlflowClient()
 mlflow.set_registry_uri("databricks-uc")   # Unity Catalog model registry
 
-# Declared gates (must match architecture.md).
-F1_GATE = 0.30
+# Declared gates (must match train_anomaly.py).
+# Track A: the anomaly promotion gate is now the honest/affiliation gate (range-aware + honest floor),
+# fail-closed. Legacy point-adjusted F1 is kept for REFERENCE only (it inflates).
+F1_GATE = 0.30  # reference only — NOT the gate
+HONEST_GATE = {"f1_pointwise": 0.10, "event_recall": 0.50, "alarm_precision": 0.20, "affiliation_f1": 0.25}
 RMSE_GATE = 25.0
+
+
+def passes_honest_gate(m: dict) -> bool:
+    """Fail-closed: every declared honest threshold must be met (missing metric -> 0 -> fail)."""
+    return all(float(m.get(k, 0.0)) >= thr for k, thr in HONEST_GATE.items())
 
 # COMMAND ----------
 def latest_run(run_name: str):
@@ -35,14 +43,20 @@ run_ids = {n: r.info.run_id for n, r in runs.items()}
 print(json.dumps(metrics, indent=2))
 
 # COMMAND ----------
-# ---- Gate: anomaly. Promote the higher-F1 model IF it clears the F1 gate. ----
-anom_candidates = {
-    "anomaly_baseline_mad": metrics["anomaly_baseline_mad"]["f1"],
-    "anomaly_pca_recon": metrics["anomaly_pca_recon"]["f1"],
-}
-anom_winner = max(anom_candidates, key=anom_candidates.get)
-anom_f1 = anom_candidates[anom_winner]
-anom_decision = "promoted" if anom_f1 >= F1_GATE else "model_not_promoted"
+# ---- Gate: anomaly (Track A). Fail-closed honest/affiliation gate; among models that CLEAR it, promote
+# the one with the highest affiliation_f1 (range-aware). Legacy F1 is reported for reference only. ----
+anom_names = ["anomaly_baseline_mad", "anomaly_pca_recon"]
+anom_pass = {n: passes_honest_gate(metrics[n]) for n in anom_names}
+anom_eligible = [n for n in anom_names if anom_pass[n]]
+if anom_eligible:
+    anom_winner = max(anom_eligible, key=lambda n: float(metrics[n].get("affiliation_f1", 0.0)))
+    anom_decision = "promoted"
+else:
+    # nothing clears the gate -> fail-closed; still name the best-affiliation model for the record.
+    anom_winner = max(anom_names, key=lambda n: float(metrics[n].get("affiliation_f1", 0.0)))
+    anom_decision = "model_not_promoted"
+anom_aff_f1 = float(metrics[anom_winner].get("affiliation_f1", 0.0))
+anom_f1 = float(metrics[anom_winner].get("f1", 0.0))  # legacy point-adjusted — reference only
 
 # ---- Gate: RUL. Promote the lower-RMSE model IF it clears the RMSE gate. ----
 rul_candidates = {
@@ -53,7 +67,8 @@ rul_winner = min(rul_candidates, key=rul_candidates.get)
 rul_rmse = rul_candidates[rul_winner]
 rul_decision = "promoted" if rul_rmse <= RMSE_GATE else "model_not_promoted"
 
-print(f"anomaly winner={anom_winner} f1={anom_f1:.4f} gate>={F1_GATE} -> {anom_decision}")
+print(f"anomaly winner={anom_winner} affiliation_f1={anom_aff_f1:.4f} (legacy f1={anom_f1:.4f} ref-only) "
+      f"honest_gate={HONEST_GATE} -> {anom_decision}")
 print(f"rul winner={rul_winner} rmse={rul_rmse:.4f} gate<={RMSE_GATE} -> {rul_decision}")
 
 # COMMAND ----------
@@ -76,7 +91,8 @@ if anom_decision == "promoted":
     try:
         registry_status["anomaly"] = register(
             "tel_anomaly_detector", run_ids[anom_winner],
-            {"f1": anom_f1, "selected_over": "pca" if anom_winner.endswith("mad") else "baseline"})
+            {"affiliation_f1": anom_aff_f1, "f1_point_adjusted_reference": anom_f1,
+             "gate": "honest", "selected_over": "pca" if anom_winner.endswith("mad") else "baseline"})
     except Exception as e:
         registry_status["anomaly"] = {"error": str(e)[:200], "note": "metrics logged; registry write failed"}
 else:
@@ -96,10 +112,12 @@ else:
 result = {
     "run_ids": run_ids,
     "metrics": metrics,
-    "gates": {"f1_gate": F1_GATE, "rmse_gate": RMSE_GATE},
-    "anomaly": {"winner": anom_winner, "f1": anom_f1, "decision": anom_decision,
-                "baseline_f1": metrics["anomaly_baseline_mad"]["f1"],
-                "pca_f1": metrics["anomaly_pca_recon"]["f1"]},
+    "gates": {"honest_gate": HONEST_GATE, "rmse_gate": RMSE_GATE, "f1_gate_reference_only": F1_GATE},
+    "anomaly": {"winner": anom_winner, "decision": anom_decision,
+                "affiliation_f1": anom_aff_f1, "f1_point_adjusted_reference": anom_f1,
+                "honest_gate_pass": anom_pass,
+                "baseline_affiliation_f1": float(metrics["anomaly_baseline_mad"].get("affiliation_f1", 0.0)),
+                "pca_affiliation_f1": float(metrics["anomaly_pca_recon"].get("affiliation_f1", 0.0))},
     "rul": {"winner": rul_winner, "rmse": rul_rmse, "decision": rul_decision,
             "linear_rmse": metrics["rul_linear_baseline"]["rmse"],
             "gbm_rmse": metrics["rul_gbm"]["rmse"],

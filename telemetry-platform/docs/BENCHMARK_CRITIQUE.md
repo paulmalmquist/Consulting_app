@@ -83,11 +83,21 @@ so N-CMAPSS (turbofan) and IMS (bearing run-to-failure) are honest proxies for t
 - Keep SMAP/MSL, labeled as a **legacy anomaly baseline**, not the headline.
 - Report point-adjusted F1 only with the adjustment **named**, and always next to honest point-wise and
   event metrics computed from the same predictions.
-- The honest metric becomes the **promotion gate** in Track A (see
-  [CREDIBILITY_ROADMAP.md](CREDIBILITY_ROADMAP.md)), declared before any recompute, fail-closed.
-- Add range-aware metrics (VUS-PR, VUS-ROC, formal affiliation / PATE) in Track A, where a vetted
-  implementation can be checked rather than hand-rolled under time pressure. They are deferred from
-  Stage 0 on purpose: a wrong range-aware number is worse than an honest simple one.
+- The honest metric is now the **declared promotion gate** (Track A, done — see
+  [CREDIBILITY_ROADMAP.md](CREDIBILITY_ROADMAP.md)): `f1_pointwise ≥ 0.10`, `event_recall ≥ 0.50`,
+  `alarm_precision ≥ 0.20`, `affiliation_f1 ≥ 0.25`, declared before recompute, fail-closed. The frozen
+  champion clears all four (affiliation F1 = 0.475); `promote_models.py` gates future promotions on it,
+  legacy point-adjusted F1 kept for reference only.
+- **Affiliation** is implemented as a *capped* temporal proximity — `prox = max(0, 1 − dist/D)` with a
+  fixed tick budget `D = 50` (not the labeled-window length), so a long window cannot inflate the score.
+  Each event contributes one recall term and each alarm one precision term.
+- **Conformal false-alarm budget** is reported as a blocked-calibration **diagnostic** (at the frozen
+  K=4.0 the measured false-alarm rate is 6.7% vs a declared α=5% target), surfaced on Monitoring. It does
+  not change the live verdict bands and makes no distribution-free coverage guarantee (residuals are
+  autocorrelated; we use a blocked split but claim only a measured diagnostic).
+- **VUS-PR / VUS-ROC** stay pending until a vetted library runs cleanly in the eval env (the `vus`
+  package currently fails to build); we record `vus_status` rather than hand-roll VUS. A wrong range-aware
+  number is worse than an honest simple one.
 - Move the serious prognostics claim to N-CMAPSS and IMS (Track B).
 
 ## Caveats that stay visible everywhere

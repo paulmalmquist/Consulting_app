@@ -764,6 +764,35 @@ our reporting stance: [docs/BENCHMARK_CRITIQUE.md](docs/BENCHMARK_CRITIQUE.md). 
 [docs/CREDIBILITY_ROADMAP.md](docs/CREDIBILITY_ROADMAP.md); the N-CMAPSS / IMS run-to-failure expansion
 plan is in [docs/DATA_EXPANSION_PLAN.md](docs/DATA_EXPANSION_PLAN.md).
 
+**Track A — the honest metric is now the declared promotion gate (champion frozen).** Computed from the
+same frozen-champion predictions (no retrain, no alias move) and merged into the champion's
+`tel_model_runs.metrics` row (id `27db381a-…`) beside the legacy + point-wise numbers:
+
+| Metric | Value | Gate | Pass |
+|---|---|---|---|
+| F1 (point-adjusted — legacy) | 0.6387 | — (reference only) | — |
+| F1 (point-wise — honest) | 0.3130 | ≥ 0.10 | ✅ |
+| event recall | 0.7692 | ≥ 0.50 | ✅ |
+| alarm precision | 0.3279 | ≥ 0.20 | ✅ |
+| **affiliation F1** (capped proximity, D=50) | **0.4746** | ≥ 0.25 | ✅ |
+
+Affiliation precision/recall = 0.3432 / 0.7692. The gate thresholds were declared **before** recompute
+(fail-closed); the frozen champion clears all four. `promote_models.py` now gates future anomaly
+promotions on this honest gate (legacy point-adjusted F1 kept for reference only).
+
+**Conformal false-alarm budget — diagnostic (surface-only; live verdict bands unchanged).** On a blocked
+(contiguous) nominal-train calibration slice (n=39,238), at the frozen detector (K=4.0) the measured
+false-alarm rate is **6.73%** (coverage 93.27%); to hold false alarms at the declared α=0.05 you would
+set K≈6.66. Stored on the champion row and surfaced on the Monitoring tab (status **approaching budget**).
+This is a diagnostic on autocorrelated time-series residuals — **not** a distribution-free guarantee, and
+it does **not** change `_verdict_for` or the live `/score` path.
+
+**VUS-PR / VUS-ROC:** still pending — the vetted `vus` package failed to build in the eval env, so the
+eval records `vus_status="pending: import failed (…)"` rather than a hand-rolled (unreliable) VUS. No
+homegrown VUS. Reproduce all of the above offline:
+`python telemetry-platform/eval_honest_metrics.py --data-dir telemetry-platform/databricks/data/smap_msl`
+(the point-adjusted F1 fidelity check holds at 0.6453 local vs 0.6387 stored).
+
 ### Remaining useful life — C-MAPSS FD001 (evaluated on all 100 test units, RUL capped at 125)
 
 | Model | Run ID | RMSE | PHM score |
