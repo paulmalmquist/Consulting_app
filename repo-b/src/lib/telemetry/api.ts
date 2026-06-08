@@ -47,6 +47,15 @@ export interface ModelRun {
   promotion_state: string;
 }
 
+export interface ConformalBudget {
+  alpha: number | null;
+  measured_false_alarm_rate: number | null;
+  calib_coverage: number | null;
+  threshold_quantile: number | null;
+  frozen_k: number | null;
+  status: string | null;   // within | approaching | over (diagnostic only)
+}
+
 export interface MonitoringResponse {
   rolling_anomaly_rate: number | null;
   prediction_count: number;
@@ -56,6 +65,7 @@ export interface MonitoringResponse {
   last_scored_at: string | null;
   psi: number | null;
   window_label: string;
+  conformal_budget?: ConformalBudget | null;
   null_reason: string | null;
 }
 

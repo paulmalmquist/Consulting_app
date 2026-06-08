@@ -87,6 +87,16 @@ class RunDetailOut(BaseModel):
 
 # ── /monitoring ──────────────────────────────────────────────────────────────
 
+class ConformalBudget(BaseModel):
+    """Track A surface-only conformal false-alarm DIAGNOSTIC (not a distribution-free guarantee)."""
+    alpha: float | None = None
+    measured_false_alarm_rate: float | None = None
+    calib_coverage: float | None = None
+    threshold_quantile: float | None = None
+    frozen_k: float | None = None
+    status: str | None = None                 # within | approaching | over
+
+
 class MonitoringResponse(BaseModel):
     rolling_anomaly_rate: float | None = None
     prediction_count: int = 0
@@ -96,4 +106,5 @@ class MonitoringResponse(BaseModel):
     last_scored_at: datetime | None = None
     psi: float | None = None
     window_label: str = "recent"
+    conformal_budget: ConformalBudget | None = None
     null_reason: str | None = None            # e.g. no_prediction_rows

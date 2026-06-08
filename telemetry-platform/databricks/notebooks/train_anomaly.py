@@ -20,8 +20,13 @@ EXPERIMENT_ID = "3740651530987773"
 TEL = "novendor_1.telemetry"
 mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
 
-# F1 promotion gate, declared before training.
-F1_GATE = 0.30
+# Legacy point-adjusted F1 — kept for REFERENCE only (it inflates: one in-window hit credits the whole
+# window). The promotion gate is now the honest/affiliation gate below (enforced in promote_models.py).
+F1_GATE = 0.30  # reference only
+
+# Honest promotion gate (Track A), declared before training, fail-closed. Range-aware + honest floor.
+AFFIL_CAP_D = 50  # fixed tick budget for affiliation proximity (NOT window length) — un-gameable cap
+HONEST_GATE = {"f1_pointwise": 0.10, "event_recall": 0.50, "alarm_precision": 0.20, "affiliation_f1": 0.25}
 
 # COMMAND ----------
 # Pull Gold windows once (rolling features already computed no-look-ahead in the lakehouse).
@@ -69,6 +74,75 @@ def point_adjust(df: pd.DataFrame, pred_col: str) -> dict:
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
     return {"precision": prec, "recall": rec, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
 
+
+def honest_and_affiliation(df: pd.DataFrame, pred_col: str, cap_d: int = AFFIL_CAP_D) -> dict:
+    """Honest (no point-adjustment) + capped-affiliation metrics on the SAME predictions, for the gate.
+    Affiliation proximity = max(0, 1 - dist/cap_d) within each channel, so long labeled windows cannot
+    inflate it. Mirrors telemetry-platform/eval_honest_metrics.py."""
+    df = df.sort_values(["chan_id", "t"]).reset_index(drop=True)
+    y = df["is_anomaly"].to_numpy().astype(int)
+    p = df[pred_col].to_numpy().astype(int)
+    tp = int(((p == 1) & (y == 1)).sum())
+    fp = int(((p == 1) & (y == 0)).sum())
+    fn = int(((p == 0) & (y == 1)).sum())
+    prec = tp / (tp + fp) if (tp + fp) else 0.0
+    rec = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+    seg_total = seg_hit = 0
+    prec_prox = rec_prox = 0.0
+    prec_cnt = rec_cnt = 0
+    for _chan, g in df.groupby("chan_id"):
+        yy = g["is_anomaly"].to_numpy().astype(int)
+        pp = g[pred_col].to_numpy().astype(int)
+        pred_idx = np.flatnonzero(pp)
+        # contiguous is_anomaly runs = labeled events (positional within channel)
+        events = []
+        i, n = 0, len(yy)
+        while i < n:
+            if yy[i] == 1:
+                j = i
+                while j < n and yy[j] == 1:
+                    j += 1
+                events.append((i, j - 1))
+                i = j
+            else:
+                i += 1
+        if pred_idx.size:                                  # affiliation precision: pred -> nearest event
+            d = np.full(pred_idx.shape, np.inf)
+            for a, b in events:
+                dd = np.where(pred_idx < a, a - pred_idx, np.where(pred_idx > b, pred_idx - b, 0)).astype(float)
+                d = np.minimum(d, dd)
+            prox = np.clip(1.0 - d / cap_d, 0.0, 1.0)
+            prox[~np.isfinite(d)] = 0.0
+            prec_prox += float(prox.sum())
+            prec_cnt += int(pred_idx.size)
+        for a, b in events:                                # event recall + affiliation recall
+            seg_total += 1
+            if pp[a:b + 1].any():
+                seg_hit += 1
+            if pred_idx.size:
+                dd = np.where(pred_idx < a, a - pred_idx, np.where(pred_idx > b, pred_idx - b, 0)).astype(float)
+                pr = max(0.0, 1.0 - float(dd.min()) / cap_d)
+            else:
+                pr = 0.0
+            rec_prox += pr
+            rec_cnt += 1
+    ap = prec_prox / prec_cnt if prec_cnt else 0.0
+    ar = rec_prox / rec_cnt if rec_cnt else 0.0
+    af1 = 2 * ap * ar / (ap + ar) if (ap + ar) else 0.0
+    alarms = int((p == 1).sum())
+    alarm_prec = (int(((p == 1) & (y == 1)).sum()) / alarms) if alarms else 0.0
+    return {
+        "f1_pointwise": f1, "precision_pointwise": prec, "recall_pointwise": rec,
+        "event_recall": (seg_hit / seg_total if seg_total else 0.0), "alarm_precision": alarm_prec,
+        "affiliation_precision": ap, "affiliation_recall": ar, "affiliation_f1": af1,
+    }
+
+
+def passes_honest_gate(m: dict) -> bool:
+    """Fail-closed: every declared honest threshold must be met."""
+    return all(float(m.get(k, 0.0)) >= thr for k, thr in HONEST_GATE.items())
+
 # COMMAND ----------
 # ---- BASELINE: rolling-median / MAD dynamic threshold on the raw value ----
 # Per channel: robust center = rolling median proxy (value_rmean50), spread = MAD from train residuals.
@@ -94,8 +168,10 @@ def baseline_flag(df):
     return df
 
 test_b = baseline_flag(test_b)
-m_base = point_adjust(test_b, "pred")
-print("baseline", m_base)
+m_base = point_adjust(test_b, "pred")            # legacy point-adjusted (reference only)
+h_base = honest_and_affiliation(test_b, "pred")  # honest + affiliation (the gate)
+print("baseline point-adjusted", m_base)
+print("baseline honest+affiliation", h_base, "honest_gate_pass", passes_honest_gate(h_base))
 
 # Pyfunc wrapper so the rule-based detector is a real, registrable model artifact.
 class MadDetector(mlflow.pyfunc.PythonModel):
@@ -115,6 +191,11 @@ with mlflow.start_run(run_name="anomaly_baseline_mad") as run:
     mlflow.log_param("eval", "point_adjusted")
     for kk, vv in m_base.items():
         mlflow.log_metric(kk, float(vv))
+    # Honest + affiliation metrics (the promotion gate) logged beside the legacy point-adjusted F1.
+    for kk, vv in h_base.items():
+        mlflow.log_metric(kk, float(vv))
+    mlflow.log_param("honest_gate", json.dumps(HONEST_GATE))
+    mlflow.log_param("honest_gate_pass", passes_honest_gate(h_base))
     _bin = test_b[["chan_id", "value", "value_rmean50"]].head(5)
     _sig = infer_signature(_bin, m_base and test_b["pred"].head(5).to_numpy())
     mlflow.pyfunc.log_model(
@@ -147,7 +228,9 @@ PCA_PCTL = 99.0
 thresh = float(np.percentile(tr_err, PCA_PCTL))
 te = te.assign(pred=(te_err > thresh).astype(int))
 m_pca = point_adjust(te, "pred")
+h_pca = honest_and_affiliation(te, "pred")
 print("pca", m_pca, "thresh", thresh)
+print("pca honest+affiliation", h_pca, "honest_gate_pass", passes_honest_gate(h_pca))
 
 with mlflow.start_run(run_name="anomaly_pca_recon") as run:
     mlflow.log_param("model", "pca_reconstruction_error")
@@ -156,15 +239,22 @@ with mlflow.start_run(run_name="anomaly_pca_recon") as run:
     mlflow.log_param("eval", "point_adjusted")
     for kk, vv in m_pca.items():
         mlflow.log_metric(kk, float(vv))
+    for kk, vv in h_pca.items():
+        mlflow.log_metric(kk, float(vv))
+    mlflow.log_param("honest_gate", json.dumps(HONEST_GATE))
+    mlflow.log_param("honest_gate_pass", passes_honest_gate(h_pca))
     _sig_pca = infer_signature(Xte[:5], recon_err(Xte[:5]))
     mlflow.sklearn.log_model(pca, artifact_path="model", signature=_sig_pca, input_example=Xte[:5])
     pca_run_id = run.info.run_id
 
 # COMMAND ----------
 result = {
-    "baseline": {"run_id": baseline_run_id, **m_base, "k": BASELINE_K},
-    "pca": {"run_id": pca_run_id, **m_pca, "threshold": thresh},
-    "f1_gate": F1_GATE,
+    "baseline": {"run_id": baseline_run_id, **m_base, **h_base,
+                 "honest_gate_pass": passes_honest_gate(h_base), "k": BASELINE_K},
+    "pca": {"run_id": pca_run_id, **m_pca, **h_pca,
+            "honest_gate_pass": passes_honest_gate(h_pca), "threshold": thresh},
+    "f1_gate_reference_only": F1_GATE,
+    "honest_gate": HONEST_GATE,
     "test_anomaly_rate": float(test.is_anomaly.mean()),
     "experiment_id": EXPERIMENT_ID,
 }

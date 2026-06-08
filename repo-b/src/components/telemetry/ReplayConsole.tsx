@@ -111,6 +111,11 @@ export default function ReplayConsole() {
               </button>
             )}
           </div>
+          <p style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, textAlign: "center",
+            lineHeight: 1.5, margin: "-2px 4px 0" }}>
+            GO/NO-GO bands are fixed (frozen detector). A conformal false-alarm budget diagnostic
+            (target α vs measured calibration rate) is on the Monitoring tab.
+          </p>
           <Panel title="Sensor attribution" pad={14}>
             {firedSoFar ? (
               <>

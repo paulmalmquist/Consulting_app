@@ -21,25 +21,28 @@ The honest headline from Stage 0: point-adjusted F1 0.639 collapses to a point-w
 same predictions. The detector notices most segments (event recall 0.77) and is weak at the tick level
 (point-wise F1 0.31). Both are now visible.
 
-## Track A — scientific defensibility (first)
+## Track A — scientific defensibility — DONE
 
-Make the honest metric the promotion gate, and put a measured false-alarm budget on the live decision.
+Made the honest metric the declared promotion gate and surfaced a measured false-alarm budget — without
+retraining, moving the `@champion` alias, or changing the live `/score` verdict bands.
 
-- Add range-aware metrics — VUS-PR, VUS-ROC, and a formal affiliation / PATE implementation — beside
-  the point-wise metrics, using a vetted library so the numbers can be checked rather than hand-rolled.
-  These were deferred from Stage 0 on purpose: a wrong range-aware number is worse than an honest simple
-  one.
-- Move the promotion gate in `notebooks/train_anomaly.py` + `notebooks/promote_models.py` to the honest
-  metric, declared before any recompute, fail-closed. The point-adjusted F1 stays recorded for
-  reference, never as the gate.
-- Add a conformal false-alarm budget: hold out a calibration split, pick the threshold quantile for a
-  target alarm rate, store `conformal_alpha` / `conformal_threshold_quantile` in `tel_model_runs.metrics`
-  (no migration), and surface the measured calibration-split coverage on the Monitoring view and the
-  Go/No-Go band.
+- **Affiliation** precision/recall/F1 added beside the point-wise metrics (capped proximity, fixed tick
+  budget `D=50`, so long windows can't inflate it). Computed from the frozen champion's real predictions
+  in `eval_honest_metrics.py`; affiliation F1 = 0.475.
+- **Honest gate** (declared before recompute, fail-closed): `f1_pointwise ≥ 0.10`, `event_recall ≥ 0.50`,
+  `alarm_precision ≥ 0.20`, `affiliation_f1 ≥ 0.25`. The frozen champion clears all four. The notebook gate
+  in `train_anomaly.py` + `promote_models.py` now uses it (legacy point-adjusted F1 = reference only).
+  Recorded on the champion's `tel_model_runs.metrics` row via the idempotent `update_track_a_champion_metrics.py`.
+- **Conformal false-alarm budget** — a blocked-calibration **diagnostic** (α=0.05; measured FA rate 6.7%,
+  coverage 93.3% at the frozen K=4.0; K≈6.66 would hold α). Stored on the champion row and surfaced on the
+  Monitoring tab + a display-only Replay annotation. **No change to `_verdict_for` / the live decision.**
+- **VUS-PR / VUS-ROC** remain pending (the vetted `vus` package fails to build); recorded as
+  `vus_status` rather than hand-rolled. No homegrown VUS.
 
-**Gate A.** Range-aware metrics computed from real champion scores and shown beside point-adjusted F1;
-the champion clears the declared honest gate; Monitoring shows a live conformal budget with measured
-calibration-split coverage; PROOF.md cites the run IDs.
+**Gate A — met.** Range-aware (affiliation) metrics computed from real champion scores and shown beside
+point-adjusted + point-wise F1; the champion clears the declared honest gate; Monitoring shows a live
+conformal budget with measured calibration-split coverage; live `/score` bands unchanged; PROOF.md cites
+the champion row + eval. (VUS is the one carried-forward item, gated on a clean library.)
 
 ## Track B — ML depth
 

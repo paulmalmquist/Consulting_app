@@ -174,6 +174,27 @@ def get_run(*, env_id: str, business_id: UUID, run_id: UUID) -> dict:
                 "anomaly_events": events, "null_reason": None}
 
 
+def _conformal_budget(metrics: dict | None) -> dict | None:
+    """Surface-only conformal false-alarm DIAGNOSTIC stored on the champion row (Track A). Returns None
+    if the champion has no conformal fields. Status compares the measured calibration false-alarm rate to
+    the declared alpha (NOT a guarantee; the live verdict bands are unchanged)."""
+    if not metrics or metrics.get("conformal_alpha") is None:
+        return None
+    alpha = metrics.get("conformal_alpha")
+    far = metrics.get("conformal_measured_false_alarm_rate")
+    status = None
+    if isinstance(far, (int, float)) and isinstance(alpha, (int, float)):
+        status = "within" if far <= alpha else ("approaching" if far <= 1.5 * alpha else "over")
+    return {
+        "alpha": alpha,
+        "measured_false_alarm_rate": far,
+        "calib_coverage": metrics.get("conformal_calib_coverage"),
+        "threshold_quantile": metrics.get("conformal_threshold_quantile"),
+        "frozen_k": metrics.get("conformal_frozen_k"),
+        "status": status,
+    }
+
+
 def monitoring(*, env_id: str, business_id: UUID) -> dict:
     with get_cursor() as cur:
         resolve_tenant_id(cur, business_id)
@@ -186,13 +207,14 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
         )
         agg = cur.fetchone()
         cur.execute(
-            """SELECT model_name, model_version, model_alias
+            """SELECT model_name, model_version, model_alias, metrics
                FROM tel_model_runs WHERE env_id = %s AND business_id = %s AND model_kind = 'anomaly'
                  AND promotion_state = 'promoted'
                ORDER BY created_at DESC LIMIT 1""",
             (env_id, str(business_id)),
         )
         champ = cur.fetchone()
+        conformal_budget = _conformal_budget(champ.get("metrics") if champ else None)
         cur.execute(
             """SELECT metric_value FROM tel_drift_metrics
                WHERE env_id = %s AND business_id = %s AND metric_name = 'psi'
@@ -208,6 +230,7 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
                     "latest_model_version": champ["model_version"] if champ else None,
                     "latest_model_alias": champ["model_alias"] if champ else None,
                     "last_scored_at": None, "psi": None, "window_label": "recent",
+                    "conformal_budget": conformal_budget,
                     "null_reason": "no_prediction_rows"}
         return {
             "prediction_count": n,
@@ -218,6 +241,7 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
             "last_scored_at": agg["last_at"],
             "psi": float(psi_row["metric_value"]) if psi_row else None,
             "window_label": "recent",
+            "conformal_budget": conformal_budget,
             "null_reason": None,
         }
 
