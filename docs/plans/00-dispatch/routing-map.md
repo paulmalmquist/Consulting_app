@@ -13,6 +13,7 @@ When a raw idea arrives, classify it across these axes, then route to the correc
 | Supply Chain / Databricks | `supply-chain-databricks/` |
 | Winston Legal | `winston-legal/` |
 | History Rhymes / Trading | `history-rhymes/` |
+| Healthcare Subscription Analytics (Hone demo) | `healthcare-subscription/` |
 | Senior Housing | `senior-housing/` |
 | Demo Lab / RAG / Pipeline | `demo-lab/` |
 | Excel Add-in | `excel-addin/` |
