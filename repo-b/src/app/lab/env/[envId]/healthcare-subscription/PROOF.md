@@ -156,7 +156,7 @@ Screenshots:
 ### Delivery boundary
 
 - Branch: `codex/hha-phase-2-surfaces`.
-- Draft PR URL is added after creation.
+- Draft PR: https://github.com/paulmalmquist/Consulting_app/pull/136
 - No merge or deployment is authorized.
 - Production Phase 2 API endpoints remain 404 until an approved merge and separate
   backend deployment.

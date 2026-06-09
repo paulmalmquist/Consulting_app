@@ -10,6 +10,7 @@ deploy, provision, or start Phase 3/4 without explicit approval.
 Current state:
 - HHA-1 Exec Overview is shipped.
 - HHA-2 is implemented on `codex/hha-phase-2-surfaces`.
+- Draft PR: https://github.com/paulmalmquist/Consulting_app/pull/136
 - HHA-2 is in review, not shipped, and not deployed.
 - ADO Feature #507, Story #508, and Tasks #509-511 track the delivery. Keep Story #508
   Active while the PR awaits acceptance.

@@ -94,8 +94,9 @@ Verification receipt (2026-06-09):
 - Authenticated local Playwright verification passed all four routes with no console,
   request, or API errors. Screenshots are under the route's `screenshots/` directory.
 
-Delivery state: draft PR pending creation. No merge or deploy is authorized. Production
-Phase 2 endpoints remain 404 until an approved merge and separate backend deployment.
+Delivery state: draft [PR #136](https://github.com/paulmalmquist/Consulting_app/pull/136)
+is open. No merge or deploy is authorized. Production Phase 2 endpoints remain 404 until
+an approved merge and separate backend deployment.
 
 ## Phases 2–4 — milestones (planned)
 See `docs/plans/healthcare-subscription/roadmap.md`. Phase 2 is review-only; Phases 3–4

@@ -35,7 +35,7 @@
 | Authenticated local browser | PASS | 2026-06-09 | Playwright with a signed local session for an active membership checked all four routes; drawers, banner, footer, standalone chrome, network, and console passed |
 | Screenshots | PASS | 2026-06-09 | `screenshots/hha2-overview.png`, `hha2-funnel.png`, `hha2-cohorts.png`, `hha2-operations.png` |
 | Channel LTV:CAC | OPEN | 2026-06-09 | Channel-specific LTV is not seeded; API returns an empty collection with the explicit grain-gap reason |
-| Draft PR | PENDING | 2026-06-09 | Branch `codex/hha-phase-2-surfaces`; add PR URL after creation |
+| Draft PR | OPEN | 2026-06-09 | [PR #136](https://github.com/paulmalmquist/Consulting_app/pull/136) from `codex/hha-phase-2-surfaces` |
 | Merge / deploy | PROHIBITED | 2026-06-09 | Production Phase 2 API routes remain 404 until an approved merge and separate backend deployment |
 
 ## Fail-closed rule
