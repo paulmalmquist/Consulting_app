@@ -56,6 +56,15 @@ export interface ConformalBudget {
   status: string | null;   // within | approaching | over (diagnostic only)
 }
 
+export interface StreamBlock {
+  status: string | null;        // fresh | stale | failed | unknown
+  as_of_ts: string | null;
+  reason: string | null;
+  last_frame_at: string | null;
+  rows_per_min: number | null;
+  failing_assertions: number | null;
+}
+
 export interface MonitoringResponse {
   rolling_anomaly_rate: number | null;
   prediction_count: number;
@@ -66,6 +75,7 @@ export interface MonitoringResponse {
   psi: number | null;
   window_label: string;
   conformal_budget?: ConformalBudget | null;
+  stream?: StreamBlock | null;
   null_reason: string | null;
 }
 

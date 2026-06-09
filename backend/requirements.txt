@@ -5,6 +5,9 @@ psycopg-pool>=3.2
 python-dotenv==1.0.1
 pydantic==2.10.4
 httpx==0.28.1
+
+# RS Demo streaming slice: ISS Lightstreamer live adapter (lazy-imported; capture mode needs no network)
+lightstreamer-client-lib==2.2.2
 scikit-learn==1.6.1
 
 # Test dependencies

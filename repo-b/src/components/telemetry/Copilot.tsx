@@ -248,9 +248,28 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
   const [pairId] = useState<string>(() =>
     (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pair-${Date.now()}`));
 
+  // Robust clock: some agent/browser harnesses break performance.now — fall back to Date.now so the
+  // Start button can never silently dead-end (timing stays measured either way).
+  const nowMs = () =>
+    (typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now() : Date.now());
+
+  const startTimer = () => {
+    try {
+      setErr(null);
+      setStartedAt(nowMs());
+    } catch (e) {
+      setErr(`Could not start the timer: ${String(e)}`);
+    }
+  };
+
   const submit = (human_verdict: "GO" | "NO_GO" | "DEFER") => {
-    if (startedAt == null) return;
-    const time_to_verdict_ms = Math.round(performance.now() - startedAt);
+    if (startedAt == null) {
+      // Visible feedback instead of a silent no-op (the timer keeps TTV measured, never estimated).
+      setErr("Start the timer first — time-to-verdict is measured.");
+      return;
+    }
+    const time_to_verdict_ms = Math.round(nowMs() - startedAt);
     setErr(null);
     recordDisposition(reportId, {
       arm, human_verdict, fire_tick: fireTick, confidence, time_to_verdict_ms,
@@ -259,18 +278,23 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
   };
 
   const armBtn = (a: "assisted" | "unassisted") => (
-    <button onClick={() => setArm(a)} disabled={!!result}
+    <button type="button" data-testid={`disposition-arm-${a}`} onClick={() => setArm(a)} disabled={!!result}
       style={{ fontFamily: C.mono, fontSize: 11, padding: "5px 11px", borderRadius: 999, cursor: result ? "default" : "pointer",
         color: arm === a ? C.bg : C.dim, background: arm === a ? C.cyan : "transparent",
         border: `1px solid ${arm === a ? C.cyan : C.border}` }}>{a}</button>
   );
   const verdictBtn = (label: string, hv: "GO" | "NO_GO" | "DEFER", col: string) => (
-    <button onClick={() => submit(hv)} disabled={startedAt == null || !!result}
+    <button type="button"
+      data-testid={`disposition-verdict-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`}
+      onClick={() => submit(hv)} disabled={!!result}
       style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, padding: "8px 13px", borderRadius: 7,
         color: C.bg, background: col, border: "none",
-        cursor: startedAt == null || result ? "default" : "pointer", opacity: startedAt == null || result ? 0.5 : 1 }}>
+        cursor: result ? "default" : "pointer", opacity: startedAt == null || result ? 0.5 : 1 }}>
       {label}</button>
   );
+  // Agree submits the model's literal verdict, so it only exists for GO/NO_GO; a REVIEW (or unknown)
+  // model verdict has no "agree" target — the reviewer must explicitly choose GO/NO_GO/Defer.
+  const canAgree = modelVerdict === "GO" || modelVerdict === "NO_GO";
 
   return (
     <Panel title="Record your review (operator usefulness A/B)"
@@ -290,7 +314,7 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <button onClick={() => setStartedAt(performance.now())} disabled={startedAt != null}
+            <button type="button" data-testid="disposition-start" onClick={startTimer} disabled={startedAt != null}
               style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.bg, background: startedAt != null ? C.faint : C.green,
                 border: "none", borderRadius: 7, padding: "8px 13px", cursor: startedAt != null ? "default" : "pointer" }}>
               {startedAt != null ? "timing…" : "Start review (timer)"}
@@ -300,14 +324,15 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, textTransform: "uppercase", letterSpacing: "0.08em" }}>confidence</span>
             {[1, 2, 3, 4, 5].map((c) => (
-              <button key={c} onClick={() => setConfidence(c)}
+              <button key={c} type="button" data-testid={`disposition-confidence-${c}`}
+                onClick={() => setConfidence(c)}
                 style={{ fontFamily: C.mono, fontSize: 11, width: 26, height: 26, borderRadius: 6, cursor: "pointer",
                   color: confidence === c ? C.bg : C.dim, background: confidence === c ? C.cyan : "transparent",
                   border: `1px solid ${confidence === c ? C.cyan : C.border}` }}>{c}</button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {verdictBtn(`Agree (${modelVerdict ?? "model"})`, (modelVerdict as "GO" | "NO_GO") ?? "GO", C.green)}
+            {canAgree && verdictBtn(`Agree (${modelVerdict})`, modelVerdict as "GO" | "NO_GO", C.green)}
             {verdictBtn("Override → GO", "GO", C.cyan)}
             {verdictBtn("Override → NO_GO", "NO_GO", C.amber)}
             {verdictBtn("Defer", "DEFER", C.faint)}

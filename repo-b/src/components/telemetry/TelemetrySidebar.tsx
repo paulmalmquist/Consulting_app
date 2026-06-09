@@ -7,6 +7,7 @@ import { C } from "./primitives";
 // 5 telemetry sections only (the sole navigation). Icons ported from the Option B reference.
 const NAV: { slug: string; label: string; icon: string }[] = [
   { slug: "", label: "Overview", icon: "M2 9h3v5H2zM7 4h3v10H7zM12 7h3v7h-3z" },
+  { slug: "stream", label: "Mission Control", icon: "M2 12c2-6 10-6 12 0M8 3v3M8 8l3 3" },
   { slug: "replay", label: "Replay", icon: "M4 3l9 6-9 6z" },
   { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z" },
   { slug: "governance", label: "AI Governance", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z" },

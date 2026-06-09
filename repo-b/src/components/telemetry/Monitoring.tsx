@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   getMonitoring, getSummary, type MonitoringResponse, type TelemetrySummary, type ConformalBudget,
+  type StreamBlock,
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
 import { C, Tag, Panel, MetricCard, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter } from "./primitives";
@@ -56,11 +57,41 @@ export default function Monitoring() {
 
       {mon.conformal_budget && <ConformalBudgetPanel b={mon.conformal_budget} liveRate={rate} />}
 
+      {mon.stream && <StreamHealthPanel s={mon.stream} />}
+
       <Panel style={{ marginTop: 16 }} pad={14}>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>{summary.note}</span>
       </Panel>
       <DisclosureFooter />
     </>
+  );
+}
+
+// Stream Health — RS Demo streaming slice summary (renders only when the streaming tables exist and
+// carry a status row). Fail-closed: stale/failed states are shown with their reason, never hidden.
+function StreamHealthPanel({ s }: { s: StreamBlock }) {
+  const col = s.status === "fresh" ? C.green : s.status === "stale" ? C.amber : C.red;
+  return (
+    <Panel title="Stream health (live ingestion)" style={{ marginTop: 16 }}
+      right={<Tag color={col}>{s.status ?? "unknown"}</Tag>}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <MetricCard label="Pipeline status" value={s.status ?? "unknown"} accent={col}
+          sub={s.reason ?? undefined} />
+        <MetricCard label="Last frame at"
+          value={s.last_frame_at ? new Date(s.last_frame_at).toISOString().slice(11, 19) + " UTC" : "—"} />
+        <MetricCard label="Rows / min" value={s.rows_per_min != null ? String(s.rows_per_min) : "—"}
+          accent={C.cyan} />
+        <MetricCard label="Failing assertions (15m)"
+          value={s.failing_assertions != null ? String(s.failing_assertions) : "—"}
+          accent={s.failing_assertions ? C.red : C.green} />
+      </div>
+      <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6,
+        display: "block", marginTop: 10 }}>
+        Live ISS public-telemetry ingestion (bronze → silver → gold). Detail — per-channel freshness,
+        ingest-lag percentiles, the assertion board — lives on the Mission Control page and
+        /api/telemetry/stream/health.
+      </span>
+    </Panel>
   );
 }
 
