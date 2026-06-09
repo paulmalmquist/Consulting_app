@@ -11,10 +11,15 @@ Plan folder, dispatch record 0005, proof docs, `hha_` prefix registration, routi
 - Standalone Exec Overview page (no app shell) with NO-PHI banner, metric drawer, provenance footer.
 - `backend/tests/test_hha.py` (6 tests).
 
-## Phase 2 — Funnel + Cohorts + Operations (not started)
-- `GET /api/hha/v1/funnel`, `/cohorts`, `/operations`; matching standalone pages.
-- Cohort retention grid surfacing `is_suppressed` (small cells masked in the UI).
-- LTV:CAC by acquisition channel (per-channel funnel rows already seeded).
+## Phase 2 — Funnel + Cohorts + Operations (in review; not shipped or deployed)
+- Read APIs and standalone pages for Funnel, Cohorts, and Operations are implemented on
+  `codex/hha-phase-2-surfaces`.
+- Cohort suppression is enforced before response serialization. The masked pilot payload
+  contains only cohort month, channel, marker, and reason.
+- Shared primitives and four-surface navigation keep Overview visually unchanged apart from
+  the added navigation.
+- Channel LTV:CAC remains open because channel-specific LTV is not present at the seeded grain.
+- Exit gate: draft PR review and acceptance. No merge or deployment is part of HHA-2 delivery.
 
 ## Phase 3 — Event-level grain + derived rollups (not started)
 - Add `hha_members`, `hha_subscriptions`, `hha_lab_orders`, `hha_consults`,

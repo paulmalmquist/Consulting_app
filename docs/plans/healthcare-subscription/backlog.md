@@ -2,12 +2,14 @@
 
 ## Open
 
-### Phase 2 — additional surfaces
-- [ ] `GET /api/hha/v1/funnel` (read `hha_funnel_metrics`; blended + per-channel) + Funnel page.
-- [ ] `GET /api/hha/v1/cohorts` (read `hha_cohort_metrics`; honor `is_suppressed` → mask cells with size <11 in the UI, render the masked reason) + Cohorts page.
-- [ ] `GET /api/hha/v1/operations` (read `hha_operational_metrics`) + Operations SLA page.
-- [ ] LTV:CAC by channel widget (channel funnel rows + cohort LTV already seeded).
-- [ ] Cross-link the standalone surfaces with a bespoke in-env nav (still no app shell).
+### Phase 2 — review and acceptance
+- [x] `GET /api/hha/v1/funnel` + Funnel page (blended stages and channel CAC/conversions).
+- [x] `GET /api/hha/v1/cohorts` + Cohorts page (service-layer masking for suppressed segments).
+- [x] `GET /api/hha/v1/operations` + Operations SLA page.
+- [x] Cross-link all four standalone surfaces with an in-environment navigation component.
+- [x] Local API, typecheck, schema verification, and authenticated browser evidence.
+- [ ] PR review and acceptance. Phase 2 remains in review, not shipped, and not deployed.
+- [ ] Channel LTV:CAC. Channel-specific LTV is not seeded; only blended LTV and channel CAC are available.
 
 ### Phase 3 — event grain
 - [ ] Synthetic event-level tables (`hha_members`, `hha_subscriptions`, lab/consult/fulfillment/support/billing events) — synthetic IDs only, no PHI.

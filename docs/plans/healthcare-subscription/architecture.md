@@ -9,9 +9,10 @@ silver → gold → consumption) but ships only the gold layer in Phase 1.
 ```
 hha_* gold rollups (Postgres, RLS by env_id)
   → backend/app/services/hha.py (set_config('app.env_id') + WHERE env_id)
-    → backend/app/routes/hha.py (/api/hha/v1/health, /overview)
-      → repo-b/src/lib/healthcare-subscription/client.ts (direct fetch, NEXT_PUBLIC_API_BASE)
-        → OverviewClient.tsx (standalone, no app shell)
+    → backend/app/routes/hha.py (/api/hha/v1/health, /overview, /funnel, /cohorts, /operations)
+      → same-origin /bos proxy
+        → repo-b/src/lib/healthcare-subscription/client.ts
+          → standalone HHA client surfaces (no app shell)
 ```
 
 ## Tables (`repo-b/db/schema/10013_hha_healthcare_subscription_core.sql`)
@@ -47,17 +48,30 @@ to the generated `env_id`.
 
 ## Seeded vs derived (be honest)
 
-Phase 1 rollups are **seeded**, not derived from events. The footer says so
-(`provenance_label = "synthetic gold rollup (seeded) · hha_starter v1"`). Phase 2 adds the
+Phase 1 and Phase 2 rollups are **seeded**, not derived from events. The footer says so
+(`provenance_label = "synthetic gold rollup (seeded) · hha_starter v1"`). Phase 3 adds the
 event-level grain and makes the rollups derived. Until then, do not present the numbers as
 pipeline output.
 
 ## Standalone design
 
 The environment owns its full chrome and is **not** wrapped in `DomainWorkspaceShell` /
-`RepeWorkspaceShell` / any shared app shell. `page.tsx` is a thin async wrapper that renders
-`<OverviewClient envId=… />`; the client component carries its own background, header, KPI
-grid, metric drawer, and footer. See [design-adaptation.md](design-adaptation.md).
+`RepeWorkspaceShell` / any shared app shell. Each `page.tsx` is a thin async wrapper that
+renders its client component; the client owns its background, header, content, drawer,
+navigation, and footer. `LabEnvTopBar` remains above the full-bleed route. See
+[design-adaptation.md](design-adaptation.md).
+
+## Phase 2 serving rules
+
+- Every read issues `set_config('app.env_id', env_id, true)` and explicitly filters by
+  `env_id`.
+- Money converts from minor units to dollars only in the service; rates remain fractions.
+- Each response carries environment ID, as-of date, freshness, provenance, disclaimer,
+  synthetic/PHI flags, and metric definitions.
+- Suppressed cohort records are selected separately using only cohort month and channel.
+  Counts, retention, revenue, and LTV never enter the masked service payload.
+- Browser clients always use the same-origin `/bos` proxy. Do not reintroduce a direct
+  backend-origin `NEXT_PUBLIC_API_BASE` path for HHA.
 
 ## Needs repo verification
 

@@ -14,7 +14,7 @@ Precedent followed: `repo-b/src/app/lab/env/[envId]/telemetry/page.tsx` →
 ## Visual language
 
 Bespoke health-tech, dark, teal-accented (distinct from the telemetry cyan console). The
-palette lives inline in `OverviewClient.tsx` (`const C = {…}`):
+palette lives in `repo-b/src/components/healthcare-subscription/primitives.tsx` (`C`):
 
 - background `#0a1413`, panels `#0f1d1b`/`#12302b`, border `#1d3a35`
 - accent teal `#2dd4bf`, soft `#5eead4`; good `#34d399`, warn `#fbbf24`, bad `#fb7185`
@@ -31,9 +31,9 @@ operations. Not an EMR, not a patient portal, not a generic SaaS template.
 3. **Freshness + provenance footer** — as-of date, refresh time, and an honest provenance
    label ("synthetic gold rollup (seeded)").
 
-## Reuse note for Phase 2
+## Shared primitives
 
-The `C` palette and the `KpiCard` / `Drawer` / `Banner` primitives in `OverviewClient.tsx`
-should be extracted into a shared `repo-b/src/components/healthcare-subscription/primitives.tsx`
-when the second surface (Funnel/Cohorts) lands, so all surfaces stay visually consistent
-without a shell.
+Phase 2 extracted `C`, `Banner`, `KpiCard`, `Drawer`, value formatting, `Footer`, and
+`HhaNav` into `repo-b/src/components/healthcare-subscription/primitives.tsx`. Overview,
+Funnel, Cohorts, and Operations consume those primitives while remaining standalone.
+The navigation is page content, not app-shell chrome.
