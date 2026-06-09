@@ -69,11 +69,47 @@ The pipeline's own `health_check` passed (lifecycle = `verified`). The separate
 (migration `10004`) is not present in this database — a pre-existing tooling gap unrelated to hha,
 not a provisioning failure. Env creation + seed + the pipeline health check all succeeded.
 
-### Not done (by design)
-- No frontend deploy. The standalone page is typecheck-clean and reads the proven API; a live
-  browser screenshot requires the frontend deployed (or `npm run dev`). Auto-deploy-on-merge to
-  `main` would publish it — flagged for go-ahead before any merge.
+## Live production verification (2026-06-08 merge, 2026-06-09 re-smoke)
+
+PR #130 merged to `main` (commit `21f55939`); branch deleted.
+
+- **Frontend (Vercel `consulting-app`):** auto-deployed from `main` → deployment `consulting-bfan2f6fa` (Ready); **novendor.ai** production alias points to it.
+- **Backend (Railway `authentic-sparkle`):** deployed from a clean git worktree at the merge commit (no WIP). Live `GET /version` → `21f55939111786fadd624bb667197aabd70578b6`.
+- **`GET /api/hha/v1/health?env_id=ceeb9ea0-…`** → `ok:true`, row_counts {overview 1, plans 4, funnel 24, cohorts 79, ops 4}, `synthetic:true`, `phi:false`, provenance `synthetic gold rollup (seeded) · hha_starter v1`.
+- **`GET /api/hha/v1/overview?env_id=ceeb9ea0-…`** → **18 KPIs**, `as_of_date 2026-05-31`, money cast to dollars (mrr 501500.0), `phi:false`, disclaimer present.
+- **Routes shipped (prod):** `/login` 200; `/lab/env/ceeb9ea0-…/healthcare-subscription` and `/lab/env/…/telemetry` → 307 (auth gate, not 404).
+- **Telemetry regression:** `/api/telemetry/health` 200; `/api/telemetry/replay` `first_model_fire_t = 728` (unchanged).
+
+### Logged-in visual verification (2026-06-09) — PASS, after fixing two defects
+
+The first logged-in capture (Playwright, `info@novendor.ai`) **caught two production defects** that
+HTTP/code-level checks had missed:
+1. **Not standalone** — the page was wrapped in `LabEnvironmentShell` (breadcrumb, WORKSPACE SWITCH,
+   OPERATIONS FUNCTIONS sidebar). Root cause: the route was missing from the shell's `isDomainRoute`
+   full-bleed allowlist.
+2. **KPI data 404** — `Overview data is not available`: the client used an empty `NEXT_PUBLIC_API_BASE`
+   → same-origin `/api/hha/v1/overview` (404). The backend route is live; the frontend just wasn't
+   reaching it.
+
+**Fixed in PR #134** (`fix/hha-standalone-shell-and-bos-proxy`, merged → commit `a51fcabb`): added
+`healthcare-subscription` to `LabEnvironmentShell` `isDomainRoute` (full-bleed, like telemetry) and
+defaulted the client API base to the same-origin `/bos` proxy.
+
+**Re-capture after deploy → all visual checks PASS:**
+- **Standalone** — no `LabEnvironmentShell` chrome (sidebar/toolbar/dept gone). Only the shared
+  `LabEnvTopBar` remains, which every lab env (incl. telemetry, the standalone reference) carries.
+- Neutral title "Healthcare Subscription Analytics"; no "Hone Health" branding.
+- Non-dismissible **NO-PHI banner** ("Synthetic demo · no PHI…").
+- **18 KPI cards with live values** — Active Members 4,250 · MRR $502K · ARR $6.0M · ARPU $118 ·
+  NRR 111.2% · GRR 95.9% · gross churn 4.1% · net churn −1.2% · trial→paid 62% · activation 71% ·
+  month-3 retention 78% · LTV $2,640 · CAC $310 · LTV:CAC 8.5× · payback 8.6mo · lab SLA 93% · consult SLA 88%.
+- **Metric-definition drawer** — e.g. Active Members → formula `count(distinct members with an active
+  paid subscription on as_of_date)`, grain `as_of_date`, owner Growth, source `hha_overview_metrics`.
+- **Provenance footer** — "as of 2026-05-31 · refreshed 5/31/2026 … synthetic gold rollup (seeded) · hha_starter v1".
+- No PHI anywhere on screen.
+
+Screenshots: `screenshots/hha_exec_overview_live.png`, `screenshots/hha_metric_drawer_live.png`.
 
 ## Caveats
 - Phase 1 rollups are **seeded**, not derived (footer + provenance label say so).
-- No deploy in HHA-1.
+- Visual screenshot pending (above); all API/deploy gates verified live.
