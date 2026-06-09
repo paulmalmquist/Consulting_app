@@ -47,7 +47,11 @@ export interface HhaHealth {
   phi: boolean;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+// Browser calls route through the same-origin `/bos` proxy
+// (`repo-b/src/app/bos/[...path]/route.ts`), which forwards to the FastAPI backend
+// via BOS_API_ORIGIN — the canonical prod pattern (see `src/lib/bos-api.ts`).
+// `NEXT_PUBLIC_API_BASE` can override it for direct local dev against :8000.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/bos";
 
 async function getJson<T>(path: string): Promise<T | null> {
   try {
