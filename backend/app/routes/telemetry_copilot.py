@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.observability.logger import emit_log
 from app.schemas.telemetry_copilot import (
-    AskRequest, CopilotAnswerResponse, DraftReportRequest, ExplainVerdictRequest,
+    AskRequest, CopilotAnswerResponse, DispositionRequest, DraftReportRequest, ExplainVerdictRequest,
 )
 from app.services import telemetry_copilot as svc
 
@@ -92,6 +92,32 @@ def governance(env_id: str = Query(...), business_id: UUID = Query(...)):
     """Real aggregates over the copilot audit log + the active policy version (no hardcoded numbers)."""
     try:
         return svc.governance_summary(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.post("/report/{report_id}/disposition")
+def record_disposition(report_id: UUID, req: DispositionRequest):
+    """Track B: record a human's disposition of a draft report (within-reviewer paired A/B). Fail-closed
+    on bad input (400) or missing report (404); model verdict is read server-side. No auth identity."""
+    try:
+        return svc.record_disposition(
+            env_id=req.env_id, business_id=req.business_id, report_id=report_id, arm=req.arm,
+            human_verdict=req.human_verdict, fire_tick=req.fire_tick, confidence=req.confidence,
+            time_to_verdict_ms=req.time_to_verdict_ms, evidence_opened=req.evidence_opened,
+            reviewer_label=req.reviewer_label, pair_id=req.pair_id)
+    except Exception as exc:  # noqa: BLE001
+        emit_log(level="error", service="telemetry_copilot", action="record_disposition_failed",
+                 message=str(exc), error=exc)
+        raise _to_http(exc)
+
+
+@router.get("/usefulness")
+def usefulness(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Track B operator-usefulness measures from recorded dispositions + labeled truth, beside the
+    deterministic anchors. Human metrics are 'not measured' (null) until real sessions exist."""
+    try:
+        return svc.usefulness_summary(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
 

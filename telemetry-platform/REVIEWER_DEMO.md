@@ -70,6 +70,12 @@ Environment id: `dc82d39d-9be2-49b0-a01d-c7181b13a8b6`.
 5. **Governance (≈20s).** Scroll the copilot page's **AI Governance** panel: grounded rate, refusal
    rate, latency, answer-source mix, active prompt hash — all aggregated from real logged interactions,
    nothing hardcoded.
+6. **Operator usefulness A/B (≈30s).** After a draft report, the **"Record your review"** panel captures
+   a real disposition (arm assisted/unassisted, a measured time-to-verdict, verdict/override, confidence,
+   evidence-open). The **Governance** tab's **Operator usefulness** panel then reports per-arm
+   time-to-verdict, agreement + override precision (scored vs the labeled truth), beside the deterministic
+   anchors (unsupported-claim blocks, refusal rate). Human-outcome numbers read **"not yet measured
+   (N=0)"** until real sessions are recorded — never a fabricated figure; the anchors are live now.
 
 The chain a reviewer sees end to end:
 

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import {
-  getGovernance, getEvals,
-  type GovernanceSummary, type EvalResults,
+  getGovernance, getEvals, getUsefulness,
+  type GovernanceSummary, type EvalResults, type UsefulnessSummary, type ArmMeasures,
 } from "@/lib/telemetry/copilot-api";
 import { C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
 
@@ -31,11 +31,12 @@ const PROVES: { k: string; v: string }[] = [
 export default function GovernanceDashboard() {
   const [g, setG] = useState<GovernanceSummary | null>(null);
   const [e, setE] = useState<EvalResults | null>(null);
+  const [u, setU] = useState<UsefulnessSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getGovernance(), getEvals().catch(() => null)])
-      .then(([gov, ev]) => { setG(gov); setE(ev); })
+    Promise.all([getGovernance(), getEvals().catch(() => null), getUsefulness().catch(() => null)])
+      .then(([gov, ev, use]) => { setG(gov); setE(ev); setU(use); })
       .catch((x) => setErr(String(x)));
   }, []);
 
@@ -88,6 +89,9 @@ export default function GovernanceDashboard() {
         <GovMetric label="Active model" value={g.active_model || null}
           sub={`prompt ${g.active_prompt_version}`} />
       </div>
+
+      {/* operator usefulness (within-reviewer A/B) */}
+      <UsefulnessPanel u={u} />
 
       {/* evals + production smoke */}
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16, marginTop: 16 }}>
@@ -188,5 +192,84 @@ export default function GovernanceDashboard() {
 
       <DisclosureFooter />
     </>
+  );
+}
+
+// ── Operator usefulness (within-reviewer A/B) — human metrics are honest-null until real sessions ──
+const NOT_MEASURED = "not yet measured (N=0)";
+
+function armCell(a: ArmMeasures | undefined, fld: keyof ArmMeasures, kind: "ms" | "pct" | "num"): string {
+  if (!a || a.n === 0) return NOT_MEASURED;
+  const v = a[fld];
+  if (v == null) return NOT_MEASURED;
+  if (kind === "ms") return `${v}ms`;
+  if (kind === "pct") return `${Math.round((v as number) * 100)}%`;
+  return String(v);
+}
+
+function UsefulnessPanel({ u }: { u: UsefulnessSummary | null }) {
+  const asg = u?.arms?.assisted;
+  const una = u?.arms?.unassisted;
+  const measured = u?.status === "measured";
+  const ROWS: { label: string; fld: keyof ArmMeasures; kind: "ms" | "pct" | "num" }[] = [
+    { label: "Median time-to-verdict", fld: "median_ttv_ms", kind: "ms" },
+    { label: "Agreement vs label", fld: "agreement_rate", kind: "pct" },
+    { label: "Override rate", fld: "override_rate", kind: "pct" },
+    { label: "Override precision (vs label)", fld: "override_precision", kind: "pct" },
+    { label: "Evidence-open rate", fld: "evidence_open_rate", kind: "pct" },
+    { label: "Mean confidence (1–5)", fld: "mean_confidence", kind: "num" },
+  ];
+  const delta = u?.delta?.ttv_pct_faster;
+  return (
+    <Panel title="Operator usefulness (within-reviewer A/B)" style={{ marginTop: 16 }}
+      right={<Tag color={measured ? C.green : C.faint}>{measured ? "measured" : "awaiting sessions"}</Tag>}>
+      <div style={{ fontFamily: C.sans, fontSize: 14, color: delta != null ? C.green : C.faint, fontWeight: 600, marginBottom: 4 }}>
+        {delta != null ? `Time-to-verdict ${delta}% faster with the copilot` : "Time-to-verdict delta — awaiting sessions in both arms"}
+      </div>
+      <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginBottom: 12, lineHeight: 1.5 }}>
+        Human-outcome measures populate from real recorded review sessions (Copilot tab → “Record your review”).
+        Until then they read “not measured”, never a placeholder zero. Deterministic anchors below are live now.
+      </div>
+      {/* six measures × two arms, N in the header */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8, fontFamily: C.mono,
+        fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", paddingBottom: 6 }}>
+        <span>Measure</span>
+        <span>assisted (N={asg?.n ?? 0})</span>
+        <span>unassisted (N={una?.n ?? 0})</span>
+      </div>
+      <div style={{ borderTop: `1px solid ${C.border}` }}>
+        {ROWS.map((row) => (
+          <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8,
+            fontFamily: C.mono, fontSize: 11.5, color: C.text, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ color: C.dim }}>{row.label}</span>
+            <Cell v={armCell(asg, row.fld, row.kind)} />
+            <Cell v={armCell(una, row.fld, row.kind)} />
+          </div>
+        ))}
+      </div>
+      {/* deterministic anchors — real now, not self-reported */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+        <Anchor k="Unsupported claims blocked" v={u ? String(u.anchors.postvalidator_block_count) : "—"} col={C.red} />
+        <Anchor k="Refusal rate" v={pct(u?.anchors.refusal_rate) ?? "—"} col={C.amber} />
+        <Anchor k="Grounded rate" v={pct(u?.anchors.grounded_rate) ?? "—"} col={C.green} />
+        <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, alignSelf: "center" }}>
+          deterministic anchors — measured from the audit log (tel_copilot_interactions), not self-reported
+        </span>
+      </div>
+    </Panel>
+  );
+}
+
+function Cell({ v }: { v: string }) {
+  const dim = v === NOT_MEASURED;
+  return <span style={{ color: dim ? C.faint : C.text, fontWeight: dim ? 400 : 600 }}>{v}</span>;
+}
+
+function Anchor({ k, v, col }: { k: string; v: string; col: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <span style={{ fontFamily: C.mono, fontSize: 9.5, letterSpacing: "0.08em", color: C.faint, textTransform: "uppercase" }}>{k}</span>
+      <span style={{ fontFamily: C.sans, fontSize: 16, fontWeight: 600, color: col }}>{v}</span>
+    </div>
   );
 }
