@@ -22,7 +22,8 @@
 
 ## HHA-2 (Funnel, Cohorts, Operations)
 
-**Release state:** IN REVIEW. NOT SHIPPED. NOT DEPLOYED.
+**Release state:** SHIPPED + DEPLOYED + PRODUCTION-RECEIPT-TESTED (2026-06-09). PR #136 merged →
+`main` `caa57840`; frontend `consulting-5hr2amjbh` (novendor.ai alias); backend `/version caa57840`.
 
 | Gate | Status | Date | Verification |
 |---|---|---|---|
@@ -34,9 +35,14 @@
 | Same-origin `/bos` proxy | PASS | 2026-06-09 | Local Next.js `/bos/api/hha/v1/cohorts` returned 200 and the masked payload |
 | Authenticated local browser | PASS | 2026-06-09 | Playwright with a signed local session for an active membership checked all four routes; drawers, banner, footer, standalone chrome, network, and console passed |
 | Screenshots | PASS | 2026-06-09 | `screenshots/hha2-overview.png`, `hha2-funnel.png`, `hha2-cohorts.png`, `hha2-operations.png` |
-| Channel LTV:CAC | OPEN | 2026-06-09 | Channel-specific LTV is not seeded; API returns an empty collection with the explicit grain-gap reason |
-| Draft PR | OPEN | 2026-06-09 | [PR #136](https://github.com/paulmalmquist/Consulting_app/pull/136) from `codex/hha-phase-2-surfaces` |
-| Merge / deploy | PROHIBITED | 2026-06-09 | Production Phase 2 API routes remain 404 until an approved merge and separate backend deployment |
+| Channel LTV:CAC | OPEN | 2026-06-09 | Channel-specific LTV is not seeded; API returns an empty collection with the explicit grain-gap reason (Phase 3 events can supply it) |
+| Merged to `main` | PASS | 2026-06-09 | [PR #136](https://github.com/paulmalmquist/Consulting_app/pull/136) merged → `caa57840`; CI reds are the documented pre-existing baseline (auth/OIDC/telemetry/SSE unit tests + 2 ruff F401s) — none in the HHA-2 diff |
+| Frontend deployed (Vercel) | PASS | 2026-06-09 | `consulting-app` auto-deploy `consulting-5hr2amjbh` Ready; **novendor.ai** alias → it |
+| Backend deployed (Railway) | PASS | 2026-06-09 | Deployed from clean worktree at `caa57840`; live `GET /version` = `caa57840` |
+| Live API smoke (all 5) | PASS | 2026-06-09 | `/api/hha/v1/{health,overview,funnel,cohorts,operations}` → 200; overview 18 KPIs; funnel blended+channels; operations 4 domains; cohorts 1 masked pilot |
+| Live suppression non-disclosure | PASS | 2026-06-09 | Prod `/cohorts` masked row = `{month, channel, masked:true, reason}` only — no cohort_size/retained_count/retention_pct/revenue/ltv. UI shows "< 11 members - suppressed", no numbers |
+| Production logged-in receipt | PASS | 2026-06-09 | Playwright (info@novendor.ai) all four surfaces: standalone (no heavy shell), NO-PHI banner, metric drawer, provenance footer, masked cohort shown without numbers. `screenshots/hha2_*_prod.png` |
+| Telemetry regression | PASS | 2026-06-09 | `/api/telemetry/health` 200; replay `first_model_fire_t = 728` |
 
 ## Fail-closed rule
 
@@ -48,7 +54,8 @@ not claim the environment is live or the UI works against it.
 - Provisioning requires a backend running the `hha_starter` code (local backend against the
   prod DB, or a deploy). The migration + template row are prod-DB writes; the user approved
   the v2-provisioning path.
-- **2026-06-08/09 — HHA-1 production is live and aligned**: prod DB + prod env
-  (`ceeb9ea0-9f8b-4369-b853-adcd60c01def`) + `main` (`21f55939`) + deployed frontend (novendor.ai)
-  + deployed backend (`/version 21f55939`). The HHA-1 logged-in browser receipt and screenshots
-  are complete. HHA-2 remains review-only and has not changed production.
+- **2026-06-09 — HHA-1 + HHA-2 production is live and aligned**: prod DB + prod env
+  (`ceeb9ea0-9f8b-4369-b853-adcd60c01def`) + `main` (`caa57840`) + deployed frontend
+  (`consulting-5hr2amjbh`, novendor.ai) + deployed backend (`/version caa57840`). All four surfaces
+  (Overview/Funnel/Cohorts/Operations) have a logged-in production receipt + screenshots
+  (`screenshots/hha2_*_prod.png`). Cohort small-cell suppression verified non-disclosing in prod.
