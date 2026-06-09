@@ -793,6 +793,21 @@ homegrown VUS. Reproduce all of the above offline:
 `python telemetry-platform/eval_honest_metrics.py --data-dir telemetry-platform/databricks/data/smap_msl`
 (the point-adjusted F1 fidelity check holds at 0.6453 local vs 0.6387 stored).
 
+**Track B — operator usefulness (does the copilot help a human decide better/faster?).** The capture
+apparatus is live: `tel_copilot_review_actions` records one human disposition per draft report in a
+within-reviewer paired A/B (`arm` = assisted vs unassisted) with a **measured** time-to-verdict, the
+model verdict (read server-side), the human verdict + override flag, confidence, and evidence-open
+count. `GET /api/telemetry/copilot/usefulness` computes per-arm median time-to-verdict, agreement and
+**override precision scored against the labeled `tel_anomaly_events` truth**, evidence-open rate, and
+mean confidence — beside the deterministic anchors (refusal rate, **unsupported-claim / post-validator
+block count**, grounded rate) reused from the audit log. The honest contract: human-outcome numbers read
+**"not measured (N=0)"** until real review sessions exist; the "X% faster" delta is blank until both arms
+have data — no fabricated figure. The deterministic anchors are real now. The live `/score` path and the
+`_verdict_for` GO/NO-GO bands are unchanged; no LLM judge. 9/9 governance eval cases pass (5 structural +
+4 Track B). Money-shot once sessions are recorded: *"over N sessions, median time-to-verdict X assisted
+vs Y unassisted (Δ X% faster), with 0 unsupported root-cause claims and a Z% refusal rate — measured from
+logs."*
+
 ### Remaining useful life — C-MAPSS FD001 (evaluated on all 100 test units, RUL capped at 125)
 
 | Model | Run ID | RMSE | PHM score |

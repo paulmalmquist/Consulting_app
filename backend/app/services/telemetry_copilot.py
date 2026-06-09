@@ -668,6 +668,153 @@ def governance_summary(*, env_id: str, business_id) -> dict:
         }
 
 
+# ── Track B: operator-usefulness capture + measurement ──────────────────────────
+_VALID_ARMS = ("assisted", "unassisted")
+_VALID_HUMAN_VERDICTS = ("GO", "NO_GO", "DEFER")
+
+
+def record_disposition(*, env_id: str, business_id, report_id, arm: str, human_verdict: str,
+                       fire_tick: int | None = None, confidence: int | None = None,
+                       time_to_verdict_ms: int | None = None, evidence_opened: int = 0,
+                       reviewer_label: str | None = None, pair_id=None) -> dict:
+    """Record ONE human disposition of a draft report (Track B). Fail-closed: validates inputs BEFORE
+    any write, and reads the authoritative model_verdict + run_key from the report (the client cannot
+    assert the model's verdict). Tenant scope is env_id+business_id+report_id — no auth identity."""
+    import uuid as _uuid
+    from app.db import get_cursor
+
+    # validate before any DB write
+    if arm not in _VALID_ARMS:
+        raise ValueError(f"arm must be one of {_VALID_ARMS}")
+    if human_verdict not in _VALID_HUMAN_VERDICTS:
+        raise ValueError(f"human_verdict must be one of {_VALID_HUMAN_VERDICTS}")
+    if confidence is not None and not (1 <= int(confidence) <= 5):
+        raise ValueError("confidence must be between 1 and 5")
+
+    with get_cursor() as cur:
+        # authoritative model verdict + run_key from the report (scoped); absent -> fail closed
+        cur.execute(
+            """SELECT verdict, run_key FROM tel_copilot_reports
+               WHERE env_id=%s AND business_id=%s AND id=%s""",
+            (env_id, str(business_id), str(report_id)))
+        rep = cur.fetchone()
+        if not rep:
+            raise LookupError("report not found")
+        model_verdict = rep["verdict"]
+        run_key = rep["run_key"]
+        is_override = bool(human_verdict != "DEFER" and human_verdict != model_verdict)
+
+        action_id = _uuid.uuid4()
+        cur.execute(
+            """INSERT INTO tel_copilot_review_actions
+                 (id, env_id, business_id, report_id, run_key, fire_tick, arm, model_verdict,
+                  human_verdict, is_override, confidence, time_to_verdict_ms, evidence_opened,
+                  reviewer_label, pair_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (str(action_id), env_id, str(business_id), str(report_id), run_key, fire_tick, arm,
+             model_verdict, human_verdict, is_override, confidence, time_to_verdict_ms,
+             int(evidence_opened or 0), reviewer_label, str(pair_id) if pair_id else None))
+    return {"action_id": action_id, "arm": arm, "is_override": is_override, "null_reason": None}
+
+
+def _f(x) -> float | None:
+    """Honest float coercion: None stays None (never coerced to 0)."""
+    return float(x) if x is not None else None
+
+
+def usefulness_summary(*, env_id: str, business_id) -> dict:
+    """Track B operator-usefulness measures, computed DIRECTLY from recorded dispositions + labeled
+    truth, beside the deterministic anchors (refusal/unsupported-block/grounded/source — real now).
+    Human-outcome metrics are None ('not measured') until real sessions exist — never a fabricated 0."""
+    from app.db import get_cursor
+    arms: dict[str, dict] = {
+        a: {"n": 0, "median_ttv_ms": None, "mean_confidence": None, "evidence_open_rate": None,
+            "override_rate": None, "agreement_rate": None, "n_overrides": 0, "override_precision": None}
+        for a in _VALID_ARMS}
+
+    with get_cursor() as cur:
+        # (A) per-arm core measures — FILTER yields NULL on empty sets (no COALESCE to 0)
+        cur.execute(
+            """SELECT arm,
+                      count(*) AS n,
+                      percentile_disc(0.5) WITHIN GROUP (ORDER BY time_to_verdict_ms)
+                          FILTER (WHERE time_to_verdict_ms IS NOT NULL)        AS median_ttv_ms,
+                      avg(confidence) FILTER (WHERE confidence IS NOT NULL)     AS mean_confidence,
+                      avg(CASE WHEN evidence_opened > 0 THEN 1.0 ELSE 0.0 END) AS evidence_open_rate,
+                      avg(CASE WHEN is_override THEN 1.0 ELSE 0.0 END)          AS override_rate
+               FROM tel_copilot_review_actions
+               WHERE env_id=%s AND business_id=%s GROUP BY arm""",
+            (env_id, str(business_id)))
+        for r in cur.fetchall():
+            a = r["arm"]
+            if a not in arms:
+                continue
+            arms[a].update(
+                n=int(r["n"]), median_ttv_ms=(int(r["median_ttv_ms"]) if r["median_ttv_ms"] is not None else None),
+                mean_confidence=_f(r["mean_confidence"]), evidence_open_rate=_f(r["evidence_open_rate"]),
+                override_rate=_f(r["override_rate"]))
+
+        # (B) agreement-vs-label + override precision — labeled truth via tel_anomaly_events (source
+        # 'label') joined through tel_test_runs.run_key, bracketing fire_tick. DEFER + NULL tick excluded.
+        cur.execute(
+            """SELECT a.arm,
+                      avg(CASE WHEN a.human_verdict = (CASE WHEN lbl.hit THEN 'NO_GO' ELSE 'GO' END)
+                               THEN 1.0 ELSE 0.0 END)
+                          FILTER (WHERE a.human_verdict <> 'DEFER' AND a.fire_tick IS NOT NULL)
+                          AS agreement_rate,
+                      count(*) FILTER (WHERE a.is_override AND a.fire_tick IS NOT NULL) AS n_overrides,
+                      avg(CASE WHEN a.human_verdict = (CASE WHEN lbl.hit THEN 'NO_GO' ELSE 'GO' END)
+                               THEN 1.0 ELSE 0.0 END)
+                          FILTER (WHERE a.is_override AND a.fire_tick IS NOT NULL)
+                          AS override_precision
+               FROM tel_copilot_review_actions a
+               LEFT JOIN LATERAL (
+                   SELECT EXISTS (
+                       SELECT 1 FROM tel_anomaly_events e
+                       JOIN tel_test_runs r ON r.id = e.run_id
+                       WHERE e.env_id = a.env_id AND e.business_id = a.business_id
+                         AND r.run_key = a.run_key AND e.source = 'label'
+                         AND a.fire_tick IS NOT NULL
+                         AND e.start_t <= a.fire_tick AND e.end_t >= a.fire_tick
+                   ) AS hit
+               ) lbl ON true
+               WHERE a.env_id=%s AND a.business_id=%s GROUP BY a.arm""",
+            (env_id, str(business_id)))
+        for r in cur.fetchall():
+            a = r["arm"]
+            if a not in arms:
+                continue
+            arms[a].update(agreement_rate=_f(r["agreement_rate"]), n_overrides=int(r["n_overrides"] or 0),
+                           override_precision=_f(r["override_precision"]))
+
+    # (C) deterministic anchors — REUSE governance_summary (single source; provably from the audit log)
+    gov = governance_summary(env_id=env_id, business_id=business_id)
+    anchors = {
+        "refusal_rate": gov["refusal_rate"], "grounded_rate": gov["grounded_rate"],
+        "postvalidator_block_count": gov["postvalidator_block_count"],
+        "answer_source_mix": gov["answer_source_mix"],
+    }
+
+    total = arms["assisted"]["n"] + arms["unassisted"]["n"]
+    # delta only when BOTH arms have data — never a one-sided or fabricated number
+    delta = {"ttv_pct_faster": None, "agreement_pp": None}
+    asg, uag = arms["assisted"], arms["unassisted"]
+    if asg["n"] and uag["n"]:
+        if asg["median_ttv_ms"] is not None and uag["median_ttv_ms"] and uag["median_ttv_ms"] > 0:
+            delta["ttv_pct_faster"] = round(100.0 * (uag["median_ttv_ms"] - asg["median_ttv_ms"])
+                                            / uag["median_ttv_ms"], 1)
+        if asg["agreement_rate"] is not None and uag["agreement_rate"] is not None:
+            delta["agreement_pp"] = round(100.0 * (asg["agreement_rate"] - uag["agreement_rate"]), 1)
+
+    return {
+        "arms": arms,
+        "delta": delta,
+        "anchors": anchors,
+        "status": "measured" if total else "not_measured",
+        "null_reason": None if total else "no_sessions",
+    }
+
+
 # ── Phase 8: committed artifacts (eval results + last manual prod smoke) ───────
 _SMOKE_PATH = _ARTIFACT_DIR / "last_smoke.json"
 _EVAL_PATH = _ARTIFACT_DIR / "eval_results.json"

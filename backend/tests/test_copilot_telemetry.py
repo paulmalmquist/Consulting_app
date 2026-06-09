@@ -239,3 +239,148 @@ def test_governance_summary_aggregates(fake_cursor):
     assert len(g["recent_interactions"]) == 1 and len(g["recent_refusals"]) == 1 and len(g["unsupported_blocked_examples"]) == 1
     assert g["production_smoke"]["status"] in ("pass", "not_available")  # reads committed artifact
     assert g["active_prompt_version"] == "e1d3a0daab52"
+
+
+# ── Track B: operator usefulness (disposition capture + measurement) ────────────
+REPORT_ID = str(uuid4())
+
+
+def _gov_pushes(fake_cursor):
+    """Queue the 9 governance_summary queries (with real anchor numbers) in order."""
+    fake_cursor.push_result([{"n": 10, "refusal_rate": 0.2, "grounded_rate": 0.8, "p50_ms": 2500, "p95_ms": 6000}])
+    fake_cursor.push_result([{"answer_source": "live_llm", "n": 8}, {"answer_source": "refusal", "n": 2}])
+    fake_cursor.push_result([{"nr": "(none)", "n": 8}, {"nr": "unsupported_question", "n": 2}])
+    fake_cursor.push_result([{"prompt_version": "e1d3a0daab52", "model": "gpt-5-mini"}])
+    fake_cursor.push_result([{"fr": "(none)", "n": 9}, {"fr": "postvalidate_block", "n": 1}])
+    fake_cursor.push_result([{"st": "success", "n": 12}])
+    fake_cursor.push_result([])   # recent
+    fake_cursor.push_result([])   # refusals
+    fake_cursor.push_result([])   # blocked
+
+
+def test_disposition_records_and_flags_override(fake_cursor):
+    # query order: SELECT report (verdict+run_key) -> INSERT (no fetch)
+    fake_cursor.push_result([{"verdict": "NO_GO", "run_key": "smap_msl:D-4:test"}])
+    out = tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="assisted",
+                                human_verdict="GO", fire_tick=728, confidence=4, time_to_verdict_ms=5200,
+                                evidence_opened=3, pair_id=None)
+    assert out["is_override"] is True and out["arm"] == "assisted" and out["null_reason"] is None
+    assert out["action_id"] is not None
+    assert any("INSERT INTO tel_copilot_review_actions" in q[0] for q in fake_cursor.queries)
+
+
+def test_disposition_agree_is_not_override(fake_cursor):
+    fake_cursor.push_result([{"verdict": "NO_GO", "run_key": "smap_msl:D-4:test"}])
+    out = tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="assisted",
+                                human_verdict="NO_GO", fire_tick=728)
+    assert out["is_override"] is False
+
+
+def test_disposition_defer_is_not_override(fake_cursor):
+    fake_cursor.push_result([{"verdict": "GO", "run_key": "smap_msl:D-4:test"}])
+    out = tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="unassisted",
+                                human_verdict="DEFER")
+    assert out["is_override"] is False
+
+
+def test_disposition_bad_arm_fails_closed_no_write(fake_cursor):
+    import pytest
+    with pytest.raises(ValueError):
+        tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="bogus",
+                              human_verdict="GO")
+    # validation happens BEFORE any DB access — no report SELECT, no INSERT
+    assert fake_cursor.queries == []
+
+
+def test_disposition_bad_confidence_fails_closed_no_write(fake_cursor):
+    import pytest
+    with pytest.raises(ValueError):
+        tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="assisted",
+                              human_verdict="GO", confidence=9)
+    assert fake_cursor.queries == []
+
+
+def test_disposition_missing_report_no_insert(fake_cursor):
+    import pytest
+    fake_cursor.push_result([])   # report SELECT returns nothing
+    with pytest.raises(LookupError):
+        tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="assisted",
+                              human_verdict="GO")
+    assert not any("INSERT INTO tel_copilot_review_actions" in q[0] for q in fake_cursor.queries)
+
+
+def test_disposition_report_lookup_is_tenant_scoped(fake_cursor):
+    fake_cursor.push_result([{"verdict": "NO_GO", "run_key": "smap_msl:D-4:test"}])
+    tc.record_disposition(env_id=ENV, business_id=BIZ, report_id=REPORT_ID, arm="assisted",
+                          human_verdict="GO")
+    sel = next(q for q in fake_cursor.queries if "FROM tel_copilot_reports" in q[0])
+    assert ENV in sel[1] and str(BIZ) in sel[1]   # scoped by env + business
+
+
+def test_usefulness_n0_renders_not_measured_but_anchors_present(fake_cursor):
+    # query order: per-arm core (empty), agreement/precision (empty), then 9 governance queries
+    fake_cursor.push_result([])   # per-arm core: no sessions
+    fake_cursor.push_result([])   # agreement/precision: no sessions
+    _gov_pushes(fake_cursor)
+    u = tc.usefulness_summary(env_id=ENV, business_id=BIZ)
+    assert u["status"] == "not_measured" and u["null_reason"] == "no_sessions"
+    # human-outcome metrics are None (NOT a fabricated 0) at N=0
+    assert u["arms"]["assisted"]["n"] == 0 and u["arms"]["assisted"]["median_ttv_ms"] is None
+    assert u["arms"]["assisted"]["agreement_rate"] is None
+    assert u["delta"]["ttv_pct_faster"] is None
+    # deterministic anchors are STILL real (they predate Track B sessions)
+    assert u["anchors"]["refusal_rate"] == 0.2
+    assert u["anchors"]["postvalidator_block_count"] == 1
+    assert u["anchors"]["grounded_rate"] == 0.8
+
+
+def test_usefulness_surfaces_per_arm_measures_and_delta(fake_cursor):
+    # both arms have sessions; assisted faster + higher agreement -> a real delta
+    fake_cursor.push_result([
+        {"arm": "assisted", "n": 4, "median_ttv_ms": 4000, "mean_confidence": 4.0,
+         "evidence_open_rate": 0.75, "override_rate": 0.25},
+        {"arm": "unassisted", "n": 4, "median_ttv_ms": 10000, "mean_confidence": 3.0,
+         "evidence_open_rate": 0.0, "override_rate": 0.5}])
+    fake_cursor.push_result([
+        {"arm": "assisted", "agreement_rate": 1.0, "n_overrides": 1, "override_precision": 1.0},
+        {"arm": "unassisted", "agreement_rate": 0.75, "n_overrides": 2, "override_precision": 0.5}])
+    _gov_pushes(fake_cursor)
+    u = tc.usefulness_summary(env_id=ENV, business_id=BIZ)
+    assert u["status"] == "measured"
+    assert u["arms"]["assisted"]["median_ttv_ms"] == 4000
+    assert u["arms"]["assisted"]["override_precision"] == 1.0
+    # delta computed only because BOTH arms have N>0: (10000-4000)/10000 = 60%
+    assert u["delta"]["ttv_pct_faster"] == 60.0
+    assert u["delta"]["agreement_pp"] == 25.0   # (1.0 - 0.75) * 100
+
+
+def test_usefulness_delta_blank_when_one_arm_empty(fake_cursor):
+    fake_cursor.push_result([
+        {"arm": "assisted", "n": 3, "median_ttv_ms": 3000, "mean_confidence": 4.0,
+         "evidence_open_rate": 1.0, "override_rate": 0.0}])   # only assisted
+    fake_cursor.push_result([
+        {"arm": "assisted", "agreement_rate": 1.0, "n_overrides": 0, "override_precision": None}])
+    _gov_pushes(fake_cursor)
+    u = tc.usefulness_summary(env_id=ENV, business_id=BIZ)
+    assert u["status"] == "measured"          # assisted has sessions
+    assert u["arms"]["unassisted"]["n"] == 0
+    assert u["delta"]["ttv_pct_faster"] is None   # never one-sided
+    assert u["delta"]["agreement_pp"] is None
+
+
+def test_usefulness_anchors_come_from_logs_not_constants(fake_cursor):
+    # distinct anchor numbers must appear verbatim -> proves they trace to tel_copilot_interactions
+    fake_cursor.push_result([])
+    fake_cursor.push_result([])
+    fake_cursor.push_result([{"n": 50, "refusal_rate": 0.123, "grounded_rate": 0.917, "p50_ms": 1, "p95_ms": 2}])
+    fake_cursor.push_result([{"answer_source": "live_llm", "n": 50}])
+    fake_cursor.push_result([{"nr": "(none)", "n": 50}])
+    fake_cursor.push_result([{"prompt_version": "zz", "model": "gpt-5-mini"}])
+    fake_cursor.push_result([{"fr": "postvalidate_block", "n": 7}])
+    fake_cursor.push_result([{"st": "success", "n": 1}])
+    fake_cursor.push_result([]); fake_cursor.push_result([]); fake_cursor.push_result([])
+    u = tc.usefulness_summary(env_id=ENV, business_id=BIZ)
+    assert u["anchors"]["refusal_rate"] == 0.123
+    assert u["anchors"]["grounded_rate"] == 0.917
+    assert u["anchors"]["postvalidator_block_count"] == 7
+    assert u["anchors"]["answer_source_mix"] == {"live_llm": 50}

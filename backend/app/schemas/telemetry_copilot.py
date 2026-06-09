@@ -39,6 +39,22 @@ class AskRequest(BaseModel):
     context: dict[str, Any] | None = None
 
 
+class DispositionRequest(BaseModel):
+    """Track B: a human's disposition of a draft report, in a within-reviewer paired A/B. The model's
+    verdict + run_key are read server-side from the report (the client cannot assert them); only the
+    human's decision + protocol metadata are accepted here. No auth — reviewer_label is opaque."""
+    env_id: str
+    business_id: UUID
+    arm: str                              # 'assisted' | 'unassisted'
+    human_verdict: str                    # 'GO' | 'NO_GO' | 'DEFER'
+    fire_tick: int | None = None          # which window was reviewed (for labeled-truth scoring)
+    confidence: int | None = None         # 1..5
+    time_to_verdict_ms: int | None = None
+    evidence_opened: int = 0
+    reviewer_label: str | None = None     # opaque, optional; NOT real auth identity
+    pair_id: UUID | None = None           # links the assisted+unassisted pair (same reviewer+case)
+
+
 class EvidenceItem(BaseModel):
     type: str                       # run | model | prediction | anomaly | metric | mlflow | threshold
     id: str | None = None           # real run_id / receipt_id / mlflow_run_id / model_version
