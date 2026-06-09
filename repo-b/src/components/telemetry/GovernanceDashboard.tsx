@@ -227,8 +227,8 @@ function UsefulnessPanel({ u }: { u: UsefulnessSummary | null }) {
         {delta != null ? `Time-to-verdict ${delta}% faster with the copilot` : "Time-to-verdict delta — awaiting sessions in both arms"}
       </div>
       <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginBottom: 12, lineHeight: 1.5 }}>
-        Human-outcome measures populate from real recorded review sessions (Copilot tab → "Record your review").
-        Until then they read "not measured", never a placeholder zero. Deterministic anchors below are live now.
+        Human-outcome measures populate from real recorded review sessions (Copilot tab → “Record your review”).
+        Until then they read “not measured”, never a placeholder zero. Deterministic anchors below are live now.
       </div>
       {/* six measures × two arms, N in the header */}
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8, fontFamily: C.mono,

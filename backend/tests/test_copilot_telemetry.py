@@ -378,7 +378,9 @@ def test_usefulness_anchors_come_from_logs_not_constants(fake_cursor):
     fake_cursor.push_result([{"prompt_version": "zz", "model": "gpt-5-mini"}])
     fake_cursor.push_result([{"fr": "postvalidate_block", "n": 7}])
     fake_cursor.push_result([{"st": "success", "n": 1}])
-    fake_cursor.push_result([]); fake_cursor.push_result([]); fake_cursor.push_result([])
+    fake_cursor.push_result([])
+    fake_cursor.push_result([])
+    fake_cursor.push_result([])
     u = tc.usefulness_summary(env_id=ENV, business_id=BIZ)
     assert u["anchors"]["refusal_rate"] == 0.123
     assert u["anchors"]["grounded_rate"] == 0.917
