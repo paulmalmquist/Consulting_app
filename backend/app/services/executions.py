@@ -1,9 +1,47 @@
 """Executions service — single source of truth for execution operations."""
 
 import json
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.db import get_cursor
+
+
+def _emit_execution_event(
+    event_type: str,
+    execution_id,
+    business_id: UUID,
+    execution_type: str | None,
+    inputs: dict,
+    *,
+    error: str | None = None,
+) -> None:
+    """Emit a best-effort execution lifecycle event.
+
+    Never raises and never blocks beyond the publisher's bounded timeout; it is
+    a pure no-op when no broker is configured (e.g. in CI). The emit is
+    observability only — it cannot change the execution's result or behavior.
+    """
+    from app.events import EventEnvelope, Topics, publish_event
+
+    status = event_type.split(".", 1)[-1]
+    payload: dict = {"status": status, "execution_type": execution_type}
+    if event_type != "execution.started":
+        payload["input_keys"] = list(inputs.keys())
+    if error is not None:
+        payload["error"] = error
+
+    publish_event(
+        Topics.EXECUTIONS,
+        EventEnvelope(
+            event_type=event_type,
+            idempotency_key=f"{event_type}:{execution_id}",
+            occurred_at=datetime.now(timezone.utc),
+            run_id=str(execution_id),
+            business_id=business_id,
+            payload=payload,
+        ),
+    )
 
 
 def run_execution(
@@ -96,63 +134,87 @@ def run_execution(
         row = cur.fetchone()
         execution_id = row["execution_id"]
 
-        logs = [{"at": "queued", "message": "Execution accepted"}]
-        outputs: dict = {
-            "message": "Execution completed successfully",
-            "processed_inputs": list(inputs.keys()),
-            "result_summary": f"Processed {len(inputs)} input field(s)",
-        }
-        result_json: dict = {}
-
-        if execution_type == "RE_UNDERWRITE_RUN":
-            from app.services import real_estate as re_svc
-
-            loan_id = inputs.get("loan_id")
-            if not loan_id:
-                raise ValueError("loan_id is required for RE_UNDERWRITE_RUN")
-            logs.append({"at": "running", "message": "Running deterministic RE_UNDERWRITE_RUN"})
-            run_result = re_svc.run_underwrite_execution(
-                cur=cur,
-                business_id=business_id,
-                loan_id=UUID(str(loan_id)),
-                execution_id=UUID(str(execution_id)),
-                inputs_json=inputs,
-            )
-            outputs = {
-                "execution_type": execution_type,
-                "underwrite_run_id": run_result["underwrite_run"]["underwrite_run_id"],
-                "loan_id": run_result["loan_id"],
-                "version": run_result["version"],
-                "outputs": run_result["outputs"],
-                "underwrite_run": run_result["underwrite_run"],
-            }
-            result_json = outputs
-            logs.append({"at": "completed", "message": "RE_UNDERWRITE_RUN completed"})
-        else:
-            result_json = outputs
-            logs.append({"at": "completed", "message": "Execution completed"})
-
-        cur.execute(
-            """
-            UPDATE app.executions
-            SET status='completed',
-                outputs_json = %s::jsonb,
-                result_json = %s::jsonb,
-                logs_json = %s::jsonb
-            WHERE execution_id = %s
-            """,
-            (
-                json.dumps(outputs),
-                json.dumps(result_json),
-                json.dumps(logs),
-                str(execution_id),
-            ),
+        # Best-effort lifecycle event: the row now exists. No-op without a broker.
+        _emit_execution_event(
+            "execution.started", execution_id, business_id, execution_type, inputs
         )
-        return {
-            "run_id": execution_id,
-            "status": "completed",
-            "outputs_json": outputs,
-        }
+
+        try:
+            logs = [{"at": "queued", "message": "Execution accepted"}]
+            outputs: dict = {
+                "message": "Execution completed successfully",
+                "processed_inputs": list(inputs.keys()),
+                "result_summary": f"Processed {len(inputs)} input field(s)",
+            }
+            result_json: dict = {}
+
+            if execution_type == "RE_UNDERWRITE_RUN":
+                from app.services import real_estate as re_svc
+
+                loan_id = inputs.get("loan_id")
+                if not loan_id:
+                    raise ValueError("loan_id is required for RE_UNDERWRITE_RUN")
+                logs.append({"at": "running", "message": "Running deterministic RE_UNDERWRITE_RUN"})
+                run_result = re_svc.run_underwrite_execution(
+                    cur=cur,
+                    business_id=business_id,
+                    loan_id=UUID(str(loan_id)),
+                    execution_id=UUID(str(execution_id)),
+                    inputs_json=inputs,
+                )
+                outputs = {
+                    "execution_type": execution_type,
+                    "underwrite_run_id": run_result["underwrite_run"]["underwrite_run_id"],
+                    "loan_id": run_result["loan_id"],
+                    "version": run_result["version"],
+                    "outputs": run_result["outputs"],
+                    "underwrite_run": run_result["underwrite_run"],
+                }
+                result_json = outputs
+                logs.append({"at": "completed", "message": "RE_UNDERWRITE_RUN completed"})
+            else:
+                result_json = outputs
+                logs.append({"at": "completed", "message": "Execution completed"})
+
+            cur.execute(
+                """
+                UPDATE app.executions
+                SET status='completed',
+                    outputs_json = %s::jsonb,
+                    result_json = %s::jsonb,
+                    logs_json = %s::jsonb
+                WHERE execution_id = %s
+                """,
+                (
+                    json.dumps(outputs),
+                    json.dumps(result_json),
+                    json.dumps(logs),
+                    str(execution_id),
+                ),
+            )
+            result = {
+                "run_id": execution_id,
+                "status": "completed",
+                "outputs_json": outputs,
+            }
+        except Exception as exc:
+            # Observability only: the original exception still propagates, so the
+            # transaction rolls back and the API surfaces the error unchanged.
+            _emit_execution_event(
+                "execution.failed",
+                execution_id,
+                business_id,
+                execution_type,
+                inputs,
+                error=type(exc).__name__,
+            )
+            raise
+
+    # Cursor context has exited: the row is committed. Emit the terminal event.
+    _emit_execution_event(
+        "execution.completed", execution_id, business_id, execution_type, inputs
+    )
+    return result
 
 
 def list_executions(

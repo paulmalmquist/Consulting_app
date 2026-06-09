@@ -1,0 +1,57 @@
+# Local event-streaming backbone for Winston (Phase 1).
+#
+# Single-node Redpanda speaking the Kafka wire protocol — the same protocol the
+# cloud broker (GCP Managed Kafka / Confluent) will speak, so backend code never
+# changes between dev and prod. Plus the Redpanda Console for eyeballing topics.
+#
+#   docker compose -f infra/local/docker-compose.streaming.yml up -d
+#   open http://localhost:8080      # console
+#
+# Host clients (the backend, the smoke script) publish here with:
+#   EVENTS_ENABLED=true EVENTS_BROKER_URL=localhost:9092
+#
+# Two Kafka listeners: the EXTERNAL listener is advertised as localhost:9092 for
+# clients on the host; the INTERNAL listener (redpanda:29092) is for the console
+# container inside the compose network. Nothing in production depends on this
+# file — it is dev-only.
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: winston-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:29092,external://localhost:9092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --schema-registry-addr=internal://0.0.0.0:8081
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "9092:9092"     # Kafka API (external listener → host clients)
+      - "8081:8081"     # Schema Registry
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  console:
+    image: redpandadata/console:v2.7.2
+    container_name: winston-redpanda-console
+    depends_on:
+      - redpanda
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+
+volumes:
+  redpanda-data:
