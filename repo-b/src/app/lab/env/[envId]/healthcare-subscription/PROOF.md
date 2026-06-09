@@ -1,4 +1,4 @@
-# PROOF — Healthcare Subscription Analytics (HHA-1)
+# PROOF — Healthcare Subscription Analytics (HHA-1 + HHA-2)
 
 Evidence for the Exec Overview vertical slice. SYNTHETIC / NO-PHI.
 
@@ -110,6 +110,58 @@ defaulted the client API base to the same-origin `/bos` proxy.
 
 Screenshots: `screenshots/hha_exec_overview_live.png`, `screenshots/hha_metric_drawer_live.png`.
 
+## HHA-2 review evidence (2026-06-09)
+
+**State:** IN REVIEW. NOT SHIPPED. NOT DEPLOYED.
+
+### API and service behavior
+
+- Added read-only `/api/hha/v1/funnel`, `/cohorts`, and `/operations`.
+- Each service read issues `set_config('app.env_id', ..., true)`, filters by `env_id`,
+  selects the latest applicable date, and returns response metadata/definitions.
+- Funnel production-data read: as-of `2026-05-31`; six ordered blended stages; three
+  channels with CAC `$420`, `$90`, and `$180`.
+- Cohort production-data read: 78 visible `all` cells plus one marker:
+  `{signup_cohort_month: "2026-05-01", channel: "womens_pilot", masked: true,
+  reason: "< 11 members - suppressed"}`.
+- The suppressed query selects only `signup_cohort_month` and `acquisition_channel`.
+  The masked JSON contains no cohort size, retained count, retention rate, revenue, or LTV.
+- Channel LTV:CAC returns an empty collection and the reason:
+  `Channel-specific LTV is not seeded; only blended LTV and channel CAC are available.`
+- Operations production-data read is ordered labs, consults, fulfillment, support.
+  `over_sla` is false, true, false, true respectively.
+
+### Verification
+
+- `cd backend && python -m pytest --noconftest tests/test_hha.py -q`
+  → **9 passed**.
+- `cd repo-b && npm run typecheck` → **exit 0**.
+- Schema verifier with the existing `DATABASE_URL`
+  → **207 passed, 0 failed**.
+- Local same-origin `/bos/api/hha/v1/cohorts` → **HTTP 200** with the masked marker
+  and no suppressed numeric values.
+- Authenticated local Playwright verification of Overview, Funnel, Cohorts, and
+  Operations → **PASS**:
+  - no `LabEnvironmentShell` sidebar/chrome;
+  - shared `LabEnvTopBar`, NO-PHI banner, navigation, drawers, and provenance footer;
+  - no console errors, failed requests, or document/fetch/XHR responses >=400;
+  - masked cohort values absent from DOM and payload.
+
+Screenshots:
+- `screenshots/hha2-overview.png`
+- `screenshots/hha2-funnel.png`
+- `screenshots/hha2-cohorts.png`
+- `screenshots/hha2-operations.png`
+
+### Delivery boundary
+
+- Branch: `codex/hha-phase-2-surfaces`.
+- Draft PR URL is added after creation.
+- No merge or deployment is authorized.
+- Production Phase 2 API endpoints remain 404 until an approved merge and separate
+  backend deployment.
+
 ## Caveats
 - Phase 1 rollups are **seeded**, not derived (footer + provenance label say so).
-- Visual screenshot pending (above); all API/deploy gates verified live.
+- HHA-2 uses those same seeded rollups and does not add schema, seeds, or provisioning.
+- HHA-1 production is live; HHA-2 remains review-only.

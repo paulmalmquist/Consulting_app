@@ -1,36 +1,39 @@
 # Demo — Healthcare Subscription Analytics
 
-A 3-minute click-through for a digital-health reviewer. SYNTHETIC / NO-PHI throughout.
+A 5-minute review click-through. SYNTHETIC / NO-PHI throughout.
 
 ## Setup
-Log in, open `/lab/env/{env_id}/healthcare-subscription`.
+
+Use env `ceeb9ea0-9f8b-4369-b853-adcd60c01def`. HHA-2 is currently local/draft-PR
+only; do not claim the production Phase 2 URLs are shipped.
 
 ## Script
 
-1. **Frame it.** "This is the analytics operating layer for a subscription-led longevity
-   business. Every number is synthetic — no patients, no PHI. The point is the modeling and
-   the governance, not the figures." Point at the non-dismissible NO-PHI banner.
+1. **Overview.** Open `/healthcare-subscription`. Point out the persistent NO-PHI
+   banner, four-surface navigation, KPI cards, metric-definition drawer, and seeded
+   provenance footer.
 
-2. **Exec Overview.** Walk the KPI strip: active members, MRR/ARR, ARPU, NRR (>100% — the
-   expansion story), gross/net churn (net churn is negative — expansion outpaces churn),
-   trial→paid, activation, month-3 retention, LTV, blended CAC, LTV:CAC, CAC payback, and the
-   care-ops SLAs (lab, consult). NRR / LTV:CAC / net-churn carry directional color.
+2. **Funnel.** Open `/healthcare-subscription/funnel`. Walk the six ordered lifecycle
+   bars from visitor through retained. Compare paid search, organic, and referral CAC
+   and stage conversion fractions. Click a value to show its governed definition.
 
-3. **Governed definitions.** Click any KPI → the metric-definition drawer opens with the
-   formula, grain, owner, and source-of-record. "One definition per metric — the dashboard,
-   the AI layer, and ad-hoc SQL all resolve through this. Three teams can't produce three
-   different NRR numbers."
+3. **Cohorts.** Open `/healthcare-subscription/cohorts`. Scroll the M0-M11 grid and
+   latest-LTV column. Show the separate `womens_pilot` marker:
+   `"< 11 members - suppressed"`. No pilot count, rate, revenue, or LTV is present in
+   the browser payload or DOM. Explain that channel LTV:CAC is intentionally unavailable
+   because channel-specific LTV is not seeded.
 
-4. **Trust the plumbing.** Point at the footer: as-of date, refresh time, and the honest
-   provenance label — "synthetic gold rollup (seeded)". "Freshness and provenance are
-   user-facing, not buried."
+4. **Operations.** Open `/healthcare-subscription/operations`. Compare target, p50, p90,
+   breach rate, volume, and backlog for labs, consults, fulfillment, and support.
+   Consults and support receive warning treatment because p90 is over target.
 
-5. **The boundary (talk track for the copilot phase).** "When the copilot lands, it answers
-   only aggregate analytics questions. Ask it to diagnose a patient or list members and it
-   refuses — schema-only, aggregate-only, small groups (<11) suppressed, every query logged.
-   The capability of modern AI analytics with the data handling a health company is held to."
+5. **Trust boundary.** On every surface, verify the only shared chrome is
+   `LabEnvTopBar`, the NO-PHI banner is visible, a definition drawer opens, and the
+   footer reports as-of date, freshness, and seeded provenance.
 
-## What to emphasize
-A real analytics architecture (governed semantic definitions, RLS tenancy, freshness/
-provenance, small-cell suppression baked into the data), not a slide. Business analytics
-kept strictly separate from anything clinical.
+## What not to claim
+
+- HHA-2 is in review, not shipped, and not deployed.
+- The rollups are seeded, not event-derived.
+- Channel LTV:CAC is not available at the current data grain.
+- No patient data, PHI, clinical decisioning, copilot, or write workflow is included.
