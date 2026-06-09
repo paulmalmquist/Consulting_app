@@ -17,7 +17,8 @@
 | Live API smoke (`/api/hha/v1/*`) | PASS | 2026-06-09 | `health` → ok (counts 1/4/24/79/4, `phi:false`); `overview` → 18 KPIs, as_of 2026-05-31, money cast |
 | Routes shipped (prod) | PASS | 2026-06-09 | `/login` 200; hha + telemetry lab routes 307 (auth gate, not 404) |
 | Telemetry regression | PASS | 2026-06-09 | `/api/telemetry/health` 200; `/api/telemetry/replay` `first_model_fire_t = 728` (unchanged) |
-| Live route smoke (logged-in browser) | PENDING | — | Auth-gated + client-rendered; needs a logged-in browser. Use the agent prompt in `agent-validate-prompt.md`; capture screenshot, then flip this row to PASS. |
+| Visual defects found (logged-in browser) | FIXED | 2026-06-09 | First logged-in capture found two defects: page wrapped in `LabEnvironmentShell` (not standalone) + KPI fetch 404 (empty `NEXT_PUBLIC_API_BASE` → same-origin). Fixed in PR #134 (`isDomainRoute` allowlist + `/bos` proxy). |
+| Live route smoke (logged-in browser) | PASS | 2026-06-09 | Playwright login as `info@novendor.ai`; standalone (no `LabEnvironmentShell` chrome — matches telemetry; only the shared `LabEnvTopBar` remains); NO-PHI banner; **18 KPI cards with values** (Active Members 4,250 · MRR $502K · NRR 111.2% · LTV:CAC 8.5× · payback 8.6mo · SLAs); metric-definition drawer (formula/grain/owner/source); provenance footer. Screenshots in `screenshots/`. |
 
 ## Fail-closed rule
 

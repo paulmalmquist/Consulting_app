@@ -80,13 +80,35 @@ PR #130 merged to `main` (commit `21f55939`); branch deleted.
 - **Routes shipped (prod):** `/login` 200; `/lab/env/ceeb9ea0-…/healthcare-subscription` and `/lab/env/…/telemetry` → 307 (auth gate, not 404).
 - **Telemetry regression:** `/api/telemetry/health` 200; `/api/telemetry/replay` `first_model_fire_t = 728` (unchanged).
 
-### Still pending — logged-in browser screenshot
-The lab route is Supabase-auth-gated and client-rendered, so the rendered KPI strip / NO-PHI banner
-/ metric drawer / provenance footer cannot be captured from an unauthenticated HTTP probe. The data
-those elements render (the `/overview` payload above) and the route shipping are verified; the visual
-pixel confirmation + screenshot is the one open item. Run the prompt in
-`docs/plans/healthcare-subscription/agent-validate-prompt.md` from a logged-in browser/agent, drop the
-image under `screenshots/`, and flip the "Live route smoke (logged-in browser)" gate to PASS.
+### Logged-in visual verification (2026-06-09) — PASS, after fixing two defects
+
+The first logged-in capture (Playwright, `info@novendor.ai`) **caught two production defects** that
+HTTP/code-level checks had missed:
+1. **Not standalone** — the page was wrapped in `LabEnvironmentShell` (breadcrumb, WORKSPACE SWITCH,
+   OPERATIONS FUNCTIONS sidebar). Root cause: the route was missing from the shell's `isDomainRoute`
+   full-bleed allowlist.
+2. **KPI data 404** — `Overview data is not available`: the client used an empty `NEXT_PUBLIC_API_BASE`
+   → same-origin `/api/hha/v1/overview` (404). The backend route is live; the frontend just wasn't
+   reaching it.
+
+**Fixed in PR #134** (`fix/hha-standalone-shell-and-bos-proxy`, merged → commit `a51fcabb`): added
+`healthcare-subscription` to `LabEnvironmentShell` `isDomainRoute` (full-bleed, like telemetry) and
+defaulted the client API base to the same-origin `/bos` proxy.
+
+**Re-capture after deploy → all visual checks PASS:**
+- **Standalone** — no `LabEnvironmentShell` chrome (sidebar/toolbar/dept gone). Only the shared
+  `LabEnvTopBar` remains, which every lab env (incl. telemetry, the standalone reference) carries.
+- Neutral title "Healthcare Subscription Analytics"; no "Hone Health" branding.
+- Non-dismissible **NO-PHI banner** ("Synthetic demo · no PHI…").
+- **18 KPI cards with live values** — Active Members 4,250 · MRR $502K · ARR $6.0M · ARPU $118 ·
+  NRR 111.2% · GRR 95.9% · gross churn 4.1% · net churn −1.2% · trial→paid 62% · activation 71% ·
+  month-3 retention 78% · LTV $2,640 · CAC $310 · LTV:CAC 8.5× · payback 8.6mo · lab SLA 93% · consult SLA 88%.
+- **Metric-definition drawer** — e.g. Active Members → formula `count(distinct members with an active
+  paid subscription on as_of_date)`, grain `as_of_date`, owner Growth, source `hha_overview_metrics`.
+- **Provenance footer** — "as of 2026-05-31 · refreshed 5/31/2026 … synthetic gold rollup (seeded) · hha_starter v1".
+- No PHI anywhere on screen.
+
+Screenshots: `screenshots/hha_exec_overview_live.png`, `screenshots/hha_metric_drawer_live.png`.
 
 ## Caveats
 - Phase 1 rollups are **seeded**, not derived (footer + provenance label say so).
