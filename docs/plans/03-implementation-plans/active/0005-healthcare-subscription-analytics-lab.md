@@ -45,9 +45,9 @@ freshness/provenance.
 | # | Phase | Ticket | DB migration | Risk | Status |
 |---|---|---|---|---|---|
 | HHA-1 | 1 | Exec Overview slice (schema, seed, API, standalone UI, tests) | 10013 | Med | DONE 2026-06-08 |
-| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | in review |
-| HHA-3 | 3 | Event-level grain + derived rollups | new | Med | planned |
-| HHA-4 | 4 | Governed PHI-safe copilot | none | Med | planned |
+| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | SHIPPED — PR #136 → `caa57840` (deployed + prod receipt) |
+| HHA-3 | 3 | Event-level grain + derived rollups (own PR) | 10014 | High | planned — `PHASE3_CODEX_PROMPT.md` (gated; wipe+reseed `ceeb9ea0`) |
+| HHA-4 | 4 | Governed PHI-safe copilot (own PR) | none | Med | planned — `PHASE4_CODEX_PROMPT.md` (after HHA-3) |
 
 ## Phase 1 — HHA-1 detail (DONE)
 
