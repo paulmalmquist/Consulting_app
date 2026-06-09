@@ -60,8 +60,11 @@ provenance footer) + `lib/healthcare-subscription/client.ts`; `backend/tests/tes
 
 Acceptance receipt:
 - `pytest --noconftest backend/tests/test_hha.py` → 6 passed (2026-06-08).
-- `npm run typecheck` → exit 0 (2026-06-08).
-- Live provisioning + route smoke → see `release-readiness.md` / `PROOF.md` (fail-closed gate).
+- `npm run typecheck` → exit 0 (2026-06-08); `db:verify` → exit 0.
+- Merged: PR #130 → `main` commit `21f55939` (branch deleted).
+- Deployed: frontend `consulting-bfan2f6fa` (novendor.ai alias); backend `/version 21f55939`.
+- Live API smoke (2026-06-09): `/api/hha/v1/health` ok; `/api/hha/v1/overview` 18 KPIs; telemetry replay `first_model_fire_t=728` (regression clean).
+- Open item: logged-in browser screenshot — `docs/plans/healthcare-subscription/agent-validate-prompt.md`. Full detail in `release-readiness.md` / `PROOF.md`.
 
 ## Phases 2–4 — milestones (planned)
 See `docs/plans/healthcare-subscription/roadmap.md`. No phase starts without explicit approval.

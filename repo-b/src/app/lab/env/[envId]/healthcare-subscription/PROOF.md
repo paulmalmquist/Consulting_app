@@ -69,11 +69,25 @@ The pipeline's own `health_check` passed (lifecycle = `verified`). The separate
 (migration `10004`) is not present in this database — a pre-existing tooling gap unrelated to hha,
 not a provisioning failure. Env creation + seed + the pipeline health check all succeeded.
 
-### Not done (by design)
-- No frontend deploy. The standalone page is typecheck-clean and reads the proven API; a live
-  browser screenshot requires the frontend deployed (or `npm run dev`). Auto-deploy-on-merge to
-  `main` would publish it — flagged for go-ahead before any merge.
+## Live production verification (2026-06-08 merge, 2026-06-09 re-smoke)
+
+PR #130 merged to `main` (commit `21f55939`); branch deleted.
+
+- **Frontend (Vercel `consulting-app`):** auto-deployed from `main` → deployment `consulting-bfan2f6fa` (Ready); **novendor.ai** production alias points to it.
+- **Backend (Railway `authentic-sparkle`):** deployed from a clean git worktree at the merge commit (no WIP). Live `GET /version` → `21f55939111786fadd624bb667197aabd70578b6`.
+- **`GET /api/hha/v1/health?env_id=ceeb9ea0-…`** → `ok:true`, row_counts {overview 1, plans 4, funnel 24, cohorts 79, ops 4}, `synthetic:true`, `phi:false`, provenance `synthetic gold rollup (seeded) · hha_starter v1`.
+- **`GET /api/hha/v1/overview?env_id=ceeb9ea0-…`** → **18 KPIs**, `as_of_date 2026-05-31`, money cast to dollars (mrr 501500.0), `phi:false`, disclaimer present.
+- **Routes shipped (prod):** `/login` 200; `/lab/env/ceeb9ea0-…/healthcare-subscription` and `/lab/env/…/telemetry` → 307 (auth gate, not 404).
+- **Telemetry regression:** `/api/telemetry/health` 200; `/api/telemetry/replay` `first_model_fire_t = 728` (unchanged).
+
+### Still pending — logged-in browser screenshot
+The lab route is Supabase-auth-gated and client-rendered, so the rendered KPI strip / NO-PHI banner
+/ metric drawer / provenance footer cannot be captured from an unauthenticated HTTP probe. The data
+those elements render (the `/overview` payload above) and the route shipping are verified; the visual
+pixel confirmation + screenshot is the one open item. Run the prompt in
+`docs/plans/healthcare-subscription/agent-validate-prompt.md` from a logged-in browser/agent, drop the
+image under `screenshots/`, and flip the "Live route smoke (logged-in browser)" gate to PASS.
 
 ## Caveats
 - Phase 1 rollups are **seeded**, not derived (footer + provenance label say so).
-- No deploy in HHA-1.
+- Visual screenshot pending (above); all API/deploy gates verified live.
