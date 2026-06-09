@@ -11,11 +11,12 @@
 - [ ] PR review and acceptance. Phase 2 remains in review, not shipped, and not deployed.
 - [ ] Channel LTV:CAC. Channel-specific LTV is not seeded; only blended LTV and channel CAC are available.
 
-### Phase 3 — event grain
-- [ ] Synthetic event-level tables (`hha_members`, `hha_subscriptions`, lab/consult/fulfillment/support/billing events) — synthetic IDs only, no PHI.
-- [ ] Derive the gold rollups from events; flip `provenance_label` to "derived".
+### Phase 3 — event grain (full prompt: `PHASE3_CODEX_PROMPT.md`; gated; own PR)
+- [ ] 7 synthetic event tables (migration `10014`) — synthetic IDs only, no PHI, full RLS.
+- [ ] **Preserve v1** seed logic, add v2 derivation (events → gold), flip `provenance_label` to "derived". Tolerance-based acceptance.
+- [ ] Gated wipe + re-seed of `ceeb9ea0` with a backup-table rollback artifact + scratch-env verify + explicit approval.
 
-### Phase 4 — copilot
+### Phase 4 — copilot (full prompt: `PHASE4_CODEX_PROMPT.md`; after Phase 3; own PR)
 - [ ] `Hone Health Analytics` scope-label guardrail in `backend/app/assistant_runtime/prompt_registry.py`.
 - [ ] Allow-list only `hha_*` rollups; enforce aggregate + read-only + small-cell (<11) suppression in post-gen validation.
 - [ ] Medical-advice refusal string + audit receipts.
