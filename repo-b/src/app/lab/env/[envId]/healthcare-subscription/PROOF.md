@@ -153,15 +153,28 @@ Screenshots:
 - `screenshots/hha2-cohorts.png`
 - `screenshots/hha2-operations.png`
 
-### Delivery boundary
+### Production receipt (2026-06-09) — SHIPPED + verified live
+PR #136 merged → `main` `caa57840`. Frontend `consulting-5hr2amjbh` (novendor.ai alias). Backend
+deployed from a clean worktree at the merge commit → `GET /version` = `caa57840`.
+- **Live API (all 5):** `/api/hha/v1/{health,overview,funnel,cohorts,operations}` → 200. Overview
+  18 KPIs; funnel blended_stages + 3 channels; operations labs/consults/fulfillment/support; cohorts
+  1 masked pilot.
+- **Suppression non-disclosing in prod:** `/cohorts` masked row = `{signup_cohort_month, channel,
+  masked:true, reason:"< 11 members - suppressed"}` only — no cohort_size/retained_count/
+  retention_pct/revenue/ltv. UI renders the reason, no numbers.
+- **Logged-in production receipt** (Playwright, info@novendor.ai), all four surfaces: standalone
+  (no heavy shell), NO-PHI banner, metric drawer, provenance footer. Screenshots:
+  `screenshots/hha2_overview_prod.png`, `hha2_overview_drawer_prod.png`, `hha2_funnel_prod.png`,
+  `hha2_cohorts_prod.png`, `hha2_operations_prod.png`.
+- **Telemetry regression:** `/api/telemetry/health` 200; replay `first_model_fire_t = 728`.
+- CI reds on #136 were the documented pre-existing baseline (auth/OIDC/telemetry/SSE unit tests +
+  2 ruff F401s) — none in the HHA-2 diff.
 
-- Branch: `codex/hha-phase-2-surfaces`.
-- Draft PR: https://github.com/paulmalmquist/Consulting_app/pull/136
-- No merge or deployment is authorized.
-- Production Phase 2 API endpoints remain 404 until an approved merge and separate
-  backend deployment.
+### Delivery boundary (historical — superseded by the production receipt above)
+- Branch `codex/hha-phase-2-surfaces`; merged via PR #136 on 2026-06-09.
 
 ## Caveats
-- Phase 1 rollups are **seeded**, not derived (footer + provenance label say so).
+- Phase 1/2 rollups are **seeded**, not derived (footer + provenance label say so). Phase 3 makes
+  them derived.
 - HHA-2 uses those same seeded rollups and does not add schema, seeds, or provisioning.
-- HHA-1 production is live; HHA-2 remains review-only.
+- HHA-1 + HHA-2 production are both live and aligned at `caa57840`.
