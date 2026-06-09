@@ -2,22 +2,24 @@
 
 ## Open
 
-### Phase 2 — additional surfaces
-- [ ] `GET /api/hha/v1/funnel` (read `hha_funnel_metrics`; blended + per-channel) + Funnel page.
-- [ ] `GET /api/hha/v1/cohorts` (read `hha_cohort_metrics`; honor `is_suppressed` → mask cells with size <11 in the UI, render the masked reason) + Cohorts page.
-- [ ] `GET /api/hha/v1/operations` (read `hha_operational_metrics`) + Operations SLA page.
-- [ ] LTV:CAC by channel widget (channel funnel rows + cohort LTV already seeded).
-- [ ] Cross-link the standalone surfaces with a bespoke in-env nav (still no app shell).
+### Phase 2 — ship it (built, draft PR #136)
+- [ ] Flip PR #136 ready → merge → **deploy backend from a clean checkout** (Railway; route 404s until then) → production visual receipt (login → Funnel/Cohorts/Operations).
+- [ ] (optional) Channel LTV:CAC remains documented-unavailable until per-channel LTV exists (Phase 3 events can supply it).
 
-### Phase 3 — event grain
-- [ ] Synthetic event-level tables (`hha_members`, `hha_subscriptions`, lab/consult/fulfillment/support/billing events) — synthetic IDs only, no PHI.
-- [ ] Derive the gold rollups from events; flip `provenance_label` to "derived".
+### Phase 3 — event grain + derived rollups (gated on HHA-2 shipping; own PR)
+Full prompt: `PHASE3_CODEX_PROMPT.md`.
+- [ ] 7 synthetic event tables (migration `10014`, re-check vs origin/main) — synthetic IDs only, no PHI, full RLS.
+- [ ] **Preserve v1** seed logic, add v2 derivation (events → gold), flip `provenance_label` to "derived".
+- [ ] Tolerance-based acceptance (headline KPIs in range; trends/rankings/suppression stable).
+- [ ] Gated wipe + re-seed of `ceeb9ea0` with a **backup-table rollback artifact** + scratch-env verify + explicit approval.
 
-### Phase 4 — copilot
-- [ ] `Hone Health Analytics` scope-label guardrail in `backend/app/assistant_runtime/prompt_registry.py`.
-- [ ] Allow-list only `hha_*` rollups; enforce aggregate + read-only + small-cell (<11) suppression in post-gen validation.
-- [ ] Medical-advice refusal string + audit receipts.
-- [ ] Eval fixtures: refusal cases ("diagnose this patient", "list members and IDs"), suppression cases, KPI-movement explanations.
+### Phase 4 — governed copilot (after Phase 3; own PR)
+Full prompt: `PHASE4_CODEX_PROMPT.md`.
+- [ ] `Hone Health Analytics` scope-label guardrail in `backend/app/assistant_runtime/prompt_registry.py` (mirror Meridian).
+- [ ] **Fixed-intent** `hha.aggregate_query` MCP tool (allow-listed intents; no free SQL; no identifier columns; suppression). Restrict HHA lane to the `hha` tag.
+- [ ] Pre-model medical-advice refusal — lab-*operations* analytics allowed, individual lab-*result* interpretation refused.
+- [ ] Audit via existing `ai_decision_audit_log` (no new governance tables unless proven necessary).
+- [ ] Standalone copilot + governance pages (telemetry pattern). Evals: refusals + allowed + zero-leak + suppression.
 
 ## Known caveats
 - Phase 1 rollups are **seeded**, not derived. Footer + provenance label say so. Do not present as pipeline output until Phase 3.

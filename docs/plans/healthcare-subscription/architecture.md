@@ -47,10 +47,16 @@ to the generated `env_id`.
 
 ## Seeded vs derived (be honest)
 
-Phase 1 rollups are **seeded**, not derived from events. The footer says so
-(`provenance_label = "synthetic gold rollup (seeded) · hha_starter v1"`). Phase 2 adds the
-event-level grain and makes the rollups derived. Until then, do not present the numbers as
-pipeline output.
+Phase 1/2 rollups are **seeded**, not derived from events. The footer says so
+(`provenance_label = "synthetic gold rollup (seeded) · hha_starter v1"`). Until then, do not
+present the numbers as pipeline output.
+
+**Phase 3 (HHA-3)** adds 7 synthetic event tables (migration `10014`) and a v2 seed pack that
+**derives** the 5 gold rollups from those events — the serving model becomes
+`events → aggregate → gold rollups → /api → standalone UI`, and the footer flips to
+`"synthetic gold rollup (derived) · hha_starter v2"`. v1 seed logic is preserved for rollback.
+Acceptance is tolerance-based (headline KPIs in range; trends/rankings/suppression stable). See
+`PHASE3_CODEX_PROMPT.md`. It is gated on HHA-2 shipping and is its own PR (separate from Phase 4).
 
 ## Standalone design
 

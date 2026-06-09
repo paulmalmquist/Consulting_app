@@ -45,9 +45,9 @@ freshness/provenance.
 | # | Phase | Ticket | DB migration | Risk | Status |
 |---|---|---|---|---|---|
 | HHA-1 | 1 | Exec Overview slice (schema, seed, API, standalone UI, tests) | 10013 | Med | DONE 2026-06-08 |
-| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | planned |
-| HHA-3 | 3 | Event-level grain + derived rollups | new | Med | planned |
-| HHA-4 | 4 | Governed PHI-safe copilot | none | Med | planned |
+| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | BUILT — draft PR #136 (not merged/deployed) |
+| HHA-3 | 3 | Event-level grain + derived rollups (own PR) | 10014 | High | planned — `PHASE3_CODEX_PROMPT.md` (gated on HHA-2) |
+| HHA-4 | 4 | Governed PHI-safe copilot (own PR) | none | Med | planned — `PHASE4_CODEX_PROMPT.md` (after HHA-3) |
 
 ## Phase 1 — HHA-1 detail (DONE)
 
@@ -66,8 +66,27 @@ Acceptance receipt:
 - Live API smoke (2026-06-09): `/api/hha/v1/health` ok; `/api/hha/v1/overview` 18 KPIs; telemetry replay `first_model_fire_t=728` (regression clean).
 - Open item: logged-in browser screenshot — `docs/plans/healthcare-subscription/agent-validate-prompt.md`. Full detail in `release-readiness.md` / `PROOF.md`.
 
-## Phases 2–4 — milestones (planned)
-See `docs/plans/healthcare-subscription/roadmap.md`. No phase starts without explicit approval.
+## Phase 2 — HHA-2 (built, draft PR #136)
+Funnel + Cohorts + Operations read endpoints + standalone pages; cohort suppression is service-layer
+safe (masked rows carry no counts); channel LTV:CAC documented-unavailable; 9 backend tests; review
+clean. **Not merged/deployed.** Next: ready → merge → clean-checkout backend deploy → production receipt.
+
+## Phase 3 — HHA-3 (planned; own PR; gated on HHA-2 shipping)
+Add 7 synthetic event tables (migration `10014`, re-check vs origin/main) + derive the 5 gold rollups
+from events; flip provenance `seeded → derived`. **Preserve v1 seed logic** before adding v2.
+Acceptance = headline KPIs within tolerance + stable trends/rankings/suppression. Reconcile the demo by
+a **gated, approval-required wipe + re-seed of `ceeb9ea0`** with a real backup-table rollback artifact
+and a scratch-env verify first. Full prompt: `docs/plans/healthcare-subscription/PHASE3_CODEX_PROMPT.md`.
+
+## Phase 4 — HHA-4 (planned; own PR; after HHA-3)
+Governed PHI-safe copilot reusing the Winston runtime: Meridian-style scope guardrail; pre-model
+medical-advice refusal (lab-ops analytics allowed, individual lab-result interpretation refused);
+**fixed-intent** `hha.aggregate_query` MCP tool (no free SQL, no identifier columns, suppression);
+audit via existing `ai_decision_audit_log` (no new tables); standalone copilot + governance pages.
+Full prompt: `docs/plans/healthcare-subscription/PHASE4_CODEX_PROMPT.md`.
+
+Phase 3 and Phase 4 are **separate execution PRs**. No phase starts without explicit approval.
+See `docs/plans/healthcare-subscription/roadmap.md`.
 
 ## tips.md lesson
 Recorded in `docs/tips.md`: v2 demo envs get no `business_id` (seed packs receive `""`) — synthesize
