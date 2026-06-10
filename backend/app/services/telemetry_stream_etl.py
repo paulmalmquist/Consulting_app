@@ -77,6 +77,39 @@ def coalesce_decision(last_end_t: int | None, start_t: int) -> bool:
     return last_end_t is not None and last_end_t >= start_t - EVENT_COALESCE_S
 
 
+# Specific, actionable stream-absence reasons. A skeptical reviewer must see WHY the feed is dark and
+# WHAT to do — never a blanket "no_stream_data". None = stream is healthy (channels present).
+WATERMARK_STALL_S = 180  # silver watermark older than this with no fresh bronze = ETL stalled
+
+
+def derive_stream_reason(
+    *, worker_present: bool, channels_mapped: bool, bronze_rows_recent: int,
+    silver_rows: int, watermark_age_s: float | None,
+) -> str | None:
+    """Pure diagnostic: pick the most actionable reason the stream surface is empty. Checked in the
+    order a reviewer would debug it. Returns None when channels exist and data is flowing.
+
+    Repair hints (rendered by the UI / runbook):
+      no_channel_mapping     -> seed tel_telemetry_channels for run_key 'iss_live:stream'
+      stream_worker_disabled -> set TELEMETRY_STREAM_ENABLED=1 and redeploy the backend
+      no_bronze_frames       -> worker is up but the adapter landed no frames (source unavailable?)
+      etl_watermark_stalled  -> bronze is landing but silver merge/ETL loop is not advancing
+    """
+    if not channels_mapped:
+        return "no_channel_mapping"
+    if not worker_present and bronze_rows_recent == 0 and silver_rows == 0:
+        # Nothing has ever run in this process and nothing is on disk: the worker isn't enabled.
+        return "stream_worker_disabled"
+    if bronze_rows_recent == 0 and silver_rows == 0:
+        # Worker is present but no frames are landing — the adapter/source is the suspect.
+        return "no_bronze_frames"
+    if (bronze_rows_recent > 0 and watermark_age_s is not None
+            and watermark_age_s > WATERMARK_STALL_S):
+        # Frames are landing but the ETL watermark isn't advancing — the loop is stuck.
+        return "etl_watermark_stalled"
+    return None
+
+
 # ── watermarks ────────────────────────────────────────────────────────────────────────────────────
 def _get_watermark(cur, env_id: str, job_name: str) -> datetime | None:
     cur.execute("SELECT watermark_ts FROM tel_etl_watermarks WHERE env_id = %s AND job_name = %s",
@@ -483,10 +516,32 @@ def stream_live(*, env_id: str, business_id: UUID, channels: list[str] | None = 
             (env_id, str(business_id), STREAM_RUN_KEY))
         events = [dict(r) for r in cur.fetchall()]
 
+        # Diagnostic inputs (only needed when we have nothing to render).
+        null_reason = None
+        if not out_channels:
+            cur.execute(
+                """SELECT count(*) AS n FROM tel_stream_readings_bronze
+                   WHERE env_id = %s AND business_id = %s AND ts_ingest > now() - interval '1 minute'""",
+                (env_id, str(business_id)))
+            bronze_recent = int(cur.fetchone()["n"])
+            cur.execute(
+                "SELECT count(*) AS n FROM tel_stream_readings WHERE env_id = %s AND business_id = %s",
+                (env_id, str(business_id)))
+            silver_rows = int(cur.fetchone()["n"])
+            cur.execute(
+                "SELECT max(watermark_ts) AS wm FROM tel_etl_watermarks WHERE env_id = %s AND job_name LIKE %s",
+                (env_id, "%silver%"))
+            wm = cur.fetchone()["wm"]
+            wm_age = (server_ts - wm).total_seconds() if wm else None
+            null_reason = derive_stream_reason(
+                worker_present=worker is not None, channels_mapped=bool(meta),
+                bronze_rows_recent=bronze_recent, silver_rows=silver_rows, watermark_age_s=wm_age)
+
     ingest = status_rows.get("stream_ingest")
     return {
         "server_ts": server_ts.isoformat(),
         "source": source,
+        "worker_present": worker is not None,
         "pipeline": {
             "status": ingest["status"] if ingest else "unknown",
             "as_of_ts": ingest["as_of_ts"].isoformat() if ingest else None,
@@ -496,14 +551,17 @@ def stream_live(*, env_id: str, business_id: UUID, channels: list[str] | None = 
         },
         "channels": out_channels,
         "events": events,
-        "null_reason": None if out_channels else "no_stream_data",
+        "null_reason": null_reason,
     }
 
 
 def stream_health(*, env_id: str, business_id: UUID) -> dict:
     """Stream-health aggregates: per-channel freshness, ingest lag percentiles, rows/min, recent
-    assertions, pipeline status, watermark ages."""
+    assertions, pipeline status, watermark ages. When empty, reports a SPECIFIC actionable reason
+    (worker disabled / no frames / watermark stalled / channels unmapped), never a blanket null."""
     from app.db import get_cursor
+    from app.services.telemetry_stream_ingest import get_stream_worker
+    worker_present = get_stream_worker() is not None
     now = datetime.now(timezone.utc)
     with get_cursor() as cur:
         cur.execute(
@@ -548,12 +606,30 @@ def stream_health(*, env_id: str, business_id: UUID) -> dict:
         cur.execute(
             "SELECT job_name, watermark_ts, updated_at FROM tel_etl_watermarks WHERE env_id = %s",
             (env_id,))
+        wm_rows = cur.fetchall()
         watermarks = [{"job_name": r["job_name"], "watermark_ts": r["watermark_ts"].isoformat(),
                        "age_s": round((now - r["watermark_ts"]).total_seconds(), 1)}
-                      for r in cur.fetchall()]
+                      for r in wm_rows]
 
+        # Diagnostic inputs: are channels mapped, is any silver present?
+        cur.execute(
+            """SELECT count(*) AS n FROM tel_telemetry_channels c JOIN tel_test_runs r ON r.id = c.run_id
+               WHERE c.env_id = %s AND c.business_id = %s AND r.run_key = %s""",
+            (env_id, str(business_id), STREAM_RUN_KEY))
+        channels_mapped = int(cur.fetchone()["n"]) > 0
+
+        cur.execute(
+            "SELECT count(*) AS n FROM tel_stream_readings WHERE env_id = %s AND business_id = %s",
+            (env_id, str(business_id)))
+        silver_rows = int(cur.fetchone()["n"])
+
+    silver_wm_age = min((w["age_s"] for w in watermarks if "silver" in w["job_name"]), default=None)
+    reason = (None if freshness else derive_stream_reason(
+        worker_present=worker_present, channels_mapped=channels_mapped,
+        bronze_rows_recent=rows_per_min, silver_rows=silver_rows, watermark_age_s=silver_wm_age))
     return {
         "server_ts": now.isoformat(),
+        "worker_present": worker_present,
         "freshness": freshness,
         "ingest_lag_p50_s": float(lag["p50"]) if lag.get("p50") is not None else None,
         "ingest_lag_p95_s": float(lag["p95"]) if lag.get("p95") is not None else None,
@@ -562,7 +638,7 @@ def stream_health(*, env_id: str, business_id: UUID) -> dict:
         "assertions": assertions,
         "pipeline_status": statuses,
         "watermarks": watermarks,
-        "null_reason": None if freshness else "no_stream_data",
+        "null_reason": reason,
     }
 
 

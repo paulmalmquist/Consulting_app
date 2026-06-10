@@ -256,12 +256,55 @@ def test_stream_health_route_shape(client, fake_cursor):
     fake_cursor.push_result([{"job_name": "silver_merge",
                               "watermark_ts": datetime.now(timezone.utc),
                               "updated_at": datetime.now(timezone.utc)}])
+    fake_cursor.push_result([{"n": 12}])    # channels_mapped probe
+    fake_cursor.push_result([{"n": 500}])   # silver_rows probe
     resp = client.get("/api/telemetry/stream/health",
                       params={"env_id": ENV, "business_id": str(BIZ)})
     assert resp.status_code == 200
     d = resp.json()
     assert d["rows_per_min"] == 30 and d["ingest_lag_p50_s"] == 0.8
     assert d["assertions"][0]["assertion_name"] == "freshness"
+    assert d["null_reason"] is None        # freshness present -> healthy, not a vague absence
+    assert d["worker_present"] is False    # no worker set in this test process
+
+
+# ── (10) actionable stream-absence diagnostics (the hardening fix) ───────────────
+def test_derive_stream_reason_orders_by_debuggability():
+    # channels not seeded beats everything
+    assert etl.derive_stream_reason(worker_present=False, channels_mapped=False,
+                                    bronze_rows_recent=0, silver_rows=0, watermark_age_s=None) == "no_channel_mapping"
+    # mapped, nothing ever ran, nothing on disk -> worker disabled
+    assert etl.derive_stream_reason(worker_present=False, channels_mapped=True,
+                                    bronze_rows_recent=0, silver_rows=0, watermark_age_s=None) == "stream_worker_disabled"
+    # worker up but adapter landed nothing -> source/no frames
+    assert etl.derive_stream_reason(worker_present=True, channels_mapped=True,
+                                    bronze_rows_recent=0, silver_rows=0, watermark_age_s=None) == "no_bronze_frames"
+    # bronze landing but silver watermark stale -> ETL stalled
+    assert etl.derive_stream_reason(worker_present=True, channels_mapped=True,
+                                    bronze_rows_recent=20, silver_rows=100, watermark_age_s=600) == "etl_watermark_stalled"
+    # flowing -> healthy (None)
+    assert etl.derive_stream_reason(worker_present=True, channels_mapped=True,
+                                    bronze_rows_recent=20, silver_rows=100, watermark_age_s=30) is None
+
+
+def test_stream_live_empty_reports_worker_disabled(client, fake_cursor):
+    """No worker, channels mapped, no bronze/silver -> 'stream_worker_disabled', never 'no_stream_data'."""
+    ingest.set_stream_worker(None)
+    fake_cursor.push_result([])                                        # pipeline status rows (none)
+    fake_cursor.push_result([{"channel_name": "USLAB000058", "unit": "mmHg",
+                              "redline_low": 700.0, "redline_high": 790.0}])  # channel meta (mapped)
+    fake_cursor.push_result([])                                        # silver tail -> no rows
+    fake_cursor.push_result([])                                        # events
+    fake_cursor.push_result([{"n": 0}])                                # bronze recent
+    fake_cursor.push_result([{"n": 0}])                                # silver count
+    fake_cursor.push_result([{"wm": None}])                            # silver watermark
+    resp = client.get("/api/telemetry/stream/live",
+                      params={"env_id": ENV, "business_id": str(BIZ)})
+    assert resp.status_code == 200
+    d = resp.json()
+    assert d["channels"] == []
+    assert d["null_reason"] == "stream_worker_disabled"   # actionable, not blanket no_stream_data
+    assert d["worker_present"] is False
 
 
 def test_stream_source_switch_fails_closed_without_key(client, monkeypatch):

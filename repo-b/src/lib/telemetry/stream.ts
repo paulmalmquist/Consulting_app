@@ -37,11 +37,23 @@ export interface StreamPipeline {
 export interface StreamLive {
   server_ts: string;
   source: string;           // capture | iss | adsb | db_tail
+  worker_present?: boolean;
   pipeline: StreamPipeline;
   channels: StreamChannel[];
   events: StreamEvent[];
-  null_reason: string | null;
+  null_reason: string | null;   // specific actionable reason when channels is empty (see STREAM_REASON_HINT)
 }
+
+// Actionable repair hints for each stream-absence reason the backend can emit. Keeps the UI honest:
+// a reviewer sees exactly WHY the feed is dark and the next diagnostic step — never a vague blank.
+export const STREAM_REASON_HINT: Record<string, string> = {
+  stream_worker_disabled: "Stream worker is disabled. Set TELEMETRY_STREAM_ENABLED=1 on the backend and redeploy.",
+  source_unavailable: "The stream source is unreachable. Check the adapter source (capture fixture / ISS feed).",
+  no_bronze_frames: "Worker is running but no frames have landed yet — the adapter/source produced nothing.",
+  etl_watermark_stalled: "Frames are landing but the ETL loop isn't advancing the silver watermark.",
+  no_channel_mapping: "No channels are mapped for run_key 'iss_live:stream' — seed tel_telemetry_channels.",
+  no_stream_data: "No stream data available for this environment.",
+};
 
 export interface StreamAssertion {
   job_name: string; table_name: string; assertion_name: string;

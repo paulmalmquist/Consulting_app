@@ -42,7 +42,7 @@ export function EvidenceCard({ e, onOpen }: { e: EvidenceItem; onOpen?: () => vo
       )}
       {meta.length > 0 && (
         <>
-          <button onClick={toggle}
+          <button type="button" onClick={toggle}
             style={{ fontFamily: C.mono, fontSize: 10, color: C.cyan, background: "transparent",
               border: "none", padding: 0, marginTop: 8, cursor: "pointer" }}>
             {open ? "− hide" : "+ details"}
@@ -167,7 +167,7 @@ export function DraftReportCard({ report }: { report: DraftReportResponse }) {
         whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`,
         borderRadius: 8, padding: 14, margin: 0, maxHeight: 460, overflow: "auto" }}>{md}</pre>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button onClick={() => downloadMarkdown(`test-report-${report.run_key || "run"}.md`, md)}
+        <button type="button" onClick={() => downloadMarkdown(`test-report-${report.run_key || "run"}.md`, md)}
           style={{ fontFamily: C.mono, fontSize: 12, color: C.bg, background: C.cyan, border: "none",
             borderRadius: 7, padding: "8px 14px", cursor: "pointer" }}>
           Download .md
@@ -220,7 +220,7 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
       )}
       <GovernanceStrip r={r} />
       {canDraft && !report && (
-        <button onClick={onDraft} disabled={drafting}
+        <button type="button" onClick={onDraft} disabled={drafting}
           style={{ alignSelf: "flex-start", fontFamily: C.mono, fontSize: 12, fontWeight: 600,
             color: C.bg, background: C.amber, border: "none", borderRadius: 8, padding: "9px 16px",
             cursor: drafting ? "default" : "pointer", opacity: drafting ? 0.6 : 1 }}>
@@ -229,7 +229,10 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
       )}
       {report && <DraftReportCard report={report} />}
       {report?.report_id && (
-        <DispositionControls reportId={report.report_id} modelVerdict={report.verdict ?? null}
+        // key on report_id so a freshly drafted report REMOUNTS the controls — never inherits a
+        // previous report's started timer or recorded result (the "Start review didn't respond" bug).
+        <DispositionControls key={report.report_id} reportId={report.report_id}
+          modelVerdict={report.verdict ?? null}
           fireTick={reportContext?.fireTick ?? null} evidenceOpened={evidenceOpened} />
       )}
     </div>
@@ -247,6 +250,16 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
   const [err, setErr] = useState<string | null>(null);
   const [pairId] = useState<string>(() =>
     (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pair-${Date.now()}`));
+
+  // Defense in depth alongside the key= remount: if this instance is ever reused for a different
+  // report, clear all per-review state so the timer/verdict can't inherit a stale started/result.
+  useEffect(() => {
+    setStartedAt(null);
+    setResult(null);
+    setConfidence(null);
+    setErr(null);
+    setArm("assisted");
+  }, [reportId]);
 
   // Robust clock: some agent/browser harnesses break performance.now — fall back to Date.now so the
   // Start button can never silently dead-end (timing stays measured either way).
@@ -419,7 +432,7 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
             placeholder="Ask about this telemetry run, anomaly, model decision, or monitoring evidence…"
             style={{ flex: 1, fontFamily: C.mono, fontSize: 12.5, color: C.text, background: C.bg,
               border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", outline: "none" }} />
-          <button onClick={() => q.trim() && run(q.trim())} disabled={loading || !q.trim()}
+          <button type="button" onClick={() => q.trim() && run(q.trim())} disabled={loading || !q.trim()}
             style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 600, color: C.bg, background: C.cyan,
               border: "none", borderRadius: 8, padding: "10px 18px", cursor: loading ? "default" : "pointer", opacity: loading || !q.trim() ? 0.6 : 1 }}>
             {loading ? "…" : "Ask"}
@@ -427,7 +440,7 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
           {CHIPS.map((c) => (
-            <button key={c.label} onClick={() => run(c.q)} disabled={loading}
+            <button type="button" key={c.label} onClick={() => run(c.q)} disabled={loading}
               style={{ fontFamily: C.mono, fontSize: 11, color: c.refusal ? C.amber : C.dim,
                 background: "transparent", border: `1px solid ${c.refusal ? C.amber + "55" : C.border}`,
                 borderRadius: 999, padding: "5px 11px", cursor: loading ? "default" : "pointer" }}>
