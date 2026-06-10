@@ -182,9 +182,12 @@ SELECT v.id::uuid, 'telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', r.i
 FROM (VALUES
     ('7e1e57ea-0000-4000-a000-000000000101', 'USLAB000058',  'mmHg', 700::float8, 790::float8),  -- Lab cabin pressure
     ('7e1e57ea-0000-4000-a000-000000000102', 'USLAB000059',  'degC', 15::float8,  32::float8),   -- Lab cabin temperature
-    ('7e1e57ea-0000-4000-a000-000000000103', 'USLAB000062',  'mmHg', 130::float8, 190::float8),  -- Lab ppO2
-    ('7e1e57ea-0000-4000-a000-000000000104', 'USLAB000063',  'mmHg', NULL, NULL),                -- Lab ppN2
-    ('7e1e57ea-0000-4000-a000-000000000105', 'USLAB000064',  'mmHg', 0::float8,   8::float8),    -- Lab ppCO2
+    -- 062/063/064: live feed records small unitless values (1.0 / 1.0 / 5.0) — NOT mmHg partial
+    -- pressures. Semantics unconfirmed, so no unit and no redlines (honest: assertions only fire on
+    -- channels whose physical meaning is verified).
+    ('7e1e57ea-0000-4000-a000-000000000103', 'USLAB000062',  NULL,   NULL, NULL),
+    ('7e1e57ea-0000-4000-a000-000000000104', 'USLAB000063',  NULL,   NULL, NULL),
+    ('7e1e57ea-0000-4000-a000-000000000105', 'USLAB000064',  NULL,   NULL, NULL),
     ('7e1e57ea-0000-4000-a000-000000000106', 'AIRLOCK000049','mmHg', NULL, NULL),                -- Crewlock pressure
     ('7e1e57ea-0000-4000-a000-000000000107', 'NODE3000005',  'pct',  0::float8, 100::float8),    -- Urine tank qty
     ('7e1e57ea-0000-4000-a000-000000000108', 'NODE3000008',  'pct',  0::float8, 100::float8),    -- Waste water tank qty
