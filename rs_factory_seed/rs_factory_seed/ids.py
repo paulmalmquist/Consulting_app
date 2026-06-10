@@ -141,3 +141,28 @@ def rework_event(n: int) -> str:
 
 def waiver(n: int) -> str:
     return f"WVR-{n:04d}"
+
+
+def test_article(n: int) -> str:
+    return f"TA-{n:04d}"
+
+
+def sensor(n: int) -> str:
+    return f"SNS-{n:04d}"
+
+
+def telemetry_segment(n: int) -> str:
+    return f"SEG-{n:05d}"
+
+
+def telemetry_sample(n: int) -> str:
+    return f"SMP-{n:07d}"
+
+
+def limit_violation(n: int) -> str:
+    return f"TLV-{n:05d}"
+
+
+def feature_window(n: int) -> str:
+    return f"FW-{n:06d}"
+

@@ -6,6 +6,7 @@ from . import g03_plm_changes
 from . import g04_erp_materials
 from . import g05_mes_work_orders
 from . import g06_qms_quality
+from . import g07_test_telemetry
 
 # As later generators land they are appended here in dependency order.
 GENERATORS = [
@@ -15,6 +16,7 @@ GENERATORS = [
     g04_erp_materials,
     g05_mes_work_orders,
     g06_qms_quality,
+    g07_test_telemetry,
 ]
 
 __all__ = ["GENERATORS"]

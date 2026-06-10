@@ -3066,3 +3066,32 @@ of deriving their own counts.
 ### Make the honest metric the GATE without destabilizing the live path; surface conformal as a diagnostic (2026-06-03)
 
 Turning an honest metric from a *display* (Stage 0) into the *promotion gate* (Track A) does not require retraining or moving the live champion. Keep it offline + additive: (1) **Declare the gate thresholds in writing BEFORE you recompute**, and pick them so the current champion *clears its own gate* — check against the already-known live values first (here f1_pointwise 0.313 / event_recall 0.769 / alarm_precision 0.328 cleared 0.10/0.50/0.20 trivially; only `affiliation_f1`≥0.25 was unknown, set conservatively). A PR whose gate its own shipping champion fails is a self-own. (2) **Affiliation must be un-gameable**: define it as *capped* proximity `prox = max(0, 1 − dist/D)` with a FIXED tick budget `D` (e.g. 50), NOT normalized by the labeled-window length — otherwise a detector is rewarded for huge windows. Each event contributes exactly one recall term, each alarm one precision term; distances are within-channel. (3) **Conformal false-alarm "budget" on autocorrelated residuals is a DIAGNOSTIC, not a guarantee** — use a *blocked/contiguous* calibration slice (per-channel train tail), not an i.i.d. shuffle, and report "at the frozen K the measured FA rate is X vs an α target; K≈Y would hit α." Never claim distribution-free coverage. Surface it (Monitoring panel + a display-only band caption) but DON'T touch the live verdict thresholds — freeze them with a unit test (`_verdict_for(1.0)=="REVIEW"`, `(2.0001)=="NO_GO"`, …) and grep the diff to prove the bands didn't move. (4) The gate move in the Databricks notebooks (`train_anomaly.py` logs the honest+affiliation metrics; `promote_models.py` selects the winner by `affiliation_f1` among models that pass the fail-closed honest gate, legacy F1 reference-only) is **code-only — not executed in the PR**; the live `@champion` alias is untouched. Two `supabase db query` CLI footguns when persisting: the jsonb `?` operator and ANY expression in a `RETURNING` list both break (the CLI treats `?` as a bind param and chokes on RETURNING expressions) — keep `RETURNING` to bare columns and do checks in a separate `SELECT`; and **SQL-escape the payload** (`'`→`''`) because values like a `vus_status` string can contain single quotes that terminate the literal early. Also: a new field in a service dict won't reach the client if the route has a Pydantic `response_model` — add it to the schema too, or FastAPI silently strips it.
+
+### A synthetic "similar but not identical" signature needs a SHAPE-over-TIME feature vector, not run-level averages (2026-06-10)
+
+Building the SCN-005 hot-fire golden pair (two pre-failure runs that a demo claims "most resemble each
+other") exposed a feature-vector design trap. The goal: cosine(00041, 00088) ≥ 0.92 yet < 1.0, with
+00041 the unambiguous top-1 for 00088 — proven *from the features*, not from differing run IDs. Three
+naive vectors all failed the spirit of the test while passing its letter:
+(1) **Raw window-feature averages** → cosine pins at ~1.0000 for *every* pair. The mean/rms of pressure
+(~480) and temperature (~450) are enormous and near-identical across all runs, so they swamp the
+discriminating features; the vector is dominated by a constant magnitude block. The pair "passed"
+(0.99999 < 1.0) but the similarity rounds to 1.0000 in any UI — reads as a copy, the opposite of the
+point. (2) **Scale each feature by channel level** → still ~0.99999: after dividing by level, every
+run's mean/rms ≈ 1.0, so the vector is still a near-constant block. (3) **Shape features only
+(std/slope/peak_to_peak), run-averaged** → 0.9998 with a compressed 0.97–0.9998 spread and no
+separation, because averaging 15 windows into one number *destroys the time signature* — a pre-failure
+trajectory (rising oscillation + late bump) collapses into a single value indistinguishable from a flat
+run. The fix that actually discriminates: build the vector from the **per-window trajectory** of shape
+features (the window-by-window series, in window order), **mean-centered per dimension**. Cosine then
+behaves like *correlation of how the signal evolves over time*: the two PF-TPL-01 runs rise-and-bump
+together (0.9928) while normal/drift runs sit at 0.2–0.3 or negative. The golden-pair property is now
+real (top-1 by a 0.7 margin), not an artifact of PF-TPL-01 being unique to the pair. Lessons: exclude
+features that only encode "which channel/level is this" (they carry no cross-run signal and, being huge,
+erase everything else); for any *signature* similarity, the vector must preserve the time axis the
+signature lives on — center it so cosine measures shape, not magnitude; and assert separation from the
+*second*-best match, not just "top-1 == expected" (the latter passes even when everything cosines to 1.0
+because the anchor template is unique). Also: keep the determinism contract intact — the trajectory needs
+a fixed windows-per-run across all runs so the centered series align element-wise, and that count plus
+samples-per-run belong in `scenario_config.yaml` (single source of truth), not hardcoded in the
+generator, or the volume test and the similarity math silently drift apart.

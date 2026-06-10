@@ -95,8 +95,20 @@ scenarios:
     inconclusive_run: TEST-HOTFIRE-2026-00088
     inconclusive_run_vehicle: VEH-TR-003
     shared_template: PF-TPL-01
-    similarity_top1: true
+    pattern_family: pre_failure
+    similarity_threshold: 0.92        # cosine(00041, 00088) >= this (structurally similar)
+    similarity_must_be_below: 1.0     # ... but NOT identical (different raw readings)
+    similarity_top1: true             # 00041 is the most similar prior run to 00088
     expected_answer: "TEST-HOTFIRE-2026-00088 most resembles the prior failed run TEST-HOTFIRE-2026-00041 (shared pre-failure signature)."
+
+# g07 test/telemetry generation parameters (deterministic; not random).
+telemetry:
+  channels: [pressure, temperature, vibration_rms, flow_rate]
+  full_rate_runs: 30          # raw samples concentrated on these runs; the rest are windows-only
+  window_seconds: 5           # nominal seconds per feature window
+  windows_per_run: 15         # feature windows per (run, channel) -> 200*4*15 = 12000 windows
+  samples_per_full_run: 1250  # raw samples per (full-rate run, channel)
+  hotfire_test_type: HOTFIRE
   SCN-006-NCR-AGING-OWNER-ROUTING:
     aged_ncr_threshold_days: 21
     expected_answer: "Aged open NCRs grouped by owner team with routing recommendations."
