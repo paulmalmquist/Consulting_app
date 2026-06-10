@@ -1,0 +1,30 @@
+# Repeat (non-random) defect patterns to seed (convo.md §5 Phase 5).
+# Each pattern raises the defect/NCR rate on a specific entity so the AI demo can
+# trace a real cause. dq_defect_tag marks intentionally-injected defects so the ETL
+# data-quality assertions exclude them (they are expected, not pipeline bugs).
+patterns:
+  - id: rev_b_propulsion_valve
+    cause: "Bad tolerance / process change on Rev B"
+    target: {part_family: ENG-VALVE, revision: B}
+    fpy_override: 0.78
+    dq_defect_tag: REV_B_TOLERANCE
+  - id: supplier_lot_ml8821
+    cause: "Material issue (weld porosity) from lot ML-8821"
+    target: {material_lot: ML-8821, supplier_name: AeroMetals}
+    inspection_fail_boost: 0.45
+    dq_defect_tag: ML8821_POROSITY
+  - id: machine_wld07_weld_depth
+    cause: "Calibration drift on WLD-07"
+    target: {machine: WLD-07}
+    drift_onset_date: 2026-05-20
+    defect_code: WELD_DEPTH
+    dq_defect_tag: WLD07_DRIFT
+  - id: night_shift_cycle_variance
+    cause: "Staffing/certification on night shift"
+    target: {shift: C}
+    cycle_variance_boost: 0.35
+    dq_defect_tag: NIGHT_SHIFT_VAR
+  - id: test_stand_ts03_noisy
+    cause: "Sensor drift on test stand TS-03 pressure channel"
+    target: {test_stand: TS-03, channel: pressure}
+    dq_defect_tag: TS03_NOISE

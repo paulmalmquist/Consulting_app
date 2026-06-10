@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rs-factory-seed"
+version = "0.1.0"
+description = "Deterministic synthetic aerospace-manufacturing digital-thread generator (RS Factory demo, no real data)."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=14"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+rs-factory-seed = "rs_factory_seed.cli:main"
+
+[tool.setuptools]
+packages = ["rs_factory_seed"]
+
+[tool.setuptools.package-data]
+rs_factory_seed = ["config/*.yaml", "sql/*.sql"]
