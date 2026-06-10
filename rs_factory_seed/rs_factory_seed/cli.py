@@ -11,7 +11,9 @@ from pathlib import Path
 from .context import BuildContext
 from .dataset import Dataset
 from .generators import GENERATORS
-from .writers import sqlite_dump, write_csv, write_schema_catalog, write_sqlite
+from .writers import (
+    sqlite_dump, write_csv, write_manifest, write_schema_catalog, write_sqlite,
+)
 
 
 def build_dataset(profile: str) -> tuple[BuildContext, Dataset]:
@@ -22,17 +24,18 @@ def build_dataset(profile: str) -> tuple[BuildContext, Dataset]:
     return ctx, ds
 
 
-def _emit(ds: Dataset, out_dir: Path) -> Path:
+def _emit(ds: Dataset, ctx: BuildContext, out_dir: Path) -> Path:
     out_dir = Path(out_dir)
     write_csv(ds, out_dir / "csv")
     db = write_sqlite(ds, out_dir / "sqlite" / "relativity_factory_demo.sqlite")
     write_schema_catalog(ds, out_dir / "schema_catalog.csv")
+    write_manifest(ds, ctx, out_dir)
     return db
 
 
 def cmd_build(args) -> int:
-    _ctx, ds = build_dataset(args.profile)
-    db = _emit(ds, args.out)
+    ctx, ds = build_dataset(args.profile)
+    db = _emit(ds, ctx, args.out)
     print(f"built profile={args.profile} -> {args.out}")
     for name in ds.names():
         print(f"  {name:28s} {len(ds.get(name).rows):>8d} rows")
@@ -47,6 +50,9 @@ def _fingerprint(out_dir: Path) -> dict[str, str]:
     db = out_dir / "sqlite" / "relativity_factory_demo.sqlite"
     if db.exists():
         fp["__sqlite_dump__"] = hashlib.sha256(sqlite_dump(db).encode("utf-8")).hexdigest()
+    manifest = out_dir / "manifest.json"
+    if manifest.exists():
+        fp["__manifest__"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
     return fp
 
 
@@ -55,8 +61,8 @@ def cmd_verify(args) -> int:
     fps = []
     for _ in range(2):
         with tempfile.TemporaryDirectory() as td:
-            _ctx, ds = build_dataset(args.profile)
-            _emit(ds, Path(td))
+            ctx, ds = build_dataset(args.profile)
+            _emit(ds, ctx, Path(td))
             fps.append(_fingerprint(Path(td)))
     a, b = fps
     diffs = [k for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]

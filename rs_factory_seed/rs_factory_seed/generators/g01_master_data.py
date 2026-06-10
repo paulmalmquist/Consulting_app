@@ -12,6 +12,7 @@ import datetime as _dt
 from typing import Any
 
 from .. import ids
+from ..lineage import SourceSystem as SS
 from ..context import BuildContext
 from ..dataset import Dataset
 
@@ -60,7 +61,7 @@ def _facilities(ctx: BuildContext, ds: Dataset) -> None:
         {"facility_id": ids.facility(i + 1), "name": nm, "kind": kind, "location": loc}
         for i, (nm, kind, loc) in enumerate(_FACILITIES[: ctx.n("facilities")])
     ]
-    ds.add("dim_facility", rows, key=["facility_id"])
+    ds.add("dim_facility", rows, key=["facility_id"], source_system=SS.MES)
 
 
 def _work_centers(ctx: BuildContext, ds: Dataset) -> None:
@@ -76,7 +77,7 @@ def _work_centers(ctx: BuildContext, ds: Dataset) -> None:
             "facility_id": fac_ids[int(rng.integers(0, len(fac_ids)))],
             "area": nm.split()[0].lower(),
         })
-    ds.add("dim_work_center", rows, key=["work_center_id"])
+    ds.add("dim_work_center", rows, key=["work_center_id"], source_system=SS.MES)
 
 
 def _machines(ctx: BuildContext, ds: Dataset) -> None:
@@ -127,7 +128,7 @@ def _machines(ctx: BuildContext, ds: Dataset) -> None:
                 row["noisy_channel"] = "pressure"
                 row["scenario_id"] = "SCN-005-HOTFIRE-ANOMALY-SIMILARITY"
             rows.append(row)
-    ds.add("dim_machine", rows, key=["machine_id"])
+    ds.add("dim_machine", rows, key=["machine_id"], source_system=SS.MES)
 
 
 def _operators(ctx: BuildContext, ds: Dataset) -> None:
@@ -145,7 +146,7 @@ def _operators(ctx: BuildContext, ds: Dataset) -> None:
             "certs": ";".join(certs),
             "active": bool(rng.random() > 0.05),
         })
-    ds.add("dim_operator", rows, key=["operator_id"])
+    ds.add("dim_operator", rows, key=["operator_id"], source_system=SS.MES)
 
 
 def _suppliers(ctx: BuildContext, ds: Dataset) -> None:
@@ -167,7 +168,7 @@ def _suppliers(ctx: BuildContext, ds: Dataset) -> None:
             "quality_rating": round(float(rng.uniform(2.5, 4.8)), 2),
             "scenario_id": "SCN-002-MATERIAL-LOT-ML8821-QUALITY-RISK" if nm == aerometals else None,
         })
-    ds.add("dim_supplier", rows, key=["supplier_id"])
+    ds.add("dim_supplier", rows, key=["supplier_id"], source_system=SS.ERP)
 
 
 def _customers(ctx: BuildContext, ds: Dataset) -> None:
@@ -184,7 +185,7 @@ def _customers(ctx: BuildContext, ds: Dataset) -> None:
             "kind": "internal" if "Internal" in nm else "external",
             "missions_committed": int(rng.integers(1, 5)),
         })
-    ds.add("dim_customer", rows, key=["customer_id"])
+    ds.add("dim_customer", rows, key=["customer_id"], source_system=SS.CRM)
 
 
 def _vehicles(ctx: BuildContext, ds: Dataset) -> None:
@@ -205,7 +206,7 @@ def _vehicles(ctx: BuildContext, ds: Dataset) -> None:
             "status_hint": "yellow" if is_blocked else "green",
             "scenario_id": "SCN-001-VEHICLE-TR003-READINESS-BLOCKED" if is_blocked else None,
         })
-    ds.add("dim_vehicle", rows, key=["vehicle_id"])
+    ds.add("dim_vehicle", rows, key=["vehicle_id"], source_system=SS.CRM)
 
 
 def _parts(ctx: BuildContext, ds: Dataset) -> None:
@@ -238,7 +239,7 @@ def _parts(ctx: BuildContext, ds: Dataset) -> None:
         rows.append({"part_id": anchor_pid, "part_family": valve_family,
                      "name": f"{valve_family} part {valve_seq:03d}", "criticality": "flight_critical",
                      "scenario_id": "SCN-004-REV-C-YIELD-IMPROVEMENT"})
-    ds.add("dim_part", rows, key=["part_id"])
+    ds.add("dim_part", rows, key=["part_id"], source_system=SS.PLM)
 
 
 def _part_revisions(ctx: BuildContext, ds: Dataset) -> None:
@@ -270,7 +271,7 @@ def _part_revisions(ctx: BuildContext, ds: Dataset) -> None:
                 "effective_date": eff.isoformat(),
                 "scenario_id": scenario,
             })
-    ds.add("dim_part_revision", rows, key=["revision_id"])
+    ds.add("dim_part_revision", rows, key=["revision_id"], source_system=SS.PLM)
 
 
 def _bom(ctx: BuildContext, ds: Dataset) -> None:
@@ -293,4 +294,4 @@ def _bom(ctx: BuildContext, ds: Dataset) -> None:
             "qty_per": int(rng.integers(1, 9)),
             "find_number": len(rows) + 1,
         })
-    ds.add("bridge_bom", rows, key=["parent_part_id", "child_part_id"])
+    ds.add("bridge_bom", rows, key=["parent_part_id", "child_part_id"], source_system=SS.PLM)
