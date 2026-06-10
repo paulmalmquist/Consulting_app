@@ -116,3 +116,40 @@ telemetry:
     expected_answer: "Work orders closed with open NCRs, or stale 72h+, surfaced as status mismatches."
   SCN-008-DAILY-FACTORY-HANDOFF:
     expected_answer: "Completed operations, open blockers, quality holds, parts shortages, test anomalies, and recommended owner follow-ups with source links."
+
+# g10 AI/ML output generation parameters (deterministic synthetic ML OUTPUTS — not training).
+# Every quantity an ML row asserts comes from here. Predictions are tied to real causes
+# (drift, bad lot, open NCRs, hot-fire similarity), never random.
+ml:
+  # the six model types (convo §4 Phase 9). registry_size in volume_config = these padded by version.
+  models:
+    - {key: test_anomaly_detector, family: anomaly,   scored_entity: test_run,   metric: pr_auc}
+    - {key: defect_risk,           family: risk,       scored_entity: operation,  metric: pr_auc}
+    - {key: schedule_risk,         family: risk,       scored_entity: work_order, metric: pr_auc}
+    - {key: supplier_risk,         family: risk,       scored_entity: material_lot, metric: pr_auc}
+    - {key: readiness,             family: readiness,  scored_entity: vehicle,    metric: mae}
+    - {key: document_assistant,    family: rag,        scored_entity: query,      metric: groundedness}
+  # human-feedback label mix (convo §4 Phase 9). must sum to 1.0.
+  feedback_mix:
+    accepted: 0.65
+    rejected: 0.15
+    needs_review: 0.15
+    escalated: 0.05
+  # explainability: number of top drivers seeded per prediction's top_drivers_json.
+  top_drivers_count: 3
+  # champion eval bands per family (synthetic but plausible; champions clear, older versions trail).
+  champion_eval:
+    anomaly:    {pr_auc: 0.91, recall_at_p90: 0.82}
+    risk:       {pr_auc: 0.84}
+    readiness:  {mae: 0.06}
+    rag:        {groundedness: 0.97}
+  # SCN-005 ML output: the anomaly detector's match for the inconclusive hot-fire run.
+  scn005_match:
+    model_key: test_anomaly_detector
+    target_run: TEST-HOTFIRE-2026-00088      # the run being scored
+    expected_match_run: TEST-HOTFIRE-2026-00041  # its nearest prior failed run (g07 top-1)
+    decision_this_informs: "hot-fire disposition / launch-readiness review"
+    # similarity is COMPUTED by consuming g07 feature windows via run_feature_vector,
+    # NOT recomputed from raw samples. these bounds mirror SCN-005 telemetry config.
+    min_match_similarity: 0.92
+    must_be_below: 1.0

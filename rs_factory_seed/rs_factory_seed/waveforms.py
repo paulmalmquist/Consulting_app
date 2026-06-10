@@ -126,3 +126,36 @@ def cosine(a: np.ndarray, b: np.ndarray) -> float:
     if na == 0 or nb == 0:
         return 0.0
     return float(np.dot(a, b) / (na * nb))
+
+
+def run_vectors_from_windows(feature_window_rows: list[dict]) -> dict[str, np.ndarray]:
+    """Canonical run-similarity vectors from fact_process_feature_window rows.
+
+    THE contract any downstream consumer (g10 ML outputs, g11 gold, tests) must use to
+    reason about run-to-run similarity. It rebuilds each run's per-window shape trajectory
+    and runs it through run_feature_vector. Do NOT recompute similarity from raw telemetry
+    samples or with a different feature set — that would reinvent SCN-005 and risk flattening
+    away the shape features g07 protects."""
+    from collections import defaultdict
+
+    by_run_ch: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    for w in feature_window_rows:
+        by_run_ch[w["run_id"]][w["channel"]].append(w)
+    vectors: dict[str, np.ndarray] = {}
+    for run_id, chans in by_run_ch.items():
+        channel_windows = {
+            ch: sorted(windows, key=lambda x: x["window_index"])
+            for ch, windows in chans.items()
+        }
+        vectors[run_id] = run_feature_vector(channel_windows)
+    return vectors
+
+
+def nearest_runs(target_id: str, vectors: dict[str, np.ndarray], k: int = 5) -> list[tuple[str, float]]:
+    """Top-k most-similar runs to target_id by cosine on the canonical vectors (desc)."""
+    target = vectors[target_id]
+    ranked = sorted(
+        ((rid, cosine(target, v)) for rid, v in vectors.items() if rid != target_id),
+        key=lambda kv: kv[1], reverse=True,
+    )
+    return ranked[:k]

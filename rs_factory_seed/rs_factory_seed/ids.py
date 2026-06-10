@@ -166,3 +166,24 @@ def limit_violation(n: int) -> str:
 def feature_window(n: int) -> str:
     return f"FW-{n:06d}"
 
+
+def model(n: int) -> str:
+    return f"MDL-{n:03d}"
+
+
+def model_version(model_key: str, n: int) -> str:
+    # e.g. MDL-001-v3
+    return f"{model_key}-v{n}"
+
+
+def ml_prediction(n: int) -> str:
+    return f"PRED-{n:07d}"
+
+
+def ai_action(n: int) -> str:
+    return f"AIA-{n:06d}"
+
+
+def human_feedback(n: int) -> str:
+    return f"HFB-{n:06d}"
+

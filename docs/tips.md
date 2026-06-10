@@ -3095,3 +3095,30 @@ because the anchor template is unique). Also: keep the determinism contract inta
 a fixed windows-per-run across all runs so the centered series align element-wise, and that count plus
 samples-per-run belong in `scenario_config.yaml` (single source of truth), not hardcoded in the
 generator, or the volume test and the similarity math silently drift apart.
+
+### Synthetic ML *outputs* should consume the upstream feature contract, not recompute it (2026-06-10)
+
+Building g10 (deterministic synthetic ML/AI outputs — model registry, versions, predictions,
+explainability, feedback) on top of g07's telemetry exposed the discipline that keeps a multi-generator
+demo honest. (1) **Consume, don't reinvent.** g07 already realized the SCN-005 golden pair (00088's
+nearest prior run is the failed 00041) via a specific feature-window similarity. g10's anomaly-detector
+prediction must *surface that same number*, not recompute similarity its own way — so the similarity
+logic lives in one place (`waveforms.run_vectors_from_windows` / `nearest_runs`) and both g07's tests and
+g10 call it. A test asserts the prediction's `score` **equals** the canonical feature-window similarity to
+the 4th decimal; if g10 had recomputed from raw samples or a different feature set, that equality breaks
+and the SCN-005 story would quietly diverge between "the telemetry" and "what the model said." This is the
+cross-generator-drift guard applied to ML outputs. (2) **Tie predictions to real causes, realize the
+distribution exactly.** `top_drivers_json` names the actual anchors (`machine_id_WLD-07`,
+`material_lot_ML-8821`, the matched failed run) so the UI can explain *why*; the human-feedback label mix
+(65/15/15/5) is realized by computing integer counts from the config proportions and absorbing the
+rounding drift into one label — never by sampling, which would be non-deterministic and rarely hit the
+stated percentages. (3) **No silent volume caps.** The registry pads 6 canonical model types up to
+`n('models')` with deterministic scoped variants (e.g. `defect_risk@ENG-VALVE`); when the medium profile
+asked for 15 and the scope list only yielded 12, that was a silent cap (volume says 15, generator emits
+12) — fix by widening the scope candidates so the configured number is actually produced, not by leaving
+the gap. (4) **Explainable-not-identical is the assertion that matters.** The golden-pair test checks
+score ≥ threshold AND < 1.0 AND top-1-by-a-margin (>0.3 over second place) — proving the match is the
+shared pre-failure *shape*, not the anchor template being unique, and that the model isn't pretending two
+distinct runs are the same record. Reusable rule: when generator B reasons about an entity generator A
+already characterized, B imports A's contract function; a test pins B's output to A's computed value; and
+every "how many / what mix" number traces to one config block.

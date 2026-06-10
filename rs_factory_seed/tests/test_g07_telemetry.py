@@ -5,30 +5,13 @@ similar (same pattern family + same PF-TPL-01 template + cosine >= threshold) ye
 (different run ids, timestamps, and raw readings), and 00041 is the single most-similar run to
 00088 (similarity_top1)."""
 
-from collections import defaultdict
-
-import numpy as np
-
 from rs_factory_seed import waveforms
 from rs_factory_seed.cli import build_dataset
 
 
 def _run_vectors(ds):
-    """Reconstruct each run's similarity vector from fact_process_feature_window.
-
-    Pass the per-window trajectory (windows in window_index order) per channel — the same
-    structure run_feature_vector consumes in the pipeline / g10."""
-    by_run_ch = defaultdict(lambda: defaultdict(list))
-    for w in ds.get("fact_process_feature_window").rows:
-        by_run_ch[w["run_id"]][w["channel"]].append(w)
-    vectors = {}
-    for run_id, chans in by_run_ch.items():
-        channel_windows = {
-            ch: sorted(windows, key=lambda x: x["window_index"])
-            for ch, windows in chans.items()
-        }
-        vectors[run_id] = waveforms.run_feature_vector(channel_windows)
-    return vectors
+    """Each run's similarity vector via the canonical feature-window path (same one g10 uses)."""
+    return waveforms.run_vectors_from_windows(ds.get("fact_process_feature_window").rows)
 
 
 def test_g07_foreign_keys_resolve():
