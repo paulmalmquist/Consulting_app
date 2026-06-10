@@ -61,6 +61,18 @@ const METRIC_SETS: Record<string, [string, string, boolean][]> = {
     ["phm", "NASA PHM08 score", false],
     ["conformal_calib_coverage", "Conformal coverage", true],
   ],
+  // Factory NCR pipeline models (PR 3) — real Databricks runs mirrored via 16_mirror_ncr_serving.
+  ncr_cluster: [
+    ["n_clusters", "Clusters discovered (HDBSCAN)", true],
+    ["noise_count", "Noise records", false],
+    ["n_docs", "Corpus documents", true],
+  ],
+  ncr_forecast: [
+    ["mae", "Backtest MAE (weekly backlog)", false],
+    ["mae_naive", "Naive baseline MAE", false],
+    ["mape_pct", "Backtest MAPE %", false],
+    ["skill_vs_naive", "Skill vs naive", true],
+  ],
 };
 
 function num(v: unknown): number | null {
@@ -101,7 +113,7 @@ function MetricBars({ label, higherBetter, champ, chall }: {
           </div>
           <span style={{ width: 70, textAlign: "right", fontFamily: RS_MONO, fontSize: 11,
             color: row.v != null ? RS.text : RS.faint }}>
-            {row.v != null ? row.v.toFixed(4) : "n/a"}
+            {row.v != null ? (Number.isInteger(row.v) ? String(row.v) : row.v.toFixed(4)) : "n/a"}
           </span>
         </div>
       ))}
