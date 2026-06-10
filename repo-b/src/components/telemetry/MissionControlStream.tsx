@@ -11,7 +11,8 @@ import {
 
 import { getModelPerformance, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import {
-  deriveLag, useStreamPoll, type StreamChannel, type StreamEvent, type StreamLive,
+  deriveLag, STREAM_REASON_HINT, useStreamPoll,
+  type StreamChannel, type StreamEvent, type StreamLive,
 } from "@/lib/telemetry/stream";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
 
@@ -22,6 +23,8 @@ function sourceChip(live: StreamLive | null): { label: string; color: string } {
   if (!live) return { label: "CONNECTING", color: RS.faint };
   if (live.pipeline.status === "stale") return { label: "STALE", color: RS.red };
   if (live.pipeline.status === "failed") return { label: "FAILED", color: RS.red };
+  // No channels rendering = nothing to show; label it NOT AVAILABLE rather than implying a live feed.
+  if (live.channels.length === 0) return { label: "NOT AVAILABLE", color: RS.dim };
   switch (live.source) {
     case "iss": return { label: "LIVE · ISS", color: RS.green };
     case "capture": return { label: "CAPTURE (recorded live session)", color: RS.amber };
@@ -163,10 +166,24 @@ export default function MissionControlStream() {
         </div></RsPanel>
       )}
       {live && live.channels.length === 0 && (
-        <RsPanel><div style={{ padding: 16, fontFamily: RS_MONO, fontSize: 12, color: RS.amber }}>
-          Not available — {live.null_reason ?? "no_stream_data"}. The ingest worker has not landed any
-          frames yet (no synthetic data is rendered in its place).
-        </div></RsPanel>
+        <RsPanel title="STREAM NOT AVAILABLE">
+          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}
+            data-testid="stream-unavailable">
+            <div style={{ fontFamily: RS_MONO, fontSize: 12, color: RS.amber }}>
+              Not available — <span style={{ color: RS.red }}>{live.null_reason ?? "no_stream_data"}</span>
+            </div>
+            <div style={{ fontFamily: RS_SANS, fontSize: 12.5, color: RS.text }}>
+              {STREAM_REASON_HINT[live.null_reason ?? "no_stream_data"] ?? STREAM_REASON_HINT.no_stream_data}
+            </div>
+            <div style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.faint }}>
+              worker in this process: {live.worker_present ? "running" : "not running"} · pipeline:{" "}
+              {live.pipeline.status}{live.pipeline.reason ? ` (${live.pipeline.reason})` : ""} · server_ts {live.server_ts}
+            </div>
+            <div style={{ fontFamily: RS_MONO, fontSize: 10, color: RS.faint }}>
+              No synthetic or interpolated values are rendered in place of a missing feed.
+            </div>
+          </div>
+        </RsPanel>
       )}
 
       {live && live.channels.length > 0 && (

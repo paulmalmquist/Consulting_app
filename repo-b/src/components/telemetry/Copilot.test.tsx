@@ -73,4 +73,25 @@ describe("DispositionControls (Track B review capture — regression for the unr
     expect(screen.queryByText(/^Agree/)).toBeNull();
     expect(screen.getByTestId("disposition-verdict-override-go")).toBeInTheDocument();
   });
+
+  it("a new reportId resets the timer — a fresh report never inherits a started/recorded state", async () => {
+    // Reproduces the 'Start review didn't respond / needed a reload' bug: previously the controls
+    // were reused across reports, so startedAt/result survived. The reset effect must clear them.
+    const { rerender } = render(
+      <DispositionControls reportId="r-1" modelVerdict="NO_GO" fireTick={728} evidenceOpened={2} />,
+    );
+    fireEvent.click(screen.getByTestId("disposition-start"));
+    expect(screen.getByTestId("disposition-start")).toHaveTextContent("timing…");
+    // Same component instance, new report (simulates a fresh draft without an explicit unmount):
+    rerender(
+      <DispositionControls reportId="r-2" modelVerdict="GO" fireTick={900} evidenceOpened={0} />,
+    );
+    const start = screen.getByTestId("disposition-start");
+    expect(start).toHaveTextContent("Start review (timer)");   // reset, not "timing…"
+    expect(start).not.toBeDisabled();
+    // and the verdict is gated again until the timer restarts
+    fireEvent.click(screen.getByTestId("disposition-verdict-agree-go"));
+    expect(screen.getByText(/Start the timer first/i)).toBeInTheDocument();
+    expect(recordDisposition).not.toHaveBeenCalled();
+  });
 });
