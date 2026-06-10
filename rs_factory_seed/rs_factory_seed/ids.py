@@ -73,3 +73,19 @@ def material_lot(n: int) -> str:
 
 def jira(n: int) -> str:
     return f"MFG-{n:04d}"
+
+
+def mission(year: int, n: int) -> str:
+    return f"MIS-{year}-{n:03d}"
+
+
+def payload_commitment(n: int) -> str:
+    return f"PLD-{n:04d}"
+
+
+def build_plan(n: int) -> str:
+    return f"VBP-{n:03d}"
+
+
+def milestone(n: int) -> str:
+    return f"MS-{n:04d}"
