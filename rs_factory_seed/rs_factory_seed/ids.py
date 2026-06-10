@@ -89,3 +89,11 @@ def build_plan(n: int) -> str:
 
 def milestone(n: int) -> str:
     return f"MS-{n:04d}"
+
+
+def eco(year: int, n: int) -> str:
+    return f"ECO-{year}-{n:04d}"
+
+
+def spec(n: int) -> str:
+    return f"SPEC-{n:04d}"
