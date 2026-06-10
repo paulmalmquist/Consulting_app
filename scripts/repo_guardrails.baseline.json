@@ -46,6 +46,7 @@
   ],
   "direct_db_route_files": [
     "repo-b/src/app/api/lab/env-context/[envId]/route.ts",
+    "repo-b/src/app/api/public/ai-roi-lead/route.ts",
     "repo-b/src/app/api/re/v2/ai-audit/accuracy-stats/route.ts",
     "repo-b/src/app/api/re/v2/ai-audit/route.ts",
     "repo-b/src/app/api/re/v2/approvals/route.ts",
