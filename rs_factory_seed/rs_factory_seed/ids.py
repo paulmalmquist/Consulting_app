@@ -125,3 +125,19 @@ def machine_assignment(n: int) -> str:
 
 def hold_event(n: int) -> str:
     return f"HLD-{n:05d}"
+
+
+def inspection_characteristic(n: int) -> str:
+    return f"CHAR-{n:05d}"
+
+
+def inspection_result(n: int) -> str:
+    return f"INS-{n:07d}"
+
+
+def rework_event(n: int) -> str:
+    return f"RWK-{n:05d}"
+
+
+def waiver(n: int) -> str:
+    return f"WVR-{n:04d}"
