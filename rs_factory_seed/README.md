@@ -10,6 +10,9 @@ It produces inspectable artifacts (CSV / SQLite / Parquet / JSONL). A curated + 
 is later loaded into Postgres **inside the existing telemetry environment** (table prefix
 `rsf_`); raw landed data stays in artifacts and never enters Postgres.
 
+PR 1 intentionally emits CSV and SQLite only. Parquet, JSONL, gold views, and backend loading
+belong to later PRs.
+
 ## Usage
 
 ```bash
@@ -26,7 +29,7 @@ Profiles: `small` (default) and `medium` (`rs_factory_seed/config/volume_config.
 `MASTER_SEED = 20260610`; every table draws from its own named substream (order-independent,
 stable hash of the table name). The timeline is fixed (`2025-10-01 .. AS_OF 2026-06-08`) — no
 wall-clock reads. Writers sort by natural key with a fixed column order, so re-runs are
-byte-identical (`verify` checks sha256 of every CSV plus the SQLite `iterdump()`).
+byte-identical (`verify` checks every emitted non-SQLite artifact plus the SQLite `iterdump()`).
 
 ## Scenario anchors (single source of truth: `config/scenario_config.yaml`)
 
@@ -38,9 +41,23 @@ generators and asserted by `tests/test_scenarios.py`.
 
 ## Status
 
-Phase A (master data) implemented: `g01_master_data` + the deterministic core (context, ids,
-configs, CSV/SQLite writers, schema catalog) with determinism / referential-integrity / volume
-/ scenario-anchor tests green. Generators g02–g11 (CRM, PLM, ERP, MES, QMS, test/telemetry,
-Jira, docs, ML, gold + DQ) land in subsequent phases; backend integration (migration 10016,
-`telemetry_factory_starter` seed pack, ETL, streaming replay) follows. See
-`docs/plans/...` and the plan file.
+PR 1 / Phase A is complete through:
+
+- `g01_master_data`: facilities, work centers, machines, operators, suppliers, customers,
+  vehicles, parts, revisions, and BOM.
+- `g02_crm_demand`: missions, payload commitments, build plans, and milestones.
+- `g03_plm_changes`: engineering changes and specifications.
+- `g04_erp_materials`: supplier variants, purchase orders, material lots, serialized items,
+  genealogy, and material consumption.
+- `g05_mes_work_orders`: work orders, operation executions, labor, machine assignments, and
+  holds, including the configured SCN-004 Rev B/C operation split and SCN-007 DQ tags.
+
+The suite covers deterministic artifacts, declared natural-key uniqueness, stable IDs, row
+volumes, referential integrity, scenario anchors, MES distributions, and intentional defects.
+
+## PR 2 handoff
+
+Keep the package generator-only. Add `g06` through `g11`, waveform/scoring/DQ helpers,
+Parquet and JSONL writers, SQLite gold views, and Q01-Q12 scenario queries. Do not add the
+Postgres migration, telemetry seed pack, backend runtime dependencies, replay producer, or UI
+tabs until PR 3/4.

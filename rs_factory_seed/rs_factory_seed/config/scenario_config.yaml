@@ -86,6 +86,9 @@ scenarios:
     rev_b_fpy: 0.78
     rev_c_fpy: 0.91
     completed_operations: 124
+    revision_operation_counts:
+      B: 60
+      C: 64
     expected_answer: "Yes. First-pass yield rose from 78% on Rev B to 91% on Rev C across 124 completed operations."
   SCN-005-HOTFIRE-ANOMALY-SIMILARITY:
     failed_run: TEST-HOTFIRE-2026-00041

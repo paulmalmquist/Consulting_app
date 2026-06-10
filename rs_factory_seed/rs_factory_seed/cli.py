@@ -45,14 +45,14 @@ def cmd_build(args) -> int:
 
 def _fingerprint(out_dir: Path) -> dict[str, str]:
     fp: dict[str, str] = {}
-    for csv_path in sorted((out_dir / "csv").glob("*.csv")):
-        fp[csv_path.name] = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+    for path in sorted(out_dir.rglob("*")):
+        if not path.is_file() or path.suffix == ".sqlite":
+            continue
+        key = path.relative_to(out_dir).as_posix()
+        fp[key] = hashlib.sha256(path.read_bytes()).hexdigest()
     db = out_dir / "sqlite" / "relativity_factory_demo.sqlite"
     if db.exists():
         fp["__sqlite_dump__"] = hashlib.sha256(sqlite_dump(db).encode("utf-8")).hexdigest()
-    manifest = out_dir / "manifest.json"
-    if manifest.exists():
-        fp["__manifest__"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
     return fp
 
 

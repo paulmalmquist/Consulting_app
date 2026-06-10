@@ -113,3 +113,15 @@ def genealogy(n: int) -> str:
 
 def raw_supplier(n: int) -> str:
     return f"RSUP-{n:04d}"
+
+
+def labor_event(n: int) -> str:
+    return f"LBR-{n:06d}"
+
+
+def machine_assignment(n: int) -> str:
+    return f"MA-{n:06d}"
+
+
+def hold_event(n: int) -> str:
+    return f"HLD-{n:05d}"
