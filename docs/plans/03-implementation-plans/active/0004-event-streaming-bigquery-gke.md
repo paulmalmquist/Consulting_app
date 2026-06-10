@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE (local-only backbone; one execution lifecycle wired; no production change; ruff + pytest green with no broker). Phases 2–6 planned, not started.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE (BigQuery DDL + observational sink worker; 21 tests; no credentials required; BQ write mocked). Phases 3–6 planned.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -48,8 +48,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 3 | 1 | `scripts/streaming/publish_smoke.py` | No | Low | DONE |
 | 4 | 1 | Wire `execution.started/completed/failed` into `executions.py` (no behavior change) | No | Low | DONE |
 | 5 | 1 | `backend/tests/test_events.py` (FakeBroker, no-op, lifecycle, fail-on-broker-down) | No | Low | DONE |
-| 6 | 2 | BigQuery `winston_raw.execution_events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | TODO |
-| 7 | 2 | Observational sink worker (consume → validate → write → dead-letter); local first | No | Med | TODO |
+| 6 | 2 | BigQuery `winston_events_raw.events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | DONE |
+| 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
 | 8 | 3 | Cloud broker + transport cutover via env; add `confluent-kafka` to `requirements.txt` | No | Med | TODO |
 | 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
@@ -83,9 +83,38 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 
 ---
 
-## Phase 2+ — milestones (not started)
+## Phase 2 — per-ticket detail (delivered)
 
-- **Phase 2 — BigQuery sink.** Dataset `winston_raw`, per-domain tables (first: `winston_raw.execution_events` — columns match the receipt query: `event_id, event_type, run_id, occurred_at, source_service`, + envelope fields + JSON `payload` + `ingested_at`; `PARTITION BY DATE(ingested_at)`, `CLUSTER BY event_type, run_id`). DDL in `infra/gcp/bigquery/`. **Sink worker is OBSERVATIONAL ONLY**: consume → validate envelope → write raw row → route invalid events to `winston.dead-letter.v1` (+ log) with a `failure_reason`. No Postgres writes, no side effects, no AI, no document extraction. Dedupe via `insertId = idempotency_key` + a `QUALIFY ROW_NUMBER()` view.
+### Ticket 6 — BigQuery DDL
+`infra/gcp/bigquery/`: `datasets.sql` (CREATE SCHEMA `winston_events_raw`), `events_table.sql` (generic `events` table — all domains land here; `PARTITION BY DATE(ingested_at)`, `CLUSTER BY event_type, business_id, run_id`), `events_schema.json` (bq mk --table descriptor), `README.md` (`bq` commands, env vars, acceptance receipt query).
+
+Column: `source` maps from `EventEnvelope.source_service` (envelope field name → BQ column `source`). `dead_letter` and `dead_letter_reason` columns in the same table so dead-letter rows are queryable alongside valid rows.
+
+### Ticket 7 — observational sink worker
+`backend/app/events/sink.py`:
+- `validate_envelope(raw_bytes)` — parse → pydantic `EventEnvelope.model_validate`; raises `InvalidEnvelope` on any failure.
+- `envelope_to_bq_row(envelope)` — field-for-field mapping; `source_service` → `source`; payload serialized as JSON string for BQ JSON column.
+- `write_row_to_bq(row, insert_id)` — lazy-imports `google.cloud.bigquery`; `insert_rows_json` with `row_ids=[insert_id]`; raises `BigQuerySinkError` on errors list or exception; no-op when `BQ_ENABLED=False`.
+- `process_message(raw_bytes)` — orchestrates validate → map → write; BQ failure routes to dead-letter (not silent success); returns `{"status": "ok"|"dead_letter", ...}`.
+- `_route_dead_letter(raw_bytes, reason, ingested_at)` — publishes to `Topics.DEAD_LETTER` (best-effort Kafka) + writes BQ dead-letter row (best-effort).
+
+`backend/tests/test_events_sink.py` — 21 tests, no credentials, all mocked:
+- Row mapping (all fields, `source` field, optional tenancy, payload JSON)
+- Validation (valid roundtrip, non-JSON, missing fields, wrong type)
+- `process_message` happy path + BQ disabled no-op
+- `process_message` invalid JSON → dead_letter
+- `process_message` BQ error → dead_letter (NOT silent success)
+- `write_row_to_bq` no-op / missing project / import error / BQ errors list / insertId
+
+**Phase 2 verification (2026-06-09):**
+- `ruff check app tests` → clean.
+- `pytest tests/test_events_sink.py -q` → 21 passed (no credentials).
+- `pytest tests/test_events.py tests/test_events_sink.py tests/test_executions.py -q` → 32 passed.
+- `check_repo_guardrails.mjs` + `validate_assistant_runtime.mjs` → both passed.
+- Real BQ write: skipped (BQ_ENABLED=False, no credentials configured). Exercised via mock in `test_write_row_uses_idempotency_key_as_insert_id` and `test_write_row_raises_sink_error_on_bq_errors_list`.
+
+## Phase 3+ — milestones (planned)
+
 - **Phase 3 — cloud broker.** Stand up GCP Managed Kafka (or Confluent); point the cloud transport at it via env; keep the no-op fallback; add `confluent-kafka` to `backend/requirements.txt` (lazy import preserved).
 - **Phase 4 — GKE.** `infra/k8s/{base,overlays/{local,gke-dev,gke-prod}}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
 - **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
@@ -98,8 +127,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 With the sink draining `winston.executions.v1` → `winston_raw.execution_events`, run one execution, then:
 
 ```sql
-SELECT event_id, event_type, run_id, occurred_at, source_service
-FROM `winston_raw.execution_events`
+SELECT event_id, event_type, run_id, occurred_at, source
+FROM `YOUR_PROJECT_ID.winston_events_raw.events`
 WHERE run_id = '<test_run_id>'
 ORDER BY occurred_at;
 ```
