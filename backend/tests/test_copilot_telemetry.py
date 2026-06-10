@@ -171,7 +171,6 @@ def test_draft_report_unsupported_root_cause_is_refused_pre_llm():
 
 def test_draft_report_missing_run_fails_closed(fake_cursor, monkeypatch):
     # get_triggering_prediction -> missing_run; no evidence -> no report, no persisted row.
-    from app.services import telemetry_serving as svc
     fake_cursor.push_result([{"tenant_id": TENANT}])   # resolve_tenant_id
     fake_cursor.push_result([])                        # run lookup -> none
     out = tc.draft_report(env_id=ENV, business_id=BIZ, run_key="smap_msl:NOPE:test", fire_tick=728)
