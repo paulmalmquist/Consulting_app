@@ -46,6 +46,12 @@ celery>=5.4
 redis>=5.0
 ib_insync>=0.9.86
 
+# Event streaming — BigQuery sink (Phase 2+). BQ_ENABLED defaults to false so
+# the sink is inert unless explicitly enabled. confluent-kafka is optional (lazy
+# import in transport.py) and is NOT listed here; install separately for local
+# Kafka/Redpanda testing.
+google-cloud-bigquery>=3.11
+
 # Podcast Intelligence (migration 425)
 yt-dlp>=2024.0.0
 feedparser>=6.0

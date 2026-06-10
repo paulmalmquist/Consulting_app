@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE (BigQuery DDL + observational sink worker; 21 tests; no credentials required; BQ write mocked). Phases 3–6 planned.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (google-cloud-bigquery added; bq_smoke.py proves real-write path when credentials present; no-op path proven without credentials). Phases 3B–6 planned.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -50,7 +50,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 5 | 1 | `backend/tests/test_events.py` (FakeBroker, no-op, lifecycle, fail-on-broker-down) | No | Low | DONE |
 | 6 | 2 | BigQuery `winston_events_raw.events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | DONE |
 | 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
-| 8 | 3 | Cloud broker + transport cutover via env; add `confluent-kafka` to `requirements.txt` | No | Med | TODO |
+| 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE |
+| 8b | 3B | Cloud broker (GCP Managed Kafka / Confluent) + transport cutover via env; `confluent-kafka` in requirements.txt | No | Med | TODO |
 | 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
@@ -113,9 +114,23 @@ Column: `source` maps from `EventEnvelope.source_service` (envelope field name �
 - `check_repo_guardrails.mjs` + `validate_assistant_runtime.mjs` → both passed.
 - Real BQ write: skipped (BQ_ENABLED=False, no credentials configured). Exercised via mock in `test_write_row_uses_idempotency_key_as_insert_id` and `test_write_row_raises_sink_error_on_bq_errors_list`.
 
-## Phase 3+ — milestones (planned)
+## Phase 3A — per-ticket detail (delivered)
 
-- **Phase 3 — cloud broker.** Stand up GCP Managed Kafka (or Confluent); point the cloud transport at it via env; keep the no-op fallback; add `confluent-kafka` to `backend/requirements.txt` (lazy import preserved).
+### Ticket 8a — google-cloud-bigquery + bq_smoke.py
+`backend/requirements.txt`: added `google-cloud-bigquery>=3.11` with comment.
+`scripts/streaming/bq_smoke.py`: end-to-end smoke for real BQ writes. Builds one `execution.completed` envelope, runs `process_message()` (same path as a real Kafka consumer), writes to BigQuery with `idempotency_key` as `insertId`, queries back by `run_id` and prints acceptance receipt. Gracefully degrades: `BQ_ENABLED=false` prints no-op message and exits 0; `BQ_PROJECT_ID` unset prints an error and exits 1.
+`infra/gcp/bigquery/README.md`: updated with ADC vs service-account credential options, bq_smoke.py usage, streaming insert propagation note, dedup query.
+
+**Phase 3A verification (2026-06-10):**
+- `ruff check app tests` → clean.
+- `python scripts/streaming/bq_smoke.py` (no credentials) → `BQ_ENABLED=false — no write performed (no-op path)` → exit 0.
+- Real BQ write: not possible on this machine (no gcloud CLI, no ADC, no GCP project configured). The `write_row_to_bq` real-write path is proven via mock in `test_write_row_uses_idempotency_key_as_insert_id` + `test_write_row_raises_sink_error_on_bq_errors_list`. Acceptance receipt against a real table requires running `bq_smoke.py` with `BQ_ENABLED=true BQ_PROJECT_ID=<project>` on a machine with gcloud ADC configured.
+
+**Credential note:** never commit service account JSON. Use `gcloud auth application-default login` for local dev; Workload Identity for GKE (Phase 4).
+
+## Phase 3B+ — milestones (planned)
+
+- **Phase 3B — cloud broker.** Stand up GCP Managed Kafka (or Confluent); point the cloud transport at it via env; keep the no-op fallback; add `confluent-kafka` to `backend/requirements.txt` (lazy import preserved).
 - **Phase 4 — GKE.** `infra/k8s/{base,overlays/{local,gke-dev,gke-prod}}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
 - **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
 - **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
