@@ -133,6 +133,19 @@ def registry(env_id: str = Query(...), business_id: UUID = Query(...)):
         raise _to_http(exc)
 
 
+# ── RS Demo: Factory & NCR Intelligence (display-only mirror of the Databricks pipeline) ──
+@router.get("/ncr")
+def ncr(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Factory NCR intelligence read: real UMAP/HDBSCAN points + cluster summaries, model-derived
+    pareto, and the walk-forward backlog forecast with its backtest metrics. Fail-closed
+    (data_not_ingested) when the mirror has not been applied."""
+    from app.services import telemetry_factory as factory_svc
+    try:
+        return factory_svc.ncr_intelligence(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
 # ── RS Demo: live streaming slice ──────────────────────────────────────────────
 @router.get("/stream/live")
 def stream_live(env_id: str = Query(...), business_id: UUID = Query(...),

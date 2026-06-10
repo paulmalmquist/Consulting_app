@@ -14,6 +14,7 @@ const NAV: { slug: string; label: string; icon: string }[] = [
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z" },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7" },
   { slug: "registry", label: "Model Registry", icon: "M3 2h10v3H3zM3 7h10v3H3zM3 12h6v2H3z" },
+  { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z" },
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3" },
 ];
 
