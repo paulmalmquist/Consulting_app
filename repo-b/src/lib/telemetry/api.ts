@@ -79,6 +79,32 @@ export interface MonitoringResponse {
   null_reason: string | null;
 }
 
+// ── RS Demo: Model Registry console (display-only) ─────────────────────────────
+export interface RegistryModel {
+  model_name: string;
+  model_kind: string;
+  model_version: string | null;
+  model_alias: string | null;
+  mlflow_run_id: string | null;
+  experiment_id: string | null;
+  metrics: Record<string, unknown>;
+  gate: Record<string, unknown>;
+  promotion_state: string;
+  created_at: string | null;
+}
+
+export interface RegistryResponse {
+  models: RegistryModel[];
+  drift: Record<string, { psi: number | null; window_label: string | null; computed_at: string }[]>;
+  lifecycle: { ts: string | null; text: string; model_kind: string | null }[];
+  null_reason: string | null;
+}
+
+export const getRegistry = (env: string, biz: string) =>
+  apiFetch<RegistryResponse>("/api/telemetry/registry", {
+    params: { env_id: env, business_id: biz },
+  });
+
 export interface TestRun {
   id: string;
   run_key: string;

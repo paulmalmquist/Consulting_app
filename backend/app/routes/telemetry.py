@@ -120,6 +120,19 @@ def fused_vector_info(env_id: str = Query(...), business_id: UUID = Query(...)):
         raise _to_http(exc)
 
 
+# ── RS Demo: Model Registry console (DISPLAY-ONLY — no mutation routes exist) ──
+@router.get("/registry")
+def registry(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Registry console read: all tel_model_runs rows (full metrics/gate jsonb incl. the Track A
+    honest_gate), real PSI drift history, derived lifecycle timeline. Promotion is an alias update via
+    the governed Databricks flow — this API has no POST/PUT/DELETE on purpose."""
+    from app.services import telemetry_registry as registry_svc
+    try:
+        return registry_svc.registry_console(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
 # ── RS Demo: live streaming slice ──────────────────────────────────────────────
 @router.get("/stream/live")
 def stream_live(env_id: str = Query(...), business_id: UUID = Query(...),
