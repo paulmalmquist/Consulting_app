@@ -130,21 +130,24 @@ Column: `source` maps from `EventEnvelope.source_service` (envelope field name �
 - `BQ_ENABLED=true BQ_PROJECT_ID=paultest-d3cb1 python scripts/streaming/bq_smoke.py --batch` → Phase 3A PASS. See acceptance receipt below.
 - ADC: gcloud 572.0.0 installed via winget, `gcloud auth application-default login` completed.
 
-**Phase 3A acceptance receipt (real row, 2026-06-10):**
+**Phase 3A acceptance receipt — streaming insert (insert_rows_json), 2026-06-10:**
 ```
-  event_id         = 8751b41b-cae9-48b7-9c33-7a40656cca6d
+  event_id         = c46951c7-5b63-482b-8d66-99ddb64b3833
   event_type       = execution.completed
-  idempotency_key  = execution.completed:0baf6f42-fc96-4e81-b147-1f426ed26e44
-  run_id           = 0baf6f42-fc96-4e81-b147-1f426ed26e44
-  occurred_at      = 2026-06-10 13:33:28.118780+00:00
-  ingested_at      = 2026-06-10 13:33:28.118987+00:00
+  idempotency_key  = execution.completed:cbcf6ecb-1bc4-4257-82f4-9735de3942ed
+  run_id           = cbcf6ecb-1bc4-4257-82f4-9735de3942ed
+  occurred_at      = 2026-06-10 13:52:16.186513+00:00
+  published_at     = 2026-06-10 13:52:16.186562+00:00
+  ingested_at      = 2026-06-10 13:52:16.186678+00:00
   source           = backend
   dead_letter      = False
   dead_letter_reason = None
 ```
 Table: `paultest-d3cb1.winston_events_raw.events`
+Write method: `insert_rows_json` (streaming insert, NOT a load job — production path)
+Billing account: `01C91A-EBBE34-ED09D2` ("Novendor GCP") — general-purpose, linked to `paultest-d3cb1`
 
-**Streaming inserts note:** BigQuery `insertAll` (streaming inserts) requires a full GCP billing account with a payment method. The "My Maps Billing Account" is Maps-specific and does not cover streaming inserts. For Phase 3B+, a proper billing account must be attached to the target project. Phase 3A proven via load job (`--batch`); streaming insert path is covered by mocks in `test_write_row_uses_idempotency_key_as_insert_id` + `test_write_row_raises_sink_error_on_bq_errors_list`.
+**Streaming inserts note:** BigQuery `insertAll` requires a general-purpose billing account with a payment method. "My Maps Billing Account" (Maps Platform-specific) does NOT cover streaming inserts. The `--batch` flag on `bq_smoke.py` uses a free-tier load job as a fallback; the sink code itself is unchanged.
 
 **Credential note:** never commit service account JSON. Use `gcloud auth application-default login` for local dev; Workload Identity for GKE (Phase 4).
 
