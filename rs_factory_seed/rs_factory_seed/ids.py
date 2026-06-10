@@ -97,3 +97,19 @@ def eco(year: int, n: int) -> str:
 
 def spec(n: int) -> str:
     return f"SPEC-{n:04d}"
+
+
+def purchase_order(year: int, n: int) -> str:
+    return f"PO-{year}-{n:05d}"
+
+
+def consumption(n: int) -> str:
+    return f"MC-{n:06d}"
+
+
+def genealogy(n: int) -> str:
+    return f"GEN-{n:06d}"
+
+
+def raw_supplier(n: int) -> str:
+    return f"RSUP-{n:04d}"
