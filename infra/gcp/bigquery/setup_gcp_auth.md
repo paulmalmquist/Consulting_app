@@ -35,8 +35,17 @@ export BQ_ENABLED=true
 export BQ_PROJECT_ID=YOUR_PROJECT_ID
 # BQ_DATASET and BQ_TABLE default to winston_events_raw / events
 
+# Default (streaming inserts) -- requires a full GCP billing account:
 python scripts/streaming/bq_smoke.py
+
+# Batch mode (free-tier compatible -- proves auth/write/query-back without billing):
+python scripts/streaming/bq_smoke.py --batch
 ```
+
+**Billing note:** BigQuery `insertAll` (streaming inserts) requires a billing
+account with a payment method linked to the project. A Google Maps-specific
+billing account does NOT unlock BigQuery streaming inserts. Use `--batch` for
+free-tier proof; production sink uses streaming inserts and needs proper billing.
 
 ---
 

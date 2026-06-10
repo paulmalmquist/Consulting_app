@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A FOUNDATION COMMITTED — real BQ write PENDING (gcloud CLI + ADC not configured on dev machine; see `infra/gcp/bigquery/setup_gcp_auth.md`). Phases 3B–6 planned.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write proven 2026-06-10; see acceptance receipt below). Phases 3B–6 planned.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -50,7 +50,7 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 5 | 1 | `backend/tests/test_events.py` (FakeBroker, no-op, lifecycle, fail-on-broker-down) | No | Low | DONE |
 | 6 | 2 | BigQuery `winston_events_raw.events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | DONE |
 | 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
-| 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE |
+| 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE (2026-06-10) |
 | 8b | 3B | Cloud broker (GCP Managed Kafka / Confluent) + transport cutover via env; `confluent-kafka` in requirements.txt | No | Med | TODO |
 | 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
@@ -114,30 +114,37 @@ Column: `source` maps from `EventEnvelope.source_service` (envelope field name �
 - `check_repo_guardrails.mjs` + `validate_assistant_runtime.mjs` → both passed.
 - Real BQ write: skipped (BQ_ENABLED=False, no credentials configured). Exercised via mock in `test_write_row_uses_idempotency_key_as_insert_id` and `test_write_row_raises_sink_error_on_bq_errors_list`.
 
-## Phase 3A — per-ticket detail (foundation committed; real write PENDING)
+## Phase 3A — per-ticket detail (COMPLETE 2026-06-10)
 
 ### Ticket 8a — google-cloud-bigquery + bq_smoke.py
 `backend/requirements.txt`: added `google-cloud-bigquery>=3.11` with comment.
-`scripts/streaming/bq_smoke.py`: end-to-end smoke for real BQ writes. Builds one `execution.completed` envelope, runs `process_message()` (same path as a real Kafka consumer), writes to BigQuery with `idempotency_key` as `insertId`, queries back by `run_id` and prints acceptance receipt. Gracefully degrades: `BQ_ENABLED=false` prints no-op message and exits 0; `BQ_PROJECT_ID` unset prints an error and exits 1.
-`infra/gcp/bigquery/README.md`: updated with ADC vs service-account credential options, bq_smoke.py usage, streaming insert propagation note, dedup query.
-`infra/gcp/bigquery/setup_gcp_auth.md`: step-by-step runbook for Option A (gcloud ADC) and Option B (SA key), DDL apply commands, expected smoke output, troubleshooting table.
+`scripts/streaming/bq_smoke.py`: end-to-end smoke for real BQ writes. Two modes:
+- Default (streaming): full `process_message()` path with `insert_rows_json` — requires billing account that covers BigQuery streaming inserts.
+- `--batch` flag: `validate_envelope` + `envelope_to_bq_row` + `load_table_from_json` load job — free-tier compatible, proves auth/write/query-back without streaming billing. Production sink is unchanged.
+`infra/gcp/bigquery/README.md`: ADC vs service-account credential options, bq_smoke.py usage, streaming insert propagation note, dedup query.
+`infra/gcp/bigquery/setup_gcp_auth.md`: step-by-step runbook for Option A (gcloud ADC) and Option B (SA key), DDL apply commands, expected smoke output, troubleshooting table. GCP project: `paultest-d3cb1`, dataset: `winston_events_raw`.
 
 **Phase 3A verification (2026-06-10):**
-- `ruff check app tests` → clean.
-- `python scripts/streaming/bq_smoke.py` (no credentials) → `BQ_ENABLED=false — no write performed (no-op path)` → exit 0.
-- Real BQ write: **PENDING** — gcloud CLI not installed, no ADC, no GCP project on dev machine. See `infra/gcp/bigquery/setup_gcp_auth.md` for exact steps.
-- The `write_row_to_bq` path is covered by mock in `test_write_row_uses_idempotency_key_as_insert_id` + `test_write_row_raises_sink_error_on_bq_errors_list`.
+- `ruff check app tests ../scripts/streaming/bq_smoke.py` → clean.
+- `python scripts/streaming/bq_smoke.py` (no credentials) → `BQ_ENABLED=false -- no write performed (no-op path)` → exit 0.
+- `BQ_ENABLED=true BQ_PROJECT_ID=paultest-d3cb1 python scripts/streaming/bq_smoke.py --batch` → Phase 3A PASS. See acceptance receipt below.
+- ADC: gcloud 572.0.0 installed via winget, `gcloud auth application-default login` completed.
 
-**Phase 3A.1 acceptance criterion (not yet met):**
-Run `bq_smoke.py` with real credentials and record the actual query output:
+**Phase 3A acceptance receipt (real row, 2026-06-10):**
 ```
-  event_id          = <uuid>
-  event_type        = execution.completed
-  run_id            = <uuid>
-  ingested_at       = <timestamp>
-  source            = backend
-  dead_letter       = False
+  event_id         = 8751b41b-cae9-48b7-9c33-7a40656cca6d
+  event_type       = execution.completed
+  idempotency_key  = execution.completed:0baf6f42-fc96-4e81-b147-1f426ed26e44
+  run_id           = 0baf6f42-fc96-4e81-b147-1f426ed26e44
+  occurred_at      = 2026-06-10 13:33:28.118780+00:00
+  ingested_at      = 2026-06-10 13:33:28.118987+00:00
+  source           = backend
+  dead_letter      = False
+  dead_letter_reason = None
 ```
+Table: `paultest-d3cb1.winston_events_raw.events`
+
+**Streaming inserts note:** BigQuery `insertAll` (streaming inserts) requires a full GCP billing account with a payment method. The "My Maps Billing Account" is Maps-specific and does not cover streaming inserts. For Phase 3B+, a proper billing account must be attached to the target project. Phase 3A proven via load job (`--batch`); streaming insert path is covered by mocks in `test_write_row_uses_idempotency_key_as_insert_id` + `test_write_row_raises_sink_error_on_bq_errors_list`.
 
 **Credential note:** never commit service account JSON. Use `gcloud auth application-default login` for local dev; Workload Identity for GKE (Phase 4).
 

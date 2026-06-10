@@ -4,7 +4,7 @@ Builds one execution.completed EventEnvelope, runs it through the sink's
 process_message() path with BQ_ENABLED=true, and queries the receipt back.
 Prints the acceptance receipt row so the result is verifiable without a UI.
 
-No Kafka broker required — the envelope is handed directly to the sink, not
+No Kafka broker required -- the envelope is handed directly to the sink, not
 consumed from a topic. This proves the BQ write path independently.
 
 Usage (credentials required):
@@ -20,7 +20,13 @@ Usage (credentials required):
 
 Without credentials (or BQ_ENABLED=false):
   python scripts/streaming/bq_smoke.py
-  # → prints "BQ_ENABLED=false — no write performed (no-op path)"
+  # prints "BQ_ENABLED=false -- no write performed (no-op path)"
+
+Batch mode (free-tier compatible -- no billing required for load jobs):
+  python scripts/streaming/bq_smoke.py --batch
+  # Uses load_table_from_json instead of insert_rows_json.
+  # Proves auth, table access, write, and query-back without streaming billing.
+  # Production sink still uses streaming inserts.
 """
 
 from __future__ import annotations
@@ -40,7 +46,9 @@ from app.events.sink import (
     BQ_ENABLED,
     BQ_PROJECT_ID,
     BQ_TABLE,
+    envelope_to_bq_row,
     process_message,
+    validate_envelope,
 )
 
 
@@ -48,17 +56,48 @@ def _separator() -> None:
     print("-" * 60)
 
 
-def main() -> int:
-    print("Winston Event Streaming — Phase 3A BigQuery smoke")
+def _write_batch(row: dict, *, project: str, dataset: str, table: str) -> None:
+    """Load-job write -- free-tier compatible, committed atomically."""
+    try:
+        from google.cloud import bigquery  # noqa: PLC0415
+    except ImportError as exc:
+        raise RuntimeError("google-cloud-bigquery not installed") from exc
+
+    client = bigquery.Client(project=project)
+    table_ref = f"{project}.{dataset}.{table}"
+
+    # Timestamps must be ISO strings for load_table_from_json.
+    serialisable = {}
+    for k, v in row.items():
+        if hasattr(v, "isoformat"):
+            serialisable[k] = v.isoformat()
+        else:
+            serialisable[k] = v
+
+    job_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
+    job = client.load_table_from_json([serialisable], table_ref, job_config=job_config)
+    job.result()  # wait for completion
+
+    if job.errors:
+        raise RuntimeError(f"Load job errors: {job.errors}")
+
+
+def main(batch_mode: bool = False) -> int:
+    print("Winston Event Streaming -- Phase 3A BigQuery smoke")
     _separator()
 
+    mode_label = "batch (load job)" if batch_mode else "streaming (insert_rows_json)"
     print(f"BQ_ENABLED    = {BQ_ENABLED}")
     print(f"BQ_PROJECT_ID = {BQ_PROJECT_ID or '(unset)'}")
     print(f"BQ_DATASET    = {BQ_DATASET}")
     print(f"BQ_TABLE      = {BQ_TABLE}")
+    print(f"Write mode    = {mode_label}")
 
     if not BQ_ENABLED:
-        print("\nBQ_ENABLED=false — no write performed (no-op path).")
+        print("\nBQ_ENABLED=false -- no write performed (no-op path).")
         print("Set BQ_ENABLED=true + BQ_PROJECT_ID to run a real write.")
         _separator()
         return 0
@@ -88,20 +127,42 @@ def main() -> int:
     print(f"  business_id     = {business_id}")
     _separator()
 
-    # Run through process_message — same path as a real Kafka consumer.
     raw_bytes = envelope.to_wire()
     print(f"Wire bytes ({len(raw_bytes)} bytes):")
     print(f"  {raw_bytes.decode()}")
     _separator()
 
-    print("Running process_message() → validate → map → write_row_to_bq ...")
-    result = process_message(raw_bytes)
+    if batch_mode:
+        # Batch path: validate + map via sink helpers, write via load job.
+        print("Running validate -> map -> load_table_from_json (batch mode) ...")
+        try:
+            validated = validate_envelope(raw_bytes)
+            row = envelope_to_bq_row(validated)
+            _write_batch(
+                row,
+                project=BQ_PROJECT_ID,
+                dataset=BQ_DATASET,
+                table=BQ_TABLE,
+            )
+            result = {"status": "ok", "event_type": envelope.event_type,
+                      "event_id": str(envelope.event_id), "mode": "batch"}
+        except Exception as exc:
+            print(f"Batch write failed: {exc}")
+            return 1
+    else:
+        # Streaming path: full process_message() (production code path).
+        print("Running process_message() -> validate -> map -> write_row_to_bq ...")
+        result = process_message(raw_bytes)
+
     print(f"Result: {json.dumps(result, indent=2)}")
     _separator()
 
     if result["status"] != "ok":
         print(f"FAILED: process_message returned status={result['status']}")
         print(f"Reason: {result.get('reason', '(none)')}")
+        if not batch_mode:
+            print("\nHint: streaming inserts require a full GCP billing account.")
+            print("Run with --batch to use a free-tier-compatible load job instead.")
         return 1
 
     # Query back the row to produce the acceptance receipt.
@@ -123,7 +184,7 @@ def main() -> int:
         client = bigquery.Client(project=BQ_PROJECT_ID)
         rows = list(client.query(query).result())
     except ImportError:
-        print("google-cloud-bigquery not installed — cannot query back.")
+        print("google-cloud-bigquery not installed -- cannot query back.")
         print("Install with: pip install google-cloud-bigquery>=3.11")
         return 1
     except Exception as exc:
@@ -159,4 +220,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    batch = "--batch" in sys.argv
+    sys.exit(main(batch_mode=batch))
