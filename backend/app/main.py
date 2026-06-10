@@ -293,7 +293,62 @@ async def lifespan(app: FastAPI):
                 context={}, error=exc,
             )
 
+    # ── RS Demo: telemetry stream worker + ETL loop (operator-sweep pattern) ──
+    stream_task = None
+    stream_etl_task = None
+    if db_connected:
+        try:
+            from app.config import (
+                TELEMETRY_ETL_INTERVAL_SECONDS, TELEMETRY_STREAM_BUSINESS_ID,
+                TELEMETRY_STREAM_ENABLED, TELEMETRY_STREAM_ENV_ID, TELEMETRY_STREAM_SOURCE,
+            )
+            if TELEMETRY_STREAM_ENABLED:
+                import asyncio
+                from uuid import UUID as _UUID
+                from app.services.telemetry_stream_etl import run_etl_loop
+                from app.services.telemetry_stream_ingest import (
+                    StreamWorker, set_stream_worker,
+                )
+                _stream_channels = [
+                    "USLAB000058", "USLAB000059", "USLAB000062", "USLAB000063", "USLAB000064",
+                    "AIRLOCK000049", "NODE3000005", "NODE3000008", "NODE3000009",
+                    "S4000001", "S6000004", "P4000001",
+                ]
+                _worker = StreamWorker(
+                    env_id=TELEMETRY_STREAM_ENV_ID,
+                    business_id=TELEMETRY_STREAM_BUSINESS_ID,
+                    source=TELEMETRY_STREAM_SOURCE,
+                    channels=_stream_channels,
+                )
+                set_stream_worker(_worker)
+                stream_task = asyncio.create_task(_worker.run())
+                stream_etl_task = asyncio.create_task(run_etl_loop(
+                    env_id=TELEMETRY_STREAM_ENV_ID,
+                    business_id=_UUID(TELEMETRY_STREAM_BUSINESS_ID),
+                    interval_seconds=TELEMETRY_ETL_INTERVAL_SECONDS,
+                ))
+                emit_log(
+                    level="info", service="backend", action="startup.telemetry_stream_started",
+                    message="Telemetry stream worker + ETL loop started",
+                    context={"source": TELEMETRY_STREAM_SOURCE,
+                             "etl_interval_s": TELEMETRY_ETL_INTERVAL_SECONDS},
+                )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.telemetry_stream_failed",
+                message="Telemetry stream worker failed to start (non-fatal)",
+                context={}, error=exc,
+            )
+
     yield
+
+    for _task in (stream_task, stream_etl_task):
+        if _task is not None:
+            _task.cancel()
+            try:
+                await _task
+            except BaseException:
+                pass
 
     if operator_sweep_task is not None:
         operator_sweep_task.cancel()

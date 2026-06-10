@@ -97,6 +97,16 @@ class ConformalBudget(BaseModel):
     status: str | None = None                 # within | approaching | over
 
 
+class StreamBlock(BaseModel):
+    """RS Demo streaming slice: pipeline-status summary carried on /monitoring."""
+    status: str | None = None                  # fresh | stale | failed | unknown
+    as_of_ts: datetime | None = None
+    reason: str | None = None
+    last_frame_at: datetime | None = None
+    rows_per_min: int | None = None
+    failing_assertions: int | None = None
+
+
 class MonitoringResponse(BaseModel):
     rolling_anomaly_rate: float | None = None
     prediction_count: int = 0
@@ -107,4 +117,11 @@ class MonitoringResponse(BaseModel):
     psi: float | None = None
     window_label: str = "recent"
     conformal_budget: ConformalBudget | None = None
+    stream: StreamBlock | None = None
     null_reason: str | None = None            # e.g. no_prediction_rows
+
+
+# ── /stream/source ───────────────────────────────────────────────────────────
+
+class StreamSourceRequest(BaseModel):
+    source: str                                # iss | capture | adsb
