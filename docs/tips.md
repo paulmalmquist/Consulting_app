@@ -3122,3 +3122,31 @@ shared pre-failure *shape*, not the anchor template being unique, and that the m
 distinct runs are the same record. Reusable rule: when generator B reasons about an entity generator A
 already characterized, B imports A's contract function; a test pins B's output to A's computed value; and
 every "how many / what mix" number traces to one config block.
+
+### Gold/read-model frames must keep scenario cost SEPARATE from the group total to reconcile (2026-06-10)
+
+Building g11 (gold frames + data-quality findings over the g01–g10 synthetic digital thread) re-taught
+the discipline that keeps an aggregation layer honest: gold is a *traceable summary*, never a new source
+of truth, and every headline number must reconcile to the rows it came from. The bug that proved it: the
+cost-of-poor-quality frame grouped rework/scrap by (supplier, part_family), then stamped a group's
+`scenario_id` with SCN-002 because *some* events in it carried that tag — and reported the whole group
+total ($199,507) as the scenario figure, blowing past the $148K anchor. The group legitimately contains
+SCN-002 events *plus* untagged AeroMetals/ENG-VALVE rework; collapsing them loses the named-scenario
+number. Fix: track scenario-attributed cost in a **separate accumulator** (`scenario_cost[scenario_id] +=
+cost` only for tagged events) and expose `scenario_cost_usd` alongside the group `cost_of_poor_quality_usd`.
+The demo reads the scenario figure ($148K, reconciles exactly); the group total is still there for
+drill-down. Rule: when an aggregate row carries a scenario tag, the scenario's *value* must be summed only
+from tagged source rows, not inferred from the group the tag landed in. Other g11 reconciliation guards
+worth copying: (1) **derive, don't re-derive** — SCN-004 FPY (0.78/0.91) is asserted by recomputing from
+source ops + inspection `first_pass`, not by writing a yield number into gold; SCN-005's nearest-match in
+the anomaly-review frame is *read from the g10 prediction* (whose similarity was consumed from g07 feature
+windows), never recomputed. (2) **inject governance findings from config, deterministically** — the
+"two flight-critical serials missing final signoff" finding doesn't exist upstream, so dq.py *creates* it
+by selecting the first N (N from `scenario_config`, =2) flight-critical serials on the blocked vehicle
+sorted by serial_id; a test asserts exactly 2, both flight-critical, both on TR-003, both SCN-001-tagged.
+(3) **don't ship a rule that can't fire silently** — the telemetry-dropout DQ rule found 0 rows because
+g07's pattern assignment never produces `sensor_dropout` in this dataset; that's a real upstream diversity
+gap, so the rule stays (its logic is correct) but the test does NOT assert it produces rows — and the gap
+is noted rather than hidden. Every finding row is explainable (a `detail` string naming the offending
+records) and scenario-tagged when it maps to a named scenario; a determinism test asserts two builds
+yield identical finding ids/rules/entities.

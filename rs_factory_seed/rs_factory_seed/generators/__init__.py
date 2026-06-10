@@ -8,11 +8,12 @@ from . import g05_mes_work_orders
 from . import g06_qms_quality
 from . import g07_test_telemetry
 from . import g10_ai_ml_outputs
+from . import g11_gold_frames
 
 # As later generators land they are appended here in dependency order.
 # g08 (Jira/blockers) + g09 (docs/RAG) are reserved for the second contributor and slot in
-# before g10 when they land; g10 depends only on g01-g07 (it consumes test telemetry +
-# operational facts), so it runs last for now.
+# before g10 when they land; g10 depends only on g01-g07. g11 (gold + DQ) runs LAST — it
+# aggregates everything above into demo-readable read models, so it must see all upstream tables.
 GENERATORS = [
     g01_master_data,
     g02_crm_demand,
@@ -22,6 +23,7 @@ GENERATORS = [
     g06_qms_quality,
     g07_test_telemetry,
     g10_ai_ml_outputs,
+    g11_gold_frames,
 ]
 
 __all__ = ["GENERATORS"]

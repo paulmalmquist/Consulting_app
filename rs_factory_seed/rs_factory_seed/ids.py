@@ -187,3 +187,7 @@ def ai_action(n: int) -> str:
 def human_feedback(n: int) -> str:
     return f"HFB-{n:06d}"
 
+
+def dq_finding(n: int) -> str:
+    return f"DQF-{n:05d}"
+
