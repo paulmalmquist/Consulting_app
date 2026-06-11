@@ -5,6 +5,26 @@ what each PR contains, the evidence it closed with, and the handoff into the
 next one. Board: Epic #497 → Features #530 (Stargate streaming) and #531
 (Factory ML); stories #532 (PR 3), #533 (PR 4), #534 (PR 5).
 
+## Evidence index
+
+| Artifact | Where |
+|---|---|
+| PR 3 — Stargate local/capture slice | [#149](https://github.com/paulmalmquist/Consulting_app/pull/149), commit `d22b4931`, Checkpoint A below, ADO #532 |
+| PR 4 — Confluent Cloud + Flink + DLQ | [#150](https://github.com/paulmalmquist/Consulting_app/pull/150) (+ cloud-evidence comment), commits `42cd71a7` + `1ff27973`, Checkpoints B/B2 below, ADO #533 |
+| PR 5 — Factory ML medallion + MLflow | [#151](https://github.com/paulmalmquist/Consulting_app/pull/151), commit `05dcc8cd`, Checkpoint C below, ADO #534 |
+| MLflow training run | `9c25866d…` in `/Users/paulmalmquist@gmail.com/RSFactoryML` (3 registered models) |
+| Seed build provenance | manifest sha `a2f9440e79ec…` (medium profile, generator head `13315bee`) |
+| Demo runbook + fallback table | `docs/plans/RS_DEMO_RUNBOOK.md` |
+| Governance ADR | `docs/adr/rs-analytics/0003-demo-lane-ml-streaming-governance.md` |
+| Board | Epic #497 → Features #530/#531 → Stories #532/#533/#534 (all Resolved) |
+
+Known CI caveat, so no future reviewer wonders: the four **Azure DevOps
+status contexts** (CI, Perf Nightly, Winston Eval Nightly/Weekly) fail at
+YAML evaluation before execution on every PR in this repo — a board
+configuration issue predating this campaign, documented in the Codex
+generator session. GitHub Actions and Vercel are the binding gates and are
+green across the stack.
+
 The PR stack sits on the generator PRs:
 
 | PR | Branch | Base | Scope |
@@ -115,9 +135,16 @@ Original handoff list (all delivered except the cloud run):
   `STARGATE_MODE`, `NEXT_PUBLIC_STARGATE_BRIDGE_URL`.
 - Pause the Flink pool after verification; cost notes in the runbook.
 
-## PR 5 — Factory ML on Databricks (queued)
+## PR 5 — Factory ML on Databricks (built and cloud-verified; see Checkpoint C)
 
-Handoff into PR 5:
+Built as `skills/rs-factory-ml/` (catalog `novendor_1`, new schema
+`rs_factory`; client wrapped from historyrhymes, not copied). Two serverless
+notebook lessons already paid for: the serverless base env ships neither
+mlflow nor a current typing_extensions — notebooks that need them must
+`%pip install --upgrade typing_extensions mlflow ...` and then
+`dbutils.library.restartPython()` before importing.
+
+Original handoff list (delivery tracked in the evidence log):
 
 - Build the seed fixture from the pinned #148 head (`13315bee`):
   `python -m rs_factory_seed build --profile medium`; record
@@ -198,3 +225,41 @@ Handoff into PR 5:
   `CAST(layer AS INT)` in the anomaly route (proto uint32 infers BIGINT).
 - Cleanup: both INSERT statements stopped, bridge stopped, pool idle
   (no running statements = no CFU burn).
+
+### Checkpoint C — PR 5 (2026-06-11)
+
+- Bronze: all **16 tables loaded into `novendor_1.rs_factory`** via UC Volumes
+  with fail-closed manifest reconciliation — every COUNT(*) equals the
+  manifest row_count, including the 2,000,000-row raw telemetry table;
+  `_build_sha` pins build `a2f9440e79ec…`.
+- Silver (serverless PySpark): 500,000 layer-feature rows with rolling window
+  stats; the salted join verified **row-for-row identical** to the naive join.
+  Measured timings, honestly reported: naive 3.6s vs salted 6.5s — at 2M rows
+  over 400 keys with AQE on (serverless locks it on), the engine already
+  handles the sparsity, so the technique demo stands on the exact partial-
+  recombination math, and the MLflow artifact says exactly that.
+- Gold: `gold_print_quality_train` (1,000 runs, 489 labeled),
+  `gold_layer_heatmap`, `gold_readiness_summary` with the SCN-001 anchor
+  asserted in-pipeline (VEH-TR-003, 4 scenario NCRs), `gold_feature_importance`.
+- Training (MLflow run `9c25866d…`, GroupKFold by part_id, SHAP for all three
+  models): the two QMS targets score **near chance by design** (passfail AUC
+  0.515, margin R² −0.115 — the seed constructs inspection outcomes
+  independently of telemetry, and the honest evaluation surfaces it), while
+  **rs_run_failure scores AUC 0.9775 / PR-AUC 0.8708** on the target the
+  digital thread genuinely feeds — top SHAP driver `limit_violation_count`,
+  then temperature variance and vibration drift. Models registered:
+  `rs_print_strength`, `rs_print_passfail`, `rs_run_failure`.
+- Delta time travel transcript: corrupt (172 ENG-VALVE rows zeroed, checksum
+  −208.66 → −153.86) → `VERSION AS OF 0` still serves the prior truth →
+  `RESTORE TABLE` → checksum **−208.66 restored exactly**; history reads
+  v2:RESTORE / v1:UPDATE / v0:CTAS.
+- Exports committed to `repo-b/public/labs/factory-ml/` (6 files, drivers
+  served from the gold table because the workspace blocks DBFS artifact
+  download); factory-ml page renders them with the provenance footer.
+- Tests: **39 passed** — 27 stargate + 12 rs-factory-ml, including the
+  SCN-004 FPY anchors (0.78/0.91 reproduced exactly) and the now-live export
+  contract checks. `npm run lint` and `npm run build` green.
+- Serverless lessons recorded: `%pip install --upgrade typing_extensions
+  mlflow` + `dbutils.library.restartPython()` before imports; AQE configs are
+  locked; xgboost pinned to 2.0.3 for shap's tree loader; warehouse stopped
+  after every stage.

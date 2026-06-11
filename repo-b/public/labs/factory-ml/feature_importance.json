@@ -1,0 +1,215 @@
+{
+ "driver_methods": {
+  "passfail": "shap_tree_explainer",
+  "run_failure": "shap_tree_explainer",
+  "strength": "shap_tree_explainer"
+ },
+ "drivers": {
+  "passfail": [
+   {
+    "feature": "flow_rate_std_mean",
+    "impact": 0.36091700196266174
+   },
+   {
+    "feature": "temperature_p2p_drift_max",
+    "impact": 0.3314317464828491
+   },
+   {
+    "feature": "part_family_AVI-HARNESS",
+    "impact": 0.28177183866500854
+   },
+   {
+    "feature": "vibration_rms_slope_mean",
+    "impact": 0.2625596225261688
+   },
+   {
+    "feature": "temperature_std_mean",
+    "impact": 0.2597448527812958
+   },
+   {
+    "feature": "temperature_slope_mean",
+    "impact": 0.2506614923477173
+   },
+   {
+    "feature": "temperature_std_late_minus_early",
+    "impact": 0.23595091700553894
+   },
+   {
+    "feature": "part_family_STR-BRACKET",
+    "impact": 0.22795714437961578
+   },
+   {
+    "feature": "flow_rate_rolling_std_max",
+    "impact": 0.22770372033119202
+   },
+   {
+    "feature": "temperature_rolling_std_max",
+    "impact": 0.21689915657043457
+   },
+   {
+    "feature": "pressure_std_late_minus_early",
+    "impact": 0.1921500563621521
+   },
+   {
+    "feature": "vibration_rms_p2p_drift_max",
+    "impact": 0.1724294275045395
+   },
+   {
+    "feature": "pressure_p2p_drift_max",
+    "impact": 0.1669473946094513
+   },
+   {
+    "feature": "vibration_rms_std_late_minus_early",
+    "impact": 0.15465500950813293
+   },
+   {
+    "feature": "flow_rate_slope_mean",
+    "impact": 0.15206487476825714
+   }
+  ],
+  "run_failure": [
+   {
+    "feature": "limit_violation_count",
+    "impact": 5.386425971984863
+   },
+   {
+    "feature": "temperature_std_mean",
+    "impact": 0.42030420899391174
+   },
+   {
+    "feature": "vibration_rms_p2p_drift_max",
+    "impact": 0.27063095569610596
+   },
+   {
+    "feature": "part_family_ENG-CHAMBER",
+    "impact": 0.23234882950782776
+   },
+   {
+    "feature": "flow_rate_std_late_minus_early",
+    "impact": 0.20991244912147522
+   },
+   {
+    "feature": "pressure_rolling_std_max",
+    "impact": 0.20002871751785278
+   },
+   {
+    "feature": "vibration_rms_std_mean",
+    "impact": 0.19546504318714142
+   },
+   {
+    "feature": "pressure_std_mean",
+    "impact": 0.19256733357906342
+   },
+   {
+    "feature": "pressure_slope_mean",
+    "impact": 0.1843990832567215
+   },
+   {
+    "feature": "flow_rate_slope_mean",
+    "impact": 0.17398329079151154
+   },
+   {
+    "feature": "vibration_rms_rolling_std_max",
+    "impact": 0.16504515707492828
+   },
+   {
+    "feature": "temperature_p2p_drift_max",
+    "impact": 0.1449907124042511
+   },
+   {
+    "feature": "temperature_rolling_std_max",
+    "impact": 0.1270858198404312
+   },
+   {
+    "feature": "flow_rate_p2p_drift_max",
+    "impact": 0.11941152065992355
+   },
+   {
+    "feature": "vibration_rms_slope_mean",
+    "impact": 0.11443526297807693
+   }
+  ],
+  "strength": [
+   {
+    "feature": "flow_rate_rolling_std_max",
+    "impact": 0.05214107036590576
+   },
+   {
+    "feature": "pressure_std_mean",
+    "impact": 0.051166411489248276
+   },
+   {
+    "feature": "part_family_AVI-HARNESS",
+    "impact": 0.04457760229706764
+   },
+   {
+    "feature": "flow_rate_std_mean",
+    "impact": 0.042026154696941376
+   },
+   {
+    "feature": "temperature_p2p_drift_max",
+    "impact": 0.04192803055047989
+   },
+   {
+    "feature": "pressure_std_late_minus_early",
+    "impact": 0.040695078670978546
+   },
+   {
+    "feature": "pressure_p2p_drift_max",
+    "impact": 0.036129362881183624
+   },
+   {
+    "feature": "test_type_VIBRATION",
+    "impact": 0.03530721738934517
+   },
+   {
+    "feature": "flow_rate_std_late_minus_early",
+    "impact": 0.03465409204363823
+   },
+   {
+    "feature": "pressure_slope_mean",
+    "impact": 0.03445236012339592
+   },
+   {
+    "feature": "vibration_rms_std_late_minus_early",
+    "impact": 0.031260598450899124
+   },
+   {
+    "feature": "vibration_rms_slope_mean",
+    "impact": 0.03114101104438305
+   },
+   {
+    "feature": "temperature_std_mean",
+    "impact": 0.030554799363017082
+   },
+   {
+    "feature": "part_family_STR-BRACKET",
+    "impact": 0.029830696061253548
+   },
+   {
+    "feature": "temperature_slope_mean",
+    "impact": 0.027282653376460075
+   }
+  ]
+ },
+ "headline_metrics": {
+  "mean_lr_auc": 0.5274,
+  "mean_ridge_mae": 0.541,
+  "mean_xgbclf_auc": 0.5148,
+  "mean_xgbclf_brier": 0.3136,
+  "mean_xgbclf_pr_auc": 0.6265,
+  "mean_xgbreg_mae": 0.5365,
+  "mean_xgbreg_r2": -0.1152,
+  "mean_xgbrun_auc": 0.9775,
+  "mean_xgbrun_pr_auc": 0.8708
+ },
+ "params": {
+  "feature_count": "39",
+  "model_family": "xgboost + ridge/lr baselines",
+  "pass_rate": "0.5501022494887525",
+  "split": "GroupKFold(part_id, 5)",
+  "target_note": "min_strength_margin is a tolerance-margin stand-in (no MPa in seed)",
+  "train_rows": "489"
+ },
+ "run_id": "9c25866d78184746a2a0ae28526009bf"
+}

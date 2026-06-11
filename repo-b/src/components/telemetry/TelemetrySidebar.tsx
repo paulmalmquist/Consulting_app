@@ -17,6 +17,7 @@ const NAV: { slug: string; label: string; icon: string }[] = [
   { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z" },
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3" },
   { slug: "stargate", label: "Stargate Live", icon: "M8 1l6 3.5v7L8 15l-6-3.5v-7zM8 8l6-3.5M8 8L2 4.5M8 8v7" },
+  { slug: "factory-ml", label: "Factory ML", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6" },
 ];
 
 export default function TelemetrySidebar({ envId, onNavigate }: { envId: string; onNavigate?: () => void }) {
