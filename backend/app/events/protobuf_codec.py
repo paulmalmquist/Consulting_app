@@ -61,13 +61,22 @@ def build_schema_registry_client():
 
 
 def build_protobuf_serializer(message_type, schema_registry_client=None):
-    """ProtobufSerializer for a generated message class, registering the schema
-    on first use. ``use.deprecated.format=False`` is the current wire format —
-    both Redpanda SR and Confluent Cloud accept it."""
+    """ProtobufSerializer for a generated message class.
+
+    ``CONFLUENT_SR_AUTO_REGISTER`` (default true) controls schema
+    registration: true suits local Redpanda where the producer may register on
+    first use; the cloud lane sets it false so producers only LOOK UP the
+    governed subject (DeveloperRead) — registration stays a provisioning act,
+    not a data-plane side effect. ``use.deprecated.format=False`` is the
+    current wire format on both Redpanda SR and Confluent Cloud."""
     from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 
+    auto_register = _env("CONFLUENT_SR_AUTO_REGISTER", "true").lower() != "false"
+    conf = {"use.deprecated.format": False, "auto.register.schemas": auto_register}
+    if not auto_register:
+        conf["use.latest.version"] = True
     client = schema_registry_client or build_schema_registry_client()
-    return ProtobufSerializer(message_type, client, {"use.deprecated.format": False})
+    return ProtobufSerializer(message_type, client, conf)
 
 
 def build_protobuf_deserializer(message_type):
