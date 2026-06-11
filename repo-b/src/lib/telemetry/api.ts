@@ -56,6 +56,15 @@ export interface ConformalBudget {
   status: string | null;   // within | approaching | over (diagnostic only)
 }
 
+export interface StreamBlock {
+  status: string | null;        // fresh | stale | failed | unknown
+  as_of_ts: string | null;
+  reason: string | null;
+  last_frame_at: string | null;
+  rows_per_min: number | null;
+  failing_assertions: number | null;
+}
+
 export interface MonitoringResponse {
   rolling_anomaly_rate: number | null;
   prediction_count: number;
@@ -66,8 +75,116 @@ export interface MonitoringResponse {
   psi: number | null;
   window_label: string;
   conformal_budget?: ConformalBudget | null;
+  stream?: StreamBlock | null;
   null_reason: string | null;
 }
+
+// ── RS Demo: Model Registry console (display-only) ─────────────────────────────
+export interface RegistryModel {
+  model_name: string;
+  model_kind: string;
+  model_version: string | null;
+  model_alias: string | null;
+  mlflow_run_id: string | null;
+  experiment_id: string | null;
+  metrics: Record<string, unknown>;
+  gate: Record<string, unknown>;
+  promotion_state: string;
+  created_at: string | null;
+}
+
+export interface RegistryResponse {
+  models: RegistryModel[];
+  drift: Record<string, { psi: number | null; window_label: string | null; computed_at: string }[]>;
+  lifecycle: { ts: string | null; text: string; model_kind: string | null }[];
+  null_reason: string | null;
+}
+
+export const getRegistry = (env: string, biz: string) =>
+  apiFetch<RegistryResponse>("/api/telemetry/registry", {
+    params: { env_id: env, business_id: biz },
+  });
+
+// ── RS Demo: Factory & NCR Intelligence (display-only mirror of the Databricks pipeline) ──
+export interface NcrCluster {
+  cluster_id: number;
+  label: string;
+  keywords: string[];
+  exemplars: { ncr_key: string; workcell: string; severity: string; summary: string }[];
+  n_records: number;
+  status: string;                  // rising | flat | declining (declared slope thresholds)
+  trend: number[];                 // trailing 8 weekly counts, oldest first
+  median_ttc_days: number | null;
+  reopen_rate: number | null;
+  mlflow_run_id: string | null;
+  provenance: string;              // databricks | local_fallback
+}
+
+export interface NcrPoint {
+  ncr_key: string;
+  x: number | null;                // real UMAP coordinates — never render-time jitter
+  y: number | null;
+  cluster_id: number | null;       // -1 = noise
+  severity: string | null;
+}
+
+export interface NcrParetoRow {
+  family: string;
+  cluster_id: number;
+  n: number;
+  cum_pct: number;
+}
+
+export interface NcrBacklogRow {
+  week_start: string;
+  kind: string;                    // history | forecast
+  opened: number | null;
+  closed: number | null;
+  backlog: number | null;
+  fc: number | null;
+  lo: number | null;
+  hi: number | null;
+}
+
+export interface NcrBacktest {
+  mae: number | null;
+  mae_naive: number | null;
+  mape_pct: number | null;
+  mape_naive_pct: number | null;
+  skill_vs_naive: number | null;
+  backtest_folds: number | null;
+}
+
+export interface NcrKpis {
+  open_now: number | null;
+  open_weeks_ago: number | null;
+  median_ttc_days: number | null;
+  reopen_rate: number | null;
+  clusters_rising: number;
+  rising_labels: string[];
+  n_records: number;
+}
+
+export interface NcrResponse {
+  kpis: NcrKpis | null;
+  clusters: NcrCluster[];
+  points: NcrPoint[];
+  pareto: NcrParetoRow[];
+  backlog: { history: NcrBacklogRow[]; forecast: NcrBacklogRow[]; backtest: NcrBacktest | null };
+  provenance: {
+    provenance: string | null;
+    batch_id: string | null;
+    cluster_mlflow_run_id: string | null;
+    forecast_mlflow_run_id: string | null;
+    experiment_id: string | null;
+  } | null;
+  null_reason: string | null;
+}
+
+export const getNcr = (env: string, biz: string) =>
+  apiFetch<NcrResponse>("/api/telemetry/ncr", {
+    params: { env_id: env, business_id: biz },
+  });
 
 export interface TestRun {
   id: string;

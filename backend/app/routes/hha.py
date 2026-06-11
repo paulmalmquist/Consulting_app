@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 
 from app.routes.domain_common import classify_domain_error, domain_error_response
-from app.schemas.hha import HhaHealth, HhaOverview
+from app.schemas.hha import HhaCohorts, HhaFunnel, HhaHealth, HhaOperations, HhaOverview
 from app.services import hha as svc
 
 router = APIRouter(prefix="/api/hha/v1", tags=["hha"])
@@ -38,4 +38,40 @@ def overview(request: Request, env_id: str = Query(...)):
         return domain_error_response(
             request=request, status_code=status, code=code, detail=str(exc),
             action="hha.overview.failed", context={"env_id": env_id},
+        )
+
+
+@router.get("/funnel", response_model=HhaFunnel)
+def funnel(request: Request, env_id: str = Query(...)):
+    try:
+        return svc.get_funnel(env_id=env_id)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="hha.funnel.failed", context={"env_id": env_id},
+        )
+
+
+@router.get("/cohorts", response_model=HhaCohorts)
+def cohorts(request: Request, env_id: str = Query(...)):
+    try:
+        return svc.get_cohorts(env_id=env_id)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="hha.cohorts.failed", context={"env_id": env_id},
+        )
+
+
+@router.get("/operations", response_model=HhaOperations)
+def operations(request: Request, env_id: str = Query(...)):
+    try:
+        return svc.get_operations(env_id=env_id)
+    except Exception as exc:
+        status, code = classify_domain_error(exc)
+        return domain_error_response(
+            request=request, status_code=status, code=code, detail=str(exc),
+            action="hha.operations.failed", context={"env_id": env_id},
         )

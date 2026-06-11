@@ -94,6 +94,7 @@ export interface EvalResults {
   source?: string;
   summary?: { passed: number; total: number };
   cases: EvalCase[];
+  usefulness?: { status: string; assisted_n: number; unassisted_n: number; note?: string };
   note?: string;
 }
 
@@ -165,3 +166,56 @@ export const getReport = (reportId: string) =>
   apiFetch<{ report: Record<string, unknown> | null; null_reason: string | null }>(
     `/api/telemetry/copilot/report/${reportId}`,
     { params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID } });
+
+// ── Track B: operator-usefulness capture + measurement ─────────────────────────
+export interface DispositionResult {
+  action_id: string | null;
+  arm: string;
+  is_override: boolean;
+  null_reason: string | null;
+}
+
+export const recordDisposition = (reportId: string, body: {
+  arm: "assisted" | "unassisted";
+  human_verdict: "GO" | "NO_GO" | "DEFER";
+  fire_tick?: number | null;
+  confidence?: number | null;
+  time_to_verdict_ms?: number | null;
+  evidence_opened?: number;
+  reviewer_label?: string | null;
+  pair_id?: string | null;
+}) =>
+  jsonPost<DispositionResult>(`/api/telemetry/copilot/report/${reportId}/disposition`, {
+    env_id: TELEMETRY_DEMO_ENV_ID,
+    business_id: TELEMETRY_DEMO_BUSINESS_ID,
+    ...body,
+  });
+
+export interface ArmMeasures {
+  n: number;
+  median_ttv_ms: number | null;
+  mean_confidence: number | null;
+  evidence_open_rate: number | null;
+  override_rate: number | null;
+  agreement_rate: number | null;
+  n_overrides: number;
+  override_precision: number | null;
+}
+
+export interface UsefulnessSummary {
+  arms: { assisted: ArmMeasures; unassisted: ArmMeasures };
+  delta: { ttv_pct_faster: number | null; agreement_pp: number | null };
+  anchors: {
+    refusal_rate: number | null;
+    grounded_rate: number | null;
+    postvalidator_block_count: number;
+    answer_source_mix: Record<string, number>;
+  };
+  status: "measured" | "not_measured";
+  null_reason: string | null;
+}
+
+export const getUsefulness = () =>
+  apiFetch<UsefulnessSummary>("/api/telemetry/copilot/usefulness", {
+    params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID },
+  });

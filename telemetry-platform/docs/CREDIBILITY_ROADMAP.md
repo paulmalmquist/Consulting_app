@@ -57,27 +57,39 @@ The serious run-to-failure prognostics build. Full plan in
 **Gate B.** The N-CMAPSS RUL champion on real data clears a declared RMSE gate and is benchmarked
 against FD001; the graph names the t=728 contributing sensors; no legacy regression.
 
-## Track C — applied-AI usefulness (roadmap only in this PR)
+## Track B — operator usefulness (apparatus shipped; awaiting real sessions)
 
-> **Nothing in Track C is implemented in Stage 0.** No usefulness A/B, no red-team fixtures, no LLM
-> judge, no governance-panel change. This section records the plan so all three tracks live in one
-> place. `eval_results.json`, the `/copilot/evals` route, and the governance dashboard already exist
-> from Phase 8 — Track C adds to them later, it does not create them.
+> Renamed from the old "Track C usefulness A/B" — this is now the active operator-usefulness layer.
+> The **capture apparatus + A/B panel are built and live**; the deterministic anchors are real now; the
+> human-outcome numbers are honestly **"not measured (N=0)"** until real review sessions are recorded.
 
-- **Copilot usefulness A/B.** Measure median time-to-verdict with and without the copilot, plus
-  completeness, unsupported-claim count, and report-acceptance rate. Add a section to the existing
-  `eval_results.json` and a panel on the existing `GovernanceDashboard.tsx`. The "X% faster" number
-  stays blank until it is measured — no invented figure.
+- **Within-reviewer paired A/B.** `tel_copilot_review_actions` records one human disposition per draft
+  report with an `arm` (`assisted` vs `unassisted`), the model verdict (read server-side — the client
+  can't assert it), human verdict, override flag, confidence, **measured** time-to-verdict, and
+  evidence-open count. `POST /api/telemetry/copilot/report/{id}/disposition` (fail-closed, tenant-scoped,
+  no auth change).
+- **Six measures from logs, not self-report.** `GET /api/telemetry/copilot/usefulness` computes per-arm
+  median time-to-verdict, agreement-vs-label, override rate + **override precision scored against the
+  labeled `tel_anomaly_events` truth**, evidence-open rate, mean confidence — beside the deterministic
+  anchors (refusal rate, post-validator/unsupported-claim block count, grounded rate) reused verbatim
+  from `governance_summary`. Surfaced on the existing `GovernanceDashboard.tsx`. The "X% faster" delta
+  stays blank until BOTH arms have N>0 — never an invented figure, never a placeholder 0%.
+- **Honesty enforced in three layers** (SQL `FILTER`→NULL, Python `None`-not-0, frontend
+  "not yet measured (N=0)"). Frontend capture: a "Record your review" panel on the Copilot tab (arm
+  toggle, real `performance.now()` timer gating the verdict, confidence, evidence-open counter).
+
+**Gate B — met (apparatus).** The capture + measurement path is built, fail-closed, and tested; anchors
+are real now; human-outcome numbers populate from real sessions with no fabrication. Recording real
+sessions to fill the delta is an in-browser follow-up.
+
+## Later — deeper applied-AI (still roadmap)
+
 - **Faithfulness LLM judge,** logged beside the deterministic controls and never overriding them. The
   fixed intent classifier, allow-list, pre-tool refusal, post-response validator, audit receipts, and
   human-review requirement always sit above any judge.
 - **Red-team harness** as fixtures (prompt injection, root-cause bait, disposition bait, evidence
   injection, report jailbreak) with tests asserting pre-LLM refusal and post-validator rejection.
 - **Foundation-model bake-off** on the same grounded evidence set (cost, latency, accuracy).
-
-**Gate C.** Red-team passes 100% in CI; the usefulness A/B reports a real measured time-to-verdict
-reduction with zero unsupported root-cause claims (verified by the post-validator log); the LLM judge is
-logged advisory-only.
 
 ## Discipline that holds across all tracks
 

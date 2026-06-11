@@ -1,0 +1,1808 @@
+{
+ "source": "iss_lightstreamer_public",
+ "server": "https://push.lightstreamer.com",
+ "adapter_set": "ISSLIVE",
+ "recorded_at_utc": "2026-06-09T22:49:42Z",
+ "duration_s": 180,
+ "channels": [
+  "USLAB000058",
+  "USLAB000059",
+  "USLAB000062",
+  "USLAB000063",
+  "USLAB000064",
+  "AIRLOCK000049",
+  "NODE3000005",
+  "NODE3000008",
+  "NODE3000009",
+  "S4000001",
+  "S6000004",
+  "P4000001"
+ ],
+ "frames_per_channel": {
+  "USLAB000058": 4,
+  "USLAB000059": 26,
+  "USLAB000062": 2,
+  "USLAB000063": 2,
+  "AIRLOCK000049": 70,
+  "USLAB000064": 2,
+  "NODE3000008": 17,
+  "NODE3000009": 13,
+  "NODE3000005": 15,
+  "S6000004": 11,
+  "S4000001": 8,
+  "P4000001": 7
+ },
+ "note": "Real recorded public ISS telemetry frames. ts_offset_s = receive-time offset from recording start; replay re-bases onto the current clock. Raw feed TimeStamp kept per frame for provenance.",
+ "frames": [
+  {
+   "channel_key": "USLAB000058",
+   "ts_offset_s": 0.882,
+   "value": 752.189453125,
+   "raw": {
+    "TimeStamp": "3862.1765286111167",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 0.883,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8272783333064",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000062",
+   "ts_offset_s": 0.883,
+   "value": 1.0,
+   "raw": {
+    "TimeStamp": "3666.6784163888956",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000063",
+   "ts_offset_s": 0.884,
+   "value": 1.0,
+   "raw": {
+    "TimeStamp": "3666.6784163888956",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 0.885,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.827083888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000064",
+   "ts_offset_s": 0.885,
+   "value": 5.0,
+   "raw": {
+    "TimeStamp": "3666.6785283333065",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 0.886,
+   "value": 56.81999969482422,
+   "raw": {
+    "TimeStamp": "3862.827418333292",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 0.886,
+   "value": 46.13999938964844,
+   "raw": {
+    "TimeStamp": "3862.827418333292",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 0.887,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.7869166666933",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 0.887,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.824863055547",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 0.888,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.823529444403",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 0.888,
+   "value": 151.142578125,
+   "raw": {
+    "TimeStamp": "3862.795751666625",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 1.67,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8276394444706",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 1.923,
+   "value": 151.29638671875,
+   "raw": {
+    "TimeStamp": "3862.827640833325",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 2.67,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8279172222483",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 3.67,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.82811166664",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 4.671,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8284727778037",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 5.665,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8287505555813",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 6.663,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.828944999973",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 7.675,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.8292227777506",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 8.67,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8295005555287",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 9.67,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.8297783333064",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000058",
+   "ts_offset_s": 9.671,
+   "value": 752.2904663085938,
+   "raw": {
+    "TimeStamp": "3862.8298619444504",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000058",
+   "ts_offset_s": 10.675,
+   "value": 752.189453125,
+   "raw": {
+    "TimeStamp": "3862.830139722228",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 10.676,
+   "value": 46.130001068115234,
+   "raw": {
+    "TimeStamp": "3862.8301961110697",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 10.799,
+   "value": 56.790000915527344,
+   "raw": {
+    "TimeStamp": "3862.8301961110697",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 11.674,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.830333888862",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 12.057,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.8304186111027",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 12.68,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.830695000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 14.656,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8312505555814",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 15.659,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.831528333359",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 16.659,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.8318627777367",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 17.664,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.832083888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 19.683,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.832556111084",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 20.678,
+   "value": 46.15999984741211,
+   "raw": {
+    "TimeStamp": "3862.8329738888474",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 20.802,
+   "value": 56.689998626708984,
+   "raw": {
+    "TimeStamp": "3862.8329738888474",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 21.676,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8331116666395",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 22.054,
+   "value": 151.29638671875,
+   "raw": {
+    "TimeStamp": "3862.8331963888804",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 22.672,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.833389444417",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 23.657,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8336672221953",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 23.657,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8337505555814",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 24.657,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.833944999973",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 24.658,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.834028333359",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 25.68,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8342227777507",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 25.681,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8343061111373",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 27.673,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8348616666926",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 29.677,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.835417222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 30.674,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.835695000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 30.675,
+   "value": 46.16999816894531,
+   "raw": {
+    "TimeStamp": "3862.835751666625",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 30.803,
+   "value": 56.599998474121094,
+   "raw": {
+    "TimeStamp": "3862.835751666625",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 31.676,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.835972777804",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 33.673,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.836528333359",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 34.674,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.836806111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 35.681,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.837083888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 36.676,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8373616666927",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 37.678,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8376394444704",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 40.675,
+   "value": 46.20000076293945,
+   "raw": {
+    "TimeStamp": "3862.8385294444033",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 40.802,
+   "value": 56.52000045776367,
+   "raw": {
+    "TimeStamp": "3862.8385294444033",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 46.68,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8401394444704",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 47.66,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.840417222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 49.661,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.8408894444174",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 49.662,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.840972777804",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 50.662,
+   "value": 46.18000030517578,
+   "raw": {
+    "TimeStamp": "3862.841307222181",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 50.663,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8412505555816",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 50.664,
+   "value": 56.470001220703125,
+   "raw": {
+    "TimeStamp": "3862.841307222181",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 51.647,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.841444999973",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 52.026,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.8415297222136",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 54.67,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.842361666693",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 56.661,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.8429738888476",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 56.662,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.842917222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 57.039,
+   "value": 151.09130859375,
+   "raw": {
+    "TimeStamp": "3862.8429738888476",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 57.663,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.8431116666397",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 58.662,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8433894444174",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 60.639,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8440283333593",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 60.639,
+   "value": 56.41999816894531,
+   "raw": {
+    "TimeStamp": "3862.844084999959",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 61.667,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.844306111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 64.662,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8451394444705",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 65.652,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.845417222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 66.912,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.8457516666253",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 68.663,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8462505555817",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 70.664,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.846806111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 70.79,
+   "value": 56.349998474121094,
+   "raw": {
+    "TimeStamp": "3862.8468627777365",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 72.014,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.847085277769",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 73.667,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8476394444706",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 75.666,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.84811166664",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 75.667,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.848195000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 76.652,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.848529444403",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 76.653,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8483894444175",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 76.905,
+   "value": 151.142578125,
+   "raw": {
+    "TimeStamp": "3862.848529444403",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 77.675,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8487505555813",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 79.663,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.849306111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 80.647,
+   "value": 46.220001220703125,
+   "raw": {
+    "TimeStamp": "3862.8496405555143",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 80.648,
+   "value": 56.33000183105469,
+   "raw": {
+    "TimeStamp": "3862.8496405555143",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 82.043,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.8498630555473",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 86.656,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.851307222181",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 86.656,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8512505555814",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 88.665,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.851806111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 89.641,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.852083888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 90.65,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8523616666926",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 90.65,
+   "value": 56.290000915527344,
+   "raw": {
+    "TimeStamp": "3862.852418333292",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 91.674,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8526394444702",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 92.052,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.852640833325",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 93.673,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.853195000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 94.668,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8534727778037",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 95.648,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8537505555814",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 100.665,
+   "value": 46.22999954223633,
+   "raw": {
+    "TimeStamp": "3862.8551961110697",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 100.792,
+   "value": 56.22999954223633,
+   "raw": {
+    "TimeStamp": "3862.8551961110697",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 101.904,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.855418611103",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 104.659,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8562505555815",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 105.646,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.856528333359",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 106.67,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.856916666693",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 107.647,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.8570005555284",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 107.648,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.857083888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 108.653,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.857472222249",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 108.654,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8573616666927",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 109.682,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.8575561110843",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 110.652,
+   "value": 56.2599983215332,
+   "raw": {
+    "TimeStamp": "3862.8579738888475",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 111.667,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.858195000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 113.648,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8587505555815",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 114.646,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.859028333359",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 115.669,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.859306111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 116.643,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.859583888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 117.656,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8598616666927",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 118.671,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8601394444704",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 119.659,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.8605277778042",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 119.66,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.860417222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 120.673,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.860805555582",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 120.674,
+   "value": 46.27000045776367,
+   "raw": {
+    "TimeStamp": "3862.860751666625",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 120.674,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8606950000258",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 120.796,
+   "value": 56.25,
+   "raw": {
+    "TimeStamp": "3862.860751666625",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 121.657,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.860972777804",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 122.035,
+   "value": 151.29638671875,
+   "raw": {
+    "TimeStamp": "3862.8609741666583",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 123.649,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.861444999973",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 124.694,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.861722777751",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 124.695,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.861916666693",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 125.644,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.862194444471",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 126.661,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.862361666693",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 127.038,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.862418333292",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 128.659,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.862917222248",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 130.664,
+   "value": 46.290000915527344,
+   "raw": {
+    "TimeStamp": "3862.863529444403",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 130.664,
+   "value": 56.220001220703125,
+   "raw": {
+    "TimeStamp": "3862.863529444403",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 134.645,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.864694444471",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 135.664,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.8649722222485",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 136.676,
+   "value": 151.19384765625,
+   "raw": {
+    "TimeStamp": "3862.86519611107",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 136.929,
+   "value": 151.142578125,
+   "raw": {
+    "TimeStamp": "3862.86519611107",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 138.678,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.865695000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 139.681,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.8660833333597",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 140.666,
+   "value": 46.29999923706055,
+   "raw": {
+    "TimeStamp": "3862.8663072221807",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 140.791,
+   "value": 56.279998779296875,
+   "raw": {
+    "TimeStamp": "3862.8663072221807",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 141.676,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.8666388889155",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 142.679,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.866806111137",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 142.679,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.866916666693",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 143.658,
+   "value": 52.0,
+   "raw": {
+    "TimeStamp": "3862.867194444471",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 145.665,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.8677500000267",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 146.663,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.8679738888477",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 146.663,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8679172222483",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 147.666,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.868195000026",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 148.646,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8684727778036",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 149.663,
+   "value": 23.32332992553711,
+   "raw": {
+    "TimeStamp": "3862.868667222195",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 149.663,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.8687505555813",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 150.659,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.868944999973",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 150.659,
+   "value": 46.33000183105469,
+   "raw": {
+    "TimeStamp": "3862.869084999959",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 150.66,
+   "value": 750.65087890625,
+   "raw": {
+    "TimeStamp": "3862.8690283333594",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 150.786,
+   "value": 56.310001373291016,
+   "raw": {
+    "TimeStamp": "3862.869084999959",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 152.659,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.869583888915",
+    "Status.Class": "24",
+    "Status.Indicator": " "
+   }
+  },
+  {
+   "channel_key": "NODE3000005",
+   "ts_offset_s": 158.61,
+   "value": 51.0,
+   "raw": {
+    "TimeStamp": "3862.8677500000267",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "USLAB000058",
+   "ts_offset_s": 159.659,
+   "value": 752.189453125,
+   "raw": {
+    "TimeStamp": "3862.830139722228",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "USLAB000059",
+   "ts_offset_s": 159.659,
+   "value": 23.38619613647461,
+   "raw": {
+    "TimeStamp": "3862.868944999973",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "AIRLOCK000049",
+   "ts_offset_s": 159.784,
+   "value": 750.016357421875,
+   "raw": {
+    "TimeStamp": "3862.869583888915",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "USLAB000062",
+   "ts_offset_s": 160.162,
+   "value": 1.0,
+   "raw": {
+    "TimeStamp": "3666.6784163888956",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "USLAB000064",
+   "ts_offset_s": 160.163,
+   "value": 5.0,
+   "raw": {
+    "TimeStamp": "3666.6785283333065",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "USLAB000063",
+   "ts_offset_s": 160.288,
+   "value": 1.0,
+   "raw": {
+    "TimeStamp": "3666.6784163888956",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "S4000001",
+   "ts_offset_s": 161.676,
+   "value": 151.2451171875,
+   "raw": {
+    "TimeStamp": "3862.8679738888477",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "P4000001",
+   "ts_offset_s": 161.801,
+   "value": 151.142578125,
+   "raw": {
+    "TimeStamp": "3862.86519611107",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "NODE3000009",
+   "ts_offset_s": 165.647,
+   "value": 46.33000183105469,
+   "raw": {
+    "TimeStamp": "3862.869084999959",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "NODE3000008",
+   "ts_offset_s": 165.647,
+   "value": 56.310001373291016,
+   "raw": {
+    "TimeStamp": "3862.869084999959",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  },
+  {
+   "channel_key": "S6000004",
+   "ts_offset_s": 166.662,
+   "value": 151.29638671875,
+   "raw": {
+    "TimeStamp": "3862.8609741666583",
+    "Status.Class": "9",
+    "Status.Indicator": "S"
+   }
+  }
+ ]
+}

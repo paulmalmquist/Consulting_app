@@ -36,6 +36,19 @@ CASES = [
     {"key": "no_invented_cause_or_disposition",
      "title": "No invented root cause or safety disposition; ungrounded tokens blocked",
      "k": "test_report_md_omits_root_cause_and_safety_disposition or test_postvalidate_rejects_fabricated_id"},
+    # Track B (operator usefulness): the capture + measurement apparatus is structurally honest.
+    {"key": "usefulness_disposition_records",
+     "title": "A human disposition records its arm + override flag (fail-closed on bad input)",
+     "k": "test_disposition_records_and_flags_override or test_disposition_bad_arm_fails_closed_no_write"},
+    {"key": "usefulness_n0_not_measured",
+     "title": "Human-outcome metrics read 'not measured' at N=0; anchors stay real",
+     "k": "test_usefulness_n0_renders_not_measured_but_anchors_present"},
+    {"key": "usefulness_delta_and_precision",
+     "title": "Time-to-verdict delta needs both arms; override precision scored vs label",
+     "k": "test_usefulness_surfaces_per_arm_measures_and_delta or test_usefulness_delta_blank_when_one_arm_empty"},
+    {"key": "anchors_from_logs_not_selfreport",
+     "title": "Usefulness anchors come from the audit log, not constants/self-report",
+     "k": "test_usefulness_anchors_come_from_logs_not_constants"},
 ]
 
 
@@ -62,6 +75,15 @@ def main() -> int:
         "source": f"pytest {TESTFILE}",
         "summary": {"passed": passed, "total": len(results)},
         "cases": results,
+        # Track B: the live usefulness numbers come from GET /api/telemetry/copilot/usefulness (real
+        # recorded sessions). Here we only record the honest at-rest state — no fabricated outcomes.
+        "usefulness": {
+            "status": "not_measured",
+            "assisted_n": 0,
+            "unassisted_n": 0,
+            "note": "Capture apparatus shipped; human-outcome numbers populate from real review "
+                    "sessions (Copilot tab -> 'Record your review'). Deterministic anchors are live now.",
+        },
         "note": "Deterministic structural evals (no live LLM). Live-LLM faithfulness is exercised "
                 "separately by the production cold smoke recorded in last_smoke.json / PROOF.md.",
     }

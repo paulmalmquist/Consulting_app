@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
-  askCopilot, explainVerdict, getGovernance, draftReport,
+  askCopilot, explainVerdict, getGovernance, draftReport, recordDisposition,
   type CopilotResponse, type EvidenceItem, type ToolTraceItem, type GovernanceSummary,
-  type DraftReportResponse,
+  type DraftReportResponse, type DispositionResult,
 } from "@/lib/telemetry/copilot-api";
 import { C, Tag, Panel, Loading } from "./primitives";
 
@@ -24,9 +24,10 @@ function fmt(v: unknown): string {
 }
 
 // ── Evidence card (one grounded fact, real id) ─────────────────────────────────
-export function EvidenceCard({ e }: { e: EvidenceItem }) {
+export function EvidenceCard({ e, onOpen }: { e: EvidenceItem; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
   const meta = Object.entries(e.metadata || {}).filter(([, v]) => v != null);
+  const toggle = () => setOpen((o) => { if (!o) onOpen?.(); return !o; });
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, background: C.panel }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -41,7 +42,7 @@ export function EvidenceCard({ e }: { e: EvidenceItem }) {
       )}
       {meta.length > 0 && (
         <>
-          <button onClick={() => setOpen((o) => !o)}
+          <button type="button" onClick={toggle}
             style={{ fontFamily: C.mono, fontSize: 10, color: C.cyan, background: "transparent",
               border: "none", padding: 0, marginTop: 8, cursor: "pointer" }}>
             {open ? "− hide" : "+ details"}
@@ -166,7 +167,7 @@ export function DraftReportCard({ report }: { report: DraftReportResponse }) {
         whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`,
         borderRadius: 8, padding: 14, margin: 0, maxHeight: 460, overflow: "auto" }}>{md}</pre>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button onClick={() => downloadMarkdown(`test-report-${report.run_key || "run"}.md`, md)}
+        <button type="button" onClick={() => downloadMarkdown(`test-report-${report.run_key || "run"}.md`, md)}
           style={{ fontFamily: C.mono, fontSize: 12, color: C.bg, background: C.cyan, border: "none",
             borderRadius: 7, padding: "8px 14px", cursor: "pointer" }}>
           Download .md
@@ -189,6 +190,7 @@ function Meta({ k, v }: { k: string; v: string }) {
 export function CopilotResult({ r, reportContext }: { r: CopilotResponse; reportContext?: ReportContext }) {
   const [report, setReport] = useState<DraftReportResponse | null>(null);
   const [drafting, setDrafting] = useState(false);
+  const [evidenceOpened, setEvidenceOpened] = useState(0);
   const canDraft = !!reportContext && !r.is_refusal && r.evidence.length > 0;
 
   const onDraft = () => {
@@ -207,7 +209,7 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
       {r.evidence.length > 0 && (
         <Panel title={`Evidence (${r.evidence.length})`}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-            {r.evidence.map((e, i) => <EvidenceCard key={i} e={e} />)}
+            {r.evidence.map((e, i) => <EvidenceCard key={i} e={e} onOpen={() => setEvidenceOpened((n) => n + 1)} />)}
           </div>
         </Panel>
       )}
@@ -218,7 +220,7 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
       )}
       <GovernanceStrip r={r} />
       {canDraft && !report && (
-        <button onClick={onDraft} disabled={drafting}
+        <button type="button" onClick={onDraft} disabled={drafting}
           style={{ alignSelf: "flex-start", fontFamily: C.mono, fontSize: 12, fontWeight: 600,
             color: C.bg, background: C.amber, border: "none", borderRadius: 8, padding: "9px 16px",
             cursor: drafting ? "default" : "pointer", opacity: drafting ? 0.6 : 1 }}>
@@ -226,7 +228,135 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
         </button>
       )}
       {report && <DraftReportCard report={report} />}
+      {report?.report_id && (
+        // key on report_id so a freshly drafted report REMOUNTS the controls — never inherits a
+        // previous report's started timer or recorded result (the "Start review didn't respond" bug).
+        <DispositionControls key={report.report_id} reportId={report.report_id}
+          modelVerdict={report.verdict ?? null}
+          fireTick={reportContext?.fireTick ?? null} evidenceOpened={evidenceOpened} />
+      )}
     </div>
+  );
+}
+
+// ── Track B: capture the human's disposition (within-reviewer paired A/B) ───────
+export function DispositionControls({ reportId, modelVerdict, fireTick, evidenceOpened }: {
+  reportId: string; modelVerdict: string | null; fireTick: number | null; evidenceOpened: number;
+}) {
+  const [arm, setArm] = useState<"assisted" | "unassisted">("assisted");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const [result, setResult] = useState<DispositionResult | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [pairId] = useState<string>(() =>
+    (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pair-${Date.now()}`));
+
+  // Defense in depth alongside the key= remount: if this instance is ever reused for a different
+  // report, clear all per-review state so the timer/verdict can't inherit a stale started/result.
+  useEffect(() => {
+    setStartedAt(null);
+    setResult(null);
+    setConfidence(null);
+    setErr(null);
+    setArm("assisted");
+  }, [reportId]);
+
+  // Robust clock: some agent/browser harnesses break performance.now — fall back to Date.now so the
+  // Start button can never silently dead-end (timing stays measured either way).
+  const nowMs = () =>
+    (typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now() : Date.now());
+
+  const startTimer = () => {
+    try {
+      setErr(null);
+      setStartedAt(nowMs());
+    } catch (e) {
+      setErr(`Could not start the timer: ${String(e)}`);
+    }
+  };
+
+  const submit = (human_verdict: "GO" | "NO_GO" | "DEFER") => {
+    if (startedAt == null) {
+      // Visible feedback instead of a silent no-op (the timer keeps TTV measured, never estimated).
+      setErr("Start the timer first — time-to-verdict is measured.");
+      return;
+    }
+    const time_to_verdict_ms = Math.round(nowMs() - startedAt);
+    setErr(null);
+    recordDisposition(reportId, {
+      arm, human_verdict, fire_tick: fireTick, confidence, time_to_verdict_ms,
+      evidence_opened: arm === "assisted" ? evidenceOpened : 0, pair_id: pairId,
+    }).then(setResult).catch((e) => setErr(String(e)));
+  };
+
+  const armBtn = (a: "assisted" | "unassisted") => (
+    <button type="button" data-testid={`disposition-arm-${a}`} onClick={() => setArm(a)} disabled={!!result}
+      style={{ fontFamily: C.mono, fontSize: 11, padding: "5px 11px", borderRadius: 999, cursor: result ? "default" : "pointer",
+        color: arm === a ? C.bg : C.dim, background: arm === a ? C.cyan : "transparent",
+        border: `1px solid ${arm === a ? C.cyan : C.border}` }}>{a}</button>
+  );
+  const verdictBtn = (label: string, hv: "GO" | "NO_GO" | "DEFER", col: string) => (
+    <button type="button"
+      data-testid={`disposition-verdict-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`}
+      onClick={() => submit(hv)} disabled={!!result}
+      style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, padding: "8px 13px", borderRadius: 7,
+        color: C.bg, background: col, border: "none",
+        cursor: result ? "default" : "pointer", opacity: startedAt == null || result ? 0.5 : 1 }}>
+      {label}</button>
+  );
+  // Agree submits the model's literal verdict, so it only exists for GO/NO_GO; a REVIEW (or unknown)
+  // model verdict has no "agree" target — the reviewer must explicitly choose GO/NO_GO/Defer.
+  const canAgree = modelVerdict === "GO" || modelVerdict === "NO_GO";
+
+  return (
+    <Panel title="Record your review (operator usefulness A/B)"
+      right={<Tag color={C.cyan}>measured, not self-reported</Tag>}>
+      {result ? (
+        <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green }}>
+          Recorded ({result.arm}{result.is_override ? " · override" : ""}). This disposition feeds the
+          usefulness panel on the Governance tab.
+        </span>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, textTransform: "uppercase", letterSpacing: "0.08em" }}>arm</span>
+            {armBtn("assisted")}{armBtn("unassisted")}
+            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>
+              {arm === "unassisted" ? "decide from the raw verdict + chart only (the copilot help above is recorded as not used)" : "you used the copilot explanation + evidence"}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" data-testid="disposition-start" onClick={startTimer} disabled={startedAt != null}
+              style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.bg, background: startedAt != null ? C.faint : C.green,
+                border: "none", borderRadius: 7, padding: "8px 13px", cursor: startedAt != null ? "default" : "pointer" }}>
+              {startedAt != null ? "timing…" : "Start review (timer)"}
+            </button>
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>model verdict: {modelVerdict ?? "—"}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, textTransform: "uppercase", letterSpacing: "0.08em" }}>confidence</span>
+            {[1, 2, 3, 4, 5].map((c) => (
+              <button key={c} type="button" data-testid={`disposition-confidence-${c}`}
+                onClick={() => setConfidence(c)}
+                style={{ fontFamily: C.mono, fontSize: 11, width: 26, height: 26, borderRadius: 6, cursor: "pointer",
+                  color: confidence === c ? C.bg : C.dim, background: confidence === c ? C.cyan : "transparent",
+                  border: `1px solid ${confidence === c ? C.cyan : C.border}` }}>{c}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {canAgree && verdictBtn(`Agree (${modelVerdict})`, modelVerdict as "GO" | "NO_GO", C.green)}
+            {verdictBtn("Override → GO", "GO", C.cyan)}
+            {verdictBtn("Override → NO_GO", "NO_GO", C.amber)}
+            {verdictBtn("Defer", "DEFER", C.faint)}
+          </div>
+          {startedAt == null && (
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>Start the timer to enable a verdict (time-to-verdict is measured, never estimated).</span>
+          )}
+          {err && <span style={{ fontFamily: C.mono, fontSize: 11, color: C.red }}>{err}</span>}
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -302,7 +432,7 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
             placeholder="Ask about this telemetry run, anomaly, model decision, or monitoring evidence…"
             style={{ flex: 1, fontFamily: C.mono, fontSize: 12.5, color: C.text, background: C.bg,
               border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", outline: "none" }} />
-          <button onClick={() => q.trim() && run(q.trim())} disabled={loading || !q.trim()}
+          <button type="button" onClick={() => q.trim() && run(q.trim())} disabled={loading || !q.trim()}
             style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 600, color: C.bg, background: C.cyan,
               border: "none", borderRadius: 8, padding: "10px 18px", cursor: loading ? "default" : "pointer", opacity: loading || !q.trim() ? 0.6 : 1 }}>
             {loading ? "…" : "Ask"}
@@ -310,7 +440,7 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
           {CHIPS.map((c) => (
-            <button key={c.label} onClick={() => run(c.q)} disabled={loading}
+            <button type="button" key={c.label} onClick={() => run(c.q)} disabled={loading}
               style={{ fontFamily: C.mono, fontSize: 11, color: c.refusal ? C.amber : C.dim,
                 background: "transparent", border: `1px solid ${c.refusal ? C.amber + "55" : C.border}`,
                 borderRadius: 999, padding: "5px 11px", cursor: loading ? "default" : "pointer" }}>

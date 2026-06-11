@@ -1,7 +1,7 @@
 # Dispatch Record 0005 — Healthcare Subscription Analytics Lab
 
 **Created:** 2026-06-08
-**Status:** Phase 0 COMPLETE · Phase 1 (HHA-1 Exec Overview) COMPLETE · Phases 2–4 planned
+**Status:** Phase 0 COMPLETE · Phase 1 COMPLETE · Phase 2 IN REVIEW (not shipped/deployed) · Phases 3–4 planned
 **Environment:** Healthcare Subscription Analytics (internal codename: Hone Health demo)
 **Deliverable type:** New lab environment (schema + read API + standalone UI)
 
@@ -45,9 +45,9 @@ freshness/provenance.
 | # | Phase | Ticket | DB migration | Risk | Status |
 |---|---|---|---|---|---|
 | HHA-1 | 1 | Exec Overview slice (schema, seed, API, standalone UI, tests) | 10013 | Med | DONE 2026-06-08 |
-| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | planned |
-| HHA-3 | 3 | Event-level grain + derived rollups | new | Med | planned |
-| HHA-4 | 4 | Governed PHI-safe copilot | none | Med | planned |
+| HHA-2 | 2 | Funnel + Cohorts + Operations surfaces | none | Low | SHIPPED — PR #136 → `caa57840` (deployed + prod receipt) |
+| HHA-3 | 3 | Event-level grain + derived rollups (own PR) | 10014 | High | planned — `PHASE3_CODEX_PROMPT.md` (gated; wipe+reseed `ceeb9ea0`) |
+| HHA-4 | 4 | Governed PHI-safe copilot (own PR) | none | Med | planned — `PHASE4_CODEX_PROMPT.md` (after HHA-3) |
 
 ## Phase 1 — HHA-1 detail (DONE)
 
@@ -64,10 +64,43 @@ Acceptance receipt:
 - Merged: PR #130 → `main` commit `21f55939` (branch deleted).
 - Deployed: frontend `consulting-bfan2f6fa` (novendor.ai alias); backend `/version 21f55939`.
 - Live API smoke (2026-06-09): `/api/hha/v1/health` ok; `/api/hha/v1/overview` 18 KPIs; telemetry replay `first_model_fire_t=728` (regression clean).
-- Open item: logged-in browser screenshot — `docs/plans/healthcare-subscription/agent-validate-prompt.md`. Full detail in `release-readiness.md` / `PROOF.md`.
+- Logged-in browser verification and screenshots completed after the PR #134 shell/proxy fix.
+  Full detail is in `release-readiness.md` / `PROOF.md`.
+
+## Phase 2 — HHA-2 detail (IN REVIEW)
+
+ADO tracking under Epic #352:
+- Feature #507 `Healthcare Subscription Analytics`
+- User Story #508 `HHA-2: Funnel, Cohorts, and Operations` (Active during review)
+- Tasks #509 backend, #510 frontend, #511 verification/documentation
+
+Built on `codex/hha-phase-2-surfaces`:
+- Typed read-only `/api/hha/v1/funnel`, `/cohorts`, and `/operations` endpoints.
+- RLS scoping with `set_config('app.env_id', ..., true)` plus explicit `env_id` filters.
+- Six-stage blended funnel and three fixed channel summaries with CAC converted to dollars.
+- Channel `all` retention triangle plus a separately queried masked `womens_pilot` marker.
+  The suppressed query selects only cohort month and channel.
+- Fixed-order operations domains with nullable p90-versus-target `over_sla`.
+- Shared HHA primitives/navigation and three standalone pages using the same-origin `/bos`
+  proxy. Overview consumes the shared primitives with navigation added.
+- Explicit channel LTV:CAC grain gap: channel-specific LTV is not seeded.
+
+Verification receipt (2026-06-09):
+- `python -m pytest --noconftest tests/test_hha.py -q` → 9 passed.
+- `npm run typecheck` → exit 0.
+- DB schema verifier → 207 passed, 0 failed.
+- Read-only production-data service calls returned the expected funnel, cohort, and
+  operations records for env `ceeb9ea0-9f8b-4369-b853-adcd60c01def`.
+- Authenticated local Playwright verification passed all four routes with no console,
+  request, or API errors. Screenshots are under the route's `screenshots/` directory.
+
+Delivery state: draft [PR #136](https://github.com/paulmalmquist/Consulting_app/pull/136)
+is open. No merge or deploy is authorized. Production Phase 2 endpoints remain 404 until
+an approved merge and separate backend deployment.
 
 ## Phases 2–4 — milestones (planned)
-See `docs/plans/healthcare-subscription/roadmap.md`. No phase starts without explicit approval.
+See `docs/plans/healthcare-subscription/roadmap.md`. Phase 2 is review-only; Phases 3–4
+remain planned and do not start without explicit approval.
 
 ## tips.md lesson
 Recorded in `docs/tips.md`: v2 demo envs get no `business_id` (seed packs receive `""`) — synthesize

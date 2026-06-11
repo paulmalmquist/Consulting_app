@@ -181,6 +181,16 @@ TRADES_RECONNECT_INTERVAL_SEC: int = int(os.getenv("TRADES_RECONNECT_INTERVAL_SE
 TRADES_SLIPPAGE_ALERT_BPS: int = int(os.getenv("TRADES_SLIPPAGE_ALERT_BPS", "50"))
 TRADES_ENABLE_LIVE_SUBMISSION: bool = os.getenv("TRADES_ENABLE_LIVE_SUBMISSION", "false").lower() == "true"
 
+# ── RS Demo: live telemetry streaming slice ──────────────────────────────────
+# Source hierarchy: capture = the required proof path (CI + baseline demo);
+# iss = live-mode enhancement; adsb = fallback exhibit only (labeled).
+TELEMETRY_STREAM_ENABLED: bool = os.getenv("TELEMETRY_STREAM_ENABLED", "0").lower() in ("1", "true")
+TELEMETRY_STREAM_SOURCE: str = os.getenv("TELEMETRY_STREAM_SOURCE", "capture")
+TELEMETRY_STREAM_ENV_ID: str = os.getenv("TELEMETRY_STREAM_ENV_ID", "telemetry-demo")
+TELEMETRY_STREAM_BUSINESS_ID: str = os.getenv(
+    "TELEMETRY_STREAM_BUSINESS_ID", "7e1eb000-0000-4000-a000-000000000001")
+TELEMETRY_ETL_INTERVAL_SECONDS: int = int(os.getenv("TELEMETRY_ETL_INTERVAL_SECONDS", "60"))
+
 _db_validated = False
 
 

@@ -22,7 +22,9 @@ only in docs and the `hha_` table-prefix codename.
 - **Phase 0 (planning/skeleton):** done.
 - **Phase 1 (HHA-1 vertical slice — Exec Overview):** done. Schema + seed pack + read API
   (`/api/hha/v1/health`, `/overview`) + standalone Overview page + tests.
-- **Phase 2+:** funnel / cohorts / operations pages, event-level grain, governed copilot. Not started.
+- **Phase 2 (HHA-2):** Funnel, Cohorts, and Operations implemented on
+  `codex/hha-phase-2-surfaces`; in review, not shipped, and not deployed.
+- **Phase 3+:** event-level grain and governed copilot. Not started.
 
 ## Map
 

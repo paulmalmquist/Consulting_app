@@ -195,6 +195,39 @@ def _conformal_budget(metrics: dict | None) -> dict | None:
     }
 
 
+def _stream_block(cur, env_id: str, business_id: UUID) -> dict | None:
+    """RS Demo streaming slice summary for /monitoring. Returns None when the streaming tables are
+    absent (pre-migration) or empty — additive, never breaks existing monitoring."""
+    try:
+        cur.execute(
+            """SELECT status, as_of_ts, reason FROM tel_pipeline_status
+               WHERE env_id = %s AND business_id = %s AND surface = 'stream_ingest'""",
+            (env_id, str(business_id)))
+        st = cur.fetchone()
+        if st is None:
+            return None
+        cur.execute(
+            """SELECT max(ts_source) AS last_frame,
+                      count(*) FILTER (WHERE ts_ingest > now() - interval '1 minute') AS rpm
+               FROM tel_stream_readings_bronze WHERE env_id = %s AND business_id = %s""",
+            (env_id, str(business_id)))
+        agg = cur.fetchone() or {}
+        cur.execute(
+            """SELECT count(*) AS n FROM tel_dq_assertions
+               WHERE env_id = %s AND business_id = %s AND passed = false
+                 AND run_ts > now() - interval '15 minutes'""",
+            (env_id, str(business_id)))
+        failing = int(cur.fetchone()["n"])
+        return {
+            "status": st["status"], "as_of_ts": st["as_of_ts"], "reason": st["reason"],
+            "last_frame_at": agg.get("last_frame"),
+            "rows_per_min": int(agg.get("rpm") or 0),
+            "failing_assertions": failing,
+        }
+    except Exception:  # noqa: BLE001 — streaming tables not migrated yet
+        return None
+
+
 def monitoring(*, env_id: str, business_id: UUID) -> dict:
     with get_cursor() as cur:
         resolve_tenant_id(cur, business_id)
@@ -224,26 +257,38 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
         psi_row = cur.fetchone()
 
         n = int(agg["n"] or 0)
-        if n == 0:
-            return {"prediction_count": 0, "rolling_anomaly_rate": None,
-                    "latest_model_name": champ["model_name"] if champ else None,
-                    "latest_model_version": champ["model_version"] if champ else None,
-                    "latest_model_alias": champ["model_alias"] if champ else None,
-                    "last_scored_at": None, "psi": None, "window_label": "recent",
-                    "conformal_budget": conformal_budget,
-                    "null_reason": "no_prediction_rows"}
-        return {
-            "prediction_count": n,
-            "rolling_anomaly_rate": round(float(agg["rate"]), 6) if agg["rate"] is not None else None,
-            "latest_model_name": champ["model_name"] if champ else None,
-            "latest_model_version": champ["model_version"] if champ else None,
-            "latest_model_alias": champ["model_alias"] if champ else None,
-            "last_scored_at": agg["last_at"],
-            "psi": float(psi_row["metric_value"]) if psi_row else None,
-            "window_label": "recent",
-            "conformal_budget": conformal_budget,
-            "null_reason": None,
-        }
+
+    # Stream block in its OWN cursor: an UndefinedTable (pre-migration) must not abort the main
+    # monitoring transaction above.
+    stream_block = None
+    try:
+        with get_cursor() as cur2:
+            stream_block = _stream_block(cur2, env_id, business_id)
+    except Exception:  # noqa: BLE001
+        stream_block = None
+
+    if n == 0:
+        return {"prediction_count": 0, "rolling_anomaly_rate": None,
+                "latest_model_name": champ["model_name"] if champ else None,
+                "latest_model_version": champ["model_version"] if champ else None,
+                "latest_model_alias": champ["model_alias"] if champ else None,
+                "last_scored_at": None, "psi": None, "window_label": "recent",
+                "conformal_budget": conformal_budget,
+                "stream": stream_block,
+                "null_reason": "no_prediction_rows"}
+    return {
+        "prediction_count": n,
+        "rolling_anomaly_rate": round(float(agg["rate"]), 6) if agg["rate"] is not None else None,
+        "latest_model_name": champ["model_name"] if champ else None,
+        "latest_model_version": champ["model_version"] if champ else None,
+        "latest_model_alias": champ["model_alias"] if champ else None,
+        "last_scored_at": agg["last_at"],
+        "psi": float(psi_row["metric_value"]) if psi_row else None,
+        "window_label": "recent",
+        "conformal_budget": conformal_budget,
+        "stream": stream_block,
+        "null_reason": None,
+    }
 
 
 def replay_feed() -> dict:

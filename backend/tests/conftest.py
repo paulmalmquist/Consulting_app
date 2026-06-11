@@ -45,6 +45,11 @@ class FakeCursor:
         self.queries.append((sql, params))
         return self
 
+    def executemany(self, sql: str, params_seq=None):
+        for p in (params_seq or []):
+            self.queries.append((sql, p))
+        return self
+
     def fetchone(self):
         if self._result_idx < len(self._results):
             rows = self._results[self._result_idx]
@@ -84,6 +89,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.reports.get_cursor",
     "app.services.crm.get_cursor",
     "app.services.telemetry_serving.get_cursor",
+    "app.services.telemetry_registry.get_cursor",
+    "app.services.telemetry_factory.get_cursor",
     "app.services.copilot_logger.get_cursor",
     "app.services.underwriting.get_cursor",
     "app.services.real_estate.get_cursor",
@@ -205,6 +212,8 @@ _GET_CURSOR_TARGETS = [
     "app.services.pipeline_rail.get_cursor",
     "app.services.hr_decision_runner.get_cursor",
     "app.services.identity_providers.get_cursor",
+    # telemetry_stream_etl / telemetry_stream_ingest import get_cursor lazily inside functions,
+    # so the app.db.get_cursor patch above covers them (module-level targets would fail to patch).
 ]
 
 
