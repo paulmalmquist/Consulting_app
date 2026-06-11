@@ -1,0 +1,12 @@
+{
+ "mlflow_experiment": "/Users/paulmalmquist@gmail.com/RSFactoryML",
+ "mlflow_run_id": "9c25866d78184746a2a0ae28526009bf",
+ "row_counts": {
+  "bronze_raw_iot_telemetry_samples": 2000000,
+  "gold_print_quality_train": 1000,
+  "silver_layer_features": 500000
+ },
+ "schema": "novendor_1.rs_factory",
+ "seed_build_sha": "a2f9440e79ecb26d2cd76173c3f6744fc741616bd14a4fdcb48cfd9114b55140",
+ "target_note": "min_strength_margin is a tolerance-margin stand-in for tensile strength (synthetic seed)"
+}
