@@ -13,6 +13,7 @@ const NAV: { slug: string; label: string; icon: string }[] = [
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z" },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7" },
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3" },
+  { slug: "stargate", label: "Stargate Live", icon: "M8 1l6 3.5v7L8 15l-6-3.5v-7zM8 8l6-3.5M8 8L2 4.5M8 8v7" },
 ];
 
 export default function TelemetrySidebar({ envId, onNavigate }: { envId: string; onNavigate?: () => void }) {
