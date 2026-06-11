@@ -95,8 +95,20 @@ scenarios:
     inconclusive_run: TEST-HOTFIRE-2026-00088
     inconclusive_run_vehicle: VEH-TR-003
     shared_template: PF-TPL-01
-    similarity_top1: true
+    pattern_family: pre_failure
+    similarity_threshold: 0.92        # cosine(00041, 00088) >= this (structurally similar)
+    similarity_must_be_below: 1.0     # ... but NOT identical (different raw readings)
+    similarity_top1: true             # 00041 is the most similar prior run to 00088
     expected_answer: "TEST-HOTFIRE-2026-00088 most resembles the prior failed run TEST-HOTFIRE-2026-00041 (shared pre-failure signature)."
+
+# g07 test/telemetry generation parameters (deterministic; not random).
+telemetry:
+  channels: [pressure, temperature, vibration_rms, flow_rate]
+  full_rate_runs: 30          # raw samples concentrated on these runs; the rest are windows-only
+  window_seconds: 5           # nominal seconds per feature window
+  windows_per_run: 15         # feature windows per (run, channel) -> 200*4*15 = 12000 windows
+  samples_per_full_run: 1250  # raw samples per (full-rate run, channel)
+  hotfire_test_type: HOTFIRE
   SCN-006-NCR-AGING-OWNER-ROUTING:
     aged_ncr_threshold_days: 21
     expected_answer: "Aged open NCRs grouped by owner team with routing recommendations."
@@ -104,3 +116,40 @@ scenarios:
     expected_answer: "Work orders closed with open NCRs, or stale 72h+, surfaced as status mismatches."
   SCN-008-DAILY-FACTORY-HANDOFF:
     expected_answer: "Completed operations, open blockers, quality holds, parts shortages, test anomalies, and recommended owner follow-ups with source links."
+
+# g10 AI/ML output generation parameters (deterministic synthetic ML OUTPUTS — not training).
+# Every quantity an ML row asserts comes from here. Predictions are tied to real causes
+# (drift, bad lot, open NCRs, hot-fire similarity), never random.
+ml:
+  # the six model types (convo §4 Phase 9). registry_size in volume_config = these padded by version.
+  models:
+    - {key: test_anomaly_detector, family: anomaly,   scored_entity: test_run,   metric: pr_auc}
+    - {key: defect_risk,           family: risk,       scored_entity: operation,  metric: pr_auc}
+    - {key: schedule_risk,         family: risk,       scored_entity: work_order, metric: pr_auc}
+    - {key: supplier_risk,         family: risk,       scored_entity: material_lot, metric: pr_auc}
+    - {key: readiness,             family: readiness,  scored_entity: vehicle,    metric: mae}
+    - {key: document_assistant,    family: rag,        scored_entity: query,      metric: groundedness}
+  # human-feedback label mix (convo §4 Phase 9). must sum to 1.0.
+  feedback_mix:
+    accepted: 0.65
+    rejected: 0.15
+    needs_review: 0.15
+    escalated: 0.05
+  # explainability: number of top drivers seeded per prediction's top_drivers_json.
+  top_drivers_count: 3
+  # champion eval bands per family (synthetic but plausible; champions clear, older versions trail).
+  champion_eval:
+    anomaly:    {pr_auc: 0.91, recall_at_p90: 0.82}
+    risk:       {pr_auc: 0.84}
+    readiness:  {mae: 0.06}
+    rag:        {groundedness: 0.97}
+  # SCN-005 ML output: the anomaly detector's match for the inconclusive hot-fire run.
+  scn005_match:
+    model_key: test_anomaly_detector
+    target_run: TEST-HOTFIRE-2026-00088      # the run being scored
+    expected_match_run: TEST-HOTFIRE-2026-00041  # its nearest prior failed run (g07 top-1)
+    decision_this_informs: "hot-fire disposition / launch-readiness review"
+    # similarity is COMPUTED by consuming g07 feature windows via run_feature_vector,
+    # NOT recomputed from raw samples. these bounds mirror SCN-005 telemetry config.
+    min_match_similarity: 0.92
+    must_be_below: 1.0

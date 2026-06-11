@@ -24,6 +24,11 @@ def test_manifest_records_every_table_with_sha256():
         assert "source_system" in t and t["source_system"]
         assert isinstance(t["dependency_order"], int)
     assert m["sqlite"]["dump_sha256"]
+    artifact_paths = {artifact["path"] for artifact in m["artifacts"]}
+    assert "parquet/gold_vehicle_launch_readiness.parquet" in artifact_paths
+    assert "jsonl/raw_docs_chunks.jsonl" in artifact_paths
+    assert "sql/sample_queries.sql" in artifact_paths
+    assert "schema_catalog.csv" in artifact_paths
 
 
 def test_manifest_carries_scenario_ids():

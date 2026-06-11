@@ -42,6 +42,15 @@ def write_manifest(ds: Dataset, ctx, out_dir: Path) -> Path:
             "csv_sha256": _sha256_file(csv_path) if csv_path.exists() else None,
         })
 
+    artifacts = []
+    for path in sorted(out_dir.rglob("*")):
+        if not path.is_file() or path.name == "manifest.json" or path.suffix == ".sqlite":
+            continue
+        artifacts.append({
+            "path": path.relative_to(out_dir).as_posix(),
+            "sha256": _sha256_file(path),
+        })
+
     manifest = {
         "generator": "rs_factory_seed",
         "generator_version": GENERATOR_VERSION,
@@ -56,6 +65,7 @@ def write_manifest(ds: Dataset, ctx, out_dir: Path) -> Path:
             "dump_sha256": hashlib.sha256(sqlite_dump(sqlite_path).encode("utf-8")).hexdigest()
             if sqlite_path.exists() else None,
         },
+        "artifacts": artifacts,
         "tables": tables,
     }
 

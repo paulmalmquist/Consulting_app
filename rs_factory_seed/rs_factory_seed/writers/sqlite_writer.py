@@ -8,6 +8,8 @@ from pathlib import Path
 
 from ..dataset import Dataset, Table
 
+_VIEWS_SQL = Path(__file__).resolve().parents[1] / "sql" / "create_views.sql"
+
 
 def _coltype(table: Table, col: str) -> str:
     # Light typing for readable DDL; values are inserted as Python objects.
@@ -46,6 +48,7 @@ def write_sqlite(ds: Dataset, db_path: Path) -> Path:
                 insert,
                 [[_val(row.get(c)) for c in t.columns] for row in t.sorted_rows()],
             )
+        cur.executescript(_VIEWS_SQL.read_text(encoding="utf-8"))
         conn.commit()
     finally:
         conn.close()

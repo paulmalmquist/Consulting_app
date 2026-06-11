@@ -125,3 +125,96 @@ def machine_assignment(n: int) -> str:
 
 def hold_event(n: int) -> str:
     return f"HLD-{n:05d}"
+
+
+def inspection_characteristic(n: int) -> str:
+    return f"CHAR-{n:05d}"
+
+
+def inspection_result(n: int) -> str:
+    return f"INS-{n:07d}"
+
+
+def rework_event(n: int) -> str:
+    return f"RWK-{n:05d}"
+
+
+def waiver(n: int) -> str:
+    return f"WVR-{n:04d}"
+
+
+def test_article(n: int) -> str:
+    return f"TA-{n:04d}"
+
+
+def sensor(n: int) -> str:
+    return f"SNS-{n:04d}"
+
+
+def telemetry_segment(n: int) -> str:
+    return f"SEG-{n:05d}"
+
+
+def telemetry_sample(n: int) -> str:
+    return f"SMP-{n:07d}"
+
+
+def limit_violation(n: int) -> str:
+    return f"TLV-{n:05d}"
+
+
+def feature_window(n: int) -> str:
+    return f"FW-{n:06d}"
+
+
+def model(n: int) -> str:
+    return f"MDL-{n:03d}"
+
+
+def model_version(model_key: str, n: int) -> str:
+    # e.g. MDL-001-v3
+    return f"{model_key}-v{n}"
+
+
+def ml_prediction(n: int) -> str:
+    return f"PRED-{n:07d}"
+
+
+def ai_action(n: int) -> str:
+    return f"AIA-{n:06d}"
+
+
+def human_feedback(n: int) -> str:
+    return f"HFB-{n:06d}"
+
+
+def dq_finding(n: int) -> str:
+    return f"DQF-{n:05d}"
+
+
+def jira_history(n: int) -> str:
+    return f"JH-{n:06d}"
+
+
+def jira_link(n: int) -> str:
+    return f"JL-{n:06d}"
+
+
+def blocker(n: int) -> str:
+    return f"BLK-{n:05d}"
+
+
+def document(n: int) -> str:
+    return f"DOC-{n:05d}"
+
+
+def document_chunk(n: int) -> str:
+    return f"CHUNK-{n:06d}"
+
+
+def document_entity_link(n: int) -> str:
+    return f"DEL-{n:06d}"
+
+
+def document_revision(n: int) -> str:
+    return f"DREV-{n:05d}"
