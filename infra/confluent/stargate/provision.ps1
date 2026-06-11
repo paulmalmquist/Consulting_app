@@ -27,7 +27,14 @@ param(
     [switch]$SkipFlink
 )
 
-$ErrorActionPreference = "Stop"
+# NOT "Stop": the confluent CLI writes informational lines to stderr ("Set
+# Kafka cluster ... as the active cluster"), which PowerShell 5.1 would turn
+# fatal. Failures are caught by explicit exit-code checks instead.
+$ErrorActionPreference = "Continue"
+
+function Assert-Ok([string]$what) {
+    if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: $what (exit $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
+}
 
 function Resolve-ConfluentCli {
     $cmd = Get-Command confluent -ErrorAction SilentlyContinue
@@ -55,7 +62,7 @@ if (-not $EnvId) {
     $envs = & $cli environment list -o json | ConvertFrom-Json
     $EnvId = $envs[0].id
 }
-& $cli environment use $EnvId | Out-Null
+& $cli environment use $EnvId 2>$null | Out-Null
 Write-Host "environment: $EnvId"
 
 if (-not $ClusterId) {
@@ -63,27 +70,30 @@ if (-not $ClusterId) {
     if (-not $clusters) { throw "no Kafka cluster in $EnvId - create one in the console first" }
     $ClusterId = $clusters[0].id
 }
-& $cli kafka cluster use $ClusterId | Out-Null
+& $cli kafka cluster use $ClusterId 2>$null | Out-Null
 $cluster = & $cli kafka cluster describe $ClusterId -o json | ConvertFrom-Json
 $bootstrap = $cluster.endpoint -replace "^SASL_SSL://", ""
 Write-Host "cluster: $ClusterId  bootstrap: $bootstrap"
 
 $sr = & $cli schema-registry cluster describe -o json | ConvertFrom-Json
 $srUrl = $sr.endpoint_url
-Write-Host "schema registry: $srUrl"
+$srId = $sr.cluster        # field is named 'cluster' (lsrc-...), not cluster_id
+Write-Host "schema registry: $srId $srUrl"
 
 # -- topics (idempotent) --------------------------------------------------------
 $existing = (& $cli kafka topic list -o json | ConvertFrom-Json) | ForEach-Object { $_.name }
+# agg5s + anomalies are NOT created here: Flink's CREATE TABLE statements own
+# them (table = topic + json-registry schema, bound together). Pre-creating
+# them leaves Flink an inferred binary table it cannot insert into.
 $topics = @(
     @{ name = "stargate.printer.telemetry.v1"; partitions = 6; config = @() },
-    @{ name = "stargate.printer.telemetry.agg5s.v1"; partitions = 1; config = @() },
-    @{ name = "stargate.printer.anomalies.v1"; partitions = 1; config = @() },
     @{ name = "stargate.printer.dlq.v1"; partitions = 1; config = @("retention.ms=604800000") }
 )
 foreach ($t in $topics) {
     if ($existing -contains $t.name) { Write-Host "topic exists: $($t.name)"; continue }
     $cfgArgs = @(); foreach ($c in $t.config) { $cfgArgs += @("--config", $c) }
     & $cli kafka topic create $t.name --partitions $t.partitions @cfgArgs | Out-Null
+    Assert-Ok "create topic $($t.name)"
     Write-Host "topic created: $($t.name) ($($t.partitions) partitions)"
 }
 
@@ -92,6 +102,7 @@ $subject = "stargate.printer.telemetry.v1-value"
 $protoDir = Join-Path $PSScriptRoot "..\proto"
 & $cli schema-registry schema create --subject $subject --type protobuf `
     --schema (Join-Path $protoDir "stargate_telemetry.proto") | Out-Null
+Assert-Ok "register v1 schema on $subject"
 Write-Host "schema registered: $subject (v1)"
 & $cli schema-registry subject update $subject --compatibility BACKWARD | Out-Null
 Write-Host "compatibility: BACKWARD"
@@ -117,9 +128,34 @@ foreach ($op in @("WRITE", "READ", "DESCRIBE")) {
     --consumer-group "stargate-bridge" --prefix | Out-Null
 Write-Host "ACLs: stargate.* topics + stargate-bridge* groups for $($sa.id)"
 
-$key = & $cli api-key create --service-account $sa.id --resource $ClusterId -o json | ConvertFrom-Json
-$srKey = & $cli api-key create --service-account $sa.id --resource $sr.cluster_id -o json | ConvertFrom-Json
-Write-Host "cluster + SR API keys minted for $($sa.id) (secrets shown once below)"
+# Schema Registry permissions are RBAC, not Kafka ACLs. Producers only READ
+# the subject (auto-register is off in the cloud env; registration is a
+# provisioning act, done above).
+& $cli iam rbac role-binding create --principal "User:$($sa.id)" --role DeveloperRead `
+    --resource "Subject:$subject" --environment $EnvId --schema-registry-cluster $srId 2>$null | Out-Null
+Write-Host "RBAC: DeveloperRead on $subject for $($sa.id)"
+
+# Keys land in the gitignored lane .env (never the console, never git). If the
+# .env already carries a key pair, reuse it — secrets are unretrievable after
+# minting, so re-running must not orphan working keys.
+$envFile = Join-Path $PSScriptRoot "..\..\..\scripts\streaming\stargate\.env"
+$haveKeys = (Test-Path $envFile) -and (Select-String -Path $envFile -Pattern "^CONFLUENT_API_KEY=" -Quiet)
+if ($haveKeys) {
+    Write-Host "API keys already in scripts/streaming/stargate/.env - reusing (delete the file to re-mint)"
+} else {
+    $key = & $cli api-key create --service-account $sa.id --resource $ClusterId -o json | ConvertFrom-Json
+    $srKey = & $cli api-key create --service-account $sa.id --resource $srId -o json | ConvertFrom-Json
+    @(
+        "CONFLUENT_BOOTSTRAP_SERVERS=$bootstrap"
+        "CONFLUENT_API_KEY=$($key.api_key)"
+        "CONFLUENT_API_SECRET=$($key.api_secret)"
+        "CONFLUENT_SR_URL=$srUrl"
+        "CONFLUENT_SR_API_KEY=$($srKey.api_key)"
+        "CONFLUENT_SR_API_SECRET=$($srKey.api_secret)"
+        "STARGATE_MODE=cloud"
+    ) | Set-Content -Path $envFile -Encoding ascii
+    Write-Host "cluster + SR API keys minted for $($sa.id) -> scripts/streaming/stargate/.env (gitignored)"
+}
 
 # -- flink compute pool -----------------------------------------------------------
 if (-not $SkipFlink) {
@@ -136,13 +172,8 @@ if (-not $SkipFlink) {
     Write-Host "PAUSE THE POOL after the demo: confluent flink compute-pool update $($pool.id) --max-cfu 0 (or delete it)"
 }
 
-# -- env exports ------------------------------------------------------------------
+# -- done ---------------------------------------------------------------------------
 Write-Host ""
-Write-Host "Producer/bridge env (copy into scripts/streaming/stargate/.env or the shell):"
-Write-Host "  `$env:CONFLUENT_BOOTSTRAP_SERVERS = `"$bootstrap`""
-Write-Host "  `$env:CONFLUENT_API_KEY = `"$($key.api_key)`""
-Write-Host "  `$env:CONFLUENT_API_SECRET = `"<shown once above>`""
-Write-Host "  `$env:CONFLUENT_SR_URL = `"$srUrl`""
-Write-Host "  `$env:CONFLUENT_SR_API_KEY = `"$($srKey.api_key)`""
-Write-Host "  `$env:CONFLUENT_SR_API_SECRET = `"<shown once above>`""
-Write-Host "  `$env:STARGATE_MODE = `"cloud`""
+Write-Host "Producer/bridge env contract written to scripts/streaming/stargate/.env."
+Write-Host "Load it in a shell with:"
+Write-Host "  Get-Content scripts/streaming/stargate/.env | ForEach-Object { `$n, `$v = `$_ -split '=', 2; Set-Item env:`$n `$v }"

@@ -32,16 +32,36 @@ the end. Secrets are shown once and never written to disk; put them in
 
 ## Flink statements
 
+Statements are single-SQL: submit each CREATE TABLE and each INSERT
+separately (the checked-in `flink/*.sql` files pair them for readability).
+This CLI version (v4.x) takes `--database <kafka-cluster-id>` and
+`--environment <env-id>` — there is no `--catalog` flag.
+
 ```powershell
-confluent flink statement create agg5s --compute-pool <pool-id> --sql-file .\flink\01_agg_5s.sql
-confluent flink statement create anomaly-route --compute-pool <pool-id> --sql-file .\flink\02_anomaly_route.sql
-confluent flink statement list
+confluent flink statement create agg5s --sql "<INSERT from 01_agg_5s.sql>" `
+  --compute-pool <pool-id> --database <lkc-id> --environment <env-id> `
+  --cloud gcp --region us-east1 `
+  --property "sql.tables.scan.startup.mode=latest-offset" --wait
+confluent flink statement list --cloud gcp --region us-east1 --environment <env-id>
 ```
 
 `01` produces 5-second tumbling aggregates; `02` routes rows matching
 `melt_pool_temp_c < 1400 AND arm_vibration_g > 0.08` to the anomalies topic.
 The predicate is locked to `signal_mapping.py` by
 `backend/tests/test_stargate_codec.py::TestFlinkSqlLock`.
+
+Two lessons from the live verification (2026-06-11):
+
+- **Flink owns its sink topics.** Do not pre-create `agg5s`/`anomalies`
+  topics; the CREATE TABLE statements bind topic + json-registry schema
+  together, and a pre-existing topic leaves Flink an inferred binary table it
+  cannot insert into. The provision script only creates `telemetry` and `dlq`.
+- **Poison records fail-stop managed Flink.** The DLQ beat's corrupted
+  payloads killed both INSERT statements at the bad offsets (deserialization
+  error; this Flink version has no skip-on-error knob). The bridge degraded
+  gracefully — that contrast IS the demo point. Ordering: run the DLQ beat
+  after the Flink beats, then resubmit the statements with
+  `startup.mode=latest-offset` to skip past the poison.
 
 ## The schema-evolution beat (live, during the demo)
 

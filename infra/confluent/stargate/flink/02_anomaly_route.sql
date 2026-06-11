@@ -19,7 +19,7 @@ INSERT INTO `stargate.printer.anomalies.v1`
 SELECT
   printer_id,
   ts_us,
-  layer,
+  CAST(layer AS INT) AS layer,  -- proto uint32 infers as BIGINT; sink is INT
   print_job_id,
   melt_pool_temp_c,
   arm_vibration_g

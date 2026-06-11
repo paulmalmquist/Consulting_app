@@ -75,16 +75,14 @@ Decisions worth recording:
 
 Evidence (checkpoint A): recorded below when the PR opens.
 
-## PR 4 — Confluent Cloud + Schema Registry + Flink + DLQ (built; cloud verification pending login)
+## PR 4 — Confluent Cloud + Schema Registry + Flink + DLQ (cloud-verified; see Checkpoint B2)
 
-Status: every artifact is built, tested, and exercised locally. The live-cloud
-verification beat is blocked on one interactive step that cannot be scripted:
-`confluent login --save`. The repo-root `confluent)_kafka_api.json` key is
-cluster-scoped (confirmed: 401 against the management API), no bootstrap or SR
-URL is recorded anywhere on this machine, and the CLI (winget, v4.60) has no
-saved context. After login, `infra\confluent\stargate\provision.ps1` does the
-rest — discovery, topics, SR subjects, service account, ACLs, Flink pool — and
-prints the env exports.
+Status: built, tested locally, and verified live against Confluent Cloud on
+2026-06-11 after one interactive `confluent login --save` (the repo-root
+`confluent)_kafka_api.json` key is cluster-scoped and could not drive
+management commands). Provisioning, Flink statements, the schema-evolution
+beat, the anomaly route, and the DLQ beat all ran for real — evidence in
+Checkpoint B2 below, lessons folded into `infra/confluent/stargate/README.md`.
 
 Toe-stepping note: the Phase 3B event-backbone session (clone at
 C:\Projects\cons_rs_demo, branch feat/cloud-broker-event-transport) has
@@ -165,6 +163,38 @@ Handoff into PR 5:
   bridge `/stargate/dlq` count went **0 → 5**, each entry carrying its real
   deserialization reason (`Invalid magic byte`, `Unexpected EOF while reading
   index`, …). Nothing crashed; ingestion continued.
-- Cloud verification: **pending `confluent login --save`** (see PR 4 status
-  note above). The provision script, Flink statements, v2 schema registration
-  command, and consume checks are ready to run verbatim once authenticated.
+- Cloud verification: completed 2026-06-11 — see Checkpoint B2.
+
+### Checkpoint B2 — PR 4 cloud verification (2026-06-11)
+
+- Authenticated via `confluent login --save` (env `env-vwkk2z`, cluster
+  `lkc-gqpvvyv` gcp/us-east1, SR `lsrc-pgnzz12`).
+- `provision.ps1` completed end to end: topics (`telemetry` 6 partitions,
+  `dlq` 7d retention — agg5s/anomalies are Flink-owned, see runbook), v1
+  Protobuf schema registered with BACKWARD compatibility, service account
+  `sa-5w51vmn` with prefix-scoped Kafka ACLs + SR DeveloperRead RBAC, cluster
+  and SR keys written to the gitignored lane `.env`, Flink pool `lfcp-22wznzq`.
+- **Schema evolution live**: v2 (`laser_power_w`) registered as version 2 on
+  the same subject — the BACKWARD gate passed (IDs 100002 → 100003).
+- **Flink**: 4 statements submitted (2 CREATE TABLE COMPLETED, 2 INSERT
+  RUNNING). Producer pushed **89,200 Protobuf messages at ~993/s** with
+  auto-register off (SR lookup only — registration stays a provisioning act);
+  managed Flink produced 5s windows (n=1250 = 250/s x 5s, avg_temp ≈ 1499°C)
+  and routed **anomaly rows from the pre-failure jobs**
+  (e.g. JOB-00-0005-PRE_FAILURE, 1353°C / 0.110g), captured both in the
+  bridge (200-row ring full) and via CLI consume.
+- **DLQ beat, cloud**: `bad_producer.py --mode cloud` took `/stargate/dlq`
+  **0 → 10** — each corrupted payload appears as its decode failure AND
+  consumed back off the DLQ topic (full route proven).
+- **Poison-record finding**: the corrupted payloads fail-stopped both Flink
+  INSERT statements at the bad offsets (no skip-on-error knob in this Flink
+  version) while the bridge degraded gracefully — the contrast is now a demo
+  beat. Recovery proven: resubmit with
+  `sql.tables.scan.startup.mode=latest-offset`; statements returned to
+  RUNNING and produced 23 more windows from a fresh burst (68 → 91).
+- Fixes folded back into the lane: provision script (SR id field, .env key
+  handling, idempotent re-runs, RBAC grant, Flink-owned topics, PS 5.1
+  stderr handling), `CONFLUENT_SR_AUTO_REGISTER` toggle in the codec,
+  `CAST(layer AS INT)` in the anomaly route (proto uint32 infers BIGINT).
+- Cleanup: both INSERT statements stopped, bridge stopped, pool idle
+  (no running statements = no CFU burn).
