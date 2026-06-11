@@ -75,9 +75,26 @@ Decisions worth recording:
 
 Evidence (checkpoint A): recorded below when the PR opens.
 
-## PR 4 — Confluent Cloud + Schema Registry + Flink + DLQ (queued)
+## PR 4 — Confluent Cloud + Schema Registry + Flink + DLQ (built; cloud verification pending login)
 
-Handoff into PR 4:
+Status: every artifact is built, tested, and exercised locally. The live-cloud
+verification beat is blocked on one interactive step that cannot be scripted:
+`confluent login --save`. The repo-root `confluent)_kafka_api.json` key is
+cluster-scoped (confirmed: 401 against the management API), no bootstrap or SR
+URL is recorded anywhere on this machine, and the CLI (winget, v4.60) has no
+saved context. After login, `infra\confluent\stargate\provision.ps1` does the
+rest — discovery, topics, SR subjects, service account, ACLs, Flink pool — and
+prints the env exports.
+
+Toe-stepping note: the Phase 3B event-backbone session (clone at
+C:\Projects\cons_rs_demo, branch feat/cloud-broker-event-transport) has
+uncommitted work modifying backend/app/events/config.py + transport.py and
+creating infra/confluent/README.md with an EVENTS_* env contract and
+winston.* topics. This lane was kept disjoint on purpose: stargate.* topics,
+CONFLUENT_* env, all files under infra/confluent/stargate/ and
+infra/confluent/proto/ — no shared filenames, no shared cluster resources.
+
+Original handoff list (all delivered except the cloud run):
 
 - `infra/confluent/provision.ps1`: discovery (`confluent environment list`,
   cluster + SR describe), topics (`stargate.printer.telemetry.v1` 6 partitions,
@@ -136,3 +153,18 @@ Handoff into PR 5:
 - Local E2E (Redpanda compose): producer pushed **9,940 Protobuf messages at ~397/s** through Schema Registry; bridge consumed 9,480 (group joined at `latest`), telemetry ring full at 2,000, **64 tumbling windows** with nominal values (avg_temp ≈ 1501°C, max_vib ≈ 0.035g); SSE emitted a snapshot frame then 100ms deltas (curl capture).
 - Capture determinism: two cold starts in capture mode produced **identical state** — sha `0477A8A8ACF69F3E` both runs; 600-tail telemetry, 48 windows, **148 anomalous samples** from the pre-failure segments, **3 DLQ entries** from the planted bad lines.
 - Frontend: `npm run lint` exit 0; `npm run build` exit 0 with the stargate route compiled. Fix recorded: `src/types/r3f.d.ts` bridges fiber v8's element map into @types/react v19's JSX namespace.
+
+### Checkpoint B — PR 4 (2026-06-11)
+
+- Tests: **27 passed** in the lane venv — adds the Flink-SQL constants lock
+  (parses 02_anomaly_route.sql, asserts equality with `signal_mapping`), the
+  schema-evolution proof (v1 reader skips hand-built v2 field 11 and preserves
+  it on re-serialize), and the json-registry frame decoder.
+- DLQ beat, live against local Redpanda: `bad_producer.py` sent 5 corrupted
+  payloads (raw JSON, bad magic byte, truncated frame, log-line text, empty);
+  bridge `/stargate/dlq` count went **0 → 5**, each entry carrying its real
+  deserialization reason (`Invalid magic byte`, `Unexpected EOF while reading
+  index`, …). Nothing crashed; ingestion continued.
+- Cloud verification: **pending `confluent login --save`** (see PR 4 status
+  note above). The provision script, Flink statements, v2 schema registration
+  command, and consume checks are ready to run verbatim once authenticated.

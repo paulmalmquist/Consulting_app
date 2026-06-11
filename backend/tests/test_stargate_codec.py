@@ -70,6 +70,71 @@ class TestTumblingAggregator:
         assert rows2[0]["n"] == 1
 
 
+class TestFlinkSqlLock:
+    """The Flink anomaly route and signal_mapping.is_anomalous are two
+    spellings of one predicate. Parse the checked-in SQL and fail if the
+    constants ever drift apart (PR 4)."""
+
+    FLINK_SQL = (
+        Path(__file__).resolve().parents[2]
+        / "infra" / "confluent" / "stargate" / "flink" / "02_anomaly_route.sql"
+    )
+
+    def test_sql_constants_match_python_predicate(self):
+        import re
+
+        sql = self.FLINK_SQL.read_text(encoding="utf-8")
+        temp = re.search(r"melt_pool_temp_c\s*<\s*([0-9.]+)", sql)
+        vib = re.search(r"arm_vibration_g\s*>\s*([0-9.]+)", sql)
+        assert temp and vib, "anomaly predicate not found in 02_anomaly_route.sql"
+        assert float(temp.group(1)) == sm.TEMP_THRESHOLD_C
+        assert float(vib.group(1)) == sm.VIBRATION_THRESHOLD_G
+
+    def test_sql_requires_both_conditions(self):
+        sql = self.FLINK_SQL.read_text(encoding="utf-8").upper()
+        where = sql.split("WHERE", 1)[1]
+        assert "AND" in where, "predicate must require temp AND vibration together"
+
+
+class TestSchemaEvolution:
+    """BACKWARD compatibility in practice: a v1 reader must skip the v2 field.
+    v2 wire bytes are built by hand (field 11, fixed64) because two descriptors
+    with the same message name cannot coexist in one process (PR 4)."""
+
+    def test_v1_reader_skips_v2_laser_power_field(self):
+        pytest.importorskip("google.protobuf")
+        import struct
+
+        from proto_gen.stargate_telemetry_pb2 import StargateTelemetry
+
+        v1 = StargateTelemetry(printer_id="stargate-v4-01", ts_us=42, melt_pool_temp_c=1502.0)
+        # append laser_power_w = 950.0 as field 11, wire type 1 (fixed64):
+        # tag byte = (11 << 3) | 1 = 0x59
+        v2_wire = v1.SerializeToString() + bytes([0x59]) + struct.pack("<d", 950.0)
+
+        decoded = StargateTelemetry()
+        decoded.ParseFromString(v2_wire)
+        assert decoded.printer_id == "stargate-v4-01"
+        assert decoded.ts_us == 42
+        assert decoded.melt_pool_temp_c == pytest.approx(1502.0)
+        # the unknown field is preserved, not lost — round-tripping keeps it
+        assert b"\x59" in decoded.SerializeToString()
+
+
+class TestRegistryFramedJson:
+    """Bridge cloud mode reads Flink's json-registry rows: magic byte + schema
+    id + JSON. Both framed and plain forms must decode (PR 4)."""
+
+    def test_framed_and_plain_json_decode(self):
+        import bridge
+
+        row = {"printer_id": "p1", "avg_temp_c": 1500.5, "n": 3}
+        plain = __import__("json").dumps(row).encode()
+        framed = b"\x00\x00\x00\x00\x07" + plain
+        assert bridge.loads_registry_json(plain) == row
+        assert bridge.loads_registry_json(framed) == row
+
+
 class TestProtobufWire:
     """Round-trips through the generated bindings and the SR framing. Skipped
     where the optional clients are not installed (backend CI)."""

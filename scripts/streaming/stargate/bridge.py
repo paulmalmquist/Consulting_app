@@ -249,6 +249,17 @@ async def replay_capture_forever(state: BridgeState, lines: list[str]) -> None:
 
 # -- broker modes --------------------------------------------------------------
 
+def loads_registry_json(raw: bytes) -> dict:
+    """JSON rows from managed Flink sinks arrive json-registry framed (magic
+    byte + 4-byte schema id before the JSON). Accept both framed and plain."""
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        if len(raw) > 5 and raw[0] == 0:
+            return json.loads(raw[5:])
+        raise
+
+
 def consume_forever(state: BridgeState) -> None:
     """Daemon thread: consume the Stargate topics. Telemetry decode failures are
     routed to the DLQ topic (best-effort) AND surfaced in the DLQ buffer."""
@@ -306,13 +317,13 @@ def consume_forever(state: BridgeState) -> None:
                 state.ingest_dlq(topic, "routed to DLQ topic", raw)
             elif topic == StargateTopics.AGG_5S:
                 try:
-                    state.rings["agg"].append(json.loads(raw))
-                except json.JSONDecodeError:
+                    state.rings["agg"].append(loads_registry_json(raw))
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     state.ingest_dlq(topic, "agg row not JSON", raw)
             elif topic == StargateTopics.ANOMALIES:
                 try:
-                    state.rings["anomalies"].append(json.loads(raw))
-                except json.JSONDecodeError:
+                    state.rings["anomalies"].append(loads_registry_json(raw))
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     state.ingest_dlq(topic, "anomaly row not JSON", raw)
     finally:
         state.consumer_alive = False
