@@ -105,6 +105,38 @@ windows beat first).
 Close: "Everything you watched is a stacked, reviewed PR chain with evidence
 logs, work items, and honest fallbacks. That is the operating model, demoed."
 
+## What this proves / what it does not prove
+
+### What this proves
+
+- A vague data-and-AI leadership mandate became a working platform demo:
+  deterministic synthetic source systems, governed streaming telemetry,
+  schema evolution, Flink anomaly routing, DLQ failure recovery, Databricks
+  medallion processing, MLflow model evidence, Delta time travel, and a
+  flight-readiness dashboard.
+- Streaming, batch, ML, governance, and UI concerns are separated cleanly —
+  each lane has its own contracts, its own tests, and its own failure modes.
+- Fail-closed paths and labeled fallback modes replace brittle hidden
+  dependencies: every live beat has a fallback, and the dashboard names which
+  engine produced what it shows.
+- ML evidence is used honestly, including where a target has no learnable
+  signal — the platform surfaces chance-level performance instead of
+  inventing confidence.
+- The work operated through stacked PRs, ADO stories, evidence comments, and
+  runbooks — the operating model is itself part of the exhibit.
+
+### What this does not prove
+
+- This is not production aerospace infrastructure.
+- It does not handle controlled technical data or ITAR workloads (synthetic
+  data only; the two-zone boundary design lives in ADR 0002/0003 as
+  architecture, not as an implemented control).
+- The ML results are synthetic and demonstrate platform shape, not
+  real-world model validity.
+- Cloud resources are demo-scale and would need production SRE and security
+  hardening (key rotation, monitoring, capacity, on-call) before carrying
+  anything real.
+
 ## Post-demo (T+5)
 
 ```powershell

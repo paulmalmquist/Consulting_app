@@ -5,6 +5,26 @@ what each PR contains, the evidence it closed with, and the handoff into the
 next one. Board: Epic #497 → Features #530 (Stargate streaming) and #531
 (Factory ML); stories #532 (PR 3), #533 (PR 4), #534 (PR 5).
 
+## Evidence index
+
+| Artifact | Where |
+|---|---|
+| PR 3 — Stargate local/capture slice | [#149](https://github.com/paulmalmquist/Consulting_app/pull/149), commit `d22b4931`, Checkpoint A below, ADO #532 |
+| PR 4 — Confluent Cloud + Flink + DLQ | [#150](https://github.com/paulmalmquist/Consulting_app/pull/150) (+ cloud-evidence comment), commits `42cd71a7` + `1ff27973`, Checkpoints B/B2 below, ADO #533 |
+| PR 5 — Factory ML medallion + MLflow | [#151](https://github.com/paulmalmquist/Consulting_app/pull/151), commit `05dcc8cd`, Checkpoint C below, ADO #534 |
+| MLflow training run | `9c25866d…` in `/Users/paulmalmquist@gmail.com/RSFactoryML` (3 registered models) |
+| Seed build provenance | manifest sha `a2f9440e79ec…` (medium profile, generator head `13315bee`) |
+| Demo runbook + fallback table | `docs/plans/RS_DEMO_RUNBOOK.md` |
+| Governance ADR | `docs/adr/rs-analytics/0003-demo-lane-ml-streaming-governance.md` |
+| Board | Epic #497 → Features #530/#531 → Stories #532/#533/#534 (all Resolved) |
+
+Known CI caveat, so no future reviewer wonders: the four **Azure DevOps
+status contexts** (CI, Perf Nightly, Winston Eval Nightly/Weekly) fail at
+YAML evaluation before execution on every PR in this repo — a board
+configuration issue predating this campaign, documented in the Codex
+generator session. GitHub Actions and Vercel are the binding gates and are
+green across the stack.
+
 The PR stack sits on the generator PRs:
 
 | PR | Branch | Base | Scope |
