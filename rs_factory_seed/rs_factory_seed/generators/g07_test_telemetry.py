@@ -23,7 +23,9 @@ from ..lineage import SourceSystem as SS
 
 _SCN5 = "SCN-005-HOTFIRE-ANOMALY-SIMILARITY"
 _TEST_TYPES = ["HOTFIRE", "PRESSURE", "VIBRATION", "ACCEPTANCE", "LEAK", "PROOF",
-               "MODAL", "THERMAL", "STRUCTURAL", "ACTUATION", "IGNITER", "COLDFLOW"]
+               "MODAL", "THERMAL", "STRUCTURAL", "ACTUATION", "IGNITER", "COLDFLOW",
+               "BURST", "CRYO", "FLOW", "SHOCK", "EMI", "LOAD", "FATIGUE", "VACUUM",
+               "PYRO", "SPIN", "SEPARATION", "QUALIFICATION"]
 # non-pre_failure patterns used by ordinary runs (PF-TPL-01 is reserved for the SCN-005 pair)
 _ORDINARY_PATTERNS = ["normal", "gradual_drift", "step_change", "oscillation",
                       "sensor_dropout", "false_positive"]
@@ -107,8 +109,17 @@ def _test_runs(ctx: BuildContext, ds: Dataset) -> list[dict]:
     template = scn5["shared_template"]        # PF-TPL-01
 
     n = ctx.n("test_runs")
-    # type allocation: enough hotfire seqs to contain 41 and 88
-    alloc = [("HOTFIRE", 90), ("PRESSURE", 50), ("VIBRATION", 30), ("ACCEPTANCE", 30)]
+    # Proportional allocation preserves the small profile's 90/50/30/30 split and scales.
+    hotfire = max(90, round(n * 0.45))
+    pressure = round(n * 0.25)
+    vibration = round(n * 0.15)
+    acceptance = n - hotfire - pressure - vibration
+    alloc = [
+        ("HOTFIRE", hotfire),
+        ("PRESSURE", pressure),
+        ("VIBRATION", vibration),
+        ("ACCEPTANCE", acceptance),
+    ]
     rows: list[dict] = []
     for ttype, cnt in alloc:
         for seq in range(1, cnt + 1):
@@ -152,7 +163,10 @@ def _test_runs(ctx: BuildContext, ds: Dataset) -> list[dict]:
 
 def _telemetry(ctx: BuildContext, ds: Dataset, runs: list[dict]) -> None:
     channels = ctx.scenario["telemetry"]["channels"]
-    n_full = int(ctx.scenario["telemetry"]["full_rate_runs"])
+    n_full = min(
+        len(runs),
+        ctx.n("telemetry_samples") // (len(channels) * _n_samples(ctx)),
+    )
     failed_id = ctx.scenario["scenarios"][_SCN5]["failed_run"]
     incon_id = ctx.scenario["scenarios"][_SCN5]["inconclusive_run"]
 
@@ -163,7 +177,7 @@ def _telemetry(ctx: BuildContext, ds: Dataset, runs: list[dict]) -> None:
     step = max(1, len(others) // (n_full - len(forced)))
     full_rate = {r["run_id"] for r in (forced + others[::step][: n_full - len(forced)])}
 
-    n_windows = _n_windows(ctx)
+    n_windows = ctx.n("feature_windows") // (len(runs) * len(channels))
     n_samples = _n_samples(ctx)
     seg_rows: list[dict] = []
     sample_rows: list[dict] = []

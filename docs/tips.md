@@ -3150,3 +3150,14 @@ gap, so the rule stays (its logic is correct) but the test does NOT assert it pr
 is noted rather than hidden. Every finding row is explainable (a `detail` string naming the offending
 records) and scenario-tagged when it maps to a named scenario; a determinism test asserts two builds
 yield identical finding ids/rules/entities.
+
+### Profile scaling must derive row mechanics from volume targets (2026-06-11)
+
+A generator can expose `small` and `medium` profiles while still silently emitting small-profile
+data if loop mechanics are hardcoded. The RS Factory medium smoke caught three examples: Jira key
+reservation dropped one row when the anchor ID fell inside the normal sequence, test telemetry
+kept the small run/sample/window allocation, and QMS emitted fewer inspections than requested
+because one pass over completed operations could not fill the larger target. Reusable rule:
+reserve anchor IDs with a fill-until-target loop, derive per-entity allocations from configured
+row totals, and pad or fail explicitly when one source pass cannot satisfy a declared volume.
+Smoke tests should query emitted row counts, not treat a zero-exit build as proof of scale.

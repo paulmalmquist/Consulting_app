@@ -10,14 +10,14 @@ It produces inspectable artifacts (CSV / SQLite / Parquet / JSONL). A curated + 
 is later loaded into Postgres **inside the existing telemetry environment** (table prefix
 `rsf_`); raw landed data stays in artifacts and never enters Postgres.
 
-PR 1 intentionally emits CSV and SQLite only. Parquet, JSONL, gold views, and backend loading
-belong to later PRs.
+PR 2 emits CSV, SQLite, Parquet, JSONL, generated table DDL, reusable SQLite views, and
+the twelve guided demo queries. Backend loading belongs to PR 3.
 
 ## Usage
 
 ```bash
 cd rs_factory_seed
-python -m rs_factory_seed build  --profile small      # write output/{csv,sqlite}/ + schema_catalog.csv
+python -m rs_factory_seed build  --profile small      # write all deterministic artifact formats
 python -m rs_factory_seed verify --profile small      # build twice, assert byte-identical (determinism gate)
 python -m pytest tests -q                              # determinism + referential integrity + volumes + scenario anchors
 ```
@@ -41,7 +41,7 @@ generators and asserted by `tests/test_scenarios.py`.
 
 ## Status
 
-PR 1 / Phase A is complete through:
+PR 2 / Phases B-C are complete through:
 
 - `g01_master_data`: facilities, work centers, machines, operators, suppliers, customers,
   vehicles, parts, revisions, and BOM.
@@ -51,13 +51,22 @@ PR 1 / Phase A is complete through:
   genealogy, and material consumption.
 - `g05_mes_work_orders`: work orders, operation executions, labor, machine assignments, and
   holds, including the configured SCN-004 Rev B/C operation split and SCN-007 DQ tags.
+- `g06_qms_quality`: inspection results, NCRs, rework, waivers, and exact quality scenarios.
+- `g07_test_telemetry`: test operations, seven waveform patterns, feature windows, and the
+  SCN-005 pre-failure similarity pair.
+- `g08_jira_blockers`: issues, history, source links, aged routing, and the TR-003 disposition.
+- `g09_docs_rag`: controlled documents, approved chunks, citations, entity links, and revisions.
+- `g10_ai_ml_outputs`: model registry, explainable predictions, action logs, and feedback.
+- `g11_gold_frames`: demo read models, daily throughput/yield, supplier risk, handoff report,
+  and data-quality findings with one-to-one tagged-row lineage.
 
 The suite covers deterministic artifacts, declared natural-key uniqueness, stable IDs, row
-volumes, referential integrity, scenario anchors, MES distributions, and intentional defects.
+volumes, referential integrity, all scenario anchors, waveform similarity, gold reconciliation,
+all twelve guided SQL questions, and intentional-defect lineage.
 
-## PR 2 handoff
+## PR 3 handoff
 
-Keep the package generator-only. Add `g06` through `g11`, waveform/scoring/DQ helpers,
-Parquet and JSONL writers, SQLite gold views, and Q01-Q12 scenario queries. Do not add the
-Postgres migration, telemetry seed pack, backend runtime dependencies, replay producer, or UI
-tabs until PR 3/4.
+Integrate the curated and gold subset into the existing `telemetry` environment using migration
+10016, `telemetry_factory_starter`, the bulk loader, and the fail-closed ETL runner. Preserve
+`telemetry_starter`, the existing telemetry routes, and all current telemetry behavior. Streaming
+replay and frontend tabs remain separate follow-up work.

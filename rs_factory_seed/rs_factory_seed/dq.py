@@ -20,6 +20,8 @@ Every finding row: finding_id, rule, severity, entity_type, entity_id, detail, s
 
 from __future__ import annotations
 
+import json
+
 from . import ids
 from .context import BuildContext
 from .dataset import Dataset
@@ -33,6 +35,7 @@ def run(ctx: BuildContext, ds: Dataset) -> None:
     findings: list[dict] = []
     seq = _Seq()
 
+    _tagged_defects(ctx, ds, findings, seq)
     _wo_closed_with_open_ncr(ctx, ds, findings, seq)
     _missing_inspection_signoff(ctx, ds, findings, seq)
     _revision_mismatch(ctx, ds, findings, seq)
@@ -53,7 +56,8 @@ class _Seq:
         return ids.dq_finding(self.n)
 
 
-def _add(findings, seq, rule, severity, entity_type, entity_id, detail, scenario_id=None):
+def _add(findings, seq, rule, severity, entity_type, entity_id, detail, scenario_id=None,
+         source_table=None, source_key=None, dq_defect_tag=None):
     findings.append({
         "finding_id": seq.next(),
         "rule": rule,
@@ -62,10 +66,38 @@ def _add(findings, seq, rule, severity, entity_type, entity_id, detail, scenario
         "entity_id": entity_id,
         "detail": detail,
         "scenario_id": scenario_id,
+        "source_table": source_table,
+        "source_key": source_key,
+        "dq_defect_tag": dq_defect_tag,
     })
 
 
 # --- rules ------------------------------------------------------------------
+def _tagged_defects(ctx, ds, findings, seq) -> None:
+    """Emit exactly one lineage finding for every intentionally tagged source row."""
+    for table in ds.ordered():
+        for row in table.sorted_rows():
+            tag = row.get("dq_defect_tag")
+            if not tag:
+                continue
+            key = {column: row.get(column) for column in table.key}
+            source_key = json.dumps(key, sort_keys=True, separators=(",", ":"))
+            entity_id = "|".join(str(key[column]) for column in table.key)
+            _add(
+                findings,
+                seq,
+                "injected_defect",
+                "known_demo_defect",
+                table.name,
+                entity_id,
+                f"{table.name} {source_key} intentionally carries {tag}.",
+                scenario_id=row.get("scenario_id"),
+                source_table=table.name,
+                source_key=source_key,
+                dq_defect_tag=tag,
+            )
+
+
 def _wo_closed_with_open_ncr(ctx, ds, findings, seq) -> None:
     closed = {w["wo_id"] for w in ds.get("raw_mes_work_orders").rows
               if str(w.get("status")) in ("complete", "closed")}

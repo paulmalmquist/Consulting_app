@@ -12,7 +12,8 @@ from .context import BuildContext
 from .dataset import Dataset
 from .generators import GENERATORS
 from .writers import (
-    sqlite_dump, write_csv, write_manifest, write_schema_catalog, write_sqlite,
+    sqlite_dump, write_csv, write_jsonl, write_manifest, write_parquet,
+    write_schema_catalog, write_sql_artifacts, write_sqlite,
 )
 
 
@@ -28,6 +29,9 @@ def _emit(ds: Dataset, ctx: BuildContext, out_dir: Path) -> Path:
     out_dir = Path(out_dir)
     write_csv(ds, out_dir / "csv")
     db = write_sqlite(ds, out_dir / "sqlite" / "relativity_factory_demo.sqlite")
+    write_parquet(ds, out_dir / "parquet")
+    write_jsonl(ds, out_dir / "jsonl")
+    write_sql_artifacts(db, out_dir / "sql")
     write_schema_catalog(ds, out_dir / "schema_catalog.csv")
     write_manifest(ds, ctx, out_dir)
     return db

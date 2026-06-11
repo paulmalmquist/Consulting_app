@@ -1,22 +1,23 @@
-# Next Session - RS Factory Digital Thread PR 2
+# Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-10
+**Last updated:** 2026-06-11
 
 The existing telemetry platform remains the only user-facing environment. RS Factory work is
 additive inside that environment; do not create another template or top-level route.
 
 ## Current state
 
-- ADO Story `#518` owns PR 1 under Feature `#513`, Epic `#497`.
-- `rs_factory_seed/` implements deterministic g01-g05 generation for CRM, PLM, ERP, and MES.
-- Small-profile row volumes, references, natural keys, stable IDs, scenario anchors, intentional
-  MES defects, and artifact determinism are covered by tests.
-- PR 1 does not modify telemetry runtime code, migrations, seed packs, streaming, or frontend files.
+- ADO Story `#518` owns PR 1; ADO Story `#529` owns generator PR 2.
+- PR 1 ends at `94205e18`; PR 2 is isolated on `feat/rs-factory-generator-pr2` / PR `#148`.
+- `rs_factory_seed/` implements deterministic g01-g11 generation across CRM, PLM, ERP, MES,
+  QMS, test/IoT, Jira, docs/RAG, AI/ML, gold frames, and data-quality findings.
+- CSV, SQLite, Parquet, JSONL, generated DDL, SQLite views, and Q01-Q12 queries are emitted.
+- No telemetry runtime, migration, seed-pack, streaming, or frontend files changed in PR 2.
 
 ## Copy-paste prompt
 
 ```text
-Work in the Winston / Consulting_app repository on RS Factory generator PR 2 only.
+Work in the Winston / Consulting_app repository on RS Factory integration PR 3 only.
 
 Read:
 - CLAUDE.md
@@ -31,15 +32,14 @@ template, top-level route, seed pack, migration, backend endpoint, streaming pro
 in this PR.
 
 Implement:
-- g06 QMS, g07 test/telemetry, g08 Jira, g09 docs/RAG, g10 ML/AI, g11 gold + DQ
-- waveform, scoring, and DQ helpers
-- Parquet and JSONL writers
-- SQLite views and Q01-Q12 sample queries
-- full scenario and determinism tests
+- migration 10016 for curated/gold `rsf_` tables with RLS, comments, indexes, and partitions
+- update the existing telemetry template arrays without changing its default seed pack
+- `telemetry_factory_starter` as a superset of `telemetry_starter`
+- full-profile loader and fail-closed, watermark-driven ETL runner
+- backend tests for stamping, idempotency, assertions, and telemetry regressions
 
-Use scenario_config.yaml as the only source for scenario counts. Every intentional defect must carry
-dq_defect_tag and produce exactly one data-quality finding. Preserve all g01-g05 contracts and the
-existing telemetry behavior.
+Use the frozen generator artifacts as inputs. Preserve every existing telemetry route, page,
+seed-pack behavior, and template key. Do not add a standalone RS Factory environment or route.
 ```
 
 The prior telemetry-only optional items remain tracked in `backlog.md` and

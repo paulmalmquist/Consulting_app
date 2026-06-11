@@ -191,3 +191,30 @@ def human_feedback(n: int) -> str:
 def dq_finding(n: int) -> str:
     return f"DQF-{n:05d}"
 
+
+def jira_history(n: int) -> str:
+    return f"JH-{n:06d}"
+
+
+def jira_link(n: int) -> str:
+    return f"JL-{n:06d}"
+
+
+def blocker(n: int) -> str:
+    return f"BLK-{n:05d}"
+
+
+def document(n: int) -> str:
+    return f"DOC-{n:05d}"
+
+
+def document_chunk(n: int) -> str:
+    return f"CHUNK-{n:06d}"
+
+
+def document_entity_link(n: int) -> str:
+    return f"DEL-{n:06d}"
+
+
+def document_revision(n: int) -> str:
+    return f"DREV-{n:05d}"

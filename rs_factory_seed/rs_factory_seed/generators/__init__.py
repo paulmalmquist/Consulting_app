@@ -7,6 +7,8 @@ from . import g04_erp_materials
 from . import g05_mes_work_orders
 from . import g06_qms_quality
 from . import g07_test_telemetry
+from . import g08_jira_blockers
+from . import g09_docs_rag
 from . import g10_ai_ml_outputs
 from . import g11_gold_frames
 
@@ -22,6 +24,8 @@ GENERATORS = [
     g05_mes_work_orders,
     g06_qms_quality,
     g07_test_telemetry,
+    g08_jira_blockers,
+    g09_docs_rag,
     g10_ai_ml_outputs,
     g11_gold_frames,
 ]

@@ -119,6 +119,32 @@ def _inspection_results(ctx: BuildContext, ds: Dataset):
                 "scenario_id": o["scenario_id"],
                 "dq_defect_tag": None,
             })
+    # Pad larger profiles with additional characteristics while preserving op-level FPY.
+    source_ops = valve_ops + other_ops
+    pad_index = 0
+    while len(rows) < n_target and source_ops:
+        o = source_ops[pad_index % len(source_ops)]
+        pad_index += 1
+        seq += 1
+        serial = wo_serial.get(o["wo_id"])
+        fam = part_family.get(serial_part.get(serial), "")
+        passed = op_first_pass[o["op_id"]]
+        nominal = round(float(rng.uniform(5, 500)), 3)
+        tol = round(nominal * 0.02, 3)
+        rows.append({
+            "result_id": ids.inspection_result(seq),
+            "op_id": o["op_id"],
+            "serial_id": serial,
+            "characteristic_seq": 100 + (pad_index // len(source_ops)),
+            "part_family": fam,
+            "nominal": nominal,
+            "measured_value": nominal if passed else round(nominal + tol * 1.5, 3),
+            "tolerance": tol,
+            "in_tolerance": bool(passed),
+            "first_pass": bool(passed),
+            "scenario_id": o["scenario_id"],
+            "dq_defect_tag": None,
+        })
     # Trim to the target volume; valve SCN-004 ops are first, so they are never trimmed.
     rows = rows[:n_target]
     ds.add("raw_qms_inspection_results", rows, key=["result_id"], source_system=SS.QMS)

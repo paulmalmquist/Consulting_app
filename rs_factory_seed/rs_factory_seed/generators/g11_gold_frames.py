@@ -36,11 +36,15 @@ _OPEN = ("open", "eng_review_open")
 def run(ctx: BuildContext, ds: Dataset) -> None:
     _gold_vehicle_launch_readiness(ctx, ds)
     _gold_serial_part_readiness(ctx, ds)
+    _gold_factory_throughput_daily(ctx, ds)
+    _gold_quality_yield_daily(ctx, ds)
+    _gold_supplier_material_risk(ctx, ds)
     _gold_work_order_exceptions(ctx, ds)
+    _gold_daily_factory_report(ctx, ds)
     _gold_cost_of_poor_quality(ctx, ds)
     _gold_test_anomaly_review(ctx, ds)
     _gold_ai_action_audit(ctx, ds)
-    dq.run(ctx, ds)   # data_quality_findings (governance surface)
+    dq.run(ctx, ds)
 
 
 # --- Screen 1: launch readiness ---------------------------------------------
@@ -59,6 +63,18 @@ def _gold_vehicle_launch_readiness(ctx: BuildContext, ds: Dataset) -> None:
 
     readiness_pred = {p["scored_entity_id"]: p for p in ds.get("fact_ml_prediction").rows
                       if p["model_key"] == "readiness"}
+    blocked_vehicle = ctx.scenario["anchors"]["blocked_vehicle"]
+    missing_signoff = {
+        blocked_vehicle: int(
+            ctx.scenario["scenarios"][_SCN1]["flight_critical_serials_missing_signoff"]
+        )
+    }
+    anchor_anomaly = ctx.scenario["anchors"]["hotfire_inconclusive_run"]
+    unresolved_anomaly = {
+        r["vehicle_id"]: 1
+        for r in ds.get("raw_test_runs").rows
+        if r["run_id"] == anchor_anomaly and r.get("result") == "inconclusive"
+    }
 
     rows = []
     for v in vehicles:
@@ -76,6 +92,8 @@ def _gold_vehicle_launch_readiness(ctx: BuildContext, ds: Dataset) -> None:
             "open_ncr_count": all_open,
             "scenario_open_ncr_count": tagged_open,
             "inconclusive_test_count": inconclusive_tests.get(vid, 0),
+            "unresolved_anomaly_count": unresolved_anomaly.get(vid, 0),
+            "missing_inspection_signoff_count": missing_signoff.get(vid, 0),
             "readiness_score": pred["score"] if pred else None,
             "readiness_prediction_id": pred["prediction_id"] if pred else None,
             "scenario_id": v.get("scenario_id"),
@@ -119,6 +137,80 @@ def _gold_serial_part_readiness(ctx: BuildContext, ds: Dataset) -> None:
     ds.add("gold_serial_part_readiness", rows, key=["serial_id"], source_system=SS.MASTER)
 
 
+def _gold_factory_throughput_daily(ctx: BuildContext, ds: Dataset) -> None:
+    groups = defaultdict(lambda: {"completed": 0, "late": 0, "cycle": 0.0})
+    for op in ds.get("raw_mes_operation_executions").rows:
+        if op.get("op_status") != "complete" or not op.get("completed_at"):
+            continue
+        key = (op["completed_at"], op["work_center_id"])
+        groups[key]["completed"] += 1
+        groups[key]["late"] += int(bool(op.get("late")))
+        groups[key]["cycle"] += float(op.get("cycle_time_min") or 0)
+    rows = [{
+        "day": day,
+        "work_center_id": work_center,
+        "completed_operations": values["completed"],
+        "late_operations": values["late"],
+        "avg_cycle_time_min": round(values["cycle"] / values["completed"], 2),
+        "scenario_id": None,
+    } for (day, work_center), values in sorted(groups.items())]
+    ds.add("gold_factory_throughput_daily", rows, key=["day", "work_center_id"],
+           source_system=SS.MASTER)
+
+
+def _gold_quality_yield_daily(ctx: BuildContext, ds: Dataset) -> None:
+    ops = {o["op_id"]: o for o in ds.get("raw_mes_operation_executions").rows}
+    per_op = {}
+    for result in ds.get("raw_qms_inspection_results").rows:
+        per_op.setdefault(result["op_id"], bool(result.get("first_pass")))
+        per_op[result["op_id"]] = per_op[result["op_id"]] and bool(result.get("first_pass"))
+    groups = defaultdict(lambda: [0, 0])
+    for op_id, passed in per_op.items():
+        op = ops.get(op_id)
+        if not op or not op.get("completed_at"):
+            continue
+        key = (op["completed_at"], op.get("work_center_id"), op.get("op_revision") or "CURRENT")
+        groups[key][1] += 1
+        groups[key][0] += int(passed)
+    rows = [{
+        "day": day,
+        "work_center_id": work_center,
+        "revision": revision,
+        "first_pass_operations": counts[0],
+        "inspected_operations": counts[1],
+        "first_pass_yield": round(counts[0] / counts[1], 4),
+        "scenario_id": "SCN-004-REV-C-YIELD-IMPROVEMENT" if revision in ("B", "C") else None,
+    } for (day, work_center, revision), counts in sorted(groups.items())]
+    ds.add("gold_quality_yield_daily", rows, key=["day", "work_center_id", "revision"],
+           source_system=SS.MASTER)
+
+
+def _gold_supplier_material_risk(ctx: BuildContext, ds: Dataset) -> None:
+    supplier_name = {s["supplier_id"]: s["canonical_name"] for s in ds.get("dim_supplier").rows}
+    predictions = {p["scored_entity_id"]: p for p in ds.get("fact_ml_prediction").rows
+                   if p["model_key"] == "supplier_risk"}
+    ncr_serials = {n["serial_id"] for n in ds.get("raw_qms_ncrs").rows if n.get("serial_id")}
+    consumed = defaultdict(set)
+    for event in ds.get("fact_material_consumption").rows:
+        consumed[event["lot_id"]].add(event["serial_id"])
+    rows = []
+    for lot in ds.get("raw_erp_material_lots").rows:
+        serials = consumed.get(lot["lot_id"], set())
+        pred = predictions.get(lot["lot_id"])
+        rows.append({
+            "lot_id": lot["lot_id"],
+            "supplier_id": lot["supplier_id"],
+            "supplier_name": supplier_name.get(lot["supplier_id"]),
+            "material": lot["material"],
+            "serials_exposed": len(serials),
+            "serials_with_ncr": len(serials & ncr_serials),
+            "defect_rate": round(len(serials & ncr_serials) / len(serials), 4) if serials else 0.0,
+            "risk_score": pred["score"] if pred else None,
+            "scenario_id": lot.get("scenario_id"),
+        })
+    ds.add("gold_supplier_material_risk", rows, key=["lot_id"], source_system=SS.MASTER)
+
+
 # --- Screen 3: work-order exceptions ----------------------------------------
 def _gold_work_order_exceptions(ctx: BuildContext, ds: Dataset) -> None:
     ops_by_wo = defaultdict(lambda: [0, 0])  # [total_ops, late_ops]
@@ -156,6 +248,35 @@ def _gold_work_order_exceptions(ctx: BuildContext, ds: Dataset) -> None:
             "scenario_id": w.get("scenario_id"),
         })
     ds.add("gold_work_order_exceptions", rows, key=["wo_id"], source_system=SS.MASTER)
+
+
+def _gold_daily_factory_report(ctx: BuildContext, ds: Dataset) -> None:
+    completed = sum(
+        1 for op in ds.get("raw_mes_operation_executions").rows
+        if op.get("op_status") == "complete" and op.get("completed_at") == ctx.as_of.isoformat()
+    )
+    open_blockers = [b for b in ds.get("fact_blocker").rows if b.get("status") == "open"]
+    open_holds = [h for h in ds.get("raw_mes_hold_events").rows if not h.get("released_date")]
+    test_anomalies = [
+        r for r in ds.get("raw_test_runs").rows
+        if r.get("result") in ("fail", "inconclusive")
+    ]
+    rows = [{
+        "report_date": ctx.as_of.isoformat(),
+        "completed_operations": completed,
+        "open_blockers": len(open_blockers),
+        "open_quality_holds": len(open_holds),
+        "material_shortages": sum(1 for h in open_holds if h.get("reason") == "waiting_material"),
+        "test_anomalies": len(test_anomalies),
+        "recommended_followups": "; ".join(
+            f"{b['owner_team']}: {b['recommended_action']} [{b['source_link']}]"
+            for b in sorted(open_blockers, key=lambda x: (-x["age_days"], x["blocker_id"]))[:5]
+        ),
+        "source_links": "gold_factory_throughput_daily;fact_blocker;raw_mes_hold_events;"
+        "gold_test_anomaly_review",
+        "scenario_id": "SCN-008-DAILY-FACTORY-HANDOFF",
+    }]
+    ds.add("gold_daily_factory_report", rows, key=["report_date"], source_system=SS.MASTER)
 
 
 # --- Screen 4: cost of poor quality -----------------------------------------
