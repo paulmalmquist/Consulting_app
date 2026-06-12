@@ -6,7 +6,10 @@ import {
   type StreamBlock,
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, MetricCard, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter } from "./primitives";
+import {
+  C, Tag, Panel, MetricCard, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter,
+  StatGrid, SplitGrid,
+} from "./primitives";
 
 export default function Monitoring() {
   const [mon, setMon] = useState<MonitoringResponse | null>(null);
@@ -31,14 +34,14 @@ export default function Monitoring() {
   return (
     <>
       {heading}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <StatGrid cols={4}>
         <MetricCard label="Predictions logged" value={String(summary.kpi.predictions)} />
         <MetricCard label="Rolling no-go rate" value={rate != null ? `${(rate * 100).toFixed(1)}%` : "—"} accent={C.amber} />
         <MetricCard label="Drift monitors" value={String(driftMonitors)} sub={mon.psi != null ? `worst PSI ${mon.psi.toFixed(2)}` : "PSI computed"} />
         <MetricCard label="Serving model" value={mon.latest_model_version ? `v${mon.latest_model_version}` : "—"} sub={mon.latest_model_name ?? undefined} accent={C.cyan} />
-      </div>
+      </StatGrid>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+      <SplitGrid variant="halves" style={{ marginTop: 16 }}>
         <Panel title="Drift status (PSI per monitored channel)">
           {driftMonitors > 0 ? (
             <DriftBands summary={summary} />
@@ -53,7 +56,7 @@ export default function Monitoring() {
           <Row label="Window" value={mon.window_label} />
           <Row label="PSI bands" value="stable <0.1 · watch 0.1-0.25 · drift >0.25" />
         </Panel>
-      </div>
+      </SplitGrid>
 
       {mon.conformal_budget && <ConformalBudgetPanel b={mon.conformal_budget} liveRate={rate} />}
 
@@ -74,7 +77,7 @@ function StreamHealthPanel({ s }: { s: StreamBlock }) {
   return (
     <Panel title="Stream health (live ingestion)" style={{ marginTop: 16 }}
       right={<Tag color={col}>{s.status ?? "unknown"}</Tag>}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <StatGrid cols={4}>
         <MetricCard label="Pipeline status" value={s.status ?? "unknown"} accent={col}
           sub={s.reason ?? undefined} />
         <MetricCard label="Last frame at"
@@ -84,7 +87,7 @@ function StreamHealthPanel({ s }: { s: StreamBlock }) {
         <MetricCard label="Failing assertions (15m)"
           value={s.failing_assertions != null ? String(s.failing_assertions) : "—"}
           accent={s.failing_assertions ? C.red : C.green} />
-      </div>
+      </StatGrid>
       <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6,
         display: "block", marginTop: 10 }}>
         Live ISS public-telemetry ingestion (bronze → silver → gold). Detail — per-channel freshness,
@@ -103,12 +106,12 @@ function ConformalBudgetPanel({ b, liveRate }: { b: ConformalBudget; liveRate: n
   return (
     <Panel title="Conformal false-alarm budget (diagnostic)" style={{ marginTop: 16 }}
       right={b.status ? <Tag color={color}>{b.status} budget</Tag> : undefined}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <StatGrid cols={4}>
         <MetricCard label="Target false-alarm budget (α)" value={pct(b.alpha)} />
         <MetricCard label="Measured calibration FA rate" value={pct(b.measured_false_alarm_rate)} accent={color} />
         <MetricCard label="Calibration coverage" value={pct(b.calib_coverage)} accent={C.green} />
         <MetricCard label="Live rolling no-go rate" value={pct(liveRate)} accent={C.amber} />
-      </div>
+      </StatGrid>
       <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6, display: "block", marginTop: 10 }}>
         Measured on a blocked (contiguous) nominal-train calibration slice against the frozen detector
         (K={b.frozen_k ?? "—"}); to hold false alarms at α you would set K≈{b.threshold_quantile ?? "—"}. This is a

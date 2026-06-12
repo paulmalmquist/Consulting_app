@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   getModelPerformance, type ModelRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter, ScrollTable } from "./primitives";
 
 function metric(m: ModelRun, k: string): string {
   const v = (m.metrics || {})[k];
@@ -22,22 +22,24 @@ function Table({ title, cols, rows }: { title: string; cols: string[]; rows: Mod
   const grid = "1.4fr 0.8fr 0.8fr 0.9fr 0.9fr";
   return (
     <Panel title={title}>
-      <div style={{ display: "grid", gridTemplateColumns: grid, gap: 8, fontFamily: C.mono, fontSize: 10,
-        color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
-        {cols.map((c) => <span key={c}>{c}</span>)}
-      </div>
-      <div style={{ borderTop: `1px solid ${C.border}` }}>
-        {rows.map((m) => (
-          <div key={`${m.model_name}-${m.model_version}`} style={{ display: "grid", gridTemplateColumns: grid, gap: 8,
-            alignItems: "center", fontFamily: C.mono, fontSize: 12, color: C.text, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span>{m.model_name}</span>
-            <span style={{ fontWeight: 600 }}>{isRul ? metric(m, "rmse") : metric(m, "precision")}</span>
-            <span style={{ color: C.dim }}>{isRul ? metric(m, "phm") : metric(m, "recall")}</span>
-            <span style={{ color: isRul ? C.dim : C.text, fontWeight: isRul ? 400 : 600 }}>{isRul ? "" : metric(m, "f1")}</span>
-            <span><StatusTag m={m} /></span>
-          </div>
-        ))}
-      </div>
+      <ScrollTable minWidth={560}>
+        <div style={{ display: "grid", gridTemplateColumns: grid, gap: 8, fontFamily: C.mono, fontSize: 10,
+          color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
+          {cols.map((c) => <span key={c}>{c}</span>)}
+        </div>
+        <div style={{ borderTop: `1px solid ${C.border}` }}>
+          {rows.map((m) => (
+            <div key={`${m.model_name}-${m.model_version}`} style={{ display: "grid", gridTemplateColumns: grid, gap: 8,
+              alignItems: "center", fontFamily: C.mono, fontSize: 12, color: C.text, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+              <span>{m.model_name}</span>
+              <span style={{ fontWeight: 600 }}>{isRul ? metric(m, "rmse") : metric(m, "precision")}</span>
+              <span style={{ color: C.dim }}>{isRul ? metric(m, "phm") : metric(m, "recall")}</span>
+              <span style={{ color: isRul ? C.dim : C.text, fontWeight: isRul ? 400 : 600 }}>{isRul ? "" : metric(m, "f1")}</span>
+              <span><StatusTag m={m} /></span>
+            </div>
+          ))}
+        </div>
+      </ScrollTable>
     </Panel>
   );
 }
