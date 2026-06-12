@@ -108,6 +108,99 @@ def build_health() -> dict:
     return payload
 
 
+def build_signals_latest() -> dict:
+    """Assemble the latest-per-key signal payload from the ring.
+
+    All 8 known keys are always present in the response. A key absent from
+    the ring gets quality.status='missing' and a null_reason — the frontend
+    must never silently omit a tile.
+    """
+    from app.services.hr_stream.contracts import SIGNAL_DOMAINS
+
+    ring = get_ring()
+    latest = ring.latest_per_key()
+    mode = config.stream_mode()
+    signals: list[dict] = []
+
+    for key in SIGNAL_DOMAINS:
+        ev = latest.get(key)
+        if ev is None:
+            signals.append({
+                "signal_key": key,
+                "domain": SIGNAL_DOMAINS[key],
+                "value": None,
+                "unit": None,
+                "previous_value": None,
+                "delta": None,
+                "observed_at": None,
+                "source": "stream",
+                "mode": mode,
+                "quality": {
+                    "status": "missing",
+                    "null_reason": "not yet received from stream",
+                    "source_lag_seconds": None,
+                    "validation_errors": [],
+                },
+                "tags": [],
+            })
+        else:
+            quality = ev.quality.model_dump()
+            signals.append({
+                "signal_key": ev.signal_key,
+                "domain": ev.domain,
+                "value": ev.value,
+                "unit": ev.unit,
+                "previous_value": ev.previous_value,
+                "delta": ev.delta,
+                "observed_at": ev.observed_at.isoformat(),
+                "source": ev.source,
+                "mode": mode,
+                "quality": quality,
+                "tags": list(ev.tags),
+            })
+
+    return {"mode": mode, "signals": signals}
+
+
+@router.get("/signals/latest")
+def stream_signals_latest() -> dict:
+    """Latest signal value per key from the in-process ring buffer.
+
+    Returns 200 in all modes including off/disconnected — missing keys carry
+    quality.status='missing' + null_reason rather than being omitted.
+    """
+    try:
+        return build_signals_latest()
+    except Exception:
+        logger.warning("hr stream signals/latest failed", exc_info=True)
+        from app.services.hr_stream.contracts import SIGNAL_DOMAINS
+        mode = config.stream_mode()
+        return {
+            "mode": mode,
+            "signals": [
+                {
+                    "signal_key": key,
+                    "domain": SIGNAL_DOMAINS[key],
+                    "value": None,
+                    "unit": None,
+                    "previous_value": None,
+                    "delta": None,
+                    "observed_at": None,
+                    "source": "stream",
+                    "mode": mode,
+                    "quality": {
+                        "status": "missing",
+                        "null_reason": "signals/latest computation failed; see backend logs",
+                        "source_lag_seconds": None,
+                        "validation_errors": [],
+                    },
+                    "tags": [],
+                }
+                for key in SIGNAL_DOMAINS
+            ],
+        }
+
+
 @router.get("/health")
 def stream_health() -> dict:
     try:

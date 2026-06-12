@@ -5,10 +5,14 @@ import {
   fetchHrState,
   fetchLatestDecision,
   fetchLatestBrief,
+  fetchStreamHealth,
+  fetchStreamSignals,
   type HrState,
   type HrDecision,
   type HrBrief,
   type Position,
+  type StreamHealth,
+  type StreamSignal,
 } from "@/lib/historyrhymes/client";
 import {
   postRhymesMatch,
@@ -18,7 +22,7 @@ import {
   type StructuralAlert,
   type TrapDetector,
 } from "@/lib/historyrhymes/rhymesClient";
-import { parseBriefSignals } from "@/lib/historyrhymes/signals";
+import { parseBriefSignals, mergeStreamIntoBrief } from "@/lib/historyrhymes/signals";
 import {
   signalEvidence,
   analogEvidence,
@@ -65,6 +69,9 @@ export interface HistoryRhymesCockpitProps {
   rootTestId?: string;
 }
 
+// Stream status codes that drive signal polling.
+const STREAM_LIVE_STATUSES = new Set(["connected", "delayed", "replaying"]);
+
 export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }: HistoryRhymesCockpitProps) {
   const [state, setState] = useState<HrState | null>(null);
   const [decision, setDecision] = useState<HrDecision | null>(null);
@@ -73,6 +80,12 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
   const [alerts, setAlerts] = useState<StructuralAlert[] | null>(null);
   const [evidence, setEvidence] = useState<EvidencePayload | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Stream state: health polled every 30s, signals every 5s when live.
+  const [streamHealth, setStreamHealth] = useState<StreamHealth | null>(null);
+  const [streamSignals, setStreamSignals] = useState<StreamSignal[] | null>(null);
+  // True when the stream WAS live but the last fetch returned null or non-live status.
+  const [streamLost, setStreamLost] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +107,41 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Health poll: 30s interval, always active after mount.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const h = await fetchStreamHealth();
+      if (cancelled) return;
+      setStreamHealth(h);
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Signal poll: 5s when stream is live, otherwise off.
+  const streamIsLive = streamHealth !== null && STREAM_LIVE_STATUSES.has(streamHealth.status);
+  useEffect(() => {
+    if (!streamIsLive) return;
+    let cancelled = false;
+    const poll = async () => {
+      const res = await fetchStreamSignals();
+      if (cancelled) return;
+      if (res === null) {
+        // Fetch failed — mark stream lost if we previously had signals.
+        setStreamLost((prev) => streamSignals !== null ? true : prev);
+      } else {
+        setStreamSignals(res.signals);
+        setStreamLost(false);
+      }
+    };
+    poll();
+    const id = setInterval(poll, 5_000);
+    return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamIsLive]);
 
   // Acknowledge: optimistic removal happens in the card; on success refetch
   // so the rail reflects the backend's view, on failure the card reverts.
@@ -128,14 +176,35 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
         onOpenEvidence={() => setEvidence(regimeEvidence(state, decision, brief))}
       />
 
-      {/* Z2 — signal telemetry strip (brief-sourced until the stream lands in PR 13). */}
-      <SignalTelemetryStrip
-        brief={brief}
-        onOpenEvidence={(key) => {
-          const signal = parseBriefSignals(brief).find((s) => s.key === key);
-          if (signal) setEvidence(signalEvidence(signal, brief));
-        }}
-      />
+      {/* Stream-loss banner: stream was live but fetch failed — show stale brief values. */}
+      {streamLost && (
+        <div role="alert" data-testid="hr-stream-lost-banner"
+          style={{ marginTop: 8, padding: "6px 12px", background: "rgba(243,177,74,0.12)",
+            border: `1px solid ${C.amber}`, borderRadius: 4, fontFamily: C.mono,
+            fontSize: 11, color: C.amber, letterSpacing: "0.08em" }}>
+          stream lost — showing weekly brief values
+        </div>
+      )}
+
+      {/* Z2 — signal telemetry strip. Stream signals merge over brief values when live;
+          per-key source tag on each tile shows "brief" vs "stream · {mode}". */}
+      {(() => {
+        const briefSigs = parseBriefSignals(brief);
+        const mergedSigs = streamIsLive && !streamLost && streamSignals
+          ? mergeStreamIntoBrief(briefSigs, streamSignals, streamHealth?.mode ?? "stream")
+          : null;
+        return (
+          <SignalTelemetryStrip
+            brief={brief}
+            streamSignals={mergedSigs}
+            streamMode={streamHealth?.mode ?? null}
+            onOpenEvidence={(key) => {
+              const signal = (mergedSigs ?? briefSigs).find((s) => s.key === key);
+              if (signal) setEvidence(signalEvidence(signal, brief));
+            }}
+          />
+        );
+      })()}
 
       {/* Z3 + Z4 — analog timeline (main) beside the alert/trap rail. */}
       <SplitGrid variant="two-one" style={{ marginTop: 16 }}>

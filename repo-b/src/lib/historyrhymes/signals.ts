@@ -135,3 +135,67 @@ function asRecord(v: unknown): Record<string, unknown> | null {
     ? (v as Record<string, unknown>)
     : null;
 }
+
+/**
+ * Merge live stream signals into a brief-derived tile set.
+ *
+ * Rules (honesty-first):
+ *  - A stream signal with quality.status="missing" WINS over a brief value —
+ *    a sensor reporting missing is more recent than a week-old brief value;
+ *    the tile shows the stream's null_reason, not the stale brief number.
+ *  - A stream signal with a real value replaces the brief value and flips the
+ *    source tag to "stream · {mode}".
+ *  - A key absent from the stream response leaves the brief tile unchanged.
+ *  - If streamSignals is null/undefined (fetch failed or stream off), returns
+ *    briefSignals unchanged — no silent mixing, no amber warning here (the
+ *    caller surfaces the stream-loss indicator separately).
+ *
+ * @param briefSignals  Output of parseBriefSignals — all 8 keys present.
+ * @param streamSignals From fetchStreamSignals().signals — all 8 keys from
+ *                      the backend, each with quality.status.
+ * @param mode          Stream mode label (e.g. "synthetic") for the source tag.
+ */
+export function mergeStreamIntoBrief(
+  briefSignals: NormalizedSignal[],
+  streamSignals: import("./client").StreamSignal[] | null | undefined,
+  mode: string,
+): NormalizedSignal[] {
+  if (!streamSignals || streamSignals.length === 0) return briefSignals;
+
+  const byKey = new Map(streamSignals.map((s) => [s.signal_key, s]));
+
+  return briefSignals.map((tile) => {
+    const stream = byKey.get(tile.key);
+    if (!stream) return tile; // key absent from stream response — leave brief tile
+
+    if (stream.quality.status === "missing") {
+      // Stream explicitly reports missing — wins over brief value.
+      return {
+        ...tile,
+        value: null,
+        formatted: "—",
+        delta: null,
+        status: "missing" as SignalStatus,
+        nullReason: stream.quality.null_reason ?? "stream reports missing",
+        source: "stream" as const,
+      };
+    }
+
+    // Stream has a real value — replace brief tile.
+    const streamValue = stream.value;
+    const prevNum =
+      stream.previous_value !== null && stream.previous_value !== undefined
+        ? stream.previous_value
+        : undefined;
+    return {
+      ...tile,
+      value: streamValue,
+      formatted: formatSignalValue(streamValue),
+      delta: stream.delta !== null ? (stream.delta >= 0 ? `+${stream.delta.toFixed(2)}` : stream.delta.toFixed(2)) : computeDelta(streamValue, prevNum),
+      freshnessLabel: null,
+      status: (stream.quality.status as SignalStatus) ?? "fresh",
+      nullReason: null,
+      source: `stream · ${mode}` as unknown as "stream",
+    };
+  });
+}

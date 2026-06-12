@@ -331,3 +331,33 @@ export interface StreamHealth {
 export function fetchStreamHealth(): Promise<StreamHealth | null> {
   return getJson<StreamHealth>("/api/hr/v1/stream/health");
 }
+
+export interface StreamSignalQuality {
+  status: "fresh" | "stale" | "missing";
+  null_reason: string | null;
+  source_lag_seconds: number | null;
+  validation_errors: string[];
+}
+
+export interface StreamSignal {
+  signal_key: string;
+  domain: string;
+  value: number | string | null;
+  unit: string | null;
+  previous_value: number | null;
+  delta: number | null;
+  observed_at: string | null;
+  source: string;
+  mode: StreamMode;
+  quality: StreamSignalQuality;
+  tags: string[];
+}
+
+export interface StreamSignalsResponse {
+  mode: StreamMode;
+  signals: StreamSignal[];
+}
+
+export function fetchStreamSignals(): Promise<StreamSignalsResponse | null> {
+  return getJson<StreamSignalsResponse>("/api/hr/v1/stream/signals/latest");
+}
