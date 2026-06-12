@@ -264,7 +264,7 @@ export function resolveEnvironmentOpenPath(args: {
   if (isPilotBuilderEnvironment(args.industry)) return `/lab/env/${args.envId}/pilot`;
   if (isImpactEstimatorEnvironment(args.industry)) return `/lab/env/${args.envId}/impact`;
   if (isCaseFactoryEnvironment(args.industry)) return `/lab/env/${args.envId}/case-factory`;
-  if (isAiCopilotEnvironment(args.industry)) return `/lab/env/${args.envId}/copilot`;
+  if (isAiCopilotEnvironment(args.industry)) return `/lab/env/${args.envId}`;
   if (isEngagementOutputEnvironment(args.industry)) return `/lab/env/${args.envId}/outputs`;
   if (isExecutionPatternIntelEnvironment(args.industry)) return `/lab/env/${args.envId}/pattern-intel`;
   if (isVisualResumeEnvironment(args.industry)) return `/lab/env/${args.envId}/resume`;
