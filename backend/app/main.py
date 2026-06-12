@@ -133,6 +133,12 @@ async def lifespan(app: FastAPI):
     git_sha = resolve_git_sha()
     db_fp = resolve_db_fingerprint()
 
+    # Background task handles, cancelled on shutdown below. None until a future
+    # phase wires their creation; the shutdown loop guards on `is not None`.
+    stream_task = None
+    stream_etl_task = None
+    stargate_autoplay_task = None
+
     emit_log(
         level="info", service="backend", action="startup.begin",
         message="Backend starting",
