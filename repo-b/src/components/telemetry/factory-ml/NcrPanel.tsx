@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import { C, Panel, Tag } from "../primitives";
+import { C, Panel, SplitGrid, Tag } from "../primitives";
 import type { NcrExport } from "@/lib/lab/factoryMlData";
 
 export default function NcrPanel({ data }: { data: NcrExport }) {
@@ -15,7 +15,7 @@ export default function NcrPanel({ data }: { data: NcrExport }) {
   const active = clusters.find((c) => c.defect_code === selected) ?? clusters[0];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(320px, 5fr) minmax(360px, 7fr)", gap: 14 }}>
+    <SplitGrid variant="five-seven">
       <Panel title="Defect pareto" pad={12}>
         <ResponsiveContainer width="100%" height={Math.max(200, clusters.length * 30)}>
           <BarChart data={clusters} layout="vertical" margin={{ left: 24, right: 12 }}>
@@ -66,6 +66,6 @@ export default function NcrPanel({ data }: { data: NcrExport }) {
           </div>
         </Panel>
       )}
-    </div>
+    </SplitGrid>
   );
 }

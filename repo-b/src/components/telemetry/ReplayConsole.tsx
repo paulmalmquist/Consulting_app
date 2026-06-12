@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getReplayFeed, type ReplayFeed, type ReplayTick } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
+import { C, Panel, Loading, ErrorState, PageHeading, DisclosureFooter, SplitGrid } from "./primitives";
 import { CopilotExplanationPanel } from "./Copilot";
 
 const W = 900, H = 280, PAD = 28;
@@ -75,7 +75,7 @@ export default function ReplayConsole() {
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+      <SplitGrid variant="main-side">
         <Panel title="Telemetry trace" pad={12}>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} role="img" aria-label="Telemetry trace with detected anomaly">
             {fireX >= 0 && cursorX >= fireX && (
@@ -134,7 +134,7 @@ export default function ReplayConsole() {
             ) : <span style={{ fontFamily: C.mono, fontSize: 12, color: C.dim }}>No contributing channels yet.</span>}
           </Panel>
         </div>
-      </div>
+      </SplitGrid>
 
       {explain && firedSoFar && (
         <div style={{ marginTop: 16 }}>

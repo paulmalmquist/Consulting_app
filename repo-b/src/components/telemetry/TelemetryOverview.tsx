@@ -7,7 +7,10 @@ import {
   type ModelRun, type TelemetrySummary, type TestRun, type FusedVectorInfo,
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
+import {
+  C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
+  StatGrid, SplitGrid, ResponsiveSwap, RowCard,
+} from "./primitives";
 
 function ModelCard({ m }: { m: ModelRun }) {
   const champ = m.promotion_state === "promoted";
@@ -106,7 +109,7 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
         } />
 
       {/* metric strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <StatGrid cols={4}>
         <MetricCard label="Promoted models" value={String(k.promoted_models)} sub={`of ${inv.model_runs} evaluated`} />
         <MetricCard label="Anomaly F1" value={k.anomaly_f1 != null ? Number(k.anomaly_f1).toFixed(4) : "—"}
           sub={challengerF1 != null ? `champion vs ${Number(challengerF1).toFixed(4)} challenger` : undefined} accent={C.cyan} />
@@ -114,12 +117,12 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
           sub={challengerRmse != null ? `champion vs ${Number(challengerRmse).toFixed(2)} challenger` : undefined} accent={C.green} />
         <MetricCard label="Predictions" value={num(k.predictions)}
           sub={noGoPct != null ? `${noGoPct}% no-go · ${k.test_runs} runs` : undefined} accent={C.amber} />
-      </div>
+      </StatGrid>
 
       {/* model registry + (replay preview + drift) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginTop: 16 }}>
+      <SplitGrid variant="main-side" style={{ marginTop: 16 }}>
         <Panel title="Model registry" right={<Tag color={C.green}>{k.promoted_models} promoted · {models.length - k.promoted_models} challengers</Tag>}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {models.map((m) => <ModelCard key={`${m.model_name}-${m.model_version}`} m={m} />)}
           </div>
           <div style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 14 }}>
@@ -135,7 +138,7 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
             <p style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, lineHeight: 1.5 }}>{summary.note}</p>
           </Panel>
         </div>
-      </div>
+      </SplitGrid>
 
       {/* Fused state vector (Phase 7A) — only when built + verified; shows the ACTUAL dim */}
       {fused?.available && (
@@ -161,23 +164,39 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
       )}
 
       {/* test runs + serving inventory */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginTop: 16 }}>
+      <SplitGrid variant="main-side" style={{ marginTop: 16 }}>
         <Panel title="Ingested test runs" right={<Tag color={C.cyan}>{inv.test_runs} runs</Tag>}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 0.7fr", gap: 8, fontFamily: C.mono,
-            fontSize: 10, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
-            <span>Run</span><span>Dataset</span><span>Unit / craft</span><span>Rows</span>
-          </div>
-          <div style={{ borderTop: `1px solid ${C.border}` }}>
-            {runs.slice(0, 8).map((r) => (
-              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 0.7fr", gap: 8,
-                fontFamily: C.mono, fontSize: 12, color: C.text, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{r.run_key}</span>
-                <span style={{ color: C.dim }}>{r.dataset}</span>
-                <span style={{ color: C.dim }}>{r.unit_or_channel}{r.spacecraft ? ` · ${r.spacecraft}` : ""}</span>
-                <span>{r.row_count.toLocaleString()}</span>
+          <ResponsiveSwap
+            mobile={
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {runs.slice(0, 8).map((r) => (
+                  <RowCard key={r.id} title={r.run_key} tags={<Tag color={C.dim}>{r.dataset}</Tag>}
+                    fields={[
+                      { label: "Unit / craft", value: `${r.unit_or_channel}${r.spacecraft ? ` · ${r.spacecraft}` : ""}` },
+                      { label: "Rows", value: r.row_count.toLocaleString() },
+                    ]} />
+                ))}
               </div>
-            ))}
-          </div>
+            }
+            desktop={
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 0.7fr", gap: 8, fontFamily: C.mono,
+                  fontSize: 10, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
+                  <span>Run</span><span>Dataset</span><span>Unit / craft</span><span>Rows</span>
+                </div>
+                <div style={{ borderTop: `1px solid ${C.border}` }}>
+                  {runs.slice(0, 8).map((r) => (
+                    <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 0.7fr", gap: 8,
+                      fontFamily: C.mono, fontSize: 12, color: C.text, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{r.run_key}</span>
+                      <span style={{ color: C.dim }}>{r.dataset}</span>
+                      <span style={{ color: C.dim }}>{r.unit_or_channel}{r.spacecraft ? ` · ${r.spacecraft}` : ""}</span>
+                      <span>{r.row_count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            } />
           <div style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 12 }}>
             SMAP/MSL anomaly channels (go/no-go) + C-MAPSS RUL units. {inv.test_runs} runs total.
           </div>
@@ -197,7 +216,7 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
             Drift monitors: {k.drift_monitors} · last score {k.last_scored_at ? new Date(k.last_scored_at).toISOString().slice(0, 10) : "—"}
           </div>
         </Panel>
-      </div>
+      </SplitGrid>
 
       <DisclosureFooter />
     </>

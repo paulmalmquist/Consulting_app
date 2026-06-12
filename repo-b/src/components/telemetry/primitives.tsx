@@ -98,6 +98,100 @@ export function PageHeading({ eyebrow, title, blurb, right }: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Responsive layout primitives. Layout lives in literal Tailwind classes
+// (never composed from props — the content scanner only sees literal strings);
+// color/typography stay on the inline palette above. Content reflows at `sm`
+// and `lg`; the shell's rail/drawer split is also at `lg`.
+// ---------------------------------------------------------------------------
+
+const STAT_GRID_COLS: Record<3 | 4 | 5, string> = {
+  3: "grid grid-cols-2 gap-3 lg:grid-cols-3",
+  4: "grid grid-cols-2 gap-3 lg:grid-cols-4",
+  5: "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5",
+};
+
+// Metric-card strip: 2-up on phones, full width count on desktop.
+export function StatGrid({ cols = 4, style, children }: {
+  cols?: 3 | 4 | 5; style?: CSSProperties; children: ReactNode;
+}) {
+  return <div className={STAT_GRID_COLS[cols]} style={style}>{children}</div>;
+}
+
+export type SplitVariant = "main-side" | "two-one" | "wide-main-side" | "five-seven" | "halves" | "thirds";
+
+const SPLIT_GRID_COLS: Record<SplitVariant, string> = {
+  "main-side": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]",
+  "two-one": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+  "wide-main-side": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]",
+  "five-seven": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
+  halves: "grid grid-cols-1 gap-4 lg:grid-cols-2",
+  thirds: "grid grid-cols-1 gap-4 sm:grid-cols-3",
+};
+
+// Two-panel (or three-panel) splits that stack vertically on phones.
+export function SplitGrid({ variant, style, children }: {
+  variant: SplitVariant; style?: CSSProperties; children: ReactNode;
+}) {
+  return <div className={SPLIT_GRID_COLS[variant]} style={style}>{children}</div>;
+}
+
+// Horizontal-scroll wrapper for numeric matrices that have no sane card form.
+export function ScrollTable({ minWidth = 640, children }: { minWidth?: number; children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div style={{ minWidth }}>{children}</div>
+    </div>
+  );
+}
+
+// CSS-only mobile/desktop swap (no useIsMobile — zero hydration risk). Both
+// branches render; keep row counts small where this wraps tables.
+export function ResponsiveSwap({ mobile, desktop }: { mobile: ReactNode; desktop: ReactNode }) {
+  return (
+    <>
+      <div className="sm:hidden">{mobile}</div>
+      <div className="hidden sm:block">{desktop}</div>
+    </>
+  );
+}
+
+// Uniform mobile representation of a table row: title line, optional tags,
+// then label/value pairs in a 2-col mono grid.
+export function RowCard({ title, tags, fields, onClick, active }: {
+  title: ReactNode;
+  tags?: ReactNode;
+  fields: { label: string; value: ReactNode }[];
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const body = (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text, fontWeight: 600 }}>{title}</span>
+        {tags && <span style={{ display: "flex", gap: 6, alignItems: "center" }}>{tags}</span>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 14px", marginTop: 10 }}>
+        {fields.map((f) => (
+          <div key={f.label}>
+            <div style={{ fontFamily: C.mono, fontSize: 9, letterSpacing: "0.1em", color: C.faint, textTransform: "uppercase" }}>{f.label}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.dim, marginTop: 3 }}>{f.value}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+  const style: CSSProperties = {
+    background: active ? C.panelHi : C.panel,
+    border: `1px solid ${active ? C.borderHi : C.border}`,
+    borderRadius: 9, padding: 12, textAlign: "left", width: "100%",
+  };
+  if (onClick) {
+    return <button type="button" onClick={onClick} style={{ ...style, cursor: "pointer", display: "block" }}>{body}</button>;
+  }
+  return <div style={style}>{body}</div>;
+}
+
 // Public-data + backfill disclosure (the UI never overclaims).
 export function DisclosureFooter() {
   return (

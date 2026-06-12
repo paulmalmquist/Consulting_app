@@ -5,7 +5,10 @@ import {
   getGovernance, getEvals, getUsefulness,
   type GovernanceSummary, type EvalResults, type UsefulnessSummary, type ArmMeasures,
 } from "@/lib/telemetry/copilot-api";
-import { C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter } from "./primitives";
+import {
+  C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
+  StatGrid, SplitGrid, ScrollTable, ResponsiveSwap, RowCard,
+} from "./primitives";
 
 const pct = (x: number | null | undefined) => (x == null ? null : `${Math.round(x * 100)}%`);
 const ms = (x: number | null | undefined) => (x == null ? null : `${x}ms`);
@@ -73,7 +76,7 @@ export default function GovernanceDashboard() {
       </Panel>
 
       {/* metric strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 16 }}>
+      <StatGrid cols={4} style={{ marginTop: 16 }}>
         <GovMetric label="Grounded answer rate" value={pct(g.grounded_rate)} accent={C.green}
           sub={`${g.total_interactions} logged interactions`} />
         <GovMetric label="Refusal rate" value={pct(g.refusal_rate)} accent={C.amber}
@@ -88,13 +91,13 @@ export default function GovernanceDashboard() {
           sub={`${tool.success || 0} ok · ${toolErr} error · ${tool.skipped || 0} skipped`} />
         <GovMetric label="Active model" value={g.active_model || null}
           sub={`prompt ${g.active_prompt_version}`} />
-      </div>
+      </StatGrid>
 
       {/* operator usefulness (within-reviewer A/B) */}
       <UsefulnessPanel u={u} />
 
       {/* evals + production smoke */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16, marginTop: 16 }}>
+      <SplitGrid variant="main-side" style={{ marginTop: 16 }}>
         <Panel title="Eval suite"
           right={e?.summary ? <Tag color={e.summary.passed === e.summary.total ? C.green : C.red}>{e.summary.passed}/{e.summary.total} pass</Tag> : <Tag color={C.faint}>not available</Tag>}>
           {!e || !e.available ? (
@@ -142,32 +145,51 @@ export default function GovernanceDashboard() {
             </>
           )}
         </Panel>
-      </div>
+      </SplitGrid>
 
       {/* recent interactions */}
       <Panel title="Recent interactions" right={<Tag color={C.cyan}>{g.recent_interactions.length} shown</Tag>} style={{ marginTop: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 0.9fr 0.5fr 1.6fr", gap: 8, fontFamily: C.mono,
-          fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", paddingBottom: 6 }}>
-          <span>When</span><span>Intent</span><span>Source</span><span>ms</span><span>Question</span>
-        </div>
-        <div style={{ borderTop: `1px solid ${C.border}` }}>
-          {g.recent_interactions.map((r, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 0.9fr 0.5fr 1.6fr", gap: 8,
-              fontFamily: C.mono, fontSize: 11, color: C.text, padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ color: C.dim }}>{r.created_at ? r.created_at.replace("T", " ").slice(0, 19) : "—"}</span>
-              <span style={{ color: r.is_refusal ? C.amber : C.dim }}>{r.is_refusal ? "refusal" : (r.intent || "—")}</span>
-              <span style={{ color: r.answer_source === "live_llm" ? C.green : r.answer_source === "refusal" ? C.amber : C.cyan }}>
-                {r.answer_source}{r.fallback_reason ? `:${r.fallback_reason}` : ""}
-              </span>
-              <span style={{ color: C.faint }}>{r.elapsed_ms ?? "—"}</span>
-              <span style={{ color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.question || "—"}</span>
+        <ResponsiveSwap
+          mobile={
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {g.recent_interactions.map((r, i) => (
+                <RowCard key={i}
+                  title={<span style={{ fontWeight: 400, color: C.dim }}>{r.question || "—"}</span>}
+                  tags={<Tag color={r.is_refusal ? C.amber : C.dim}>{r.is_refusal ? "refusal" : (r.intent || "—")}</Tag>}
+                  fields={[
+                    { label: "When", value: r.created_at ? r.created_at.replace("T", " ").slice(0, 19) : "—" },
+                    { label: "ms", value: r.elapsed_ms ?? "—" },
+                    { label: "Source", value: `${r.answer_source}${r.fallback_reason ? `:${r.fallback_reason}` : ""}` },
+                  ]} />
+              ))}
             </div>
-          ))}
-        </div>
+          }
+          desktop={
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 0.9fr 0.5fr 1.6fr", gap: 8, fontFamily: C.mono,
+                fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", paddingBottom: 6 }}>
+                <span>When</span><span>Intent</span><span>Source</span><span>ms</span><span>Question</span>
+              </div>
+              <div style={{ borderTop: `1px solid ${C.border}` }}>
+                {g.recent_interactions.map((r, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 0.9fr 0.5fr 1.6fr", gap: 8,
+                    fontFamily: C.mono, fontSize: 11, color: C.text, padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <span style={{ color: C.dim }}>{r.created_at ? r.created_at.replace("T", " ").slice(0, 19) : "—"}</span>
+                    <span style={{ color: r.is_refusal ? C.amber : C.dim }}>{r.is_refusal ? "refusal" : (r.intent || "—")}</span>
+                    <span style={{ color: r.answer_source === "live_llm" ? C.green : r.answer_source === "refusal" ? C.amber : C.cyan }}>
+                      {r.answer_source}{r.fallback_reason ? `:${r.fallback_reason}` : ""}
+                    </span>
+                    <span style={{ color: C.faint }}>{r.elapsed_ms ?? "—"}</span>
+                    <span style={{ color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.question || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          } />
       </Panel>
 
       {/* refusal + blocked examples */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+      <SplitGrid variant="halves" style={{ marginTop: 16 }}>
         <Panel title="Recent refusals (out-of-scope)">
           {g.recent_refusals.length === 0 ? (
             <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>None recorded.</span>
@@ -188,7 +210,7 @@ export default function GovernanceDashboard() {
             </div>
           ))}
         </Panel>
-      </div>
+      </SplitGrid>
 
       <DisclosureFooter />
     </>
@@ -231,22 +253,24 @@ function UsefulnessPanel({ u }: { u: UsefulnessSummary | null }) {
         Until then they read “not measured”, never a placeholder zero. Deterministic anchors below are live now.
       </div>
       {/* six measures × two arms, N in the header */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8, fontFamily: C.mono,
-        fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", paddingBottom: 6 }}>
-        <span>Measure</span>
-        <span>assisted (N={asg?.n ?? 0})</span>
-        <span>unassisted (N={una?.n ?? 0})</span>
-      </div>
-      <div style={{ borderTop: `1px solid ${C.border}` }}>
-        {ROWS.map((row) => (
-          <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8,
-            fontFamily: C.mono, fontSize: 11.5, color: C.text, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ color: C.dim }}>{row.label}</span>
-            <Cell v={armCell(asg, row.fld, row.kind)} />
-            <Cell v={armCell(una, row.fld, row.kind)} />
-          </div>
-        ))}
-      </div>
+      <ScrollTable minWidth={560}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8, fontFamily: C.mono,
+          fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", paddingBottom: 6 }}>
+          <span>Measure</span>
+          <span>assisted (N={asg?.n ?? 0})</span>
+          <span>unassisted (N={una?.n ?? 0})</span>
+        </div>
+        <div style={{ borderTop: `1px solid ${C.border}` }}>
+          {ROWS.map((row) => (
+            <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr", gap: 8,
+              fontFamily: C.mono, fontSize: 11.5, color: C.text, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ color: C.dim }}>{row.label}</span>
+              <Cell v={armCell(asg, row.fld, row.kind)} />
+              <Cell v={armCell(una, row.fld, row.kind)} />
+            </div>
+          ))}
+        </div>
+      </ScrollTable>
       {/* deterministic anchors — real now, not self-reported */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
         <Anchor k="Unsupported claims blocked" v={u ? String(u.anchors.postvalidator_block_count) : "—"} col={C.red} />

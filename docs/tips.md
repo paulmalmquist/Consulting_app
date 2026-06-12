@@ -3201,3 +3201,26 @@ nothing throws. Bonus diagnosis lesson re-confirmed: the same browser-agent revi
 WebGL error on a page with zero three.js imports (Factory ML) while simultaneously describing it
 rendering fully — agent-mode artifacts ride along with real findings; verify each against the code
 before fixing.
+
+### Making an inline-style surface responsive: literal Tailwind for layout, palette for paint (2026-06-12)
+
+The telemetry console styles everything with inline `CSSProperties` from a palette object, which
+means zero media queries — every grid was desktop-only. The retrofit that worked: a handful of
+layout primitives in `primitives.tsx` (`StatGrid`, `SplitGrid`, `ScrollTable`, `ResponsiveSwap`,
+`RowCard`) that carry **literal** Tailwind responsive classes (`grid grid-cols-2 lg:grid-cols-4`,
+`lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]`) while color/typography stay inline. Rules learned:
+
+- Class strings must be literal, keyed off a fixed variant union — Tailwind's content scanner never
+  sees classes composed from props, so `lg:grid-cols-${n}` silently generates nothing.
+- An inline `style={{ display: "flex" }}` beats `lg:hidden` (inline > any class), so an element that
+  must hide per-breakpoint needs its display in classes too: `className="flex lg:hidden"`. This bit
+  the mobile header and bottom nav on first pass — desktop showed both plus the rail.
+- `ResponsiveSwap` (CSS-only `sm:hidden` / `hidden sm:block`) is the zero-hydration-risk way to swap
+  a dense grid-table for a card list; reserve `useIsMobile()` for true behavior changes (e.g. not
+  mounting the Stargate three.js canvas under 640px — and gate it behind a `mounted` flag, because
+  the hook's SSR default is desktop and would otherwise mount the canvas for one frame on phones).
+- Navigation cohesion came free once `TELEMETRY_NAV` became a single config consumed by the desktop
+  rail, the mobile drawer, and the bottom tab bar (4 primaries + "More" opens the drawer). 12 flat
+  items in a bottom bar don't fit; group the drawer instead.
+- When re-verifying after a rebuild, confirm the new server actually bound the port — an EADDRINUSE
+  leftover from the previous `next start` will happily serve the stale build and "disprove" the fix.
