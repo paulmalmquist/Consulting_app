@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write proven 2026-06-10; see acceptance receipt below). Phases 3B–6 planned.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write proven 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip proven 2026-06-12; receipt below). Phases 4–6 planned. ADO: Story #521 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -51,7 +51,7 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 6 | 2 | BigQuery `winston_events_raw.events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | DONE |
 | 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
 | 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE (2026-06-10) |
-| 8b | 3B | Cloud broker (GCP Managed Kafka / Confluent) + transport cutover via env; `confluent-kafka` in requirements.txt | No | Med | TODO |
+| 8b | 3B | Cloud broker (Confluent Cloud) + transport security cutover via env; `confluent-kafka` in requirements.txt; `scripts/streaming/broker_smoke.py` round-trip | No | Med | DONE (2026-06-12) |
 | 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
@@ -151,9 +151,44 @@ Billing account: `01C91A-EBBE34-ED09D2` ("Novendor GCP") — general-purpose, li
 
 **Credential note:** never commit service account JSON. Use `gcloud auth application-default login` for local dev; Workload Identity for GKE (Phase 4).
 
+## Phase 3B — per-ticket detail (IN PROGRESS)
+
+### Ticket 8b — Confluent Cloud broker transport cutover
+**Broker decision:** Confluent Cloud (fastest credible managed-Kafka receipt; same `confluent-kafka` client as GCP Managed Kafka; reversible via env). GCP Managed Kafka deferred to Phase 4/GKE.
+
+**Code (landed on `feat/cloud-broker-event-transport`, ADO Story #521):**
+- `backend/app/events/config.py`: added `EVENTS_SECURITY_PROTOCOL` (default `PLAINTEXT`), `EVENTS_SASL_MECHANISM` (default `PLAIN`), `EVENTS_SASL_USERNAME`, `EVENTS_SASL_PASSWORD`, and `producer_security_config()` — returns SASL/SSL librdkafka keys only when the protocol is non-PLAINTEXT, so the local Redpanda path is unchanged.
+- `backend/app/events/transport.py`: `KafkaTransport.__init__` merges `producer_security_config()` into the producer config. No new transport class; the existing `get_transport()` fail-closed resolver is untouched.
+- `backend/requirements.txt`: added `confluent-kafka>=2.3` (lazy-imported; absent/unconfigured → NoopTransport, so default-off behavior is unchanged).
+- `scripts/streaming/broker_smoke.py`: round-trip smoke — `publish_event` → broker → consume back → existing `sink.process_message` → BigQuery receipt by `run_id`. The consumer lives only in this script (the long-running sink-worker consumer is Phase 4). `--no-bq` flag proves the broker round-trip alone.
+- `infra/confluent/README.md`: env contract, console setup, smoke usage, guardrails.
+- `backend/tests/test_events_broker_config.py`: 8 tests — security-config resolution (PLAINTEXT/SASL_SSL/SSL/SASL_PLAINTEXT), transport stays no-op when disabled even with SASL set, no-op when `confluent-kafka` absent, and that `KafkaTransport` applies the security keys to the producer (PLAINTEXT has none).
+
+**Verification (no broker):**
+- `pytest tests/test_events_broker_config.py tests/test_events.py tests/test_events_sink.py -q` → 37 passed.
+- `ruff check app/events/config.py app/events/transport.py tests/test_events_broker_config.py ../scripts/streaming/broker_smoke.py` → clean.
+
+**Phase 3B acceptance receipt — real Confluent Cloud round-trip (2026-06-12):**
+```
+publish_event(...) -> Confluent Cloud (SASL_SSL) -> winston.executions.v1
+  -> consumed back (506 bytes, run_id matched) -> sink.process_message()
+  -> BigQuery winston_events_raw.events
+
+  event_id    = 66c09521-1431-4321-985d-36ca4324d372
+  event_type  = execution.completed
+  run_id      = 888e72bd-d031-45a5-86f1-f584cf611c20
+  source      = broker_smoke
+  ingested_at = 2026-06-12 17:58:09 UTC
+  dead_letter = False
+```
+Broker: `pkc-619z3.us-east1.gcp.confluent.cloud:9092` (Confluent Cloud Basic, cluster_0).
+Topics `winston.executions.v1` + `winston.dead-letter.v1` created on the cluster.
+BigQuery: `paultest-d3cb1.winston_events_raw.events` (sink unchanged from Phase 2/3A).
+
+**Credential note:** Confluent API key/secret live in env vars only. Never committed, never logged (the smoke redacts the username and never prints the secret). Auth lesson (recorded in tips.md): a Kafka SASL key must be **cluster-scoped and tied to a user account with admin RBAC** — a Global/Cloud API key fails auth, and a service-account key on a cluster with existing ACLs is deny-by-default (TOPIC_AUTHORIZATION_FAILED) until granted topic ACLs.
+
 ## Phase 3B+ — milestones (planned)
 
-- **Phase 3B — cloud broker.** Stand up GCP Managed Kafka (or Confluent); point the cloud transport at it via env; keep the no-op fallback; add `confluent-kafka` to `backend/requirements.txt` (lazy import preserved).
 - **Phase 4 — GKE.** `infra/k8s/{base,overlays/{local,gke-dev,gke-prod}}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
 - **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
 - **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
