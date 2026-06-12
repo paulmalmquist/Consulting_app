@@ -85,9 +85,12 @@ describe("HistoryRhymesCockpit", () => {
 
     await waitFor(() => expect(screen.getByTestId("hr-regime-header")).toBeTruthy());
     expect(screen.getByTestId("hr-regime-value").textContent).toContain("unknown");
-    const empty = screen.getByTestId("hr-empty-state");
-    expect(empty.getAttribute("data-zone")).toBe("implications");
-    expect(empty.textContent).toContain("no decision on record");
+    const empties = screen.getAllByTestId("hr-empty-state");
+    const zones = empties.map((e) => e.getAttribute("data-zone"));
+    expect(zones).toContain("implications");
+    expect(zones).toContain("signals");
+    const implications = empties.find((e) => e.getAttribute("data-zone") === "implications")!;
+    expect(implications.textContent).toContain("no decision on record");
     expect(screen.getByText("no weekly brief on record")).toBeTruthy();
     expect(screen.getByText(/state endpoint unreachable/)).toBeTruthy();
   });
