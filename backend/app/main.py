@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import (
     AI_GATEWAY_ENABLED,
     ALLOWED_ORIGINS,
+    STARGATE_BRIDGE_ENABLED,
     WINSTON_OPERATOR_ENABLED,
     WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS,
 )
@@ -340,9 +341,37 @@ async def lifespan(app: FastAPI):
                 context={}, error=exc,
             )
 
+    # ── RS Demo: Stargate bridge (capture mode in prod) — NOT db-gated ──
+    # This lane has no Postgres; runs whenever the flag is on. Capture preload +
+    # autoplay (or, off-prod, the broker consumer thread) per the same
+    # non-fatal pattern as the telemetry stream above.
+    stargate_autoplay_task = None
+    if STARGATE_BRIDGE_ENABLED:
+        try:
+            import asyncio
+            from app.services import stargate_bridge as _sb
+            _sb_state = _sb.BridgeState(_sb.resolve_mode())
+            app.state.stargate_bridge = _sb_state
+            _sb_lines = _sb.initialize(_sb_state)
+            if _sb_lines is not None and _sb.resolve_autoplay():
+                stargate_autoplay_task = asyncio.create_task(
+                    _sb.replay_capture_forever(_sb_state, _sb_lines)
+                )
+            emit_log(
+                level="info", service="backend", action="startup.stargate_bridge_started",
+                message="Stargate bridge started",
+                context={"mode": _sb_state.mode},
+            )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.stargate_bridge_failed",
+                message="Stargate bridge failed to start (non-fatal)",
+                context={}, error=exc,
+            )
+
     yield
 
-    for _task in (stream_task, stream_etl_task):
+    for _task in (stream_task, stream_etl_task, stargate_autoplay_task):
         if _task is not None:
             _task.cancel()
             try:
@@ -446,6 +475,9 @@ app.include_router(ai_router)
 app.include_router(ai_gateway_router)
 if WINSTON_OPERATOR_ENABLED:
     app.include_router(operator_agent_router)
+if STARGATE_BRIDGE_ENABLED:
+    from app.routes.stargate_bridge import router as stargate_bridge_router  # noqa: E402
+    app.include_router(stargate_bridge_router)
 app.include_router(ai_audit_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)

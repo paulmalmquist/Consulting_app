@@ -1,5 +1,9 @@
 """Stargate bridge tests — capture mode only, so they are CI-safe: no broker,
 no confluent-kafka, no network. The checked-in fixture is the input.
+
+Targets the SHIPPING code: the bridge core (app.services.stargate_bridge) and
+its route surface (app.routes.stargate_bridge), which is what deploys to
+Railway. A separate smoke test imports the laptop wrapper to keep it green.
 """
 
 from __future__ import annotations
@@ -11,11 +15,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-_STARGATE = Path(__file__).resolve().parents[2] / "scripts" / "streaming" / "stargate"
-if str(_STARGATE) not in sys.path:
-    sys.path.insert(0, str(_STARGATE))
-
-import bridge  # noqa: E402
+from app.routes.stargate_bridge import create_app
+from app.services import stargate_bridge as core
 
 
 @pytest.fixture()
@@ -23,7 +24,7 @@ def capture_app(monkeypatch):
     """A fresh bridge in capture mode with autoplay off — pure preloaded state."""
     monkeypatch.setenv("STARGATE_MODE", "capture")
     monkeypatch.setenv("STARGATE_CAPTURE_AUTOPLAY", "0")
-    return bridge.create_app()
+    return create_app()
 
 
 def _snapshot(app) -> dict:
@@ -37,8 +38,8 @@ class TestCaptureDeterminism:
     def test_two_cold_starts_produce_identical_state(self, monkeypatch):
         monkeypatch.setenv("STARGATE_MODE", "capture")
         monkeypatch.setenv("STARGATE_CAPTURE_AUTOPLAY", "0")
-        snap_a = _snapshot(bridge.create_app())
-        snap_b = _snapshot(bridge.create_app())
+        snap_a = _snapshot(create_app())
+        snap_b = _snapshot(create_app())
         for section in ("telemetry", "agg", "anomalies"):
             assert snap_a[section] == snap_b[section], section
         # DLQ entries carry an arrival ts_ms; compare the stable fields.
@@ -50,7 +51,7 @@ class TestCaptureDeterminism:
     def test_preload_rebases_onto_fixed_epoch(self, capture_app):
         snap = _snapshot(capture_app)
         first_ts_us = min(item["ts_us"] for item in snap["telemetry"])
-        assert first_ts_us >= bridge.CAPTURE_BASE_MS * 1000
+        assert first_ts_us >= core.CAPTURE_BASE_MS * 1000
 
 
 class TestCaptureContent:
@@ -105,7 +106,7 @@ class TestSse:
 
 class TestSeqRing:
     def test_maxlen_is_respected_and_cursoring_sees_everything(self):
-        ring = bridge.SeqRing(maxlen=5)
+        ring = core.SeqRing(maxlen=5)
         for i in range(12):
             ring.append({"i": i})
         assert len(ring) == 5
@@ -118,6 +119,46 @@ class TestSeqRing:
 
     def test_downsample_keeps_newest_point_per_printer(self):
         items = [{"printer_id": "p1", "ts_us": i} for i in range(100)]
-        out = bridge.downsample_per_printer(items, 20)
+        out = core.downsample_per_printer(items, 20)
         assert len(out) == 20
         assert out[-1]["ts_us"] == 99
+
+
+class TestRouterSurface:
+    def test_router_exposes_exactly_the_four_endpoints(self):
+        from app.routes.stargate_bridge import router
+        paths = {r.path for r in router.routes}
+        assert paths == {
+            "/stargate/health", "/stargate/snapshot", "/stargate/dlq", "/stargate/stream",
+        }
+
+    def test_endpoints_503_when_state_not_initialized(self):
+        # Mounting the router without a lifespan that sets app.state.stargate_bridge
+        # must fail closed, not 500. (The mount in main.py always initializes it.)
+        from fastapi import FastAPI
+        from app.routes.stargate_bridge import router
+        app = FastAPI()
+        app.include_router(router)
+        with TestClient(app) as client:
+            assert client.get("/stargate/health").status_code == 503
+
+
+class TestLaptopWrapper:
+    def test_wrapper_module_exposes_the_backend_factory(self):
+        import sys
+        scripts = Path(__file__).resolve().parents[2] / "scripts" / "streaming" / "stargate"
+        if str(scripts) not in sys.path:
+            sys.path.insert(0, str(scripts))
+        import bridge  # the thin laptop entrypoint
+        from app.routes.stargate_bridge import create_app as backend_create_app
+        assert bridge.create_app is backend_create_app
+        assert bridge.app is not None  # uvicorn bridge:app target
+
+
+class TestDefaultOff:
+    def test_shared_app_has_no_stargate_routes_when_flag_off(self):
+        # conftest imports app.main with STARGATE_BRIDGE_ENABLED unset (default off);
+        # the shared backend must stay inert — no /stargate/* routes mounted.
+        from app.main import app as main_app
+        stargate_paths = [r.path for r in main_app.routes if getattr(r, "path", "").startswith("/stargate")]
+        assert stargate_paths == []
