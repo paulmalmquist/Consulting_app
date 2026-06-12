@@ -74,6 +74,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `instruction-index` | `reference` | `active` | `docs, cross-repo` | `no` | `docs/instruction-index.md` |
 | `meta-prompt-chat-workspace` | `prompt` | `active` | `repo-b, backend` | `no` | `META_PROMPT_CHAT_WORKSPACE.md` |
 | `demo-features-meta-prompts` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/plans/DEMO_FEATURES_META_PROMPTS.md` |
+| `history-rhymes-telemetry-cockpit-refactor` | `plan` | `active` | `repo-b, backend, docs` | `no` | `docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md` |
 
 ## Archived Prompt References
 
