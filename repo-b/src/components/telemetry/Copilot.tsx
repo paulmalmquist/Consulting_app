@@ -339,7 +339,7 @@ export function DispositionControls({ reportId, modelVerdict, fireTick, evidence
             {[1, 2, 3, 4, 5].map((c) => (
               <button key={c} type="button" data-testid={`disposition-confidence-${c}`}
                 onClick={() => setConfidence(c)}
-                style={{ fontFamily: C.mono, fontSize: 11, width: 26, height: 26, borderRadius: 6, cursor: "pointer",
+                style={{ fontFamily: C.mono, fontSize: 11, width: 40, height: 40, borderRadius: 6, cursor: "pointer",
                   color: confidence === c ? C.bg : C.dim, background: confidence === c ? C.cyan : "transparent",
                   border: `1px solid ${confidence === c ? C.cyan : C.border}` }}>{c}</button>
             ))}
