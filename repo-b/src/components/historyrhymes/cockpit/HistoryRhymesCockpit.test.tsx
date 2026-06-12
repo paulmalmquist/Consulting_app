@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import HistoryRhymesCockpit from "./HistoryRhymesCockpit";
+import HistoryRhymesCockpit, { trapSummary } from "./HistoryRhymesCockpit";
+import { makeMatch } from "@/lib/historyrhymes/rhymesFixtures";
 import type { HrState, HrDecision, HrBrief } from "@/lib/historyrhymes/client";
 
 const fetchHrState = vi.fn();
 const fetchLatestDecision = vi.fn();
 const fetchLatestBrief = vi.fn();
+const postRhymesMatch = vi.fn();
 
 vi.mock("@/lib/historyrhymes/client", () => ({
   fetchHrState: () => fetchHrState(),
   fetchLatestDecision: () => fetchLatestDecision(),
   fetchLatestBrief: () => fetchLatestBrief(),
+}));
+
+vi.mock("@/lib/historyrhymes/rhymesClient", () => ({
+  postRhymesMatch: () => postRhymesMatch(),
 }));
 
 const STATE: HrState = {
@@ -60,7 +66,10 @@ const BRIEF = {
 } as HrBrief;
 
 describe("HistoryRhymesCockpit", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    postRhymesMatch.mockResolvedValue(makeMatch());
+  });
 
   it("renders regime header, implications, and evidence footer on live data", async () => {
     fetchHrState.mockResolvedValue(STATE);
@@ -118,5 +127,41 @@ describe("HistoryRhymesCockpit", () => {
     expect(tiers.filter((t) => t === "act").length).toBe(3);
     expect(tiers.filter((t) => t === "watch").length).toBe(2);
     expect(screen.getByText("2 more (watch / research)")).toBeTruthy();
+  });
+
+  it("renders the analog timeline and trap summary from the match response", async () => {
+    fetchHrState.mockResolvedValue(STATE);
+    fetchLatestDecision.mockResolvedValue(DECISION);
+    fetchLatestBrief.mockResolvedValue(BRIEF);
+    render(<HistoryRhymesCockpit />);
+    await waitFor(() => expect(screen.getByTestId("hr-analog-timeline")).toBeTruthy());
+    expect(screen.getByTestId("hr-analog-track-1")).toBeTruthy();
+    // v1 trap detector (all-null) reads as "not computing", not "no trap".
+    expect(screen.getByTestId("hr-trap-chip").textContent).toBe("v1 — not computing");
+  });
+
+  it("match failure renders the analogs fail-closed state without breaking other zones", async () => {
+    fetchHrState.mockResolvedValue(STATE);
+    fetchLatestDecision.mockResolvedValue(DECISION);
+    fetchLatestBrief.mockResolvedValue(BRIEF);
+    postRhymesMatch.mockResolvedValue(null);
+    render(<HistoryRhymesCockpit />);
+    await waitFor(() => expect(screen.getByTestId("hr-analog-timeline")).toBeTruthy());
+    const empties = screen.getAllByTestId("hr-empty-state");
+    expect(empties.some((e) => e.getAttribute("data-zone") === "analogs")).toBe(true);
+    expect(screen.getByTestId("hr-implication-card")).toBeTruthy();
+  });
+});
+
+describe("trapSummary", () => {
+  it("maps v1 all-null to 'not computing' and real states to flagged/clear", () => {
+    expect(trapSummary(null)).toBeNull();
+    expect(trapSummary(makeMatch().trap_detector)).toBe("v1 — not computing");
+    expect(
+      trapSummary({ trap_flag: false, trap_reason: null, honeypot_match: null, crowding_score: 0.3, consensus_divergence: null }),
+    ).toBe("no trap flagged");
+    expect(
+      trapSummary({ trap_flag: true, trap_reason: "crowded long", honeypot_match: null, crowding_score: 0.9, consensus_divergence: null }),
+    ).toBe("TRAP: crowded long");
   });
 });
