@@ -83,11 +83,15 @@ def test_synthetic_stale_ring_is_delayed_with_reason(monkeypatch):
 
 
 @pytest.mark.parametrize("mode", ["replay", "live_kafka"])
-def test_unimplemented_modes_admit_it(monkeypatch, mode):
+def test_replay_live_fail_closed_when_db_unavailable(monkeypatch, mode):
+    """Without a real DB (test env), replay/live must fail closed to disconnected
+    with a clear degraded_reason — never 500, never blank."""
     monkeypatch.setenv("HR_STREAM_MODE", mode)
     payload = build_health()
     assert payload["status"] == "disconnected"
-    assert "not implemented" in payload["degraded_reason"]
+    # DB unavailable OR singleton missing — either is an honest fail-closed reason.
+    reason = payload["degraded_reason"] or ""
+    assert any(kw in reason for kw in ("db unavailable", "not reported", "singleton row")), reason
     if mode == "live_kafka":
         assert payload["provider"] in ("confluent", "google")
 
