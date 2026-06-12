@@ -340,9 +340,30 @@ async def lifespan(app: FastAPI):
                 context={}, error=exc,
             )
 
+    # History Rhymes stream spine: inert unless HR_STREAM_MODE=synthetic.
+    # (replay/live_kafka modes start their runner in PR 13; default off.)
+    hr_stream_task = None
+    try:
+        from app.services.hr_stream import config as _hr_stream_config
+        if _hr_stream_config.stream_mode() == "synthetic":
+            import asyncio as _asyncio
+            from app.services.hr_stream.synthetic import run_synthetic_loop
+            hr_stream_task = _asyncio.create_task(run_synthetic_loop())
+            emit_log(
+                level="info", service="backend", action="startup.hr_stream_started",
+                message="History Rhymes synthetic stream loop started",
+                context={"mode": "synthetic"},
+            )
+    except Exception as exc:
+        emit_log(
+            level="warn", service="backend", action="startup.hr_stream_failed",
+            message="History Rhymes stream loop failed to start (non-fatal)",
+            context={}, error=exc,
+        )
+
     yield
 
-    for _task in (stream_task, stream_etl_task):
+    for _task in (stream_task, stream_etl_task, hr_stream_task):
         if _task is not None:
             _task.cancel()
             try:
