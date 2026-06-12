@@ -60,10 +60,9 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
       <div className="hidden lg:flex">{Rail}</div>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {/* mobile top header */}
-        <header className="lg:hidden sticky top-0 z-30"
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-            padding: "8px 8px 8px 16px", background: C.rail, borderBottom: `1px solid ${C.border}` }}>
+        {/* mobile top header — display lives in classes so lg:hidden can win */}
+        <header className="flex lg:hidden sticky top-0 z-30 items-center justify-between gap-2.5"
+          style={{ padding: "8px 8px 8px 16px", background: C.rail, borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             {Brand}
             <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim, letterSpacing: "0.08em",

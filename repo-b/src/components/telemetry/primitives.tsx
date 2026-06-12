@@ -118,11 +118,13 @@ export function StatGrid({ cols = 4, style, children }: {
   return <div className={STAT_GRID_COLS[cols]} style={style}>{children}</div>;
 }
 
-export type SplitVariant = "main-side" | "wide-main-side" | "halves" | "thirds";
+export type SplitVariant = "main-side" | "two-one" | "wide-main-side" | "five-seven" | "halves" | "thirds";
 
 const SPLIT_GRID_COLS: Record<SplitVariant, string> = {
   "main-side": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]",
+  "two-one": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
   "wide-main-side": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]",
+  "five-seven": "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
   halves: "grid grid-cols-1 gap-4 lg:grid-cols-2",
   thirds: "grid grid-cols-1 gap-4 sm:grid-cols-3",
 };

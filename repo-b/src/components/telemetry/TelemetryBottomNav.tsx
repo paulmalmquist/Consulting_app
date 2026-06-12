@@ -27,9 +27,9 @@ export default function TelemetryBottomNav({ envId, onMore }: { envId: string; o
   const labelStyle: React.CSSProperties = { fontFamily: C.mono, fontSize: 9, letterSpacing: "0.06em" };
 
   return (
-    <nav aria-label="Telemetry sections" className="lg:hidden pb-safe"
-      style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40,
-        background: C.rail, borderTop: `1px solid ${C.border}`, display: "flex" }}>
+    // Display stays in classes (flex lg:hidden) — an inline display would override lg:hidden.
+    <nav aria-label="Telemetry sections" className="flex lg:hidden pb-safe fixed bottom-0 inset-x-0 z-40"
+      style={{ background: C.rail, borderTop: `1px solid ${C.border}` }}>
       {tabs.map((t) => {
         const active = tabActive(t.slug);
         const shortLabel = t.slug === "stream" ? "Stream" : t.slug === "copilot" ? "Copilot" : t.label;
