@@ -9,7 +9,6 @@ Railway. A separate smoke test imports the laptop wrapper to keep it green.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
