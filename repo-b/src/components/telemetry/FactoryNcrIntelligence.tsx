@@ -12,6 +12,7 @@ import {
   XAxis, YAxis, ReferenceLine, Cell,
 } from "recharts";
 
+import { SplitGrid, StatGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsPanel, RsChip, RsKpi } from "./rsTokens";
 import {
   getNcr, TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID,
@@ -185,7 +186,7 @@ export default function FactoryNcrIntelligence() {
       </div>
 
       {/* KPI tiles — all real derivations; absent values say so */}
-      <div style={{ display: "flex", gap: 12, paddingBottom: 12 }}>
+      <StatGrid cols={4} style={{ paddingBottom: 12 }}>
         <RsKpi label="Open NCRs" value={k?.open_now != null ? String(k.open_now) : "not available"}
           sub={k?.open_weeks_ago != null ? `vs ${k.open_weeks_ago} eight weeks ago` : "no 8-week history"} />
         <RsKpi label="Median time to close"
@@ -199,9 +200,9 @@ export default function FactoryNcrIntelligence() {
             ? `${k.rising_labels[0]} +${k.rising_labels.length - 1} more`
             : (k?.rising_labels?.[0] ?? "none rising")}
           color={k && k.clusters_rising > 0 ? RS.red : RS.green} />
-      </div>
+      </StatGrid>
 
-      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0,2fr) minmax(300px,1fr)" }}>
+      <SplitGrid variant="two-one">
         {/* embedding map — REAL model coordinates */}
         <RsPanel title="NCR EMBEDDING MAP · UMAP PROJECTION · HDBSCAN CLUSTERS"
           right={<span style={{ color: RS.faint, fontFamily: RS_MONO, fontSize: 11 }}>
@@ -337,10 +338,10 @@ export default function FactoryNcrIntelligence() {
             </div>
           )}
         </RsPanel>
-      </div>
+      </SplitGrid>
 
       {/* bottom analytics row */}
-      <div style={{ display: "grid", gap: 12, marginTop: 12, gridTemplateColumns: "1fr 1fr" }}>
+      <SplitGrid variant="halves" style={{ marginTop: 12 }}>
         <RsPanel title="PARETO BY DISCOVERED CLUSTER · CORPUS WINDOW">
           <ResponsiveContainer width="100%" height={190}>
             <ComposedChart data={data.pareto} margin={{ top: 10, right: 8, bottom: 0, left: 0 }}>
@@ -417,7 +418,7 @@ export default function FactoryNcrIntelligence() {
             the empirical 90% quantile of walk-forward residuals.
           </div>
         </RsPanel>
-      </div>
+      </SplitGrid>
 
       <div style={{ padding: "12px 0 4px", textAlign: "center", fontSize: 11, color: RS.faint }}>
         Synthetic NCR corpus (deterministic, SEED=20260609) — no program or supplier data. The

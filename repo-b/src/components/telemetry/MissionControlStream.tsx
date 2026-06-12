@@ -14,6 +14,7 @@ import {
   deriveLag, STREAM_REASON_HINT, useStreamPoll,
   type StreamChannel, type StreamEvent, type StreamLive,
 } from "@/lib/telemetry/stream";
+import { SplitGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
 
 const WINDOW_S = 120;
@@ -187,7 +188,7 @@ export default function MissionControlStream() {
       )}
 
       {live && live.channels.length > 0 && (
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0,3fr) minmax(280px,1fr)" }}>
+        <SplitGrid variant="wide-main-side">
           {/* Left: channel selector ribbon + synced strips */}
           <RsPanel>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 12px",
@@ -278,7 +279,7 @@ export default function MissionControlStream() {
               </div>
             </RsPanel>
           </div>
-        </div>
+        </SplitGrid>
       )}
 
       {/* Demo-honesty footnote (owner-mandated acceptance gate) */}

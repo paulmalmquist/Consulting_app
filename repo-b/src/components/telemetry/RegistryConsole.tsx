@@ -208,8 +208,7 @@ export default function RegistryConsole() {
       )}
 
       {data && data.models.length > 0 && (
-        <div style={{ display: "grid", gap: 12,
-          gridTemplateColumns: "230px minmax(0,2fr) minmax(0,1.4fr)" }}>
+        <div className="grid gap-3 grid-cols-1 lg:grid-cols-[230px_minmax(0,2fr)_minmax(0,1.4fr)]">
           {/* Model list */}
           <RsPanel title="REGISTERED MODELS">
             {kinds.map((k) => {
