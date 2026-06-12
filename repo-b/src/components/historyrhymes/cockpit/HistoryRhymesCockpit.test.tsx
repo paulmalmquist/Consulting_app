@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import HistoryRhymesCockpit, { trapSummary } from "./HistoryRhymesCockpit";
 import { makeMatch } from "@/lib/historyrhymes/rhymesFixtures";
 import type { HrState, HrDecision, HrBrief } from "@/lib/historyrhymes/client";
@@ -155,6 +155,24 @@ describe("HistoryRhymesCockpit", () => {
     const empties = screen.getAllByTestId("hr-empty-state");
     expect(empties.some((e) => e.getAttribute("data-zone") === "analogs")).toBe(true);
     expect(screen.getByTestId("hr-implication-card")).toBeTruthy();
+  });
+
+  it("clicking a signal tile and an analog track opens the evidence drawer", async () => {
+    fetchHrState.mockResolvedValue(STATE);
+    fetchLatestDecision.mockResolvedValue(DECISION);
+    fetchLatestBrief.mockResolvedValue({ ...BRIEF, parsed_json: { latest_signals: { mvrv_z: 2.31 } } });
+    render(<HistoryRhymesCockpit />);
+    await waitFor(() => expect(screen.getByTestId("hr-signal-tile-mvrv_z")).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId("hr-signal-tile-mvrv_z"));
+    expect(screen.getByTestId("hr-evidence-drawer")).toBeTruthy();
+    expect(screen.getByText("MVRV Z (mvrv_z)")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("hr-evidence-close"));
+    expect(screen.queryByTestId("hr-evidence-drawer")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("hr-analog-track-1"));
+    expect(screen.getByTestId("hr-evidence-drawer")).toBeTruthy();
+    expect(screen.getByTestId("hr-evidence-request-id").textContent).toContain("req_abc123def456");
   });
 });
 

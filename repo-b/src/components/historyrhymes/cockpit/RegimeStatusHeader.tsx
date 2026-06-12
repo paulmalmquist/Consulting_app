@@ -17,6 +17,8 @@ export interface RegimeStatusHeaderProps {
   trapSummary?: string | null;
   /** Backend degraded reason (from the match response in PR 7). */
   degradedReason?: string | null;
+  /** Opens the regime evidence drawer (PR 10). */
+  onOpenEvidence?: () => void;
 }
 
 function fmtTimestamp(iso: string | null | undefined, label: string): string {
@@ -25,7 +27,7 @@ function fmtTimestamp(iso: string | null | undefined, label: string): string {
   return Number.isNaN(d.getTime()) ? String(iso) : d.toISOString().replace("T", " ").slice(0, 16) + "Z";
 }
 
-export function RegimeStatusHeader({ state, decision, trapSummary, degradedReason }: RegimeStatusHeaderProps) {
+export function RegimeStatusHeader({ state, decision, trapSummary, degradedReason, onOpenEvidence }: RegimeStatusHeaderProps) {
   const regime = decision?.regime ?? state?.latest_regime ?? null;
   const confidence = decision?.confidence ?? state?.latest_confidence ?? null;
   const verdict = state?.freshness_verdict ?? null;
@@ -48,8 +50,18 @@ export function RegimeStatusHeader({ state, decision, trapSummary, degradedReaso
       style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.14em", color: C.faint, textTransform: "uppercase" }}>
-            Regime
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.14em", color: C.faint, textTransform: "uppercase" }}>
+              Regime
+            </span>
+            {onOpenEvidence && (
+              <button type="button" data-testid="hr-regime-evidence" onClick={onOpenEvidence}
+                style={{ fontFamily: C.mono, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: C.faint, background: "transparent", border: `1px solid ${C.border}`,
+                  borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+                evidence
+              </button>
+            )}
           </div>
           <div data-testid="hr-regime-value"
             style={{ fontFamily: C.sans, fontSize: 30, fontWeight: 700, color: rColor, lineHeight: 1.15, marginTop: 4 }}>

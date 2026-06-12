@@ -18,13 +18,24 @@ import {
   type StructuralAlert,
   type TrapDetector,
 } from "@/lib/historyrhymes/rhymesClient";
+import { parseBriefSignals } from "@/lib/historyrhymes/signals";
+import {
+  signalEvidence,
+  analogEvidence,
+  alertEvidence,
+  scenarioEvidence,
+  regimeEvidence,
+  briefEvidence,
+  type EvidencePayload,
+} from "@/lib/historyrhymes/evidence";
 import { C, Loading, CockpitEmptyState, SplitGrid } from "./primitives";
 import { RegimeStatusHeader } from "./RegimeStatusHeader";
 import { ImplicationCard } from "./ImplicationCard";
 import { SignalTelemetryStrip } from "./SignalTelemetryStrip";
 import { AnalogTimeline } from "./AnalogTimeline";
 import { AlertTrapRail } from "./AlertTrapRail";
-import { ScenarioPressurePanel } from "./ScenarioPressurePanel";
+import { ScenarioPressurePanel, isPlaceholderScenarios } from "./ScenarioPressurePanel";
+import { EvidenceDrawer } from "./EvidenceDrawer";
 
 // Trap summary string for the regime header. v1 of the trap detector returns
 // trap_flag=false with every field null — that is "not computing", which is a
@@ -60,6 +71,7 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
   const [brief, setBrief] = useState<HrBrief | null>(null);
   const [match, setMatch] = useState<RhymesMatchResponse | null>(null);
   const [alerts, setAlerts] = useState<StructuralAlert[] | null>(null);
+  const [evidence, setEvidence] = useState<EvidencePayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -113,20 +125,31 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
         decision={decision}
         trapSummary={trapSummary(match?.trap_detector)}
         degradedReason={match?.confidence_meta.degraded_reason ?? null}
+        onOpenEvidence={() => setEvidence(regimeEvidence(state, decision, brief))}
       />
 
       {/* Z2 — signal telemetry strip (brief-sourced until the stream lands in PR 13). */}
-      <SignalTelemetryStrip brief={brief} />
+      <SignalTelemetryStrip
+        brief={brief}
+        onOpenEvidence={(key) => {
+          const signal = parseBriefSignals(brief).find((s) => s.key === key);
+          if (signal) setEvidence(signalEvidence(signal, brief));
+        }}
+      />
 
       {/* Z3 + Z4 — analog timeline (main) beside the alert/trap rail. */}
       <SplitGrid variant="two-one" style={{ marginTop: 16 }}>
-        <AnalogTimeline match={match} />
+        <AnalogTimeline
+          match={match}
+          onOpenEvidence={(analog) => { if (match) setEvidence(analogEvidence(analog, match)); }}
+        />
         <AlertTrapRail
           structuralAlerts={alerts}
           decisionAlerts={decision === null ? null : decision.alerts}
           trap={match?.trap_detector ?? null}
           trapSummary={trapSummary(match?.trap_detector)}
           onAcknowledge={handleAcknowledge}
+          onOpenEvidence={(alert) => setEvidence(alertEvidence(alert))}
         />
       </SplitGrid>
 
@@ -134,6 +157,9 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
       <ScenarioPressurePanel
         scenarios={match?.scenarios ?? null}
         confidenceMeta={match?.confidence_meta ?? null}
+        onOpenEvidence={match ? () => setEvidence(scenarioEvidence(
+          match.scenarios, match.confidence_meta, match.request_id, isPlaceholderScenarios(match.scenarios),
+        )) : undefined}
       />
 
       {/* Z7 — implications. */}
@@ -175,10 +201,12 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
         style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11, color: C.faint,
           display: "flex", flexWrap: "wrap", gap: 14, alignItems: "baseline" }}>
         {brief ? (
-          <a href={brief.markdown_uri ?? "#"} style={{ color: C.dim, textDecoration: "underline" }}
-            target={brief.markdown_uri?.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+          <button type="button" data-testid="hr-brief-evidence"
+            onClick={() => setEvidence(briefEvidence(brief))}
+            style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, textDecoration: "underline",
+              background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
             weekly brief (archive evidence)
-          </a>
+          </button>
         ) : (
           <span>no weekly brief on record</span>
         )}
@@ -190,6 +218,9 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
         )}
         {!state && <span style={{ color: C.amber }}>state endpoint unreachable — all panels fail closed</span>}
       </footer>
+
+      {/* Z6 — evidence drawer. */}
+      <EvidenceDrawer evidence={evidence} onClose={() => setEvidence(null)} />
     </div>
   );
 }
