@@ -301,3 +301,33 @@ export interface MorningBookData {
 export function fetchMorningBook(): Promise<MorningBookData | null> {
   return getJson<MorningBookData>("/api/hr/v1/research/morning-book");
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Stream status (backed by backend/app/routes/hr_stream.py). Same direct
+ * convention as the rest of the /api/hr/v1 namespace. The payload is
+ * allowlisted server-side — it never carries broker URLs or credentials.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type StreamMode = "off" | "synthetic" | "replay" | "live_kafka";
+
+export type StreamStatus =
+  | "connected"
+  | "delayed"
+  | "replaying"
+  | "disconnected"
+  | "not_configured";
+
+export interface StreamHealth {
+  mode: StreamMode;
+  provider: "confluent" | "google" | null;
+  status: StreamStatus;
+  consumer_group: string;
+  topic_prefix: string;
+  latest_event_at: string | null;
+  lag_seconds: number | null;
+  degraded_reason: string | null;
+}
+
+export function fetchStreamHealth(): Promise<StreamHealth | null> {
+  return getJson<StreamHealth>("/api/hr/v1/stream/health");
+}

@@ -13,6 +13,7 @@ export const HR_NAV: HrNavItem[] = [
   { slug: "", label: "Cockpit", testId: "hr-nav-cockpit" },
   { slug: "morning-book", label: "Morning Book", testId: "hr-nav-morning-book" },
   { slug: "planning", label: "Planning", testId: "hr-nav-planning" },
+  { slug: "admin", label: "Admin", testId: "hr-nav-admin" },
 ];
 
 export function hrHref(envId: string, slug: string): string {

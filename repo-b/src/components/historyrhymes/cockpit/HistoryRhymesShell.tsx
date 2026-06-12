@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { fetchStreamHealth, type StreamHealth } from "@/lib/historyrhymes/client";
 import HistoryRhymesNav from "./HistoryRhymesNav";
+import { StreamHealthChip } from "./StreamHealthChip";
 import { C } from "./primitives";
 import { hrSectionLabel } from "./hrNav";
+
+const HEALTH_POLL_MS = 30_000;
 
 // History Rhymes "Regime Cockpit" shell, copy-adapted from TelemetryShell.
 // Desktop: a single 224px rail (HISTORY RHYMES / REGIME COCKPIT identity, nav,
@@ -15,7 +19,21 @@ import { hrSectionLabel } from "./hrNav";
 export default function HistoryRhymesShell({ envId, children }: { envId: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [health, setHealth] = useState<StreamHealth | null>(null);
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+
+  // Stream health: fetch at mount, then poll. null (fetch failed) renders as
+  // an explicit "unreachable" chip — never a silently absent indicator.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const h = await fetchStreamHealth();
+      if (!cancelled) setHealth(h);
+    };
+    poll();
+    const id = setInterval(poll, HEALTH_POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -45,13 +63,8 @@ export default function HistoryRhymesShell({ envId, children }: { envId: string;
       display: "flex", flexDirection: "column", padding: "20px 14px", minHeight: "100%" }}>
       <div style={{ padding: "0 6px 18px" }}>{Brand}</div>
       <HistoryRhymesNav envId={envId} onNavigate={() => setDrawerOpen(false)} />
-      <div style={{ marginTop: "auto", paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-        {/* Stream health chip lands here in PR 6. Until then this slot states
-            the truth: there is no stream wiring yet. */}
-        <div data-testid="hr-stream-slot" style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.faint }} />
-          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>stream: not wired</span>
-        </div>
+      <div data-testid="hr-stream-slot" style={{ marginTop: "auto", paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+        <StreamHealthChip health={health} />
       </div>
     </aside>
   );
