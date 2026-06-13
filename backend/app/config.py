@@ -191,6 +191,11 @@ TELEMETRY_STREAM_BUSINESS_ID: str = os.getenv(
     "TELEMETRY_STREAM_BUSINESS_ID", "7e1eb000-0000-4000-a000-000000000001")
 TELEMETRY_ETL_INTERVAL_SECONDS: int = int(os.getenv("TELEMETRY_ETL_INTERVAL_SECONDS", "60"))
 
+# ── RS Demo: Stargate streaming bridge (SSE; capture mode in prod) ───────────
+# Default off so the shared backend stays inert. When on, app/main.py mounts the
+# /stargate/* router and starts the bridge in STARGATE_MODE (capture in prod).
+STARGATE_BRIDGE_ENABLED: bool = os.getenv("STARGATE_BRIDGE_ENABLED", "0").lower() in ("1", "true")
+
 _db_validated = False
 
 

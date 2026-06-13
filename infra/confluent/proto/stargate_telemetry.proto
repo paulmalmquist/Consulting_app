@@ -1,0 +1,30 @@
+// Stargate printer telemetry — the v1 wire contract.
+//
+// This file is the source of truth for the stargate.printer.telemetry.v1 topic.
+// Producers and the bridge serialize through Schema Registry (local Redpanda SR
+// in dev, Confluent Cloud SR in prod) so the contract is enforced at publish
+// time, not discovered at read time. Regenerate Python bindings with:
+//
+//   python -m grpc_tools.protoc -I infra/confluent/proto \
+//     --python_out=scripts/streaming/stargate/proto_gen stargate_telemetry.proto
+//
+// Schema evolution policy: BACKWARD compatibility on the subject. Add fields
+// with new tags; never reuse or renumber existing tags. v2 (laser_power_w)
+// lives beside this file as the live evolution demo.
+
+syntax = "proto3";
+
+package stargate.v1;
+
+message StargateTelemetry {
+  string printer_id = 1;            // e.g. "stargate-v4-02"
+  int64 ts_us = 2;                  // event time, microseconds since epoch
+  uint32 layer = 3;                 // current build layer
+  string print_job_id = 4;          // e.g. "JOB-2026-0611-001"
+  double x = 5;                     // toolhead position, mm
+  double y = 6;
+  double z = 7;
+  double melt_pool_temp_c = 8;      // nominal ~1500, anomaly band < 1400
+  double deposition_rate_kg_hr = 9; // nominal ~24
+  double arm_vibration_g = 10;      // nominal ~0.02, anomaly band > 0.08
+}

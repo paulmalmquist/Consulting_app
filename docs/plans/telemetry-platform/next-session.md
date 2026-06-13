@@ -1,31 +1,46 @@
-# Next Session — Telemetry Platform (build complete)
+# Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-01 (Phases 0–5 complete)
+**Last updated:** 2026-06-11
 
-The telemetry platform is built and live end to end:
-- Databricks medallion (13 Delta tables), MLflow models + 2 registered champions behind gates,
-  Supabase `tel_*` serving, dashboard as a Winston lab env, deployed to Railway (API) + Vercel
-  (novendor.ai).
-- Live: API `https://authentic-sparkle-production-7f37.up.railway.app`; demo
-  `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry` (authenticated).
-- Full evidence in `telemetry-platform/PROOF.md`; reviewer script in `telemetry-platform/DEMO.md`.
+The existing telemetry platform remains the only user-facing environment. RS Factory work is
+additive inside that environment; do not create another template or top-level route.
 
-## Remaining items (small, optional)
+## Current state
 
-1. **Authenticated production screenshot of the live replay flip.** Needs the `info@novendor.ai`
-   login password. Steps: log in at `https://novendor.ai/login`, open the demo route, click "Replay
-   test feed", screenshot the GO→NO-GO flip, save under `telemetry-platform/docs/screenshots/`.
-2. **IMS vibration features (deferred from Phase 1).** The 1 GB IMS archive is verified in Bronze;
-   the time/frequency-domain features were not built (does not gate the demo). See `backlog.md`.
-3. **Platform-wide v2 verify gate** (`app.environment_contract` missing) — not telemetry-specific;
-   tracked in `backlog.md`.
+- ADO Story `#518` owns PR 1; ADO Story `#529` owns generator PR 2.
+- PR 1 ends at `94205e18`; PR 2 is isolated on `feat/rs-factory-generator-pr2` / PR `#148`.
+- `rs_factory_seed/` implements deterministic g01-g11 generation across CRM, PLM, ERP, MES,
+  QMS, test/IoT, Jira, docs/RAG, AI/ML, gold frames, and data-quality findings.
+- CSV, SQLite, Parquet, JSONL, generated DDL, SQLite views, and Q01-Q12 queries are emitted.
+- No telemetry runtime, migration, seed-pack, streaming, or frontend files changed in PR 2.
 
-## If continuing, copy-paste prompt
+## Copy-paste prompt
 
+```text
+Work in the Winston / Consulting_app repository on RS Factory integration PR 3 only.
+
+Read:
+- CLAUDE.md
+- docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md
+- docs/plans/PLAN_MAINTENANCE_RULES.md
+- docs/plans/RS_DEMO_CAPABILITY_CHECKLIST.md
+- convo.md
+- rs_factory_seed/README.md
+
+Product constraint: extend the existing telemetry environment only. Do not create a new environment
+template, top-level route, seed pack, migration, backend endpoint, streaming producer, or frontend tab
+in this PR.
+
+Implement:
+- migration 10016 for curated/gold `rsf_` tables with RLS, comments, indexes, and partitions
+- update the existing telemetry template arrays without changing its default seed pack
+- `telemetry_factory_starter` as a superset of `telemetry_starter`
+- full-profile loader and fail-closed, watermark-driven ETL runner
+- backend tests for stamping, idempotency, assertions, and telemetry regressions
+
+Use the frozen generator artifacts as inputs. Preserve every existing telemetry route, page,
+seed-pack behavior, and template key. Do not add a standalone RS Factory environment or route.
 ```
-The telemetry platform (dispatch 0003) is built and live. Read telemetry-platform/PROOF.md and
-docs/plans/telemetry-platform/release-readiness.md. Pick up one of the remaining items: (1) capture
-the authenticated production replay-flip screenshot (needs the info@novendor.ai login), (2) IMS
-vibration feature engineering, or (3) the platform-wide app.environment_contract v2 verify gate.
-Do not re-deploy or re-provision unless asked. Stop after the chosen item with proof appended.
-```
+
+The prior telemetry-only optional items remain tracked in `backlog.md` and
+`release-readiness.md`; they are not part of the RS Factory generator work.

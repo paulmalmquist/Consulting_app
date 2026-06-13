@@ -1,0 +1,22 @@
+# Per-source-system "messiness" that the data-quality findings later catch
+# (convo.md §9). Rates are applied deterministically by the generators.
+noise:
+  erp:
+    duplicate_supplier_name_rate: 0.10   # same supplier under multiple names
+    missing_material_cert_rate: 0.03
+    unit_mismatch_rate: 0.02
+  plm:
+    revision_mismatch_rate: 0.04          # MES built an older rev than PLM-current
+  mes:
+    closed_with_open_ncr_rate: 0.01
+    stale_72h_rate: 0.05
+    missing_operator_cert_rate: 0.01
+  qms:
+    late_feed_hours: 14                   # QMS feed arrival lag (one seeded finding)
+  iot:
+    sensor_dropout_rate: 0.03             # flatlined channel during a run
+  calibration:
+    expired_calibration_rate: 0.02        # inspection used an out-of-cal instrument
+  ai:
+    prediction_without_model_version_rate: 0.005
+    action_without_human_approval_rate: 0.004

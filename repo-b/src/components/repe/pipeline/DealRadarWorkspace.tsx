@@ -77,10 +77,6 @@ function readFilters(searchParams: Pick<URLSearchParams, "get">): DealRadarFilte
   };
 }
 
-function dispatchWinstonPrompt(prompt: string) {
-  window.dispatchEvent(new CustomEvent("winston-prefill-prompt", { detail: { prompt } }));
-}
-
 function StageChip({ stage }: { stage: string }) {
   if (stage in RADAR_STAGE_LABELS) {
     return (
@@ -436,11 +432,7 @@ export function DealRadarWorkspace() {
     updateQuery({ [key]: value, deal: selectedDealId && value !== null ? null : selectedDealId });
   };
 
-  const askWinston = (node: DealRadarNode) => {
-    dispatchWinstonPrompt(
-      `Review ${node.dealName} in ${node.locationLabel}. Focus on stage readiness, blockers, capital concentration, and the next best action.`,
-    );
-  };
+
 
   const pageTitle = loading ? "Deal Radar" : `${summary.dealCount} active deals · ${formatMoney(summary.totalPipelineValue)}`;
 
@@ -601,7 +593,6 @@ export function DealRadarWorkspace() {
             nodes={filteredNodes}
             selectedDealId={selectedDealId}
             onSelectDeal={(dealId) => updateQuery({ deal: dealId })}
-            onAskWinston={askWinston}
           />
           <div className="hidden xl:block">
             <DealIntelligencePanel
@@ -609,8 +600,7 @@ export function DealRadarWorkspace() {
               node={selectedNode}
               details={selectedDetails}
               loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
+              />
           </div>
           <div className="hidden md:block xl:hidden md:col-span-1">
             <DealIntelligencePanel
@@ -618,8 +608,7 @@ export function DealRadarWorkspace() {
               node={selectedNode}
               details={selectedDetails}
               loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
+              />
           </div>
         </div>
       ) : view === "list" ? (
@@ -635,8 +624,7 @@ export function DealRadarWorkspace() {
               node={selectedNode}
               details={selectedDetails}
               loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
+              />
           </div>
           <div className="hidden md:block xl:hidden md:col-span-1">
             <DealIntelligencePanel
@@ -644,8 +632,7 @@ export function DealRadarWorkspace() {
               node={selectedNode}
               details={selectedDetails}
               loading={detailLoadingId === selectedNode?.dealId}
-              onAskWinston={askWinston}
-            />
+              />
           </div>
         </div>
       ) : (
@@ -683,8 +670,7 @@ export function DealRadarWorkspace() {
               node={selectedNode}
               details={selectedDetails}
               loading={detailLoadingId === selectedNode.dealId}
-              onAskWinston={askWinston}
-            />
+              />
           </div>
         </div>
       ) : null}

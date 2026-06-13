@@ -1,0 +1,28 @@
+// Stargate telemetry v2 — the schema-evolution demo beat.
+//
+// Adds laser_power_w with a NEW tag (11). Registered on the SAME subject
+// (stargate.printer.telemetry.v1-value) where BACKWARD compatibility makes the
+// registry prove, live, that v1 consumers keep working: unknown field 11 is
+// skipped by every v1 reader. Never reuse or renumber existing tags.
+//
+// No Python bindings are generated for v2 on purpose: two descriptors with the
+// same message name cannot coexist in one process, and the evolution test
+// builds the v2 wire bytes by hand (tag 0x59 + fixed64) instead.
+
+syntax = "proto3";
+
+package stargate.v1;
+
+message StargateTelemetry {
+  string printer_id = 1;
+  int64 ts_us = 2;
+  uint32 layer = 3;
+  string print_job_id = 4;
+  double x = 5;
+  double y = 6;
+  double z = 7;
+  double melt_pool_temp_c = 8;
+  double deposition_rate_kg_hr = 9;
+  double arm_vibration_g = 10;
+  optional double laser_power_w = 11;  // v2: melt-pool energy input
+}

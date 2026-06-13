@@ -208,3 +208,12 @@ skills/novendor-repe-outreach/resolved_bounces.json
 /capgemini_tpm_microsite_execution_plan.md
 /happyco_winston_sequential_execution_plan.md
 docs/prompts/
+
+# RS Factory generator artifacts (regenerated deterministically)
+rs_factory_seed/output/
+
+# Stargate streaming lane (PR 3+): local credentials and tooling venv stay out of git.
+/confluent)_kafka_api.json
+/aws_creds.json
+scripts/streaming/stargate/.env
+scripts/streaming/stargate/.venv/
