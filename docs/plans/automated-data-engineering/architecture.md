@@ -37,10 +37,16 @@ The method content lives in `docs/plans/RS_ANALYTICS_PLATFORM_PLAN.md`:
 | `GET /api/ade/skill-registry/{name}` | `registry.get(name)`; full input schema for one tool |
 | `GET /api/ade/connectors` | static declaration in `backend/app/services/ade_connectors.py` (the code mirror of `connector-inventory.md`) merged with per-module MCP tool counts |
 | `GET /api/ade/runs` | existing audit read path, scoped and limited; fails closed with `null_reason` if a scoped read is unavailable |
+| `GET /api/ade/governance-stats` | `governance.compute_audit_stats` over `ai_decision_audit_log` (decision volume, success rate, latency, grounding distribution, top tools), plus warehouse-export readiness from `ade_warehouse_export.warehouse_export_configured()` |
 
 Every response carries `null_reason` (null when healthy). No endpoint calls external
 clouds, validates credentials, runs CLIs, reads raw secrets, or infers liveness from env
-vars. Connector status is declaration-backed only.
+vars. Connector status is declaration-backed only. One scoped exception:
+`warehouse_export_configured()` reports whether BigQuery export *configuration* is
+present (`GOOGLE_APPLICATION_CREDENTIALS` + `BQ_PROJECT_ID`). It states configuration
+presence, never connection health, and the export seam itself
+(`backend/app/services/ade_warehouse_export.py`) raises `NotImplementedError` rather
+than pretending to run.
 
 ### Frontend: portable control-room package
 

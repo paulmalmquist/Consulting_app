@@ -69,6 +69,27 @@ export interface ReceiptsResponse {
   null_reason: string | null;
 }
 
+export interface GovernanceTopTool {
+  tool_name: string;
+  call_count: number;
+  avg_latency: number | null;
+}
+
+export interface GovernanceStatsResponse {
+  total_decisions: number;
+  successful: number;
+  failed: number;
+  success_rate: number | null;
+  avg_latency_ms: number | null;
+  avg_grounding_score: number | null;
+  high_grounding: number;
+  mixed_grounding: number;
+  low_grounding: number;
+  top_tools: GovernanceTopTool[];
+  warehouse_export_configured: boolean;
+  null_reason: string | null;
+}
+
 export const getSkillRegistry = () =>
   apiFetch<SkillRegistryResponse>("/api/ade/skill-registry");
 
@@ -81,4 +102,9 @@ export const getConnectors = () =>
 export const getReceipts = (env: string, biz: string) =>
   apiFetch<ReceiptsResponse>("/api/ade/runs", {
     params: { env_id: env, business_id: biz },
+  });
+
+export const getGovernanceStats = (biz: string, env?: string) =>
+  apiFetch<GovernanceStatsResponse>("/api/ade/governance-stats", {
+    params: env ? { business_id: biz, env_id: env } : { business_id: biz },
   });
