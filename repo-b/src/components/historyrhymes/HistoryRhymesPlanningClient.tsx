@@ -4,12 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   discardCandidate,
   fetchEnhancementCandidates,
-  fetchLatestResearchBrief,
   promoteCandidate,
   type EnhancementCandidate,
-  type ResearchBriefSummary,
 } from "@/lib/historyrhymes/client";
-import { ResearchBriefUpload } from "./ResearchBriefUpload";
 import { EnhancementCandidateCard } from "./EnhancementCandidateCard";
 import { PlanningMarkdownDrawer } from "./PlanningMarkdownDrawer";
 
@@ -17,8 +14,9 @@ interface Props {
   envId: string;
 }
 
+// Planning page (PR 14): candidates-only. Upload moved to /research.
+// client.ts is untouched — all API contracts are the same.
 export function HistoryRhymesPlanningClient({ envId }: Props) {
-  const [brief, setBrief] = useState<ResearchBriefSummary | null>(null);
   const [candidates, setCandidates] = useState<EnhancementCandidate[]>([]);
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -26,11 +24,7 @@ export function HistoryRhymesPlanningClient({ envId }: Props) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [b, c] = await Promise.all([
-      fetchLatestResearchBrief(),
-      fetchEnhancementCandidates(),
-    ]);
-    setBrief(b);
+    const c = await fetchEnhancementCandidates();
     setCandidates(c?.candidates ?? []);
     setLoading(false);
   }, []);
@@ -60,20 +54,24 @@ export function HistoryRhymesPlanningClient({ envId }: Props) {
       <div className="max-w-3xl mx-auto space-y-6">
         <header>
           <h1 className="text-lg font-semibold text-neutral-100">
-            History Rhymes — Research → Planning
+            History Rhymes — Planning
           </h1>
           <p className="text-xs text-neutral-500">
-            env: {envId} · markdown is archive, extracted JSON is the
-            operational source
+            env: {envId} ·{" "}
+            <a
+              href={`/lab/env/${envId}/historyrhymes/research`}
+              className="underline text-neutral-400 hover:text-neutral-200"
+            >
+              ingest a brief in Research
+            </a>{" "}
+            to generate candidates
           </p>
         </header>
-
-        <ResearchBriefUpload onIngested={() => void refresh()} />
 
         <section>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold text-neutral-100">
-              Latest brief
+              Enhancement candidates ({candidates.length})
             </h2>
             <button
               type="button"
@@ -86,28 +84,16 @@ export function HistoryRhymesPlanningClient({ envId }: Props) {
           {loading && (
             <div className="text-xs text-neutral-500">Loading…</div>
           )}
-          {!loading && !brief && (
-            <div className="text-xs text-neutral-500">
-              No brief ingested yet.
-            </div>
-          )}
-          {brief && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 text-xs text-neutral-400">
-              {brief.title ?? brief.brief_date} · {brief.week_type} ·{" "}
-              {brief.pillar_name} · confidence {brief.confidence ?? "—"} ·{" "}
-              {brief.candidate_count} candidate(s)
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h2 className="text-sm font-semibold text-neutral-100 mb-2">
-            Enhancement candidates ({candidates.length})
-          </h2>
           {!loading && candidates.length === 0 && (
             <div className="text-xs text-neutral-500">
-              No candidates. Ingest a 7-section brief above; weak briefs fail
-              closed (degraded, no candidates).
+              No candidates yet.{" "}
+              <a
+                href={`/lab/env/${envId}/historyrhymes/research`}
+                className="underline text-neutral-400 hover:text-neutral-200"
+              >
+                Ingest a 7-section brief in Research
+              </a>{" "}
+              to generate candidates; weak briefs fail closed (degraded, no candidates).
             </div>
           )}
           <div className="space-y-3">
