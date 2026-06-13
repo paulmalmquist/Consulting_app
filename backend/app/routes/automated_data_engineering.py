@@ -11,6 +11,7 @@ Paths:
     GET /api/ade/skill-registry/{name}
     GET /api/ade/connectors
     GET /api/ade/runs
+    GET /api/ade/governance-stats
 """
 from __future__ import annotations
 
@@ -21,7 +22,9 @@ from fastapi import APIRouter, HTTPException, Query
 from app.mcp.registry import registry  # populated by _register_all_tools() in app.main at startup
 from app.observability.logger import emit_log
 from app.services import ade_connectors
+from app.services import ade_warehouse_export
 from app.services import audit as audit_svc
+from app.services import governance as governance_svc
 
 router = APIRouter(prefix="/api/ade", tags=["ade"])
 
@@ -134,3 +137,43 @@ def runs(env_id: str = Query(...), business_id: UUID = Query(...)):
         # Fail closed: never 500, never return unscoped data.
         emit_log(level="error", service="ade", action="runs_failed", message=str(exc), error=exc)
         return {"runs": [], "null_reason": "audit_read_unavailable"}
+
+
+@router.get("/governance-stats")
+def governance_stats(business_id: UUID = Query(...), env_id: str = Query(None)):
+    """Aggregate AI-decision governance stats for the fabric stat strip.
+
+    Reads the ai_decision_audit_log via governance.compute_audit_stats: call
+    volume, success rate, latency, and the grounding-score distribution. Also
+    reports warehouse-export readiness without attempting a connection. Fails
+    closed with a null_reason rather than erroring open.
+    """
+    try:
+        stats = governance_svc.compute_audit_stats(business_id, env_id=env_id)
+        total = stats.get("total_decisions", 0) or 0
+        successful = stats.get("successful", 0) or 0
+        success_rate = round(successful / total, 3) if total else None
+        return {
+            "total_decisions": total,
+            "successful": successful,
+            "failed": stats.get("failed", 0),
+            "success_rate": success_rate,
+            "avg_latency_ms": stats.get("avg_latency_ms"),
+            "avg_grounding_score": stats.get("avg_grounding_score"),
+            "high_grounding": stats.get("high_grounding", 0),
+            "mixed_grounding": stats.get("mixed_grounding", 0),
+            "low_grounding": stats.get("low_grounding", 0),
+            "top_tools": stats.get("top_tools", []),
+            "warehouse_export_configured": ade_warehouse_export.warehouse_export_configured(),
+            "null_reason": None,
+        }
+    except Exception as exc:  # noqa: BLE001
+        # Fail closed: never 500. The dashboard renders the null_reason verbatim.
+        emit_log(level="error", service="ade", action="governance_stats_failed", message=str(exc), error=exc)
+        return {
+            "total_decisions": 0, "successful": 0, "failed": 0, "success_rate": None,
+            "avg_latency_ms": None, "avg_grounding_score": None,
+            "high_grounding": 0, "mixed_grounding": 0, "low_grounding": 0,
+            "top_tools": [], "warehouse_export_configured": False,
+            "null_reason": "governance_stats_unavailable",
+        }

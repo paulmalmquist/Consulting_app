@@ -13,6 +13,11 @@ future PR that changes the surface updates this file in the same change.
 - no connector with `status: "live"` lacks an `evidence_path` (explicit test)
 - `/api/ade/runs` returns business-scoped rows or `null_reason: "audit_read_unavailable"`
   (audit events have no `env_id` column; see `security-and-trust-boundaries.md`)
+- `/api/ade/governance-stats` returns aggregate decision stats or
+  `null_reason: "governance_stats_unavailable"`; zero decisions yields
+  `success_rate: null`, not a division error
+- the warehouse export seam raises `NotImplementedError` with and without BQ
+  credentials present (never a silent no-op)
 - no endpoint performs external provider calls, credential validation, or CLI execution
 - ADE routes carry the same auth protection as the telemetry routes
 

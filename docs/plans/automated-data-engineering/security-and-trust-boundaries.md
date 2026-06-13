@@ -12,8 +12,15 @@ PR 1 is a read-only surface. The guarantees:
 - **No secrets displayed.** ADE never reads raw secret values. Receipt redaction is
   applied at write time by each tool's `AuditPolicy`; ADE shows what audit stored.
 - **Fail closed.** Anything ADE cannot evidence returns empty data plus a `null_reason`
-  (`mcp_registry_unavailable`, `audit_read_unavailable`). The frontend renders the
-  reason; it never fabricates a healthy state.
+  (`mcp_registry_unavailable`, `audit_read_unavailable`,
+  `governance_stats_unavailable`). The frontend renders the reason; it never fabricates
+  a healthy state.
+- **Warehouse export is a seam, not a feature.** `ade_warehouse_export.py` raises
+  `NotImplementedError` on every entry point. The one thing it reports is whether export
+  *configuration* is present (both `GOOGLE_APPLICATION_CREDENTIALS` and
+  `BQ_PROJECT_ID` set). That is a configuration-presence statement shown as
+  "warehouse export ready/not configured" — it is not a connection probe and is never
+  rendered as connector liveness.
 - **Auth.** ADE routes follow the telemetry read posture exactly: the auth middleware
   populates request state but does not reject reads, and the routes require scoped query
   params rather than a session guard. That means registry metadata and redacted receipt
