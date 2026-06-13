@@ -123,3 +123,70 @@ def test_runs_maps_audit_events(client, monkeypatch):
     assert run["status"] == "success"
     assert run["permission_mode"] != "unknown"
     assert run["created_at"] == "2026-06-12T14:01:02+00:00"
+
+
+def test_governance_stats_maps_compute(client, monkeypatch):
+    from app.services import governance as governance_svc
+
+    fake = {
+        "total_decisions": 10, "successful": 9, "failed": 1, "avg_latency_ms": 120,
+        "avg_grounding_score": 0.84, "high_grounding": 7, "mixed_grounding": 2,
+        "low_grounding": 1, "top_tools": [{"tool_name": "repe.kpis", "call_count": 5, "avg_latency": 90}],
+    }
+    monkeypatch.setattr(governance_svc, "compute_audit_stats", lambda biz, **kw: fake)
+    body = client.get(f"/api/ade/governance-stats?business_id={BUSINESS_ID}").json()
+    assert body["null_reason"] is None
+    assert body["total_decisions"] == 10
+    assert body["success_rate"] == 0.9  # 9/10 derived in the route
+    assert body["avg_grounding_score"] == 0.84
+    assert body["top_tools"][0]["tool_name"] == "repe.kpis"
+    assert body["warehouse_export_configured"] is False  # no BQ creds in tests
+
+
+def test_governance_stats_fails_closed(client, monkeypatch):
+    from app.services import governance as governance_svc
+
+    def boom(*a, **k):
+        raise RuntimeError("no database in tests")
+
+    monkeypatch.setattr(governance_svc, "compute_audit_stats", boom)
+    resp = client.get(f"/api/ade/governance-stats?business_id={BUSINESS_ID}")
+    assert resp.status_code == 200  # never 500
+    body = resp.json()
+    assert body["null_reason"] == "governance_stats_unavailable"
+    assert body["total_decisions"] == 0
+    assert body["success_rate"] is None
+
+
+def test_governance_stats_zero_decisions_no_div_by_zero(client, monkeypatch):
+    from app.services import governance as governance_svc
+
+    empty = {"total_decisions": 0, "successful": 0, "failed": 0, "avg_latency_ms": None,
+             "avg_grounding_score": None, "high_grounding": 0, "mixed_grounding": 0,
+             "low_grounding": 0, "top_tools": []}
+    monkeypatch.setattr(governance_svc, "compute_audit_stats", lambda biz, **kw: empty)
+    body = client.get(f"/api/ade/governance-stats?business_id={BUSINESS_ID}").json()
+    assert body["null_reason"] is None
+    assert body["success_rate"] is None  # not a ZeroDivisionError
+
+
+def test_warehouse_export_seam_fails_closed_without_creds(monkeypatch):
+    """The export seam must raise (never report success) when BQ is unconfigured."""
+    from app.services import ade_warehouse_export
+
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    monkeypatch.delenv("BQ_PROJECT_ID", raising=False)
+    assert ade_warehouse_export.warehouse_export_configured() is False
+    with pytest.raises(NotImplementedError, match="not configured"):
+        ade_warehouse_export.export_audit_events_to_warehouse()
+
+
+def test_warehouse_export_seam_unimplemented_with_creds(monkeypatch):
+    """Even with creds present, the seam is not yet implemented — must raise, not no-op."""
+    from app.services import ade_warehouse_export
+
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/tmp/fake.json")
+    monkeypatch.setenv("BQ_PROJECT_ID", "fake-project")
+    assert ade_warehouse_export.warehouse_export_configured() is True
+    with pytest.raises(NotImplementedError, match="not yet implemented"):
+        ade_warehouse_export.export_audit_events_to_warehouse()

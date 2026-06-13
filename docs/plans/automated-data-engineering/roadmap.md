@@ -33,6 +33,17 @@ None of this is in PR 1. The non-goals in `eval-plan.md` enforce that.
   see `security-and-trust-boundaries.md`)
 - `env_id` scoping for receipt reads once audit events carry an env column
 
+## Audit BigQuery Export
+
+Implementation target for the seam in `backend/app/services/ade_warehouse_export.py`
+(every entry point currently raises `NotImplementedError`):
+
+- Read `app.audit_events` from Postgres (the operational source of truth)
+- Batch-load to BigQuery `winston_ops.audit_events_bq` via `google-cloud-bigquery`
+- Fail closed on missing credentials — never report success without
+  `GOOGLE_APPLICATION_CREDENTIALS` and `BQ_PROJECT_ID`
+- Idempotent by event id so re-runs do not duplicate rows
+
 ## Surface and packaging
 
 - Full playbook doc set (PR 1 ships the panel skeleton only)
