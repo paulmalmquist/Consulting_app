@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4a COMPLETE (durable sink worker loop, local drain proven 2026-06-13) · Phase 4b IN PROGRESS (GKE Autopilot deploy). Phases 5–6 planned. ADO: Stories #521, #558 under Feature #520 / Epic #221.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13). Phases 5–6 planned. ADO: Stories #521, #558 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -53,7 +53,7 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE (2026-06-10) |
 | 8b | 3B | Cloud broker (Confluent Cloud) + transport security cutover via env; `confluent-kafka` in requirements.txt; `scripts/streaming/broker_smoke.py` round-trip | No | Med | DONE (2026-06-12) |
 | 9a | 4 | Sink worker loop `backend/app/events/sink_worker.py` + entrypoint + Dockerfile + 9 tests | No | Med | DONE (2026-06-13) |
-| 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | IN PROGRESS (2026-06-13) |
+| 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | DONE (2026-06-13) |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
 
@@ -200,13 +200,33 @@ The Phase 3B round-trip proved one message inline; this is the long-running cons
 
 **4a local proof (2026-06-13):** worker ran as a process against Confluent Cloud + BigQuery, drained a retained `execution.completed` event, wrote it to `winston_events_raw.events` (`insertAll` HTTP 200 → `sink: wrote event … status=ok`). `/readyz=200` while running. ruff clean; 46 event tests pass.
 
-### Ticket 9b — GKE Autopilot deploy (IN PROGRESS 2026-06-13)
+### Ticket 9b — GKE Autopilot deploy (DONE 2026-06-13)
 ADO Story #558, Tasks #563–565.
 - `infra/k8s/base/`: Deployment (single replica, non-root, liveness `/healthz` + readiness `/readyz`, `terminationGracePeriodSeconds: 45` for graceful drain, secret-sourced broker/creds env) + ServiceAccount + kustomization. Renders clean (`kubectl kustomize`).
 - `infra/k8s/overlays/gke-dev/`: namespace `winston-events`, image pinned to `us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink:0.1.0`, Workload Identity annotation on the KSA. `secret.example.yaml` template (real Secret created imperatively at deploy, never committed).
 - `infra/k8s/README.md`: full GCP setup + WI binding + build/push + deploy + receipt + teardown runbook.
 - GCP provisioned: Container/Artifact Registry/IAM Credentials APIs enabled; Artifact Registry repo `winston-events` (us-east1); image `0.1.0` built + pushed; GCP SA `winston-bq-sink@paultest-d3cb1` with `roles/bigquery.dataEditor` + `roles/bigquery.jobUser`; GKE Autopilot cluster `winston-events-dev` (us-east1) provisioning.
-- Pending: Workload Identity binding (after cluster RUNNING), `kubectl apply -k`, imperative Secret, live receipt (event drains through the GKE pod into BigQuery).
+- GKE cluster `winston-events-dev` RUNNING; `gke-gcloud-auth-plugin` installed for kubectl; Workload Identity binding done (`winston-bq-sink` KSA ↔ GSA, `roles/iam.workloadIdentityUser`); `kubectl apply -k` created namespace + SA + Deployment; broker/creds Secret created imperatively (never committed); pod `1/1 Running`, readiness `/readyz` green, subscribed to Confluent.
+
+**Phase 4b acceptance receipt — live GKE pod drain (2026-06-13):**
+```
+publish_event -> Confluent Cloud (winston.executions.v1, partition 4)
+  -> GKE Autopilot pod winston-bq-sink (Workload Identity -> BigQuery, NO key file)
+  -> sink.process_message -> BigQuery winston_events_raw.events
+
+pod log: sink_worker: handled winston.executions.v1/4@0 status=ok
+         sink: wrote event run_id=f3fc9e79-a034-4418-966d-bc41796343e9
+
+  event_id    = daf1e483-e171-4f9d-a664-f831413c72e4
+  event_type  = execution.completed
+  run_id      = f3fc9e79-a034-4418-966d-bc41796343e9
+  source      = gke_receipt
+  ingested_at = 2026-06-13 01:24:00 UTC
+  dead_letter = False
+```
+Cluster: `winston-events-dev` (GKE Autopilot, us-east1). Image: `us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink:0.1.0`. The pod authenticated to BigQuery via Workload Identity — no service-account key in the pod.
+
+**Delivery gotcha (recorded):** `publish_smoke.py`'s bounded 200ms flush (`EVENTS_PUBLISH_TIMEOUT_MS`) is too short to ack a produce to Confluent Cloud from a local machine — the process exits with the message still in the producer queue ("Producer terminating with 1 message still in queue"), so it never reaches the broker. For a guaranteed-delivery publish, flush with a real timeout (`producer.flush(30)`) and confirm via the delivery callback (`err=None partition=N offset=M`). This is a smoke-script limitation, not a worker issue.
 
 **Cluster is left running** (per decision 2026-06-13) for Phase 5 work; teardown command in `infra/k8s/README.md`.
 
