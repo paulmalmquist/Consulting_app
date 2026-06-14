@@ -23,7 +23,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from app.services.hr_stream import config
-from app.services.hr_stream.contracts import SIGNAL_DOMAINS
 
 logger = logging.getLogger("app.hr_stream.runner")
 
