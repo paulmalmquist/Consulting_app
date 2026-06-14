@@ -85,6 +85,7 @@ from app.routes import consulting
 from app.routes import telemetry
 from app.routes import telemetry_copilot
 from app.routes import automated_data_engineering
+from app.routes import workflow_registry
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -114,6 +115,7 @@ from app.routes import market_research_state
 from app.routes import rhymes
 from app.routes import podcast_intelligence
 from app.routes import hr as hr_routes
+from app.routes import hr_polymarket as hr_polymarket_routes
 from app.routes import hr_research as hr_research_routes
 from app.routes import hr_morning_book as hr_morning_book_routes
 from app.routes import altered_mind as altered_mind_routes
@@ -536,6 +538,7 @@ app.include_router(market_research_state.router)
 app.include_router(rhymes.router)
 app.include_router(podcast_intelligence.router)
 app.include_router(hr_routes.router)
+app.include_router(hr_polymarket_routes.router)
 app.include_router(hr_research_routes.router)
 app.include_router(hr_morning_book_routes.router)
 app.include_router(altered_mind_routes.router)
@@ -563,6 +566,7 @@ app.include_router(consulting.router)
 app.include_router(telemetry.router)
 app.include_router(telemetry_copilot.router)
 app.include_router(automated_data_engineering.router)
+app.include_router(workflow_registry.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)
