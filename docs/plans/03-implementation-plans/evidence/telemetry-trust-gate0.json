@@ -1,0 +1,77 @@
+{
+  "gate": "telemetry_trust_gate0",
+  "status": "BLOCKED",
+  "outcome": "no_verdict",
+  "generated_for": "2026-06-13 session",
+  "notebook": "telemetry-platform/databricks/notebooks/telemetry_trust_gate0_distance_error.py",
+  "parent_ticket": "docs/plans/03-implementation-plans/active/telemetry-trust-gate0-ticket.md",
+  "workspace": "dbc-2504bec5-b5ab.cloud.databricks.com",
+  "data_source_tables": [
+    "novendor_1.telemetry.gold_cmapss_features",
+    "novendor_1.telemetry.silver_cmapss_rul"
+  ],
+  "model_source": "novendor_1.telemetry.tel_rul_regressor version 1 (run c970fdcc; GBM, RMSE 20.32 / PHM 1423; frozen inference, no retrain)",
+
+  "blocker": {
+    "summary": "Gate 0 as designed (score ALL FD001 test cycles, compute per-window absolute RUL error) is not executable: the C-MAPSS test set has no per-cycle RUL truth.",
+    "evidence": "gold_cmapss_features FD001 split=test: 13096 rows, 0 non-null rul_target (100% NaN). split=train: 20631 rows, 20631 non-null. Per-unit test truth lives only in silver_cmapss_rul (100 units, one RUL each, at the last observed cycle).",
+    "root_cause": "By dataset construction, C-MAPSS test units are truncated and only a single final-cycle RUL is published per unit. gold_cmapss_features.rul_target is therefore populated for train rows and NaN for every test row. The shipped train_rul.py handles this by evaluating one row per unit (last cycle) merged from silver_cmapss_rul.",
+    "consequence": "There is no per-cycle absolute error to correlate against embedding distance. The all-cycle within-band design (13096 windows) cannot be computed. The only valid test target is last-cycle-per-unit (100 windows), which is a DIFFERENT experiment (changes within-band density and the A/B-pair premise).",
+    "decision": "STOP at blocker receipt. Per the ticket's attempt rule, four runs were spent, the failing cause is now a method-relevant data fact (not environmental), and restructuring to last-cycle-per-unit would be patching into a different experiment. The restructure is a next-ticket decision, not a fifth patch."
+  },
+
+  "recommendation": "blocked_redesign_required",
+  "verdict": null,
+  "verdict_note": "No continue / train_contrastive / kill verdict is produced. The gate never reached its statistics under a valid target. Do not infer a result.",
+
+  "execution_notes_failed_attempts": [
+    {
+      "run": 1,
+      "run_id": 917327227746956,
+      "result": "INTERNAL_ERROR",
+      "cause": "ModuleNotFoundError: No module named 'mlflow'",
+      "classification": "environmental",
+      "fix": "bare serverless task had no ML env; added an `environments` spec with dependencies"
+    },
+    {
+      "run": 2,
+      "run_id": 784126618132498,
+      "result": "INTERNAL_ERROR",
+      "cause": "AttributeError: 'HalfSquaredError' object has no attribute 'get_init_raw_predictions' on model.predict",
+      "classification": "environmental (version skew)",
+      "fix": "champion pickled under scikit-learn 1.4.2; serverless pulled a newer sklearn whose GradientBoostingRegressor loss API changed. Pinned scikit-learn==1.4.2."
+    },
+    {
+      "run": 3,
+      "run_id": 183194355323548,
+      "result": "INTERNAL_ERROR",
+      "cause": "ValueError: cannot convert float NaN to integer (int(y_true) in A/B-pair serialization)",
+      "classification": "notebook bug (reporting step) — first visible symptom of the test-truth data fact",
+      "fix": "dropped test rows with NaN rul_target up front + defensive NaN guard in the pair loop"
+    },
+    {
+      "run": 4,
+      "run_id": 847101562663737,
+      "result": "INTERNAL_ERROR",
+      "cause": "ValueError: Found array with 0 sample(s) (shape=(0,42)) — the NaN-truth drop emptied the entire test set",
+      "classification": "DECISIVE DATA DISCOVERY — every FD001 test row lacks rul_target; the all-cycle design has no target",
+      "fix": "none applied; stopped here per the attempt rule"
+    }
+  ],
+
+  "environment_reproducibility": {
+    "sklearn_pin": "scikit-learn==1.4.2",
+    "why": "REQUIRED. The tel_rul_regressor champion was pickled under scikit-learn 1.4.2 (dispatch 0003 Phase 2). Newer sklearn removes GradientBoostingRegressor's HalfSquaredError.get_init_raw_predictions; predict() then raises AttributeError. Any future run loading this champion MUST pin scikit-learn==1.4.2.",
+    "serverless_job_spec": "runs/submit with environment_key 'Default' + environments[].spec {client:'2', dependencies:['mlflow','scikit-learn==1.4.2']}. A bare serverless task has no mlflow/sklearn.",
+    "cli_auth": "Databricks CLI v1.0.0 rejects the cached PAT; set DATABRICKS_AUTH_TYPE=pat and DATABRICKS_CONFIG_FILE=/dev/null. For SQL use curl against /api/2.0/sql/statements (warehouse 0e56420fb707d861); `databricks api post` returns Not Found in v1.0.0."
+  },
+
+  "caveats": [
+    "No verdict was produced. The Trust Layer thesis is neither validated nor killed by this run.",
+    "all_cycle scoring was the intended density move but is invalid for C-MAPSS test (no per-cycle truth).",
+    "The shipped 20.32 RMSE is the last-cycle-per-unit benchmark and was never recomputed here; do not cite this session as competitive or non-competitive.",
+    "FD001 is single-fault-mode; the novel-fault-mode (FD003 cross-subset) novelty test is a later step regardless."
+  ],
+
+  "recommended_next_ticket": "Redesign Gate 0 to the last-cycle-per-unit target (100 FD001 test units, truth merged from silver_cmapss_rul, same as train_rul.py). Re-evaluate whether the within-band distance/error question is answerable at n=100, or whether train-set cross-validation (where per-cycle truth EXISTS) is the better falsification surface. This is a method decision for the next session, not a patch."
+}

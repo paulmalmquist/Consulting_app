@@ -3309,3 +3309,62 @@ Trust-Layer Gate 0 must **derive** a cheap C-MAPSS embedding from `gold_cmapss_f
 on existing features) and **derive** predictions by loading the registered `tel_rul_regressor` champion
 for inference. Both are existing-feature transforms / frozen inference — still "no training." The Gate 0
 ticket was reconciled to this reality before any run.
+
+---
+
+## 2026-06-14 - History Rhymes Polymarket streaming
+
+**Gamma keyset pagination uses `after_cursor`, not `cursor`.** For current
+discovery use `closed=false` and enforce `active`, future date, order-book
+availability, binary Yes/No outcomes, and liquidity in the client. Do not use
+`live=true` as a synonym for active: it excluded longer-horizon active events
+and left mostly short-lived sports markets in the live smoke.
+
+**Gamma embeds market arrays as JSON strings.** `clobTokenIds`, `outcomes`,
+and `outcomePrices` must be decoded and mapped by outcome label; array position
+alone is not a safe Yes-token assumption.
+
+**WebSocket freshness and market freshness are different signals.** Publish a
+connection heartbeat on `PONG` so a quiet book can remain connection-live while
+its market-event timestamp becomes stale. Never label a quiet market as a dead
+socket or a dead socket as merely quiet.
+
+**Raw Polymarket ticks belong in Confluent/observational BigQuery, not
+Postgres.** Postgres stores compacted market metadata, one idempotent feature
+snapshot per market/minute, stream status, parsed questions, and auditable
+forecasts.
+
+**An empty calibration registry is the correct launch default.** It causes
+eligible forecast families to return `uncalibrated`/`RESEARCH` with no `p_hr`
+until the 50-observation Brier/ECE walk-forward gate passes. Never let a missing
+calibration artifact silently promote a crowd-only card to `LIVE`.
+
+---
+
+## 2026-06-13 — Gate 0 run (BLOCKED) — C-MAPSS test has no per-cycle RUL truth
+
+Gate 0 ran on Databricks (4 attempts) and **blocked without a verdict**. Receipt:
+`docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`. Three durable facts:
+
+**C-MAPSS TEST rows have NO per-cycle `rul_target` — it is 100% NaN by dataset construction.**
+`novendor_1.telemetry.gold_cmapss_features` FD001: `split=test` is 13,096 rows with **0** non-null
+`rul_target`; `split=train` is 20,631 rows fully populated. C-MAPSS test units are truncated and publish
+only ONE final-cycle RUL per unit, stored in `silver_cmapss_rul` (100 units). So any "score all test
+cycles and correlate per-window error" design is impossible on the test split — there is no per-cycle
+target. `train_rul.py` sidesteps this by evaluating **last-cycle-per-unit** (100 points) merged from
+`silver_cmapss_rul`. For per-cycle density analysis, use the **train** split (truth exists) with a
+held-out unit fold, not the test split.
+
+**`tel_rul_regressor` requires `scikit-learn==1.4.2` to load — pin it or `predict()` raises.**
+The champion (run `c970fdcc`, GBM) was pickled under sklearn 1.4.2. Newer sklearn removes
+`GradientBoostingRegressor`'s `HalfSquaredError.get_init_raw_predictions`, so `predict()` throws
+`AttributeError`. Always pin `scikit-learn==1.4.2` when loading it.
+
+**Serverless ML job submission shape (what actually works).**
+`POST /api/2.1/jobs/runs/submit` with the task carrying `environment_key: "Default"` AND a job-level
+`environments: [{environment_key:"Default", spec:{client:"2", dependencies:["mlflow","scikit-learn==1.4.2"]}}]`.
+A bare serverless task has no mlflow/sklearn (run 1 died on `No module named 'mlflow'`). Notebook output
+only escapes via `dbutils.notebook.exit(json)`; serverless stdout is NOT returned by `runs/get-output`,
+so a crash before `exit()` loses all printed results — persist intermediates if you need them on failure.
+On Windows Git Bash, set `MSYS_NO_PATHCONV=1` or workspace paths like `/Users/...` get mangled to
+`C:/Program Files/Git/Users/...`.
