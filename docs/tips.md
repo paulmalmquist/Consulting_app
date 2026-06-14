@@ -3364,3 +3364,24 @@ only escapes via `dbutils.notebook.exit(json)`; serverless stdout is NOT returne
 so a crash before `exit()` loses all printed results — persist intermediates if you need them on failure.
 On Windows Git Bash, set `MSYS_NO_PATHCONV=1` or workspace paths like `/Users/...` get mangled to
 `C:/Program Files/Git/Users/...`.
+
+---
+
+## 2026-06-13 — Gate 0 VERDICT: KILL — embedding distance anti-correlates with RUL error
+
+Gate 0 completed (Option B: FD001 train split, 80 fleet / 20 held-out units, real per-cycle truth,
+4,311 windows). Receipt: `docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`.
+
+**The cheap z-score+PCA embedding's distance ANTI-correlates with RUL error — the thesis is refuted.**
+Within-band Spearman ρ(kNN distance, |error|) is negative in ALL five predicted-RUL bands (overall
+−0.127; bands −0.135, −0.160, −0.073, −0.053, −0.045), with 3 of 5 CIs excluding zero on the negative
+side. Far-from-fleet windows have slightly *lower* error. The mechanical rule (positive-CI band →
+continue/SupCon; else kill) lands on **kill** — a negative significant result is a stronger refutation
+than flatness and does NOT route to SupCon. So: do not build the Trust Layer (no SupCon, no schema, no
+UI) on the cheap-path thesis. Likely mechanism for the anti-correlation: late-life C-MAPSS windows are
+both more self-similar (near the fleet) AND lower-error, so a generic feature embedding conflates "near
+the fleet" with "easy to predict." Revisiting the thesis is a research question, not a build.
+
+**Process note that held up:** Gate 0 did exactly its job — killed the idea cheaply (one ~½-day notebook,
+frozen inference, no SupCon spend) before any infrastructure. The "no-training, falsify first" gate is
+worth keeping as a pattern for future thesis-driven builds.

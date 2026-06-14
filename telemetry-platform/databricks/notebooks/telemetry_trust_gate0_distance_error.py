@@ -1,14 +1,21 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gate 0 — Telemetry Trust Layer Falsification
+# MAGIC # Gate 0 — Telemetry Trust Layer Falsification (Option B: train-split held-out units)
 # MAGIC Does embedding distance carry trust information beyond the point RUL prediction?
 # MAGIC
 # MAGIC **Question:** among C-MAPSS FD001 windows with similar *predicted* RUL, are windows farther
-# MAGIC from the training fleet in embedding space associated with larger absolute RUL error?
+# MAGIC from the fleet in embedding space associated with larger absolute RUL error?
+# MAGIC
+# MAGIC **Why train-split:** the C-MAPSS *test* split has NO per-cycle `rul_target` (truncated units,
+# MAGIC one final-cycle RUL each in `silver_cmapss_rul`). The *train* split has a real per-cycle
+# MAGIC `rul_target` for every row. So we hold out a fraction of TRAIN units as the evaluation set:
+# MAGIC real per-cycle truth, full density, and held-out units stay disjoint from the fleet used for
+# MAGIC kNN (so distance reflects novelty, not memorization).
 # MAGIC
 # MAGIC **No training.** Predictions come from the registered `tel_rul_regressor` champion (frozen
-# MAGIC inference). The embedding is a z-score (+ optional PCA) transform of the existing
-# MAGIC `gold_cmapss_features` columns. No SupCon, no new predictor, no schema/UI/API.
+# MAGIC inference). The embedding is a z-score (+ optional PCA) transform of existing
+# MAGIC `gold_cmapss_features` columns, fit on FLEET rows only. No SupCon, no new predictor, no
+# MAGIC schema/UI/API. Pin `scikit-learn==1.4.2` (the champion was pickled under it).
 # MAGIC
 # MAGIC Parent ticket: `docs/plans/03-implementation-plans/active/telemetry-trust-gate0-ticket.md`
 
@@ -27,26 +34,31 @@ PCA_K = 24                          # embedding dim after PCA (None disables PCA
 BANDS = [(0, 25), (25, 50), (50, 75), (75, 100), (100, 10_000)]
 N_BOOT = 2000
 SEED = 0
+HOLDOUT_FRAC = 0.2                  # fraction of FD001 train UNITS held out for evaluation
 rng = np.random.default_rng(SEED)
 
 # COMMAND ----------
-# ---- Load existing gold features (no new data) ----
+# ---- Load existing gold features; use the TRAIN split only (it has real per-cycle rul_target) ----
 feat = spark.table(f"{TEL}.gold_cmapss_features").toPandas()
 feat = feat[feat.subset == SUBSET].copy()
 FEAT_COLS = [c for c in feat.columns if c.startswith("sensor_")]   # same 47 cols the model trained on
 
-train = feat[feat.split == "train"].dropna(subset=FEAT_COLS).copy()
-test = feat[feat.split == "test"].dropna(subset=FEAT_COLS).copy()
-# True RUL at each row, capped (piecewise-linear convention). gold_cmapss_features.rul_target is the
-# per-row remaining cycles; cap it for a consistent error scale with how the model was trained.
-# Drop any test rows lacking a valid rul_target so all downstream ints/stats run on complete rows only.
-test = test[test["rul_target"].notna()].copy()
+src = feat[feat.split == "train"].dropna(subset=FEAT_COLS + ["rul_target"]).copy()
+all_units = np.sort(src.unit.unique())
+n_hold = max(1, int(round(len(all_units) * HOLDOUT_FRAC)))
+hold_units = set(rng.choice(all_units, size=n_hold, replace=False).tolist())
+fleet_units = [u for u in all_units if u not in hold_units]
+
+# FLEET = the reference population (kNN target, embedding fit, no leakage of held-out units).
+# HELD-OUT = the evaluation windows scored for distance-vs-error.
+train = src[src.unit.isin(fleet_units)].copy()      # naming kept: 'train' = fleet reference
+test = src[src.unit.isin(hold_units)].copy()        # 'test'  = held-out evaluation windows
 test["y_true"] = np.minimum(test["rul_target"].to_numpy(), RUL_CAP)
-n_test_dropped_nan_truth = int((feat[(feat.split == "test")]["rul_target"].isna()).sum())
-print("FD001 | feat cols", len(FEAT_COLS), "| train rows", len(train),
-      "| test rows", len(test), "| train units", train.unit.nunique(),
-      "| test units", test.unit.nunique(),
-      "| test rows dropped (NaN rul_target):", n_test_dropped_nan_truth)
+print("FD001 train-split | feat cols", len(FEAT_COLS),
+      "| total units", len(all_units), "| fleet units", len(fleet_units), "| held-out units", n_hold,
+      "| fleet rows", len(train), "| held-out rows", len(test),
+      "| held-out unit ids", sorted(hold_units))
+assert len(test) > 0 and len(train) > 0, "empty fleet or held-out — check split"
 
 # COMMAND ----------
 # ---- Frozen-inference predictions from the registered champion (NO training) ----
@@ -56,8 +68,12 @@ Xte = test[FEAT_COLS].to_numpy()
 test["pred_rul"] = np.clip(model.predict(Xte), 0, RUL_CAP)
 test["abs_err"] = np.abs(test["pred_rul"].to_numpy() - test["y_true"].to_numpy())
 overall_rmse = float(np.sqrt(np.mean((test["pred_rul"] - test["y_true"]) ** 2)))
-print("scored test rows", len(test), "| all-cycle RMSE", round(overall_rmse, 3),
-      "(NOT the 100-unit last-cycle benchmark; do not cite as competitive)")
+# NOTE: the champion was trained on ALL 100 train units (incl. these held-out ones), so predictions
+# are in-sample — optimistic, i.e. LESS error to correlate with. That makes the gate HARDER to pass
+# (conservative), not easier. The held-out split governs the EMBEDDING/kNN (no fleet leakage), which
+# is what the distance signal depends on; the predictor is reused as-is per the no-training rule.
+print("held-out windows scored", len(test), "| held-out per-cycle RMSE", round(overall_rmse, 3),
+      "(in-sample for the predictor; NOT the 100-unit last-cycle benchmark; do not cite as competitive)")
 
 # COMMAND ----------
 # ---- Cheap embedding: z-score on TRAIN stats (+ optional PCA). A feature transform, not training ----
@@ -81,9 +97,9 @@ else:
 print("embedding:", emb_method, "| dim", Etr.shape[1])
 
 # COMMAND ----------
-# ---- kNN distance: each TEST window -> nearest TRAIN windows (L2 on the embedding) ----
-# Exclude same-unit leakage is moot (train/test units are disjoint in C-MAPSS), but we still compute
-# test->train only. Chunk to bound memory.
+# ---- kNN distance: each HELD-OUT window -> nearest FLEET windows (L2 on the embedding) ----
+# Held-out units are disjoint from fleet units by the unit-level split above, so distance reflects
+# fleet novelty, not memorization. Chunk to bound memory.
 tr_units = train.unit.to_numpy()
 knn_dist = np.empty(len(Ete))
 nn_train_idx = np.empty(len(Ete), dtype=int)
@@ -207,34 +223,43 @@ print("RECOMMENDATION:", recommendation)
 # COMMAND ----------
 evidence = {
     "gate": "telemetry_trust_gate0",
+    "design": "option_b_train_split_heldout_units",
     "notebook": "telemetry-platform/databricks/notebooks/telemetry_trust_gate0_distance_error.py",
     "data_source_tables": [f"{TEL}.gold_cmapss_features"],
     "model_source": f"{TEL}.tel_rul_regressor (version 1, run c970fdcc; frozen inference, no retrain)",
-    "embedding_source": f"derived in-notebook from gold_cmapss_features ({emb_method}); "
-                        "NOT gold_fused_state_vectors (that is the SMAP/MSL anomaly lane)",
-    "distance_metric": f"mean L2 over k={K} nearest train windows (deep-kNN style), embedding space",
-    "dataset_split": {"subset": SUBSET, "train_rows": int(len(train)), "test_rows": int(len(test)),
-                      "train_units": int(train.unit.nunique()), "test_units": int(test.unit.nunique()),
-                      "test_rows_dropped_nan_truth": n_test_dropped_nan_truth,
-                      "scoring": "all test cycles (not last-cycle-per-unit benchmark)"},
+    "embedding_source": f"derived in-notebook from gold_cmapss_features ({emb_method}), fit on FLEET "
+                        "rows only; NOT gold_fused_state_vectors (that is the SMAP/MSL anomaly lane)",
+    "distance_metric": f"mean L2 over k={K} nearest FLEET windows (deep-kNN style), embedding space",
+    "dataset_split": {"subset": SUBSET, "split_basis": "FD001 TRAIN split (has real per-cycle "
+                      "rul_target); held-out by unit id, seed=" + str(SEED),
+                      "fleet_units": int(train.unit.nunique()), "heldout_units": int(test.unit.nunique()),
+                      "fleet_rows": int(len(train)), "heldout_rows": int(len(test)),
+                      "heldout_unit_ids": sorted(int(u) for u in test.unit.unique()),
+                      "scoring": "every cycle of each held-out unit (real per-cycle truth)"},
     "sklearn_pin": "scikit-learn==1.4.2 — REQUIRED: the champion was pickled under 1.4.2; newer "
                    "sklearn drops GradientBoostingRegressor's HalfSquaredError.get_init_raw_predictions "
                    "and predict() raises AttributeError. Pin to reproduce.",
     "rul_cap": RUL_CAP,
-    "all_cycle_rmse": round(overall_rmse, 3),
-    "all_cycle_rmse_note": "all-cycle RMSE, NOT the 100-unit last-cycle benchmark (20.32). Not a "
-                           "literature-competitive claim.",
+    "heldout_per_cycle_rmse": round(overall_rmse, 3),
+    "heldout_rmse_note": "Per-cycle RMSE on held-out TRAIN units. IN-SAMPLE for the predictor (the "
+                         "champion was trained on all 100 train units), so optimistic — this makes the "
+                         "distance/error gate HARDER, not easier. NOT the 100-unit last-cycle benchmark "
+                         "(20.32). Not a literature-competitive claim.",
     "band_definitions": [f"{lo}-{hi if hi < 9999 else 'inf'}" for lo, hi in BANDS],
     "overall_spearman_rho": round(overall_rho, 4),
     "per_band": per_band,
     "top_ab_pairs": pairs,
     "recommendation": recommendation,
     "caveats": [
+        "Ran on the FD001 TRAIN split because the TEST split has no per-cycle rul_target (100% NaN); "
+        "held-out units have real per-cycle truth.",
+        "Predictor is in-sample (champion trained on all 100 train units incl. held-out): predictions "
+        "are optimistic, which makes the distance/error gate harder to pass, not easier. The held-out "
+        "split governs the embedding/kNN (no fleet leakage), which is what the distance signal needs.",
         "Embedding is a cheap z-score(+PCA) of existing features, not a learned/contrastive encoder; "
         "a weak-but-real rho routes to the SupCon ticket, not a kill.",
-        "Scored at every test cycle for density; the shipped 20.32 RMSE is the last-cycle-per-unit "
-        "benchmark and is a different quantity.",
-        "C-MAPSS train/test units are disjoint, so kNN distance reflects fleet novelty, not memorization.",
+        "Held-out RMSE here is per-cycle and in-sample; the shipped 20.32 RMSE is the last-cycle-per-unit "
+        "benchmark — a different quantity. No competitiveness claim either direction.",
         "FD001 has a single fault mode; the stronger novel-fault-mode test (FD003 cross-subset) is a "
         "later step, not this gate.",
     ],
