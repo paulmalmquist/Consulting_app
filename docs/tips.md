@@ -3273,3 +3273,35 @@ project before a dollar of build.
 
 **Reusable lessons go to canonical `docs/tips.md` (~380 KB), never the root `tips.md` duplicate.**
 The root file is do-not-write; this file is the one loaded for situational awareness.
+
+---
+
+## 2026-06-13 — Gate 0 credential + data reconciliation (Telemetry Trust Layer)
+
+Verified creds and inspected the live workspace before writing any notebook. Two durable traps:
+
+**Databricks CLI v1.0.0 rejects the cached PAT — force `DATABRICKS_AUTH_TYPE=pat`.**
+With a valid `dapi…` PAT in `claude_token.txt`, `databricks current-user me` failed with "stored
+credentials from older CLI versions are no longer used; run `databricks auth login` … or set
+`DATABRICKS_AUTH_STORAGE=plaintext`". The fix that authenticates without an interactive login:
+```
+export DATABRICKS_HOST="https://dbc-2504bec5-b5ab.cloud.databricks.com"
+export DATABRICKS_TOKEN="$(tr -d ' \t\r\n' < claude_token.txt)"
+export DATABRICKS_AUTH_TYPE="pat"
+export DATABRICKS_CONFIG_FILE="/dev/null"   # bypass the stale ~/.databrickscfg cache
+```
+For ad-hoc SQL, `databricks api post /api/2.0/sql/statements` returns "Not Found" in v1.0.0 — use
+`curl` against `$HOST/api/2.0/sql/statements` directly (warehouse `0e56420fb707d861`). Capture stdout
+to a file (don't pipe straight into `python`; CLI warnings on stderr corrupt the JSON parse), and use a
+repo-relative temp dir — Git Bash `/tmp` paths don't round-trip to the Windows Python interpreter.
+
+**The C-MAPSS RUL lane and the fused-vector embedding are DIFFERENT datasets — they don't join.**
+In `novendor_1.telemetry`: `gold_cmapss_features` (FD001: 20,631 train / 13,096 test, 100 units) has
+`unit, cycle, rul_target` + ~47 sensor/rolling features but **no embedding and no stored predictions**
+(only ground-truth `rul_target`). `gold_fused_state_vectors` (and its Postgres mirror
+`tel_fused_state_vectors`) is the **SMAP/MSL anomaly lane** (128 windows, `source_channels` = spacecraft
+IDs A-1/D-4/E-12/…), not turbofans. So you cannot "reuse the existing fused vector for C-MAPSS RUL." A
+Trust-Layer Gate 0 must **derive** a cheap C-MAPSS embedding from `gold_cmapss_features` (z-score + PCA
+on existing features) and **derive** predictions by loading the registered `tel_rul_regressor` champion
+for inference. Both are existing-feature transforms / frozen inference — still "no training." The Gate 0
+ticket was reconciled to this reality before any run.
