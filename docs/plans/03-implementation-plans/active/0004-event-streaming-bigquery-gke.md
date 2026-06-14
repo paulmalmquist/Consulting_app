@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13). Phases 5–6 planned. ADO: Stories #521, #558 under Feature #520 / Epic #221.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13). Phase 5B+ and 6 planned. ADO: Stories #521, #558, #571 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -54,7 +54,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 8b | 3B | Cloud broker (Confluent Cloud) + transport security cutover via env; `confluent-kafka` in requirements.txt; `scripts/streaming/broker_smoke.py` round-trip | No | Med | DONE (2026-06-12) |
 | 9a | 4 | Sink worker loop `backend/app/events/sink_worker.py` + entrypoint + Dockerfile + 9 tests | No | Med | DONE (2026-06-13) |
 | 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | DONE (2026-06-13) |
-| 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
+| 10a | 5A | HR signal ingestion — 1–2 signals through the spine: `hr_signal_publisher.py`, `history-rhymes.signals.v1`, GKE sink dual-topic, live receipt | No | Med | DONE (2026-06-13) |
+| 10b | 5B | Remaining HR signals (all 8) + wire to the real manual-bundle path; replay tooling | Maybe | Med | TODO |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
 
 ---
@@ -230,10 +231,38 @@ Cluster: `winston-events-dev` (GKE Autopilot, us-east1). Image: `us-east1-docker
 
 **Cluster is left running** (per decision 2026-06-13) for Phase 5 work; teardown command in `infra/k8s/README.md`.
 
+## Phase 5A — per-ticket detail (DONE 2026-06-13)
+
+### Ticket 10a — HR signal ingestion through the spine
+First real use of the backbone beyond execution events. ADO Story #571, Tasks #572–578. Built on the merged #145/#169/#177 contracts — no new streaming abstraction, no Postgres writes, no decision-runner changes.
+- `backend/app/events/topics.py`: `Topics.HISTORY_RHYMES_SIGNALS = "history-rhymes.signals.v1"` + an `EventTypes` constants class (`hr.signal.observed`, `hr.signal.bundle_received`, plus the execution types).
+- `backend/app/events/hr_signal_publisher.py`: `bundle_to_envelopes()` / `signal_to_envelope()` map a HR signal bundle to one `EventEnvelope` per signal; payload carries `signal_name, signal_value, signal_timestamp, source, staleness_status, confidence, units, as_of_date`; `idempotency_key = hr.signal.observed:{as_of_date}:{signal_name}` (stable → BQ insertId dedup). `publish_signal_bundle()` is best-effort (no-op without a broker). `InvalidSignalBundle` raised on malformed bundles.
+- `scripts/streaming/publish_hr_signals.py`: synthetic 2-signal bundle → full-flush producer (`flush(30)` + delivery callback, per the Phase 4 bounded-flush lesson) → `history-rhymes.signals.v1`.
+- `backend/tests/test_hr_signal_publisher.py`: 13 tests — mapping, payload contract, idempotency-key shape/stability, timestamp coercion, invalid bundles/signals, and that a well-formed HR envelope passes `sink.validate_envelope` while a malformed one dead-letters (sink unchanged).
+- **Sink dead-letter fix** (`backend/app/events/sink.py`): a dead-letter row left `event_id`/`idempotency_key` null, but the BQ schema marks both REQUIRED, so the dead-letter row itself failed to insert (`Field value cannot be empty`) and the failure was lost. Now synthesizes deterministic non-empty keys from a sha256 of the raw bytes (`event_id = uuid5(...)`, `idempotency_key = dead_letter:<hash>`). Pre-existing Phase 2 bug, first surfaced by the live HR dead-letter test. +2 tests.
+- GKE sink pointed at both topics (`EVENTS_CONSUMER_TOPICS="winston.executions.v1,history-rhymes.signals.v1"`, now declarative in `infra/k8s/base/deployment.yaml`); image rebuilt `0.2.0` with the dead-letter fix; pod redeployed.
+
+**Phase 5A acceptance receipt — live GKE HR drain (2026-06-13):**
+```
+publish HR bundle -> Confluent (history-rhymes.signals.v1) -> GKE pod -> BigQuery
+
+pod: handled history-rhymes.signals.v1/0@0 status=ok   (hr.signal.observed)
+     handled history-rhymes.signals.v1/0@1 status=ok
+
+BigQuery (run_id=hr-bundle:2026-06-13, event_type=hr.signal.observed):
+  signal=yield_curve_10y2y value=-0.42 staleness=fresh as_of=2026-06-13 dead_letter=False
+  signal=credit_spread_hy  value=3.15  staleness=fresh as_of=2026-06-13 dead_letter=False
+
+Dead-letter proof (malformed HR payload):
+  pod: handled history-rhymes.signals.v1/0@3 status=dead_letter
+  BigQuery: event_id=f14a57df-... dead_letter=True
+            reason="missing required fields: [...]" raw={"signal_name":"junk2",...}
+```
+The same observational sink drained HR events with zero sink logic changes (only the REQUIRED-key dead-letter fix). HR signals are queryable by `run_id` / `event_id` / `JSON_VALUE(payload,'$.signal_name')`.
+
 ## Phase 5+ — milestones (planned)
 
-- **Phase 4 (GKE).** `infra/k8s/{base,overlays/gke-dev}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
-- **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
+- **Phase 5B — HR showcase (rest).** The remaining History Rhymes signals (all 8) wired to the real manual-bundle path; replay tooling. The decision runner still reads Postgres (authoritative); these events stay additive observability.
 - **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
 
 ---

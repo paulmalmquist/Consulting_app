@@ -12,7 +12,7 @@ resources:
 images:
   - name: winston-bq-sink
     newName: us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink
-    newTag: "0.1.0"
+    newTag: "0.2.0"
 
 patches:
   # Bind the k8s ServiceAccount to the GCP service account via Workload Identity.
