@@ -3417,3 +3417,28 @@ target nominal 80%/90%, and judge by **PICP within ±0.03 of nominal** — but a
 too, because an interval can "pass" coverage by being uselessly wide. Generate a reliability diagram
 (observed vs nominal) and call out late-prediction cases explicitly. Coverage is a hard gate; build no UI
 until it passes.
+
+---
+
+## 2026-06-13 — Calibration baseline ran: gate PASS, plus the per-cycle PHM trap
+
+Ticket 1 (`telemetry-calibration-baseline.py`) reproduced the FD001 benchmark exactly (**RMSE 20.322 /
+PHM 1423.33**, last-cycle-per-unit) and **passed the calibration gate**: split-conformal intervals on
+disjoint train units give PICP 0.788 @ 80% and 0.895 @ 90% (both within ±0.03), reliability monotone
+across 6 levels. Evidence: `docs/plans/03-implementation-plans/evidence/telemetry-calibration-baseline.{json,md}`.
+
+**PHM08 is a per-UNIT (last-cycle) metric — NEVER compute it per-cycle.** Applied per-cycle over
+thousands of early-life windows (large RUL gaps), the asymmetric exponential terms explode (this run hit
+`phm_per_cycle` ~98,776, a meaningless artifact). Report PHM only on the last-cycle-per-unit benchmark;
+use RMSE for per-cycle/windowed eval. `phm_score()` lives at `train_rul.py:58`.
+
+**Conformal coverage can PASS while intervals are uselessly wide — always report MPIW/PINAW.** The
+passing run had MPIW ~43–56 cycles (PINAW ~0.34–0.45). Coverage was honest *because* the band was
+generous. A PICP-only report would hide that. Width is the next quality lever (stronger model / CQR for
+adaptive width), not a reason to claim the calibration is "good" on coverage alone.
+
+**Split-conformal recipe that worked here:** disjoint-unit fit/calib/internal-test (60/20/20 of the 100
+FD001 train units, seed 0); conformal q = the ceil((m+1)·level)-th smallest |residual| on the calib set;
+symmetric band pred±q clipped to [0, RUL_CAP]. Finite-sample valid, no distributional assumption, ~1 min
+on serverless. Late-side miss rate at 90% was 0.8% — the band catches ~99% of dangerously-optimistic
+predictions, which is the safety property worth showing.
