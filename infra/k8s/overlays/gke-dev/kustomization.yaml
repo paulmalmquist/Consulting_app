@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: winston-events
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+# Pin the worker image to the Artifact Registry path + tag for this env.
+# Replace PROJECT / tag during deploy (or via `kustomize edit set image`).
+images:
+  - name: winston-bq-sink
+    newName: us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink
+    newTag: "0.1.0"
+
+patches:
+  # Bind the k8s ServiceAccount to the GCP service account via Workload Identity.
+  - target:
+      kind: ServiceAccount
+      name: winston-bq-sink
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          iam.gke.io/gcp-service-account: winston-bq-sink@paultest-d3cb1.iam.gserviceaccount.com
