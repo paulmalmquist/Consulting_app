@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write proven 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip proven 2026-06-12; receipt below). Phases 4–6 planned. ADO: Story #521 under Feature #520 / Epic #221.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4a COMPLETE (durable sink worker loop, local drain proven 2026-06-13) · Phase 4b IN PROGRESS (GKE Autopilot deploy). Phases 5–6 planned. ADO: Stories #521, #558 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -52,7 +52,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
 | 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE (2026-06-10) |
 | 8b | 3B | Cloud broker (Confluent Cloud) + transport security cutover via env; `confluent-kafka` in requirements.txt; `scripts/streaming/broker_smoke.py` round-trip | No | Med | DONE (2026-06-12) |
-| 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
+| 9a | 4 | Sink worker loop `backend/app/events/sink_worker.py` + entrypoint + Dockerfile + 9 tests | No | Med | DONE (2026-06-13) |
+| 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | IN PROGRESS (2026-06-13) |
 | 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
 
@@ -187,9 +188,31 @@ BigQuery: `paultest-d3cb1.winston_events_raw.events` (sink unchanged from Phase 
 
 **Credential note:** Confluent API key/secret live in env vars only. Never committed, never logged (the smoke redacts the username and never prints the secret). Auth lesson (recorded in tips.md): a Kafka SASL key must be **cluster-scoped and tied to a user account with admin RBAC** — a Global/Cloud API key fails auth, and a service-account key on a cluster with existing ACLs is deny-by-default (TOPIC_AUTHORIZATION_FAILED) until granted topic ACLs.
 
-## Phase 3B+ — milestones (planned)
+## Phase 4 — per-ticket detail (4a DONE · 4b IN PROGRESS)
 
-- **Phase 4 — GKE.** `infra/k8s/{base,overlays/{local,gke-dev,gke-prod}}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
+### Ticket 9a — durable sink worker loop (DONE 2026-06-13)
+The Phase 3B round-trip proved one message inline; this is the long-running consumer. ADO Story #558, Tasks #559–562.
+- `backend/app/events/config.py`: `consumer_config()` + `EVENTS_CONSUMER_{GROUP,TOPICS,OFFSET_RESET,POLL_TIMEOUT_S}`; `enable.auto.commit=false` for manual at-least-once commit; reuses `producer_security_config()` so Confluent SASL_SSL works unchanged.
+- `backend/app/events/sink_worker.py`: `SinkWorker` (subscribe → poll → `process_message` → commit), injectable `consumer_factory`/`handler` for broker-free tests, `HealthState` (liveness/readiness) for k8s probes, graceful stop via `threading.Event`. Commit happens AFTER handling (success OR dead-letter); a handler raise is NOT swallowed (`process_message` never raises by contract) so the pod crashes and k8s restarts rather than committing past an unhandled message. BQ `insertId=idempotency_key` makes redelivery idempotent.
+- `scripts/streaming/run_sink_worker.py`: entrypoint with SIGTERM/SIGINT graceful drain + stdlib HTTP health server (`/healthz`, `/readyz`) — no web framework. Path bootstrap works both in-repo and in the image.
+- `backend/Dockerfile.sink-worker` + `requirements-sink.txt`: minimal non-root image (pydantic + confluent-kafka + google-cloud-bigquery only; no FastAPI/DB).
+- `backend/tests/test_events_sink_worker.py`: 9 tests (FakeConsumer) — commit-after-success, commit-on-dead-letter, no-commit on timeout/error/empty/handler-raise, full drain loop, readiness transitions.
+
+**4a local proof (2026-06-13):** worker ran as a process against Confluent Cloud + BigQuery, drained a retained `execution.completed` event, wrote it to `winston_events_raw.events` (`insertAll` HTTP 200 → `sink: wrote event … status=ok`). `/readyz=200` while running. ruff clean; 46 event tests pass.
+
+### Ticket 9b — GKE Autopilot deploy (IN PROGRESS 2026-06-13)
+ADO Story #558, Tasks #563–565.
+- `infra/k8s/base/`: Deployment (single replica, non-root, liveness `/healthz` + readiness `/readyz`, `terminationGracePeriodSeconds: 45` for graceful drain, secret-sourced broker/creds env) + ServiceAccount + kustomization. Renders clean (`kubectl kustomize`).
+- `infra/k8s/overlays/gke-dev/`: namespace `winston-events`, image pinned to `us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink:0.1.0`, Workload Identity annotation on the KSA. `secret.example.yaml` template (real Secret created imperatively at deploy, never committed).
+- `infra/k8s/README.md`: full GCP setup + WI binding + build/push + deploy + receipt + teardown runbook.
+- GCP provisioned: Container/Artifact Registry/IAM Credentials APIs enabled; Artifact Registry repo `winston-events` (us-east1); image `0.1.0` built + pushed; GCP SA `winston-bq-sink@paultest-d3cb1` with `roles/bigquery.dataEditor` + `roles/bigquery.jobUser`; GKE Autopilot cluster `winston-events-dev` (us-east1) provisioning.
+- Pending: Workload Identity binding (after cluster RUNNING), `kubectl apply -k`, imperative Secret, live receipt (event drains through the GKE pod into BigQuery).
+
+**Cluster is left running** (per decision 2026-06-13) for Phase 5 work; teardown command in `infra/k8s/README.md`.
+
+## Phase 5+ — milestones (planned)
+
+- **Phase 4 (GKE).** `infra/k8s/{base,overlays/gke-dev}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
 - **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
 - **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
 

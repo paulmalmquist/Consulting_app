@@ -35,9 +35,18 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-_BACKEND = Path(__file__).resolve().parents[2] / "backend"
-if str(_BACKEND) not in sys.path:
-    sys.path.insert(0, str(_BACKEND))
+# Make `app.events.*` importable both from the repo (scripts/streaming/ is two
+# levels below the repo root, with the package under backend/) and from the
+# container image (this file and the `app` package sit side by side in /app).
+_here = Path(__file__).resolve()
+for _candidate in (
+    _here.parent,                       # image: /app (app/ is a sibling)
+    *( [_here.parents[2] / "backend"]   # repo: <root>/backend
+       if len(_here.parents) > 2 else [] ),
+):
+    if (_candidate / "app").is_dir() and str(_candidate) not in sys.path:
+        sys.path.insert(0, str(_candidate))
+        break
 
 from app.events.sink_worker import HealthState, SinkWorker  # noqa: E402
 
