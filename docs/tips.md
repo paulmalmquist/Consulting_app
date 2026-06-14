@@ -3228,3 +3228,48 @@ layout primitives in `primitives.tsx` (`StatGrid`, `SplitGrid`, `ScrollTable`, `
   items in a bottom bar don't fit; group the drawer instead.
 - When re-verifying after a rebuild, confirm the new server actually bound the port — an EADDRINUSE
   leftover from the previous `next start` will happily serve the stale build and "disprove" the fix.
+
+---
+
+## 2026-06-13 — Telemetry Trust Layer architecture review (Factory Pattern Intelligence)
+
+Durable traps surfaced while assessing the "Factory Pattern Intelligence" idea against the repo. Full
+review: `docs/plans/03-implementation-plans/active/factory-pattern-intelligence.md`. Working name going
+forward is **Telemetry Trust Layer** (plain, accurate, doesn't overpromise).
+
+**The telemetry platform is already shipped — do not propose greenfield GCP/Vertex/Dataflow for
+Trust/Divergence work.**
+Dispatch `0003` (`docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`) shipped
+Phases 0–6 on 2026-06-01: C-MAPSS RUL + SMAP/MSL anomaly on a Databricks medallion, MLflow registry
+with promotion gates, `tel_*` serving (`backend/app/services/telemetry_serving.py`), a 5-page telemetry
+env UI, deterministic replay, live on Railway + novendor.ai. Confluent Kafka + Flink already runs for
+Stargate (`infra/confluent/stargate/`, `stargate_bridge.py`). A new prognostics feature is a capability
+layer on this, not a platform build. Proposing Kafka→Dataflow→BigQuery→Vertex from scratch rebuilds
+owned infrastructure and reads as not knowing the stack.
+
+**The existing RUL champion is NOT literature-competitive — never call it so without improving RMSE.**
+`telemetry-platform/databricks/notebooks/train_rul.py` ships a GBM at **RMSE 20.32 / PHM 1423 on FD001**
+(its gate was ≤25). The literature-credible bar is **≤13** (SOTA ~11; Li et al. 2018 floor 12.61).
+Citing 20.32 as "competitive" is a credibility hit. The PHM08 asymmetric score (`phm_score()`) is
+already implemented and is comparable only on identical test sets.
+
+**`tel_fused_state_vectors VECTOR(256)` already exists (Phase 7A scaffold) — reuse it, don't add a
+parallel embedding table.** It is the intended home for telemetry degradation embeddings.
+
+**History Rhymes pgvector retrieval is the proven analog-search template.**
+`backend/app/services/history_rhymes_service.py` `_pgvector_search` (cosine `<=>`, top-k, HNSW over
+`episode_embeddings VECTOR(256)`) is live and is the pattern to copy for fleet analog retrieval — swap
+the encoder, keep the retrieval shape. Do not build a new nearest-neighbor path.
+
+**"Factory Pattern Intelligence" is a naming collision and wrong framing.** It clashes with
+`tel_ncr_records` "Factory & NCR Intelligence" (migration `10016`) and misdescribes aerospace turbofan
+RUL content. Use **Telemetry Trust Layer** before any schema or route is created.
+
+**Gate 0 must precede any infrastructure.** A within-band distance-vs-error Spearman ρ check (conditioned
+on predicted-RUL band, with a bootstrap CI per band) over the existing C-MAPSS gold tables falsifies or
+validates the whole trust thesis in ~½ day, training nothing — using the existing PCA/fused vector and
+the shipped RUL predictions. Train the SupCon encoder only on a weak-but-real result; a dead ρ kills the
+project before a dollar of build.
+
+**Reusable lessons go to canonical `docs/tips.md` (~380 KB), never the root `tips.md` duplicate.**
+The root file is do-not-write; this file is the one loaded for situational awareness.
