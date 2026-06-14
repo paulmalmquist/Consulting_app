@@ -3474,3 +3474,36 @@ pass is the calibration's doing, not a moved goalpost.
 PICP calibrated (±0.03) AND MPIW narrower-or-similar; if RMSE better but MPIW widens, it graduates only on
 *materially* better PHM (≤90% of baseline) with written justification. PHM08 is the late-prediction safety
 metric — RMSE-better-but-PHM-worse is a safety regression, not a tradeoff.
+
+---
+
+## 2026-06-13 — Telemetry calibration demo screen (Ticket 3) — UI conventions + honesty
+
+Built the RUL Calibration screen at `/lab/env/[envId]/telemetry/calibration`
+(`repo-b/src/components/telemetry/RulCalibration.tsx`). Reusable conventions:
+
+**Adding a telemetry screen is 3 small edits — the shell does the rest.** (1) one entry in
+`repo-b/src/components/telemetry/telemetryNav.ts` (desktop rail + mobile drawer + bottom bar all consume
+it); (2) `app/lab/env/[envId]/telemetry/<slug>/page.tsx` that just renders the component; (3) the
+component. `telemetry/layout.tsx` auto-wraps every page in `TelemetryShell` (full-bleed, dark palette),
+so pages never import the shell. `/telemetry` is already a full-bleed `isDomainRoute` token — no shell work.
+
+**Build telemetry UI from `components/telemetry/primitives.tsx`, inline styles only.** `C` (palette),
+`PageHeading`, `Panel`, `MetricCard`, `StatGrid` (cols 3/4/5), `SplitGrid` (variants), `Tag`,
+`EmptyState`/`ErrorState`, `DisclosureFooter`. The whole surface is inline-style on purpose (dark console,
+theme-independent), so IDE "no inline styles" warnings are EXPECTED and match convention — do not refactor
+to CSS files. Layout uses literal Tailwind classes inside primitives (never composed from props). Charts:
+use inline SVG with `C` colors (band = filled path, lines = stroke); do NOT add a chart dependency.
+
+**Calibration demo data: static fixture from the committed artifact, clearly labeled — never live.**
+The evidence JSON has scalar metrics + real conformal q values but no per-cycle trajectory. Put a static
+fixture in `lib/telemetry/<name>.ts` with metrics copied verbatim from the artifact and a representative
+trajectory whose interval bands use the model's REAL q_lower/q_upper (so geometry is honest), label it
+"Replay / evidence artifact" on screen, use deterministic pseudo-noise (no Math.random — identical every
+build). No Databricks query from the frontend, no backend, no schema for a demo screen.
+
+**Killed-claim hygiene in UI:** the screen mentions embedding-distance "trust" ONLY in the
+negative-result bridge ("killed by Gate 0… this screen does not revive that claim"). A vitest assertion
+guards it: `body.textContent` must NOT match `/SupCon|analog retrieval|pgvector|novelty distance/i`. Reuse
+that pattern to keep killed hypotheses from creeping back into surfaces. repo-b runner is **vitest**
+(`npx vitest run <file>`), no `test` script; typecheck `npx tsc --noEmit -p tsconfig.typecheck.json`.

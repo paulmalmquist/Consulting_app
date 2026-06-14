@@ -5,8 +5,11 @@
 baseline (gate PASS; `evidence/telemetry-calibration-baseline.md`, commit `92ac2865`). **Ticket 2: a
 CNN-LSTM challenger GRADUATED** as FD001 RUL champion — RMSE 17.33 (vs 20.32), PHM 742 (vs 1423),
 calibrated 80/90% coverage, tighter intervals (`evidence/telemetry-calibration-challenger.md`). Still
-NOT literature-competitive (>13); no such claim made. **Ticket 3 (one thin calibration demo screen) is
-now unlocked** per §8 — gated work only, no cockpit.
+NOT literature-competitive (>13); no such claim made. **Ticket 3 DONE 2026-06-13** — one thin RUL
+Calibration screen at `/lab/env/[envId]/telemetry/calibration` (component `RulCalibration.tsx`, static
+evidence fixture `lib/telemetry/calibrationEvidence.ts`, nav entry added). Frontend-local, no backend,
+no schema. 5 component tests pass; 40/40 telemetry tests green; typecheck + lint clean. Demo build is
+complete (kill story → reproduced+calibrated baseline → graduated champion → calibration screen).
 **Supersedes thesis:** the Telemetry Trust Layer (`factory-pattern-intelligence.md`), **KILLED** by
 Gate 0 (`evidence/telemetry-trust-negative-result-writeup.md`, commit `383536bd`).
 **Owning env plan:** `docs/plans/telemetry-platform/` (update its `next-session.md` / `backlog.md` per
