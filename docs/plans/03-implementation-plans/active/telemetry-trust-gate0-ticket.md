@@ -1,10 +1,31 @@
 # Gate 0 Ticket — Telemetry Trust Layer Falsification
 
 **Created:** 2026-06-13
-**Status:** READY FOR INTAKE — draft ticket; file via `azure-devops-intake` before `feature-dev` picks it up.
-**Type:** Read-only analysis spike (falsification gate).
+**Status:** RECONCILED 2026-06-13 against the live Databricks workspace — ready to file via
+`azure-devops-intake` then run. See **Data Reconciliation** below: the original "reuse existing fused
+vector + existing RUL predictions" premise was corrected after inspecting `novendor_1.telemetry`.
+**Type:** Read-only / inference-only analysis spike (falsification gate).
 **Parent assessment:** `docs/plans/03-implementation-plans/active/factory-pattern-intelligence.md`
 (kept stable — do **not** rename until this gate validates or kills the idea).
+
+## Data Reconciliation (verified 2026-06-13, live workspace)
+
+Inspected `novendor_1.telemetry` (warehouse `0e56420fb707d861`, PAT auth). Ground truth:
+
+- **C-MAPSS RUL lane is real but has no embedding and no stored predictions.**
+  `gold_cmapss_features` (FD001: 20,631 train / 13,096 test rows, 100 units each) carries
+  `subset, split, unit, cycle, max_cycle, rul_target` + 7 base sensors and their `_rmean5/_rstd5/_rmin5/_rmax5/_roc` rolling features (~47 numeric columns). It contains **ground-truth `rul_target` only — no `predicted_rul` column** anywhere in the schema.
+- **The existing fused embedding is the ANOMALY lane, not turbofans.** `gold_fused_state_vectors`
+  (128 train / 128 test rows) is built on **SMAP/MSL spacecraft channels** (`source_channels` = `A-1, D-4, E-12, M-3, …`), with `feature_vector array<double>`, `recon_error_ae/pca`, anomaly labels. It does **not** join to C-MAPSS `unit`/`cycle` and is **not** a turbofan degradation embedding. (`tel_fused_state_vectors` referenced in the assessment is the Postgres mirror of this same anomaly-lane vector — same caveat.)
+- **No stored C-MAPSS RUL predictions exist.** Schema search for `*pred*`/`*rul*` columns returns
+  only ground-truth (`rul_target`, `rul`) and the SMAP/MSL `gold_replay_feed_scored.model_pred`
+  (anomaly, not RUL).
+- **The RUL champion is registered and loadable.** `novendor_1.telemetry.tel_rul_regressor` exists in
+  Unity Catalog (alongside `tel_anomaly_detector`). It can be loaded for **inference** to produce
+  `predicted_rul` — no retraining.
+
+**Consequence:** the literal "reuse existing predictions + existing fused vector on C-MAPSS" is not
+possible. The minimal honest path that preserves "no training" is below (Scope, revised).
 
 ## Title
 
@@ -38,24 +59,36 @@ Create one Databricks notebook over existing telemetry data in `novendor_1.telem
 
 The notebook should:
 
-1. Use existing C-MAPSS gold/features/prediction data.
-2. Use the existing `tel_fused_state_vectors VECTOR(256)` or equivalent available fused/PCA vector source.
-3. Compute kNN distance from each held-out window to the training fleet.
-4. Group windows into predicted-RUL bands.
-5. Within each predicted-RUL band, compute the relationship between embedding distance and absolute RUL prediction error.
-6. Identify possible A/B demo pairs:
+1. Use existing C-MAPSS gold data: `novendor_1.telemetry.gold_cmapss_features`, subset FD001
+   (`unit, cycle, rul_target` + ~47 sensor/rolling feature columns).
+2. **Predictions:** load the registered `novendor_1.telemetry.tel_rul_regressor` champion and run
+   **inference** (no retraining) to produce `predicted_rul` for FD001 test windows. `absolute_error =
+   |predicted_rul − rul_target|`.
+3. **Embedding (cheap, derived in-notebook):** the existing fused vector is the SMAP/MSL anomaly lane
+   and does **not** apply to C-MAPSS (see Data Reconciliation). Build a cheap C-MAPSS embedding from
+   `gold_cmapss_features` columns: standardize the ~47 numeric features (z-score on train stats),
+   optionally PCA-reduce to k≈16–32. This is a feature-scaling/PCA **fit on existing features**, not
+   model training. Document the exact construction. Apply RUL cap = 125 (the build convention) when
+   forming `rul_target` for error.
+4. Compute kNN distance from each held-out window to the training fleet in the embedding space.
+5. Group windows into predicted-RUL bands.
+6. Within each predicted-RUL band, compute the relationship between embedding distance and absolute RUL prediction error.
+7. Identify possible A/B demo pairs:
 
    * similar predicted RUL
    * materially different kNN distance
    * materially different actual error
-7. Emit a persisted evidence artifact.
+8. Emit a persisted evidence artifact.
 
 ## Non-Goals
 
 Do not:
 
 * Train SupCon.
-* Train a new RUL model.
+* Train a new RUL model (gradient/fit of any predictor). **Allowed and not "training":** loading the
+  registered `tel_rul_regressor` for frozen inference, and fitting a `StandardScaler`/`PCA` on existing
+  C-MAPSS feature columns to form the cheap embedding. These are data transforms over existing features,
+  not new predictive models.
 * Add schema.
 * Add API routes.
 * Add UI.
@@ -70,16 +103,16 @@ Do not:
 
 Use existing telemetry platform data only.
 
-Required fields or equivalents:
+Source: `novendor_1.telemetry.gold_cmapss_features` (subset FD001) + the registered
+`tel_rul_regressor` champion. Fields used / derived:
 
-* unit_id
-* cycle
-* split / train-test marker
-* predicted_rul
-* true_rul
-* absolute_error
-* fused_state_vector or embedding vector
-* model_id / prediction source if available
+* `unit` (unit_id), `cycle`, `split` (train/test) — from gold table
+* `rul_target` (true RUL, capped at 125) — from gold table
+* `predicted_rul` — **derived** via `tel_rul_regressor` inference (not stored; not retrained)
+* `absolute_error` = |predicted_rul − rul_target| — derived
+* embedding vector — **derived** in-notebook (z-scored ~47 features, optional PCA); NOT the existing
+  SMAP/MSL `gold_fused_state_vectors`
+* model source = `novendor_1.telemetry.tel_rul_regressor` (record its model version)
 
 ### Distance Calculation
 
