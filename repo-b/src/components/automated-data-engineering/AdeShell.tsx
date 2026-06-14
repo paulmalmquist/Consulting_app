@@ -18,6 +18,7 @@ const NAV: NavItem[] = [
   { slug: "workflows", label: "Workflow Registry", icon: "M3 3h3v3H3zM10 3h3v3h-3zM3 10h3v3H3zM10 10h3v3h-3zM6 4.5h4M11.5 6v4M6 11.5h4M4.5 6v4" },
   { slug: "connectors", label: "Connector Map", icon: "M3 3h4v4H3zM9 9h4v4H9zM7 5h2M5 7v2M11 7V5M9 11H7" },
   { slug: "runs", label: "Execution Receipts", icon: "M3 2h8l2 2v10H3zM5 6h6M5 9h6M5 12h4" },
+  { slug: "audit", label: "Audit", icon: "M8 2a6 6 0 100 12A6 6 0 008 2zM8 5v3l2 2" },
   { slug: "playbooks", label: "Playbooks", icon: "M3 2h9v12H3zM3 2c1 1 1 11 0 12M6 5h4M6 8h4" },
 ];
 
