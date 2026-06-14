@@ -2,6 +2,16 @@
 
 None of this is in PR 1. The non-goals in `eval-plan.md` enforce that.
 
+## Phase status
+
+**Phase 1 — Governed Operational Fabric: IN REVIEW** (PR #180,
+https://github.com/paulmalmquist/Consulting_app/pull/180, branch
+`phase-1-governed-fabric`). Bundles PR 1 (ADE surface), PR 1b (governance stats +
+warehouse seam), PR 2 (workflow registry), PR 3 (audit dashboard + BigQuery export
+scaffold). 37 ADE-suite tests pass, ruff clean, tree-wide tsc 0 errors; Gates 1–3
+passed. Phase 2 (Intelligence Card System, PR 4) is held until this is in review/merged
+to keep the control-plane / product-surface review boundary clean.
+
 ## Model access (ADR 0001)
 
 - Provider abstraction with three modes: Winston-managed (current), bring-your-own-key,
