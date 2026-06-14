@@ -3389,3 +3389,31 @@ the fleet" with "easy to predict." Revisiting the thesis is a research question,
 **Process note that held up:** Gate 0 did exactly its job — killed the idea cheaply (one ~½-day notebook,
 frozen inference, no SupCon spend) before any infrastructure. The "no-training, falsify first" gate is
 worth keeping as a pattern for future thesis-driven builds.
+
+---
+
+## 2026-06-13 — Killed-hypothesis guard + telemetry RUL benchmark/calibration notes
+
+**Embedding-distance trust is KILLED for telemetry — do not revive it without a NEW falsification plan.**
+Gate 0 proved that on C-MAPSS FD001, embedding distance from the fleet *anti-correlates* with RUL error
+(see `docs/plans/03-implementation-plans/evidence/telemetry-trust-negative-result-writeup.md`). Any future
+telemetry work that proposes SupCon, contrastive retrieval, novelty/embedding-distance trust, pgvector
+analog trust, or a Trust/Divergence schema/UI is reviving a refuted thesis and must be rejected unless a
+fresh, approved kill-test reopens it. The successor build is calibrated RUL uncertainty (conformal
+intervals), NOT analog-distance trust — a different and defensible claim. Plan:
+`docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md`.
+
+**C-MAPSS RUL benchmark comparability — three traps.** (1) The shipped champion is **RMSE 20.32 / PHM
+1423 on the last-cycle-per-unit benchmark** (one row per test unit, truth from `silver_cmapss_rul`); the
+literature-credible FD001 bar is **≤ ~13**. Never call 20.32 competitive. (2) **Last-cycle RMSE ≠
+all-cycle/per-cycle RMSE** — they are different quantities; never compare across them. (3) The **PHM08
+Score is comparable only on identical test sets** and is dominated by a few large late-prediction errors;
+always report RMSE beside it. PHM08 is asymmetric — late (optimistic) RUL is penalized harder (a=10) than
+early (a=13); `phm_score()` is already implemented at `telemetry-platform/databricks/notebooks/train_rul.py:58`.
+
+**Conformal-calibration methodology — the gate that actually matters.** For honest RUL uncertainty: hold
+out a dedicated **calibration split with units disjoint from train and test** (split-conformal or CQR),
+target nominal 80%/90%, and judge by **PICP within ±0.03 of nominal** — but always report **MPIW/PINAW**
+too, because an interval can "pass" coverage by being uselessly wide. Generate a reliability diagram
+(observed vs nominal) and call out late-prediction cases explicitly. Coverage is a hard gate; build no UI
+until it passes.
