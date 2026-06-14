@@ -46,7 +46,7 @@ spec:
             - name: EVENTS_CONSUMER_GROUP
               value: "winston-bq-sink"
             - name: EVENTS_CONSUMER_TOPICS
-              value: "winston.executions.v1"
+              value: "winston.executions.v1,history-rhymes.signals.v1"
             - name: BQ_ENABLED
               value: "true"
             - name: HEALTH_PORT
