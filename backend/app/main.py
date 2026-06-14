@@ -82,6 +82,7 @@ from app.routes import telemetry_copilot
 from app.routes import automated_data_engineering
 from app.routes import intelligence_cards
 from app.routes import workflow_registry
+from app.routes import audit_dashboard
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -426,6 +427,7 @@ app.include_router(telemetry_copilot.router)
 app.include_router(automated_data_engineering.router)
 app.include_router(intelligence_cards.router)
 app.include_router(workflow_registry.router)
+app.include_router(audit_dashboard.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)
