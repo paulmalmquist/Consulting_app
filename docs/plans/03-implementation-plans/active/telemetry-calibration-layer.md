@@ -1,7 +1,12 @@
 # Telemetry Calibration Layer — Implementation Plan
 
 **Created:** 2026-06-13
-**Status:** ACTIVE — planning complete, no code written. First ticket defined in §11.
+**Status:** ACTIVE — **Tickets 1 & 2 DONE 2026-06-13.** Ticket 1 reproduced + calibrated the GBM
+baseline (gate PASS; `evidence/telemetry-calibration-baseline.md`, commit `92ac2865`). **Ticket 2: a
+CNN-LSTM challenger GRADUATED** as FD001 RUL champion — RMSE 17.33 (vs 20.32), PHM 742 (vs 1423),
+calibrated 80/90% coverage, tighter intervals (`evidence/telemetry-calibration-challenger.md`). Still
+NOT literature-competitive (>13); no such claim made. **Ticket 3 (one thin calibration demo screen) is
+now unlocked** per §8 — gated work only, no cockpit.
 **Supersedes thesis:** the Telemetry Trust Layer (`factory-pattern-intelligence.md`), **KILLED** by
 Gate 0 (`evidence/telemetry-trust-negative-result-writeup.md`, commit `383536bd`).
 **Owning env plan:** `docs/plans/telemetry-platform/` (update its `next-session.md` / `backlog.md` per

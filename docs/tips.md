@@ -3442,3 +3442,35 @@ FD001 train units, seed 0); conformal q = the ceil((m+1)·level)-th smallest |re
 symmetric band pred±q clipped to [0, RUL_CAP]. Finite-sample valid, no distributional assumption, ~1 min
 on serverless. Late-side miss rate at 90% was 0.8% — the band catches ~99% of dangerously-optimistic
 predictions, which is the safety property worth showing.
+
+---
+
+## 2026-06-13 — CNN-LSTM challenger graduated; torch-on-serverless + asymmetric conformal
+
+Ticket 2: a CNN-LSTM beat the GBM baseline and **graduated** as FD001 RUL champion (RMSE 17.33 vs 20.32,
+PHM 742 vs 1423, calibrated 80/90% coverage, tighter intervals). Evidence:
+`docs/plans/03-implementation-plans/evidence/telemetry-calibration-challenger.{json,md}`. Reusable bits:
+
+**PyTorch CPU works on Databricks serverless — probe first, then it's cheap.** The Default serverless env
+has NO tensorflow/keras/torch (only sklearn 1.3 / numpy / pandas). Adding `torch==2.2.2` to the job
+`environments[].spec.dependencies` installs a CPU build that imports in ~3 s; a small CNN-LSTM (Conv1D×2
+→ LSTM → Dense) over ~20k C-MAPSS windows trains in ~40 s. Always run a one-cell import probe before
+authoring a DL notebook — a missing framework otherwise burns a full run.
+
+**C-MAPSS sequence models read from `silver_cmapss`, not `gold_cmapss_features`.** Silver has the 21 raw
+per-cycle sensors + op settings + per-cycle `rul_target` (on train) — the right source for 30-cycle
+sliding windows. Gold is pre-rolled per-cycle features (good for tree models, wrong shape for a CNN-LSTM).
+Standard FD001 sensor selection (drop near-constant): 2,3,4,7,8,9,11,12,13,14,15,17,20,21.
+
+**Conformal undercoverage at one level is a calibration fix, NOT a model fix.** A challenger can win RMSE
+but fail the gate because its 80% interval undercovers (symmetric ±q from a small calib set is the usual
+culprit). Two no-retrain fixes that fixed it here: (1) **asymmetric** split-conformal (separate lower/upper
+signed-residual quantiles — fits RUL's asymmetric error), and (2) enlarge the calibration pool (fold the
+early-stopping val units into calib once they've done their job). Reuse the SAME model weights (same seed,
+no retrain); change only the conformal step. Keep the gate logic byte-identical across the retry so the
+pass is the calibration's doing, not a moved goalpost.
+
+**Graduation gate that held:** a challenger replaces the champion only if RMSE better AND PHM not worse AND
+PICP calibrated (±0.03) AND MPIW narrower-or-similar; if RMSE better but MPIW widens, it graduates only on
+*materially* better PHM (≤90% of baseline) with written justification. PHM08 is the late-prediction safety
+metric — RMSE-better-but-PHM-worse is a safety regression, not a tradeoff.
