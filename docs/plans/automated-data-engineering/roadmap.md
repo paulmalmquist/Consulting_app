@@ -44,6 +44,40 @@ Implementation target for the seam in `backend/app/services/ade_warehouse_export
   `GOOGLE_APPLICATION_CREDENTIALS` and `BQ_PROJECT_ID`
 - Idempotent by event id so re-runs do not duplicate rows
 
+## Expand Skill Registry Policy Metadata
+
+Follow-up to PR 1: extend the skill registry / MCP tool metadata so the registry
+becomes the policy-binding layer for governed model/tool execution. Touches
+`ToolDef` across the registry, so it is its own work item — it does **not** block
+PR 2 (the Workflow Registry skill picker only needs name/description/permission).
+
+Terminology this work pins down:
+
+- **MCP tool** — executable backend capability (`backend/app/mcp/registry.py`).
+- **Skill** — product-facing governed capability exposed to users/agents.
+- A skill may wrap one MCP tool, multiple MCP tools, or a deterministic analyzer.
+
+Metadata fields to add to `ToolDef` / its `manifest()`:
+
+- `risk_level`, `cost_class`, `latency_class`
+- `allowed_models`, `preferred_router_model`, `preferred_summary_model`, `escalation_model`
+- `sql_policy` (raw_sql_allowed, allowed_query_modes, requires_dry_run, max_estimated_cost_usd)
+- `grounding_required`, `citation_required`, `evals_required`, `null_behavior`
+- `requires_confirmation` (promote the existing field into the policy block)
+
+Acceptance criteria:
+
+- `/api/ade/skill-registry` returns the expanded policy metadata
+- Existing tool registrations are backfilled or safely defaulted (no tool ships without policy metadata)
+- Tests verify defaults, required fields, and fail-closed behavior
+- No agent/model routing path uses a tool that lacks policy metadata
+- Reusable lessons captured in `tips.md`
+
+Filed via roadmap (in-repo deferral record) on 2026-06-13: the
+`azure-devops-intake` skill is not installed in this checkout and no ADO
+credentials are configured here, so live board creation happens when intake next
+runs. The generator (`ado/gen_ade_backlog.py`) remains the import source of truth.
+
 ## Surface and packaging
 
 - Full playbook doc set (PR 1 ships the panel skeleton only)
