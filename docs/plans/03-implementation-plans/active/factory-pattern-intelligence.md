@@ -1,5 +1,7 @@
 # Factory Pattern Intelligence — Architecture Review & Build Decision
 
+> **Status update — 2026-06-13:** Gate 0 falsification returned **KILL**. Embedding distance anti-correlated with RUL error across all predicted-RUL bands. Do not proceed to SupCon, Trust/Divergence schema, UI screens, or infrastructure from this assessment. See `docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.md` and commit `383536bd`.
+
 **Created:** 2026-06-13
 **Status:** ASSESSMENT — not yet routed to intake or feature-dev. No tickets, no schema, no code.
 **Relationship to existing work:** This is a proposed capability layer on top of the **already-shipped**
