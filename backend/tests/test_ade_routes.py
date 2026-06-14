@@ -171,22 +171,26 @@ def test_governance_stats_zero_decisions_no_div_by_zero(client, monkeypatch):
 
 
 def test_warehouse_export_seam_fails_closed_without_creds(monkeypatch):
-    """The export seam must raise (never report success) when BQ is unconfigured."""
+    """The export seam must raise (never report success) when BQ is unconfigured.
+
+    PR 3 wired the seam to delegate to scripts/export_audit_to_bq.py, which raises
+    ExportNotConfigured ("not configured") rather than the old NotImplementedError.
+    """
     from app.services import ade_warehouse_export
 
     monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
     monkeypatch.delenv("BQ_PROJECT_ID", raising=False)
     assert ade_warehouse_export.warehouse_export_configured() is False
-    with pytest.raises(NotImplementedError, match="not configured"):
+    with pytest.raises(Exception, match="not configured"):
         ade_warehouse_export.export_audit_events_to_warehouse()
 
 
-def test_warehouse_export_seam_unimplemented_with_creds(monkeypatch):
-    """Even with creds present, the seam is not yet implemented — must raise, not no-op."""
+def test_warehouse_export_seam_reports_configured_with_creds(monkeypatch):
+    """With creds present the readiness check flips true; the seam then delegates to
+    the export script (which would attempt a real DB/BQ connection). We assert only the
+    readiness signal here — no live connection in tests."""
     from app.services import ade_warehouse_export
 
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/tmp/fake.json")
     monkeypatch.setenv("BQ_PROJECT_ID", "fake-project")
     assert ade_warehouse_export.warehouse_export_configured() is True
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        ade_warehouse_export.export_audit_events_to_warehouse()
