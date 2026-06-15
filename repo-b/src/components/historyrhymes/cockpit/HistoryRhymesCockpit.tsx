@@ -24,6 +24,7 @@ import { ImplicationCard } from "./ImplicationCard";
 import { SignalTelemetryStrip } from "./SignalTelemetryStrip";
 import { AnalogTimeline } from "./AnalogTimeline";
 import { AlertTrapRail } from "./AlertTrapRail";
+import { ScenarioPressurePanel } from "./ScenarioPressurePanel";
 
 // Trap summary string for the regime header. v1 of the trap detector returns
 // trap_flag=false with every field null — that is "not computing", which is a
@@ -129,7 +130,11 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
         />
       </SplitGrid>
 
-      {/* Z5 scenario pressure panel mounts here (PR 9). */}
+      {/* Z5 — scenario pressure (placeholder-honest: v1 values render pending). */}
+      <ScenarioPressurePanel
+        scenarios={match?.scenarios ?? null}
+        confidenceMeta={match?.confidence_meta ?? null}
+      />
 
       {/* Z7 — implications. */}
       <section style={{ marginTop: 16 }}>
