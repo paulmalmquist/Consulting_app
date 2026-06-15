@@ -42,7 +42,6 @@ function makeNode(overrides: Partial<DealRadarNode> = {}): DealRadarNode {
 describe("DealRadarCanvas", () => {
   it("shows a hover intelligence card and selects a node on click", () => {
     const onSelectDeal = vi.fn();
-    const onAskWinston = vi.fn();
 
     render(
       <DealRadarCanvas
@@ -51,7 +50,6 @@ describe("DealRadarCanvas", () => {
         nodes={[makeNode()]}
         selectedDealId={null}
         onSelectDeal={onSelectDeal}
-        onAskWinston={onAskWinston}
       />,
     );
 
