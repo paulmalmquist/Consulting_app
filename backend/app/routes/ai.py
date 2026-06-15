@@ -7,7 +7,6 @@ import time
 
 import openai
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.config import AI_GATEWAY_ENABLED, OPENAI_API_KEY, OPENAI_CHAT_MODEL_FAST
@@ -108,35 +107,3 @@ async def extract_dashboard_intent(req: DashboardIntentRequest) -> DashboardInte
         elapsed = int((time.time() - start) * 1000)
         logger.error("[ai_intent] failed after %dms: %s", elapsed, exc)
         raise HTTPException(status_code=500, detail="Intent extraction failed") from exc
-
-
-# ---------------------------------------------------------------------------
-# Legacy stubs
-# ---------------------------------------------------------------------------
-
-@router.get("/health")
-def health():
-    return JSONResponse(
-        content={
-            "enabled": False,
-            "sidecar_ok": False,
-            "mode": "gateway",
-            "message": "AI sidecar removed. Use /api/ai/gateway/health for the new AI Gateway.",
-        }
-    )
-
-
-@router.post("/ask")
-def ask():
-    raise HTTPException(
-        status_code=301,
-        detail="AI sidecar removed. Use POST /api/ai/gateway/ask instead.",
-    )
-
-
-@router.post("/code_task")
-def code_task():
-    raise HTTPException(
-        status_code=301,
-        detail="AI sidecar removed. Use POST /api/ai/gateway/ask instead.",
-    )

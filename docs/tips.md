@@ -3048,6 +3048,26 @@ repo-b auth = Supabase `signInWithPassword(email,pw)` → `/api/auth/session` �
 
 When a model's "champion metric" is suspected of being inflated (point-adjusted F1 is the classic case: one in-window hit credits the whole labeled segment), you do NOT need to retrain or rerun the training notebook to get an honest number — and you shouldn't, because that risks moving a production alias or the live serving path. If the champion is a *deterministic rule* (here: `resid = |value - rolling_mean50|`; per-channel scale = median TRAIN residual with a global fallback; flag when `resid > K·scale`, K=4.0), reproduce the rule locally against the raw public inputs + labels, in pure numpy, and score the SAME predictions two ways. Pin the reproduction to the lakehouse feature spec exactly — the rolling mean here is `ROWS BETWEEN 49 PRECEDING AND CURRENT ROW` partitioned by `(chan_id, split)`, i.e. a trailing window-50 mean with `min_periods=1`, no look-ahead, no train/test leak. Validate fidelity by re-deriving the stored metric: local point-adjusted F1 0.645 vs stored 0.639, with recall matching to three decimals, confirms the local champion == the promoted champion. Then report the honest floor beside the legacy number: point-wise P/R/F1 (every tick scored on its own), event recall (fraction of labeled segments with ≥1 in-window alarm), and alarm precision. Real result: point-adjusted F1 0.639 collapses to point-wise F1 0.313 — the honest story is "notices most segments (event recall 0.77), weak at the tick level." Persist the honest keys with an **idempotent jsonb merge into only the one champion row** (`UPDATE … SET metrics = metrics || jsonb_build_object(...) WHERE id = '<champion>' AND model_alias='champion' AND model_kind='anomaly'`) — `jsonb ||` overwrites just those keys, re-runs are safe, and the `WHERE` guard means unrelated RUL/challenger rows are never touched. `metrics` being `jsonb NOT NULL DEFAULT '{}'` means new keys need no migration. Render them in the UI conditionally (`rows.find(m => m.metrics?.f1_pointwise != null)` → null when absent) so older rows and other environments are unaffected. Defer harder range-aware metrics (VUS-PR/ROC, formal affiliation/PATE) until you can use a vetted library rather than hand-rolling under time pressure — a wrong range-aware number is worse than an honest simple one.
 
+### Build the analytics semantic layer on a deduped view BEFORE any rollup or dashboard — never aggregate the append-only raw event table directly (2026-06-15)
+
+An append-only raw event lake (here `winston_events_raw.events`) can contain replay duplicates — BigQuery `insertId` dedup is not durable beyond ~1 min (proven in Phase 5B). So the FIRST analytics deliverable is a `events_deduped` view, and every rollup builds on it, not on the raw table. The dedup is query-time on the stable content-addressed `idempotency_key`: `ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at ASC, event_id ASC) = 1` — keep the earliest observation, tie-break on `event_id` for full determinism. This collapsed 22 raw rows to 17 (5 replayed rows removed) and a replayed HR bundle's 11 raw rows back to the correct 8. Dead-letter rows dedup the same way because the Phase 5A fix gave them a non-null `dead_letter:<sha256>` key — so distinct failures stay distinct and a replayed bad payload collapses to one. Practical BigQuery gotchas applying the SQL: (1) **semicolons inside `OPTIONS(description="...")` strings break naive `;`-splitting** when you apply a multi-statement file via the Python client — either keep descriptions semicolon-free or split more carefully; the symptom is a misleading "Unclosed string literal" error. (2) Strip `--` comments per-statement before splitting (comment text is otherwise sent mid-statement). (3) Apply view files statement-by-statement with `client.query(stmt).result()`; `CREATE OR REPLACE VIEW` is idempotent so re-running the whole folder is safe. (4) Keep `signal_value` as `JSON_QUERY(payload,'$.signal_value')` (not `JSON_VALUE`) so object/array values like `housing={"price_yoy":...}` survive — `JSON_VALUE` returns NULL for non-scalars. Why this ordering matters: do the semantic layer before the first dashboard, or the dashboard charts duplicated replay rows and lies convincingly. The views are read-only (no Postgres, no migration, BigQuery stays observational); a later phase can materialize them for cost/perf, but the deduped view is the permanent contract every consumer reads through.
+
+### Wiring a real producer to a streaming spine: the real bundle shape rarely matches your synthetic fixture — adapt, don't overload (2026-06-15)
+
+Phase 5A proved History Rhymes signals through the spine with a *synthetic* bundle shaped `{signal_name: {signal_value, signal_timestamp, units, confidence}}`. The REAL manual bundle (`scripts/hr_weekly_brief.py`) is shaped differently: signals are a **flat `{signal_name: value}` map** where value is a scalar (`mvrv_z: 1.4`), a nested dict (`housing: {price_yoy, starts_yoy}`), or a string (`fed_tone: "hawkish-hold"`), plus a *sibling* `per_signal_freshness` map and a `source` key living inside the same `signals` dict. Don't bend the existing `bundle_to_envelopes` to swallow both shapes — add a dedicated `real_bundle_to_envelopes` adapter that reuses the per-signal envelope builder underneath. Three things that matter for the adapter: (1) iterate a **canonical name list** (`HR_SIGNAL_NAMES`, the 8), not `signals.keys()`, so metadata keys (`per_signal_freshness`, `source`) never get emitted as signals and unknown/future signals are ignored (forward-compat) rather than crashing; (2) preserve the raw value as `signal_value` regardless of JSON type — the EventEnvelope payload is a free dict and BigQuery's payload column is JSON, so a nested dict or string rides through untouched; (3) map `per_signal_freshness[name]` to `staleness_status`, defaulting to `"unknown"` when absent. **Replay safety comes from a content-addressed idempotency_key + query-time dedup — NOT from insertId.** Republishing the same historical bundle produces identical keys (`hr.signal.observed:{as_of_date}:{signal_name}`). It's tempting to claim BigQuery's streaming-insert `insertId` dedup makes replay free — and a same-minute redelivery IS deduped — but **`insertId` dedup only holds for a short window (~1 min, same partition)**. A genuine historical replay lands minutes/days later, outside that window, and WILL write duplicate raw rows (verified: replaying 3 signals produced 2 rows each, not 1). That's fine and expected — the raw table is append-only by design. The canonical read collapses them: `QUALIFY ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at) = 1` (verified to return exactly one row per signal after a duplicate-producing replay). So: a `--replay` flag is safe because duplicates are *collapsible at read time*, not because they're *prevented at write time* — don't conflate the two, and make sure any consumer of the raw events table reads through the dedup view, not the raw rows. `--max-signals N` (slice the canonical-ordered envelope list) gives bounded replay. Crucially this needed **no Postgres migration**: the producer only reads the bundle JSON and emits events; `hr_signal_snapshots` and the decision runner (which stays the authoritative Postgres reader) are untouched. When a ticket says "wire to the real path," inspect the real path's data shape *first* (read the existing manual script), because that shape — not your fixture — is the contract.
+
+### A dead-letter row needs non-null values for every REQUIRED BigQuery column, or the dead-letter itself silently fails to land (2026-06-13)
+
+The observational sink builds a dead-letter row when an envelope fails validation. The natural instinct is to set the missing source fields (`event_id`, `idempotency_key`) to `None` — the message had no valid envelope, so it has no real key. But if the BigQuery table marks those columns `REQUIRED` (the `events` table does, for both), the dead-letter `insertAll` fails with `Field value of <col> cannot be empty`, and now the dead-letter row is *also* lost — the worst case, because dead-lettering exists precisely so nothing is dropped silently. The `_route_dead_letter` catch logs it and moves on (correct — you don't dead-letter the dead-letter), so the consumer still returns `status=dead_letter` and the offset commits, but BigQuery never sees the bad record. Fix: synthesize deterministic non-empty values from a hash of the raw bytes — `event_id = uuid5(NAMESPACE_URL, "dead_letter:" + sha256(raw))`, `idempotency_key = "dead_letter:" + sha256(raw)[:32]`. Deterministic means a redelivered bad message dedups at the BQ insertId layer instead of piling up duplicate dead-letter rows. **This class of bug only surfaces when a dead-letter actually reaches BigQuery live** — unit tests that mock the BQ client pass, because the schema's REQUIRED constraint lives in BigQuery, not in the Python row dict. The first real malformed message through the deployed pod is what exposes it. Lesson: when you add a new event stream, deliberately publish one malformed payload end-to-end and confirm the dead-letter *row* lands in BQ (`WHERE dead_letter = TRUE`), not just that the consumer logged `status=dead_letter`.
+
+### GKE Autopilot sink worker: Workload Identity over key files, and the deploy gotchas that actually cost time (2026-06-13)
+
+Deploying a stateless consumer (Kafka → BigQuery) to GKE Autopilot. The architecture: a long-running `SinkWorker` loop (`subscribe → poll → process_message → commit`) with `enable.auto.commit=false` so the offset only advances after the sink durably handles the message — at-least-once, made idempotent by the BQ `insertId=idempotency_key` dedup. Commit happens after BOTH success and dead-letter (a dead-lettered message is "handled", don't reprocess it); a handler *exception* must NOT be caught at the loop (let the pod crash → k8s restarts → no commit past an unhandled message), which works because `process_message` is contracted to never raise (it dead-letters internally). Health for k8s probes is a stdlib `http.server` thread exposing `/healthz` (liveness) + `/readyz` (readiness, flipped false on graceful drain) — no web framework needed in a worker image. **BigQuery auth = Workload Identity, never a key file.** Bind the k8s SA to a GCP SA: annotate the KSA `iam.gke.io/gcp-service-account: <gsa>@<proj>.iam.gserviceaccount.com`, then `gcloud iam service-accounts add-iam-policy-binding <gsa> --role=roles/iam.workloadIdentityUser --member="serviceAccount:<proj>.svc.id.goog[<namespace>/<ksa>]"`. The GSA needs `roles/bigquery.dataEditor` + `roles/bigquery.jobUser`. No `GOOGLE_APPLICATION_CREDENTIALS`, no JSON in the pod. Workload Identity is on by default on Autopilot. **Two gotchas that cost real time:** (1) The entrypoint's `sys.path` bootstrap can't assume repo layout. `Path(__file__).resolve().parents[2]/"backend"` works in the repo (`scripts/streaming/run_sink_worker.py` → repo root → `backend/`) but **throws `IndexError` in the image** where the file is `/app/run_sink_worker.py` with the package at `/app/app/`. Make it layout-agnostic: probe candidate dirs (`__file__.parent`, then `parents[2]/backend` only if `len(parents) > 2`) and insert the first one that actually contains an `app/` dir. Always test the built image (`docker run`), not just the repo — this bug is invisible until containerized. (2) Pushing to Artifact Registry fails with `docker-credential-gcloud: executable file not found in %PATH%` if `gcloud auth configure-docker` set `credHelpers["<region>-docker.pkg.dev"]="gcloud"` but the helper binary isn't installed (common on Windows). Fix: remove that one `credHelpers` entry from `~/.docker/config.json` and authenticate with an access token instead — `gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://<region>-docker.pkg.dev`. Build context must be the repo root (`docker build -f backend/Dockerfile.sink-worker .`) so the image can COPY both `backend/app` and `scripts/streaming/run_sink_worker.py`. The image is deliberately lean — a `requirements-sink.txt` with only pydantic + confluent-kafka + google-cloud-bigquery, NOT the full backend requirements (no FastAPI, no DB driver). Autopilot cluster creation takes ~8–15 min (`create-auto`); kick it off in the background and build/push the image + create the GSA in parallel. Cluster cost is real (~$0.10/hr management + pod resources); `gcloud container clusters delete` to stop the bill. **`kubectl` on Autopilot needs `gke-gcloud-auth-plugin`** (`gcloud components install gke-gcloud-auth-plugin`) or every command dies with "client-go credential plugin not installed" — install it before `get-credentials`. **The receipt's real trap: a too-short producer flush silently drops the message.** When proving an end-to-end drain, the smoke publisher used `EVENTS_PUBLISH_TIMEOUT_MS=200` (a deliberately bounded best-effort flush for the hot path), which is far too short to ack a produce to Confluent Cloud from a developer machine — the process exits with the record still queued (`Producer terminating with 1 message still in queue or transit`), and it NEVER reaches the broker even though `publish_event` returned True (best-effort = "queued", not "delivered"). The consumer then correctly shows nothing because there's nothing there. Diagnose by checking watermarks: `consumer.get_watermark_offsets(tp)` reading `[0,0]` on the target partition means the message was never written, not that the consumer missed it. For a guaranteed-delivery test publish, use a dedicated producer with a real flush and a delivery callback: `p.produce(topic, value=..., callback=cb); p.flush(30)` and assert `cb` saw `err is None` with a concrete `partition`/`offset`. Also note a 6-partition topic spreads messages across partitions, so a single consumer must be assigned the right one — with one consumer in the group it gets all 6, but confirm the published partition (from the delivery callback) matches a `handled <topic>/<partition>@<offset>` line in the pod log.
+
+### Confluent Cloud needs SASL_SSL on top of the local Redpanda transport; keep the security keys env-derived and default-off (2026-06-10)
+
+A Kafka transport built for local Redpanda only sets `bootstrap.servers` (PLAINTEXT). Confluent Cloud — and any managed broker — needs SASL_SSL + PLAIN auth with an API key/secret, or `produce()` fails to connect. Don't fork the transport or add a `ConfluentTransport`: extend the producer config. Add `EVENTS_SECURITY_PROTOCOL` (default `PLAINTEXT`), `EVENTS_SASL_MECHANISM` (default `PLAIN`), `EVENTS_SASL_USERNAME`, `EVENTS_SASL_PASSWORD`, and a `producer_security_config()` helper that returns the librdkafka keys (`security.protocol`, `sasl.mechanisms`, `sasl.username`, `sasl.password`) **only when the protocol is non-PLAINTEXT** — so the default (local Redpanda) producer config is byte-identical and CI/local dev is untouched. The same security dict feeds both the producer (`KafkaTransport`) and any consumer (smoke script), so they stay in sync. librdkafka quirk: the key is `sasl.mechanisms` (plural) for the producer config dict, not `sasl.mechanism`. Confluent specifics: a **Basic cluster does not auto-create topics** — create `winston.executions.v1` / `winston.dead-letter.v1` in the console before the smoke, or the produce silently lands nowhere and the consumer polls forever. The API **secret is shown once** at key creation — capture it immediately. Bootstrap server is under Cluster Settings → Endpoints, port `:9092`. Test the security layer without a broker: patch `EVENTS_SECURITY_PROTOCOL`/SASL fields and assert `producer_security_config()` output, and patch a fake `confluent_kafka` module into `sys.modules` to assert `KafkaTransport` merges the keys into the producer conf — no network, no credentials, runs in CI. Keep the broker round-trip proof (`broker_smoke.py`: publish → consume → existing `sink.process_message` → BQ receipt) in a script, not the app — the long-running consumer belongs to the future GKE sink worker, not the request path. Never commit or log the API secret; the smoke redacts the username and never prints the secret. **API-key scoping is the real time sink — get it right first.** Three distinct failures, in order of how we hit them: (1) a **Global/Cloud API key** (account-level, shown with scope "Global" in the API Keys list) **cannot authenticate to a Kafka cluster** — `SASL authentication error: Authentication failed... if you are using a Global API key, check whether this cluster type is supported`. You need a key scoped to the Kafka cluster, not Global. (2) A **cluster-scoped key tied to a service account** authenticates but is **deny-by-default if the cluster has any ACLs** (e.g. a leftover Datagen/sample-data connector created a service account with ACLs, which flips the whole cluster to explicit-allow) → `TOPIC_AUTHORIZATION_FAILED`. The data-plane key cannot grant its own ACLs (`CREATE_ACLS needs ALTER permission` → `CLUSTER_AUTHORIZATION_FAILED`). (3) The clean fix: create an API key **associated with your user account** ("My account", shows your name in "Associated account"), scoped to the cluster — it carries your RBAC admin role, so it has full produce/consume/create with no ACL setup. The Confluent CLI's SSO login (`confluent login --no-browser`) is unusable from a non-interactive agent shell: each tool call is a fresh process, so the login process dies between printing the OAuth URL and reading the pasted code, and the code is bound to that process's `state` param — it can't span calls. For agent-driven setup, skip the CLI; either drive topic/ACL creation through a user-account Kafka key via `AdminClient`, or have the human do the one-click key creation in the console. A **Basic cluster does not auto-create topics**, so create them via `AdminClient.create_topics` (replication_factor=3 on Confluent Cloud) or the UI before the smoke; `replication_factor=1` is rejected.
+
 ### google-cloud-bigquery requires credentials to write; the no-op path (BQ_ENABLED=false) needs none (2026-06-10)
 
 `google-cloud-bigquery` now belongs in `requirements.txt` once the sink worker ships (Phase 2+), even though `BQ_ENABLED` defaults to `false`. The package is lazy-imported inside `write_row_to_bq`: if it's missing, the call raises `BigQuerySinkError("google-cloud-bigquery is not installed")`, which the sink routes to dead-letter. No crash, no silent drop. For CI, `BQ_ENABLED=false` short-circuits the function entirely before the import, so CI needs no credentials and no package pin beyond listing it in requirements.txt. For local dev without a GCP project: run the smoke script without setting `BQ_ENABLED` — it prints the no-op path and exits 0. For a real write, the cheapest credential path on a developer machine is `gcloud auth application-default login` (ADC); in GKE, use Workload Identity (no key file, no `GOOGLE_APPLICATION_CREDENTIALS`). Never commit a service account JSON file — add `*.json` to `.gitignore` for any key directory and set `GOOGLE_APPLICATION_CREDENTIALS` to the path at runtime. BigQuery streaming inserts have a short propagation delay (~seconds); if the acceptance receipt query returns 0 rows immediately after a write, wait and re-run — the write happened, the table just hasn't made it visible yet. **Runbook:** gcloud CLI installed via `winget install Google.CloudSDK` (Windows); after install the binary lives at `%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin\gcloud` — it is NOT on PATH until a new shell starts, so use the full path or restart. `bq mk` uses Python and requires `python3.14` or `python3` on PATH; if `python3.14: command not found`, create the dataset+table via the Python `google.cloud.bigquery` client instead (see smoke script). **Streaming inserts need a full GCP billing account.** `insert_rows_json` (the `insertAll` streaming API) is blocked with "Streaming insert is not allowed in the free tier" unless a billing account with a payment method is linked to the project. A "My Maps Billing Account" (Google Maps-specific) does NOT unlock BigQuery streaming inserts — it must be a general-purpose billing account. For smoke-testing on free tier, add `--batch` to `bq_smoke.py`: it uses `load_table_from_json` (a batch load job, free tier compatible) to prove auth + write + query-back without streaming billing; the sink code stays unchanged. Do not overclaim a real write in a commit message if you only have the no-op path — amend before pushing. Phase 3A proven 2026-06-10 via `--batch` on project `paultest-d3cb1`.
@@ -3202,6 +3222,10 @@ WebGL error on a page with zero three.js imports (Factory ML) while simultaneous
 rendering fully — agent-mode artifacts ride along with real findings; verify each against the code
 before fixing.
 
+### Public frontend deployments must never default to a localhost service URL outside development (2026-06-12)
+
+A `process.env.NEXT_PUBLIC_X || "http://localhost:8100"` fallback shipped to production: when the Vercel env var was unset, every novendor.ai visitor's browser tried to reach THEIR OWN machine (ERR_CONNECTION_REFUSED), and the page sat on "reconnecting". The fallback was right for `next dev` and wrong for a deployed page. Fix: resolve fail-closed — `return configured ?? (NODE_ENV === "development" ? localhost : null)` — and render an explicit "service URL not configured for this deployment" diagnostic when null instead of constructing the EventSource/fetch. Two load-bearing details: (1) read `NEXT_PUBLIC_*` and `NODE_ENV` by STATIC property access (`process.env.NEXT_PUBLIC_FOO`), never a dynamic `process.env[name]` — Next inlines the static form at build time and a dynamic lookup is `undefined` in the production bundle; (2) the test that locks it is the unconfigured render: jsdom has no EventSource, so asserting "zero EventSource constructions + diagnostic visible" both proves fail-closed AND that the page doesn't crash. The deeper fix was deploying the backing service (mount the standalone FastAPI bridge into the existing Railway backend behind a default-off flag, capture mode in prod) so the env var points at a real HTTPS origin — a public page needs a deployment contract, not a dev convenience. When a demo service is "standalone for the laptop", decide its production home before the page ships, or the localhost assumption leaks to real users.
+
 ### Making an inline-style surface responsive: literal Tailwind for layout, palette for paint (2026-06-12)
 
 The telemetry console styles everything with inline `CSSProperties` from a palette object, which
@@ -3224,3 +3248,294 @@ layout primitives in `primitives.tsx` (`StatGrid`, `SplitGrid`, `ScrollTable`, `
   items in a bottom bar don't fit; group the drawer instead.
 - When re-verifying after a rebuild, confirm the new server actually bound the port — an EADDRINUSE
   leftover from the previous `next start` will happily serve the stale build and "disprove" the fix.
+
+### ADE connector lifecycle: derive state, gate read_validated behind a real validator (2026-06-15)
+
+PR 2 turns the static connector inventory (`ade_connectors.py`, `live|stub|script|missing`) into a read-only lifecycle (`declared→discovered→credential_pending→validating→read_validated→degraded→blocked→retired`) WITHOUT persisting anything or adding a migration — the state is *derived* per request in `ade_connector_lifecycle.compute_lifecycle()`. The honesty rule that makes it credible: the declared status only maps to a *floor* (`missing→declared`, `stub/script/live→discovered`), and a connector can only move UP to `read_validated` when a registered safe validator (`ade_connector_validators._VALIDATORS`) actually runs and returns `ok`, leaving a receipt. Never infer liveness from the declaration or from env-var presence. Only one validator is safe enough to wire by default — the in-process MCP registry tool count (no I/O, no creds). A Postgres `SELECT 1` validator is implemented but kept in `OPTIONAL_VALIDATORS` (not run by default) so the endpoint never blocks on a live DB in CI. The endpoint fails closed: any exception in the service → `{connectors:[], null_reason:"connector_lifecycle_unavailable"}`, never a 500. A validator that throws is caught and degrades that one connector (`null_reason:"validator_error"`) rather than failing the whole report.
+
+### ADE read-only HTTP provider validators: missing-token = no-call is the honesty boundary (2026-06-15)
+
+PR 3 added GitHub/Vercel/Railway reachability validators to the connector lifecycle. The one rule that makes "read-only reachability" honest rather than theater: a missing token returns `credential_missing` and makes **NO outbound call** — env-var presence is never treated as validation, and only a real 2xx read produces `ok`/`read_validated`. Enforce GET-only with a module constant (`_ALLOWED_HTTP_METHOD="GET"`) and a hard per-request `httpx` timeout (5s); map timeout/transport-error/401/403/5xx all to `degraded`, never `ok`. Two gotchas that bit during the build: (1) the existing `test_no_secrets_in_receipts` test rejects ANY receipt containing the substrings password/secret/**token**/api_key — so receipt `detail` must avoid the bare word "token" even in benign phrasing. Use neutral wording ("credential not configured" for missing, "credential accepted" for success, "auth rejected (HTTP 401)" for invalid) — never echo the env-var name or `f"{token_env} not set"`. (2) Test the no-call guarantee by monkeypatching `httpx.request` with a spy that raises if called, then asserting it was hit 0 times when the token is absent — a state-only assertion would pass even if a call leaked. Mock `httpx.request` (not the client) so `httpx.Response(status)` construction stays trivial; CI makes zero live calls. Wire Postgres `SELECT 1` from `OPTIONAL_VALIDATORS` into the default set via a `_build_validators()` factory gated by `ADE_ENABLE_POSTGRES_VALIDATOR` (default on, falsey to disable) — build once at import into `_VALIDATORS`.
+
+---
+
+## 2026-06-13 — Telemetry Trust Layer architecture review (Factory Pattern Intelligence)
+
+Durable traps surfaced while assessing the "Factory Pattern Intelligence" idea against the repo. Full
+review: `docs/plans/03-implementation-plans/active/factory-pattern-intelligence.md`. Working name going
+forward is **Telemetry Trust Layer** (plain, accurate, doesn't overpromise).
+
+**The telemetry platform is already shipped — do not propose greenfield GCP/Vertex/Dataflow for
+Trust/Divergence work.**
+Dispatch `0003` (`docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`) shipped
+Phases 0–6 on 2026-06-01: C-MAPSS RUL + SMAP/MSL anomaly on a Databricks medallion, MLflow registry
+with promotion gates, `tel_*` serving (`backend/app/services/telemetry_serving.py`), a 5-page telemetry
+env UI, deterministic replay, live on Railway + novendor.ai. Confluent Kafka + Flink already runs for
+Stargate (`infra/confluent/stargate/`, `stargate_bridge.py`). A new prognostics feature is a capability
+layer on this, not a platform build. Proposing Kafka→Dataflow→BigQuery→Vertex from scratch rebuilds
+owned infrastructure and reads as not knowing the stack.
+
+**The existing RUL champion is NOT literature-competitive — never call it so without improving RMSE.**
+`telemetry-platform/databricks/notebooks/train_rul.py` ships a GBM at **RMSE 20.32 / PHM 1423 on FD001**
+(its gate was ≤25). The literature-credible bar is **≤13** (SOTA ~11; Li et al. 2018 floor 12.61).
+Citing 20.32 as "competitive" is a credibility hit. The PHM08 asymmetric score (`phm_score()`) is
+already implemented and is comparable only on identical test sets.
+
+**`tel_fused_state_vectors VECTOR(256)` already exists (Phase 7A scaffold) — reuse it, don't add a
+parallel embedding table.** It is the intended home for telemetry degradation embeddings.
+
+**History Rhymes pgvector retrieval is the proven analog-search template.**
+`backend/app/services/history_rhymes_service.py` `_pgvector_search` (cosine `<=>`, top-k, HNSW over
+`episode_embeddings VECTOR(256)`) is live and is the pattern to copy for fleet analog retrieval — swap
+the encoder, keep the retrieval shape. Do not build a new nearest-neighbor path.
+
+**"Factory Pattern Intelligence" is a naming collision and wrong framing.** It clashes with
+`tel_ncr_records` "Factory & NCR Intelligence" (migration `10016`) and misdescribes aerospace turbofan
+RUL content. Use **Telemetry Trust Layer** before any schema or route is created.
+
+**Gate 0 must precede any infrastructure.** A within-band distance-vs-error Spearman ρ check (conditioned
+on predicted-RUL band, with a bootstrap CI per band) over the existing C-MAPSS gold tables falsifies or
+validates the whole trust thesis in ~½ day, training nothing — using the existing PCA/fused vector and
+the shipped RUL predictions. Train the SupCon encoder only on a weak-but-real result; a dead ρ kills the
+project before a dollar of build.
+
+**Reusable lessons go to canonical `docs/tips.md` (~380 KB), never the root `tips.md` duplicate.**
+The root file is do-not-write; this file is the one loaded for situational awareness.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 credential + data reconciliation (Telemetry Trust Layer)
+
+Verified creds and inspected the live workspace before writing any notebook. Two durable traps:
+
+**Databricks CLI v1.0.0 rejects the cached PAT — force `DATABRICKS_AUTH_TYPE=pat`.**
+With a valid `dapi…` PAT in `claude_token.txt`, `databricks current-user me` failed with "stored
+credentials from older CLI versions are no longer used; run `databricks auth login` … or set
+`DATABRICKS_AUTH_STORAGE=plaintext`". The fix that authenticates without an interactive login:
+```
+export DATABRICKS_HOST="https://dbc-2504bec5-b5ab.cloud.databricks.com"
+export DATABRICKS_TOKEN="$(tr -d ' \t\r\n' < claude_token.txt)"
+export DATABRICKS_AUTH_TYPE="pat"
+export DATABRICKS_CONFIG_FILE="/dev/null"   # bypass the stale ~/.databrickscfg cache
+```
+For ad-hoc SQL, `databricks api post /api/2.0/sql/statements` returns "Not Found" in v1.0.0 — use
+`curl` against `$HOST/api/2.0/sql/statements` directly (warehouse `0e56420fb707d861`). Capture stdout
+to a file (don't pipe straight into `python`; CLI warnings on stderr corrupt the JSON parse), and use a
+repo-relative temp dir — Git Bash `/tmp` paths don't round-trip to the Windows Python interpreter.
+
+**The C-MAPSS RUL lane and the fused-vector embedding are DIFFERENT datasets — they don't join.**
+In `novendor_1.telemetry`: `gold_cmapss_features` (FD001: 20,631 train / 13,096 test, 100 units) has
+`unit, cycle, rul_target` + ~47 sensor/rolling features but **no embedding and no stored predictions**
+(only ground-truth `rul_target`). `gold_fused_state_vectors` (and its Postgres mirror
+`tel_fused_state_vectors`) is the **SMAP/MSL anomaly lane** (128 windows, `source_channels` = spacecraft
+IDs A-1/D-4/E-12/…), not turbofans. So you cannot "reuse the existing fused vector for C-MAPSS RUL." A
+Trust-Layer Gate 0 must **derive** a cheap C-MAPSS embedding from `gold_cmapss_features` (z-score + PCA
+on existing features) and **derive** predictions by loading the registered `tel_rul_regressor` champion
+for inference. Both are existing-feature transforms / frozen inference — still "no training." The Gate 0
+ticket was reconciled to this reality before any run.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 run (BLOCKED) — C-MAPSS test has no per-cycle RUL truth
+
+Gate 0 ran on Databricks (4 attempts) and **blocked without a verdict**. Receipt:
+`docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`. Three durable facts:
+
+**C-MAPSS TEST rows have NO per-cycle `rul_target` — it is 100% NaN by dataset construction.**
+`novendor_1.telemetry.gold_cmapss_features` FD001: `split=test` is 13,096 rows with **0** non-null
+`rul_target`; `split=train` is 20,631 rows fully populated. C-MAPSS test units are truncated and publish
+only ONE final-cycle RUL per unit, stored in `silver_cmapss_rul` (100 units). So any "score all test
+cycles and correlate per-window error" design is impossible on the test split — there is no per-cycle
+target. `train_rul.py` sidesteps this by evaluating **last-cycle-per-unit** (100 points) merged from
+`silver_cmapss_rul`. For per-cycle density analysis, use the **train** split (truth exists) with a
+held-out unit fold, not the test split.
+
+**`tel_rul_regressor` requires `scikit-learn==1.4.2` to load — pin it or `predict()` raises.**
+The champion (run `c970fdcc`, GBM) was pickled under sklearn 1.4.2. Newer sklearn removes
+`GradientBoostingRegressor`'s `HalfSquaredError.get_init_raw_predictions`, so `predict()` throws
+`AttributeError`. Always pin `scikit-learn==1.4.2` when loading it.
+
+**Serverless ML job submission shape (what actually works).**
+`POST /api/2.1/jobs/runs/submit` with the task carrying `environment_key: "Default"` AND a job-level
+`environments: [{environment_key:"Default", spec:{client:"2", dependencies:["mlflow","scikit-learn==1.4.2"]}}]`.
+A bare serverless task has no mlflow/sklearn (run 1 died on `No module named 'mlflow'`). Notebook output
+only escapes via `dbutils.notebook.exit(json)`; serverless stdout is NOT returned by `runs/get-output`,
+so a crash before `exit()` loses all printed results — persist intermediates if you need them on failure.
+On Windows Git Bash, set `MSYS_NO_PATHCONV=1` or workspace paths like `/Users/...` get mangled to
+`C:/Program Files/Git/Users/...`.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 VERDICT: KILL — embedding distance anti-correlates with RUL error
+
+Gate 0 completed (Option B: FD001 train split, 80 fleet / 20 held-out units, real per-cycle truth,
+4,311 windows). Receipt: `docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`.
+
+**The cheap z-score+PCA embedding's distance ANTI-correlates with RUL error — the thesis is refuted.**
+Within-band Spearman ρ(kNN distance, |error|) is negative in ALL five predicted-RUL bands (overall
+−0.127; bands −0.135, −0.160, −0.073, −0.053, −0.045), with 3 of 5 CIs excluding zero on the negative
+side. Far-from-fleet windows have slightly *lower* error. The mechanical rule (positive-CI band →
+continue/SupCon; else kill) lands on **kill** — a negative significant result is a stronger refutation
+than flatness and does NOT route to SupCon. So: do not build the Trust Layer (no SupCon, no schema, no
+UI) on the cheap-path thesis. Likely mechanism for the anti-correlation: late-life C-MAPSS windows are
+both more self-similar (near the fleet) AND lower-error, so a generic feature embedding conflates "near
+the fleet" with "easy to predict." Revisiting the thesis is a research question, not a build.
+
+**Process note that held up:** Gate 0 did exactly its job — killed the idea cheaply (one ~½-day notebook,
+frozen inference, no SupCon spend) before any infrastructure. The "no-training, falsify first" gate is
+worth keeping as a pattern for future thesis-driven builds.
+
+---
+
+---
+
+## 2026-06-13 — Killed-hypothesis guard + telemetry RUL benchmark/calibration notes
+
+**Embedding-distance trust is KILLED for telemetry — do not revive it without a NEW falsification plan.**
+Gate 0 proved that on C-MAPSS FD001, embedding distance from the fleet *anti-correlates* with RUL error
+(see `docs/plans/03-implementation-plans/evidence/telemetry-trust-negative-result-writeup.md`). Any future
+telemetry work that proposes SupCon, contrastive retrieval, novelty/embedding-distance trust, pgvector
+analog trust, or a Trust/Divergence schema/UI is reviving a refuted thesis and must be rejected unless a
+fresh, approved kill-test reopens it. The successor build is calibrated RUL uncertainty (conformal
+intervals), NOT analog-distance trust — a different and defensible claim. Plan:
+`docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md`.
+
+**C-MAPSS RUL benchmark comparability — three traps.** (1) The shipped champion is **RMSE 20.32 / PHM
+1423 on the last-cycle-per-unit benchmark** (one row per test unit, truth from `silver_cmapss_rul`); the
+literature-credible FD001 bar is **≤ ~13**. Never call 20.32 competitive. (2) **Last-cycle RMSE ≠
+all-cycle/per-cycle RMSE** — they are different quantities; never compare across them. (3) The **PHM08
+Score is comparable only on identical test sets** and is dominated by a few large late-prediction errors;
+always report RMSE beside it. PHM08 is asymmetric — late (optimistic) RUL is penalized harder (a=10) than
+early (a=13); `phm_score()` is already implemented at `telemetry-platform/databricks/notebooks/train_rul.py:58`.
+
+**Conformal-calibration methodology — the gate that actually matters.** For honest RUL uncertainty: hold
+out a dedicated **calibration split with units disjoint from train and test** (split-conformal or CQR),
+target nominal 80%/90%, and judge by **PICP within ±0.03 of nominal** — but always report **MPIW/PINAW**
+too, because an interval can "pass" coverage by being uselessly wide. Generate a reliability diagram
+(observed vs nominal) and call out late-prediction cases explicitly. Coverage is a hard gate; build no UI
+until it passes.
+
+---
+
+---
+
+## 2026-06-13 — Calibration baseline ran: gate PASS, plus the per-cycle PHM trap
+
+Ticket 1 (`telemetry-calibration-baseline.py`) reproduced the FD001 benchmark exactly (**RMSE 20.322 /
+PHM 1423.33**, last-cycle-per-unit) and **passed the calibration gate**: split-conformal intervals on
+disjoint train units give PICP 0.788 @ 80% and 0.895 @ 90% (both within ±0.03), reliability monotone
+across 6 levels. Evidence: `docs/plans/03-implementation-plans/evidence/telemetry-calibration-baseline.{json,md}`.
+
+**PHM08 is a per-UNIT (last-cycle) metric — NEVER compute it per-cycle.** Applied per-cycle over
+thousands of early-life windows (large RUL gaps), the asymmetric exponential terms explode (this run hit
+`phm_per_cycle` ~98,776, a meaningless artifact). Report PHM only on the last-cycle-per-unit benchmark;
+use RMSE for per-cycle/windowed eval. `phm_score()` lives at `train_rul.py:58`.
+
+**Conformal coverage can PASS while intervals are uselessly wide — always report MPIW/PINAW.** The
+passing run had MPIW ~43–56 cycles (PINAW ~0.34–0.45). Coverage was honest *because* the band was
+generous. A PICP-only report would hide that. Width is the next quality lever (stronger model / CQR for
+adaptive width), not a reason to claim the calibration is "good" on coverage alone.
+
+**Split-conformal recipe that worked here:** disjoint-unit fit/calib/internal-test (60/20/20 of the 100
+FD001 train units, seed 0); conformal q = the ceil((m+1)·level)-th smallest |residual| on the calib set;
+symmetric band pred±q clipped to [0, RUL_CAP]. Finite-sample valid, no distributional assumption, ~1 min
+on serverless. Late-side miss rate at 90% was 0.8% — the band catches ~99% of dangerously-optimistic
+predictions, which is the safety property worth showing.
+
+---
+
+---
+
+## 2026-06-13 — CNN-LSTM challenger graduated; torch-on-serverless + asymmetric conformal
+
+Ticket 2: a CNN-LSTM beat the GBM baseline and **graduated** as FD001 RUL champion (RMSE 17.33 vs 20.32,
+PHM 742 vs 1423, calibrated 80/90% coverage, tighter intervals). Evidence:
+`docs/plans/03-implementation-plans/evidence/telemetry-calibration-challenger.{json,md}`. Reusable bits:
+
+**PyTorch CPU works on Databricks serverless — probe first, then it's cheap.** The Default serverless env
+has NO tensorflow/keras/torch (only sklearn 1.3 / numpy / pandas). Adding `torch==2.2.2` to the job
+`environments[].spec.dependencies` installs a CPU build that imports in ~3 s; a small CNN-LSTM (Conv1D×2
+→ LSTM → Dense) over ~20k C-MAPSS windows trains in ~40 s. Always run a one-cell import probe before
+authoring a DL notebook — a missing framework otherwise burns a full run.
+
+**C-MAPSS sequence models read from `silver_cmapss`, not `gold_cmapss_features`.** Silver has the 21 raw
+per-cycle sensors + op settings + per-cycle `rul_target` (on train) — the right source for 30-cycle
+sliding windows. Gold is pre-rolled per-cycle features (good for tree models, wrong shape for a CNN-LSTM).
+Standard FD001 sensor selection (drop near-constant): 2,3,4,7,8,9,11,12,13,14,15,17,20,21.
+
+**Conformal undercoverage at one level is a calibration fix, NOT a model fix.** A challenger can win RMSE
+but fail the gate because its 80% interval undercovers (symmetric ±q from a small calib set is the usual
+culprit). Two no-retrain fixes that fixed it here: (1) **asymmetric** split-conformal (separate lower/upper
+signed-residual quantiles — fits RUL's asymmetric error), and (2) enlarge the calibration pool (fold the
+early-stopping val units into calib once they've done their job). Reuse the SAME model weights (same seed,
+no retrain); change only the conformal step. Keep the gate logic byte-identical across the retry so the
+pass is the calibration's doing, not a moved goalpost.
+
+**Graduation gate that held:** a challenger replaces the champion only if RMSE better AND PHM not worse AND
+PICP calibrated (±0.03) AND MPIW narrower-or-similar; if RMSE better but MPIW widens, it graduates only on
+*materially* better PHM (≤90% of baseline) with written justification. PHM08 is the late-prediction safety
+metric — RMSE-better-but-PHM-worse is a safety regression, not a tradeoff.
+
+---
+
+---
+
+## 2026-06-13 — Telemetry calibration demo screen (Ticket 3) — UI conventions + honesty
+
+Built the RUL Calibration screen at `/lab/env/[envId]/telemetry/calibration`
+(`repo-b/src/components/telemetry/RulCalibration.tsx`). Reusable conventions:
+
+**Adding a telemetry screen is 3 small edits — the shell does the rest.** (1) one entry in
+`repo-b/src/components/telemetry/telemetryNav.ts` (desktop rail + mobile drawer + bottom bar all consume
+it); (2) `app/lab/env/[envId]/telemetry/<slug>/page.tsx` that just renders the component; (3) the
+component. `telemetry/layout.tsx` auto-wraps every page in `TelemetryShell` (full-bleed, dark palette),
+so pages never import the shell. `/telemetry` is already a full-bleed `isDomainRoute` token — no shell work.
+
+**Build telemetry UI from `components/telemetry/primitives.tsx`, inline styles only.** `C` (palette),
+`PageHeading`, `Panel`, `MetricCard`, `StatGrid` (cols 3/4/5), `SplitGrid` (variants), `Tag`,
+`EmptyState`/`ErrorState`, `DisclosureFooter`. The whole surface is inline-style on purpose (dark console,
+theme-independent), so IDE "no inline styles" warnings are EXPECTED and match convention — do not refactor
+to CSS files. Layout uses literal Tailwind classes inside primitives (never composed from props). Charts:
+use inline SVG with `C` colors (band = filled path, lines = stroke); do NOT add a chart dependency.
+
+**Calibration demo data: static fixture from the committed artifact, clearly labeled — never live.**
+The evidence JSON has scalar metrics + real conformal q values but no per-cycle trajectory. Put a static
+fixture in `lib/telemetry/<name>.ts` with metrics copied verbatim from the artifact and a representative
+trajectory whose interval bands use the model's REAL q_lower/q_upper (so geometry is honest), label it
+"Replay / evidence artifact" on screen, use deterministic pseudo-noise (no Math.random — identical every
+build). No Databricks query from the frontend, no backend, no schema for a demo screen.
+
+**Killed-claim hygiene in UI:** the screen mentions embedding-distance "trust" ONLY in the
+negative-result bridge ("killed by Gate 0… this screen does not revive that claim"). A vitest assertion
+guards it: `body.textContent` must NOT match `/SupCon|analog retrieval|pgvector|novelty distance/i`. Reuse
+that pattern to keep killed hypotheses from creeping back into surfaces. repo-b runner is **vitest**
+(`npx vitest run <file>`), no `test` script; typecheck `npx tsc --noEmit -p tsconfig.typecheck.json`.
+
+### `az boards work-item relation add` rejects `--project` — links fail silently without it (2026-06-15)
+
+The intake skill's example passes `--project Novendor` alongside `--org` on every board command, but `az boards work-item relation add` does NOT accept `--project` (only `create`/`update`/`show` do). Passing it makes the command exit with `ERROR: unrecognized arguments: --project Novendor` — and if you piped the result through a `--query` that swallows stderr, the parent link silently never gets created (the `System.Parent` field stays empty). Correct form for `relation add`: `--id`, `--relation-type parent`, `--target-id`, `--org` only. Always re-read `System.Parent` with `work-item show` afterward to confirm the link took — a created work item with no parent passes most checks but breaks the Epic→Feature→Story→Task hierarchy. Hit while creating ADE PR 2 items (#580 Feature → Epic #353): the first link attempt with `--project` failed silently, the field was empty on verify, re-running without `--project` set it.
+
+---
+
+---
+
+## 2026-06-15 — Visual verification of a pure telemetry screen without auth/dev-server
+
+The telemetry routes are auth-gated and `next dev` + Supabase login is unreliable here (dispatch 0003's
+one gap was "authenticated production screenshot not capturable"). For a **pure, deterministic** component
+(static fixture, no API/auth — like the RUL Calibration screen), you can screenshot the REAL component
+without any of that: bundle a `renderToStaticMarkup(<Component/>)` entry with **esbuild** (already a dep;
+`alias:{'@':path.resolve('src')}`, `jsx:'automatic'`, react/react-dom external), write the HTML, and
+screenshot with **Playwright** (chromium already installed) at desktop (1280) + mobile (390) widths.
+Caveat that MUST be stated: a `renderToStaticMarkup` harness has **no Tailwind**, so layout classes
+(`StatGrid`/`SplitGrid` grids) collapse to single-column and the first screenshot looks wrong. Inject the
+handful of real grid rules (`.lg:grid-cols-5`, the `minmax` split templates, `sm:` breakpoints) into the
+page `<style>` to get a faithful layout. Keep the harness ephemeral (a temp `.veval/` dir); commit only
+the PNGs. This verifies typography/color/chart/content/contrast/reflow honestly — but it is NOT an
+end-to-end auth+route load; say so and don't claim the live route was exercised.

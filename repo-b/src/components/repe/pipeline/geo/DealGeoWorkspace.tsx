@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BrainCircuit, Layers3, Loader2 } from "lucide-react";
+import { AlertTriangle, Layers3, Loader2 } from "lucide-react";
 import { bosFetch } from "@/lib/bos-api";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -72,18 +72,12 @@ function overlayStatusMessage(
   }
 }
 
-function dispatchWinstonPrompt(prompt: string) {
-  window.dispatchEvent(new CustomEvent("winston-prefill-prompt", { detail: { prompt } }));
-}
-
 function HoverCard({
   feature,
   onCompare,
-  onAskWinston,
 }: {
   feature: GeoMapContextFeature;
   onCompare: () => void;
-  onAskWinston: () => void;
 }) {
   return (
     <div className="absolute left-4 top-4 z-[500] w-80 rounded-2xl border border-bm-border/60 bg-bm-surface/95 p-4 shadow-[0_24px_40px_-24px_rgba(0,0,0,0.92)] backdrop-blur">
@@ -131,10 +125,6 @@ function HoverCard({
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" onClick={onCompare}>Compare to Asset</Button>
         <Button variant="secondary" size="sm" onClick={onCompare}>View Tract Profile</Button>
-        <Button variant="primary" size="sm" onClick={onAskWinston}>
-          <BrainCircuit className="mr-1 h-4 w-4" />
-          Ask Winston
-        </Button>
       </div>
     </div>
   );
@@ -280,21 +270,6 @@ export function DealGeoWorkspace({
     }
   }, [compareMode, geoContext?.deal, selectedNode]);
 
-  function askFeatureWinston() {
-    if (!hoveredFeature) return;
-    dispatchWinstonPrompt(
-      `Review ${hoveredFeature.name} (${hoveredFeature.geoid}) for ${activeOverlay?.display_name || hoveredFeature.metric_label}. Nearby deals: ${hoveredFeature.nearby_deals.map((deal) => deal.deal_name).join(", ") || "none"}. Use only the provided geography facts.`,
-    );
-  }
-
-  function askDealWinston() {
-    if (!selectedNode) return;
-    const facts = geoContext?.commentary_seed?.facts || {};
-    dispatchWinstonPrompt(
-      `Review ${selectedNode.dealName} in ${selectedNode.locationLabel}. Sector: ${selectedNode.sector}. Facts: ${JSON.stringify(facts)}. Use only these geo-market fields and summarize tract, county, benchmark, and hazard context.`,
-    );
-  }
-
   const statusMessage = overlayStatusMessage(overlayStatus, geographyLevel, zoom);
 
   return (
@@ -399,7 +374,6 @@ export function DealGeoWorkspace({
               const candidate = hoveredFeature.nearby_deals[0]?.deal_id;
               if (candidate) onSelectDeal(candidate);
             }}
-            onAskWinston={askFeatureWinston}
           />
         ) : null}
 
@@ -468,7 +442,6 @@ export function DealGeoWorkspace({
         node={selectedNode}
         context={contextLoading ? geoContext : geoContext}
         compareMode={compareMode}
-        onAskWinston={askDealWinston}
       />
     </div>
   );
