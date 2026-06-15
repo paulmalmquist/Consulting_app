@@ -23,10 +23,10 @@ Change the front door of History Rhymes. The backend (pgvector analog matching, 
 
 | PR | Story | Scope | Status | Gate |
 |---|---|---|---|---|
-| 1 | #541 | Plan + ADO intake + credential safety (docs only) | In flight | docs-only diff |
-| 2 | #542 | Cockpit shell: primitives, shell/nav, regime header, implications, routes, allowlist token | Pending | vitest + typecheck + lint + both playwright specs + 4-route visual check |
-| 3 | #543 | Signal telemetry strip (8 sensor tiles, missing-safe) | Pending | signals.test.ts edge cases |
-| 4 | #544 | Streaming architecture plan + topic contract (docs only) | Pending | docs-only diff |
+| 1 | #541 | Plan + ADO intake + credential safety (docs only) | Done — PR #156 | docs-only diff |
+| 2 | #542 | Cockpit shell: primitives, shell/nav, regime header, implications, routes, allowlist token | Done — PR #157 | vitest + typecheck + lint + both playwright specs + 4-route visual check |
+| 3 | #543 | Signal telemetry strip (8 sensor tiles, missing-safe) | Done — PR #158 | signals.test.ts edge cases |
+| 4 | #544 | Streaming architecture plan + topic contract (docs only) | Done — docs/plans/history-rhymes/streaming-architecture.md | docs-only diff |
 | 5 | #545 | Synthetic stream adapter, broker-less via ring buffer | Pending | backend pytest deterministic |
 | 6 | #546 | Stream health API + chip + admin diagnostics | Pending | never-500, no-secrets asserted |
 | 7 | #547 | Analog timeline + match via existing proxy | Pending | degraded reasons verbatim in tests |
