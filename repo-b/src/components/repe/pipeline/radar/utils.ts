@@ -931,7 +931,7 @@ export function buildDealRecommendations(
       id: "concentration",
       title: "Review concentration before committing more capital",
       detail: `${node.locationLabel} or ${RADAR_SECTOR_LABELS[node.sector]} exposure is above the working allocation threshold.`,
-      actionLabel: "Ask Winston",
+      actionLabel: "Review Exposure",
     });
   }
   if (recommendations.length === 0) {
