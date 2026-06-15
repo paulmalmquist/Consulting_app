@@ -13,6 +13,7 @@ import {
 import { C, Loading, CockpitEmptyState } from "./primitives";
 import { RegimeStatusHeader } from "./RegimeStatusHeader";
 import { ImplicationCard } from "./ImplicationCard";
+import { SignalTelemetryStrip } from "./SignalTelemetryStrip";
 
 // The default History Rhymes surface: a telemetry-style regime cockpit.
 // This component owns ALL cockpit data fetching; zones are presentational.
@@ -70,7 +71,9 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
       {/* Z1 — regime status. trapSummary/degradedReason wire in from the match response in PR 7. */}
       <RegimeStatusHeader state={state} decision={decision} />
 
-      {/* Z2 signal telemetry strip mounts here (PR 3). */}
+      {/* Z2 — signal telemetry strip (brief-sourced until the stream lands in PR 13). */}
+      <SignalTelemetryStrip brief={brief} />
+
       {/* Z3 analog timeline mounts here (PR 7). */}
       {/* Z4 alert/trap rail mounts here (PR 8). */}
       {/* Z5 scenario pressure panel mounts here (PR 9). */}
