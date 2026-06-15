@@ -286,6 +286,28 @@ Malformed HR signal (offset 12) → dead_letter=True:
 
 **Cluster:** deleted at session end (no Phase 6 this session). Recreate from `infra/k8s/README.md`.
 
+## Event Analytics Dashboard — read surface on the 6A views (DONE 2026-06-15)
+
+First visible surface on the streaming pipe. A **read-only observability dashboard** over the `winston_events_analytics` views. ADO Story #614, Tasks #615–620 (under Feature #520). Not a numbered streaming phase — it consumes Phase 6A, doesn't extend the backbone.
+
+**Architectural framing (explicit):** this is an observability surface, NOT an operational read path. BigQuery is never authoritative for execution status, REPE/finance KPIs, HR ledger/state, or task state — all stay Postgres/Supabase-authoritative. The dashboard reads ONLY analytics views; a service-level allowlist (`ALLOWED_VIEWS`) makes querying the raw `winston_events_raw.events` table a programming error (`test_view_fqn_rejects_raw_table`). Even the raw-vs-deduped volume headline reads a dedicated `event_volume_summary` view, so the API never touches the raw table directly.
+
+- `backend/app/services/events_analytics.py`: read service. Mirrors the sink's fail-closed pattern (lazy-import bigquery, gate on `BQ_ENABLED`/`BQ_PROJECT_ID`); returns `{available: false, reason}` when BQ is off/unreachable — never raises into the route. `_view_fqn` guards the allowlist.
+- `backend/app/routes/events_analytics.py`: `GET /api/events/v1/analytics/dashboard`, always 200 (fail-closed payload on BQ-off).
+- `infra/gcp/bigquery/analytics/01_events_deduped.sql`: added `event_volume_summary` view (raw vs deduped counts in one place, so API/UI never query raw).
+- `repo-b/src/lib/bos-api.ts`: `getEventAnalyticsDashboard()` + types.
+- `repo-b/src/app/app/event-analytics/page.tsx`: dashboard — volume KPI strip, events-by-source, execution-events-daily, HR latest signals, HR freshness, dead-letters, explicit "Observability only" badge, "Not available" fail-closed state.
+- Tests: `backend/tests/test_events_analytics.py` (8 — fail-closed states, route 200, raw-table-forbidden guard, happy path); `repo-b/src/lib/event-analytics-api.test.ts` (2 — binding success + fail-closed shape).
+
+**Live receipt — `get_dashboard()` against `paultest-d3cb1` (2026-06-15):**
+```
+available=true, observability_only=true
+volume: raw_rows=22, deduped_rows=17, replay_duplicates_collapsed=5, dead_letter_rows=2
+by_source: hr_signal_ingestion x10, backend x3, sink_worker x2, broker_smoke x1, gke_receipt x1
+execution rows=3, hr_signal_latest=10, dead_letters=2 (reason + raw bytes shown)
+```
+Proof of no raw read in the API: the only place the raw table is named in a query is inside the `event_volume_summary` *view* (the analytics layer); the service/route/UI read only allowlisted analytics views.
+
 ## Phase 6A — per-ticket detail (DONE 2026-06-15)
 
 ### Ticket 11a — BigQuery analytics foundation

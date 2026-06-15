@@ -32,3 +32,18 @@ FROM (
   FROM `PROJECT.winston_events_raw.events`
 )
 WHERE _rn = 1;
+
+-- Volume summary: raw vs deduped counts, so the dashboard can show the
+-- "lake vs analytics" distinction WITHOUT the API ever touching the raw table
+-- itself. The raw->deduped boundary legitimately lives in the analytics layer;
+-- the API reads only this view. raw_rows here is a COUNT, never a content
+-- aggregation.
+CREATE OR REPLACE VIEW `PROJECT.winston_events_analytics.event_volume_summary`
+OPTIONS (
+  description = "Raw vs deduped row counts + dead-letter count. The single place the raw table is counted, so API/UI never query raw directly."
+) AS
+SELECT
+  (SELECT COUNT(*) FROM `PROJECT.winston_events_raw.events`)                       AS raw_rows,
+  (SELECT COUNT(*) FROM `PROJECT.winston_events_analytics.events_deduped`)         AS deduped_rows,
+  (SELECT COUNT(*) FROM `PROJECT.winston_events_analytics.events_deduped`
+     WHERE dead_letter = TRUE)                                                     AS dead_letter_rows;
