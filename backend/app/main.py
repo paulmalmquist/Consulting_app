@@ -7,10 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import (
-    AI_GATEWAY_ENABLED,
     ALLOWED_ORIGINS,
-    WINSTON_OPERATOR_ENABLED,
-    WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS,
+    STARGATE_BRIDGE_ENABLED,
 )
 from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
@@ -75,14 +73,17 @@ from app.routes import (
 )
 from app.routes import re_authoritative, re_operator_diagnostics
 from app.routes.ai import router as ai_router
-from app.routes.ai_gateway import router as ai_gateway_router
-from app.routes.operator_agent import router as operator_agent_router
 from app.routes.ai_audit import router as ai_audit_router
 from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import telemetry
 from app.routes import telemetry_copilot
+from app.routes import automated_data_engineering
+from app.routes import intelligence_cards
+from app.routes import workflow_registry
+from app.routes import audit_dashboard
+from app.routes import analysis_sessions
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -137,6 +138,12 @@ async def lifespan(app: FastAPI):
     git_sha = resolve_git_sha()
     db_fp = resolve_db_fingerprint()
 
+    # Background task handles, cancelled on shutdown below. None until a future
+    # phase wires their creation; the shutdown loop guards on `is not None`.
+    stream_task = None
+    stream_etl_task = None
+    stargate_autoplay_task = None
+
     emit_log(
         level="info", service="backend", action="startup.begin",
         message="Backend starting",
@@ -162,6 +169,7 @@ async def lifespan(app: FastAPI):
             from app.db import _get_pool
             _get_pool()
             db_connected = True
+            schema_ok = True
             emit_log(
                 level="info", service="backend", action="startup.db_connect_ok",
                 message="Database pool opened",
@@ -174,44 +182,6 @@ async def lifespan(app: FastAPI):
                 context={"db_fingerprint": db_fp}, error=exc,
             )
 
-        if db_connected:
-            try:
-                from app.services.winston_readiness import get_winston_readiness
-                readiness = get_winston_readiness()
-                schema_ok = readiness.ok
-                schema_issues = readiness.issues
-                if schema_ok:
-                    emit_log(
-                        level="info", service="backend", action="startup.schema_contract_passed",
-                        message="Winston schema contract passed",
-                        context={
-                            "marker": readiness.schema_version_marker,
-                            "surfaces": len(readiness.supported_launch_surface_ids),
-                        },
-                    )
-                else:
-                    emit_log(
-                        level="warn", service="backend", action="startup.schema_contract_failed",
-                        message="Winston schema contract failed",
-                        context={
-                            "issues": readiness.issues,
-                            "missing_columns": readiness.missing_columns,
-                            "missing_indexes": readiness.missing_indexes,
-                        },
-                    )
-            except Exception as exc:
-                schema_issues = [f"Schema contract check error: {exc}"]
-                emit_log(
-                    level="error", service="backend", action="startup.schema_contract_failed",
-                    message="Schema contract check raised an exception",
-                    context={}, error=exc,
-                )
-
-    emit_log(
-        level="info", service="backend", action="startup.assistant_boot_enabled",
-        message=f"AI gateway enabled: {AI_GATEWAY_ENABLED}",
-        context={"ai_gateway_enabled": AI_GATEWAY_ENABLED},
-    )
 
     # ── Unified Metric Registry validation ─────────────────────────
     if db_connected and not skip_db:
@@ -259,7 +229,7 @@ async def lifespan(app: FastAPI):
         schema_issues=schema_issues,
         db_connected=db_connected,
         startup_duration_ms=elapsed_ms,
-        assistant_boot_enabled=AI_GATEWAY_ENABLED,
+        assistant_boot_enabled=False,
     )
     # Use proper ISO timestamp
     from app.observability.logger import _iso_now
@@ -272,73 +242,6 @@ async def lifespan(app: FastAPI):
         context={"ready": db_connected and schema_ok, "duration_ms": elapsed_ms},
     )
 
-    # ── Operator runtime: confirmation registry sweep task ─────────
-    operator_sweep_task = None
-    if WINSTON_OPERATOR_ENABLED and db_connected:
-        try:
-            import asyncio
-            from app.services.operator_confirm_registry import run_sweep_loop
-            operator_sweep_task = asyncio.create_task(
-                run_sweep_loop(interval_seconds=WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS)
-            )
-            emit_log(
-                level="info", service="backend", action="startup.operator_sweep_started",
-                message="Operator confirm-registry sweep loop started",
-                context={"interval_s": WINSTON_OPERATOR_CONFIRM_SWEEP_INTERVAL_SECONDS},
-            )
-        except Exception as exc:
-            emit_log(
-                level="warn", service="backend", action="startup.operator_sweep_failed",
-                message="Operator sweep loop failed to start (non-fatal)",
-                context={}, error=exc,
-            )
-
-    # ── RS Demo: telemetry stream worker + ETL loop (operator-sweep pattern) ──
-    stream_task = None
-    stream_etl_task = None
-    if db_connected:
-        try:
-            from app.config import (
-                TELEMETRY_ETL_INTERVAL_SECONDS, TELEMETRY_STREAM_BUSINESS_ID,
-                TELEMETRY_STREAM_ENABLED, TELEMETRY_STREAM_ENV_ID, TELEMETRY_STREAM_SOURCE,
-            )
-            if TELEMETRY_STREAM_ENABLED:
-                import asyncio
-                from uuid import UUID as _UUID
-                from app.services.telemetry_stream_etl import run_etl_loop
-                from app.services.telemetry_stream_ingest import (
-                    StreamWorker, set_stream_worker,
-                )
-                _stream_channels = [
-                    "USLAB000058", "USLAB000059", "USLAB000062", "USLAB000063", "USLAB000064",
-                    "AIRLOCK000049", "NODE3000005", "NODE3000008", "NODE3000009",
-                    "S4000001", "S6000004", "P4000001",
-                ]
-                _worker = StreamWorker(
-                    env_id=TELEMETRY_STREAM_ENV_ID,
-                    business_id=TELEMETRY_STREAM_BUSINESS_ID,
-                    source=TELEMETRY_STREAM_SOURCE,
-                    channels=_stream_channels,
-                )
-                set_stream_worker(_worker)
-                stream_task = asyncio.create_task(_worker.run())
-                stream_etl_task = asyncio.create_task(run_etl_loop(
-                    env_id=TELEMETRY_STREAM_ENV_ID,
-                    business_id=_UUID(TELEMETRY_STREAM_BUSINESS_ID),
-                    interval_seconds=TELEMETRY_ETL_INTERVAL_SECONDS,
-                ))
-                emit_log(
-                    level="info", service="backend", action="startup.telemetry_stream_started",
-                    message="Telemetry stream worker + ETL loop started",
-                    context={"source": TELEMETRY_STREAM_SOURCE,
-                             "etl_interval_s": TELEMETRY_ETL_INTERVAL_SECONDS},
-                )
-        except Exception as exc:
-            emit_log(
-                level="warn", service="backend", action="startup.telemetry_stream_failed",
-                message="Telemetry stream worker failed to start (non-fatal)",
-                context={}, error=exc,
-            )
 
     # History Rhymes stream spine: inert unless HR_STREAM_MODE=synthetic.
     # (replay/live_kafka modes start their runner in PR 13; default off.)
@@ -363,7 +266,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    for _task in (stream_task, stream_etl_task, hr_stream_task):
+    for _task in (stream_task, stream_etl_task, hr_stream_task, stargate_autoplay_task):
         if _task is not None:
             _task.cancel()
             try:
@@ -371,12 +274,6 @@ async def lifespan(app: FastAPI):
             except BaseException:
                 pass
 
-    if operator_sweep_task is not None:
-        operator_sweep_task.cancel()
-        try:
-            await operator_sweep_task
-        except BaseException:
-            pass
 
     emit_log(
         level="info", service="backend", action="shutdown.begin",
@@ -386,8 +283,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Business OS API", version="0.1.0", lifespan=lifespan)
 
-# Register all MCP tools so the AI gateway can expose them to OpenAI tool-calling.
-# Without this, _build_openai_tools() returns an empty list and Winston has zero tools.
+# Register MCP tools for the standalone MCP server and command workflows.
 _register_all_tools()
 
 # Validate prompt/registry coherence at startup
@@ -397,7 +293,7 @@ if _write_tools:
              message=f"Write tools registered: {_write_tools}", context={"tools": _write_tools})
 else:
     emit_log(level="warn", service="backend", action="startup.no_write_tools",
-             message="No write tools registered — Winston operates in read-only mode", context={})
+             message="No write tools registered", context={})
 
 app.add_middleware(
     CORSMiddleware,
@@ -464,9 +360,9 @@ app.include_router(audit.router)
 app.include_router(lab.router)
 app.include_router(lab_v2.router)
 app.include_router(ai_router)
-app.include_router(ai_gateway_router)
-if WINSTON_OPERATOR_ENABLED:
-    app.include_router(operator_agent_router)
+if STARGATE_BRIDGE_ENABLED:
+    from app.routes.stargate_bridge import router as stargate_bridge_router  # noqa: E402
+    app.include_router(stargate_bridge_router)
 app.include_router(ai_audit_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
@@ -550,6 +446,11 @@ app.include_router(website_analytics.router)
 app.include_router(consulting.router)
 app.include_router(telemetry.router)
 app.include_router(telemetry_copilot.router)
+app.include_router(automated_data_engineering.router)
+app.include_router(intelligence_cards.router)
+app.include_router(workflow_registry.router)
+app.include_router(audit_dashboard.router)
+app.include_router(analysis_sessions.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)

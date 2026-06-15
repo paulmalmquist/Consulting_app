@@ -1,0 +1,497 @@
+{
+  "gate": "telemetry_trust_gate0",
+  "design": "option_b_train_split_heldout_units",
+  "notebook": "telemetry-platform/databricks/notebooks/telemetry_trust_gate0_distance_error.py",
+  "data_source_tables": [
+    "novendor_1.telemetry.gold_cmapss_features"
+  ],
+  "model_source": "novendor_1.telemetry.tel_rul_regressor (version 1, run c970fdcc; frozen inference, no retrain)",
+  "embedding_source": "derived in-notebook from gold_cmapss_features (zscore+pca24), fit on FLEET rows only; NOT gold_fused_state_vectors (that is the SMAP/MSL anomaly lane)",
+  "distance_metric": "mean L2 over k=10 nearest FLEET windows (deep-kNN style), embedding space",
+  "dataset_split": {
+    "subset": "FD001",
+    "split_basis": "FD001 TRAIN split (has real per-cycle rul_target); held-out by unit id, seed=0",
+    "fleet_units": 80,
+    "heldout_units": 20,
+    "fleet_rows": 16220,
+    "heldout_rows": 4311,
+    "heldout_unit_ids": [
+      2,
+      4,
+      7,
+      16,
+      23,
+      27,
+      43,
+      47,
+      53,
+      54,
+      56,
+      58,
+      60,
+      62,
+      69,
+      71,
+      74,
+      84,
+      93,
+      94
+    ],
+    "scoring": "every cycle of each held-out unit (real per-cycle truth)"
+  },
+  "sklearn_pin": "scikit-learn==1.4.2 \u2014 REQUIRED: the champion was pickled under 1.4.2; newer sklearn drops GradientBoostingRegressor's HalfSquaredError.get_init_raw_predictions and predict() raises AttributeError. Pin to reproduce.",
+  "rul_cap": 125,
+  "heldout_per_cycle_rmse": 19.861,
+  "heldout_rmse_note": "Per-cycle RMSE on held-out TRAIN units. IN-SAMPLE for the predictor (the champion was trained on all 100 train units), so optimistic \u2014 this makes the distance/error gate HARDER, not easier. NOT the 100-unit last-cycle benchmark (20.32). Not a literature-competitive claim.",
+  "band_definitions": [
+    "0-25",
+    "25-50",
+    "50-75",
+    "75-100",
+    "100-inf"
+  ],
+  "overall_spearman_rho": -0.1273,
+  "per_band": [
+    {
+      "band": "0-25",
+      "n": 485,
+      "rho": -0.1352,
+      "ci95": [
+        -0.2221,
+        -0.046
+      ],
+      "ci_method": "bootstrap_2000",
+      "median_abs_err_by_distance_quartile": [
+        {
+          "distance_quartile": 0,
+          "n": 122,
+          "median_abs_err": 5.114230062587719,
+          "mean_knn_dist": 3.2227251761947375
+        },
+        {
+          "distance_quartile": 1,
+          "n": 121,
+          "median_abs_err": 4.315790167448153,
+          "mean_knn_dist": 3.5432510894059877
+        },
+        {
+          "distance_quartile": 2,
+          "n": 121,
+          "median_abs_err": 3.4891311017280966,
+          "mean_knn_dist": 3.8541222123670305
+        },
+        {
+          "distance_quartile": 3,
+          "n": 121,
+          "median_abs_err": 3.8644268889095623,
+          "mean_knn_dist": 4.4033109111538185
+        }
+      ]
+    },
+    {
+      "band": "25-50",
+      "n": 432,
+      "rho": -0.1602,
+      "ci95": [
+        -0.2555,
+        -0.066
+      ],
+      "ci_method": "bootstrap_2000",
+      "median_abs_err_by_distance_quartile": [
+        {
+          "distance_quartile": 0,
+          "n": 108,
+          "median_abs_err": 12.323016634634627,
+          "mean_knn_dist": 3.1487613691197227
+        },
+        {
+          "distance_quartile": 1,
+          "n": 108,
+          "median_abs_err": 12.387424223478916,
+          "mean_knn_dist": 3.4111256048579643
+        },
+        {
+          "distance_quartile": 2,
+          "n": 108,
+          "median_abs_err": 9.00362655705213,
+          "mean_knn_dist": 3.645011347872418
+        },
+        {
+          "distance_quartile": 3,
+          "n": 108,
+          "median_abs_err": 9.25443195779769,
+          "mean_knn_dist": 4.057219667684814
+        }
+      ]
+    },
+    {
+      "band": "50-75",
+      "n": 383,
+      "rho": -0.0728,
+      "ci95": [
+        -0.1752,
+        0.0269
+      ],
+      "ci_method": "bootstrap_2000",
+      "median_abs_err_by_distance_quartile": [
+        {
+          "distance_quartile": 0,
+          "n": 96,
+          "median_abs_err": 22.791364520556915,
+          "mean_knn_dist": 3.0311085028613576
+        },
+        {
+          "distance_quartile": 1,
+          "n": 96,
+          "median_abs_err": 24.260887313608926,
+          "mean_knn_dist": 3.3233708011190912
+        },
+        {
+          "distance_quartile": 2,
+          "n": 95,
+          "median_abs_err": 21.10992448947509,
+          "mean_knn_dist": 3.5654824024236484
+        },
+        {
+          "distance_quartile": 3,
+          "n": 96,
+          "median_abs_err": 20.913869471459044,
+          "mean_knn_dist": 4.0910412582780795
+        }
+      ]
+    },
+    {
+      "band": "75-100",
+      "n": 766,
+      "rho": -0.0533,
+      "ci95": [
+        -0.1271,
+        0.015
+      ],
+      "ci_method": "bootstrap_2000",
+      "median_abs_err_by_distance_quartile": [
+        {
+          "distance_quartile": 0,
+          "n": 192,
+          "median_abs_err": 27.35879424482956,
+          "mean_knn_dist": 2.987764764874587
+        },
+        {
+          "distance_quartile": 1,
+          "n": 191,
+          "median_abs_err": 28.208484820314524,
+          "mean_knn_dist": 3.2620128076998967
+        },
+        {
+          "distance_quartile": 2,
+          "n": 191,
+          "median_abs_err": 29.223734409478283,
+          "mean_knn_dist": 3.4729742792276164
+        },
+        {
+          "distance_quartile": 3,
+          "n": 192,
+          "median_abs_err": 26.982204417263304,
+          "mean_knn_dist": 3.9748409634791084
+        }
+      ]
+    },
+    {
+      "band": "100-inf",
+      "n": 2245,
+      "rho": -0.0454,
+      "ci95": [
+        -0.0843,
+        -0.0043
+      ],
+      "ci_method": "bootstrap_2000",
+      "median_abs_err_by_distance_quartile": [
+        {
+          "distance_quartile": 0,
+          "n": 562,
+          "median_abs_err": 12.52767911987312,
+          "mean_knn_dist": 2.9127061625435795
+        },
+        {
+          "distance_quartile": 1,
+          "n": 561,
+          "median_abs_err": 12.275072959438859,
+          "mean_knn_dist": 3.19967238522358
+        },
+        {
+          "distance_quartile": 2,
+          "n": 561,
+          "median_abs_err": 11.315544590984103,
+          "mean_knn_dist": 3.465063424395796
+        },
+        {
+          "distance_quartile": 3,
+          "n": 561,
+          "median_abs_err": 11.597454040307085,
+          "mean_knn_dist": 3.97115426530063
+        }
+      ]
+    }
+  ],
+  "top_ab_pairs": [
+    {
+      "band": "50-75",
+      "A": {
+        "unit": 62,
+        "cycle": 102,
+        "pred_rul": 66.4,
+        "true_rul": 78,
+        "abs_err": 11.6,
+        "knn_dist": 2.7735,
+        "nn_analog": "unit80@c144"
+      },
+      "B": {
+        "unit": 56,
+        "cycle": 117,
+        "pred_rul": 69.4,
+        "true_rul": 125,
+        "abs_err": 55.6,
+        "knn_dist": 3.9811,
+        "nn_analog": "unit80@c103"
+      },
+      "dist_gap": 1.2075,
+      "err_gap": 44.0,
+      "score": 53.134
+    },
+    {
+      "band": "100-inf",
+      "A": {
+        "unit": 53,
+        "cycle": 95,
+        "pred_rul": 102.8,
+        "true_rul": 100,
+        "abs_err": 2.8,
+        "knn_dist": 2.5245,
+        "nn_analog": "unit44@c127"
+      },
+      "B": {
+        "unit": 4,
+        "cycle": 132,
+        "pred_rul": 103.5,
+        "true_rul": 57,
+        "abs_err": 46.5,
+        "knn_dist": 3.7244,
+        "nn_analog": "unit11@c187"
+      },
+      "dist_gap": 1.1999,
+      "err_gap": 43.8,
+      "score": 52.54
+    },
+    {
+      "band": "100-inf",
+      "A": {
+        "unit": 74,
+        "cycle": 48,
+        "pred_rul": 117.3,
+        "true_rul": 118,
+        "abs_err": 0.7,
+        "knn_dist": 2.5848,
+        "nn_analog": "unit50@c5"
+      },
+      "B": {
+        "unit": 43,
+        "cycle": 130,
+        "pred_rul": 114.6,
+        "true_rul": 77,
+        "abs_err": 37.6,
+        "knn_dist": 3.9941,
+        "nn_analog": "unit1@c84"
+      },
+      "dist_gap": 1.4093,
+      "err_gap": 36.8,
+      "score": 51.914
+    },
+    {
+      "band": "50-75",
+      "A": {
+        "unit": 62,
+        "cycle": 107,
+        "pred_rul": 70.1,
+        "true_rul": 73,
+        "abs_err": 2.9,
+        "knn_dist": 3.0065,
+        "nn_analog": "unit90@c126"
+      },
+      "B": {
+        "unit": 56,
+        "cycle": 117,
+        "pred_rul": 69.4,
+        "true_rul": 125,
+        "abs_err": 55.6,
+        "knn_dist": 3.9811,
+        "nn_analog": "unit80@c103"
+      },
+      "dist_gap": 0.9745,
+      "err_gap": 52.7,
+      "score": 51.328
+    },
+    {
+      "band": "100-inf",
+      "A": {
+        "unit": 53,
+        "cycle": 94,
+        "pred_rul": 105.5,
+        "true_rul": 101,
+        "abs_err": 4.5,
+        "knn_dist": 2.5121,
+        "nn_analog": "unit68@c60"
+      },
+      "B": {
+        "unit": 4,
+        "cycle": 132,
+        "pred_rul": 103.5,
+        "true_rul": 57,
+        "abs_err": 46.5,
+        "knn_dist": 3.7244,
+        "nn_analog": "unit11@c187"
+      },
+      "dist_gap": 1.2124,
+      "err_gap": 42.0,
+      "score": 50.946
+    },
+    {
+      "band": "50-75",
+      "A": {
+        "unit": 62,
+        "cycle": 123,
+        "pred_rul": 58.1,
+        "true_rul": 57,
+        "abs_err": 1.1,
+        "knn_dist": 3.0329,
+        "nn_analog": "unit25@c183"
+      },
+      "B": {
+        "unit": 56,
+        "cycle": 169,
+        "pred_rul": 57.9,
+        "true_rul": 106,
+        "abs_err": 48.1,
+        "knn_dist": 4.1095,
+        "nn_analog": "unit17@c251"
+      },
+      "dist_gap": 1.0766,
+      "err_gap": 47.0,
+      "score": 50.603
+    },
+    {
+      "band": "100-inf",
+      "A": {
+        "unit": 2,
+        "cycle": 175,
+        "pred_rul": 110.4,
+        "true_rul": 112,
+        "abs_err": 1.6,
+        "knn_dist": 2.5871,
+        "nn_analog": "unit92@c158"
+      },
+      "B": {
+        "unit": 43,
+        "cycle": 136,
+        "pred_rul": 111.7,
+        "true_rul": 71,
+        "abs_err": 40.7,
+        "knn_dist": 3.8118,
+        "nn_analog": "unit70@c23"
+      },
+      "dist_gap": 1.2247,
+      "err_gap": 39.1,
+      "score": 47.905
+    },
+    {
+      "band": "100-inf",
+      "A": {
+        "unit": 7,
+        "cycle": 158,
+        "pred_rul": 102.4,
+        "true_rul": 101,
+        "abs_err": 1.4,
+        "knn_dist": 2.7118,
+        "nn_analog": "unit64@c120"
+      },
+      "B": {
+        "unit": 4,
+        "cycle": 132,
+        "pred_rul": 103.5,
+        "true_rul": 57,
+        "abs_err": 46.5,
+        "knn_dist": 3.7244,
+        "nn_analog": "unit11@c187"
+      },
+      "dist_gap": 1.0126,
+      "err_gap": 45.1,
+      "score": 45.704
+    },
+    {
+      "band": "75-100",
+      "A": {
+        "unit": 71,
+        "cycle": 117,
+        "pred_rul": 98.5,
+        "true_rul": 91,
+        "abs_err": 7.5,
+        "knn_dist": 2.6885,
+        "nn_analog": "unit12@c100"
+      },
+      "B": {
+        "unit": 58,
+        "cycle": 102,
+        "pred_rul": 97.1,
+        "true_rul": 45,
+        "abs_err": 52.1,
+        "knn_dist": 3.7036,
+        "nn_analog": "unit63@c73"
+      },
+      "dist_gap": 1.0151,
+      "err_gap": 44.6,
+      "score": 45.319
+    },
+    {
+      "band": "50-75",
+      "A": {
+        "unit": 27,
+        "cycle": 107,
+        "pred_rul": 59.8,
+        "true_rul": 49,
+        "abs_err": 10.8,
+        "knn_dist": 2.8958,
+        "nn_analog": "unit15@c166"
+      },
+      "B": {
+        "unit": 56,
+        "cycle": 169,
+        "pred_rul": 57.9,
+        "true_rul": 106,
+        "abs_err": 48.1,
+        "knn_dist": 4.1095,
+        "nn_analog": "unit17@c251"
+      },
+      "dist_gap": 1.2137,
+      "err_gap": 37.3,
+      "score": 45.295
+    }
+  ],
+  "recommendation": "kill",
+  "caveats": [
+    "Ran on the FD001 TRAIN split because the TEST split has no per-cycle rul_target (100% NaN); held-out units have real per-cycle truth.",
+    "Predictor is in-sample (champion trained on all 100 train units incl. held-out): predictions are optimistic, which makes the distance/error gate harder to pass, not easier. The held-out split governs the embedding/kNN (no fleet leakage), which is what the distance signal needs.",
+    "Embedding is a cheap z-score(+PCA) of existing features, not a learned/contrastive encoder; a weak-but-real rho routes to the SupCon ticket, not a kill.",
+    "Held-out RMSE here is per-cycle and in-sample; the shipped 20.32 RMSE is the last-cycle-per-unit benchmark \u2014 a different quantity. No competitiveness claim either direction.",
+    "FD001 has a single fault mode; the stronger novel-fault-mode test (FD003 cross-subset) is a later step, not this gate."
+  ],
+  "status": "COMPLETE",
+  "outcome": "verdict_produced",
+  "run_id": 993096546213269,
+  "parent_ticket": "docs/plans/03-implementation-plans/active/telemetry-trust-gate0-ticket.md",
+  "workspace": "dbc-2504bec5-b5ab.cloud.databricks.com",
+  "verdict": "kill",
+  "verdict_basis": "Within-band Spearman rho(knn_distance, abs_error) is NEGATIVE in all 5 bands (overall -0.127), with 3 of 5 band CIs excluding zero on the negative side. The decision rule requires POSITIVE within-band rho with CI excluding zero for 'continue', and any positive-CI band for 'train_contrastive'. There are zero positive bands; several are significantly negative. Far-from-fleet windows have slightly LOWER error here \u2014 the reverse of the trust thesis. This is a stronger refutation than flatness: the cheap embedding's geometry carries error information in the WRONG direction, so it does not route to SupCon.",
+  "execution_notes_prior_blocked_attempts": {
+    "see": "git history commit 6b9b4702 + this file's predecessor",
+    "summary": "First design scored ALL test cycles and blocked: C-MAPSS test split has no per-cycle rul_target (13096/13096 NaN). Runs 1-2 were environmental (mlflow missing; sklearn version skew -> pinned 1.4.2). Run 3-4 surfaced the test-truth data fact. Redesigned to Option B (train-split held-out units, real per-cycle truth) and re-ran -> this verdict."
+  }
+}

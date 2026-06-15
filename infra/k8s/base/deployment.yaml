@@ -1,0 +1,97 @@
+# Observational BigQuery sink worker (Plan 0004 Phase 4).
+# Stateless consumer: Confluent Cloud -> sink.process_message -> BigQuery.
+# Single replica — the Kafka consumer group lets us scale to N later (one
+# partition per consumer max); start at 1 for the single-partition dev topic.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: winston-bq-sink
+  labels:
+    app.kubernetes.io/name: winston-bq-sink
+    app.kubernetes.io/component: event-sink-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: winston-bq-sink
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: winston-bq-sink
+        app.kubernetes.io/component: event-sink-worker
+    spec:
+      serviceAccountName: winston-bq-sink
+      # Graceful drain: the worker handles SIGTERM and finishes the in-flight
+      # message before exiting. Give it room beyond the default 30s.
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sink-worker
+          image: winston-bq-sink:latest # overlay patches the full registry path + tag
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            - name: EVENTS_ENABLED
+              value: "true"
+            - name: EVENTS_SECURITY_PROTOCOL
+              value: "SASL_SSL"
+            - name: EVENTS_SASL_MECHANISM
+              value: "PLAIN"
+            - name: EVENTS_CONSUMER_GROUP
+              value: "winston-bq-sink"
+            - name: EVENTS_CONSUMER_TOPICS
+              value: "winston.executions.v1,history-rhymes.signals.v1"
+            - name: BQ_ENABLED
+              value: "true"
+            - name: HEALTH_PORT
+              value: "8080"
+            # Broker URL + Confluent API key/secret + BQ project come from a
+            # Secret (see secret.example.yaml). BigQuery auth itself is via
+            # Workload Identity (the bound GCP SA), NOT a key file.
+            - name: EVENTS_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: winston-bq-sink-secrets
+                  key: EVENTS_BROKER_URL
+            - name: EVENTS_SASL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: winston-bq-sink-secrets
+                  key: EVENTS_SASL_USERNAME
+            - name: EVENTS_SASL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: winston-bq-sink-secrets
+                  key: EVENTS_SASL_PASSWORD
+            - name: BQ_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: winston-bq-sink-secrets
+                  key: BQ_PROJECT_ID
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
