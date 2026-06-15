@@ -3503,3 +3503,24 @@ negative-result bridge ("killed by Gate 0… this screen does not revive that cl
 guards it: `body.textContent` must NOT match `/SupCon|analog retrieval|pgvector|novelty distance/i`. Reuse
 that pattern to keep killed hypotheses from creeping back into surfaces. repo-b runner is **vitest**
 (`npx vitest run <file>`), no `test` script; typecheck `npx tsc --noEmit -p tsconfig.typecheck.json`.
+
+### `az boards work-item relation add` rejects `--project` — links fail silently without it (2026-06-15)
+
+The intake skill's example passes `--project Novendor` alongside `--org` on every board command, but `az boards work-item relation add` does NOT accept `--project` (only `create`/`update`/`show` do). Passing it makes the command exit with `ERROR: unrecognized arguments: --project Novendor` — and if you piped the result through a `--query` that swallows stderr, the parent link silently never gets created (the `System.Parent` field stays empty). Correct form for `relation add`: `--id`, `--relation-type parent`, `--target-id`, `--org` only. Always re-read `System.Parent` with `work-item show` afterward to confirm the link took — a created work item with no parent passes most checks but breaks the Epic→Feature→Story→Task hierarchy. Hit while creating ADE PR 2 items (#580 Feature → Epic #353): the first link attempt with `--project` failed silently, the field was empty on verify, re-running without `--project` set it.
+
+---
+
+## 2026-06-15 — Visual verification of a pure telemetry screen without auth/dev-server
+
+The telemetry routes are auth-gated and `next dev` + Supabase login is unreliable here (dispatch 0003's
+one gap was "authenticated production screenshot not capturable"). For a **pure, deterministic** component
+(static fixture, no API/auth — like the RUL Calibration screen), you can screenshot the REAL component
+without any of that: bundle a `renderToStaticMarkup(<Component/>)` entry with **esbuild** (already a dep;
+`alias:{'@':path.resolve('src')}`, `jsx:'automatic'`, react/react-dom external), write the HTML, and
+screenshot with **Playwright** (chromium already installed) at desktop (1280) + mobile (390) widths.
+Caveat that MUST be stated: a `renderToStaticMarkup` harness has **no Tailwind**, so layout classes
+(`StatGrid`/`SplitGrid` grids) collapse to single-column and the first screenshot looks wrong. Inject the
+handful of real grid rules (`.lg:grid-cols-5`, the `minmax` split templates, `sm:` breakpoints) into the
+page `<style>` to get a faithful layout. Keep the harness ephemeral (a temp `.veval/` dir); commit only
+the PNGs. This verifies typography/color/chart/content/contrast/reflow honestly — but it is NOT an
+end-to-end auth+route load; say so and don't claim the live route was exercised.
