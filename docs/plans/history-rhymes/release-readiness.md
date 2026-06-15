@@ -29,6 +29,15 @@
 ## Observability readiness
 - [ ] Decision generation events logged: UNVERIFIED
 
+## Streaming gates (telemetry cockpit refactor)
+- [ ] HR_STREAM_MODE=off leaves the app fully inert (no background task, health = not_configured)
+- [ ] Synthetic mode deterministic and broker-less (ring buffer; pytest green)
+- [ ] Health endpoint never 500s and never exposes secrets (test-asserted)
+- [ ] Migration 10016 additive, idempotent, hr_* exemption header, COMMENT ON TABLE everywhere
+- [ ] Consumer fails closed on missing/invalid Kafka config with a degraded reason
+- [ ] Replay preserves observed_at; no replayed data rendered as current without the replaying label
+- [ ] No live Confluent connection enabled before synthetic/replay are proven
+
 ## Known blockers
 - [ ] Daily decision script not verified
 - [ ] Architecture unverified

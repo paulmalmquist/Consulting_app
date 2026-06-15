@@ -78,6 +78,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `demo-features-meta-prompts` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/plans/DEMO_FEATURES_META_PROMPTS.md` |
 | `rs-analytics-platform-plan` | `plan` | `active` | `docs, TELEMETRY_TEMPLATE, RS-Analytics ADO` | `no` | `docs/plans/RS_ANALYTICS_PLATFORM_PLAN.md` |
 | `automated-data-engineering-plan` | `plan` | `active` | `docs, backend, repo-b` | `no` | `docs/plans/automated-data-engineering/README.md` |
+| `history-rhymes-telemetry-cockpit-refactor` | `plan` | `active` | `repo-b, backend, docs` | `no` | `docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md` |
 
 ## Archived Prompt References
 

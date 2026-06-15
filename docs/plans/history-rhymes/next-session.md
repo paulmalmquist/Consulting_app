@@ -1,46 +1,41 @@
 # Next Session — History Rhymes
 
-**Last updated:** 2026-05-16
+**Last updated:** 2026-06-12
 
 ## Copy-paste prompt for next Claude Code session
 
 ```
-You are working on History Rhymes / Trading Research in the Novendor / BusinessMachine platform.
+You are working on the History Rhymes telemetry-cockpit refactor in Winston / Consulting_app.
 
 Read first:
+- docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md  (the dispatch record — PR table, verified contracts, honesty rules)
 - docs/plans/history-rhymes/architecture.md
 - docs/plans/history-rhymes/backlog.md
-- docs/plans/HISTORY_RHYMES_BUILD_PLAN.md
-- skills/historyrhymes-execution-layer/SKILL.md
-- scripts/hr_daily_decision.py
 
-Objective:
-1. Run the daily decision script and verify it completes without errors.
-2. Verify the trading routine page renders today's decision.
-3. Identify the Supabase tables for decisions, positions, and trades.
-4. Document findings in docs/plans/history-rhymes/architecture.md.
+Objective: pick up the first unchecked PR in the backlog's cockpit-refactor list and implement
+exactly that scope. One PR per session unless told otherwise. ADO story IDs are in the backlog —
+move the story to Active at start, Resolved when code+tests+evidence are ready, and append an
+audit comment (branch/commit/PR, files, tests, evidence).
 
-Files to inspect:
-- scripts/hr_daily_decision.py
-- backend/app/routes/rhymes.py
-- backend/app/services/history_rhymes_service.py
-- backend/app/schemas/trading.py
-- repo-b/src/app/lab/env/[envId]/historyrhymes/routine/
+Hard rules (from the dispatch record):
+- Do not rename or reshape /api/hr/v1/* or /api/v1/rhymes/*.
+- Fail closed: every zone renders an explicit degraded/empty state with a concrete reason string.
+- Degraded_reason strings from the backend matrix appear verbatim in UI and tests.
+- v1 placeholder scenarios render as pending, never as real probabilities.
+- No silent stream fallback; mode and source always labeled.
+- Cockpit copy avoids buy/sell/trade/position-size language.
 
-Acceptance criteria:
-- [ ] Daily decision script runs without errors
-- [ ] Trading routine page shows a decision (not empty)
-- [ ] Supabase table names confirmed in architecture.md
-- [ ] Response shape of rhymes endpoint documented
+Test gates per PR:
+cd repo-b && npx vitest run src/components/historyrhymes/ src/lib/historyrhymes/
+cd repo-b && npm run typecheck && npm run lint
+cd repo-b && npx playwright test tests/historyrhymes-cockpit.spec.ts tests/historyrhymes-planning.spec.ts
+cd backend && python -m pytest tests/test_history_rhymes.py tests/test_hr_stream_*.py -q   (backend PRs)
 
-Tests to run:
-python scripts/hr_daily_decision.py
-cd backend && python -m pytest tests/ -k "rhymes or trading" -v
-
-Update docs/plans/history-rhymes/next-session.md and backlog.md before finishing.
+Update docs/plans/history-rhymes/{backlog,next-session}.md and the dispatch record status table
+before finishing. Reusable lessons go to docs/tips.md.
 ```
 
 ## Context notes
-- The execution layer skill (`skills/historyrhymes-execution-layer/SKILL.md`) owns the daily decision routine
-- MLflow experiments may be on Databricks — verify before assuming local
-- Paper trading ledger appends should be non-destructive
+- Branch chain is stacked PRs off main (feat/hr-cockpit-NN-*); retarget stacked PRs before deleting base branches after merges.
+- The execution layer skill (`skills/historyrhymes-execution-layer/SKILL.md`) owns the daily decision routine; the cockpit consumes its outputs read-only.
+- Schema 10016 is reserved for HR streaming (10015 is doc-reserved by the telemetry streaming slice). Re-glob before merging PR 12.

@@ -1,7 +1,31 @@
 # History Rhymes — Architecture
 
-**Last updated:** 2026-05-16  
-**Status:** Partially verified from route/service inspection
+**Last updated:** 2026-06-12
+**Status:** Verified by full route/service/schema inspection (telemetry-cockpit refactor discovery)
+
+## Telemetry cockpit refactor (2026-06-12, in flight)
+
+Dispatch record: `docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md`. ADO Epic #213 → Features #538/#539/#540 → Stories #541–#556.
+
+### Target route map
+| Route | Surface | Status |
+|---|---|---|
+| `/lab/env/[envId]/historyrhymes` | Default telemetry-style cockpit (new index page) | PR 2 |
+| `.../historyrhymes/routine` | Compatibility alias rendering the same cockpit | PR 2 |
+| `.../historyrhymes/morning-book` | Unchanged content, rendered in HR shell | existing |
+| `.../historyrhymes/research` | Brief upload + archive (moved from planning) | PR 14 |
+| `.../historyrhymes/planning` | Enhancement candidates promote/discard only | PR 14 |
+| `.../historyrhymes/episodes` | Episode library explorer | PR 15 |
+| `.../historyrhymes/calibration` | Honest planned-not-available status (no API yet) | PR 15 |
+| `.../historyrhymes/admin` | Stream/raw API diagnostics | PR 6 |
+
+New components live in `repo-b/src/components/historyrhymes/cockpit/` (HR-local primitives modeled on `repo-b/src/components/telemetry/primitives.tsx`, not imported). New client `repo-b/src/lib/historyrhymes/rhymesClient.ts` calls `/api/v1/rhymes/*` same-origin through the existing proxy `repo-b/src/app/api/v1/rhymes/[...path]/route.ts`. Streaming spine: `backend/app/services/hr_stream/` + `backend/app/events/consumer.py`, reusing `backend/app/events/` producer infrastructure; schema 10016.
+
+### Verified corrections to earlier assumptions
+- hr_* tables are **single-tenant analytics** — no env_id, no business_id, no RLS (exemption in ARCHITECTURE.md). The earlier "RLS expected via env_id" note was wrong for hr_*; only `structural_alerts` is RLS-scoped.
+- `historyrhymes` was NOT in the LabEnvironmentShell full-bleed allowlist (`repo-b/src/components/lab/LabEnvironmentShell.tsx:167`); PR 2 adds it.
+- Calibration data (`hr_agent_calibration`, `hr_predictions.brier_score`) exists in DB but no route exposes it.
+- Key tables: `hr_weekly_briefs`, `hr_signal_snapshots`, `hr_predictions` (+ exec-loop extensions), `hr_paper_trading_ledger`, `hr_current_state` (view), `hr_research_briefs`, `hr_enhancement_candidates`, `hr_research_runs`, `episodes`, `episode_embeddings`, `wss_signal_state_vector`, `structural_alerts` (migrations 434, 503, 519, 10002).
 
 ## Frontend map
 

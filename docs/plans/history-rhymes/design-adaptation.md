@@ -24,6 +24,16 @@ Very high. The trading routine page must show regime, positions, and alerts with
 - Use mono font for all prices, percentages, and date ranges
 - Do not use light font weight for numeric data — at minimum `weight: 500`
 
+## Cockpit primitives (telemetry refactor, 2026-06-12)
+
+The cockpit uses HR-local primitives at `repo-b/src/components/historyrhymes/cockpit/primitives.tsx`, copy-adapted from the telemetry environment's `primitives.tsx` — NOT imported from it. Environments stay standalone; a telemetry restyle must not silently restyle HR.
+
+Palette: bg `#07090c`, rail `#0a0d12`, panel `#0f141c`, panelHi `#131a24`, accent bronze `#d4a85a` (the HR identity color), status family shared by value with telemetry for lab-wide status literacy — green `#3ddc97`, amber `#f3b14a`, red `#ef7066`, cyan `#3fb1e8`. Mono: JetBrains Mono.
+
+HR-specific primitives: `regimeColor()` (expansion→green, recovery→cyan, late_cycle→amber, stagflation→`#e08e45`, crisis→red, unknown→dim), `StatusChip(fresh|stale|missing|degraded)`, `FreshnessDot`, and the two honesty primitives — `DegradedNote({reason, refusal?})` and `CockpitEmptyState({zone, reason, hint})` — which require a concrete reason string by type and are the only way zones render degraded/empty states.
+
+Layout: 224px fixed left rail + full-bleed main (TelemetryShell pattern), mobile drawer. Status-first hierarchy: regime header above the fold, then signal strip, analog timeline, alert rail.
+
 ## What this environment must NOT do
 - Use soft pastel accents (this is not an executive dashboard)
 - Show prices in proportional font (always mono)
