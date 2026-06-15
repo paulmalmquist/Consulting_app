@@ -246,30 +246,31 @@ async def lifespan(app: FastAPI):
     )
 
 
-    # History Rhymes stream spine: inert unless HR_STREAM_MODE=synthetic.
-    # (replay/live_kafka modes start their runner in PR 13; default off.)
-    hr_stream_task = None
+    # History Rhymes stream spine: mode-dispatched (off/synthetic/replay/live_kafka).
+    # The runner owns task lifecycle and health writes; default mode=off is inert.
+    _hr_runner_ctx = None
     try:
-        from app.services.hr_stream import config as _hr_stream_config
-        if _hr_stream_config.stream_mode() == "synthetic":
-            import asyncio as _asyncio
-            from app.services.hr_stream.synthetic import run_synthetic_loop
-            hr_stream_task = _asyncio.create_task(run_synthetic_loop())
-            emit_log(
-                level="info", service="backend", action="startup.hr_stream_started",
-                message="History Rhymes synthetic stream loop started",
-                context={"mode": "synthetic"},
-            )
+        from app.services.hr_stream.runner import hr_stream_lifespan
+        _hr_runner_ctx = hr_stream_lifespan()
+        await _hr_runner_ctx.__aenter__()
+        emit_log(
+            level="info", service="backend", action="startup.hr_stream_started",
+            message="History Rhymes stream runner started",
+            context={},
+        )
     except Exception as exc:
+        _hr_runner_ctx = None
         emit_log(
             level="warn", service="backend", action="startup.hr_stream_failed",
-            message="History Rhymes stream loop failed to start (non-fatal)",
+            message="History Rhymes stream runner failed to start (non-fatal)",
             context={}, error=exc,
         )
 
     yield
 
-    for _task in (stream_task, stream_etl_task, hr_stream_task, stargate_autoplay_task):
+    # hr_stream_task (the synthetic loop) was replaced by _hr_runner_ctx in this
+    # PR; stargate_autoplay_task is still created in main's lifespan, so keep it.
+    for _task in (stream_task, stream_etl_task, stargate_autoplay_task):
         if _task is not None:
             _task.cancel()
             try:
@@ -277,6 +278,11 @@ async def lifespan(app: FastAPI):
             except BaseException:
                 pass
 
+    if _hr_runner_ctx is not None:
+        try:
+            await _hr_runner_ctx.__aexit__(None, None, None)
+        except Exception:
+            pass
 
     emit_log(
         level="info", service="backend", action="shutdown.begin",
