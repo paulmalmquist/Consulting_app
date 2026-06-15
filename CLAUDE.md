@@ -44,6 +44,20 @@ commands:
   - /ops_status
   - /brief
   - /cost
+notes:
+  - Global routing lives here. Downstream docs should link back instead of repeating repo-wide dispatch tables.
+  - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
+---
+
+## Writing Style
+
+When generating any prose — docs, comments, proposals, emails, copy, commit messages, skill files, or any other written output — follow the style rules in [`docs/anti-ai-style.md`](docs/anti-ai-style.md). Avoid the listed words, phrases, transitions, and structural tics. Write the way a clear-thinking person would write if they respected the reader's time.
+
+# CLAUDE Router Contract
+
+`CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.
+
+When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
 
 ## Mass Deletion Protection
 
@@ -59,22 +73,6 @@ commands:
 3. Request explicit review in the PR description
 
 **Exception process**: If a mass deletion is legitimate (e.g., removing a deprecated subsystem), add `[MASS_DELETE_APPROVED]` to the commit message AND include a link to a discussion/issue that approved the deletion.
-
-notes:
-  - Global routing lives here. Downstream docs should link back instead of repeating repo-wide dispatch tables.
-  - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
----
-
-## Writing Style
-
-When generating any prose — docs, comments, proposals, emails, copy, commit messages, skill files, or any other written output — follow the style rules in [`docs/anti-ai-style.md`](docs/anti-ai-style.md). Avoid the listed words, phrases, transitions, and structural tics. Write the way a clear-thinking person would write if they respected the reader's time.
-
-# CLAUDE Router Contract
-
-`CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.
-
-When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
-`
 
 ## Routing Precedence
 
@@ -94,6 +92,16 @@ classifies the request, finds or proposes the `Epic → Feature → User Story/B
 `feature-dev` and the owning agents consume. `feature-dev` and the owning
 agents are downstream of intake, not parallel to it.
 
+When work starts as an idea, opportunity, or problem rather than a ready
+request, run it through `.skills/idea-to-delivery/SKILL.md` first.
+That skill develops the idea into a documented record/ADR, then hands the
+developed idea to `azure-devops-intake` (which creates the tasks) and the
+paired code+DevOps plan to `feature-dev`. The full chain is:
+**idea → `idea-to-delivery` → `azure-devops-intake` → `feature-dev`**. It does
+not mutate the board itself; intake remains the only thing that creates work
+items. Skip it only when the request is already a well-formed ticket (go
+straight to intake/feature-dev) or a trivial bypass.
+
 Trivial bypass — skip intake only for harmless copyedits, typos, pure
 formatting, one-line non-behavioral tweaks, or an explicit "throwaway
 experiment." The bypass never applies to instruction/governance files
@@ -105,7 +113,9 @@ deployment docs, security/compliance docs). Full standard:
 
 | Intent | Primary target |
 |---|---|
+| idea development, ideation, fleshing out an idea, "what should we build", design doc / ADR, plan code and DevOps in tandem, deepen documentation — when work starts fuzzy rather than as a ready request | `.skills/idea-to-delivery/SKILL.md` (then handoff to `.skills/azure-devops-intake/SKILL.md` → `.skills/feature-dev/SKILL.md`) |
 | any non-trivial coding request — feature, bug, refactor, design change, AI behavior change, data/schema change, deploy task, research spike — when no approved Session Brief exists yet | `.skills/azure-devops-intake/SKILL.md` (then handoff to `.skills/feature-dev/SKILL.md`) |
+| attach budget line items, cost or price out a plan, labor + tooling/infra estimates, roll up a budget, fold research into plans + a stack crosswalk | `.skills/plan-budget-augmentor/SKILL.md` |
 | bootstrap, session startup, repo identity, working directory sanity check | `skills/winston-session-bootstrap/SKILL.md` |
 | implementation, bug fix, endpoint, page, component | `.skills/feature-dev/SKILL.md` (downstream of `azure-devops-intake`) |
 | chat workspace, response blocks, inline charts/tables, conversational transforms | `skills/winston-chat-workspace/SKILL.md` |
@@ -154,6 +164,7 @@ deployment docs, security/compliance docs). Full standard:
 | historyrhymes, financial ML, quantitative research, feature engineering, Databricks ML, MLflow, model training, backtest strategy, trading ML, crypto ML, prediction market models | `skills/historyrhymes/SKILL.md` with `skills/market-rotation-engine/SKILL.md` as support |
 | trade decision, position sizing, allocation, execution layer, regime call, daily decision build, paper trading ledger, trading routine, morning book | `skills/historyrhymes-execution-layer/SKILL.md` with `skills/historyrhymes/SKILL.md` as support |
 | healthcare subscription analytics, Hone Health demo, longevity membership analytics, digital health operating metrics, member funnel, subscription NRR/LTV/CAC, cohort retention, care-ops SLAs, hha_ tables | `docs/plans/healthcare-subscription/` (dispatch record `docs/plans/03-implementation-plans/active/0005-healthcare-subscription-analytics-lab.md`) with `.skills/feature-dev/SKILL.md` for implementation |
+| automated data engineering, ADE product, skill registry surface, connector map, connector inventory, execution receipts surface, governed fabric control room | `docs/plans/automated-data-engineering/` with `.skills/feature-dev/SKILL.md` for implementation |
 | investment engine module, accounting engine, risk engine, compliance engine, OMS, EMS, workflow engine for investments, NAV calculation, P&L calculation, fund accounting, calculate NAV, build the investment engine, scaffold investment-engine module | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
 | NAV snapshot, P&L snapshot, PnL snapshot, position valuation snapshot, risk snapshot, performance snapshot, snapshot lifecycle, lock snapshot, release snapshot, reconstruct snapshot, snapshot reproducibility, authoritative snapshot for investment engine | `skills/winston-investment-snapshot/SKILL.md` |
 | reconciliation engine, position reconciliation, source position breaks, reconciliation breaks, reconciliation runs | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
@@ -178,6 +189,8 @@ deployment docs, security/compliance docs). Full standard:
 | `repo-b/db/schema/274_*`, `repo-b/db/schema/275_*`, `repo-b/db/schema/277_*` | Credit schema and data contracts | `data-winston`, `credit-decisioning` |
 | `repo-b/db/schema/`, `supabase/` | SQL-first schema and data contracts | `data-winston`, `feature-dev` |
 | `orchestration/`, `scripts/` | operational tooling and agent workflows | `commander-winston`, `sync-winston`, `deploy-winston`, `feature-dev` |
+| `TELEMETRY_TEMPLATE/`, `docs/plans/RS_ANALYTICS_PLATFORM_PLAN.md`, RS-Analytics ADO board (`Novendor\RS-Analytics`), `docs/adr/rs-analytics/` | NCF→Relativity operating-model template + strategy doc, ADO backlog generator, idea-to-delivery + budget skills, ADRs | `idea-to-delivery`, `plan-budget-augmentor`, `azure-devops-intake`, `architect-winston` |
+| `backend/app/routes/automated_data_engineering.py`, `backend/app/services/ade_connectors.py`, `repo-b/src/components/automated-data-engineering/`, `repo-b/src/lib/automated-data-engineering/`, `repo-b/src/app/lab/env/[envId]/automated-data-engineering/`, `docs/plans/automated-data-engineering/`, `docs/adr/automated-data-engineering/` | Automated Data Engineering — read-only product surface over the governed MCP/skill fabric (skill registry, connector inventory, execution receipts) | `feature-dev`, `architect-winston` |
 | `skills/historyrhymes/`, Databricks notebooks, `novendor_1.historyrhymes.*` | Financial ML, feature engineering, model training, backtesting | `historyrhymes`, `market-rotation-engine` |
 | `skills/historyrhymes-execution-layer/`, `backend/app/services/hr_decision_runner.py`, `backend/app/routes/hr.py`, `scripts/hr_daily_decision.py`, `scripts/hr_weekly_brief.py`, `repo-b/src/app/lab/env/[envId]/historyrhymes/`, `repo-b/src/components/historyrhymes/`, `repo-b/src/lib/historyrhymes/` | History Rhymes execution loop (research → decision → display) | `historyrhymes-execution-layer`, `historyrhymes` |
 | `backend/app/services/accounting_engine.py`, `backend/app/services/risk_engine.py`, `backend/app/services/reconciliation_engine.py`, `backend/app/services/compliance_engine.py`, `backend/app/services/oms*.py`, `backend/app/services/ems*.py`, `backend/app/services/workflow_engine.py`, `backend/app/routes/investment_engine.py`, `repo-b/src/app/lab/env/[envId]/investment-engine/` | Winston Investment Engine (Aladdin-class) — all 9 modules | `winston-investment-engine-module`, `winston-investment-snapshot`, `data-winston` |
@@ -350,6 +363,12 @@ This is not optional busywork — these files contain real production data (test
 
 ## Concrete Routing Examples
 
+- `let's develop the idea for a coolant-channel completeness check` -> `.skills/idea-to-delivery/SKILL.md` (then `azure-devops-intake` -> `feature-dev`)
+- `what should we build for supplier-risk visibility` -> `.skills/idea-to-delivery/SKILL.md`
+- `turn this idea into tasks and a code+devops plan` -> `.skills/idea-to-delivery/SKILL.md`
+- `write an ADR for the warehouse choice` -> `.skills/idea-to-delivery/SKILL.md` (records under `docs/adr/`)
+- `attach budget line items to the RS-Analytics plan` -> `.skills/plan-budget-augmentor/SKILL.md`
+- `cost out the data-foundation work` -> `.skills/plan-budget-augmentor/SKILL.md`
 - `bootstrap a new Winston repo-local session` -> `skills/winston-session-bootstrap/SKILL.md`
 - `build the full-screen chat workspace with inline charts` -> `skills/winston-chat-workspace/SKILL.md`
 - `fix blank dashboard widgets when entity_ids disappear` -> `skills/winston-dashboard-composition/SKILL.md`

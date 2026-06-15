@@ -22,11 +22,13 @@ Configuration (env vars):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 from app.events.envelope import SCHEMA_VERSION, EventEnvelope
 from app.events.publisher import publish_event
@@ -83,10 +85,20 @@ def envelope_to_bq_row(
 
 
 def _dead_letter_row(raw_bytes: bytes, reason: str, ingested_at: datetime) -> dict[str, Any]:
-    """Build a dead-letter row for an envelope that failed validation or BQ write."""
+    """Build a dead-letter row for an envelope that failed validation or BQ write.
+
+    A dead-lettered message has no valid envelope, so it has no source
+    ``event_id`` / ``idempotency_key`` — but the BigQuery schema marks both
+    REQUIRED, so leaving them null makes the dead-letter row itself fail to
+    insert (``Field value cannot be empty``) and the failure is lost. Synthesize
+    deterministic non-empty values from a hash of the raw bytes: a uuid5
+    ``event_id`` and a ``dead_letter:<sha256-prefix>`` idempotency_key. Stable
+    per payload, so a redelivered bad message dedups at the BQ insertId layer.
+    """
+    digest = hashlib.sha256(raw_bytes).hexdigest()
     return {
-        "event_id":           None,
-        "idempotency_key":    None,
+        "event_id":           str(uuid5(NAMESPACE_URL, f"dead_letter:{digest}")),
+        "idempotency_key":    f"dead_letter:{digest[:32]}",
         "event_type":         "dead_letter",
         "schema_version":     SCHEMA_VERSION,
         "occurred_at":        ingested_at.isoformat(),

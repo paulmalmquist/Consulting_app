@@ -2,8 +2,16 @@
 
 Simulated Stargate printer telemetry: Protobuf over Kafka, windowed anomaly
 detection, and an SSE bridge feeding the Stargate Live dashboard
-(`repo-b/.../telemetry/stargate`). Standalone by design — nothing here touches
-the shared backend app, its requirements, or the database.
+(`repo-b/.../telemetry/stargate`).
+
+The bridge **core ships in the backend** (`backend/app/services/stargate_bridge.py`
++ `backend/app/routes/stargate_bridge.py`) so it deploys with Railway behind
+`STARGATE_BRIDGE_ENABLED` (default off, capture mode in prod). This directory is
+the **laptop entrypoint + producer tooling**: `bridge.py` is a thin wrapper
+(`uvicorn bridge:app`), `signal_mapping.py` is a re-export shim of the backend
+definition, and the producer/fixture tools run against any mode. The capture
+fixture lives at `backend/app/data/stargate/replay_capture.jsonl` (so it ships
+in the image); `capture_fixture.py` writes there.
 
 ## Setup
 
@@ -32,10 +40,10 @@ Bridge endpoints: `/stargate/stream` (SSE), `/snapshot`, `/dlq`, `/health` on :8
 
 | File | What it is |
 |---|---|
-| `signal_mapping.py` | Channel maps + anomaly predicate + 5s tumbling aggregator. The single definition the producer, bridge, tests, and (in cloud mode) the Flink SQL all agree on. |
+| `signal_mapping.py` | Re-export shim of `backend/app/services/stargate_signal_mapping.py` (channel maps + anomaly predicate + 5s tumbling aggregator). One definition the producer, bridge, tests, and Flink SQL all agree on. |
 | `producer.py` | N printers at `--rate` msgs/sec each, Protobuf through Schema Registry. Waveforms come from `rs_factory_seed.waveforms` (read-only import). |
-| `bridge.py` | FastAPI SSE bridge with `cloud` / `local` / `capture` modes and four ring buffers. The health payload names which engine produced the aggregates. |
-| `capture_fixture.py` | Regenerates `fixtures/replay_capture.jsonl` deterministically (includes the planted DLQ lines). |
+| `bridge.py` | Thin laptop wrapper — `uvicorn bridge:app` calls the backend's `create_app()`. Core (ring buffers, SSE, modes) lives in `backend/app/services/stargate_bridge.py` + `backend/app/routes/stargate_bridge.py`. |
+| `capture_fixture.py` | Regenerates `backend/app/data/stargate/replay_capture.jsonl` deterministically (includes the planted DLQ lines). |
 | `proto_gen/` | Generated bindings for `infra/confluent/proto/stargate_telemetry.proto`. |
 
 Tests live in `backend/tests/test_stargate_*.py`; capture-mode tests run with

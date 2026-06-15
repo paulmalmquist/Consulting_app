@@ -10,6 +10,8 @@ export const RS = {
   text: "#D7E2EC", dim: "#7E93A8", faint: "#54677A",
   teal: "#4FD1C5", cyan: "#67E8F9", amber: "#F5B452", red: "#F4715F",
   green: "#6EE7A0", violet: "#A78BFA", blue: "#6CA8F0", gray: "#3D4D60",
+  // Chart-scale tokens used by the Bottleneck Map context module.
+  crosshair: "#3D567A", barFill: "#22324A", barFillHot: "#2E4A6E",
 };
 export const RS_MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 export const RS_SANS = "Inter, 'Helvetica Neue', Arial, sans-serif";
