@@ -45,14 +45,12 @@ export function DealIntelligencePanel({
   node,
   details,
   loading = false,
-  onAskWinston,
   className,
 }: {
   envId: string;
   node?: DealRadarNode | null;
   details?: DealRadarDetailBundle | null;
   loading?: boolean;
-  onAskWinston: (node: DealRadarNode) => void;
   className?: string;
 }) {
   if (!node) return <EmptyIntelligenceState />;
@@ -229,9 +227,6 @@ export function DealIntelligencePanel({
           >
             Open Model
           </Link>
-          <Button variant="primary" size="sm" onClick={() => onAskWinston(node)}>
-            Ask Winston
-          </Button>
         </div>
       </section>
     </aside>

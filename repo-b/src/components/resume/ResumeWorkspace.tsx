@@ -4,11 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import { fmtMoney, fmtPct, fmtMultiple } from "@/lib/format-utils";
-import {
-  publishAssistantEnvironmentContext,
-  publishAssistantPageContext,
-  resetAssistantPageContext,
-} from "@/lib/commandbar/appContextBridge";
 import { computeResumeScenario } from "./modelingMath";
 import { deriveResumeBiSlice } from "./biMath";
 import { TimelineEngine } from "./timeline";
@@ -16,7 +11,6 @@ import ResumeArchitectureModule from "./ResumeArchitectureModule";
 import ResumeModelingModule from "./ResumeModelingModule";
 import ResumeBiModule from "./ResumeBiModule";
 import ResumeContextRail from "./ResumeContextRail";
-import ResumeAssistantDock from "./ResumeAssistantDock";
 import ResumeExportPdf from "./ResumeExportPdf";
 import ResumeModuleBoundary from "./ResumeModuleBoundary";
 import SystemsBuiltSection from "./SystemsBuiltSection";
@@ -288,55 +282,7 @@ export default function ResumeWorkspace({
     [workspace.bi, selectedBiEntityId, biFilters.market, biFilters.propertyType, biFilters.period],
   );
 
-  const assistantMetrics = useMemo(() => {
-    const metrics: Record<string, string | number> = {};
-    if (activeModule === "modeling") {
-      metrics.irr = fmtPct(modelOutputs.irr);
-      metrics.tvpi = fmtMultiple(modelOutputs.tvpi);
-      metrics.lp_distribution = fmtMoney(modelOutputs.lpDistribution);
-      metrics.gp_distribution = fmtMoney(modelOutputs.gpDistribution);
-      return metrics;
-    }
-    if (activeModule === "bi") {
-      metrics.portfolio_value = fmtMoney(biSlice.kpis.portfolio_value);
-      metrics.noi = fmtMoney(biSlice.kpis.noi);
-      metrics.occupancy = fmtPct(biSlice.kpis.occupancy);
-      metrics.irr = fmtPct(biSlice.kpis.irr);
-      return metrics;
-    }
-    return metrics;
-  }, [activeModule, modelOutputs, biSlice]);
 
-  useEffect(() => {
-    publishAssistantEnvironmentContext({
-      active_environment_id: envId,
-      active_business_id: businessId ?? undefined,
-    });
-    publishAssistantPageContext({
-      route: `/lab/env/${envId}/resume`,
-      surface: "resume_workspace",
-      active_module: "resume",
-      page_entity_type: "environment",
-      page_entity_id: envId,
-      page_entity_name: workspace.identity.name,
-      selected_entities: [
-        {
-          entity_type: "resume_workspace",
-          entity_id: envId,
-          name: workspace.identity.name,
-          source: "page",
-          metadata: {
-            active_panel: activeModule,
-          },
-        },
-      ],
-      visible_data: {
-        metrics: assistantMetrics,
-        notes: [`Active resume panel: ${MODULE_LABELS[activeModule]}`],
-      },
-    });
-    return () => resetAssistantPageContext();
-  }, [activeModule, assistantMetrics, businessId, envId, workspace.identity.name]);
 
 
   return (
@@ -557,17 +503,6 @@ export default function ResumeWorkspace({
                       biEntity={biSlice.entity}
                     />
                   </ResumeModuleBoundary>
-                  {!readOnly ? (
-                    <ResumeModuleBoundary
-                      boundaryId="resume-assistant"
-                      eyebrow="Assistant"
-                      title="Resume data unavailable"
-                      message="The contextual assistant failed to render."
-                      resetKey={`${envId}-${activeModule}`}
-                    >
-                      <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-                    </ResumeModuleBoundary>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -606,30 +541,6 @@ export default function ResumeWorkspace({
                 </ResumeModuleBoundary>
               </div>
             </details>
-            {!readOnly ? (
-              <details
-                className="rounded-2xl border p-3"
-                style={{ borderColor: "var(--ros-border)", background: "var(--ros-surface)" }}
-              >
-                <summary
-                  className="resume-label cursor-pointer text-[10px] tracking-[0.18em]"
-                  style={{ color: "var(--ros-text-dim)" }}
-                >
-                  Ask Winston
-                </summary>
-                <div className="mt-3">
-                  <ResumeModuleBoundary
-                    boundaryId="resume-assistant-mobile"
-                    eyebrow="Assistant"
-                    title="Resume data unavailable"
-                    message="The contextual assistant failed to render."
-                    resetKey={`${envId}-${activeModule}-mobile`}
-                  >
-                    <ResumeAssistantDock envId={envId} businessId={businessId} metrics={assistantMetrics} />
-                  </ResumeModuleBoundary>
-                </div>
-              </details>
-            ) : null}
           </div>
         ) : null}
 

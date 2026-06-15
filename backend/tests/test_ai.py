@@ -3,39 +3,21 @@
 from pathlib import Path
 
 
-def test_ai_health_disabled(client):
-    """Legacy AI health stub should point callers to the gateway."""
-    resp = client.get("/api/ai/health")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["enabled"] is False
-    assert data["sidecar_ok"] is False
-    assert data["mode"] == "gateway"
+def test_winston_chat_routes_are_removed(client):
+    """Winston chat and operator routes must remain unavailable during the rebuild."""
+    requests = [
+        ("get", "/api/ai/health"),
+        ("post", "/api/ai/ask"),
+        ("post", "/api/ai/code_task"),
+        ("get", "/api/ai/gateway/health"),
+        ("post", "/api/ai/gateway/ask"),
+        ("get", "/api/ai/operator/health"),
+        ("post", "/api/ai/operator/ask"),
+    ]
 
-
-def test_ai_ask_disabled(client):
-    """Legacy ask route should redirect callers to the gateway."""
-    resp = client.post("/api/ai/ask", json={"prompt": "hello"})
-    assert resp.status_code == 301
-    assert "gateway" in resp.json()["detail"].lower()
-
-
-def test_ai_ask_prompt_too_large(client):
-    """Legacy ask route returns 301 regardless of payload."""
-    resp = client.post("/api/ai/ask", json={
-        "prompt": "x" * 100,
-    })
-    assert resp.status_code == 301
-
-
-def test_ai_code_task_requires_dry_run(client):
-    """Legacy code_task route returns 301 redirect to gateway."""
-    resp = client.post("/api/ai/code_task", json={
-        "task": "hello",
-        "dry_run": False,
-    })
-    assert resp.status_code == 301
-    assert "gateway" in resp.json()["detail"].lower()
+    for method, path in requests:
+        response = getattr(client, method)(path)
+        assert response.status_code == 404, path
 
 
 # ── Retrieval safety tests ──────────────────────────────────────────

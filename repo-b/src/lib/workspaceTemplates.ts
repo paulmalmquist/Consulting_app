@@ -19,7 +19,7 @@ export const workspaceTemplateRegistry = {
   pilot_builder: { label: "Pilot Builder", openPath: "pilot" },
   impact_estimator: { label: "Economic Impact Estimator", openPath: "impact" },
   case_factory: { label: "Case Study Factory", openPath: "case-factory" },
-  ai_copilot: { label: "AI Discovery Copilot", openPath: "copilot" },
+  ai_copilot: { label: "AI Discovery Copilot", openPath: null },
   engagement_output: { label: "Engagement Output Center", openPath: "outputs" },
   visual_resume: { label: "Visual Resume", openPath: "resume" },
   multi_entity_operator: { label: "Multi-Entity Operator", openPath: "operator" },

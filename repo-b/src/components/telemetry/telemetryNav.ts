@@ -22,6 +22,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z", group: "ML & Models", mobilePrimary: true },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "ML & Models" },
+  { slug: "calibration", label: "RUL Calibration", icon: "M2 13h12M4 13V7m4 6V4m4 9V9", group: "ML & Models" },
   { slug: "registry", label: "Model Registry", icon: "M3 2h10v3H3zM3 7h10v3H3zM3 12h6v2H3z", group: "ML & Models" },
   { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z", group: "Factory" },
   { slug: "factory-ml", label: "Factory ML", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6", group: "Factory" },
