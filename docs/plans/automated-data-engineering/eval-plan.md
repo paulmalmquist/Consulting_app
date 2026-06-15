@@ -21,13 +21,28 @@ future PR that changes the surface updates this file in the same change.
 - no endpoint performs external provider calls, credential validation, or CLI execution
 - ADE routes carry the same auth protection as the telemetry routes
 
+## Backend — PR 2 connector lifecycle
+
+- `pytest backend/tests/test_ade_connector_lifecycle.py` passes; `test_ade_routes.py` stays green
+- `/api/ade/connector-lifecycle` returns every declared connector with a `state` in the
+  eight-state set, or `null_reason: "connector_lifecycle_unavailable"` (fails closed)
+- `read_validated` appears ONLY when a registered safe validator ran and returned `ok`
+  (explicit test: Git via the in-process MCP registry validator)
+- `validate=false` returns the declared floor with no receipts and no `read_validated`
+- credential-missing → `credential_pending`; degraded/validator-exception → `degraded`;
+  blocked → `blocked` (explicit tests via injected validators)
+- a `live` connector with no validator stays `discovered` + `null_reason: "no_validator_available"`
+- receipts carry no secret-looking values (explicit test)
+- the opt-in Postgres validator degrades (never raises) with no DB
+
 ## Frontend
 
 - `repo-b` typecheck/build passes (project convention)
 - route loads at `/lab/env/telemetry-demo/automated-data-engineering`, full-bleed, no lab sidebar
 - standard telemetry/lab routes still render correctly (no double-wrap regression)
 - skill table populated from real manifest or fail-closed
-- connector map displays declared status + reason; no fabricated liveness
+- connector map displays declared status + lifecycle state + risk tier; no fabricated liveness
+- a card opens a drawer showing the validation receipt, or "no validation attempt" when none ran
 - Execution Receipts displays rows or `null_reason`
 - Capability Claim strip present on Overview
 - all five component states (Loading/Loaded/Empty/Unavailable/Error) implemented

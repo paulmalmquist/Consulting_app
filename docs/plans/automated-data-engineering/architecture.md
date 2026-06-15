@@ -36,6 +36,7 @@ The method content lives in `docs/plans/RS_ANALYTICS_PLATFORM_PLAN.md`:
 | `GET /api/ade/skill-registry` | `registry.describe_all()` via a side-effect-safe bootstrap; list view strips full JSON schema bodies |
 | `GET /api/ade/skill-registry/{name}` | `registry.get(name)`; full input schema for one tool |
 | `GET /api/ade/connectors` | static declaration in `backend/app/services/ade_connectors.py` (the code mirror of `connector-inventory.md`) merged with per-module MCP tool counts |
+| `GET /api/ade/connector-lifecycle` | **PR 2** — derived read-only lifecycle over the declared inventory (see below) |
 | `GET /api/ade/runs` | existing audit read path, scoped and limited; fails closed with `null_reason` if a scoped read is unavailable |
 | `GET /api/ade/governance-stats` | `governance.compute_audit_stats` over `ai_decision_audit_log` (decision volume, success rate, latency, grounding distribution, top tools), plus warehouse-export readiness from `ade_warehouse_export.warehouse_export_configured()` |
 
@@ -60,6 +61,32 @@ telemetry references inside the package.
 
 Routes mount at `repo-b/src/app/lab/env/[envId]/automated-data-engineering/` as a
 full-bleed lab domain route (via the `isDomainRoute` regex in `LabEnvironmentShell.tsx`).
+
+## New in PR 2 — connector lifecycle (read-only)
+
+PR 2 promotes the static declared inventory into a derived lifecycle state machine.
+It is read-only end to end; nothing is persisted and no migration is added.
+
+States: `declared → discovered → credential_pending → validating → read_validated →
+degraded → blocked → retired`.
+
+| Piece | Code |
+|---|---|
+| Lifecycle service | `backend/app/services/ade_connector_lifecycle.py` — derives each connector's state from its declared status (the floor) plus any safe validator that ran |
+| Validator interface + safe validators | `backend/app/services/ade_connector_validators.py` — a connector reaches `read_validated` ONLY when a registered safe read-only validator runs and returns `ok` |
+| Validation receipt | `ValidationResult.to_receipt()` in the validators module — `{outcome, detail, checked}`, no secrets |
+| Endpoint | `GET /api/ade/connector-lifecycle?validate=true` — fails closed with `null_reason: "connector_lifecycle_unavailable"` |
+| UI | `repo-b/src/components/automated-data-engineering/ConnectorMap.tsx` shows declared status + lifecycle state + risk tier, with a receipt drawer |
+
+Honesty boundary: the declared status (`live|stub|script|missing`) maps to a lifecycle
+*floor* (`missing→declared`, `stub/script/live→discovered/declared`). A connector can only
+move **up** to `read_validated` when a real validator confirms reachability — never from the
+declaration alone, and never from env-var presence. PR 2 registers exactly **one** validator
+by default: the in-process MCP registry check for the Git connector (counts registered tools,
+no I/O, no credentials). A Postgres `SELECT 1` validator is implemented and tested but kept
+**opt-in** (`OPTIONAL_VALIDATORS`) so the endpoint never depends on a live DB in CI. No new
+cloud connector is implemented. Connectors with no safe validator keep their floor state and
+carry a `null_reason` (e.g. `no_validator_available`, `implementation_is_stub`).
 
 ## Portability classification (`PORTABILITY.MD`)
 
