@@ -12,17 +12,14 @@
  *   RailModelSummary       — scenario summary + run history
  *   RailRecentRuns         — last N runs with status
  *   RailDocuments          — linked documents (IC memo, OA, model)
- *   RailWinstonPanel       — AI quick-ask (lives at bottom of rail)
  *
  * Usage (on the Funds page):
  *   <ContextRail>
  *     <RailPortfolioSnapshot fundCount={3} avgTvpi="1.61x" aum="$2.0B" activeAssets={33} />
  *     <RailRecentRuns runs={recentRuns} />
- *     <RailWinstonPanel baseUrl={apiBase} businessId={bizId} />
  *   </ContextRail>
  */
 
-import { useState, useRef, useEffect } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -32,7 +29,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  Sparkles,
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -367,115 +363,5 @@ export function RailAiObservations({ observations }: { observations: string[] })
         ))}
       </ul>
     </RailSection>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Winston AI Panel — embedded quick-ask at the bottom of the rail
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface RailWinstonPanelProps {
-  onAsk?: (query: string) => void;
-  placeholder?: string;
-  /** Suggested prompts shown as clickable chips */
-  suggestions?: string[];
-}
-
-export function RailWinstonPanel({
-  onAsk,
-  placeholder = "Ask about portfolio exposure…",
-  suggestions,
-}: RailWinstonPanelProps) {
-  const [value, setValue] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  function handleSubmit(query: string) {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    onAsk?.(trimmed);
-    setValue("");
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(value);
-    }
-  }
-
-  // Auto-resize textarea
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, [value]);
-
-  return (
-    <section className="px-4 py-4 mt-auto border-t border-bm-border/[0.08]">
-      {/* Header */}
-      <div className="flex items-center gap-1.5 mb-3">
-        <Sparkles size={12} className="text-bm-accent" aria-hidden="true" />
-        <p className="nv-eyebrow text-bm-muted2">
-          Winston AI
-        </p>
-      </div>
-
-      {/* Suggestion chips */}
-      {suggestions && suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => handleSubmit(s)}
-              className="px-2 py-0.5 text-[10px] text-bm-muted border border-bm-border/20
-                         rounded-sm hover:text-bm-text hover:border-bm-border/40
-                         transition-colors duration-fast"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="relative">
-        <textarea
-          ref={inputRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          rows={1}
-          aria-label="Ask Winston"
-          className={cn(
-            "w-full resize-none rounded-sm border border-bm-border/20 bg-bm-surface/60",
-            "px-3 py-2 pr-9 text-[12px] text-bm-text placeholder:text-bm-muted2",
-            "focus:outline-none focus:border-bm-accent/40 focus:bg-bm-surface",
-            "transition-colors duration-fast leading-relaxed",
-            "scrollbar-hide"
-          )}
-        />
-        <button
-          type="button"
-          onClick={() => handleSubmit(value)}
-          disabled={!value.trim()}
-          aria-label="Send to Winston"
-          className={cn(
-            "absolute right-2 bottom-2 p-1 rounded-sm transition-colors duration-fast",
-            value.trim()
-              ? "text-bm-accent hover:bg-bm-accent/10"
-              : "text-bm-muted2 cursor-not-allowed"
-          )}
-        >
-          <ArrowRight size={14} aria-hidden="true" />
-        </button>
-      </div>
-
-      <p className="mt-1.5 text-[9px] text-bm-muted2">
-        Enter to send · Shift+Enter for new line
-      </p>
-    </section>
   );
 }

@@ -1,0 +1,35 @@
+# Observational BigQuery sink worker (Plan 0004 Phase 4 / GKE).
+# Minimal image: only the deps app.events.* needs (no FastAPI, no DB driver).
+# Runs as non-root. BigQuery auth is via Workload Identity on GKE (no key file).
+#
+# Build context is the repo root so we can copy both backend/app and the
+# scripts/streaming entrypoint:
+#   docker build -f backend/Dockerfile.sink-worker -t winston-bq-sink:dev .
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Install the lean sink-only dependency set.
+COPY backend/requirements-sink.txt ./requirements-sink.txt
+RUN pip install --no-cache-dir -r requirements-sink.txt
+
+# App package (importable as `app.events.*`) + the worker entrypoint.
+COPY backend/app ./app
+COPY scripts/streaming/run_sink_worker.py ./run_sink_worker.py
+
+# Non-root runtime user.
+RUN useradd --create-home --uid 10001 sink \
+    && chown -R sink:sink /app
+USER sink
+
+# k8s probes hit this port (/healthz, /readyz). Default-off until EVENTS_ENABLED
+# + broker + BQ are configured; with nothing set the worker resolves to a no-op
+# transport and exits cleanly rather than crash-looping.
+ENV HEALTH_PORT=8080
+EXPOSE 8080
+
+ENTRYPOINT ["python", "run_sink_worker.py"]

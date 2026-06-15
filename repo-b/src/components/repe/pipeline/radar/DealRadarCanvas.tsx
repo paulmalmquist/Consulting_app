@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BrainCircuit, CircleAlert, Layers3 } from "lucide-react";
+import { ArrowUpRight, CircleAlert, Layers3 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { DealRadarLayoutNode, DealRadarMode, DealRadarNode, DealRadarSector, DealRadarStage } from "./types";
 import {
@@ -32,7 +32,6 @@ type DealRadarCanvasProps = {
   nodes: DealRadarNode[];
   selectedDealId?: string | null;
   onSelectDeal: (dealId: string | null) => void;
-  onAskWinston: (node: DealRadarNode) => void;
   compact?: boolean;
 };
 
@@ -80,13 +79,11 @@ const RING_LABEL_ANGLE = -112.5;
 function HoverCard({
   layoutNode,
   envId,
-  onAskWinston,
   onKeepOpen,
   onClose,
 }: {
   layoutNode: DealRadarLayoutNode;
   envId: string;
-  onAskWinston: (node: DealRadarNode) => void;
   onKeepOpen: () => void;
   onClose: () => void;
 }) {
@@ -201,14 +198,6 @@ function HoverCard({
           Open Model
           <Layers3 className="h-3.5 w-3.5" />
         </Link>
-        <button
-          type="button"
-          onClick={() => onAskWinston(node)}
-          className="inline-flex h-9 items-center gap-1 rounded-md bg-bm-accent px-3 text-xs font-medium text-bm-accentContrast transition-opacity hover:opacity-90"
-        >
-          Ask Winston
-          <BrainCircuit className="h-3.5 w-3.5" />
-        </button>
       </div>
     </div>
   );
@@ -220,7 +209,6 @@ export function DealRadarCanvas({
   nodes,
   selectedDealId,
   onSelectDeal,
-  onAskWinston,
   compact = false,
 }: DealRadarCanvasProps) {
   const [hoveredNode, setHoveredNode] = useState<DealRadarLayoutNode | null>(null);
@@ -493,7 +481,6 @@ export function DealRadarCanvas({
         <HoverCard
           layoutNode={hoveredNode}
           envId={envId}
-          onAskWinston={onAskWinston}
           onKeepOpen={keepHoverOpen}
           onClose={delayedClose}
         />
