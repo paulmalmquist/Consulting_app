@@ -2,6 +2,23 @@
 
 None of this is in PR 1. The non-goals in `eval-plan.md` enforce that.
 
+## Milestone: Connector Fabric Foundation — COMPLETE (2026-06-15)
+
+PRs 1–3 form a complete vertical slice and are the closed **Connector Fabric Foundation**
+milestone. Everything past it is polish/ops, not a blocker.
+
+- **PR 1 (#179)** — ADE product surface: skill registry, declared connector inventory,
+  execution receipts, governance stats, all read-only over the existing MCP/audit fabric.
+- **PR 2 (#186, ADO #581)** — connector lifecycle state machine + validation receipts; a
+  connector reaches `read_validated` only when a real validator runs and emits a receipt.
+- **PR 3 (#188, ADO #589/#590)** — real read-only provider reachability: GET-only, hard
+  timeouts, missing-token → `credential_pending` with no outbound call, no token leakage.
+
+ADE coding is **paused** here. If it resumes, start with **PR 4B (connector
+remediation UI polish)** — it improves the live surface without touching real credentials.
+Defer **PR 4A (local opt-in live-token validation runbook)** until proof against real
+tokens is actually needed; it is ops evidence, not product experience. Do not add BYO keys.
+
 ## Shipped
 
 - **PR 2 — Connector Lifecycle State Machine (read-only).** ADO Story #581. The static
