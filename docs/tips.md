@@ -3048,6 +3048,18 @@ repo-b auth = Supabase `signInWithPassword(email,pw)` → `/api/auth/session` �
 
 When a model's "champion metric" is suspected of being inflated (point-adjusted F1 is the classic case: one in-window hit credits the whole labeled segment), you do NOT need to retrain or rerun the training notebook to get an honest number — and you shouldn't, because that risks moving a production alias or the live serving path. If the champion is a *deterministic rule* (here: `resid = |value - rolling_mean50|`; per-channel scale = median TRAIN residual with a global fallback; flag when `resid > K·scale`, K=4.0), reproduce the rule locally against the raw public inputs + labels, in pure numpy, and score the SAME predictions two ways. Pin the reproduction to the lakehouse feature spec exactly — the rolling mean here is `ROWS BETWEEN 49 PRECEDING AND CURRENT ROW` partitioned by `(chan_id, split)`, i.e. a trailing window-50 mean with `min_periods=1`, no look-ahead, no train/test leak. Validate fidelity by re-deriving the stored metric: local point-adjusted F1 0.645 vs stored 0.639, with recall matching to three decimals, confirms the local champion == the promoted champion. Then report the honest floor beside the legacy number: point-wise P/R/F1 (every tick scored on its own), event recall (fraction of labeled segments with ≥1 in-window alarm), and alarm precision. Real result: point-adjusted F1 0.639 collapses to point-wise F1 0.313 — the honest story is "notices most segments (event recall 0.77), weak at the tick level." Persist the honest keys with an **idempotent jsonb merge into only the one champion row** (`UPDATE … SET metrics = metrics || jsonb_build_object(...) WHERE id = '<champion>' AND model_alias='champion' AND model_kind='anomaly'`) — `jsonb ||` overwrites just those keys, re-runs are safe, and the `WHERE` guard means unrelated RUL/challenger rows are never touched. `metrics` being `jsonb NOT NULL DEFAULT '{}'` means new keys need no migration. Render them in the UI conditionally (`rows.find(m => m.metrics?.f1_pointwise != null)` → null when absent) so older rows and other environments are unaffected. Defer harder range-aware metrics (VUS-PR/ROC, formal affiliation/PATE) until you can use a vetted library rather than hand-rolling under time pressure — a wrong range-aware number is worse than an honest simple one.
 
+### Wiring a real producer to a streaming spine: the real bundle shape rarely matches your synthetic fixture — adapt, don't overload (2026-06-15)
+
+Phase 5A proved History Rhymes signals through the spine with a *synthetic* bundle shaped `{signal_name: {signal_value, signal_timestamp, units, confidence}}`. The REAL manual bundle (`scripts/hr_weekly_brief.py`) is shaped differently: signals are a **flat `{signal_name: value}` map** where value is a scalar (`mvrv_z: 1.4`), a nested dict (`housing: {price_yoy, starts_yoy}`), or a string (`fed_tone: "hawkish-hold"`), plus a *sibling* `per_signal_freshness` map and a `source` key living inside the same `signals` dict. Don't bend the existing `bundle_to_envelopes` to swallow both shapes — add a dedicated `real_bundle_to_envelopes` adapter that reuses the per-signal envelope builder underneath. Three things that matter for the adapter: (1) iterate a **canonical name list** (`HR_SIGNAL_NAMES`, the 8), not `signals.keys()`, so metadata keys (`per_signal_freshness`, `source`) never get emitted as signals and unknown/future signals are ignored (forward-compat) rather than crashing; (2) preserve the raw value as `signal_value` regardless of JSON type — the EventEnvelope payload is a free dict and BigQuery's payload column is JSON, so a nested dict or string rides through untouched; (3) map `per_signal_freshness[name]` to `staleness_status`, defaulting to `"unknown"` when absent. **Replay safety comes from a content-addressed idempotency_key + query-time dedup — NOT from insertId.** Republishing the same historical bundle produces identical keys (`hr.signal.observed:{as_of_date}:{signal_name}`). It's tempting to claim BigQuery's streaming-insert `insertId` dedup makes replay free — and a same-minute redelivery IS deduped — but **`insertId` dedup only holds for a short window (~1 min, same partition)**. A genuine historical replay lands minutes/days later, outside that window, and WILL write duplicate raw rows (verified: replaying 3 signals produced 2 rows each, not 1). That's fine and expected — the raw table is append-only by design. The canonical read collapses them: `QUALIFY ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at) = 1` (verified to return exactly one row per signal after a duplicate-producing replay). So: a `--replay` flag is safe because duplicates are *collapsible at read time*, not because they're *prevented at write time* — don't conflate the two, and make sure any consumer of the raw events table reads through the dedup view, not the raw rows. `--max-signals N` (slice the canonical-ordered envelope list) gives bounded replay. Crucially this needed **no Postgres migration**: the producer only reads the bundle JSON and emits events; `hr_signal_snapshots` and the decision runner (which stays the authoritative Postgres reader) are untouched. When a ticket says "wire to the real path," inspect the real path's data shape *first* (read the existing manual script), because that shape — not your fixture — is the contract.
+
+### A dead-letter row needs non-null values for every REQUIRED BigQuery column, or the dead-letter itself silently fails to land (2026-06-13)
+
+The observational sink builds a dead-letter row when an envelope fails validation. The natural instinct is to set the missing source fields (`event_id`, `idempotency_key`) to `None` — the message had no valid envelope, so it has no real key. But if the BigQuery table marks those columns `REQUIRED` (the `events` table does, for both), the dead-letter `insertAll` fails with `Field value of <col> cannot be empty`, and now the dead-letter row is *also* lost — the worst case, because dead-lettering exists precisely so nothing is dropped silently. The `_route_dead_letter` catch logs it and moves on (correct — you don't dead-letter the dead-letter), so the consumer still returns `status=dead_letter` and the offset commits, but BigQuery never sees the bad record. Fix: synthesize deterministic non-empty values from a hash of the raw bytes — `event_id = uuid5(NAMESPACE_URL, "dead_letter:" + sha256(raw))`, `idempotency_key = "dead_letter:" + sha256(raw)[:32]`. Deterministic means a redelivered bad message dedups at the BQ insertId layer instead of piling up duplicate dead-letter rows. **This class of bug only surfaces when a dead-letter actually reaches BigQuery live** — unit tests that mock the BQ client pass, because the schema's REQUIRED constraint lives in BigQuery, not in the Python row dict. The first real malformed message through the deployed pod is what exposes it. Lesson: when you add a new event stream, deliberately publish one malformed payload end-to-end and confirm the dead-letter *row* lands in BQ (`WHERE dead_letter = TRUE`), not just that the consumer logged `status=dead_letter`.
+
+### GKE Autopilot sink worker: Workload Identity over key files, and the deploy gotchas that actually cost time (2026-06-13)
+
+Deploying a stateless consumer (Kafka → BigQuery) to GKE Autopilot. The architecture: a long-running `SinkWorker` loop (`subscribe → poll → process_message → commit`) with `enable.auto.commit=false` so the offset only advances after the sink durably handles the message — at-least-once, made idempotent by the BQ `insertId=idempotency_key` dedup. Commit happens after BOTH success and dead-letter (a dead-lettered message is "handled", don't reprocess it); a handler *exception* must NOT be caught at the loop (let the pod crash → k8s restarts → no commit past an unhandled message), which works because `process_message` is contracted to never raise (it dead-letters internally). Health for k8s probes is a stdlib `http.server` thread exposing `/healthz` (liveness) + `/readyz` (readiness, flipped false on graceful drain) — no web framework needed in a worker image. **BigQuery auth = Workload Identity, never a key file.** Bind the k8s SA to a GCP SA: annotate the KSA `iam.gke.io/gcp-service-account: <gsa>@<proj>.iam.gserviceaccount.com`, then `gcloud iam service-accounts add-iam-policy-binding <gsa> --role=roles/iam.workloadIdentityUser --member="serviceAccount:<proj>.svc.id.goog[<namespace>/<ksa>]"`. The GSA needs `roles/bigquery.dataEditor` + `roles/bigquery.jobUser`. No `GOOGLE_APPLICATION_CREDENTIALS`, no JSON in the pod. Workload Identity is on by default on Autopilot. **Two gotchas that cost real time:** (1) The entrypoint's `sys.path` bootstrap can't assume repo layout. `Path(__file__).resolve().parents[2]/"backend"` works in the repo (`scripts/streaming/run_sink_worker.py` → repo root → `backend/`) but **throws `IndexError` in the image** where the file is `/app/run_sink_worker.py` with the package at `/app/app/`. Make it layout-agnostic: probe candidate dirs (`__file__.parent`, then `parents[2]/backend` only if `len(parents) > 2`) and insert the first one that actually contains an `app/` dir. Always test the built image (`docker run`), not just the repo — this bug is invisible until containerized. (2) Pushing to Artifact Registry fails with `docker-credential-gcloud: executable file not found in %PATH%` if `gcloud auth configure-docker` set `credHelpers["<region>-docker.pkg.dev"]="gcloud"` but the helper binary isn't installed (common on Windows). Fix: remove that one `credHelpers` entry from `~/.docker/config.json` and authenticate with an access token instead — `gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://<region>-docker.pkg.dev`. Build context must be the repo root (`docker build -f backend/Dockerfile.sink-worker .`) so the image can COPY both `backend/app` and `scripts/streaming/run_sink_worker.py`. The image is deliberately lean — a `requirements-sink.txt` with only pydantic + confluent-kafka + google-cloud-bigquery, NOT the full backend requirements (no FastAPI, no DB driver). Autopilot cluster creation takes ~8–15 min (`create-auto`); kick it off in the background and build/push the image + create the GSA in parallel. Cluster cost is real (~$0.10/hr management + pod resources); `gcloud container clusters delete` to stop the bill. **`kubectl` on Autopilot needs `gke-gcloud-auth-plugin`** (`gcloud components install gke-gcloud-auth-plugin`) or every command dies with "client-go credential plugin not installed" — install it before `get-credentials`. **The receipt's real trap: a too-short producer flush silently drops the message.** When proving an end-to-end drain, the smoke publisher used `EVENTS_PUBLISH_TIMEOUT_MS=200` (a deliberately bounded best-effort flush for the hot path), which is far too short to ack a produce to Confluent Cloud from a developer machine — the process exits with the record still queued (`Producer terminating with 1 message still in queue or transit`), and it NEVER reaches the broker even though `publish_event` returned True (best-effort = "queued", not "delivered"). The consumer then correctly shows nothing because there's nothing there. Diagnose by checking watermarks: `consumer.get_watermark_offsets(tp)` reading `[0,0]` on the target partition means the message was never written, not that the consumer missed it. For a guaranteed-delivery test publish, use a dedicated producer with a real flush and a delivery callback: `p.produce(topic, value=..., callback=cb); p.flush(30)` and assert `cb` saw `err is None` with a concrete `partition`/`offset`. Also note a 6-partition topic spreads messages across partitions, so a single consumer must be assigned the right one — with one consumer in the group it gets all 6, but confirm the published partition (from the delivery callback) matches a `handled <topic>/<partition>@<offset>` line in the pod log.
+
 ### Confluent Cloud needs SASL_SSL on top of the local Redpanda transport; keep the security keys env-derived and default-off (2026-06-10)
 
 A Kafka transport built for local Redpanda only sets `bootstrap.servers` (PLAINTEXT). Confluent Cloud — and any managed broker — needs SASL_SSL + PLAIN auth with an API key/secret, or `produce()` fails to connect. Don't fork the transport or add a `ConfluentTransport`: extend the producer config. Add `EVENTS_SECURITY_PROTOCOL` (default `PLAINTEXT`), `EVENTS_SASL_MECHANISM` (default `PLAIN`), `EVENTS_SASL_USERNAME`, `EVENTS_SASL_PASSWORD`, and a `producer_security_config()` helper that returns the librdkafka keys (`security.protocol`, `sasl.mechanisms`, `sasl.username`, `sasl.password`) **only when the protocol is non-PLAINTEXT** — so the default (local Redpanda) producer config is byte-identical and CI/local dev is untouched. The same security dict feeds both the producer (`KafkaTransport`) and any consumer (smoke script), so they stay in sync. librdkafka quirk: the key is `sasl.mechanisms` (plural) for the producer config dict, not `sasl.mechanism`. Confluent specifics: a **Basic cluster does not auto-create topics** — create `winston.executions.v1` / `winston.dead-letter.v1` in the console before the smoke, or the produce silently lands nowhere and the consumer polls forever. The API **secret is shown once** at key creation — capture it immediately. Bootstrap server is under Cluster Settings → Endpoints, port `:9092`. Test the security layer without a broker: patch `EVENTS_SECURITY_PROTOCOL`/SASL fields and assert `producer_security_config()` output, and patch a fake `confluent_kafka` module into `sys.modules` to assert `KafkaTransport` merges the keys into the producer conf — no network, no credentials, runs in CI. Keep the broker round-trip proof (`broker_smoke.py`: publish → consume → existing `sink.process_message` → BQ receipt) in a script, not the app — the long-running consumer belongs to the future GKE sink worker, not the request path. Never commit or log the API secret; the smoke redacts the username and never prints the secret. **API-key scoping is the real time sink — get it right first.** Three distinct failures, in order of how we hit them: (1) a **Global/Cloud API key** (account-level, shown with scope "Global" in the API Keys list) **cannot authenticate to a Kafka cluster** — `SASL authentication error: Authentication failed... if you are using a Global API key, check whether this cluster type is supported`. You need a key scoped to the Kafka cluster, not Global. (2) A **cluster-scoped key tied to a service account** authenticates but is **deny-by-default if the cluster has any ACLs** (e.g. a leftover Datagen/sample-data connector created a service account with ACLs, which flips the whole cluster to explicit-allow) → `TOPIC_AUTHORIZATION_FAILED`. The data-plane key cannot grant its own ACLs (`CREATE_ACLS needs ALTER permission` → `CLUSTER_AUTHORIZATION_FAILED`). (3) The clean fix: create an API key **associated with your user account** ("My account", shows your name in "Associated account"), scoped to the cluster — it carries your RBAC admin role, so it has full produce/consume/create with no ACL setup. The Confluent CLI's SSO login (`confluent login --no-browser`) is unusable from a non-interactive agent shell: each tool call is a fresh process, so the login process dies between printing the OAuth URL and reading the pasted code, and the code is bound to that process's `state` param — it can't span calls. For agent-driven setup, skip the CLI; either drive topic/ACL creation through a user-account Kafka key via `AdminClient`, or have the human do the one-click key creation in the console. A **Basic cluster does not auto-create topics**, so create them via `AdminClient.create_topics` (replication_factor=3 on Confluent Cloud) or the UI before the smoke; `replication_factor=1` is rejected.
@@ -3233,6 +3245,14 @@ layout primitives in `primitives.tsx` (`StatGrid`, `SplitGrid`, `ScrollTable`, `
 - When re-verifying after a rebuild, confirm the new server actually bound the port — an EADDRINUSE
   leftover from the previous `next start` will happily serve the stale build and "disprove" the fix.
 
+### ADE connector lifecycle: derive state, gate read_validated behind a real validator (2026-06-15)
+
+PR 2 turns the static connector inventory (`ade_connectors.py`, `live|stub|script|missing`) into a read-only lifecycle (`declared→discovered→credential_pending→validating→read_validated→degraded→blocked→retired`) WITHOUT persisting anything or adding a migration — the state is *derived* per request in `ade_connector_lifecycle.compute_lifecycle()`. The honesty rule that makes it credible: the declared status only maps to a *floor* (`missing→declared`, `stub/script/live→discovered`), and a connector can only move UP to `read_validated` when a registered safe validator (`ade_connector_validators._VALIDATORS`) actually runs and returns `ok`, leaving a receipt. Never infer liveness from the declaration or from env-var presence. Only one validator is safe enough to wire by default — the in-process MCP registry tool count (no I/O, no creds). A Postgres `SELECT 1` validator is implemented but kept in `OPTIONAL_VALIDATORS` (not run by default) so the endpoint never blocks on a live DB in CI. The endpoint fails closed: any exception in the service → `{connectors:[], null_reason:"connector_lifecycle_unavailable"}`, never a 500. A validator that throws is caught and degrades that one connector (`null_reason:"validator_error"`) rather than failing the whole report.
+
+### ADE read-only HTTP provider validators: missing-token = no-call is the honesty boundary (2026-06-15)
+
+PR 3 added GitHub/Vercel/Railway reachability validators to the connector lifecycle. The one rule that makes "read-only reachability" honest rather than theater: a missing token returns `credential_missing` and makes **NO outbound call** — env-var presence is never treated as validation, and only a real 2xx read produces `ok`/`read_validated`. Enforce GET-only with a module constant (`_ALLOWED_HTTP_METHOD="GET"`) and a hard per-request `httpx` timeout (5s); map timeout/transport-error/401/403/5xx all to `degraded`, never `ok`. Two gotchas that bit during the build: (1) the existing `test_no_secrets_in_receipts` test rejects ANY receipt containing the substrings password/secret/**token**/api_key — so receipt `detail` must avoid the bare word "token" even in benign phrasing. Use neutral wording ("credential not configured" for missing, "credential accepted" for success, "auth rejected (HTTP 401)" for invalid) — never echo the env-var name or `f"{token_env} not set"`. (2) Test the no-call guarantee by monkeypatching `httpx.request` with a spy that raises if called, then asserting it was hit 0 times when the token is absent — a state-only assertion would pass even if a call leaked. Mock `httpx.request` (not the client) so `httpx.Response(status)` construction stays trivial; CI makes zero live calls. Wire Postgres `SELECT 1` from `OPTIONAL_VALIDATORS` into the default set via a `_build_validators()` factory gated by `ADE_ENABLE_POSTGRES_VALIDATOR` (default on, falsey to disable) — build once at import into `_VALIDATORS`.
+
 ---
 
 ## 2026-06-13 — Telemetry Trust Layer architecture review (Factory Pattern Intelligence)
@@ -3280,6 +3300,8 @@ The root file is do-not-write; this file is the one loaded for situational aware
 
 ---
 
+---
+
 ## 2026-06-13 — Gate 0 credential + data reconciliation (Telemetry Trust Layer)
 
 Verified creds and inspected the live workspace before writing any notebook. Two durable traps:
@@ -3311,33 +3333,6 @@ for inference. Both are existing-feature transforms / frozen inference — still
 ticket was reconciled to this reality before any run.
 
 ---
-
-## 2026-06-14 - History Rhymes Polymarket streaming
-
-**Gamma keyset pagination uses `after_cursor`, not `cursor`.** For current
-discovery use `closed=false` and enforce `active`, future date, order-book
-availability, binary Yes/No outcomes, and liquidity in the client. Do not use
-`live=true` as a synonym for active: it excluded longer-horizon active events
-and left mostly short-lived sports markets in the live smoke.
-
-**Gamma embeds market arrays as JSON strings.** `clobTokenIds`, `outcomes`,
-and `outcomePrices` must be decoded and mapped by outcome label; array position
-alone is not a safe Yes-token assumption.
-
-**WebSocket freshness and market freshness are different signals.** Publish a
-connection heartbeat on `PONG` so a quiet book can remain connection-live while
-its market-event timestamp becomes stale. Never label a quiet market as a dead
-socket or a dead socket as merely quiet.
-
-**Raw Polymarket ticks belong in Confluent/observational BigQuery, not
-Postgres.** Postgres stores compacted market metadata, one idempotent feature
-snapshot per market/minute, stream status, parsed questions, and auditable
-forecasts.
-
-**An empty calibration registry is the correct launch default.** It causes
-eligible forecast families to return `uncalibrated`/`RESEARCH` with no `p_hr`
-until the 50-observation Brier/ECE walk-forward gate passes. Never let a missing
-calibration artifact silently promote a crowd-only card to `LIVE`.
 
 ---
 
@@ -3371,6 +3366,8 @@ On Windows Git Bash, set `MSYS_NO_PATHCONV=1` or workspace paths like `/Users/..
 
 ---
 
+---
+
 ## 2026-06-13 — Gate 0 VERDICT: KILL — embedding distance anti-correlates with RUL error
 
 Gate 0 completed (Option B: FD001 train split, 80 fleet / 20 held-out units, real per-cycle truth,
@@ -3389,6 +3386,8 @@ the fleet" with "easy to predict." Revisiting the thesis is a research question,
 **Process note that held up:** Gate 0 did exactly its job — killed the idea cheaply (one ~½-day notebook,
 frozen inference, no SupCon spend) before any infrastructure. The "no-training, falsify first" gate is
 worth keeping as a pattern for future thesis-driven builds.
+
+---
 
 ---
 
@@ -3420,6 +3419,8 @@ until it passes.
 
 ---
 
+---
+
 ## 2026-06-13 — Calibration baseline ran: gate PASS, plus the per-cycle PHM trap
 
 Ticket 1 (`telemetry-calibration-baseline.py`) reproduced the FD001 benchmark exactly (**RMSE 20.322 /
@@ -3442,6 +3443,8 @@ FD001 train units, seed 0); conformal q = the ceil((m+1)·level)-th smallest |re
 symmetric band pred±q clipped to [0, RUL_CAP]. Finite-sample valid, no distributional assumption, ~1 min
 on serverless. Late-side miss rate at 90% was 0.8% — the band catches ~99% of dangerously-optimistic
 predictions, which is the safety property worth showing.
+
+---
 
 ---
 
@@ -3474,6 +3477,8 @@ pass is the calibration's doing, not a moved goalpost.
 PICP calibrated (±0.03) AND MPIW narrower-or-similar; if RMSE better but MPIW widens, it graduates only on
 *materially* better PHM (≤90% of baseline) with written justification. PHM08 is the late-prediction safety
 metric — RMSE-better-but-PHM-worse is a safety regression, not a tradeoff.
+
+---
 
 ---
 
@@ -3511,6 +3516,8 @@ that pattern to keep killed hypotheses from creeping back into surfaces. repo-b 
 ### `az boards work-item relation add` rejects `--project` — links fail silently without it (2026-06-15)
 
 The intake skill's example passes `--project Novendor` alongside `--org` on every board command, but `az boards work-item relation add` does NOT accept `--project` (only `create`/`update`/`show` do). Passing it makes the command exit with `ERROR: unrecognized arguments: --project Novendor` — and if you piped the result through a `--query` that swallows stderr, the parent link silently never gets created (the `System.Parent` field stays empty). Correct form for `relation add`: `--id`, `--relation-type parent`, `--target-id`, `--org` only. Always re-read `System.Parent` with `work-item show` afterward to confirm the link took — a created work item with no parent passes most checks but breaks the Epic→Feature→Story→Task hierarchy. Hit while creating ADE PR 2 items (#580 Feature → Epic #353): the first link attempt with `--project` failed silently, the field was empty on verify, re-running without `--project` set it.
+
+---
 
 ---
 

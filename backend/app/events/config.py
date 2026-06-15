@@ -59,3 +59,44 @@ def producer_security_config() -> dict[str, str]:
         cfg["sasl.username"] = EVENTS_SASL_USERNAME
         cfg["sasl.password"] = EVENTS_SASL_PASSWORD
     return cfg
+
+
+# ── Consumer (sink worker) ───────────────────────────────────────────────────
+# The long-running observational sink worker (Phase 4). Shares the broker URL +
+# security config above; only the consumer group and the subscribed topics are
+# consumer-specific. Defaults match the execution-events stream.
+EVENTS_CONSUMER_GROUP: str = _clean(
+    os.getenv("EVENTS_CONSUMER_GROUP", "")
+) or "winston-bq-sink"
+
+# Comma-separated topic list. Defaults to the executions stream.
+EVENTS_CONSUMER_TOPICS: str = _clean(
+    os.getenv("EVENTS_CONSUMER_TOPICS", "")
+) or "winston.executions.v1"
+
+# Where a new consumer group starts: earliest | latest. earliest so the worker
+# drains a backlog rather than skipping events published before it came up.
+EVENTS_CONSUMER_OFFSET_RESET: str = (
+    os.getenv("EVENTS_CONSUMER_OFFSET_RESET", "earliest") or "earliest"
+).strip().lower()
+
+# Max seconds a single poll() blocks waiting for a message.
+EVENTS_CONSUMER_POLL_TIMEOUT_S: float = float(
+    os.getenv("EVENTS_CONSUMER_POLL_TIMEOUT_S", "1.0")
+)
+
+
+def consumer_config() -> dict[str, object]:
+    """librdkafka consumer config (broker + security + group + offset policy).
+
+    Offsets are committed manually (``enable.auto.commit=false``) so the worker
+    only advances past a message after the sink has durably handled it.
+    """
+    cfg: dict[str, object] = {
+        "bootstrap.servers": EVENTS_BROKER_URL,
+        "group.id": EVENTS_CONSUMER_GROUP,
+        "auto.offset.reset": EVENTS_CONSUMER_OFFSET_RESET,
+        "enable.auto.commit": False,
+    }
+    cfg.update(producer_security_config())
+    return cfg
