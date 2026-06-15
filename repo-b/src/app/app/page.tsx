@@ -2,7 +2,8 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createSession } from "@/lib/investigation/sessionStream";
 
 import AccountMenu from "@/components/AccountMenu";
 import { useEnv, type Environment } from "@/components/EnvProvider";
@@ -521,6 +522,7 @@ function SidePanelRow({
 
 function AppIndexPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { environments, selectedEnv, selectEnv, loading, isPlatformAdmin } = useEnv();
   const [openingEnvId, setOpeningEnvId] = useState<string | null>(null);
   const [hoveredEnvId, setHoveredEnvId] = useState<string | null>(null);
@@ -608,6 +610,29 @@ function AppIndexPageInner() {
     [selectedEnvironment, bizId, feed],
   );
 
+  // Investigate a card: create a grounded session (source_type='card', source_ref ->
+  // the card) via the existing PR 6 endpoint, then route to the workspace. Fail-closed:
+  // no-op without a real env/tenant (the card button is also disabled in that case).
+  const handleCardInvestigate = useCallback(
+    (card: IntelCard) => {
+      if (!selectedEnvironment || !bizId) return;
+      const sourceRef = { type: "card", card_id: card.id, card_type: card.card_type, ...card.source_ref };
+      void createSession(
+        selectedEnvironment.env_id,
+        `Investigate: ${card.title}`,
+        { source_ref: sourceRef },
+        bizId,
+      )
+        .then((res) => {
+          if (res?.session_id) router.push(`/app/investigate/${res.session_id}`);
+        })
+        .catch(() => {
+          // Leave the user on the home; nothing fabricated, no partial state.
+        });
+    },
+    [selectedEnvironment, bizId, router],
+  );
+
   useEffect(() => {
     if (loading || environments.length !== 1 || isPlatformAdmin || deniedTarget) {
       return;
@@ -637,6 +662,7 @@ function AppIndexPageInner() {
         nullReason={feed.nullReason}
         onOpen={handleCardOpen}
         onDismiss={handleCardDismiss}
+        onForkInvestigation={handleCardInvestigate}
       />
     </section>
   );
