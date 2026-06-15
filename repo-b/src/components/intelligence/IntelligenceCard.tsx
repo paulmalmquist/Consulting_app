@@ -6,8 +6,18 @@ import { Card } from "@/components/ui/Card";
 import { type IntelCard, type CardType, CARD_TYPE_LABELS } from "@/lib/intelligence/cards";
 
 // One card in the executive intelligence feed (plan PR 4). Variant accents per
-// card_type; hover reveals actions; anomaly_flag glows and pulses. No home wiring
-// and no live investigation — "Fork Investigation" is present but inert until PR 6.
+// card_type; hover reveals actions; anomaly_flag glows and pulses. The "Investigate"
+// action launches a grounded investigation session when the card has a usable
+// source_ref (PR 8.6); otherwise it stays disabled, fail-closed.
+
+// A card can launch an investigation only when its source_ref is a non-empty object —
+// the session is grounded on that source. An empty/absent source_ref means there is
+// nothing to investigate yet, so the action is disabled rather than launching an
+// ungrounded session.
+export function hasUsableSourceRef(card: Pick<IntelCard, "source_ref">): boolean {
+  const ref = card.source_ref;
+  return Boolean(ref) && typeof ref === "object" && Object.keys(ref).length > 0;
+}
 
 // Per-type accent classes (Tailwind bm-* token families used across the app).
 const TYPE_ACCENT: Record<CardType, { bar: string; chip: string; icon: string }> = {
@@ -85,13 +95,29 @@ export function IntelligenceCard({
               Dismiss
             </button>
           )}
-          {/* Inert until PR 6 (investigation backend). Disabled, not wired. */}
-          <button type="button" disabled
-            title="Investigations arrive in a later release"
-            onClick={() => onForkInvestigation?.(card)}
-            className="cursor-not-allowed rounded border border-bm-border px-2 py-1 font-mono text-[11px] text-bm-text-muted opacity-60">
-            Fork Investigation
-          </button>
+          {/* Investigate: enabled only when a handler is wired AND the card has a usable
+              source_ref to ground the session on. Otherwise disabled, fail-closed. */}
+          {(() => {
+            const canInvestigate = Boolean(onForkInvestigation) && hasUsableSourceRef(card);
+            return (
+              <button
+                type="button"
+                disabled={!canInvestigate}
+                title={canInvestigate
+                  ? "Open a grounded investigation for this card"
+                  : "This card has no source to investigate yet"}
+                onClick={() => canInvestigate && onForkInvestigation?.(card)}
+                className={cn(
+                  "rounded border border-bm-border px-2 py-1 font-mono text-[11px]",
+                  canInvestigate
+                    ? "text-bm-text hover:border-bm-border-hi"
+                    : "cursor-not-allowed text-bm-text-muted opacity-60",
+                )}
+              >
+                ▶ Investigate
+              </button>
+            );
+          })()}
         </div>
       </div>
     </Card>
