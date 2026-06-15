@@ -1,0 +1,134 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  fetchHrState,
+  fetchLatestDecision,
+  fetchLatestBrief,
+  type HrState,
+  type HrDecision,
+  type HrBrief,
+  type Position,
+} from "@/lib/historyrhymes/client";
+import { C, Loading, CockpitEmptyState } from "./primitives";
+import { RegimeStatusHeader } from "./RegimeStatusHeader";
+import { ImplicationCard } from "./ImplicationCard";
+
+// The default History Rhymes surface: a telemetry-style regime cockpit.
+// This component owns ALL cockpit data fetching; zones are presentational.
+// PR 2 ships Z1 (regime header) + Z7 (implications) + the evidence footer.
+// Z2 signal strip (PR 3), Z3 analog timeline (PR 7), Z4 alert rail (PR 8),
+// Z5 scenario pressure (PR 9), Z6 evidence drawer (PR 10) mount between them.
+//
+// Fail-closed by construction: every client function resolves to null on
+// 404/error, and every zone renders an explicit state for null.
+
+const TOP_IMPLICATION_LIMIT = 3;
+
+export interface HistoryRhymesCockpitProps {
+  /** Override for compatibility aliases (/routine uses "hr-routine-page"). */
+  rootTestId?: string;
+}
+
+export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }: HistoryRhymesCockpitProps) {
+  const [state, setState] = useState<HrState | null>(null);
+  const [decision, setDecision] = useState<HrDecision | null>(null);
+  const [brief, setBrief] = useState<HrBrief | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [s, d, b] = await Promise.all([
+        fetchHrState(),
+        fetchLatestDecision(),
+        fetchLatestBrief(),
+      ]);
+      if (cancelled) return;
+      setState(s);
+      setDecision(d);
+      setBrief(b);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div data-testid={rootTestId}>
+        <Loading label="Loading regime cockpit…" />
+      </div>
+    );
+  }
+
+  const positions: Position[] = decision?.positions ?? [];
+  const topImplications = positions.slice(0, TOP_IMPLICATION_LIMIT);
+  const restPositions = positions.slice(TOP_IMPLICATION_LIMIT);
+
+  return (
+    <div data-testid={rootTestId}>
+      {/* Z1 — regime status. trapSummary/degradedReason wire in from the match response in PR 7. */}
+      <RegimeStatusHeader state={state} decision={decision} />
+
+      {/* Z2 signal telemetry strip mounts here (PR 3). */}
+      {/* Z3 analog timeline mounts here (PR 7). */}
+      {/* Z4 alert/trap rail mounts here (PR 8). */}
+      {/* Z5 scenario pressure panel mounts here (PR 9). */}
+
+      {/* Z7 — implications. */}
+      <section style={{ marginTop: 16 }}>
+        <h2 style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.13em", color: C.faint, textTransform: "uppercase", margin: "0 0 10px" }}>
+          Implications
+        </h2>
+        {topImplications.length === 0 ? (
+          <CockpitEmptyState
+            zone="implications"
+            reason={decision === null ? "no decision on record" : "decision has no positions this cycle"}
+            hint={decision === null
+              ? "run the decision runner or check GET /api/hr/v1/state"
+              : `freshness verdict: ${state?.freshness_verdict ?? "unavailable"}`}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {topImplications.map((p, i) => (
+              <ImplicationCard key={`${p.asset}-${i}`} position={p} tier="act" />
+            ))}
+          </div>
+        )}
+        {restPositions.length > 0 && (
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.1em", color: C.faint, textTransform: "uppercase", cursor: "pointer" }}>
+              {restPositions.length} more (watch / research)
+            </summary>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3" style={{ marginTop: 10 }}>
+              {restPositions.map((p, i) => (
+                <ImplicationCard key={`rest-${p.asset}-${i}`} position={p} tier="watch" />
+              ))}
+            </div>
+          </details>
+        )}
+      </section>
+
+      {/* Evidence footer — the weekly brief is archive evidence, not the front door. */}
+      <footer data-testid="hr-evidence-footer"
+        style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11, color: C.faint,
+          display: "flex", flexWrap: "wrap", gap: 14, alignItems: "baseline" }}>
+        {brief ? (
+          <a href={brief.markdown_uri ?? "#"} style={{ color: C.dim, textDecoration: "underline" }}
+            target={brief.markdown_uri?.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+            weekly brief (archive evidence)
+          </a>
+        ) : (
+          <span>no weekly brief on record</span>
+        )}
+        {state && (
+          <span>
+            input age: {state.worst_input_age_hours >= 9000 ? "no inputs on record" : `${state.worst_input_age_hours.toFixed(1)}h`}
+            {" · "}verdict: {state.freshness_verdict}
+          </span>
+        )}
+        {!state && <span style={{ color: C.amber }}>state endpoint unreachable — all panels fail closed</span>}
+      </footer>
+    </div>
+  );
+}
