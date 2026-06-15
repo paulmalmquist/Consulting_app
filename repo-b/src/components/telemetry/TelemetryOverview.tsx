@@ -11,6 +11,7 @@ import {
   C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
   StatGrid, SplitGrid, ResponsiveSwap, RowCard,
 } from "./primitives";
+import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
 
 function ModelCard({ m }: { m: ModelRun }) {
   const champ = m.promotion_state === "promoted";
@@ -82,11 +83,35 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
       .catch((e) => setError(String(e)));
   }, []);
 
+  // The page heading and the context module are static; only the operational sections below
+  // depend on the serving API, so the narrative on-ramp renders even while loading or erroring.
+  const heading = (
+    <PageHeading eyebrow="Overview"
+      title="Turning engine-test telemetry into automated go/no-go"
+      blurb="Public NASA telemetry ingested in Databricks, trained and gated in MLflow, served behind FastAPI, every score persisted to a prediction log, monitored for drift. The headline is run-to-failure prognostics (C-MAPSS RUL today; N-CMAPSS and IMS planned); SMAP/MSL anomaly detection is a legacy baseline. Every value below is read from the serving API."
+      right={
+        <Link href={`/lab/env/${envId}/telemetry/replay`}
+          style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,
+            border: "none", borderRadius: 8, padding: "10px 18px", textDecoration: "none" }}>
+          Run the replay →
+        </Link>
+      } />
+  );
+  const contextSection = (
+    <section aria-label="Context: why launch became a data problem" style={{ margin: "0 0 24px" }}>
+      <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.13em", color: C.faint,
+        textTransform: "uppercase", marginBottom: 12 }}>
+        Context: why launch became a data problem
+      </div>
+      <BottleneckMap />
+    </section>
+  );
+
   if (error) return (
-    <><PageHeading eyebrow="Overview" title="Telemetry anomaly workbench" /><ErrorState message={error} /></>
+    <>{heading}{contextSection}<ErrorState message={error} /></>
   );
   if (!summary || !models || !runs) return (
-    <><PageHeading eyebrow="Overview" title="Telemetry anomaly workbench" /><Loading label="Loading console…" /></>
+    <>{heading}{contextSection}<Loading label="Loading console…" /></>
   );
 
   const k = summary.kpi;
@@ -97,16 +122,8 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
 
   return (
     <>
-      <PageHeading eyebrow="Overview"
-        title="Turning engine-test telemetry into automated go/no-go"
-        blurb="Public NASA telemetry ingested in Databricks, trained and gated in MLflow, served behind FastAPI, every score persisted to a prediction log, monitored for drift. The headline is run-to-failure prognostics (C-MAPSS RUL today; N-CMAPSS and IMS planned); SMAP/MSL anomaly detection is a legacy baseline. Every value below is read from the serving API."
-        right={
-          <Link href={`/lab/env/${envId}/telemetry/replay`}
-            style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,
-              border: "none", borderRadius: 8, padding: "10px 18px", textDecoration: "none" }}>
-            Run the replay →
-          </Link>
-        } />
+      {heading}
+      {contextSection}
 
       {/* metric strip */}
       <StatGrid cols={4}>

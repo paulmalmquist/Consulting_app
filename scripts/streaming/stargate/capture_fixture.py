@@ -7,7 +7,7 @@ printer runs a ``normal`` job segment then a ``pre_failure`` segment, so the
 anomaly predicate visibly fires during replay. Three deliberately bad lines
 exercise the DLQ path.
 
-    python capture_fixture.py          # rewrites fixtures/replay_capture.jsonl
+    python capture_fixture.py          # rewrites backend/app/data/stargate/replay_capture.jsonl
 
 Determinism: fixed seed, fixed offsets, no wall clock. Regenerating produces a
 byte-identical file unless the waveforms or maps changed — which is exactly
@@ -17,7 +17,6 @@ when the fixture should change.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import common  # noqa: F401  (sys.path bootstrap)
 import numpy as np
@@ -76,7 +75,9 @@ def build_lines() -> list[str]:
 
 
 def main() -> int:
-    out = Path(__file__).resolve().parent / "fixtures" / "replay_capture.jsonl"
+    # Single path definition shared with the bridge reader (backend core).
+    from app.services.stargate_bridge import fixture_path
+    out = fixture_path()
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = build_lines()
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")

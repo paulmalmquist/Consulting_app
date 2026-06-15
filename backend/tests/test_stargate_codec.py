@@ -126,13 +126,13 @@ class TestRegistryFramedJson:
     id + JSON. Both framed and plain forms must decode (PR 4)."""
 
     def test_framed_and_plain_json_decode(self):
-        import bridge
+        from app.services.stargate_bridge import loads_registry_json
 
         row = {"printer_id": "p1", "avg_temp_c": 1500.5, "n": 3}
         plain = __import__("json").dumps(row).encode()
         framed = b"\x00\x00\x00\x00\x07" + plain
-        assert bridge.loads_registry_json(plain) == row
-        assert bridge.loads_registry_json(framed) == row
+        assert loads_registry_json(plain) == row
+        assert loads_registry_json(framed) == row
 
 
 class TestProtobufWire:

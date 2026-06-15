@@ -36,6 +36,19 @@ export default function TelemetrySidebar({ envId, onNavigate }: { envId: string;
           })}
         </div>
       ))}
+      {/* Cross-surface link: the ADE control room is its own portable package mounted in this env. */}
+      <div style={{ fontFamily: C.mono, fontSize: 9, letterSpacing: "0.16em", color: C.faint,
+        textTransform: "uppercase", padding: "14px 10px 4px" }}>
+        Platform
+      </div>
+      <Link href={`/lab/env/${envId}/automated-data-engineering`} onClick={onNavigate}
+        style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none",
+          minHeight: 40, padding: "9px 10px", borderRadius: 7, color: C.dim }}>
+        <svg width="15" height="15" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
+          <path d="M2 3h4v4H2zM10 9h4v4h-4zM6 5h4M8 5v4M8 11H6" stroke={C.faint} strokeWidth="1.3" fill="none" strokeLinejoin="round" />
+        </svg>
+        <span style={{ fontFamily: C.mono, fontSize: 12 }}>Automated Data Engineering</span>
+      </Link>
     </nav>
   );
 }
