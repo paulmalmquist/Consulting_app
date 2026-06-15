@@ -37,7 +37,11 @@ class KafkaTransport:
     def __init__(self, broker_url: str, timeout_ms: int) -> None:
         from confluent_kafka import Producer  # lazy: optional dependency
 
-        self._producer = Producer({"bootstrap.servers": broker_url})
+        producer_config = {"bootstrap.servers": broker_url}
+        # SASL/SSL settings for a managed broker (Confluent Cloud). Empty for
+        # local Redpanda, so the PLAINTEXT producer config is unchanged.
+        producer_config.update(config.producer_security_config())
+        self._producer = Producer(producer_config)
         self._timeout_s = max(timeout_ms, 0) / 1000.0
 
     def send(self, topic: str, key: str | None, value: bytes) -> bool:

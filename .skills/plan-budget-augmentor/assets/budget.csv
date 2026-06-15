@@ -1,0 +1,3 @@
+work_item_id,work_item,plan_ref,category,item,basis,qty,unit,unit_cost_low,unit_cost_high,frequency,confidence,source,notes
+R-07,Telemetry data platform,03_RELATIVITY_INSTANTIATION.md §9,labor,Senior Data Engineer,2 eng × 3 sprints,6,person-sprint,9000,14000,one_time,M,assumption,replace rate with internal card
+R-07,Telemetry data platform,03_RELATIVITY_INSTANTIATION.md §9,infra,Warehouse storage + compute,raw+silver+gold incl high-rate channels,1,lump,,,monthly,L,,NEEDS-RESEARCH pick target warehouse first

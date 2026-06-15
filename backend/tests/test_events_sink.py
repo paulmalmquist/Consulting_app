@@ -271,3 +271,25 @@ def test_dead_letter_row_has_correct_shape():
     assert row["ingested_at"] == now.isoformat()
     # Raw bytes preserved in payload for debugging
     assert "bad bytes" in row["payload"]
+
+
+def test_dead_letter_row_has_non_empty_required_keys():
+    """event_id + idempotency_key are REQUIRED in BQ; a dead-letter row must not
+    leave them null or the row itself fails to insert."""
+    now = datetime.now(timezone.utc)
+    row = _dead_letter_row(b"junk payload", "missing fields", now)
+    assert row["event_id"], "event_id must be non-empty for the REQUIRED BQ column"
+    assert row["idempotency_key"], "idempotency_key must be non-empty for the REQUIRED BQ column"
+    assert row["idempotency_key"].startswith("dead_letter:")
+
+
+def test_dead_letter_row_keys_are_deterministic():
+    """Same raw bytes -> same synthetic keys, so a redelivered bad message dedups."""
+    now = datetime.now(timezone.utc)
+    a = _dead_letter_row(b"same bytes", "r1", now)
+    b = _dead_letter_row(b"same bytes", "r2", now)
+    assert a["event_id"] == b["event_id"]
+    assert a["idempotency_key"] == b["idempotency_key"]
+    # Different bytes -> different keys.
+    c = _dead_letter_row(b"other bytes", "r1", now)
+    assert c["idempotency_key"] != a["idempotency_key"]
