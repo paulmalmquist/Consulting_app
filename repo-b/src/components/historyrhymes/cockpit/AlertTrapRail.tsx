@@ -32,11 +32,14 @@ export interface AlertTrapRailProps {
   trapSummary: string | null;
   /** Resolves true on success; false reverts the optimistic removal. */
   onAcknowledge?: (id: string) => Promise<boolean>;
+  /** Opens the alert evidence drawer (PR 10). */
+  onOpenEvidence?: (alert: StructuralAlert) => void;
 }
 
-function StructuralAlertCard({ alert, onAcknowledge }: {
+function StructuralAlertCard({ alert, onAcknowledge, onOpenEvidence }: {
   alert: StructuralAlert;
   onAcknowledge?: (id: string) => Promise<boolean>;
+  onOpenEvidence?: (alert: StructuralAlert) => void;
 }) {
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -76,13 +79,22 @@ function StructuralAlertCard({ alert, onAcknowledge }: {
           hoyt position: {alert.hoyt_position}
         </div>
       )}
-      {onAcknowledge && (
-        <button type="button" data-testid={`hr-ack-${alert.id}`} onClick={ack} disabled={busy}
-          style={{ marginTop: 8, fontFamily: C.mono, fontSize: 10, color: C.dim, background: C.panelHi,
-            border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 9px", cursor: "pointer" }}>
-          acknowledge
-        </button>
-      )}
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        {onAcknowledge && (
+          <button type="button" data-testid={`hr-ack-${alert.id}`} onClick={ack} disabled={busy}
+            style={{ fontFamily: C.mono, fontSize: 10, color: C.dim, background: C.panelHi,
+              border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 9px", cursor: "pointer" }}>
+            acknowledge
+          </button>
+        )}
+        {onOpenEvidence && (
+          <button type="button" data-testid={`hr-alert-evidence-${alert.id}`} onClick={() => onOpenEvidence(alert)}
+            style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, background: "transparent",
+              border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 9px", cursor: "pointer" }}>
+            evidence
+          </button>
+        )}
+      </div>
       {error && (
         <div data-testid="hr-ack-error" style={{ fontFamily: C.mono, fontSize: 10, color: C.red, marginTop: 6 }}>
           {error}
@@ -92,7 +104,7 @@ function StructuralAlertCard({ alert, onAcknowledge }: {
   );
 }
 
-export function AlertTrapRail({ structuralAlerts, decisionAlerts, trap, trapSummary, onAcknowledge }: AlertTrapRailProps) {
+export function AlertTrapRail({ structuralAlerts, decisionAlerts, trap, trapSummary, onAcknowledge, onOpenEvidence }: AlertTrapRailProps) {
   return (
     <aside aria-label="Alerts and trap detector" data-testid="hr-alert-rail"
       style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -112,7 +124,7 @@ export function AlertTrapRail({ structuralAlerts, decisionAlerts, trap, trapSumm
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {structuralAlerts.map((a) => (
-              <StructuralAlertCard key={a.id} alert={a} onAcknowledge={onAcknowledge} />
+              <StructuralAlertCard key={a.id} alert={a} onAcknowledge={onAcknowledge} onOpenEvidence={onOpenEvidence} />
             ))}
           </div>
         )}

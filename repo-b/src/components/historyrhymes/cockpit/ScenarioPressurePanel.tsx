@@ -34,9 +34,11 @@ function MetaRow({ label, value, pending }: { label: string; value: string; pend
 export interface ScenarioPressurePanelProps {
   scenarios: Scenarios | null;
   confidenceMeta: ConfidenceMeta | null;
+  /** Opens the scenario evidence drawer (PR 10). */
+  onOpenEvidence?: () => void;
 }
 
-export function ScenarioPressurePanel({ scenarios, confidenceMeta }: ScenarioPressurePanelProps) {
+export function ScenarioPressurePanel({ scenarios, confidenceMeta, onOpenEvidence }: ScenarioPressurePanelProps) {
   if (scenarios === null) {
     return (
       <section data-testid="hr-scenario-panel" style={{ marginTop: 16 }}>
@@ -52,11 +54,23 @@ export function ScenarioPressurePanel({ scenarios, confidenceMeta }: ScenarioPre
   return (
     <section data-testid="hr-scenario-panel" data-pending={pending} style={{ marginTop: 16 }}>
       <Panel title="Scenario pressure" pad={14}
-        right={pending ? (
-          <span data-testid="hr-scenario-pending-tag" style={{ fontFamily: C.mono, fontSize: 10, color: C.amber }}>
-            pending — engine not live
+        right={
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {pending && (
+              <span data-testid="hr-scenario-pending-tag" style={{ fontFamily: C.mono, fontSize: 10, color: C.amber }}>
+                pending — engine not live
+              </span>
+            )}
+            {onOpenEvidence && (
+              <button type="button" data-testid="hr-scenario-evidence" onClick={onOpenEvidence}
+                style={{ fontFamily: C.mono, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: C.faint, background: "transparent", border: `1px solid ${C.border}`,
+                  borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+                evidence
+              </button>
+            )}
           </span>
-        ) : undefined}>
+        }>
         {pending && (
           <p data-testid="hr-scenario-pending-note"
             style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, margin: "0 0 12px", lineHeight: 1.5 }}>
