@@ -13,6 +13,9 @@ vi.mock("@/lib/historyrhymes/client", () => ({
   fetchHrState: () => fetchHrState(),
   fetchLatestDecision: () => fetchLatestDecision(),
   fetchLatestBrief: () => fetchLatestBrief(),
+  // Stream polling — return null (off) so polls are no-ops in unit tests.
+  fetchStreamHealth: vi.fn().mockResolvedValue(null),
+  fetchStreamSignals: vi.fn().mockResolvedValue(null),
 }));
 
 const fetchRhymesAlerts = vi.fn();
@@ -85,7 +88,7 @@ describe("HistoryRhymesCockpit", () => {
     await waitFor(() => expect(screen.getByTestId("hr-regime-header")).toBeTruthy());
     expect(screen.getByTestId("hr-cockpit-page")).toBeTruthy();
     expect(screen.getByTestId("hr-implication-card")).toBeTruthy();
-    expect(screen.getByText("weekly brief (archive evidence)")).toBeTruthy();
+    expect(screen.getByTestId("hr-brief-evidence")).toBeTruthy();
     expect(fetchHrState).toHaveBeenCalledTimes(1);
     expect(fetchLatestDecision).toHaveBeenCalledTimes(1);
     expect(fetchLatestBrief).toHaveBeenCalledTimes(1);

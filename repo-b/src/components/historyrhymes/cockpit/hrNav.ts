@@ -12,6 +12,7 @@ export type HrNavItem = {
 export const HR_NAV: HrNavItem[] = [
   { slug: "", label: "Cockpit", testId: "hr-nav-cockpit" },
   { slug: "morning-book", label: "Morning Book", testId: "hr-nav-morning-book" },
+  { slug: "research", label: "Research", testId: "hr-nav-research" },
   { slug: "planning", label: "Planning", testId: "hr-nav-planning" },
   { slug: "admin", label: "Admin", testId: "hr-nav-admin" },
 ];

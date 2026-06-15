@@ -274,7 +274,7 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
             onClick={() => setEvidence(briefEvidence(brief))}
             style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, textDecoration: "underline",
               background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
-            weekly brief (archive evidence)
+            weekly brief (archive evidence) ↗ research
           </button>
         ) : (
           <span>no weekly brief on record</span>
