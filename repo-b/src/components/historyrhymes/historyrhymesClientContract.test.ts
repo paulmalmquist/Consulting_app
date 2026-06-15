@@ -16,6 +16,7 @@ import {
   discardCandidate,
   fetchPlanningMarkdown,
   fetchMorningBook,
+  fetchStreamHealth,
 } from "@/lib/historyrhymes/client";
 
 function mockFetch(body: unknown, ok = true, status = 200) {
@@ -136,5 +137,18 @@ describe("historyrhymes research client contract", () => {
     const out = await fetchMorningBook();
     expect(calledUrl(fn)).toBe("/api/hr/v1/research/morning-book");
     expect(out?.triage).toBe("Research Only");
+  });
+
+  it("fetchStreamHealth GETs /api/hr/v1/stream/health (hr namespace, no proxy)", async () => {
+    const fn = mockFetch({
+      mode: "off", provider: null, status: "not_configured",
+      consumer_group: "hr-cockpit-dev", topic_prefix: "hr.dev",
+      latest_event_at: null, lag_seconds: null,
+      degraded_reason: "HR_STREAM_MODE=off",
+    });
+    const out = await fetchStreamHealth();
+    expect(calledUrl(fn)).toBe("/api/hr/v1/stream/health");
+    expect(out?.status).toBe("not_configured");
+    expect(out?.degraded_reason).toBe("HR_STREAM_MODE=off");
   });
 });
