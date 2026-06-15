@@ -1,0 +1,29 @@
+{
+  "brief": {
+    "regime_call": "late_cycle",
+    "confidence": 0.72,
+    "freshness_score": 0.85,
+    "markdown_uri": "docs/historyrhymes/briefs/2026-06-15.md"
+  },
+  "signals": {
+    "mvrv_z": 1.4,
+    "yc_10y2y": -0.10,
+    "vix_term": 0.95,
+    "housing": { "price_yoy": -2.1, "starts_yoy": -15.0 },
+    "cmbs_delinq": 0.062,
+    "fed_tone": "hawkish-hold",
+    "crypto_flow": -0.8,
+    "macro_surprise": -0.45,
+    "per_signal_freshness": {
+      "mvrv_z": "fresh",
+      "yc_10y2y": "fresh",
+      "vix_term": "fresh",
+      "housing": "1d",
+      "cmbs_delinq": "7d",
+      "fed_tone": "fresh",
+      "crypto_flow": "fresh",
+      "macro_surprise": "1d"
+    },
+    "source": "manual_json_bundle"
+  }
+}

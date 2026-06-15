@@ -33,7 +33,24 @@ class InvalidSignalBundle(ValueError):
     """Raised when a bundle or a signal within it is missing required fields."""
 
 
-# A signal is identified by its name; these per-signal fields must be present.
+# The eight canonical History Rhymes signals (the real manual-bundle surface;
+# see scripts/hr_weekly_brief.py). Order is stable so per-signal events sort
+# deterministically. Phase 5A proved 2 of these through the spine; 5B covers all.
+HR_SIGNAL_NAMES: tuple[str, ...] = (
+    "mvrv_z",
+    "yc_10y2y",
+    "vix_term",
+    "housing",
+    "cmbs_delinq",
+    "fed_tone",
+    "crypto_flow",
+    "macro_surprise",
+)
+
+
+# A signal is identified by its name; these per-signal fields must be present
+# in the PRE-STRUCTURED bundle shape (Phase 5A). The real manual bundle uses a
+# flat {name: value} map instead — see real_bundle_to_envelopes below.
 _REQUIRED_SIGNAL_FIELDS = ("signal_value", "signal_timestamp")
 
 
@@ -154,4 +171,98 @@ def publish_signal_bundle(
         "signals": len(envelopes),
         "accepted": accepted,
         "as_of_date": bundle.get("as_of_date"),
+    }
+
+
+# ── Real manual bundle adapter (Phase 5B) ────────────────────────────────────
+# The manual HR bundle (scripts/hr_weekly_brief.py) carries signals as a FLAT
+# map ``{signal_name: value}`` where value is a scalar, a nested dict (housing),
+# or a string (fed_tone) — plus a sibling ``per_signal_freshness`` map and a
+# ``source``. This differs from the pre-structured Phase 5A shape, so it gets a
+# dedicated adapter rather than overloading bundle_to_envelopes.
+
+# Keys inside ``signals`` that are metadata, not signals themselves.
+_SIGNALS_META_KEYS = frozenset({"per_signal_freshness", "source"})
+
+
+def real_bundle_to_envelopes(
+    bundle: dict[str, Any],
+    *,
+    as_of_date: str,
+    occurred_at: datetime | None = None,
+    business_id: UUID | None = None,
+    env_id: str | None = None,
+    signal_timestamp: str | None = None,
+) -> list[EventEnvelope]:
+    """Map a real manual HR bundle (hr_weekly_brief.py shape) to per-signal events.
+
+    ``bundle`` is the full bundle dict (``{"brief": {...}, "signals": {...}}``)
+    OR just the inner ``signals`` map. Each canonical signal present becomes one
+    ``hr.signal.observed`` envelope. ``per_signal_freshness[name]`` (or the
+    bundle's freshness) becomes ``staleness_status``; the raw value is carried as
+    ``signal_value`` (scalar/dict/string preserved). Signals not in
+    ``HR_SIGNAL_NAMES`` are ignored (forward-compat); a bundle with NONE of the
+    canonical signals raises InvalidSignalBundle.
+    """
+    signals = bundle.get("signals", bundle) if "signals" in bundle else bundle
+    if not isinstance(signals, dict):
+        raise InvalidSignalBundle("real bundle missing a 'signals' mapping")
+    if not as_of_date:
+        raise InvalidSignalBundle("as_of_date is required")
+
+    freshness = signals.get("per_signal_freshness", {})
+    if not isinstance(freshness, dict):
+        freshness = {}
+    source = signals.get("source") or bundle.get("source") or "manual_json_bundle"
+    ts = signal_timestamp or (occurred_at or datetime.now(timezone.utc)).isoformat()
+
+    envelopes: list[EventEnvelope] = []
+    for name in HR_SIGNAL_NAMES:
+        if name not in signals or name in _SIGNALS_META_KEYS:
+            continue
+        value = signals[name]
+        staleness = freshness.get(name, "unknown")
+        # signal_to_envelope requires signal_value + signal_timestamp; supply
+        # both from the flat value + bundle-level (or now) timestamp.
+        envelopes.append(
+            signal_to_envelope(
+                name,
+                {"signal_value": value, "signal_timestamp": ts},
+                source=source,
+                as_of_date=as_of_date,
+                staleness_status=staleness,
+                occurred_at=occurred_at,
+                business_id=business_id,
+                env_id=env_id,
+            )
+        )
+    if not envelopes:
+        raise InvalidSignalBundle(
+            f"real bundle had none of the canonical signals {HR_SIGNAL_NAMES}"
+        )
+    return envelopes
+
+
+def publish_real_bundle(
+    bundle: dict[str, Any],
+    *,
+    as_of_date: str,
+    occurred_at: datetime | None = None,
+    business_id: UUID | None = None,
+    env_id: str | None = None,
+) -> dict[str, Any]:
+    """Publish every canonical signal in a real manual bundle. Best-effort."""
+    envelopes = real_bundle_to_envelopes(
+        bundle, as_of_date=as_of_date, occurred_at=occurred_at,
+        business_id=business_id, env_id=env_id,
+    )
+    accepted = sum(
+        1 for env in envelopes if publish_event(Topics.HISTORY_RHYMES_SIGNALS, env)
+    )
+    return {
+        "topic": Topics.HISTORY_RHYMES_SIGNALS,
+        "signals": len(envelopes),
+        "accepted": accepted,
+        "as_of_date": as_of_date,
+        "signal_names": [e.payload["signal_name"] for e in envelopes],
     }
