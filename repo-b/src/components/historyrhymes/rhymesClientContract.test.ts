@@ -4,7 +4,7 @@
  * via NEXT_PUBLIC_API_BASE — and fail closed to null on transport errors.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { postRhymesMatch } from "@/lib/historyrhymes/rhymesClient";
+import { postRhymesMatch, fetchRhymesAlerts, acknowledgeRhymesAlert } from "@/lib/historyrhymes/rhymesClient";
 import { makeMatch } from "@/lib/historyrhymes/rhymesFixtures";
 
 function mockFetch(body: unknown, ok = true, status = 200) {
@@ -45,5 +45,25 @@ describe("rhymes client contract", () => {
     // @ts-expect-error - test stub for global fetch
     global.fetch = vi.fn(async () => { throw new Error("network down"); });
     await expect(postRhymesMatch()).resolves.toBeNull();
+  });
+
+  it("fetchRhymesAlerts GETs /api/v1/rhymes/alerts with query filters", async () => {
+    const fn = mockFetch({ alerts: [], count: 0 });
+    const out = await fetchRhymesAlerts({ unacknowledged: true, type: "hoyt_convergence" });
+    const url = String(fn.mock.calls[0][0]);
+    expect(url).toBe("/api/v1/rhymes/alerts?type=hoyt_convergence&unacknowledged=true");
+    expect(out?.count).toBe(0);
+  });
+
+  it("acknowledgeRhymesAlert POSTs the audit identity and nulls on 404", async () => {
+    const fn = mockFetch({ status: "acknowledged", alert_id: "al-1" });
+    const out = await acknowledgeRhymesAlert("al-1", "cockpit");
+    expect(String(fn.mock.calls[0][0])).toBe("/api/v1/rhymes/alerts/al-1/acknowledge");
+    const body = JSON.parse(String((fn.mock.calls[0][1] as RequestInit).body));
+    expect(body).toEqual({ acknowledged_by: "cockpit" });
+    expect(out?.status).toBe("acknowledged");
+
+    mockFetch({ detail: "not found" }, false, 404);
+    await expect(acknowledgeRhymesAlert("missing", "cockpit")).resolves.toBeNull();
   });
 });

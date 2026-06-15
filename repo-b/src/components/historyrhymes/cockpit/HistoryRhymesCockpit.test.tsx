@@ -15,8 +15,12 @@ vi.mock("@/lib/historyrhymes/client", () => ({
   fetchLatestBrief: () => fetchLatestBrief(),
 }));
 
+const fetchRhymesAlerts = vi.fn();
+
 vi.mock("@/lib/historyrhymes/rhymesClient", () => ({
   postRhymesMatch: () => postRhymesMatch(),
+  fetchRhymesAlerts: () => fetchRhymesAlerts(),
+  acknowledgeRhymesAlert: vi.fn(),
 }));
 
 const STATE: HrState = {
@@ -69,6 +73,7 @@ describe("HistoryRhymesCockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     postRhymesMatch.mockResolvedValue(makeMatch());
+    fetchRhymesAlerts.mockResolvedValue({ alerts: [], count: 0 });
   });
 
   it("renders regime header, implications, and evidence footer on live data", async () => {

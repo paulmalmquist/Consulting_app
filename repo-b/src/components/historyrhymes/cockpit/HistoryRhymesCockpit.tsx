@@ -10,12 +10,20 @@ import {
   type HrBrief,
   type Position,
 } from "@/lib/historyrhymes/client";
-import { postRhymesMatch, type RhymesMatchResponse, type TrapDetector } from "@/lib/historyrhymes/rhymesClient";
-import { C, Loading, CockpitEmptyState } from "./primitives";
+import {
+  postRhymesMatch,
+  fetchRhymesAlerts,
+  acknowledgeRhymesAlert,
+  type RhymesMatchResponse,
+  type StructuralAlert,
+  type TrapDetector,
+} from "@/lib/historyrhymes/rhymesClient";
+import { C, Loading, CockpitEmptyState, SplitGrid } from "./primitives";
 import { RegimeStatusHeader } from "./RegimeStatusHeader";
 import { ImplicationCard } from "./ImplicationCard";
 import { SignalTelemetryStrip } from "./SignalTelemetryStrip";
 import { AnalogTimeline } from "./AnalogTimeline";
+import { AlertTrapRail } from "./AlertTrapRail";
 
 // Trap summary string for the regime header. v1 of the trap detector returns
 // trap_flag=false with every field null — that is "not computing", which is a
@@ -50,26 +58,39 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
   const [decision, setDecision] = useState<HrDecision | null>(null);
   const [brief, setBrief] = useState<HrBrief | null>(null);
   const [match, setMatch] = useState<RhymesMatchResponse | null>(null);
+  const [alerts, setAlerts] = useState<StructuralAlert[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [s, d, b, m] = await Promise.all([
+      const [s, d, b, m, a] = await Promise.all([
         fetchHrState(),
         fetchLatestDecision(),
         fetchLatestBrief(),
         postRhymesMatch({ k: 5 }),
+        fetchRhymesAlerts({ unacknowledged: true }),
       ]);
       if (cancelled) return;
       setState(s);
       setDecision(d);
       setBrief(b);
       setMatch(m);
+      setAlerts(a === null ? null : a.alerts);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Acknowledge: optimistic removal happens in the card; on success refetch
+  // so the rail reflects the backend's view, on failure the card reverts.
+  const handleAcknowledge = async (id: string): Promise<boolean> => {
+    const receipt = await acknowledgeRhymesAlert(id, "cockpit");
+    if (receipt === null) return false;
+    const refreshed = await fetchRhymesAlerts({ unacknowledged: true });
+    if (refreshed !== null) setAlerts(refreshed.alerts);
+    return true;
+  };
 
   if (loading) {
     return (
@@ -96,10 +117,18 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
       {/* Z2 — signal telemetry strip (brief-sourced until the stream lands in PR 13). */}
       <SignalTelemetryStrip brief={brief} />
 
-      {/* Z3 — historical analog timeline. */}
-      <AnalogTimeline match={match} />
+      {/* Z3 + Z4 — analog timeline (main) beside the alert/trap rail. */}
+      <SplitGrid variant="two-one" style={{ marginTop: 16 }}>
+        <AnalogTimeline match={match} />
+        <AlertTrapRail
+          structuralAlerts={alerts}
+          decisionAlerts={decision === null ? null : decision.alerts}
+          trap={match?.trap_detector ?? null}
+          trapSummary={trapSummary(match?.trap_detector)}
+          onAcknowledge={handleAcknowledge}
+        />
+      </SplitGrid>
 
-      {/* Z4 alert/trap rail mounts here (PR 8). */}
       {/* Z5 scenario pressure panel mounts here (PR 9). */}
 
       {/* Z7 — implications. */}

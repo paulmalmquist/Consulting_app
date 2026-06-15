@@ -106,3 +106,58 @@ export async function postRhymesMatch(
     return null;
   }
 }
+
+export interface RhymesAlertsResponse {
+  alerts: StructuralAlert[];
+  count: number;
+  /** Present when unacknowledged=false: acknowledged history not yet exposed (v1). */
+  note?: string;
+}
+
+export async function fetchRhymesAlerts(filters: {
+  type?: StructuralAlert["alert_type"];
+  unacknowledged?: boolean;
+} = {}): Promise<RhymesAlertsResponse | null> {
+  const params = new URLSearchParams();
+  if (filters.type) params.set("type", filters.type);
+  if (filters.unacknowledged !== undefined) params.set("unacknowledged", String(filters.unacknowledged));
+  const qs = params.toString();
+  try {
+    const res = await fetch(`/api/v1/rhymes/alerts${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+    if (!res.ok) {
+      console.error(`[rhymes-client] /api/v1/rhymes/alerts → ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as RhymesAlertsResponse;
+  } catch (err) {
+    console.error("[rhymes-client] /api/v1/rhymes/alerts failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Acknowledge a structural alert. Mutating call: returns the backend receipt
+ * or null on failure (404 = already acknowledged or unknown id). Callers must
+ * surface a failure — optimistic UI reverts on null.
+ */
+export async function acknowledgeRhymesAlert(
+  alertId: string,
+  acknowledgedBy: string,
+): Promise<{ status: "acknowledged"; alert_id: string } | null> {
+  try {
+    const res = await fetch(`/api/v1/rhymes/alerts/${alertId}/acknowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ acknowledged_by: acknowledgedBy }),
+    });
+    if (!res.ok) {
+      console.error(`[rhymes-client] acknowledge ${alertId} → ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as { status: "acknowledged"; alert_id: string };
+  } catch (err) {
+    console.error(`[rhymes-client] acknowledge ${alertId} failed:`, err);
+    return null;
+  }
+}
