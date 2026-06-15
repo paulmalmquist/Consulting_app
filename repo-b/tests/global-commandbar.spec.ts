@@ -86,7 +86,12 @@ async function mockWinstonFirstMile(page: Page, options: {
   return askPayloads;
 }
 
-test.describe("Winston companion", () => {
+// Skipped: PR #168 ("Remove Winston AI chat surfaces") intentionally removed the
+// Winston chat backend (/api/ai/gateway/*) that this companion bootstraps from,
+// so these browser specs test a deliberately-retired surface. Winston chat is
+// being rebuilt elsewhere; re-enable (or replace) this suite when the new
+// surface lands. Tracked in ADO Story #557.
+test.describe.skip("Winston companion", () => {
   test("renders the floating launcher, traps focus in the drawer, and closes on escape", async ({ page, context, baseURL }) => {
     if (!baseURL) throw new Error("baseURL missing");
     await seedAuthCookie(baseURL, context);

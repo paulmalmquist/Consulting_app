@@ -8,10 +8,9 @@ import type { CompareMode } from "@/components/repe/pipeline/geo/types";
 interface Props {
   envId: string;
   config: WidgetConfig;
-  onAskWinston?: () => void;
 }
 
-export default function GeographicMapWidget({ envId, config, onAskWinston }: Props) {
+export default function GeographicMapWidget({ envId, config }: Props) {
   return (
     <div className="flex flex-col h-full">
       {config.title && (
@@ -21,7 +20,6 @@ export default function GeographicMapWidget({ envId, config, onAskWinston }: Pro
         <DealGeoIntelligencePanel
           envId={envId}
           compareMode={"tract" as CompareMode}
-          onAskWinston={onAskWinston ?? (() => {})}
           className="h-full"
         />
       </div>

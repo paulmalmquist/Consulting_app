@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BrainCircuit, MapPinned, ShieldAlert, TrendingUp } from "lucide-react";
+import { MapPinned, ShieldAlert, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import type { CompareMode, GeoDealContextResponse } from "./types";
@@ -43,14 +43,12 @@ export function DealGeoIntelligencePanel({
   node,
   context,
   compareMode,
-  onAskWinston,
   className,
 }: {
   envId: string;
   node?: DealRadarNode | null;
   context?: GeoDealContextResponse | null;
   compareMode: CompareMode;
-  onAskWinston: () => void;
   className?: string;
 }) {
   if (!node) {
@@ -172,10 +170,6 @@ export function DealGeoIntelligencePanel({
           >
             View Deal
           </Link>
-          <Button variant="primary" size="sm" onClick={onAskWinston}>
-            <BrainCircuit className="mr-1 h-4 w-4" />
-            Ask Winston
-          </Button>
         </div>
       </section>
     </aside>

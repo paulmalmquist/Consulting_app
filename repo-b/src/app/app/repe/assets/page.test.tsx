@@ -25,7 +25,7 @@ describe("getAssetDiagnostics", () => {
         fund_id: "",
         fund_name: "",
         latest_value: -100,
-        latest_occupancy: null,
+        latest_occupancy: undefined,
         created_at: "2026-01-01T00:00:00Z",
       },
     ]);
