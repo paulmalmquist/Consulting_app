@@ -169,12 +169,6 @@ function navItems(domain: DomainSlug, base: string): NavItem[] {
       { href: `${base}/generator`, label: "Draft Generator" },
     ];
   }
-  if (domain === "copilot") {
-    return [
-      { href: base, label: "Winston Workspace" },
-      { href: "/app/winston", label: "Global Winston" },
-    ];
-  }
   if (domain === "outputs") {
     return [
       { href: base, label: "Command Center" },

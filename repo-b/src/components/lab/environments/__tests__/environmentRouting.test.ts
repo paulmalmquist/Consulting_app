@@ -52,7 +52,7 @@ describe("environment open routing", () => {
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "pilot_builder" })).toBe("/lab/env/e/pilot");
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "impact_estimator" })).toBe("/lab/env/e/impact");
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "case_factory" })).toBe("/lab/env/e/case-factory");
-    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "ai_copilot" })).toBe("/lab/env/e/copilot");
+    expect(resolveEnvironmentOpenPath({ envId: "e", industry: "ai_copilot" })).toBe("/lab/env/e");
     expect(resolveEnvironmentOpenPath({ envId: "e", industry: "engagement_output" })).toBe("/lab/env/e/outputs");
   });
 

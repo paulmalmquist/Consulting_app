@@ -3,8 +3,7 @@
 /**
  * MobileBottomNav — Mobile-first bottom tab bar
  *
- * Five quick-access tabs:
- * Pipeline · Funds · Winston (center, elevated) · Investors · Reports
+ * Quick-access tabs for the primary real-estate workflows.
  *
  * Rendered by WinstonShell when mobileNavItems are provided.
  * Respects iOS safe-area-inset-bottom via env().
@@ -34,7 +33,6 @@ export interface MobileNavItem {
     | "assets"
     | "investors"
     | "reports"
-    | "winston"
     | "home"
     | "contacts"
     | "tasks"
@@ -53,7 +51,6 @@ const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
   assets:   Building2  as LucideIcon,
   investors: Users     as LucideIcon,
   reports:  BarChart3  as LucideIcon,
-  winston:  Landmark   as LucideIcon,
   home:     Home       as LucideIcon,
   contacts: Users      as LucideIcon,
   tasks:    ClipboardCheck as LucideIcon,
@@ -66,7 +63,6 @@ const ICON_MAP: Record<MobileNavItem["icon"], LucideIcon> = {
 export const REPE_MOBILE_NAV_ITEMS = (base: string): MobileNavItem[] => [
   { href: `${base}/pipeline`,  label: "Pipeline",  icon: "pipeline",  matchPrefix: true },
   { href: base,                label: "Funds",     icon: "funds",     matchPrefix: false },
-  { href: `${base.replace(/\/re$/, "")}/copilot`, label: "Winston", icon: "winston", matchPrefix: true },
   { href: `${base}/investors`, label: "Investors", icon: "investors", matchPrefix: true },
   { href: `${base}/reports`,   label: "Reports",   icon: "reports",   matchPrefix: true },
 ];

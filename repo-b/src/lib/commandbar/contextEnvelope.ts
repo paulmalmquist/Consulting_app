@@ -111,7 +111,6 @@ function routeDescriptor(route: string | null): RouteDescriptor {
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline\/([^/]+)/, surface: "pipeline_detail", activeModule: "re", pageEntityType: "pipeline_deal" },
     { re: /^\/lab\/env\/[^/]+\/re\/pipeline$/, surface: "pipeline_workspace", activeModule: "re", pageEntityType: "environment" },
     { re: /^\/lab\/env\/([^/]+)\/resume(?:\/|$)/, surface: "resume_workspace", activeModule: "resume", pageEntityType: "environment" },
-    { re: /^\/lab\/env\/[^/]+\/copilot(?:\/|$)/, surface: "winston_workspace", activeModule: "copilot", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/pds(?:\/|$)/, surface: "pds_workspace", activeModule: "pds", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/consulting(?:\/|$)/, surface: "consulting_workspace", activeModule: "consulting", pageEntityType: "environment" },
     { re: /^\/lab\/env\/[^/]+\/credit(?:\/|$)/, surface: "credit_workspace", activeModule: "credit", pageEntityType: "environment" },
