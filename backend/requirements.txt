@@ -50,10 +50,13 @@ redis>=5.0
 ib_insync>=0.9.86
 
 # Event streaming — BigQuery sink (Phase 2+). BQ_ENABLED defaults to false so
-# the sink is inert unless explicitly enabled. confluent-kafka is optional (lazy
-# import in transport.py) and is NOT listed here; install separately for local
-# Kafka/Redpanda testing.
+# the sink is inert unless explicitly enabled.
 google-cloud-bigquery>=3.11
+# Event streaming — Kafka transport (Phase 3B+). Lazy-imported in transport.py:
+# absent or unconfigured → get_transport() falls back to NoopTransport, so its
+# presence here never changes default-off behavior. Needed once a real broker
+# (local Redpanda or Confluent Cloud) is exercised.
+confluent-kafka>=2.3
 
 # Podcast Intelligence (migration 425)
 yt-dlp>=2024.0.0
