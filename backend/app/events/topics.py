@@ -17,6 +17,22 @@ class Topics:
     DEAD_LETTER = "winston.dead-letter.v1"
 
 
+def hr_stream_topic(prefix: str, kind: str, domain: str | None = None) -> str:
+    """History Rhymes cockpit stream topics (additive beside the constants).
+
+    ``hr_stream_topic("hr.dev", "signal", "macro")`` -> ``hr.dev.signal.macro.v1``;
+    ``kind`` in {"signal", "alerts", "snapshots"} — "signal" requires a domain.
+    The legacy ``Topics.HR_SIGNALS`` constant and its sink routing are untouched.
+    """
+    if kind == "signal":
+        if not domain:
+            raise ValueError("signal topics require a domain")
+        return f"{prefix}.signal.{domain}.v1"
+    if kind in ("alerts", "snapshots"):
+        return f"{prefix}.{kind}.v1"
+    raise ValueError(f"unknown hr stream topic kind: {kind!r}")
+
+
 class EventTypes:
     """Canonical event_type strings. Kept here so producers and any future
     type-aware routing share one source of truth."""
