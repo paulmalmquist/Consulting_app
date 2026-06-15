@@ -8,6 +8,7 @@ import AccountMenu from "@/components/AccountMenu";
 import { useEnv, type Environment } from "@/components/EnvProvider";
 import { humanIndustry } from "@/components/lab/environments/constants";
 import IntelligenceCardFeed from "@/components/intelligence/IntelligenceCardFeed";
+import { InvestigateButton } from "@/components/investigation/InvestigateButton";
 import {
   getCards,
   upsertCard,
@@ -1004,15 +1005,25 @@ function AppIndexPageInner() {
 
                 <div className="flex items-center justify-between gap-4">
                   <AgentPills />
-                  {selectedEnvironment ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowPreview((v) => !v)}
-                      className="shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:text-white/75"
-                    >
-                      {showPreview ? "← Intelligence" : "Workspace preview →"}
-                    </button>
-                  ) : null}
+                  <div className="flex shrink-0 items-center gap-3">
+                    {selectedEnvironment ? (
+                      <InvestigateButton
+                        envId={selectedEnvironment.env_id}
+                        businessId={selectedEnvironment.business_id ?? undefined}
+                        title={`${selectedEnvironment.client_name} investigation`}
+                        sourceRef={{ type: "environment", env_id: selectedEnvironment.env_id }}
+                      />
+                    ) : null}
+                    {selectedEnvironment ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowPreview((v) => !v)}
+                        className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:text-white/75"
+                      >
+                        {showPreview ? "← Intelligence" : "Workspace preview →"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 {showPreview && previewEnvironment ? (
