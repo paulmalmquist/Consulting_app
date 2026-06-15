@@ -24,6 +24,18 @@ export function statusColor(status: string): string {
   return C.red; // missing
 }
 
+// Lifecycle states map to accents that read at a glance: green = validated,
+// amber = pending/degraded, red = blocked, neutral = declared/discovered.
+// read_validated is the ONLY green state — it means a validator actually ran.
+export function lifecycleColor(state: string): string {
+  if (state === "read_validated") return C.green;
+  if (state === "credential_pending" || state === "validating") return C.accent;
+  if (state === "degraded") return C.amber;
+  if (state === "blocked") return C.red;
+  if (state === "retired") return C.faint;
+  return C.dim; // declared, discovered
+}
+
 export function Tag({ color, children }: { color: string; children: ReactNode }) {
   return (
     <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase",

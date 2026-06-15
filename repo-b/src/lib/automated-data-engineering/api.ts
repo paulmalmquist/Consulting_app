@@ -75,6 +75,39 @@ export interface GovernanceTopTool {
   avg_latency: number | null;
 }
 
+export type LifecycleState =
+  | "declared"
+  | "discovered"
+  | "credential_pending"
+  | "validating"
+  | "read_validated"
+  | "degraded"
+  | "blocked"
+  | "retired";
+
+export interface ValidationReceipt {
+  outcome: string;
+  detail: string | null;
+  checked: string | null;
+}
+
+export interface ConnectorLifecycleRow {
+  provider: string;
+  declared_status: ConnectorStatus;
+  mode: string;
+  evidence_path: string | null;
+  reason: string;
+  risk_tier: string;
+  state: LifecycleState;
+  null_reason: string | null;
+  receipt: ValidationReceipt | null;
+}
+
+export interface ConnectorLifecycleResponse {
+  connectors: ConnectorLifecycleRow[];
+  null_reason: string | null;
+}
+
 export interface GovernanceStatsResponse {
   total_decisions: number;
   successful: number;
@@ -98,6 +131,11 @@ export const getToolDetail = (name: string) =>
 
 export const getConnectors = () =>
   apiFetch<ConnectorsResponse>("/api/ade/connectors");
+
+export const getConnectorLifecycle = (validate = true) =>
+  apiFetch<ConnectorLifecycleResponse>("/api/ade/connector-lifecycle", {
+    params: { validate: String(validate) },
+  });
 
 export const getReceipts = (env: string, biz: string) =>
   apiFetch<ReceiptsResponse>("/api/ade/runs", {

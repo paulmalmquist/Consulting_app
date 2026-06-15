@@ -10,6 +10,7 @@ Paths:
     GET /api/ade/skill-registry
     GET /api/ade/skill-registry/{name}
     GET /api/ade/connectors
+    GET /api/ade/connector-lifecycle
     GET /api/ade/runs
     GET /api/ade/governance-stats
 """
@@ -21,6 +22,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.mcp.registry import registry  # populated by _register_all_tools() in app.main at startup
 from app.observability.logger import emit_log
+from app.services import ade_connector_lifecycle
 from app.services import ade_connectors
 from app.services import ade_warehouse_export
 from app.services import audit as audit_svc
@@ -102,6 +104,29 @@ def skill_detail(name: str):
 def connectors():
     """Declared connector inventory. Statuses are declarations, never probes."""
     return {"connectors": ade_connectors.list_connectors(), "null_reason": None}
+
+
+@router.get("/connector-lifecycle")
+def connector_lifecycle(validate: bool = Query(True)):
+    """Read-only connector lifecycle state derived from the declared inventory.
+
+    For each connector: declared floor -> (optional safe read-only validator) ->
+    one of declared|discovered|credential_pending|validating|read_validated|
+    degraded|blocked|retired. A connector reaches read_validated only when a real
+    safe validator actually ran and succeeded; every validation attempt leaves a
+    receipt. Connectors with no safe validator keep their floor state and a
+    null_reason. Pass validate=false to see the declared floor with no validators.
+
+    Fails closed: any unexpected error returns an empty set with a null_reason
+    rather than a 500.
+    """
+    try:
+        report = ade_connector_lifecycle.compute_lifecycle(run_validators=validate)
+        return report.to_dict()
+    except Exception as exc:  # noqa: BLE001
+        emit_log(level="error", service="ade", action="connector_lifecycle_failed",
+                 message=str(exc), error=exc)
+        return {"connectors": [], "null_reason": "connector_lifecycle_unavailable"}
 
 
 @router.get("/runs")

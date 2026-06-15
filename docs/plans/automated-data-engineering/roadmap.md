@@ -2,6 +2,18 @@
 
 None of this is in PR 1. The non-goals in `eval-plan.md` enforce that.
 
+## Shipped
+
+- **PR 2 — Connector Lifecycle State Machine (read-only).** ADO Story #581. The static
+  declared inventory now derives an eight-state lifecycle
+  (`declared → discovered → credential_pending → validating → read_validated → degraded
+  → blocked → retired`) with validation receipts. One safe validator wired by default
+  (in-process MCP registry); Postgres ping implemented opt-in. See `architecture.md`
+  "New in PR 2". Still read-only — no BYO keys, no provider abstraction, no live writes.
+  Next safe validators to add as the work continues: a Postgres ping enabled per-env, and
+  a read-only GitHub/Vercel/Railway reachability check once a credential-free safe call is
+  identified.
+
 ## Model access (ADR 0001)
 
 - Provider abstraction with three modes: Winston-managed (current), bring-your-own-key,
