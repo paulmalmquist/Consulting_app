@@ -3256,3 +3256,286 @@ PR 2 turns the static connector inventory (`ade_connectors.py`, `live|stub|scrip
 ### ADE read-only HTTP provider validators: missing-token = no-call is the honesty boundary (2026-06-15)
 
 PR 3 added GitHub/Vercel/Railway reachability validators to the connector lifecycle. The one rule that makes "read-only reachability" honest rather than theater: a missing token returns `credential_missing` and makes **NO outbound call** — env-var presence is never treated as validation, and only a real 2xx read produces `ok`/`read_validated`. Enforce GET-only with a module constant (`_ALLOWED_HTTP_METHOD="GET"`) and a hard per-request `httpx` timeout (5s); map timeout/transport-error/401/403/5xx all to `degraded`, never `ok`. Two gotchas that bit during the build: (1) the existing `test_no_secrets_in_receipts` test rejects ANY receipt containing the substrings password/secret/**token**/api_key — so receipt `detail` must avoid the bare word "token" even in benign phrasing. Use neutral wording ("credential not configured" for missing, "credential accepted" for success, "auth rejected (HTTP 401)" for invalid) — never echo the env-var name or `f"{token_env} not set"`. (2) Test the no-call guarantee by monkeypatching `httpx.request` with a spy that raises if called, then asserting it was hit 0 times when the token is absent — a state-only assertion would pass even if a call leaked. Mock `httpx.request` (not the client) so `httpx.Response(status)` construction stays trivial; CI makes zero live calls. Wire Postgres `SELECT 1` from `OPTIONAL_VALIDATORS` into the default set via a `_build_validators()` factory gated by `ADE_ENABLE_POSTGRES_VALIDATOR` (default on, falsey to disable) — build once at import into `_VALIDATORS`.
+
+---
+
+## 2026-06-13 — Telemetry Trust Layer architecture review (Factory Pattern Intelligence)
+
+Durable traps surfaced while assessing the "Factory Pattern Intelligence" idea against the repo. Full
+review: `docs/plans/03-implementation-plans/active/factory-pattern-intelligence.md`. Working name going
+forward is **Telemetry Trust Layer** (plain, accurate, doesn't overpromise).
+
+**The telemetry platform is already shipped — do not propose greenfield GCP/Vertex/Dataflow for
+Trust/Divergence work.**
+Dispatch `0003` (`docs/plans/03-implementation-plans/active/0003-telemetry-platform-build.md`) shipped
+Phases 0–6 on 2026-06-01: C-MAPSS RUL + SMAP/MSL anomaly on a Databricks medallion, MLflow registry
+with promotion gates, `tel_*` serving (`backend/app/services/telemetry_serving.py`), a 5-page telemetry
+env UI, deterministic replay, live on Railway + novendor.ai. Confluent Kafka + Flink already runs for
+Stargate (`infra/confluent/stargate/`, `stargate_bridge.py`). A new prognostics feature is a capability
+layer on this, not a platform build. Proposing Kafka→Dataflow→BigQuery→Vertex from scratch rebuilds
+owned infrastructure and reads as not knowing the stack.
+
+**The existing RUL champion is NOT literature-competitive — never call it so without improving RMSE.**
+`telemetry-platform/databricks/notebooks/train_rul.py` ships a GBM at **RMSE 20.32 / PHM 1423 on FD001**
+(its gate was ≤25). The literature-credible bar is **≤13** (SOTA ~11; Li et al. 2018 floor 12.61).
+Citing 20.32 as "competitive" is a credibility hit. The PHM08 asymmetric score (`phm_score()`) is
+already implemented and is comparable only on identical test sets.
+
+**`tel_fused_state_vectors VECTOR(256)` already exists (Phase 7A scaffold) — reuse it, don't add a
+parallel embedding table.** It is the intended home for telemetry degradation embeddings.
+
+**History Rhymes pgvector retrieval is the proven analog-search template.**
+`backend/app/services/history_rhymes_service.py` `_pgvector_search` (cosine `<=>`, top-k, HNSW over
+`episode_embeddings VECTOR(256)`) is live and is the pattern to copy for fleet analog retrieval — swap
+the encoder, keep the retrieval shape. Do not build a new nearest-neighbor path.
+
+**"Factory Pattern Intelligence" is a naming collision and wrong framing.** It clashes with
+`tel_ncr_records` "Factory & NCR Intelligence" (migration `10016`) and misdescribes aerospace turbofan
+RUL content. Use **Telemetry Trust Layer** before any schema or route is created.
+
+**Gate 0 must precede any infrastructure.** A within-band distance-vs-error Spearman ρ check (conditioned
+on predicted-RUL band, with a bootstrap CI per band) over the existing C-MAPSS gold tables falsifies or
+validates the whole trust thesis in ~½ day, training nothing — using the existing PCA/fused vector and
+the shipped RUL predictions. Train the SupCon encoder only on a weak-but-real result; a dead ρ kills the
+project before a dollar of build.
+
+**Reusable lessons go to canonical `docs/tips.md` (~380 KB), never the root `tips.md` duplicate.**
+The root file is do-not-write; this file is the one loaded for situational awareness.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 credential + data reconciliation (Telemetry Trust Layer)
+
+Verified creds and inspected the live workspace before writing any notebook. Two durable traps:
+
+**Databricks CLI v1.0.0 rejects the cached PAT — force `DATABRICKS_AUTH_TYPE=pat`.**
+With a valid `dapi…` PAT in `claude_token.txt`, `databricks current-user me` failed with "stored
+credentials from older CLI versions are no longer used; run `databricks auth login` … or set
+`DATABRICKS_AUTH_STORAGE=plaintext`". The fix that authenticates without an interactive login:
+```
+export DATABRICKS_HOST="https://dbc-2504bec5-b5ab.cloud.databricks.com"
+export DATABRICKS_TOKEN="$(tr -d ' \t\r\n' < claude_token.txt)"
+export DATABRICKS_AUTH_TYPE="pat"
+export DATABRICKS_CONFIG_FILE="/dev/null"   # bypass the stale ~/.databrickscfg cache
+```
+For ad-hoc SQL, `databricks api post /api/2.0/sql/statements` returns "Not Found" in v1.0.0 — use
+`curl` against `$HOST/api/2.0/sql/statements` directly (warehouse `0e56420fb707d861`). Capture stdout
+to a file (don't pipe straight into `python`; CLI warnings on stderr corrupt the JSON parse), and use a
+repo-relative temp dir — Git Bash `/tmp` paths don't round-trip to the Windows Python interpreter.
+
+**The C-MAPSS RUL lane and the fused-vector embedding are DIFFERENT datasets — they don't join.**
+In `novendor_1.telemetry`: `gold_cmapss_features` (FD001: 20,631 train / 13,096 test, 100 units) has
+`unit, cycle, rul_target` + ~47 sensor/rolling features but **no embedding and no stored predictions**
+(only ground-truth `rul_target`). `gold_fused_state_vectors` (and its Postgres mirror
+`tel_fused_state_vectors`) is the **SMAP/MSL anomaly lane** (128 windows, `source_channels` = spacecraft
+IDs A-1/D-4/E-12/…), not turbofans. So you cannot "reuse the existing fused vector for C-MAPSS RUL." A
+Trust-Layer Gate 0 must **derive** a cheap C-MAPSS embedding from `gold_cmapss_features` (z-score + PCA
+on existing features) and **derive** predictions by loading the registered `tel_rul_regressor` champion
+for inference. Both are existing-feature transforms / frozen inference — still "no training." The Gate 0
+ticket was reconciled to this reality before any run.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 run (BLOCKED) — C-MAPSS test has no per-cycle RUL truth
+
+Gate 0 ran on Databricks (4 attempts) and **blocked without a verdict**. Receipt:
+`docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`. Three durable facts:
+
+**C-MAPSS TEST rows have NO per-cycle `rul_target` — it is 100% NaN by dataset construction.**
+`novendor_1.telemetry.gold_cmapss_features` FD001: `split=test` is 13,096 rows with **0** non-null
+`rul_target`; `split=train` is 20,631 rows fully populated. C-MAPSS test units are truncated and publish
+only ONE final-cycle RUL per unit, stored in `silver_cmapss_rul` (100 units). So any "score all test
+cycles and correlate per-window error" design is impossible on the test split — there is no per-cycle
+target. `train_rul.py` sidesteps this by evaluating **last-cycle-per-unit** (100 points) merged from
+`silver_cmapss_rul`. For per-cycle density analysis, use the **train** split (truth exists) with a
+held-out unit fold, not the test split.
+
+**`tel_rul_regressor` requires `scikit-learn==1.4.2` to load — pin it or `predict()` raises.**
+The champion (run `c970fdcc`, GBM) was pickled under sklearn 1.4.2. Newer sklearn removes
+`GradientBoostingRegressor`'s `HalfSquaredError.get_init_raw_predictions`, so `predict()` throws
+`AttributeError`. Always pin `scikit-learn==1.4.2` when loading it.
+
+**Serverless ML job submission shape (what actually works).**
+`POST /api/2.1/jobs/runs/submit` with the task carrying `environment_key: "Default"` AND a job-level
+`environments: [{environment_key:"Default", spec:{client:"2", dependencies:["mlflow","scikit-learn==1.4.2"]}}]`.
+A bare serverless task has no mlflow/sklearn (run 1 died on `No module named 'mlflow'`). Notebook output
+only escapes via `dbutils.notebook.exit(json)`; serverless stdout is NOT returned by `runs/get-output`,
+so a crash before `exit()` loses all printed results — persist intermediates if you need them on failure.
+On Windows Git Bash, set `MSYS_NO_PATHCONV=1` or workspace paths like `/Users/...` get mangled to
+`C:/Program Files/Git/Users/...`.
+
+---
+
+---
+
+## 2026-06-13 — Gate 0 VERDICT: KILL — embedding distance anti-correlates with RUL error
+
+Gate 0 completed (Option B: FD001 train split, 80 fleet / 20 held-out units, real per-cycle truth,
+4,311 windows). Receipt: `docs/plans/03-implementation-plans/evidence/telemetry-trust-gate0.{json,md}`.
+
+**The cheap z-score+PCA embedding's distance ANTI-correlates with RUL error — the thesis is refuted.**
+Within-band Spearman ρ(kNN distance, |error|) is negative in ALL five predicted-RUL bands (overall
+−0.127; bands −0.135, −0.160, −0.073, −0.053, −0.045), with 3 of 5 CIs excluding zero on the negative
+side. Far-from-fleet windows have slightly *lower* error. The mechanical rule (positive-CI band →
+continue/SupCon; else kill) lands on **kill** — a negative significant result is a stronger refutation
+than flatness and does NOT route to SupCon. So: do not build the Trust Layer (no SupCon, no schema, no
+UI) on the cheap-path thesis. Likely mechanism for the anti-correlation: late-life C-MAPSS windows are
+both more self-similar (near the fleet) AND lower-error, so a generic feature embedding conflates "near
+the fleet" with "easy to predict." Revisiting the thesis is a research question, not a build.
+
+**Process note that held up:** Gate 0 did exactly its job — killed the idea cheaply (one ~½-day notebook,
+frozen inference, no SupCon spend) before any infrastructure. The "no-training, falsify first" gate is
+worth keeping as a pattern for future thesis-driven builds.
+
+---
+
+---
+
+## 2026-06-13 — Killed-hypothesis guard + telemetry RUL benchmark/calibration notes
+
+**Embedding-distance trust is KILLED for telemetry — do not revive it without a NEW falsification plan.**
+Gate 0 proved that on C-MAPSS FD001, embedding distance from the fleet *anti-correlates* with RUL error
+(see `docs/plans/03-implementation-plans/evidence/telemetry-trust-negative-result-writeup.md`). Any future
+telemetry work that proposes SupCon, contrastive retrieval, novelty/embedding-distance trust, pgvector
+analog trust, or a Trust/Divergence schema/UI is reviving a refuted thesis and must be rejected unless a
+fresh, approved kill-test reopens it. The successor build is calibrated RUL uncertainty (conformal
+intervals), NOT analog-distance trust — a different and defensible claim. Plan:
+`docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md`.
+
+**C-MAPSS RUL benchmark comparability — three traps.** (1) The shipped champion is **RMSE 20.32 / PHM
+1423 on the last-cycle-per-unit benchmark** (one row per test unit, truth from `silver_cmapss_rul`); the
+literature-credible FD001 bar is **≤ ~13**. Never call 20.32 competitive. (2) **Last-cycle RMSE ≠
+all-cycle/per-cycle RMSE** — they are different quantities; never compare across them. (3) The **PHM08
+Score is comparable only on identical test sets** and is dominated by a few large late-prediction errors;
+always report RMSE beside it. PHM08 is asymmetric — late (optimistic) RUL is penalized harder (a=10) than
+early (a=13); `phm_score()` is already implemented at `telemetry-platform/databricks/notebooks/train_rul.py:58`.
+
+**Conformal-calibration methodology — the gate that actually matters.** For honest RUL uncertainty: hold
+out a dedicated **calibration split with units disjoint from train and test** (split-conformal or CQR),
+target nominal 80%/90%, and judge by **PICP within ±0.03 of nominal** — but always report **MPIW/PINAW**
+too, because an interval can "pass" coverage by being uselessly wide. Generate a reliability diagram
+(observed vs nominal) and call out late-prediction cases explicitly. Coverage is a hard gate; build no UI
+until it passes.
+
+---
+
+---
+
+## 2026-06-13 — Calibration baseline ran: gate PASS, plus the per-cycle PHM trap
+
+Ticket 1 (`telemetry-calibration-baseline.py`) reproduced the FD001 benchmark exactly (**RMSE 20.322 /
+PHM 1423.33**, last-cycle-per-unit) and **passed the calibration gate**: split-conformal intervals on
+disjoint train units give PICP 0.788 @ 80% and 0.895 @ 90% (both within ±0.03), reliability monotone
+across 6 levels. Evidence: `docs/plans/03-implementation-plans/evidence/telemetry-calibration-baseline.{json,md}`.
+
+**PHM08 is a per-UNIT (last-cycle) metric — NEVER compute it per-cycle.** Applied per-cycle over
+thousands of early-life windows (large RUL gaps), the asymmetric exponential terms explode (this run hit
+`phm_per_cycle` ~98,776, a meaningless artifact). Report PHM only on the last-cycle-per-unit benchmark;
+use RMSE for per-cycle/windowed eval. `phm_score()` lives at `train_rul.py:58`.
+
+**Conformal coverage can PASS while intervals are uselessly wide — always report MPIW/PINAW.** The
+passing run had MPIW ~43–56 cycles (PINAW ~0.34–0.45). Coverage was honest *because* the band was
+generous. A PICP-only report would hide that. Width is the next quality lever (stronger model / CQR for
+adaptive width), not a reason to claim the calibration is "good" on coverage alone.
+
+**Split-conformal recipe that worked here:** disjoint-unit fit/calib/internal-test (60/20/20 of the 100
+FD001 train units, seed 0); conformal q = the ceil((m+1)·level)-th smallest |residual| on the calib set;
+symmetric band pred±q clipped to [0, RUL_CAP]. Finite-sample valid, no distributional assumption, ~1 min
+on serverless. Late-side miss rate at 90% was 0.8% — the band catches ~99% of dangerously-optimistic
+predictions, which is the safety property worth showing.
+
+---
+
+---
+
+## 2026-06-13 — CNN-LSTM challenger graduated; torch-on-serverless + asymmetric conformal
+
+Ticket 2: a CNN-LSTM beat the GBM baseline and **graduated** as FD001 RUL champion (RMSE 17.33 vs 20.32,
+PHM 742 vs 1423, calibrated 80/90% coverage, tighter intervals). Evidence:
+`docs/plans/03-implementation-plans/evidence/telemetry-calibration-challenger.{json,md}`. Reusable bits:
+
+**PyTorch CPU works on Databricks serverless — probe first, then it's cheap.** The Default serverless env
+has NO tensorflow/keras/torch (only sklearn 1.3 / numpy / pandas). Adding `torch==2.2.2` to the job
+`environments[].spec.dependencies` installs a CPU build that imports in ~3 s; a small CNN-LSTM (Conv1D×2
+→ LSTM → Dense) over ~20k C-MAPSS windows trains in ~40 s. Always run a one-cell import probe before
+authoring a DL notebook — a missing framework otherwise burns a full run.
+
+**C-MAPSS sequence models read from `silver_cmapss`, not `gold_cmapss_features`.** Silver has the 21 raw
+per-cycle sensors + op settings + per-cycle `rul_target` (on train) — the right source for 30-cycle
+sliding windows. Gold is pre-rolled per-cycle features (good for tree models, wrong shape for a CNN-LSTM).
+Standard FD001 sensor selection (drop near-constant): 2,3,4,7,8,9,11,12,13,14,15,17,20,21.
+
+**Conformal undercoverage at one level is a calibration fix, NOT a model fix.** A challenger can win RMSE
+but fail the gate because its 80% interval undercovers (symmetric ±q from a small calib set is the usual
+culprit). Two no-retrain fixes that fixed it here: (1) **asymmetric** split-conformal (separate lower/upper
+signed-residual quantiles — fits RUL's asymmetric error), and (2) enlarge the calibration pool (fold the
+early-stopping val units into calib once they've done their job). Reuse the SAME model weights (same seed,
+no retrain); change only the conformal step. Keep the gate logic byte-identical across the retry so the
+pass is the calibration's doing, not a moved goalpost.
+
+**Graduation gate that held:** a challenger replaces the champion only if RMSE better AND PHM not worse AND
+PICP calibrated (±0.03) AND MPIW narrower-or-similar; if RMSE better but MPIW widens, it graduates only on
+*materially* better PHM (≤90% of baseline) with written justification. PHM08 is the late-prediction safety
+metric — RMSE-better-but-PHM-worse is a safety regression, not a tradeoff.
+
+---
+
+---
+
+## 2026-06-13 — Telemetry calibration demo screen (Ticket 3) — UI conventions + honesty
+
+Built the RUL Calibration screen at `/lab/env/[envId]/telemetry/calibration`
+(`repo-b/src/components/telemetry/RulCalibration.tsx`). Reusable conventions:
+
+**Adding a telemetry screen is 3 small edits — the shell does the rest.** (1) one entry in
+`repo-b/src/components/telemetry/telemetryNav.ts` (desktop rail + mobile drawer + bottom bar all consume
+it); (2) `app/lab/env/[envId]/telemetry/<slug>/page.tsx` that just renders the component; (3) the
+component. `telemetry/layout.tsx` auto-wraps every page in `TelemetryShell` (full-bleed, dark palette),
+so pages never import the shell. `/telemetry` is already a full-bleed `isDomainRoute` token — no shell work.
+
+**Build telemetry UI from `components/telemetry/primitives.tsx`, inline styles only.** `C` (palette),
+`PageHeading`, `Panel`, `MetricCard`, `StatGrid` (cols 3/4/5), `SplitGrid` (variants), `Tag`,
+`EmptyState`/`ErrorState`, `DisclosureFooter`. The whole surface is inline-style on purpose (dark console,
+theme-independent), so IDE "no inline styles" warnings are EXPECTED and match convention — do not refactor
+to CSS files. Layout uses literal Tailwind classes inside primitives (never composed from props). Charts:
+use inline SVG with `C` colors (band = filled path, lines = stroke); do NOT add a chart dependency.
+
+**Calibration demo data: static fixture from the committed artifact, clearly labeled — never live.**
+The evidence JSON has scalar metrics + real conformal q values but no per-cycle trajectory. Put a static
+fixture in `lib/telemetry/<name>.ts` with metrics copied verbatim from the artifact and a representative
+trajectory whose interval bands use the model's REAL q_lower/q_upper (so geometry is honest), label it
+"Replay / evidence artifact" on screen, use deterministic pseudo-noise (no Math.random — identical every
+build). No Databricks query from the frontend, no backend, no schema for a demo screen.
+
+**Killed-claim hygiene in UI:** the screen mentions embedding-distance "trust" ONLY in the
+negative-result bridge ("killed by Gate 0… this screen does not revive that claim"). A vitest assertion
+guards it: `body.textContent` must NOT match `/SupCon|analog retrieval|pgvector|novelty distance/i`. Reuse
+that pattern to keep killed hypotheses from creeping back into surfaces. repo-b runner is **vitest**
+(`npx vitest run <file>`), no `test` script; typecheck `npx tsc --noEmit -p tsconfig.typecheck.json`.
+
+### `az boards work-item relation add` rejects `--project` — links fail silently without it (2026-06-15)
+
+The intake skill's example passes `--project Novendor` alongside `--org` on every board command, but `az boards work-item relation add` does NOT accept `--project` (only `create`/`update`/`show` do). Passing it makes the command exit with `ERROR: unrecognized arguments: --project Novendor` — and if you piped the result through a `--query` that swallows stderr, the parent link silently never gets created (the `System.Parent` field stays empty). Correct form for `relation add`: `--id`, `--relation-type parent`, `--target-id`, `--org` only. Always re-read `System.Parent` with `work-item show` afterward to confirm the link took — a created work item with no parent passes most checks but breaks the Epic→Feature→Story→Task hierarchy. Hit while creating ADE PR 2 items (#580 Feature → Epic #353): the first link attempt with `--project` failed silently, the field was empty on verify, re-running without `--project` set it.
+
+---
+
+---
+
+## 2026-06-15 — Visual verification of a pure telemetry screen without auth/dev-server
+
+The telemetry routes are auth-gated and `next dev` + Supabase login is unreliable here (dispatch 0003's
+one gap was "authenticated production screenshot not capturable"). For a **pure, deterministic** component
+(static fixture, no API/auth — like the RUL Calibration screen), you can screenshot the REAL component
+without any of that: bundle a `renderToStaticMarkup(<Component/>)` entry with **esbuild** (already a dep;
+`alias:{'@':path.resolve('src')}`, `jsx:'automatic'`, react/react-dom external), write the HTML, and
+screenshot with **Playwright** (chromium already installed) at desktop (1280) + mobile (390) widths.
+Caveat that MUST be stated: a `renderToStaticMarkup` harness has **no Tailwind**, so layout classes
+(`StatGrid`/`SplitGrid` grids) collapse to single-column and the first screenshot looks wrong. Inject the
+handful of real grid rules (`.lg:grid-cols-5`, the `minmax` split templates, `sm:` breakpoints) into the
+page `<style>` to get a faithful layout. Keep the harness ephemeral (a temp `.veval/` dir); commit only
+the PNGs. This verifies typography/color/chart/content/contrast/reflow honestly — but it is NOT an
+end-to-end auth+route load; say so and don't claim the live route was exercised.
