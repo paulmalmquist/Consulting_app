@@ -85,6 +85,14 @@ export default function ConnectorMap() {
                   <p style={{ fontFamily: C.mono, fontSize: 11, color: C.green, lineHeight: 1.55, marginTop: 8 }}>
                     ✓ {c.receipt.detail ?? "validated"}
                   </p>
+                ) : c.state === "credential_pending" ? (
+                  <p style={{ fontFamily: C.mono, fontSize: 11, color: lColor, lineHeight: 1.55, marginTop: 8 }}>
+                    Credential needed — no call made. {c.receipt?.checked ? `Would run: ${c.receipt.checked}.` : ""}
+                  </p>
+                ) : c.state === "degraded" ? (
+                  <p style={{ fontFamily: C.mono, fontSize: 11, color: lColor, lineHeight: 1.55, marginTop: 8 }}>
+                    Validator ran, not healthy — {c.receipt?.detail ?? c.null_reason ?? "degraded"}
+                  </p>
                 ) : notAvailable ? (
                   <p style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, lineHeight: 1.55, marginTop: 8 }}>
                     Not validated — {c.null_reason ?? c.reason}

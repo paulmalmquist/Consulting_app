@@ -35,6 +35,20 @@ future PR that changes the surface updates this file in the same change.
 - receipts carry no secret-looking values (explicit test)
 - the opt-in Postgres validator degrades (never raises) with no DB
 
+## Backend — PR 3 provider reachability
+
+- `pytest backend/tests/test_ade_provider_reachability.py` passes; PR 1/PR 2 ADE
+  suites stay green
+- Postgres validator is wired by default and dropped when
+  `ADE_ENABLE_POSTGRES_VALIDATOR=false`
+- HTTP validators (GitHub/Vercel/Railway): missing token → `credential_missing`
+  with **no outbound call** (explicit test asserts `httpx.request` is never called)
+- invalid token (401/403), timeout, 5xx, and transport error all → `degraded`, never `ok`
+- a real 2xx → `ok` (the only `read_validated` path)
+- only GET is ever issued (explicit test captures the method)
+- the bearer token never appears in a receipt (explicit test with a fake secret)
+- all HTTP is mocked in CI; no live network call
+
 ## Frontend
 
 - `repo-b` typecheck/build passes (project convention)
