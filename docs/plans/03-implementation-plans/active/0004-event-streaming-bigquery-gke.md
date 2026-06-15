@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13) · Phase 5B COMPLETE (all 8 HR signals, real manual-bundle path, bounded replay; live receipt 2026-06-15). Phase 6 planned. ADO: Stories #521, #558, #571, #600 under Feature #520 / Epic #221.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13) · Phase 5B COMPLETE (all 8 HR signals, real manual-bundle path, bounded replay; live receipt 2026-06-15) · Phase 6A COMPLETE (BigQuery analytics foundation — deduped views + execution/HR rollups; applied + verified on paultest-d3cb1 2026-06-15). ADO: Stories #521, #558, #571, #600, #607 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -56,7 +56,8 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | DONE (2026-06-13) |
 | 10a | 5A | HR signal ingestion — 1–2 signals through the spine: `hr_signal_publisher.py`, `history-rhymes.signals.v1`, GKE sink dual-topic, live receipt | No | Med | DONE (2026-06-13) |
 | 10b | 5B | Remaining HR signals (all 8) + real manual-bundle adapter; bounded replay tooling; live receipt | No | Med | DONE (2026-06-15) |
-| 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
+| 11a | 6A | `winston_events_analytics` dataset + `events_deduped` view + execution/HR rollup views (`infra/gcp/bigquery/analytics/`); applied + verified live | No | Low | DONE (2026-06-15) |
+| 11b | 6B | Scheduled/materialized rollups + replay-aware refresh on top of the 6A views | No | Low | TODO |
 
 ---
 
@@ -285,9 +286,33 @@ Malformed HR signal (offset 12) → dead_letter=True:
 
 **Cluster:** deleted at session end (no Phase 6 this session). Recreate from `infra/k8s/README.md`.
 
-## Phase 6 — milestones (planned)
+## Phase 6A — per-ticket detail (DONE 2026-06-15)
 
-- **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling. Now has real event diversity (execution events + 8 HR signals) to make rollups meaningful.
+### Ticket 11a — BigQuery analytics foundation
+The semantic layer. Every rollup/dashboard reads from `winston_events_analytics`, never from raw `winston_events_raw.events`. ADO Story #607, Tasks #608–613. SQL/docs only — no GKE, no app code, no Postgres.
+
+**The load-bearing decision (from the Phase 5B replay finding):** raw events are append-only and may contain replay duplicates (`insertId` dedup is not durable). So `events_deduped` does query-time dedup on the stable `idempotency_key` (`ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at ASC, event_id ASC) = 1`), and **all** rollups build on it.
+
+- `infra/gcp/bigquery/analytics/00_dataset.sql` — `winston_events_analytics` dataset.
+- `01_events_deduped.sql` — `events_deduped` view (the foundation; dead-letter rows dedup too via their `dead_letter:<hash>` key).
+- `02_execution_analytics.sql` — `execution_events_daily`, `execution_run_lifecycle`, `dead_letter_daily`.
+- `03_hr_signal_analytics.sql` — `hr_signals_observed`, `hr_signal_latest`, `hr_signal_freshness_summary`, `hr_signal_counts_daily`, `hr_dead_letters`.
+- `analytics/README.md` — apply commands, acceptance queries, raw-duplicates warning.
+
+**Phase 6A acceptance receipt — applied + verified on `paultest-d3cb1` (2026-06-15):**
+```
+1. raw vs deduped:        raw_rows=22  deduped_rows=17  (5 replay dupes collapsed)
+2. replayed HR bundle:    raw 11 -> deduped 8 hr.signal.observed rows for hr-bundle:2026-06-15
+3. hr_signal_latest:      returns all 8 canonical 5B signals (housing nested dict + fed_tone
+                          string preserved) + the 2 earlier 5A signals (distinct names) = 10 total
+4. hr_dead_letters:       2 malformed events (5A junk2 + 5B mvrv_z-oops), reasons + raw bytes
+5. execution_events_daily: backend x3, broker_smoke x1, gke_receipt x1 (execution.completed)
+```
+The semantic layer is correct against real, duplicate-containing data: aggregating raw would have double-counted the 5 replayed rows; the deduped views do not.
+
+## Phase 6B — milestones (planned)
+
+- **Phase 6B — scheduled/materialized rollups.** Materialize the 6A views (scheduled queries or `CREATE TABLE AS` refresh) for cost/perf once query volume justifies it; replay-aware refresh. The 6A views are the contract these build on.
 
 ---
 
