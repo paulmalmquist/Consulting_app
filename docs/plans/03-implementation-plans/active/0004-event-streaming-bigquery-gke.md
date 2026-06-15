@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13). Phase 5B+ and 6 planned. ADO: Stories #521, #558, #571 under Feature #520 / Epic #221.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13) · Phase 5B COMPLETE (all 8 HR signals, real manual-bundle path, bounded replay; live receipt 2026-06-15). Phase 6 planned. ADO: Stories #521, #558, #571, #600 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -55,7 +55,7 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 9a | 4 | Sink worker loop `backend/app/events/sink_worker.py` + entrypoint + Dockerfile + 9 tests | No | Med | DONE (2026-06-13) |
 | 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | DONE (2026-06-13) |
 | 10a | 5A | HR signal ingestion — 1–2 signals through the spine: `hr_signal_publisher.py`, `history-rhymes.signals.v1`, GKE sink dual-topic, live receipt | No | Med | DONE (2026-06-13) |
-| 10b | 5B | Remaining HR signals (all 8) + wire to the real manual-bundle path; replay tooling | Maybe | Med | TODO |
+| 10b | 5B | Remaining HR signals (all 8) + real manual-bundle adapter; bounded replay tooling; live receipt | No | Med | DONE (2026-06-15) |
 | 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
 
 ---
@@ -260,10 +260,34 @@ Dead-letter proof (malformed HR payload):
 ```
 The same observational sink drained HR events with zero sink logic changes (only the REQUIRED-key dead-letter fix). HR signals are queryable by `run_id` / `event_id` / `JSON_VALUE(payload,'$.signal_name')`.
 
-## Phase 5+ — milestones (planned)
+## Phase 5B — per-ticket detail (DONE 2026-06-15)
 
-- **Phase 5B — HR showcase (rest).** The remaining History Rhymes signals (all 8) wired to the real manual-bundle path; replay tooling. The decision runner still reads Postgres (authoritative); these events stay additive observability.
-- **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
+### Ticket 10b — all 8 HR signals + real bundle adapter + replay
+ADO Story #600, Tasks #601–606. Built on Phase 5A; no second event abstraction, no Postgres writes, no migration (the real bundle is read as JSON / emitted as events; `hr_signal_snapshots` and the decision runner are untouched).
+- `backend/app/events/hr_signal_publisher.py`: added `HR_SIGNAL_NAMES` (the canonical 8: `mvrv_z, yc_10y2y, vix_term, housing, cmbs_delinq, fed_tone, crypto_flow, macro_surprise`) and `real_bundle_to_envelopes()` / `publish_real_bundle()`. The real manual bundle (`scripts/hr_weekly_brief.py` shape) carries signals as a **flat `{name: value}` map** (scalar / nested dict / string) + a sibling `per_signal_freshness` map + `source` — different from Phase 5A's pre-structured shape, so it gets a dedicated adapter that reuses `signal_to_envelope`. `per_signal_freshness[name] → staleness_status`; raw value preserved as `signal_value` (any JSON type). Unknown signals ignored (forward-compat); a bundle with none of the canonical 8 raises `InvalidSignalBundle`.
+- `scripts/streaming/publish_hr_bundle.py`: reads the real bundle (file/stdin/`--seed`), maps + publishes with a full-flush producer; `--replay` (safe: stable `idempotency_key = hr.signal.observed:{as_of_date}:{signal_name}` → BQ insertId dedup) and `--max-signals N` (bounded replay).
+- `backend/tests/test_hr_real_bundle.py`: 18 tests — all 8 signals, value-type variety (scalar/dict/string), freshness→staleness, missing/invalid fields, forward-compat, partial bundles, replay idempotency, bounded slice, distinct keys per as_of_date. No broker, no credentials.
+
+**Phase 5B acceptance receipt — live GKE drain of the real 8-signal bundle (2026-06-15):**
+GKE cluster `winston-events-dev` recreated (image `0.2.0`, WI binding survived on the GSA), pod subscribed to both topics. Published the real bundle (`backend/tests/fixtures/hr_real_bundle_sample.json`) via `publish_hr_bundle.py --input`.
+```
+run_id=hr-bundle:2026-06-15, event_type=hr.signal.observed — all 8 signals, dead_letter=False:
+  mvrv_z=1.4  yc_10y2y=-0.1  vix_term=0.95  cmbs_delinq=0.062  crypto_flow=-0.8  macro_surprise=-0.45
+  housing={"price_yoy":-2.1,"starts_yoy":-15.0}  (nested dict preserved)
+  fed_tone="hawkish-hold"                          (string preserved)
+
+Malformed HR signal (offset 12) → dead_letter=True:
+  event_id=69936b88-... reason="missing required fields: [...]"
+  raw={"signal_name":"mvrv_z","signal_value":1.4,"oops":"not an envelope"}
+```
+
+**Replay finding (honest):** a bounded replay (`--replay --max-signals 3`, same bundle/as_of) re-published mvrv_z/yc_10y2y/vix_term. They landed as **duplicate raw rows (2 each)** — BigQuery `insertId` dedup only covers a ~1-min window, and the replay was outside it. This is expected for an append-only raw table. The canonical replay-safe read collapses them: `QUALIFY ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at) = 1` → verified back to exactly 8 signals, 1 row each. Replay safety = stable content-addressed key + query-time dedup, NOT write-time prevention. Any consumer of the raw events table must read through that dedup view.
+
+**Cluster:** deleted at session end (no Phase 6 this session). Recreate from `infra/k8s/README.md`.
+
+## Phase 6 — milestones (planned)
+
+- **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling. Now has real event diversity (execution events + 8 HR signals) to make rollups meaningful.
 
 ---
 
