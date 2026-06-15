@@ -19,16 +19,11 @@ for p in (_ROOT / "rs_factory_seed", _ROOT / "backend", _HERE):
         sys.path.insert(0, str(p))
 
 
-class StargateTopics:
-    TELEMETRY = "stargate.printer.telemetry.v1"
-    AGG_5S = "stargate.printer.telemetry.agg5s.v1"
-    ANOMALIES = "stargate.printer.anomalies.v1"
-    DEAD_LETTER = "stargate.printer.dlq.v1"
-
-
-def telemetry_message_class():
-    """The generated protobuf message class (lazy so capture-mode tooling can
-    run without the protobuf package installed)."""
-    from proto_gen.stargate_telemetry_pb2 import StargateTelemetry
-
-    return StargateTelemetry
+# StargateTopics + telemetry_message_class now live in the backend core (so they
+# ship in the Railway image); re-export them here so producer.py / bad_producer.py
+# keep importing them from `common` unchanged. The sys.path insert above makes
+# `app.` importable before this runs.
+from app.services.stargate_bridge import (  # noqa: E402,F401
+    StargateTopics,
+    telemetry_message_class,
+)

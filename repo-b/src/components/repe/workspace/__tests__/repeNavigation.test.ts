@@ -13,13 +13,14 @@ describe("REPE navigation model", () => {
   });
 
   it("follows the institutional workflow section order", () => {
+    // The Automation/Winston group was removed in "Remove Winston AI chat
+    // surfaces" (84026f10); the workflow now ends at Governance.
     expect(groups.map((group) => group.label)).toEqual([
       "Portfolio",
       "Investor Operations",
       "Fund Accounting",
       "Analytics",
       "Governance",
-      "Automation",
     ]);
   });
 
@@ -29,7 +30,6 @@ describe("REPE navigation model", () => {
     expect(groups[2]?.items.map((item) => item.label)).toEqual(["Period Close", "Variance"]);
     expect(groups[3]?.items.map((item) => item.label)).toEqual(["Models", "Fund Decomposition", "Dashboards", "Saved Analyses", "Operator Diagnostics", "Reports", "Sustainability"]);
     expect(groups[4]?.items.map((item) => item.label)).toEqual(["Documents", "Approvals", "AI Audit"]);
-    expect(groups[5]?.items.map((item) => item.label)).toEqual(["Winston"]);
   });
 
   it("always includes Sustainability in Analytics even when the legacy flag is off", () => {
@@ -40,6 +40,5 @@ describe("REPE navigation model", () => {
     expect(getActiveRepeGroupKey(`${base}/assets/asset-123`, groups)).toBe("portfolio");
     expect(getActiveRepeGroupKey(`${base}/controls`, groups)).toBe("governance");
     expect(getActiveRepeGroupKey(`${base}/variance`, groups)).toBe("fund-accounting");
-    expect(getActiveRepeGroupKey(`${base}/winston`, groups)).toBe("automation");
   });
 });

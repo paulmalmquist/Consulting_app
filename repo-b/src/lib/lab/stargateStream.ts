@@ -109,12 +109,24 @@ export class CircularBuffer<T> {
   }
 }
 
-export function bridgeBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_STARGATE_BRIDGE_URL || "http://localhost:8100";
+/**
+ * Resolve the bridge origin, fail-closed. A deployed page must never silently
+ * point the visitor's browser at their own localhost: return the configured
+ * env value, the dev-only localhost fallback, or null (caller renders a
+ * "not configured" diagnostic instead of connecting). Static property access on
+ * both vars is deliberate — Next.js inlines NEXT_PUBLIC_* and NODE_ENV at build
+ * time; a dynamic lookup would resolve to undefined in the production bundle.
+ */
+export function bridgeBaseUrl(): string | null {
+  const configured = process.env.NEXT_PUBLIC_STARGATE_BRIDGE_URL;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "development") return "http://localhost:8100";
+  return null;
 }
 
 export type StargateStream = {
   connected: boolean;
+  configured: boolean;
   version: number;
   health: BridgeHealth | null;
   dlqCount: number;
@@ -134,8 +146,11 @@ export function useStargateStream(baseUrl?: string): StargateStream {
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [dlqCount, setDlqCount] = useState(0);
 
+  const resolvedBase = baseUrl || bridgeBaseUrl();
+
   useEffect(() => {
-    const url = `${baseUrl || bridgeBaseUrl()}/stargate/stream`;
+    if (!resolvedBase) return; // fail closed: no bridge URL → no EventSource
+    const url = `${resolvedBase}/stargate/stream`;
     const source = new EventSource(url);
     source.onopen = () => setConnected(true);
     source.onerror = () => setConnected(false); // EventSource retries on its own
@@ -163,7 +178,17 @@ export function useStargateStream(baseUrl?: string): StargateStream {
     };
 
     return () => source.close();
-  }, [baseUrl]);
+  }, [resolvedBase]);
 
-  return { connected, version, health, dlqCount, telemetryRef, aggRef, anomaliesRef, dlqRef };
+  return {
+    connected,
+    configured: resolvedBase !== null,
+    version,
+    health,
+    dlqCount,
+    telemetryRef,
+    aggRef,
+    anomaliesRef,
+    dlqRef,
+  };
 }

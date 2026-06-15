@@ -14092,3 +14092,65 @@ export function getLegalfinMetric(
     params: { firm_key: opts.firmKey, group_by: opts.groupBy },
   });
 }
+
+// ── Event Analytics Dashboard (Plan 0004 observability surface) ──────────────
+// Read-only view over the BigQuery winston_events_analytics layer. Observability
+// only — never authoritative for operational state (execution status, REPE/HR
+// KPIs stay Postgres-authoritative). Backend fails closed → available: false.
+
+export interface EventAnalyticsVolume {
+  raw_rows: number;
+  deduped_rows: number;
+  dead_letter_rows: number;
+  replay_duplicates_collapsed: number;
+}
+
+export interface EventAnalyticsSourceRow {
+  source: string;
+  event_count: number;
+}
+
+export interface EventAnalyticsExecutionRow {
+  event_date: string;
+  event_type: string;
+  source: string;
+  event_count: number;
+}
+
+export interface EventAnalyticsHrSignalRow {
+  signal_name: string;
+  signal_value: string; // JSON-encoded (scalar/object/string preserved)
+  staleness_status: string;
+  as_of_date: string;
+  ingested_at: string;
+}
+
+export interface EventAnalyticsFreshnessRow {
+  staleness_status: string;
+  signal_count: number;
+}
+
+export interface EventAnalyticsDeadLetterRow {
+  ingested_at: string;
+  source: string;
+  dead_letter_reason: string;
+  raw_payload: string | null;
+}
+
+export interface EventAnalyticsDashboard {
+  available: boolean;
+  reason?: string;
+  observability_only?: boolean;
+  project?: string;
+  analytics_dataset?: string;
+  volume?: EventAnalyticsVolume;
+  by_source?: EventAnalyticsSourceRow[];
+  execution_events_daily?: EventAnalyticsExecutionRow[];
+  hr_signal_latest?: EventAnalyticsHrSignalRow[];
+  hr_signal_freshness?: EventAnalyticsFreshnessRow[];
+  hr_dead_letters?: EventAnalyticsDeadLetterRow[];
+}
+
+export function getEventAnalyticsDashboard(): Promise<EventAnalyticsDashboard> {
+  return bosFetch("/api/events/v1/analytics/dashboard");
+}

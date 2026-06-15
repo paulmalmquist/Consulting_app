@@ -7,7 +7,21 @@ stage, and the 12-minute narrative. Companion to
 
 Demo surfaces: `/lab/env/<envId>/telemetry/stargate` and
 `/lab/env/<envId>/telemetry/factory-ml` (repo-b, `npm run dev` or the deployed
-site). Bridge on :8100. All commands below run from the repo root unless noted.
+site). All commands below run from the repo root unless noted.
+
+## Production page (self-contained)
+
+The deployed Stargate page on novendor.ai is self-contained: the bridge is
+mounted in the Railway backend (`STARGATE_BRIDGE_ENABLED=1`, `STARGATE_MODE=capture`,
+autoplay on), and the frontend reaches it via `NEXT_PUBLIC_STARGATE_BRIDGE_URL`
+(the Railway origin). No laptop process is needed for the capture-mode demo on
+the live site. If that env var is unset the page fails closed with a "bridge
+not configured" diagnostic — it never points the visitor's browser at localhost.
+
+The laptop bridge below (`uvicorn bridge:app` on :8100) is only for `local` or
+`cloud` mode — i.e. driving real Redpanda/Confluent + managed Flink from your
+machine, the full live-stream beats. For capture-mode walkthroughs, the
+production page alone suffices.
 
 ## Pre-demo checklist (T-30 minutes)
 
