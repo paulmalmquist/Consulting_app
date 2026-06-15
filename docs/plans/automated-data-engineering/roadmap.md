@@ -10,9 +10,15 @@ None of this is in PR 1. The non-goals in `eval-plan.md` enforce that.
   → blocked → retired`) with validation receipts. One safe validator wired by default
   (in-process MCP registry); Postgres ping implemented opt-in. See `architecture.md`
   "New in PR 2". Still read-only — no BYO keys, no provider abstraction, no live writes.
-  Next safe validators to add as the work continues: a Postgres ping enabled per-env, and
-  a read-only GitHub/Vercel/Railway reachability check once a credential-free safe call is
-  identified.
+
+- **PR 3 — Read-only Provider Reachability Validators.** ADO Stories #589 (Postgres) +
+  #590 (HTTP). Postgres `SELECT 1` promoted from opt-in into the wired set, gated per-env
+  by `ADE_ENABLE_POSTGRES_VALIDATOR`. GitHub / Vercel / Railway each get a read-only
+  validator built on a shared `http_probe()` helper: GET-only, hard 5s timeout, missing
+  token → `credential_pending` with no outbound call, 2xx → `read_validated`, anything
+  else → `degraded`. First ADE code to make a real outbound call; tokens never echoed into
+  receipts; tests mock HTTP so CI makes no live call. See `architecture.md` "New in PR 3".
+  Still read-only — no BYO keys, no provider abstraction, no writes, no autonomous setup.
 
 ## Model access (ADR 0001)
 

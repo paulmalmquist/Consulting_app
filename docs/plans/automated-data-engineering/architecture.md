@@ -88,6 +88,36 @@ no I/O, no credentials). A Postgres `SELECT 1` validator is implemented and test
 cloud connector is implemented. Connectors with no safe validator keep their floor state and
 carry a `null_reason` (e.g. `no_validator_available`, `implementation_is_stub`).
 
+## New in PR 3 — read-only provider reachability validators
+
+PR 3 adds reachability validators to the PR 2 lifecycle. Still read-only; the lifecycle
+service, receipt object, endpoint, and UI contract are unchanged — this PR only adds
+entries to the validator set in `backend/app/services/ade_connector_validators.py`.
+
+| Validator | What it does |
+|---|---|
+| Postgres (promoted) | `SELECT 1` via the existing pool. Moved from opt-in into the wired set, gated per-env by `ADE_ENABLE_POSTGRES_VALIDATOR` (default on). In-infra, no HTTP. |
+| GitHub | `GET https://api.github.com/user` |
+| Vercel | `GET https://api.vercel.com/v9/projects?limit=1` |
+| Railway | `GET https://backboard.railway.app/graphql/v2` |
+
+The three HTTP validators share one helper, `http_probe()` — the first ADE code to make a
+real outbound call. Its rules are the honesty + safety boundary:
+
+- **GET only**, via `httpx`, with a **hard 5s per-request timeout**. A constant
+  (`_ALLOWED_HTTP_METHOD = "GET"`) gates the method.
+- **Missing token → `credential_pending`, and NO outbound call is made.** Env-var presence
+  is never treated as validation; absence is the fail-closed signal.
+- **2xx → `read_validated`** (the only success path). **401/403** (token present but
+  invalid) → `degraded`. **Timeout / transport error / any other non-2xx** → `degraded`.
+  Never `read_validated` on failure.
+- The token is **never echoed** into a receipt; `detail` uses neutral wording
+  ("credential not configured", "credential accepted") so no secret-shaped substring appears.
+
+In CI and any checkout without provider tokens (the default), the three HTTP validators
+resolve to `credential_pending` and make zero network calls. Tests mock `httpx.request`; no
+live call is ever made in CI.
+
 ## Portability classification (`PORTABILITY.MD`)
 
 | Layer | What |
