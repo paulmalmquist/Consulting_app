@@ -10,10 +10,24 @@ import {
   type HrBrief,
   type Position,
 } from "@/lib/historyrhymes/client";
+import { postRhymesMatch, type RhymesMatchResponse, type TrapDetector } from "@/lib/historyrhymes/rhymesClient";
 import { C, Loading, CockpitEmptyState } from "./primitives";
 import { RegimeStatusHeader } from "./RegimeStatusHeader";
 import { ImplicationCard } from "./ImplicationCard";
 import { SignalTelemetryStrip } from "./SignalTelemetryStrip";
+import { AnalogTimeline } from "./AnalogTimeline";
+
+// Trap summary string for the regime header. v1 of the trap detector returns
+// trap_flag=false with every field null — that is "not computing", which is a
+// different statement from "computed and found nothing".
+export function trapSummary(trap: TrapDetector | null | undefined): string | null {
+  if (!trap) return null;
+  if (trap.trap_flag) return `TRAP: ${trap.trap_reason ?? "flagged without reason"}`;
+  const computing =
+    trap.trap_reason !== null || trap.honeypot_match !== null ||
+    trap.crowding_score !== null || trap.consensus_divergence !== null;
+  return computing ? "no trap flagged" : "v1 — not computing";
+}
 
 // The default History Rhymes surface: a telemetry-style regime cockpit.
 // This component owns ALL cockpit data fetching; zones are presentational.
@@ -35,20 +49,23 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
   const [state, setState] = useState<HrState | null>(null);
   const [decision, setDecision] = useState<HrDecision | null>(null);
   const [brief, setBrief] = useState<HrBrief | null>(null);
+  const [match, setMatch] = useState<RhymesMatchResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [s, d, b] = await Promise.all([
+      const [s, d, b, m] = await Promise.all([
         fetchHrState(),
         fetchLatestDecision(),
         fetchLatestBrief(),
+        postRhymesMatch({ k: 5 }),
       ]);
       if (cancelled) return;
       setState(s);
       setDecision(d);
       setBrief(b);
+      setMatch(m);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -68,13 +85,20 @@ export default function HistoryRhymesCockpit({ rootTestId = "hr-cockpit-page" }:
 
   return (
     <div data-testid={rootTestId}>
-      {/* Z1 — regime status. trapSummary/degradedReason wire in from the match response in PR 7. */}
-      <RegimeStatusHeader state={state} decision={decision} />
+      {/* Z1 — regime status, with trap summary + degraded reason from the match response. */}
+      <RegimeStatusHeader
+        state={state}
+        decision={decision}
+        trapSummary={trapSummary(match?.trap_detector)}
+        degradedReason={match?.confidence_meta.degraded_reason ?? null}
+      />
 
       {/* Z2 — signal telemetry strip (brief-sourced until the stream lands in PR 13). */}
       <SignalTelemetryStrip brief={brief} />
 
-      {/* Z3 analog timeline mounts here (PR 7). */}
+      {/* Z3 — historical analog timeline. */}
+      <AnalogTimeline match={match} />
+
       {/* Z4 alert/trap rail mounts here (PR 8). */}
       {/* Z5 scenario pressure panel mounts here (PR 9). */}
 
