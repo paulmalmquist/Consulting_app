@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useEnv } from "@/components/EnvProvider";
@@ -8,10 +8,11 @@ import {
   useSessionStream, pauseSession, resumeSession, forkSession,
   type LiveSection, type SectionClaim,
 } from "@/lib/investigation/sessionStream";
+import { SteeringChatRail } from "@/components/investigation/SteeringChatRail";
 
-// Investigation Workspace (plan PR 7). Full-bleed standalone. Renders ONLY events the
-// backend streams; missing sections show their null_reason. No fabricated content.
-// Steering chat rail is PR 8 — not here.
+// Investigation Workspace (plan PR 7 + steering rail PR 8). Full-bleed standalone.
+// Renders ONLY events the backend streams; missing sections show their null_reason.
+// No fabricated content. The steering rail directs FUTURE sections only.
 
 const STATUS_TONE: Record<string, string> = {
   idle: "148,163,184", streaming: "92,213,204", paused: "209,161,91",
@@ -26,6 +27,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ sessionI
 
   const stream = useSessionStream(env, sessionId, biz ?? undefined);
   const tone = STATUS_TONE[stream.status] ?? STATUS_TONE.idle;
+  const [showSql, setShowSql] = useState(false);
 
   const progress = useMemo(() => {
     const planned = stream.planSections.length || stream.sections.length;
@@ -88,7 +90,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ sessionI
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)_320px]">
         {/* Progress tracker */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
@@ -117,7 +119,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ sessionI
               {stream.status === "streaming" ? "Investigating…" : "No sections yet."}
             </div>
           ) : (
-            stream.sections.map((s) => <SectionCard key={s.key} section={s} />)
+            stream.sections.map((s) => <SectionCard key={s.key} section={s} showSql={showSql} />)
           )}
 
           {stream.status === "completed" && stream.deliverableCardId ? (
@@ -127,6 +129,16 @@ export default function InvestigatePage({ params }: { params: Promise<{ sessionI
             </div>
           ) : null}
         </main>
+
+        {/* Steering rail (PR 8) */}
+        <SteeringChatRail
+          env={env}
+          sessionId={sessionId}
+          businessId={biz ?? undefined}
+          title={stream.title}
+          steers={stream.steers}
+          onShowSql={() => setShowSql((v) => !v)}
+        />
       </div>
     </Shell>
   );
@@ -158,7 +170,7 @@ function StepDot({ state }: { state: "pending" | "running" | "done" }) {
   return <span className="text-[12px] text-white/30">○</span>;
 }
 
-function SectionCard({ section }: { section: LiveSection }) {
+function SectionCard({ section, showSql }: { section: LiveSection; showSql: boolean }) {
   const unavailable = section.status === "not_available";
   return (
     <section
@@ -167,9 +179,17 @@ function SectionCard({ section }: { section: LiveSection }) {
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-semibold text-white">{section.title}</h2>
-        {section.status === "running" ? (
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(92,213,204,0.9)]">running…</span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {section.steeredByVersion ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(167,139,250,0.9)]"
+              title="This section was produced after a steering instruction">
+              steered v{section.steeredByVersion}
+            </span>
+          ) : null}
+          {section.status === "running" ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(92,213,204,0.9)]">running…</span>
+          ) : null}
+        </div>
       </div>
 
       {unavailable ? (
@@ -180,26 +200,34 @@ function SectionCard({ section }: { section: LiveSection }) {
         <ul className="mt-3 space-y-2">
           {section.claims
             .filter((c) => c.value !== null && c.value !== undefined)
-            .map((c, i) => <ClaimRow key={i} claim={c} />)}
+            .map((c, i) => <ClaimRow key={i} claim={c} showSql={showSql} />)}
         </ul>
       )}
     </section>
   );
 }
 
-function ClaimRow({ claim }: { claim: SectionClaim }) {
+function ClaimRow({ claim, showSql }: { claim: SectionClaim; showSql: boolean }) {
   return (
-    <li className="flex items-start gap-2.5 text-[13px] text-white/80">
-      <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full" style={{ background: "rgba(92,213,204,0.85)" }} />
-      <span className="min-w-0">
-        <span className="text-white">{String(claim.value)}</span>
-        {claim.is_estimate ? <span className="ml-1 text-white/40">(est.)</span> : null}
-        {claim.source_kind ? (
-          <span className="ml-2 font-mono text-[10px] text-white/35" title={JSON.stringify(claim.source_ref ?? {})}>
-            ◆ {claim.source_kind}
-          </span>
-        ) : null}
+    <li className="flex flex-col gap-1 text-[13px] text-white/80">
+      <span className="flex items-start gap-2.5">
+        <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full" style={{ background: "rgba(92,213,204,0.85)" }} />
+        <span className="min-w-0">
+          <span className="text-white">{String(claim.value)}</span>
+          {claim.is_estimate ? <span className="ml-1 text-white/40">(est.)</span> : null}
+          {claim.source_kind ? (
+            <span className="ml-2 font-mono text-[10px] text-white/35" title={JSON.stringify(claim.source_ref ?? {})}>
+              ◆ {claim.source_kind}
+            </span>
+          ) : null}
+        </span>
       </span>
+      {/* Show SQL reveals only the EXISTING provenance already attached — never generated SQL. */}
+      {showSql && claim.source_ref ? (
+        <pre className="ml-5 overflow-x-auto rounded border border-white/10 bg-[rgba(3,7,14,0.6)] px-2 py-1 font-mono text-[10px] text-white/50">
+          {JSON.stringify(claim.source_ref, null, 2)}
+        </pre>
+      ) : null}
     </li>
   );
 }

@@ -40,6 +40,7 @@ export interface LiveSection {
   claims: SectionClaim[];
   null_reason: string | null;
   duration_ms?: number;
+  steeredByVersion?: number; // set when a steer landed while this section was still running
 }
 
 export interface SessionState {
@@ -91,14 +92,35 @@ export const forkSession = (env: string, id: string, title: string | undefined, 
     method: "POST", body: JSON.stringify({ env_id: env, business_id: biz, title }),
   });
 
+export interface SteerResult {
+  status: "revised" | "unsupported" | "not_found";
+  steer_id?: string;
+  plan_version?: number;
+}
+
+// Steering is future-only and injection-safe — the backend whitelists the verb and
+// applies the directive to the TAIL of the plan only; prior sections are never mutated.
+export const steerSession = (env: string, id: string, instruction: string, biz: string = DEFAULT_BUSINESS_ID) =>
+  apiFetch<SteerResult>(`/api/ade/analytics/sessions/${encodeURIComponent(id)}/steer`, {
+    method: "POST", body: JSON.stringify({ env_id: env, business_id: biz, instruction }),
+  });
+
 // ── SSE stream hook ───────────────────────────────────────────────────────────
 type StreamStatus = "idle" | "streaming" | "paused" | "completed" | "error";
+
+export interface SteerRecord {
+  steer_id: string;
+  plan_version: number;
+  instruction_redacted?: string;
+  applies_from_section?: string | null;
+}
 
 export interface StreamHook {
   status: StreamStatus;
   title: string;
   planSections: { key: string; title: string }[];
   sections: LiveSection[];
+  steers: SteerRecord[];
   deliverableCardId: string | null;
   error: string | null;
   start: () => void;
@@ -110,6 +132,7 @@ export function useSessionStream(env: string | null, sessionId: string, biz: str
   const [title, setTitle] = useState("Investigation");
   const [planSections, setPlanSections] = useState<{ key: string; title: string }[]>([]);
   const [sections, setSections] = useState<LiveSection[]>([]);
+  const [steers, setSteers] = useState<SteerRecord[]>([]);
   const [deliverableCardId, setDeliverableCardId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -152,6 +175,22 @@ export function useSessionStream(env: string | null, sessionId: string, biz: str
           null_reason: (data.null_reason as string | null) ?? null,
           duration_ms: data.duration_ms as number | undefined,
         } : s));
+        break;
+      }
+      case "user.steer_submitted":
+        // Acknowledgement only; the authoritative record arrives on plan.revised.
+        break;
+      case "plan.revised": {
+        const rec: SteerRecord = {
+          steer_id: (data.steer_id as string) || "",
+          plan_version: (data.plan_version as number) || 0,
+          applies_from_section: (data.applies_from_section as string | null) ?? null,
+        };
+        setSteers((prev) => prev.some((s) => s.steer_id === rec.steer_id) ? prev : [...prev, rec]);
+        // Tag sections not yet completed as steered-by this version (future-only;
+        // already-completed sections keep their original version and are not mutated).
+        setSections((prev) => prev.map((s) =>
+          s.status === "running" ? { ...s, steeredByVersion: rec.plan_version } : s));
         break;
       }
       case "session.paused":
@@ -248,5 +287,5 @@ export function useSessionStream(env: string | null, sessionId: string, biz: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [env, sessionId, biz]);
 
-  return { status, title, planSections, sections, deliverableCardId, error, start, stop };
+  return { status, title, planSections, sections, steers, deliverableCardId, error, start, stop };
 }
