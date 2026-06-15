@@ -206,7 +206,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/gateway", "/api/admin/access"];
+  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/admin/access"];
   const isPrivateApi = privateApiPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -226,7 +226,6 @@ export const config = {
     "/api/public/:path*",
     "/api/commands/:path*",
     "/api/mcp/:path*",
-    "/api/ai/gateway/:path*",
     "/api/admin/access/:path*",
     "/lab",
     "/lab/:path*",

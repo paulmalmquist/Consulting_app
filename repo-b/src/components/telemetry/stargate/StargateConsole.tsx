@@ -7,7 +7,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { C, MetricCard, PageHeading, Panel, RowCard, SplitGrid, Tag } from "../primitives";
+import { C, EmptyState, MetricCard, PageHeading, Panel, RowCard, SplitGrid, Tag } from "../primitives";
 import DlqPanel from "./DlqPanel";
 import TempVibrationChart from "./TempVibrationChart";
 import { useStargateStream } from "@/lib/lab/stargateStream";
@@ -64,6 +64,25 @@ export default function StargateConsole() {
   );
   const latest = printerPoints.length ? printerPoints[printerPoints.length - 1] : null;
   const badge = aggBadge(stream.health?.aggregation_source);
+
+  // Fail closed: a deployment without a configured bridge URL shows an explicit
+  // diagnostic instead of silently trying (and failing) to reach localhost.
+  // Placed after all hooks so the rules of hooks hold.
+  if (!stream.configured) {
+    return (
+      <div>
+        <PageHeading
+          eyebrow="Stargate Live"
+          title="Printer telemetry stream"
+          blurb="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic."
+        />
+        <EmptyState
+          label="Stargate bridge URL is not configured for this deployment."
+          hint="Set NEXT_PUBLIC_STARGATE_BRIDGE_URL to the Railway bridge endpoint."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
