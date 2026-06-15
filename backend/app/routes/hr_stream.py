@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
+from app.db import get_cursor
 from app.services.hr_stream import config
 from app.services.hr_stream.ring import get_ring
 
@@ -71,10 +72,39 @@ def build_health() -> dict:
             payload["status"] = "connected"
         return payload
 
-    # replay / live_kafka: the runner lands in PR 13 (consumer in PR 11,
-    # persistence in PR 12). Until then these modes are honestly incomplete.
-    payload["status"] = "disconnected"
-    payload["degraded_reason"] = f"{mode} consumer not implemented (PR 11-13 pending)"
+    # replay / live_kafka: try to read the DB singleton row written by the
+    # runner (PR 13). If the DB is down or the row has not been written yet,
+    # fail closed to disconnected.
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT mode, provider, status, consumer_group, topic_prefix, "
+                "latest_event_at, lag_seconds, degraded_reason "
+                "FROM public.hr_stream_health WHERE id = 1"
+            )
+            row = cur.fetchone()
+    except Exception:
+        logger.warning("hr stream health: db unavailable", exc_info=True)
+        payload["status"] = "disconnected"
+        payload["degraded_reason"] = "health db unavailable; runner has not reported yet"
+        return payload
+
+    if row is None:
+        payload["status"] = "disconnected"
+        payload["degraded_reason"] = "health singleton row missing; runner has not reported yet"
+        return payload
+
+    # Overlay the DB row onto the allowlisted payload.
+    for field in ("status", "consumer_group", "topic_prefix", "lag_seconds", "degraded_reason"):
+        if row.get(field) is not None:
+            payload[field] = row[field]
+    if row.get("status"):
+        payload["status"] = row["status"]
+    if row.get("latest_event_at") is not None:
+        lat = row["latest_event_at"]
+        payload["latest_event_at"] = lat.isoformat() if hasattr(lat, "isoformat") else lat
+    if row.get("provider") is not None:
+        payload["provider"] = row["provider"]
     return payload
 
 
