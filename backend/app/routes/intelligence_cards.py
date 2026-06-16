@@ -15,9 +15,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from app.auth.platform import require_environment_access
 from app.observability.logger import emit_log
 from app.services import intelligence_cards as svc
 
@@ -100,3 +101,26 @@ def patch_card(card_id: UUID, body: PatchCardBody):
     except Exception as exc:  # noqa: BLE001
         emit_log(level="error", service="intelligence_cards", action="patch_failed", message=str(exc), error=exc)
         raise HTTPException(500, {"error_code": "INTERNAL_ERROR", "message": "intel_cards_write_unavailable"})
+
+
+# ── Analytics reels (plan PR 12) ──────────────────────────────────────────────
+class GenerateReelsBody(BaseModel):
+    env_id: str
+    business_id: UUID
+
+
+@router.post("/reels/generate")
+def generate_reels(body: GenerateReelsBody, request: Request):
+    """Roll up the env's finding/alert cards into story (reel) cards. Deterministic, no LLM.
+
+    Env-scoped + fail-closed: returns reels_upserted=0 with a null_reason rather than 500
+    when there are no findings to roll up or the rollup is unavailable.
+    """
+    require_environment_access(request, env_id=body.env_id)
+    try:
+        from app.services import analytics_reels
+        return {**analytics_reels.generate_reels(body.env_id, body.business_id), "null_reason": None}
+    except Exception as exc:  # noqa: BLE001 — fail closed, never 500 with fabricated data
+        emit_log(level="error", service="analytics_reels", action="generate_failed", message=str(exc), error=exc)
+        return {"env_id": body.env_id, "reels_upserted": 0, "groups": 0,
+                "null_reasons": [], "latency_ms": None, "null_reason": "reels_generate_unavailable"}

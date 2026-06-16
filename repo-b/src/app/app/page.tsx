@@ -15,6 +15,7 @@ import {
   upsertCard,
   dismissCard,
   runAnalyzers,
+  generateReels,
   type IntelCard,
 } from "@/lib/intelligence/cards";
 import { cn } from "@/lib/cn";
@@ -547,6 +548,7 @@ function AppIndexPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [buildingReels, setBuildingReels] = useState(false);
 
   const deniedTarget = searchParams.get("denied");
   const selectedEnvironment = useMemo(
@@ -666,6 +668,21 @@ function AppIndexPageInner() {
       setAnalyzing(false);
     }
   }, [selectedEnvironment, bizId, analyzing, feed]);
+
+  // Roll up the env's finding cards into story (reel) cards, then refetch the feed.
+  // Deterministic, no LLM. Fail-closed: no-op without a real env/tenant.
+  const handleBuildReels = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || buildingReels) return;
+    setBuildingReels(true);
+    try {
+      await generateReels(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // Reels generation fails closed server-side; nothing fabricated on error.
+    } finally {
+      setBuildingReels(false);
+    }
+  }, [selectedEnvironment, bizId, buildingReels, feed]);
 
   useEffect(() => {
     if (loading || environments.length !== 1 || isPlatformAdmin || deniedTarget) {
@@ -1080,6 +1097,17 @@ function AppIndexPageInner() {
                         }}
                       >
                         {analyzing ? "Analyzing…" : "Analyze"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleBuildReels()}
+                        disabled={buildingReels}
+                        title="Roll up the current findings into story cards"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {buildingReels ? "Building…" : "Stories"}
                       </button>
                     ) : null}
                     {selectedEnvironment ? (

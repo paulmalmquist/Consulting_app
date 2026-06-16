@@ -123,6 +123,34 @@ export async function runAnalyzers(
   return { ran, failed, cardsUpserted };
 }
 
+// ── Analytics reels (connective trigger) ──────────────────────────────────────
+// Roll up the env's persisted finding/alert cards into story (reel) cards. Deterministic,
+// no LLM — reads existing cards and composes narrative tiles. Run the analyzers first so
+// there are findings to roll up.
+interface ReelsResponse {
+  reels_upserted?: number;
+  groups?: number;
+  null_reasons?: unknown[];
+  null_reason?: string | null;
+}
+
+export interface GenerateReelsResult {
+  reelsUpserted: number;
+  ok: boolean; // false when the request itself rejected
+}
+
+export async function generateReels(env: string, biz: string): Promise<GenerateReelsResult> {
+  try {
+    const res = await apiFetch<ReelsResponse>("/api/ade/intel/reels/generate", {
+      method: "POST",
+      body: JSON.stringify({ env_id: env, business_id: biz }),
+    });
+    return { reelsUpserted: res?.reels_upserted ?? 0, ok: true };
+  } catch {
+    return { reelsUpserted: 0, ok: false };
+  }
+}
+
 export const CARD_TYPE_LABELS: Record<CardType, string> = {
   dashboard: "Dashboard",
   report: "Report",
