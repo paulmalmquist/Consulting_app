@@ -18,8 +18,16 @@ def _auth_ok():
     return AuthContext(actor="tester", authenticated=True)
 
 
-def test_unauthenticated_is_rejected_not_empty(client):
-    """Auth failure must 401 — fail-closed-empty is only for storage errors."""
+def test_auth_gate_is_wired_and_fails_closed(client, monkeypatch):
+    """When auth fails, every route 401s — fail-closed-empty is only for storage
+    errors. We force the gate to reject (independent of ambient middleware auth
+    state, which varies by environment) and assert the 401 propagates."""
+    from fastapi import HTTPException
+
+    def reject(_req):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    monkeypatch.setattr(ade_ops, "require_authenticated_request", reject)
     assert client.get("/api/ade/ops/skills").status_code == 401
     assert client.get(f"/api/ade/ops/runs?business_id={'0'*8}").status_code == 401
     assert client.post("/api/ade/ops/run", json={"skill": "ade.inventory.scan_pipelines"}).status_code == 401
