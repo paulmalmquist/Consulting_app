@@ -120,6 +120,7 @@ from app.routes import hr_polymarket as hr_polymarket_routes
 from app.routes import hr_research as hr_research_routes
 from app.routes import hr_morning_book as hr_morning_book_routes
 from app.routes import hr_ml_demo as hr_ml_demo_routes
+from app.routes import hr_feature_store as hr_feature_store_routes
 from app.routes import altered_mind as altered_mind_routes
 from app.routes import hha as hha_routes
 from app.routes import ncf_grant_friction
@@ -544,6 +545,7 @@ app.include_router(hr_polymarket_routes.router)
 app.include_router(hr_research_routes.router)
 app.include_router(hr_morning_book_routes.router)
 app.include_router(hr_ml_demo_routes.router)
+app.include_router(hr_feature_store_routes.router)
 app.include_router(altered_mind_routes.router)
 app.include_router(hha_routes.router)
 app.include_router(ncf_grant_friction.router)

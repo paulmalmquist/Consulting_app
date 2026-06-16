@@ -8,6 +8,7 @@ const TABS = [
   { slug: "morning-book", label: "Morning Book" },
   { slug: "planning", label: "Planning" },
   { slug: "ml-algorithms", label: "ML Algorithm Lab" },
+  { slug: "observatory", label: "Feature Observatory" },
 ];
 
 /** Minimal tab strip linking the History Rhymes sub-pages for an env. */

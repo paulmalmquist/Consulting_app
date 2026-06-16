@@ -3271,6 +3271,26 @@ validates the whole trust thesis in ~½ day, training nothing — using the exis
 the shipped RUL predictions. Train the SupCon encoder only on a weak-but-real result; a dead ρ kills the
 project before a dollar of build.
 
+### FRED `fredgraph.csv` ignores the date window for some series — clip in the builder (2026-06-16)
+
+Building the History Rhymes Episode Feature Store Phase 0, I used FRED's **keyless**
+`https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>&cosd=<start>&coed=<end>` endpoint to avoid
+provisioning a `FRED_API_KEY` (none existed in `.env`, Vercel, or Railway). It works and is reproducible,
+**but it silently ignores `cosd`/`coed` for some series** (`BAMLC0A0CM`, `SP500`) and returns recent data
+instead, while honoring the window for others (`DGS10`, `DGS2`, `HOUST`, `USREC`). A 2007 `as_of` was
+quietly borrowing **2016 SP500 values** and reporting `outcome_3m=0` — wrong-era data masquerading as a
+real zero, not a fetch error.
+
+Fix: **clip every provider series to the requested `[start, end]` window inside the builder**, never trust
+the source to honor it. Out-of-window data then becomes an honest `null` (`source_unavailable`) instead of
+contamination. Two principles this reinforces: (1) a missing feature/target must fail closed with a
+`null_reason`, never a silent fallback or a fabricated proxy — dropping `credit_spread_velocity` and
+nulling GFC's pre-2015 SP500 targets is *more* credible than faking them; (2) a model trained on few rows
+must train on the features **common (non-null) across all rows** rather than collapsing when one is
+unavailable, and must be labeled a pipeline smoke model (not production-calibrated). The keyed FRED API
+(`series/observations`) honors the window reliably if a key is later provisioned — the keyless path is the
+secret-free default.
+
 **Reusable lessons go to canonical `docs/tips.md` (~380 KB), never the root `tips.md` duplicate.**
 The root file is do-not-write; this file is the one loaded for situational awareness.
 
