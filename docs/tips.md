@@ -3524,3 +3524,36 @@ handful of real grid rules (`.lg:grid-cols-5`, the `minmax` split templates, `sm
 page `<style>` to get a faithful layout. Keep the harness ephemeral (a temp `.veval/` dir); commit only
 the PNGs. This verifies typography/color/chart/content/contrast/reflow honestly — but it is NOT an
 end-to-end auth+route load; say so and don't claim the live route was exercised.
+
+## ML Algorithm Decision Lab — deterministic ML demo on the HR surface (2026-06-15)
+
+Built a 10-algorithm teaching lab inside History Rhymes (`/lab/env/[envId]/historyrhymes/ml-algorithms`,
+API `/api/hr/v1/ml-demo/*`). Reusable lessons:
+
+- **The HR namespace is `/api/hr/v1/...`, not `/api/historyrhymes/...`.** A frontend contract test
+  (`historyrhymesClientContract.test.ts`) bans the drifted namespace and 404s only at runtime. New HR
+  client surfaces should ship a mirror contract test (`mlDemoClientContract.test.ts`) asserting exact
+  paths and `not toContain("/api/historyrhymes/")`.
+- **A synthetic ML demo wants in-memory deterministic generation, not a DB table.** One seeded
+  `np.random.default_rng(42)` drawn in fixed order + fixed column order + floats rounded at the JSON
+  boundary → byte-identical output every process. No migration, no RLS; determinism is stronger than a
+  one-time seed job against a mutable table. Assert `generate_dataset(42).equals(...)` + metric equality.
+- **Fail closed per-algorithm, not per-page.** `run_algorithm` wraps each trainer in try/except and
+  returns a `not_available` envelope (static `model_card` still populated) so one broken model never
+  blanks the other nine. Monkeypatch one trainer to raise; assert exactly one `not_available`.
+- **Don't encode brittle "textbook" numeric directions in ML tests.** F1 under heavy imbalance is too
+  volatile to assert e.g. `random_split_f1 >= grouped_split_f1`. Assert structure + that the mutation
+  happened; let the mechanism (grouped split keeps `__group__` rows together) be correct.
+- **Cloud links: a provider abstraction that never fabricates a URL.** `build_external_links(ResourceRef)`
+  returns `{provider,label,resourceType,href,copyValue,unavailableReason}`. Incomplete config / provider
+  `none` → `href` null + reason, but `copyValue` always present. GCP is the real materialized provider;
+  Databricks is config-ready. Unit-test gcp/databricks/none/incomplete.
+- **Reality Mode = mutate before training, overlay after.** `apply_scenario(df, scenario)` mutates a COPY
+  and records into `scenario["_meta"]`; `augment_result()` reads that meta + computes honest overlays.
+  Passing the same scenario dict to both halves is the clean channel without threading return values.
+- **recharts had zero onClick usage in repo-b before this.** Scatter/Bar `onClick` hands you `{payload}`
+  — wire it to a dark full-height drawer (own palette, not the `bm-glass` SlideOver). Confusion matrix
+  and dendrogram have no recharts primitive — CSS-grid heat cells + a depth-capped SVG cluster tree
+  (labeled "simplified") avoid adding a charting dep.
+- **The lab UI is standalone/full-bleed** (`min-h-screen bg-neutral-950 ... p-6`), never wrapped in a
+  domain shell, plain `useState`/`useEffect` — charts + drawer are the intentional polish, state stays raw.
