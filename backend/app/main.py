@@ -87,6 +87,7 @@ from app.routes import audit_dashboard
 from app.routes import analysis_sessions
 from app.routes import telemetry_analyzer
 from app.routes import data_platform_analyzer
+from app.routes import business_analyzer
 from app.routes import re_uw_reports, re_uw_links, re_pipeline, re_geography, re_intelligence
 from app.routes import re_opportunities
 from app.routes import (
@@ -465,6 +466,7 @@ app.include_router(audit_dashboard.router)
 app.include_router(analysis_sessions.router)
 app.include_router(telemetry_analyzer.router)
 app.include_router(data_platform_analyzer.router)
+app.include_router(business_analyzer.router)
 app.include_router(tracking.router)
 app.include_router(email_integrations.router)
 app.include_router(nv_discovery.router)
