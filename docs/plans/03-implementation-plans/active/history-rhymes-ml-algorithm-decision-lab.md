@@ -114,3 +114,16 @@ summarization, or classification; embedding deferred to a separate materializer
 ingest, no `episode_embeddings`. Stack: A1 #206 → A2 #209 → A3 #210 → B1 #213 →
 B2 #215 → B3 #216 → B4 #219 → **B5 (this)**. Next: B6 DefiLlama stablecoins
 (public/keyless, liquidity proxies only).
+
+## Feature Store stack — B6 DefiLlama (2026-06-16)
+
+B6 adds the public/keyless DefiLlama stablecoin connector: `stablecoin_supply_usd`
+(daily total supply) + `stablecoin_supply_growth_7d`/`_30d` (computed from observed
+history; insufficient → `defillama_growth_window_insufficient`). All outputs are
+auxiliary (`quant_slot=None`) — stablecoin supply is a crypto-liquidity PROXY, not
+market liquidity; no fragmentation/CB/regime claims. Fixtures-only tests,
+dry-run-by-default ingest, no schema change, no `episode_embeddings`. Stack: A1 #206
+→ A2 #209 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → **B6 (this)**.
+The 5 first-pass connectors (FRED/Census/VIX/FOMC/DefiLlama) are now complete.
+Next: B7 infra manifests only (k8s base + gke-prod overlay + Confluent topics +
+BigQuery sink wiring; no connector logic).
