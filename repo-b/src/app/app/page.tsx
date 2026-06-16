@@ -16,7 +16,10 @@ import {
   dismissCard,
   runAnalyzers,
   generateReels,
+  runAgent,
+  agentCreatedBy,
   type IntelCard,
+  type AgentType,
 } from "@/lib/intelligence/cards";
 import { cn } from "@/lib/cn";
 import {
@@ -66,32 +69,55 @@ function dashboardSourceRef(envId: string) {
   return { type: "app_home_dashboard", env_id: envId };
 }
 
-// ── Agent pills: VISUAL-ONLY scaffold (PR 5). No logic, no handlers, no routing. ──
+// ── Agent pills: deterministic role lenses (PR 13). Click to filter the feed to that
+// agent's cards; the count is the agent's cards already in the feed. Run-now lives in the
+// header "Run agents" button. Disabled (no handler) until an env+tenant is resolved.
 const AGENT_PILLS = [
-  { label: "CFO", glow: ACTION_TEAL },
-  { label: "Operations", glow: "107, 174, 127" },
-  { label: "Data Quality", glow: "176, 64, 255" },
-  { label: "Risk", glow: "209, 161, 91" },
-] as const;
+  { type: "cfo", label: "CFO", glow: ACTION_TEAL },
+  { type: "operations", label: "Operations", glow: "107, 174, 127" },
+  { type: "data_quality", label: "Data Quality", glow: "176, 64, 255" },
+  { type: "risk", label: "Risk", glow: "209, 161, 91" },
+] as const satisfies ReadonlyArray<{ type: AgentType; label: string; glow: string }>;
 
-function AgentPills() {
+function AgentPills({
+  activeFilter,
+  counts,
+  onToggle,
+}: {
+  activeFilter: AgentType | null;
+  counts: Record<AgentType, number>;
+  onToggle: ((agent: AgentType) => void) | null; // null => disabled (no env/tenant)
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="Agents (preview)">
+    <div className="flex flex-wrap items-center gap-2" aria-label="Agents">
       <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/35">
         Agents
       </span>
-      {AGENT_PILLS.map((agent) => (
-        <span
-          key={agent.label}
-          aria-disabled
-          title="Coming soon"
-          className="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55"
-          style={{ borderColor: `rgba(${agent.glow}, 0.22)`, background: `rgba(${agent.glow}, 0.06)` }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: `rgba(${agent.glow}, 0.8)` }} />
-          {agent.label}
-        </span>
-      ))}
+      {AGENT_PILLS.map((agent) => {
+        const active = activeFilter === agent.type;
+        const count = counts[agent.type] ?? 0;
+        const disabled = !onToggle;
+        return (
+          <button
+            key={agent.type}
+            type="button"
+            aria-pressed={active}
+            disabled={disabled}
+            title={disabled ? "Select an environment to run agents" : `Filter the feed to ${agent.label} cards`}
+            onClick={() => onToggle?.(agent.type)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors disabled:cursor-default disabled:opacity-50"
+            style={{
+              borderColor: `rgba(${agent.glow}, ${active ? 0.55 : 0.22})`,
+              background: `rgba(${agent.glow}, ${active ? 0.16 : 0.06})`,
+              color: active ? "#fff" : "rgba(255,255,255,0.55)",
+            }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: `rgba(${agent.glow}, 0.8)` }} />
+            {agent.label}
+            {count > 0 ? <span className="text-white/70">{count}</span> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -549,6 +575,8 @@ function AppIndexPageInner() {
   const [showPreview, setShowPreview] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [buildingReels, setBuildingReels] = useState(false);
+  const [runningAgents, setRunningAgents] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<AgentType | null>(null);
 
   const deniedTarget = searchParams.get("denied");
   const selectedEnvironment = useMemo(
@@ -576,6 +604,31 @@ function AppIndexPageInner() {
     () => deriveEnvironmentStatus(selectedEnvironment, anomalyCount, bizId),
     [selectedEnvironment, anomalyCount, bizId],
   );
+
+  // Per-agent card counts (cards an agent has already produced, by created_by tag).
+  const agentCounts = useMemo(() => {
+    const counts: Record<AgentType, number> = { cfo: 0, operations: 0, data_quality: 0, risk: 0 };
+    for (const card of feed.cards) {
+      for (const t of ["cfo", "operations", "data_quality", "risk"] as AgentType[]) {
+        if (card.created_by === agentCreatedBy(t)) counts[t] += 1;
+      }
+    }
+    return counts;
+  }, [feed.cards]);
+
+  // Feed filtered to the active agent's cards (null => all cards).
+  const visibleCards = useMemo(
+    () =>
+      agentFilter
+        ? feed.cards.filter((c) => c.created_by === agentCreatedBy(agentFilter))
+        : feed.cards,
+    [feed.cards, agentFilter],
+  );
+
+  // Reset the agent filter when the selected env changes (its cards differ).
+  useEffect(() => {
+    setAgentFilter(null);
+  }, [selectedEnvironment?.env_id]);
 
   // Reset the preview toggle when the selected env changes.
   useEffect(() => {
@@ -684,6 +737,26 @@ function AppIndexPageInner() {
     }
   }, [selectedEnvironment, bizId, buildingReels, feed]);
 
+  // Run all role agents (deterministic role lenses, NO LLM), then refetch the feed.
+  // Fail-closed: no-op without a real env/tenant.
+  const handleRunAgents = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || runningAgents) return;
+    setRunningAgents(true);
+    try {
+      await runAgent(selectedEnvironment.env_id, bizId); // omit type => run all four
+      await feed.refetch();
+    } catch {
+      // Agents fail closed server-side; nothing fabricated on error.
+    } finally {
+      setRunningAgents(false);
+    }
+  }, [selectedEnvironment, bizId, runningAgents, feed]);
+
+  // Toggle the feed filter to one agent's cards (click again to clear).
+  const handleToggleAgentFilter = useCallback((agent: AgentType) => {
+    setAgentFilter((cur) => (cur === agent ? null : agent));
+  }, []);
+
   useEffect(() => {
     if (loading || environments.length !== 1 || isPlatformAdmin || deniedTarget) {
       return;
@@ -707,7 +780,7 @@ function AppIndexPageInner() {
       }}
     >
       <IntelligenceCardFeed
-        cards={feed.cards}
+        cards={visibleCards}
         loading={feed.loading}
         error={feed.error}
         nullReason={feed.nullReason}
@@ -717,6 +790,13 @@ function AppIndexPageInner() {
       />
     </section>
   );
+
+  // Agent pill props — disabled (null onToggle) until a real env + tenant resolves.
+  const agentPillProps = {
+    activeFilter: agentFilter,
+    counts: agentCounts,
+    onToggle: selectedEnvironment && bizId ? handleToggleAgentFilter : null,
+  };
 
   return (
     <div className="min-h-screen bg-[#03070e] text-white">
@@ -800,8 +880,8 @@ function AppIndexPageInner() {
             ) : null}
           </section>
 
-          {/* Agent pills (visual-only) */}
-          <AgentPills />
+          {/* Agent pills — filter the feed to a role lens */}
+          <AgentPills {...agentPillProps} />
 
           {/* Intelligence feed — the core of the home, kept near the top on mobile too */}
           {feedSection}
@@ -1081,7 +1161,7 @@ function AppIndexPageInner() {
                 ) : null}
 
                 <div className="flex items-center justify-between gap-4">
-                  <AgentPills />
+                  <AgentPills {...agentPillProps} />
                   <div className="flex shrink-0 items-center gap-3">
                     {selectedEnvironment && bizId ? (
                       <button
@@ -1108,6 +1188,17 @@ function AppIndexPageInner() {
                         className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
                       >
                         {buildingReels ? "Building…" : "Stories"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleRunAgents()}
+                        disabled={runningAgents}
+                        title="Run the role agents over the current findings"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {runningAgents ? "Running…" : "Run agents"}
                       </button>
                     ) : null}
                     {selectedEnvironment ? (
