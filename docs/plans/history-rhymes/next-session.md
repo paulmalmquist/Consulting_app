@@ -2,20 +2,45 @@
 
 **Last updated:** 2026-06-12
 
+## Status
+
+All 16 PRs of the telemetry-cockpit refactor are committed and open:
+
+| PR | GitHub | ADO | Scope |
+|---|---|---|---|
+| 1–9 | #156–#164 | #541–#549 | Done, merged |
+| 10 | #167 | #550 | Evidence drawer — open, stacked |
+| 11 | #170 | #551 | Kafka consumer scaffold — open, stacked |
+| 12 | #172 | #552 | Persist + migration 10017 — open, stacked |
+| 13 | #173 | #553 | Live cockpit updates — open, stacked |
+| 14 | #173 | #554 | Research/planning demotion — open, stacked |
+| 15 | #174 | #555 | Episodes + calibration — open, stacked |
+| 16 | #175 | #556 | Polish + hardening — open, stacked |
+
+## Remaining before ship
+
+1. **Apply schema migration 10017** (`repo-b/db/schema/10017_history_rhymes_streaming.sql`) to Supabase.
+   ```bash
+   supabase link --project-ref ozboonlsplroialdwuxj
+   supabase db push
+   ```
+2. **Merge stacked PRs in order** — retarget each PR to main before merge once the prior PR lands. Do not delete base branches until the next PR has been retargeted.
+3. **Degraded-backend Playwright pass** (PR 16 gate that requires a live environment): run `npx playwright test tests/historyrhymes-cockpit.spec.ts` with the backend intentionally down; confirm all zones show explicit fail-closed state, no blank zones.
+4. **Confluent live connection** (optional, post-merge): set `HR_STREAM_MODE=live_kafka` + Confluent credentials; verify health chip transitions to "connected".
+
 ## Copy-paste prompt for next Claude Code session
 
 ```
 You are working on the History Rhymes telemetry-cockpit refactor in Winston / Consulting_app.
 
-Read first:
-- docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md  (the dispatch record — PR table, verified contracts, honesty rules)
-- docs/plans/history-rhymes/architecture.md
-- docs/plans/history-rhymes/backlog.md
+All 16 PRs are committed and open (see docs/plans/history-rhymes/next-session.md for the PR table).
+The immediate action is to merge stacked PRs in order, starting from the lowest-numbered open PR
+and retargeting each to main before merge.
 
-Objective: pick up the first unchecked PR in the backlog's cockpit-refactor list and implement
-exactly that scope. One PR per session unless told otherwise. ADO story IDs are in the backlog —
-move the story to Active at start, Resolved when code+tests+evidence are ready, and append an
-audit comment (branch/commit/PR, files, tests, evidence).
+After merges, run:
+  supabase link --project-ref ozboonlsplroialdwuxj && supabase db push  # applies 10017
+  cd repo-b && npx vitest run src/components/historyrhymes/ src/lib/historyrhymes/
+  cd repo-b && npm run typecheck
 
 Hard rules (from the dispatch record):
 - Do not rename or reshape /api/hr/v1/* or /api/v1/rhymes/*.
@@ -25,17 +50,12 @@ Hard rules (from the dispatch record):
 - No silent stream fallback; mode and source always labeled.
 - Cockpit copy avoids buy/sell/trade/position-size language.
 
-Test gates per PR:
-cd repo-b && npx vitest run src/components/historyrhymes/ src/lib/historyrhymes/
-cd repo-b && npm run typecheck && npm run lint
-cd repo-b && npx playwright test tests/historyrhymes-cockpit.spec.ts tests/historyrhymes-planning.spec.ts
-cd backend && python -m pytest tests/test_history_rhymes.py tests/test_hr_stream_*.py -q   (backend PRs)
-
 Update docs/plans/history-rhymes/{backlog,next-session}.md and the dispatch record status table
 before finishing. Reusable lessons go to docs/tips.md.
 ```
 
 ## Context notes
-- Branch chain is stacked PRs off main (feat/hr-cockpit-NN-*); retarget stacked PRs before deleting base branches after merges.
+- Branch chain: stacked PRs off main (`feat/hr-cockpit-NN-*`). Retarget each to main before merge once the prior PR lands. Do not delete base branches until the next PR in the stack has been retargeted.
 - The execution layer skill (`skills/historyrhymes-execution-layer/SKILL.md`) owns the daily decision routine; the cockpit consumes its outputs read-only.
-- Schema 10016 is reserved for HR streaming (10015 is doc-reserved by the telemetry streaming slice). Re-glob before merging PR 12.
+- Schema file is `repo-b/db/schema/10017_history_rhymes_streaming.sql` (10015 = telemetry streaming, 10016 = factory NCR intelligence, 10017 = HR streaming).
+- `tips.md` is at `docs/tips.md` — confirmed canonical path. HR cockpit streaming conventions were appended in PR 16.

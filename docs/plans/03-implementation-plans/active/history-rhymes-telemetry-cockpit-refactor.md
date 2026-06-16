@@ -1,6 +1,6 @@
 # History Rhymes Telemetry-Cockpit Refactor
 
-**Status:** Active — PR 1 in flight
+**Status:** All 16 PRs shipped — pending merge + schema migration 10017
 **Created:** 2026-06-12
 **ADO:** Epic #213 → Features #538 (Cockpit UI), #539 (Streaming Spine), #540 (Backstage + Reference) → Stories #541–#556 (one per PR)
 **Board:** https://dev.azure.com/paulmalmquist1984/Novendor
@@ -27,18 +27,18 @@ Change the front door of History Rhymes. The backend (pgvector analog matching, 
 | 2 | #542 | Cockpit shell: primitives, shell/nav, regime header, implications, routes, allowlist token | Done — PR #157 | vitest + typecheck + lint + both playwright specs + 4-route visual check |
 | 3 | #543 | Signal telemetry strip (8 sensor tiles, missing-safe) | Done — PR #158 | signals.test.ts edge cases |
 | 4 | #544 | Streaming architecture plan + topic contract (docs only) | Done — docs/plans/history-rhymes/streaming-architecture.md | docs-only diff |
-| 5 | #545 | Synthetic stream adapter, broker-less via ring buffer | Pending | backend pytest deterministic |
-| 6 | #546 | Stream health API + chip + admin diagnostics | Pending | never-500, no-secrets asserted |
-| 7 | #547 | Analog timeline + match via existing proxy | Pending | degraded reasons verbatim in tests |
-| 8 | #548 | Alert/trap rail + acknowledge flow | Pending | null-vs-empty distinction tested |
-| 9 | #549 | Scenario pressure panel (placeholder-honest) | Pending | placeholder detector tested |
-| 10 | #550 | Evidence drawer | Pending | nullReason propagation tested |
-| 11 | #551 | Kafka consumer scaffold (Confluent/Google config matrix) | Pending | fail-closed + no secret leakage |
-| 12 | #552 | Persist events/offsets — additive migration 10016 | Pending | idempotency + naming check pre-merge |
-| 13 | #553 | Live cockpit updates (replay/runner/polling) | Pending | no silent mixing tested |
-| 14 | #554 | Research/planning demotion split | Pending | contract test unmodified; spec updated same PR |
-| 15 | #555 | Episodes explorer + calibration status | Pending | calibration fabricates nothing |
-| 16 | #556 | Polish, copy audits, degraded-backend e2e gate | Pending | full suite |
+| 5 | #545 | Synthetic stream adapter, broker-less via ring buffer | Done — PR #162 | backend pytest deterministic |
+| 6 | #546 | Stream health API + chip + admin diagnostics | Done — PR #163 | never-500, no-secrets asserted |
+| 7 | #547 | Analog timeline + match via existing proxy | Done — PR #164 | degraded reasons verbatim in tests |
+| 8 | #548 | Alert/trap rail + acknowledge flow | Done — PR #165 | null-vs-empty distinction tested |
+| 9 | #549 | Scenario pressure panel (placeholder-honest) | Done — PR #166 | placeholder detector tested |
+| 10 | #550 | Evidence drawer | Done — PR #167 | nullReason propagation tested |
+| 11 | #551 | Kafka consumer scaffold (Confluent/Google config matrix) | Done — PR #170 | fail-closed + no secret leakage |
+| 12 | #552 | Persist events/offsets — additive migration 10017 | Done — PR #172 | idempotency + naming check pre-merge |
+| 13 | #553 | Live cockpit updates (replay/runner/polling) | Done — PR #173 (stacked) | no silent mixing tested |
+| 14 | #554 | Research/planning demotion split | Done — PR #173 (stacked) | contract test unmodified; spec updated same PR |
+| 15 | #555 | Episodes explorer + calibration status | Done — PR #174 | calibration fabricates nothing |
+| 16 | #556 | Polish, copy audits, degraded-backend e2e gate | Done — PR #175 | 126 tests passing |
 
 Hierarchy to keep repeating: **cockpit first, synthetic/replay second, live Kafka third.**
 
