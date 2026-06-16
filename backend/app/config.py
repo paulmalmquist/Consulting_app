@@ -115,6 +115,10 @@ OPENAI_CHAT_MODEL_REASONING: str = os.getenv("OPENAI_CHAT_MODEL_REASONING", "gpt
 OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-5")
 OPENAI_CHAT_MODEL_AGENTIC: str = os.getenv("OPENAI_CHAT_MODEL_AGENTIC", "gpt-5")
 OPENAI_CHAT_MODEL_VERIFY: str = os.getenv("OPENAI_CHAT_MODEL_VERIFY", "gpt-5-mini")
+
+# ── Executive autopilot morning-brief narration (plan PR 16b) ─────
+# Opt-in: when false (default) the brief is deterministic-only, ZERO model calls.
+MORNING_BRIEF_SUMMARY_ENABLED: bool = os.getenv("MORNING_BRIEF_SUMMARY_ENABLED", "false").lower() == "true"
 OPENAI_CHAT_MODEL_FALLBACK: str = os.getenv("OPENAI_CHAT_MODEL_FALLBACK", "gpt-5-mini")
 OPENAI_CHAT_MODEL_DISPATCH: str = os.getenv("OPENAI_CHAT_MODEL_DISPATCH", OPENAI_CHAT_MODEL_FAST)
 OPENAI_DISPATCH_CONFIDENCE_THRESHOLD: float = float(os.getenv("OPENAI_DISPATCH_CONFIDENCE_THRESHOLD", "0.35"))
