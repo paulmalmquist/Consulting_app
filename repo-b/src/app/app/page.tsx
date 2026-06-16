@@ -21,6 +21,12 @@ import {
   type IntelCard,
   type AgentType,
 } from "@/lib/intelligence/cards";
+import {
+  deriveEnvironmentStatus,
+  statusToneColor,
+  type EnvStatus,
+} from "@/lib/intelligence/envStatus";
+import { AgentPills, AGENT_PILL_TYPES } from "@/components/intelligence/AgentPills";
 import { cn } from "@/lib/cn";
 import {
   environmentCatalog,
@@ -72,109 +78,6 @@ function dashboardSourceRef(envId: string) {
 // ── Agent pills: deterministic role lenses (PR 13). Click to filter the feed to that
 // agent's cards; the count is the agent's cards already in the feed. Run-now lives in the
 // header "Run agents" button. Disabled (no handler) until an env+tenant is resolved.
-const AGENT_PILLS = [
-  { type: "cfo", label: "CFO", glow: ACTION_TEAL },
-  { type: "operations", label: "Operations", glow: "107, 174, 127" },
-  { type: "data_quality", label: "Data Quality", glow: "176, 64, 255" },
-  { type: "risk", label: "Risk", glow: "209, 161, 91" },
-] as const satisfies ReadonlyArray<{ type: AgentType; label: string; glow: string }>;
-
-function AgentPills({
-  activeFilter,
-  counts,
-  onToggle,
-}: {
-  activeFilter: AgentType | null;
-  counts: Record<AgentType, number>;
-  onToggle: ((agent: AgentType) => void) | null; // null => disabled (no env/tenant)
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="Agents">
-      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/35">
-        Agents
-      </span>
-      {AGENT_PILLS.map((agent) => {
-        const active = activeFilter === agent.type;
-        const count = counts[agent.type] ?? 0;
-        const disabled = !onToggle;
-        return (
-          <button
-            key={agent.type}
-            type="button"
-            aria-pressed={active}
-            disabled={disabled}
-            title={disabled ? "Select an environment to run agents" : `Filter the feed to ${agent.label} cards`}
-            onClick={() => onToggle?.(agent.type)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors disabled:cursor-default disabled:opacity-50"
-            style={{
-              borderColor: `rgba(${agent.glow}, ${active ? 0.55 : 0.22})`,
-              background: `rgba(${agent.glow}, ${active ? 0.16 : 0.06})`,
-              color: active ? "#fff" : "rgba(255,255,255,0.55)",
-            }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: `rgba(${agent.glow}, 0.8)` }} />
-            {agent.label}
-            {count > 0 ? <span className="text-white/70">{count}</span> : null}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Derived environment status (PR 5) ─────────────────────────────────────────
-// Honest, derived from KNOWN client-side fields only. No invented health_score,
-// no numeric percentage. promotion_state is NOT available on the client Environment
-// type, so its branches are forward-compat and unreachable this PR — we never fetch it.
-type EnvStatusTone = "teal" | "amber" | "muted";
-type EnvStatus = { label: string; tone: EnvStatusTone; reason: string | null };
-
-const PROMO_DEGRADED = new Set(["degraded", "blocked", "failed", "error", "broken"]);
-const PROMO_PENDING = new Set(["pending", "draft", "in_progress", "provisioning", "queued"]);
-
-function deriveEnvironmentStatus(
-  env: Environment | null,
-  anomalyCount: number,
-  bizId: string | null,
-  promotionState?: string | null, // omitted by callers — forward-compat only
-): EnvStatus {
-  if (!env) {
-    return { label: "Status unavailable", tone: "muted", reason: "No environment selected." };
-  }
-  if (typeof env.is_active !== "boolean" || !env.env_id) {
-    return { label: "Status unavailable", tone: "muted", reason: "Required environment fields not loaded." };
-  }
-  // Inactive wins: a dead env's signals are moot.
-  if (env.is_active === false) {
-    return { label: "Inactive", tone: "amber", reason: null };
-  }
-  // Forward-compat (unreachable now — promotionState is always undefined).
-  const ps = promotionState?.toLowerCase();
-  if (ps && PROMO_DEGRADED.has(ps)) {
-    return { label: "Needs attention", tone: "amber", reason: `Promotion state: ${promotionState}` };
-  }
-  // No tenant → intelligence cannot be scoped → fail closed (never use the default tenant).
-  if (!bizId) {
-    return {
-      label: "Status unavailable",
-      tone: "muted",
-      reason: "No tenant (business_id) resolved; intelligence cannot be scoped.",
-    };
-  }
-  // The real signal this PR ships: open anomaly cards for the scoped env.
-  if (anomalyCount > 0) {
-    return {
-      label: "Needs attention",
-      tone: "amber",
-      reason: `${anomalyCount} open anomaly card${anomalyCount === 1 ? "" : "s"}.`,
-    };
-  }
-  if (ps && PROMO_PENDING.has(ps)) {
-    return { label: "In progress", tone: "teal", reason: `Promotion state: ${promotionState}` };
-  }
-  return { label: "Healthy", tone: "teal", reason: "Derived from active state and open cards. Promotion state not loaded." };
-}
-
 // ── Intelligence feed hook (PR 5) ─────────────────────────────────────────────
 // Binds to the SELECTED environment (never hover). Fails closed when there is no
 // real business_id — never falls back to the cards.ts default tenant.
@@ -527,12 +430,6 @@ function EnvironmentStatusPanel({
   );
 }
 
-function statusToneColor(tone: EnvStatusTone): string {
-  if (tone === "amber") return "rgba(209, 161, 91, 0.95)";
-  if (tone === "teal") return "rgba(140, 200, 158, 0.95)";
-  return "rgba(255,255,255,0.55)";
-}
-
 function SidePanelRow({
   label,
   value,
@@ -609,7 +506,7 @@ function AppIndexPageInner() {
   const agentCounts = useMemo(() => {
     const counts: Record<AgentType, number> = { cfo: 0, operations: 0, data_quality: 0, risk: 0 };
     for (const card of feed.cards) {
-      for (const t of ["cfo", "operations", "data_quality", "risk"] as AgentType[]) {
+      for (const t of AGENT_PILL_TYPES) {
         if (card.created_by === agentCreatedBy(t)) counts[t] += 1;
       }
     }
