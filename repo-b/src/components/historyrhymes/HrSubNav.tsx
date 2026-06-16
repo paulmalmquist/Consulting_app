@@ -8,17 +8,26 @@ const TABS = [
   { slug: "morning-book", label: "Morning Book" },
   { slug: "planning", label: "Planning" },
   { slug: "ml-algorithms", label: "ML Algorithm Lab" },
+  { slug: "ml-algorithms/features", label: "Feature Foundry" },
 ];
 
 /** Minimal tab strip linking the History Rhymes sub-pages for an env. */
 export function HrSubNav({ envId }: { envId: string }) {
   const pathname = usePathname() || "";
   const base = `/lab/env/${envId}/historyrhymes`;
+  // The active tab is the one whose href is the LONGEST prefix of the path, so a
+  // nested route (…/ml-algorithms/features) highlights Feature Foundry, not both.
+  const activeSlug = TABS.map((t) => t.slug)
+    .filter((slug) => {
+      const href = `${base}/${slug}`;
+      return pathname === href || pathname.startsWith(`${href}/`);
+    })
+    .sort((a, b) => b.length - a.length)[0];
   return (
     <nav className="flex flex-wrap gap-1 mb-4" aria-label="History Rhymes sections">
       {TABS.map((t) => {
         const href = `${base}/${t.slug}`;
-        const active = pathname.startsWith(href);
+        const active = t.slug === activeSlug;
         return (
           <Link
             key={t.slug}
