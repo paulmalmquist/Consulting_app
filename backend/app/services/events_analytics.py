@@ -74,8 +74,23 @@ def _view_fqn(view: str) -> str:
 
 
 def _get_bq_client():  # type: ignore[return]
-    """Lazy-import google-cloud-bigquery. Absent → ImportError (caught upstream)."""
+    """Lazy-import google-cloud-bigquery. Absent → ImportError (caught upstream).
+
+    Credential resolution, in order:
+      1. GOOGLE_APPLICATION_CREDENTIALS_JSON — inline service-account JSON. Used
+         on hosts without a persistent filesystem to drop a key file (Railway),
+         where the read-only dashboard reads the prod analytics views.
+      2. Application Default Credentials — GOOGLE_APPLICATION_CREDENTIALS file
+         path (local dev), or Workload Identity (GKE). Unchanged default.
+    """
     from google.cloud import bigquery  # noqa: PLC0415
+
+    inline = _clean(os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON", ""))
+    if inline:
+        import json  # noqa: PLC0415
+        from google.oauth2 import service_account  # noqa: PLC0415
+        creds = service_account.Credentials.from_service_account_info(json.loads(inline))
+        return bigquery.Client(project=BQ_PROJECT_ID, credentials=creds)
     return bigquery.Client(project=BQ_PROJECT_ID)
 
 

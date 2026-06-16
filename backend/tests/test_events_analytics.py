@@ -7,6 +7,7 @@ the structural guarantee that this surface cannot read the raw events table.
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -87,6 +88,68 @@ def test_view_fqn_rejects_raw_table():
         svc._view_fqn("events")  # the raw table name
     with pytest.raises(ValueError):
         svc._view_fqn("winston_events_raw.events")
+
+
+# ── credential resolution: inline JSON (Railway) vs ADC default ──────────────
+
+def test_bq_client_uses_inline_json_credentials_when_set():
+    """On a host without a key file (Railway), inline SA JSON builds the client."""
+    captured = {}
+
+    class _FakeCreds:
+        pass
+
+    class _FakeSAModule:
+        class Credentials:
+            @staticmethod
+            def from_service_account_info(info):
+                captured["info"] = info
+                return _FakeCreds()
+
+    class _FakeBQ:
+        class Client:
+            def __init__(self, project=None, credentials=None):
+                captured["project"] = project
+                captured["credentials"] = credentials
+
+    import sys
+    inline = '{"type":"service_account","project_id":"novendor-events-prod","client_email":"x@y.iam"}'
+    with patch.object(svc, "BQ_PROJECT_ID", "novendor-events-prod"), \
+         patch.dict(os.environ, {"GOOGLE_APPLICATION_CREDENTIALS_JSON": inline}), \
+         patch.dict(sys.modules, {
+             "google.cloud": type(sys)("google.cloud"),
+             "google.oauth2": type(sys)("google.oauth2"),
+         }):
+        sys.modules["google.cloud"].bigquery = _FakeBQ  # type: ignore[attr-defined]
+        sys.modules["google.oauth2"].service_account = _FakeSAModule  # type: ignore[attr-defined]
+        svc._get_bq_client()
+
+    assert captured["project"] == "novendor-events-prod"
+    assert isinstance(captured["credentials"], _FakeCreds)
+    assert captured["info"]["project_id"] == "novendor-events-prod"
+
+
+def test_bq_client_falls_back_to_adc_without_inline_json():
+    """No inline JSON → plain Client(project=...) (ADC / key-file / Workload Identity)."""
+    captured = {}
+
+    class _FakeBQ:
+        class Client:
+            def __init__(self, project=None, credentials=None):
+                captured["project"] = project
+                captured["credentials"] = credentials
+
+    import sys
+    env = dict(os.environ)
+    env.pop("GOOGLE_APPLICATION_CREDENTIALS_JSON", None)
+    with patch.object(svc, "BQ_PROJECT_ID", "p"), \
+         patch.dict(os.environ, env, clear=True), \
+         patch.dict(sys.modules, {"google.cloud": type(sys)("google.cloud")}):
+        sys.modules["google.cloud"].bigquery = _FakeBQ  # type: ignore[attr-defined]
+        svc._get_bq_client()
+
+    assert captured["project"] == "p"
+    assert captured["credentials"] is None  # ADC path, no explicit creds
 
 
 def test_happy_path_payload_shape_with_mocked_client():
