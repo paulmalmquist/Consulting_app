@@ -83,3 +83,13 @@ advanced." Three layers, built continuously:
   (CLAUDE.md ADO intake skipped for this feature).
 - Databricks/MLflow links are config-ready only (stub); GCP is the real
   materialized provider.
+
+## Feature Store stack status (2026-06-16)
+
+Stacked PRs on the ML Algorithm Lab: A1 engine (#206) → A2 API+swap (#209) →
+A3 Feature Foundry (#210) → B1 schema+materializer (#213) → B2 FRED (#215) →
+**B3 Census (this)**. B3 adds the public Census housing connector
+(`housing_starts_saar` → canonical slot; `housing_permits_saar` → auxiliary,
+`quant_slot=None`). Fixtures-only tests, dry-run-by-default ingest, no live
+infra exercised. Next: B4 VIX (`vix_term` nullable), then FOMC text, DefiLlama;
+then B7 infra manifests; then C gated `episode_embeddings` backfill.
