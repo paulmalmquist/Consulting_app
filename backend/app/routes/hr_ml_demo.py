@@ -113,6 +113,63 @@ def cloud_config() -> dict[str, Any]:
         return {"provider": "none", "available_link_types": []}
 
 
+# ── Feature Foundry (feature store) ───────────────────────────────────────────
+# Static routes are declared BEFORE the dynamic `by-id/{feature_id}` so a literal
+# segment (quality-board / pipeline-map / importance) can never be parsed as an id.
+
+
+@router.get("/features")
+def features_overview() -> dict[str, Any]:
+    try:
+        from app.services.hr_feature_store import build_feature_overview
+
+        return build_feature_overview()
+    except Exception:  # noqa: BLE001 — fail closed
+        logger.exception("feature-store overview failed")
+        return {"title": "Feature Foundry", "features": [], "error": True}
+
+
+@router.get("/features/quality-board")
+def features_quality_board() -> dict[str, Any]:
+    try:
+        from app.services.hr_feature_store import build_quality_board
+
+        return build_quality_board()
+    except Exception:  # noqa: BLE001
+        logger.exception("feature-store quality board failed")
+        return {"dimensions": [], "features": [], "grid": {}}
+
+
+@router.get("/features/pipeline-map")
+def features_pipeline_map() -> dict[str, Any]:
+    try:
+        from app.services.hr_feature_store import build_pipeline_map
+
+        return build_pipeline_map()
+    except Exception:  # noqa: BLE001
+        logger.exception("feature-store pipeline map failed")
+        return {"nodes": []}
+
+
+@router.get("/features/importance")
+def features_importance() -> dict[str, Any]:
+    try:
+        from app.services.hr_feature_store import build_importance
+
+        return build_importance()
+    except Exception:  # noqa: BLE001
+        logger.exception("feature-store importance failed")
+        return {"importance": {}}
+
+
+@router.get("/features/by-id/{feature_id}")
+def feature_detail(feature_id: str) -> dict[str, Any]:
+    """Single feature detail. Unknown id ⇒ 200 + null_reason='unknown_feature_id'."""
+    from app.services.hr_feature_store import run_feature
+
+    return run_feature(feature_id)
+
+
 @router.post("/run")
 async def run(request: Request) -> dict[str, Any]:
     """Run one algorithm under an optional Reality Mode scenario.

@@ -59,18 +59,55 @@ DEMO_SCRIPT: dict[str, list[str]] = {
 }
 
 
+# Shared dataset provenance (computed once). The lab now trains on the feature
+# store's shared deterministic frame; if that package is unavailable we FALL BACK
+# to the lab's own generator and badge it LOUDLY so a degraded run is never
+# mistaken for the one-shared-dataset path.
+_SHARED: tuple[Any, dict[str, Any]] | None = None
+
+
+def _shared_base() -> tuple[Any, dict[str, Any]]:
+    global _SHARED
+    if _SHARED is None:
+        try:
+            from app.services.hr_feature_store import lab_model_dataset  # noqa: PLC0415
+
+            _SHARED = (
+                lab_model_dataset(SEED),
+                {"source_quality": "synthetic", "dataset_provenance": "hr_feature_store", "fallback_reason": None},
+            )
+        except Exception:  # noqa: BLE001 — loud fallback, never break the lab
+            logger.exception("hr_feature_store unavailable; falling back to lab generate_dataset")
+            _SHARED = (
+                generate_dataset(SEED),
+                {"source_quality": "synthetic_fallback", "dataset_provenance": "lab_generate_dataset",
+                 "fallback_reason": "hr_feature_store_unavailable"},
+            )
+    return _SHARED
+
+
+def dataset_provenance() -> dict[str, Any]:
+    return dict(_shared_base()[1])
+
+
+def reset_dataset_cache() -> None:
+    """Test hook: drop the memoized shared dataset so provenance re-resolves."""
+    global _SHARED
+    _SHARED = None
+
+
 def _prepare_dataset(scenario: dict[str, Any] | None):
     """Return the dataset for a run; Reality Mode mutations are applied here.
 
-    PR1 uses the base dataset. The curveball engine (PR2) hooks in by importing
-    `apply_scenario` lazily so this module stays importable before it exists.
+    Consumes the feature store's shared deterministic frame (fail-soft to the
+    lab's own generator). Curveballs are applied to a copy.
     """
-    base = generate_dataset(SEED)
+    base = _shared_base()[0]
     if not scenario:
         return base
     try:
         from .curveballs import apply_scenario  # noqa: PLC0415
-    except Exception:  # curveball engine not present yet
+    except Exception:  # curveball engine not present
         return base
     return apply_scenario(base.copy(), scenario)
 
@@ -89,6 +126,12 @@ def run_algorithm(algorithm_id: str, scenario: dict[str, Any] | None = None) -> 
             _augment_with_scenario(result, demo, df, scenario)
         envelope = ok_response(demo, result)
         _attach_cloud(envelope, algorithm_id)
+        # Badge dataset provenance inside evidence (keeps top-level envelope keys stable).
+        prov = dataset_provenance()
+        envelope["evidence"]["source_quality"] = prov["source_quality"]
+        envelope["evidence"]["dataset_provenance"] = prov["dataset_provenance"]
+        if prov.get("fallback_reason"):
+            envelope["evidence"]["fallback_reason"] = prov["fallback_reason"]
         return envelope
     except Exception as exc:  # noqa: BLE001 — per-algorithm fail-closed
         logger.exception("ml-demo algorithm %s failed", algorithm_id)

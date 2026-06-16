@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .contract import MODEL_OBS_COLUMNS, MODEL_OBS_VERSION, QUANT_FEATURE_ORDER, FeatureObservation, encode_quant_block
 from .enrich import FEATURE_FAMILIES, SIGNATURE_FEATURE_IDS, enrich_observation, latest_signatures, signature_series
+from .lab_dataset import lab_model_dataset
 from .macro_dataset import generate_macro_panel
 from .registry import FEATURE_REGISTRY, get_feature
 from .runner import (
@@ -39,6 +40,7 @@ __all__ = [
     "enrich_observation",
     "generate_macro_panel",
     "get_feature",
+    "lab_model_dataset",
     "latest_signatures",
     "prepare_model_dataset",
     "run_feature",

@@ -36,14 +36,16 @@ def evidence_block(extra: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def _static(feature: dict[str, Any]) -> dict[str, Any]:
-    """The registry fields that survive a compute failure."""
+    """The registry fields that survive a compute failure (registry key is `id`)."""
     keep = (
-        "feature_id", "name", "family", "definition", "formula",
+        "name", "family", "definition", "formula",
         "source_dependencies", "cadence", "availability_at_prediction_time",
         "leakage_risk", "imputation_policy", "models_using", "demo_explanation",
         "quant_slot",
     )
-    return {k: feature.get(k) for k in keep}
+    out = {k: feature.get(k) for k in keep}
+    out["feature_id"] = feature.get("id") or feature.get("feature_id")
+    return out
 
 
 def ok_feature_response(feature: dict[str, Any], computed: dict[str, Any]) -> dict[str, Any]:
