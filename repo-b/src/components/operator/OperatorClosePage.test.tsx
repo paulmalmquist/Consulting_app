@@ -14,14 +14,6 @@ vi.mock("@/components/domain/DomainEnvProvider", () => ({
   useDomainEnv: () => ({ envId: "env-test", businessId: "biz-test" }),
 }));
 
-vi.mock("@/components/winston-companion/WinstonCompanionProvider", () => ({
-  useWinstonCompanion: () => ({
-    openDrawer: vi.fn(),
-    setDraft: vi.fn(),
-    sendPrompt: vi.fn(),
-  }),
-}));
-
 vi.mock("@/components/ui/WinstonLoader", () => ({
   WorkspaceContextLoader: ({ label }: { label: string }) => (
     <div data-testid="loader">{label}</div>

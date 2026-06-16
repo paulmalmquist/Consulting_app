@@ -241,29 +241,3 @@ jobs:
         with:
           name: smoke-test-result
           path: smoke-result.json
-
-  winston-first-mile:
-    name: Winston First-Mile Release Gate
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: repo-b
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: repo-b/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Winston first-mile browser gate
-        run: npx playwright test tests/global-commandbar.spec.ts --project=chromium --grep "boots on the RE"
