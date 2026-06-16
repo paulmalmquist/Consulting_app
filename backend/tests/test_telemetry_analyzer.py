@@ -158,3 +158,35 @@ def test_route_analyze_fails_closed(client, monkeypatch):
     resp = client.post("/api/ade/analyze/telemetry", json={"env_id": ENV, "business_id": BIZ})
     assert resp.status_code == 200
     assert resp.json()["null_reason"] == "telemetry_analyze_unavailable"
+
+
+# ── persist seam (connective PR) ──────────────────────────────────────────────
+_ONE_FINDING = {"analyzer_type": "telemetry", "findings": [{"finding_id": "x"}],
+                "null_reasons": [], "latency_ms": 5}
+
+
+def test_route_persist_true_upserts_cards(client, monkeypatch):
+    from app.routes import telemetry_analyzer as route
+    monkeypatch.setattr(route, "require_environment_access", lambda req, **kw: None)
+    monkeypatch.setattr(svc, "analyze", lambda env, biz: dict(_ONE_FINDING))
+    calls = []
+    monkeypatch.setattr(route, "persist_findings_as_cards",
+                        lambda env, biz, findings: calls.append(findings) or len(findings))
+    resp = client.post("/api/ade/analyze/telemetry",
+                       json={"env_id": ENV, "business_id": BIZ, "persist": True})
+    assert resp.status_code == 200
+    assert resp.json()["cards_upserted"] == 1
+    assert len(calls) == 1  # persist invoked exactly once
+
+
+def test_route_persist_default_off(client, monkeypatch):
+    from app.routes import telemetry_analyzer as route
+    monkeypatch.setattr(route, "require_environment_access", lambda req, **kw: None)
+    monkeypatch.setattr(svc, "analyze", lambda env, biz: dict(_ONE_FINDING))
+    called = []
+    monkeypatch.setattr(route, "persist_findings_as_cards",
+                        lambda env, biz, findings: called.append(1) or 0)
+    resp = client.post("/api/ade/analyze/telemetry", json={"env_id": ENV, "business_id": BIZ})
+    assert resp.status_code == 200
+    assert resp.json()["cards_upserted"] == 0
+    assert called == []  # persist NOT invoked when flag absent

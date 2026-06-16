@@ -14,6 +14,7 @@ import {
   getCards,
   upsertCard,
   dismissCard,
+  runAnalyzers,
   type IntelCard,
 } from "@/lib/intelligence/cards";
 import { cn } from "@/lib/cn";
@@ -237,7 +238,24 @@ function useIntelligenceFeed(env: Environment | null, bizId: string | null) {
     setState((s) => ({ ...s, cards: s.cards.filter((c) => c.id !== cardId) }));
   }, []);
 
-  return { ...state, removeCard };
+  // Re-pull cards only (no seed) after a user-triggered analyzer run. Authoritative —
+  // shows whatever the analyzers just upserted. Fail-closed without a real tenant.
+  const refetch = useCallback(async () => {
+    if (!env || !bizId) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const { cards, null_reason } = await getCards(env.env_id, { biz: bizId, limit: 50 });
+      setState({ cards, loading: false, error: null, nullReason: null_reason ?? null });
+    } catch (cause) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: cause instanceof Error ? cause.message : "Failed to load intelligence",
+      }));
+    }
+  }, [env, bizId]);
+
+  return { ...state, removeCard, refetch };
 }
 
 // ── Mode B: workspace preview (reachable via toggle) ──────────────────────────
@@ -528,6 +546,7 @@ function AppIndexPageInner() {
   const [hoveredEnvId, setHoveredEnvId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const deniedTarget = searchParams.get("denied");
   const selectedEnvironment = useMemo(
@@ -632,6 +651,21 @@ function AppIndexPageInner() {
     },
     [selectedEnvironment, bizId, router],
   );
+
+  // Run the deterministic analyzers, persisting findings as cards, then refetch the feed.
+  // Fail-closed: no-op without a real env/tenant (the button is disabled in that case).
+  const handleAnalyze = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || analyzing) return;
+    setAnalyzing(true);
+    try {
+      await runAnalyzers(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // Each analyzer already fails closed server-side; nothing fabricated on error.
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [selectedEnvironment, bizId, analyzing, feed]);
 
   useEffect(() => {
     if (loading || environments.length !== 1 || isPlatformAdmin || deniedTarget) {
@@ -1032,6 +1066,22 @@ function AppIndexPageInner() {
                 <div className="flex items-center justify-between gap-4">
                   <AgentPills />
                   <div className="flex shrink-0 items-center gap-3">
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleAnalyze()}
+                        disabled={analyzing}
+                        title="Run the analyzers and add their findings to the feed"
+                        className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors disabled:cursor-default disabled:opacity-60"
+                        style={{
+                          borderColor: `rgba(${ACTION_TEAL}, 0.30)`,
+                          color: `rgba(${ACTION_TEAL}, 0.95)`,
+                          background: `rgba(${ACTION_TEAL}, 0.06)`,
+                        }}
+                      >
+                        {analyzing ? "Analyzing…" : "Analyze"}
+                      </button>
+                    ) : null}
                     {selectedEnvironment ? (
                       <InvestigateButton
                         envId={selectedEnvironment.env_id}

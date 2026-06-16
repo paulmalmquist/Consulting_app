@@ -72,6 +72,57 @@ export const bumpCardPriority = (env: string, id: string, delta: number, biz: st
     body: JSON.stringify({ env_id: env, business_id: biz, priority_delta: delta }),
   });
 
+// ── Analyzer trigger (connective seam) ────────────────────────────────────────
+// The three deterministic analyzers (telemetry, data-platform, business) compute
+// findings on the backend; passing persist:true upserts each finding as an intel card
+// (idempotent by source_ref), so running this makes new findings appear in the feed.
+export type AnalyzerKind = "telemetry" | "data-platform" | "business";
+
+export const ANALYZER_KINDS: AnalyzerKind[] = ["telemetry", "data-platform", "business"];
+
+interface AnalyzeResponse {
+  analyzer_type?: string;
+  findings?: unknown[];
+  null_reasons?: unknown[];
+  cards_upserted?: number;
+  null_reason?: string | null;
+}
+
+export interface RunAnalyzersResult {
+  ran: AnalyzerKind[];           // analyzers that returned a response (success or fail-closed)
+  failed: AnalyzerKind[];        // analyzers whose request itself rejected
+  cardsUpserted: number;         // total cards written across all analyzers
+}
+
+// Run the analyzers in parallel and persist their findings as cards. allSettled so one
+// analyzer failing never blocks the others; each analyzer already fails closed server-side.
+export async function runAnalyzers(
+  env: string,
+  biz: string,
+  kinds: AnalyzerKind[] = ANALYZER_KINDS,
+): Promise<RunAnalyzersResult> {
+  const settled = await Promise.allSettled(
+    kinds.map((kind) =>
+      apiFetch<AnalyzeResponse>(`/api/ade/analyze/${kind}`, {
+        method: "POST",
+        body: JSON.stringify({ env_id: env, business_id: biz, persist: true }),
+      }),
+    ),
+  );
+  const ran: AnalyzerKind[] = [];
+  const failed: AnalyzerKind[] = [];
+  let cardsUpserted = 0;
+  settled.forEach((outcome, i) => {
+    if (outcome.status === "fulfilled") {
+      ran.push(kinds[i]);
+      cardsUpserted += outcome.value?.cards_upserted ?? 0;
+    } else {
+      failed.push(kinds[i]);
+    }
+  });
+  return { ran, failed, cardsUpserted };
+}
+
 export const CARD_TYPE_LABELS: Record<CardType, string> = {
   dashboard: "Dashboard",
   report: "Report",
