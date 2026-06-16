@@ -81,6 +81,7 @@ from app.routes import telemetry
 from app.routes import telemetry_copilot
 from app.routes import automated_data_engineering
 from app.routes import intelligence_cards
+from app.routes import morning_brief
 from app.routes import enterprise_memory
 from app.routes import events_analytics
 from app.routes import workflow_registry
@@ -462,6 +463,7 @@ app.include_router(telemetry.router)
 app.include_router(telemetry_copilot.router)
 app.include_router(automated_data_engineering.router)
 app.include_router(intelligence_cards.router)
+app.include_router(morning_brief.router)
 app.include_router(enterprise_memory.router)
 app.include_router(events_analytics.router)
 app.include_router(workflow_registry.router)

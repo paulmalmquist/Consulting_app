@@ -151,6 +151,30 @@ export async function generateReels(env: string, biz: string): Promise<GenerateR
   }
 }
 
+// ── Executive autopilot — deterministic morning brief (no LLM) ─────────────────
+// Build/refresh today's morning brief; it lands as an 'autopilot' story card in the feed.
+interface MorningBriefResponse {
+  card_id?: string | null;
+  null_reason?: string | null;
+}
+
+export interface GenerateBriefResult {
+  cardId: string | null;
+  ok: boolean;
+}
+
+export async function generateMorningBrief(env: string, biz: string): Promise<GenerateBriefResult> {
+  try {
+    const res = await apiFetch<MorningBriefResponse>("/api/ade/intel/morning-brief/generate", {
+      method: "POST",
+      body: JSON.stringify({ env_id: env, business_id: biz }),
+    });
+    return { cardId: res?.card_id ?? null, ok: true };
+  } catch {
+    return { cardId: null, ok: false };
+  }
+}
+
 // ── Agent personalities (deterministic role lenses) ───────────────────────────
 // Run a role agent (or all) to filter existing cards into role-tagged rollup cards.
 // Deterministic, NO LLM. created_by on produced cards is 'agent:<type>'.

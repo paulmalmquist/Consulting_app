@@ -60,17 +60,24 @@ def upsert_card(
     priority_score: float = 0.0,
     anomaly_flag: bool = False,
     created_by: str | None = "system",
+    dedup_ref: dict | None = None,
 ) -> dict:
     """Create or update a card, idempotent by (env_id, source_ref).
 
     A second call with the same env_id + source_ref updates the existing row
-    (title/summary/priority/anomaly/last_updated_at) rather than inserting a duplicate.
+    (title/summary/priority/anomaly/source_ref/last_updated_at) rather than inserting a
+    duplicate.
+
+    ``dedup_ref``: when given, the idempotency key is hashed from THIS identity dict instead
+    of the full ``source_ref``. That lets a caller keep a stable identity (e.g. one morning
+    brief per env per date) while ``source_ref`` still carries a volatile payload that
+    refreshes in place. Defaults to ``source_ref`` so every existing caller is unchanged.
     """
     if card_type not in CARD_TYPES:
         raise ValueError(f"Unknown card_type: {card_type}")
     if not title or not title.strip():
         raise ValueError("title is required")
-    key = _source_ref_key(source_ref)
+    key = _source_ref_key(dedup_ref if dedup_ref is not None else source_ref)
     with get_cursor() as cur:
         _set_tenant(cur, env_id)
         cur.execute(
@@ -82,6 +89,7 @@ def upsert_card(
                    card_type = EXCLUDED.card_type,
                    title = EXCLUDED.title,
                    summary = EXCLUDED.summary,
+                   source_ref = EXCLUDED.source_ref,
                    priority_score = EXCLUDED.priority_score,
                    anomaly_flag = EXCLUDED.anomaly_flag,
                    last_updated_at = now()

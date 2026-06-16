@@ -16,6 +16,7 @@ import {
   dismissCard,
   runAnalyzers,
   generateReels,
+  generateMorningBrief,
   runAgent,
   agentCreatedBy,
   type IntelCard,
@@ -472,6 +473,7 @@ function AppIndexPageInner() {
   const [showPreview, setShowPreview] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [buildingReels, setBuildingReels] = useState(false);
+  const [buildingBrief, setBuildingBrief] = useState(false);
   const [runningAgents, setRunningAgents] = useState(false);
   const [agentFilter, setAgentFilter] = useState<AgentType | null>(null);
 
@@ -633,6 +635,21 @@ function AppIndexPageInner() {
       setBuildingReels(false);
     }
   }, [selectedEnvironment, bizId, buildingReels, feed]);
+
+  // Generate today's deterministic morning brief (autopilot story card), then refetch.
+  // No LLM. Fail-closed: no-op without a real env/tenant.
+  const handleGenerateBrief = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || buildingBrief) return;
+    setBuildingBrief(true);
+    try {
+      await generateMorningBrief(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // The brief fails closed server-side; nothing fabricated on error.
+    } finally {
+      setBuildingBrief(false);
+    }
+  }, [selectedEnvironment, bizId, buildingBrief, feed]);
 
   // Run all role agents (deterministic role lenses, NO LLM), then refetch the feed.
   // Fail-closed: no-op without a real env/tenant.
@@ -1085,6 +1102,17 @@ function AppIndexPageInner() {
                         className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
                       >
                         {buildingReels ? "Building…" : "Stories"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleGenerateBrief()}
+                        disabled={buildingBrief}
+                        title="Generate today's deterministic morning brief"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {buildingBrief ? "Briefing…" : "Brief"}
                       </button>
                     ) : null}
                     {selectedEnvironment && bizId ? (
