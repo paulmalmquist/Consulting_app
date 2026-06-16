@@ -3,11 +3,8 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ToastProvider } from "@/components/ui/Toast";
-import GlobalCommandBar from "@/components/commandbar/GlobalCommandBar";
 import { applyThemeMode, getStoredThemeMode } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { WinstonCompanionProvider } from "@/components/winston-companion/WinstonCompanionProvider";
-import WinstonLoader from "@/components/ui/WinstonLoader";
 import { winstonLoader } from "@/lib/loading-state";
 
 /**
@@ -68,15 +65,13 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
-// App-only: command bar, Winston loader/companion. Must not render on marketing or login.
+// App-only: route transition feedback. Winston AI chat is intentionally removed.
 export function WinstonProviders({ children }: { children: React.ReactNode }) {
   return (
-    <WinstonCompanionProvider>
+    <>
       <RouteChangeListener />
       {children}
-      <GlobalCommandBar />
-      <WinstonLoader />
-    </WinstonCompanionProvider>
+    </>
   );
 }
 
