@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from app.auth.platform import require_environment_access
 from app.observability.logger import emit_log
 from app.services import business_analyzer as svc
+from app.services.analyzer_persist import persist_findings_as_cards
 
 router = APIRouter(prefix="/api/ade/analyze/business", tags=["ade"])
 
@@ -26,13 +27,19 @@ class AnalyzeBody(BaseModel):
     env_id: str
     business_id: UUID
     env_type: str | None = None  # optional override; otherwise resolved from the env row
+    persist: bool = False  # when true, upsert findings as intel cards (default off: read-only)
 
 
 @router.post("")
 def analyze(body: AnalyzeBody, request: Request):
     require_environment_access(request, env_id=body.env_id)
     try:
-        return {**svc.analyze(body.env_id, body.business_id, env_type=body.env_type), "null_reason": None}
+        result = svc.analyze(body.env_id, body.business_id, env_type=body.env_type)
+        cards_upserted = (
+            persist_findings_as_cards(body.env_id, body.business_id, result.get("findings", []))
+            if body.persist else 0
+        )
+        return {**result, "cards_upserted": cards_upserted, "null_reason": None}
     except Exception as exc:  # noqa: BLE001
         emit_log(level="error", service="business_analyzer", action="analyze_failed", message=str(exc), error=exc)
         return {"analyzer_type": "business", "env_type": None, "findings": [], "null_reasons": [],

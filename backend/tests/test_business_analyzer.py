@@ -166,3 +166,35 @@ def test_route_analyze_fails_closed(client, monkeypatch):
     resp = client.post("/api/ade/analyze/business", json={"env_id": ENV, "business_id": BIZ})
     assert resp.status_code == 200
     assert resp.json()["null_reason"] == "business_analyze_unavailable"
+
+
+# ── persist seam (connective PR) ──────────────────────────────────────────────
+_ONE_FINDING = {"analyzer_type": "business", "env_type": "generic",
+                "findings": [{"finding_id": "x"}], "null_reasons": [], "latency_ms": 5}
+
+
+def test_route_persist_true_upserts_cards(client, monkeypatch):
+    from app.routes import business_analyzer as route
+    monkeypatch.setattr(route, "require_environment_access", lambda req, **kw: None)
+    monkeypatch.setattr(svc, "analyze", lambda env, biz, **kw: dict(_ONE_FINDING))
+    calls = []
+    monkeypatch.setattr(route, "persist_findings_as_cards",
+                        lambda env, biz, findings: calls.append(findings) or len(findings))
+    resp = client.post("/api/ade/analyze/business",
+                       json={"env_id": ENV, "business_id": BIZ, "persist": True})
+    assert resp.status_code == 200
+    assert resp.json()["cards_upserted"] == 1
+    assert len(calls) == 1
+
+
+def test_route_persist_default_off(client, monkeypatch):
+    from app.routes import business_analyzer as route
+    monkeypatch.setattr(route, "require_environment_access", lambda req, **kw: None)
+    monkeypatch.setattr(svc, "analyze", lambda env, biz, **kw: dict(_ONE_FINDING))
+    called = []
+    monkeypatch.setattr(route, "persist_findings_as_cards",
+                        lambda env, biz, findings: called.append(1) or 0)
+    resp = client.post("/api/ade/analyze/business", json={"env_id": ENV, "business_id": BIZ})
+    assert resp.status_code == 200
+    assert resp.json()["cards_upserted"] == 0
+    assert called == []
