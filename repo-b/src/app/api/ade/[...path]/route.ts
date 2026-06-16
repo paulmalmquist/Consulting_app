@@ -68,10 +68,26 @@ async function forward(request: NextRequest, context: { params: { path: string[]
   }
 }
 
+// Next.js App Router only routes methods that have a named export. `forward` already
+// handles every method (it reads a body for non-GET/HEAD and passes request.method
+// through), so the proxy supports the full CRUD surface its backend exposes — including
+// PATCH, which the card dismiss/prioritize clients in cards.ts rely on.
 export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
   return forward(request, context);
 }
 
 export async function POST(request: NextRequest, context: { params: { path: string[] } }) {
+  return forward(request, context);
+}
+
+export async function PATCH(request: NextRequest, context: { params: { path: string[] } }) {
+  return forward(request, context);
+}
+
+export async function PUT(request: NextRequest, context: { params: { path: string[] } }) {
+  return forward(request, context);
+}
+
+export async function DELETE(request: NextRequest, context: { params: { path: string[] } }) {
   return forward(request, context);
 }
