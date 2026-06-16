@@ -5,6 +5,15 @@ can act on it without asking questions.
 
 ## Open
 
+- **Telemetry Calibration Layer — active plan (post-Gate-0 pivot).** The Telemetry Trust Layer thesis
+  (embedding-distance trust) was KILLED by Gate 0 — distance anti-correlated with RUL error on FD001
+  (`docs/plans/03-implementation-plans/evidence/telemetry-trust-negative-result-writeup.md`, commit
+  `383536bd`). The successor build is calibrated RUL uncertainty (conformal intervals, PICP/MPIW/CRPS,
+  reliability diagram, one thin demo screen): `docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md`.
+  First ticket: "Reproduce and calibrate C-MAPSS FD001 RUL baseline" (Databricks/notebook-only, no UI/
+  API/schema). **Do not revive SupCon / contrastive retrieval / novelty-distance trust** without a new
+  approved falsification plan. (Independent of the in-flight RS Factory PR 3 work in `next-session.md`.)
+
 - **IMS vibration feature engineering (deferred from Phase 1).** The 1.075 GB IMS bearing archive
   (`phm-datasets.s3.amazonaws.com/NASA/4.+Bearings.zip`) is downloaded and verified real; Bronze
   holds its provenance (`novendor_1.telemetry.bronze_ims`). Extracting the triple-nested

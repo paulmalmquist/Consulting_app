@@ -21,7 +21,6 @@ import {
   ReceiptText,
   Scale,
   Shield,
-  Sparkles,
   Stethoscope,
   TrendingUp,
   Users,
@@ -81,7 +80,6 @@ export function buildRepeNavGroups({
   showIntelligence: boolean;
   showSustainability: boolean;
 }): RepeNavGroup[] {
-  const companionHref = `${base.replace(/\/re$/, "")}/copilot`;
   return [
     {
       label: "Portfolio",
@@ -148,21 +146,6 @@ export function buildRepeNavGroups({
           matchPrefixes: [`${base}/controls`],
         },
         { href: `${base}/ai-audit`, label: "AI Audit", isBase: false, icon: Shield },
-      ],
-    },
-    {
-      label: "Automation",
-      key: "automation",
-      icon: Sparkles,
-      items: [
-        {
-          href: companionHref,
-          label: "Winston",
-          isBase: false,
-          icon: Sparkles,
-          avatar: true,
-          matchPrefixes: [`${base}/winston`],
-        },
       ],
     },
   ];

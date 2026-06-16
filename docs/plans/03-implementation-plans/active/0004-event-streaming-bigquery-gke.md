@@ -1,7 +1,7 @@
 # Dispatch Record 0004 — Event Streaming + BigQuery + GKE (Winston Streaming Backbone)
 
 **Created:** 2026-06-03
-**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write proven 2026-06-10; see acceptance receipt below). Phases 3B–6 planned.
+**Status:** Phase 1 COMPLETE · Phase 2 COMPLETE · Phase 3A COMPLETE (real BQ write 2026-06-10) · Phase 3B COMPLETE (Confluent Cloud round-trip 2026-06-12) · Phase 4 COMPLETE (durable sink worker on GKE Autopilot; live pod-drain receipt 2026-06-13) · Phase 5A COMPLETE (HR signal ingestion through the spine; live receipt 2026-06-13) · Phase 5B COMPLETE (all 8 HR signals, real manual-bundle path, bounded replay; live receipt 2026-06-15) · Phase 6A COMPLETE (BigQuery analytics foundation — deduped views + execution/HR rollups; applied + verified on paultest-d3cb1 2026-06-15). ADO: Stories #521, #558, #571, #600, #607 under Feature #520 / Epic #221.
 **Environment:** Shared Platform / Infrastructure — no per-environment folder. Owning surfaces: `backend/app/events/`, `infra/`, `scripts/streaming/`.
 **Deliverable type:** Platform-core infrastructure (additive event backbone) + later GCP/GKE deployment.
 
@@ -51,10 +51,13 @@ Winston is synchronous: the FastAPI backend (Railway, `authentic-sparkle`) write
 | 6 | 2 | BigQuery `winston_events_raw.events` DDL in `infra/gcp/bigquery/` | No (BQ only) | Low–Med | DONE |
 | 7 | 2 | Observational sink worker `backend/app/events/sink.py` + 21 tests | No | Med | DONE |
 | 8a | 3A | `google-cloud-bigquery` in requirements.txt; `scripts/streaming/bq_smoke.py` real-write proof | No | Low | DONE (2026-06-10) |
-| 8b | 3B | Cloud broker (GCP Managed Kafka / Confluent) + transport cutover via env; `confluent-kafka` in requirements.txt | No | Med | TODO |
-| 9 | 4 | `infra/k8s/` base + overlays; deploy sink worker to GKE Autopilot (Workload Identity) | No | Med | TODO |
-| 10 | 5 | HR signal ingestion workers publish the 8 signals; `winston_raw.hr_signal_events` | Maybe | Med | TODO |
-| 11 | 6 | `winston_analytics` dataset, scheduled rollups, replay tooling | No | Low | TODO |
+| 8b | 3B | Cloud broker (Confluent Cloud) + transport security cutover via env; `confluent-kafka` in requirements.txt; `scripts/streaming/broker_smoke.py` round-trip | No | Med | DONE (2026-06-12) |
+| 9a | 4 | Sink worker loop `backend/app/events/sink_worker.py` + entrypoint + Dockerfile + 9 tests | No | Med | DONE (2026-06-13) |
+| 9b | 4 | `infra/k8s/` base + gke-dev overlay; GKE Autopilot + Workload Identity; deploy + live receipt | No | Med | DONE (2026-06-13) |
+| 10a | 5A | HR signal ingestion — 1–2 signals through the spine: `hr_signal_publisher.py`, `history-rhymes.signals.v1`, GKE sink dual-topic, live receipt | No | Med | DONE (2026-06-13) |
+| 10b | 5B | Remaining HR signals (all 8) + real manual-bundle adapter; bounded replay tooling; live receipt | No | Med | DONE (2026-06-15) |
+| 11a | 6A | `winston_events_analytics` dataset + `events_deduped` view + execution/HR rollup views (`infra/gcp/bigquery/analytics/`); applied + verified live | No | Low | DONE (2026-06-15) |
+| 11b | 6B | Scheduled/materialized rollups + replay-aware refresh on top of the 6A views | No | Low | TODO |
 
 ---
 
@@ -151,12 +154,187 @@ Billing account: `01C91A-EBBE34-ED09D2` ("Novendor GCP") — general-purpose, li
 
 **Credential note:** never commit service account JSON. Use `gcloud auth application-default login` for local dev; Workload Identity for GKE (Phase 4).
 
-## Phase 3B+ — milestones (planned)
+## Phase 3B — per-ticket detail (IN PROGRESS)
 
-- **Phase 3B — cloud broker.** Stand up GCP Managed Kafka (or Confluent); point the cloud transport at it via env; keep the no-op fallback; add `confluent-kafka` to `backend/requirements.txt` (lazy import preserved).
-- **Phase 4 — GKE.** `infra/k8s/{base,overlays/{local,gke-dev,gke-prod}}`; deploy the observational sink to GKE Autopilot with Workload Identity. **First GKE worker is the sink, observational only**; any worker that acts on events is a separate, later, separately-reviewed deliverable.
-- **Phase 5 — HR showcase.** Ingestion workers publish the 8 History Rhymes signals as events; `winston_raw.hr_signal_events`; the decision runner still reads Postgres.
-- **Phase 6 — analytics.** `winston_analytics` dataset, scheduled rollups, replay tooling.
+### Ticket 8b — Confluent Cloud broker transport cutover
+**Broker decision:** Confluent Cloud (fastest credible managed-Kafka receipt; same `confluent-kafka` client as GCP Managed Kafka; reversible via env). GCP Managed Kafka deferred to Phase 4/GKE.
+
+**Code (landed on `feat/cloud-broker-event-transport`, ADO Story #521):**
+- `backend/app/events/config.py`: added `EVENTS_SECURITY_PROTOCOL` (default `PLAINTEXT`), `EVENTS_SASL_MECHANISM` (default `PLAIN`), `EVENTS_SASL_USERNAME`, `EVENTS_SASL_PASSWORD`, and `producer_security_config()` — returns SASL/SSL librdkafka keys only when the protocol is non-PLAINTEXT, so the local Redpanda path is unchanged.
+- `backend/app/events/transport.py`: `KafkaTransport.__init__` merges `producer_security_config()` into the producer config. No new transport class; the existing `get_transport()` fail-closed resolver is untouched.
+- `backend/requirements.txt`: added `confluent-kafka>=2.3` (lazy-imported; absent/unconfigured → NoopTransport, so default-off behavior is unchanged).
+- `scripts/streaming/broker_smoke.py`: round-trip smoke — `publish_event` → broker → consume back → existing `sink.process_message` → BigQuery receipt by `run_id`. The consumer lives only in this script (the long-running sink-worker consumer is Phase 4). `--no-bq` flag proves the broker round-trip alone.
+- `infra/confluent/README.md`: env contract, console setup, smoke usage, guardrails.
+- `backend/tests/test_events_broker_config.py`: 8 tests — security-config resolution (PLAINTEXT/SASL_SSL/SSL/SASL_PLAINTEXT), transport stays no-op when disabled even with SASL set, no-op when `confluent-kafka` absent, and that `KafkaTransport` applies the security keys to the producer (PLAINTEXT has none).
+
+**Verification (no broker):**
+- `pytest tests/test_events_broker_config.py tests/test_events.py tests/test_events_sink.py -q` → 37 passed.
+- `ruff check app/events/config.py app/events/transport.py tests/test_events_broker_config.py ../scripts/streaming/broker_smoke.py` → clean.
+
+**Phase 3B acceptance receipt — real Confluent Cloud round-trip (2026-06-12):**
+```
+publish_event(...) -> Confluent Cloud (SASL_SSL) -> winston.executions.v1
+  -> consumed back (506 bytes, run_id matched) -> sink.process_message()
+  -> BigQuery winston_events_raw.events
+
+  event_id    = 66c09521-1431-4321-985d-36ca4324d372
+  event_type  = execution.completed
+  run_id      = 888e72bd-d031-45a5-86f1-f584cf611c20
+  source      = broker_smoke
+  ingested_at = 2026-06-12 17:58:09 UTC
+  dead_letter = False
+```
+Broker: `pkc-619z3.us-east1.gcp.confluent.cloud:9092` (Confluent Cloud Basic, cluster_0).
+Topics `winston.executions.v1` + `winston.dead-letter.v1` created on the cluster.
+BigQuery: `paultest-d3cb1.winston_events_raw.events` (sink unchanged from Phase 2/3A).
+
+**Credential note:** Confluent API key/secret live in env vars only. Never committed, never logged (the smoke redacts the username and never prints the secret). Auth lesson (recorded in tips.md): a Kafka SASL key must be **cluster-scoped and tied to a user account with admin RBAC** — a Global/Cloud API key fails auth, and a service-account key on a cluster with existing ACLs is deny-by-default (TOPIC_AUTHORIZATION_FAILED) until granted topic ACLs.
+
+## Phase 4 — per-ticket detail (4a DONE · 4b IN PROGRESS)
+
+### Ticket 9a — durable sink worker loop (DONE 2026-06-13)
+The Phase 3B round-trip proved one message inline; this is the long-running consumer. ADO Story #558, Tasks #559–562.
+- `backend/app/events/config.py`: `consumer_config()` + `EVENTS_CONSUMER_{GROUP,TOPICS,OFFSET_RESET,POLL_TIMEOUT_S}`; `enable.auto.commit=false` for manual at-least-once commit; reuses `producer_security_config()` so Confluent SASL_SSL works unchanged.
+- `backend/app/events/sink_worker.py`: `SinkWorker` (subscribe → poll → `process_message` → commit), injectable `consumer_factory`/`handler` for broker-free tests, `HealthState` (liveness/readiness) for k8s probes, graceful stop via `threading.Event`. Commit happens AFTER handling (success OR dead-letter); a handler raise is NOT swallowed (`process_message` never raises by contract) so the pod crashes and k8s restarts rather than committing past an unhandled message. BQ `insertId=idempotency_key` makes redelivery idempotent.
+- `scripts/streaming/run_sink_worker.py`: entrypoint with SIGTERM/SIGINT graceful drain + stdlib HTTP health server (`/healthz`, `/readyz`) — no web framework. Path bootstrap works both in-repo and in the image.
+- `backend/Dockerfile.sink-worker` + `requirements-sink.txt`: minimal non-root image (pydantic + confluent-kafka + google-cloud-bigquery only; no FastAPI/DB).
+- `backend/tests/test_events_sink_worker.py`: 9 tests (FakeConsumer) — commit-after-success, commit-on-dead-letter, no-commit on timeout/error/empty/handler-raise, full drain loop, readiness transitions.
+
+**4a local proof (2026-06-13):** worker ran as a process against Confluent Cloud + BigQuery, drained a retained `execution.completed` event, wrote it to `winston_events_raw.events` (`insertAll` HTTP 200 → `sink: wrote event … status=ok`). `/readyz=200` while running. ruff clean; 46 event tests pass.
+
+### Ticket 9b — GKE Autopilot deploy (DONE 2026-06-13)
+ADO Story #558, Tasks #563–565.
+- `infra/k8s/base/`: Deployment (single replica, non-root, liveness `/healthz` + readiness `/readyz`, `terminationGracePeriodSeconds: 45` for graceful drain, secret-sourced broker/creds env) + ServiceAccount + kustomization. Renders clean (`kubectl kustomize`).
+- `infra/k8s/overlays/gke-dev/`: namespace `winston-events`, image pinned to `us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink:0.1.0`, Workload Identity annotation on the KSA. `secret.example.yaml` template (real Secret created imperatively at deploy, never committed).
+- `infra/k8s/README.md`: full GCP setup + WI binding + build/push + deploy + receipt + teardown runbook.
+- GCP provisioned: Container/Artifact Registry/IAM Credentials APIs enabled; Artifact Registry repo `winston-events` (us-east1); image `0.1.0` built + pushed; GCP SA `winston-bq-sink@paultest-d3cb1` with `roles/bigquery.dataEditor` + `roles/bigquery.jobUser`; GKE Autopilot cluster `winston-events-dev` (us-east1) provisioning.
+- GKE cluster `winston-events-dev` RUNNING; `gke-gcloud-auth-plugin` installed for kubectl; Workload Identity binding done (`winston-bq-sink` KSA ↔ GSA, `roles/iam.workloadIdentityUser`); `kubectl apply -k` created namespace + SA + Deployment; broker/creds Secret created imperatively (never committed); pod `1/1 Running`, readiness `/readyz` green, subscribed to Confluent.
+
+**Phase 4b acceptance receipt — live GKE pod drain (2026-06-13):**
+```
+publish_event -> Confluent Cloud (winston.executions.v1, partition 4)
+  -> GKE Autopilot pod winston-bq-sink (Workload Identity -> BigQuery, NO key file)
+  -> sink.process_message -> BigQuery winston_events_raw.events
+
+pod log: sink_worker: handled winston.executions.v1/4@0 status=ok
+         sink: wrote event run_id=f3fc9e79-a034-4418-966d-bc41796343e9
+
+  event_id    = daf1e483-e171-4f9d-a664-f831413c72e4
+  event_type  = execution.completed
+  run_id      = f3fc9e79-a034-4418-966d-bc41796343e9
+  source      = gke_receipt
+  ingested_at = 2026-06-13 01:24:00 UTC
+  dead_letter = False
+```
+Cluster: `winston-events-dev` (GKE Autopilot, us-east1). Image: `us-east1-docker.pkg.dev/paultest-d3cb1/winston-events/winston-bq-sink:0.1.0`. The pod authenticated to BigQuery via Workload Identity — no service-account key in the pod.
+
+**Delivery gotcha (recorded):** `publish_smoke.py`'s bounded 200ms flush (`EVENTS_PUBLISH_TIMEOUT_MS`) is too short to ack a produce to Confluent Cloud from a local machine — the process exits with the message still in the producer queue ("Producer terminating with 1 message still in queue"), so it never reaches the broker. For a guaranteed-delivery publish, flush with a real timeout (`producer.flush(30)`) and confirm via the delivery callback (`err=None partition=N offset=M`). This is a smoke-script limitation, not a worker issue.
+
+**Cluster is left running** (per decision 2026-06-13) for Phase 5 work; teardown command in `infra/k8s/README.md`.
+
+## Phase 5A — per-ticket detail (DONE 2026-06-13)
+
+### Ticket 10a — HR signal ingestion through the spine
+First real use of the backbone beyond execution events. ADO Story #571, Tasks #572–578. Built on the merged #145/#169/#177 contracts — no new streaming abstraction, no Postgres writes, no decision-runner changes.
+- `backend/app/events/topics.py`: `Topics.HISTORY_RHYMES_SIGNALS = "history-rhymes.signals.v1"` + an `EventTypes` constants class (`hr.signal.observed`, `hr.signal.bundle_received`, plus the execution types).
+- `backend/app/events/hr_signal_publisher.py`: `bundle_to_envelopes()` / `signal_to_envelope()` map a HR signal bundle to one `EventEnvelope` per signal; payload carries `signal_name, signal_value, signal_timestamp, source, staleness_status, confidence, units, as_of_date`; `idempotency_key = hr.signal.observed:{as_of_date}:{signal_name}` (stable → BQ insertId dedup). `publish_signal_bundle()` is best-effort (no-op without a broker). `InvalidSignalBundle` raised on malformed bundles.
+- `scripts/streaming/publish_hr_signals.py`: synthetic 2-signal bundle → full-flush producer (`flush(30)` + delivery callback, per the Phase 4 bounded-flush lesson) → `history-rhymes.signals.v1`.
+- `backend/tests/test_hr_signal_publisher.py`: 13 tests — mapping, payload contract, idempotency-key shape/stability, timestamp coercion, invalid bundles/signals, and that a well-formed HR envelope passes `sink.validate_envelope` while a malformed one dead-letters (sink unchanged).
+- **Sink dead-letter fix** (`backend/app/events/sink.py`): a dead-letter row left `event_id`/`idempotency_key` null, but the BQ schema marks both REQUIRED, so the dead-letter row itself failed to insert (`Field value cannot be empty`) and the failure was lost. Now synthesizes deterministic non-empty keys from a sha256 of the raw bytes (`event_id = uuid5(...)`, `idempotency_key = dead_letter:<hash>`). Pre-existing Phase 2 bug, first surfaced by the live HR dead-letter test. +2 tests.
+- GKE sink pointed at both topics (`EVENTS_CONSUMER_TOPICS="winston.executions.v1,history-rhymes.signals.v1"`, now declarative in `infra/k8s/base/deployment.yaml`); image rebuilt `0.2.0` with the dead-letter fix; pod redeployed.
+
+**Phase 5A acceptance receipt — live GKE HR drain (2026-06-13):**
+```
+publish HR bundle -> Confluent (history-rhymes.signals.v1) -> GKE pod -> BigQuery
+
+pod: handled history-rhymes.signals.v1/0@0 status=ok   (hr.signal.observed)
+     handled history-rhymes.signals.v1/0@1 status=ok
+
+BigQuery (run_id=hr-bundle:2026-06-13, event_type=hr.signal.observed):
+  signal=yield_curve_10y2y value=-0.42 staleness=fresh as_of=2026-06-13 dead_letter=False
+  signal=credit_spread_hy  value=3.15  staleness=fresh as_of=2026-06-13 dead_letter=False
+
+Dead-letter proof (malformed HR payload):
+  pod: handled history-rhymes.signals.v1/0@3 status=dead_letter
+  BigQuery: event_id=f14a57df-... dead_letter=True
+            reason="missing required fields: [...]" raw={"signal_name":"junk2",...}
+```
+The same observational sink drained HR events with zero sink logic changes (only the REQUIRED-key dead-letter fix). HR signals are queryable by `run_id` / `event_id` / `JSON_VALUE(payload,'$.signal_name')`.
+
+## Phase 5B — per-ticket detail (DONE 2026-06-15)
+
+### Ticket 10b — all 8 HR signals + real bundle adapter + replay
+ADO Story #600, Tasks #601–606. Built on Phase 5A; no second event abstraction, no Postgres writes, no migration (the real bundle is read as JSON / emitted as events; `hr_signal_snapshots` and the decision runner are untouched).
+- `backend/app/events/hr_signal_publisher.py`: added `HR_SIGNAL_NAMES` (the canonical 8: `mvrv_z, yc_10y2y, vix_term, housing, cmbs_delinq, fed_tone, crypto_flow, macro_surprise`) and `real_bundle_to_envelopes()` / `publish_real_bundle()`. The real manual bundle (`scripts/hr_weekly_brief.py` shape) carries signals as a **flat `{name: value}` map** (scalar / nested dict / string) + a sibling `per_signal_freshness` map + `source` — different from Phase 5A's pre-structured shape, so it gets a dedicated adapter that reuses `signal_to_envelope`. `per_signal_freshness[name] → staleness_status`; raw value preserved as `signal_value` (any JSON type). Unknown signals ignored (forward-compat); a bundle with none of the canonical 8 raises `InvalidSignalBundle`.
+- `scripts/streaming/publish_hr_bundle.py`: reads the real bundle (file/stdin/`--seed`), maps + publishes with a full-flush producer; `--replay` (safe: stable `idempotency_key = hr.signal.observed:{as_of_date}:{signal_name}` → BQ insertId dedup) and `--max-signals N` (bounded replay).
+- `backend/tests/test_hr_real_bundle.py`: 18 tests — all 8 signals, value-type variety (scalar/dict/string), freshness→staleness, missing/invalid fields, forward-compat, partial bundles, replay idempotency, bounded slice, distinct keys per as_of_date. No broker, no credentials.
+
+**Phase 5B acceptance receipt — live GKE drain of the real 8-signal bundle (2026-06-15):**
+GKE cluster `winston-events-dev` recreated (image `0.2.0`, WI binding survived on the GSA), pod subscribed to both topics. Published the real bundle (`backend/tests/fixtures/hr_real_bundle_sample.json`) via `publish_hr_bundle.py --input`.
+```
+run_id=hr-bundle:2026-06-15, event_type=hr.signal.observed — all 8 signals, dead_letter=False:
+  mvrv_z=1.4  yc_10y2y=-0.1  vix_term=0.95  cmbs_delinq=0.062  crypto_flow=-0.8  macro_surprise=-0.45
+  housing={"price_yoy":-2.1,"starts_yoy":-15.0}  (nested dict preserved)
+  fed_tone="hawkish-hold"                          (string preserved)
+
+Malformed HR signal (offset 12) → dead_letter=True:
+  event_id=69936b88-... reason="missing required fields: [...]"
+  raw={"signal_name":"mvrv_z","signal_value":1.4,"oops":"not an envelope"}
+```
+
+**Replay finding (honest):** a bounded replay (`--replay --max-signals 3`, same bundle/as_of) re-published mvrv_z/yc_10y2y/vix_term. They landed as **duplicate raw rows (2 each)** — BigQuery `insertId` dedup only covers a ~1-min window, and the replay was outside it. This is expected for an append-only raw table. The canonical replay-safe read collapses them: `QUALIFY ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at) = 1` → verified back to exactly 8 signals, 1 row each. Replay safety = stable content-addressed key + query-time dedup, NOT write-time prevention. Any consumer of the raw events table must read through that dedup view.
+
+**Cluster:** deleted at session end (no Phase 6 this session). Recreate from `infra/k8s/README.md`.
+
+## Event Analytics Dashboard — read surface on the 6A views (DONE 2026-06-15)
+
+First visible surface on the streaming pipe. A **read-only observability dashboard** over the `winston_events_analytics` views. ADO Story #614, Tasks #615–620 (under Feature #520). Not a numbered streaming phase — it consumes Phase 6A, doesn't extend the backbone.
+
+**Architectural framing (explicit):** this is an observability surface, NOT an operational read path. BigQuery is never authoritative for execution status, REPE/finance KPIs, HR ledger/state, or task state — all stay Postgres/Supabase-authoritative. The dashboard reads ONLY analytics views; a service-level allowlist (`ALLOWED_VIEWS`) makes querying the raw `winston_events_raw.events` table a programming error (`test_view_fqn_rejects_raw_table`). Even the raw-vs-deduped volume headline reads a dedicated `event_volume_summary` view, so the API never touches the raw table directly.
+
+- `backend/app/services/events_analytics.py`: read service. Mirrors the sink's fail-closed pattern (lazy-import bigquery, gate on `BQ_ENABLED`/`BQ_PROJECT_ID`); returns `{available: false, reason}` when BQ is off/unreachable — never raises into the route. `_view_fqn` guards the allowlist.
+- `backend/app/routes/events_analytics.py`: `GET /api/events/v1/analytics/dashboard`, always 200 (fail-closed payload on BQ-off).
+- `infra/gcp/bigquery/analytics/01_events_deduped.sql`: added `event_volume_summary` view (raw vs deduped counts in one place, so API/UI never query raw).
+- `repo-b/src/lib/bos-api.ts`: `getEventAnalyticsDashboard()` + types.
+- `repo-b/src/app/app/event-analytics/page.tsx`: dashboard — volume KPI strip, events-by-source, execution-events-daily, HR latest signals, HR freshness, dead-letters, explicit "Observability only" badge, "Not available" fail-closed state.
+- Tests: `backend/tests/test_events_analytics.py` (8 — fail-closed states, route 200, raw-table-forbidden guard, happy path); `repo-b/src/lib/event-analytics-api.test.ts` (2 — binding success + fail-closed shape).
+
+**Live receipt — `get_dashboard()` against `paultest-d3cb1` (2026-06-15):**
+```
+available=true, observability_only=true
+volume: raw_rows=22, deduped_rows=17, replay_duplicates_collapsed=5, dead_letter_rows=2
+by_source: hr_signal_ingestion x10, backend x3, sink_worker x2, broker_smoke x1, gke_receipt x1
+execution rows=3, hr_signal_latest=10, dead_letters=2 (reason + raw bytes shown)
+```
+Proof of no raw read in the API: the only place the raw table is named in a query is inside the `event_volume_summary` *view* (the analytics layer); the service/route/UI read only allowlisted analytics views.
+
+## Phase 6A — per-ticket detail (DONE 2026-06-15)
+
+### Ticket 11a — BigQuery analytics foundation
+The semantic layer. Every rollup/dashboard reads from `winston_events_analytics`, never from raw `winston_events_raw.events`. ADO Story #607, Tasks #608–613. SQL/docs only — no GKE, no app code, no Postgres.
+
+**The load-bearing decision (from the Phase 5B replay finding):** raw events are append-only and may contain replay duplicates (`insertId` dedup is not durable). So `events_deduped` does query-time dedup on the stable `idempotency_key` (`ROW_NUMBER() OVER (PARTITION BY idempotency_key ORDER BY ingested_at ASC, event_id ASC) = 1`), and **all** rollups build on it.
+
+- `infra/gcp/bigquery/analytics/00_dataset.sql` — `winston_events_analytics` dataset.
+- `01_events_deduped.sql` — `events_deduped` view (the foundation; dead-letter rows dedup too via their `dead_letter:<hash>` key).
+- `02_execution_analytics.sql` — `execution_events_daily`, `execution_run_lifecycle`, `dead_letter_daily`.
+- `03_hr_signal_analytics.sql` — `hr_signals_observed`, `hr_signal_latest`, `hr_signal_freshness_summary`, `hr_signal_counts_daily`, `hr_dead_letters`.
+- `analytics/README.md` — apply commands, acceptance queries, raw-duplicates warning.
+
+**Phase 6A acceptance receipt — applied + verified on `paultest-d3cb1` (2026-06-15):**
+```
+1. raw vs deduped:        raw_rows=22  deduped_rows=17  (5 replay dupes collapsed)
+2. replayed HR bundle:    raw 11 -> deduped 8 hr.signal.observed rows for hr-bundle:2026-06-15
+3. hr_signal_latest:      returns all 8 canonical 5B signals (housing nested dict + fed_tone
+                          string preserved) + the 2 earlier 5A signals (distinct names) = 10 total
+4. hr_dead_letters:       2 malformed events (5A junk2 + 5B mvrv_z-oops), reasons + raw bytes
+5. execution_events_daily: backend x3, broker_smoke x1, gke_receipt x1 (execution.completed)
+```
+The semantic layer is correct against real, duplicate-containing data: aggregating raw would have double-counted the 5 replayed rows; the deduped views do not.
+
+## Phase 6B — milestones (planned)
+
+- **Phase 6B — scheduled/materialized rollups.** Materialize the 6A views (scheduled queries or `CREATE TABLE AS` refresh) for cost/perf once query volume justifies it; replay-aware refresh. The 6A views are the contract these build on.
 
 ---
 

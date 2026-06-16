@@ -202,7 +202,7 @@ export function RepeCommandBar({ base }: { base: string }) {
           value={query}
           onChange={(e) => { setQuery(e.target.value); if (!isOpen) setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search funds, investments, assets, or ask Winston…"
+          placeholder="Search funds, investments, assets, or actions…"
           className="flex-1 bg-transparent text-[11px] text-bm-text placeholder:text-bm-muted2 outline-none"
         />
         {loading && <Loader2 className="h-3 w-3 text-bm-muted2 animate-spin" />}

@@ -1,0 +1,7 @@
+# Runtime deps for the observational BigQuery sink worker (Phase 4 / GKE).
+# Deliberately minimal — the worker imports only app.events.* (envelope,
+# config, sink, sink_worker), which need pydantic + the Kafka client + the
+# BigQuery client. Not the full backend requirements.txt (no FastAPI, no DB).
+pydantic>=2.10
+confluent-kafka>=2.3
+google-cloud-bigquery>=3.11

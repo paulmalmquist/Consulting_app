@@ -1,0 +1,99 @@
+{
+  "ticket": "reproduce_and_calibrate_cmapss_fd001_rul_baseline",
+  "plan": "docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md",
+  "notebook": "telemetry-platform/databricks/notebooks/telemetry_calibration_baseline.py",
+  "data_source_tables": [
+    "novendor_1.telemetry.gold_cmapss_features",
+    "novendor_1.telemetry.silver_cmapss_rul"
+  ],
+  "sklearn_pin": "scikit-learn==1.4.2 (GBM; matches the shipped champion runtime)",
+  "rul_cap": 125,
+  "seed": 0,
+  "feat_cols": 42,
+  "part1_reproduced_last_cycle_benchmark": {
+    "rmse": 20.322,
+    "phm": 1423.33,
+    "n_units": 100,
+    "shipped_reference": "RMSE ~20.32 / PHM ~1423",
+    "note": "Reproduction of the existing champion's eval. NOT literature-competitive (FD001 bar is RMSE <=13). No competitiveness claim made."
+  },
+  "part2_calibration": {
+    "unit_split": {
+      "fit": 60,
+      "calib": 20,
+      "internal_test": 20,
+      "basis": "FD001 TRAIN split, disjoint units, seed=0"
+    },
+    "internal_test_point_metrics": {
+      "rmse_per_cycle": 22.043,
+      "phm_per_cycle": 98776.091,
+      "n_windows": 3813,
+      "n_units": 20
+    },
+    "interval_metrics": {
+      "80": {
+        "nominal": 0.8,
+        "conformal_q": 25.657,
+        "PICP": 0.7884,
+        "PICP_minus_nominal": -0.0116,
+        "MPIW": 42.976,
+        "PINAW": 0.3438,
+        "within_pm_0.03": true
+      },
+      "90": {
+        "nominal": 0.9,
+        "conformal_q": 36.195,
+        "PICP": 0.8951,
+        "PICP_minus_nominal": -0.0049,
+        "MPIW": 55.979,
+        "PINAW": 0.4478,
+        "within_pm_0.03": true
+      }
+    },
+    "approx_crps": 56.073,
+    "reliability_table": [
+      {
+        "nominal": 0.5,
+        "observed_PICP": 0.4571
+      },
+      {
+        "nominal": 0.6,
+        "observed_PICP": 0.5445
+      },
+      {
+        "nominal": 0.7,
+        "observed_PICP": 0.668
+      },
+      {
+        "nominal": 0.8,
+        "observed_PICP": 0.7884
+      },
+      {
+        "nominal": 0.9,
+        "observed_PICP": 0.8951
+      },
+      {
+        "nominal": 0.95,
+        "observed_PICP": 0.9478
+      }
+    ],
+    "late_prediction_callout": {
+      "frac_predictions_late": 0.4951,
+      "mean_late_overshoot_cycles": 21.29,
+      "late_side_miss_rate_at_90": 0.0081
+    },
+    "calibration_gate_picp_within_0.03": true
+  },
+  "caveats": [
+    "Calibration eval uses the TRAIN split (only split with per-cycle rul_target); units are disjoint across fit/calib/internal-test so there is no unit leakage.",
+    "Part 1 last-cycle RMSE and Part 2 per-cycle RMSE are DIFFERENT quantities; do not compare them.",
+    "Predictor is the same GBM family as the shipped champion; this ticket reproduces+calibrates, it does not introduce a new model surface.",
+    "CRPS here is an interval-integrated approximation (Winkler-averaged), not a closed-form CRPS.",
+    "No competitiveness claim: FD001 literature bar is RMSE <=13; this baseline is ~20.",
+    "part2 phm_per_cycle (~98776) is NOT a meaningful metric: the PHM08 asymmetric score is designed for one prediction per unit (last cycle); applied per-cycle over thousands of early-life windows with large RUL gaps, its exponential late/early terms explode. PHM is reported on the last-cycle benchmark (part 1) only. Per-cycle uses RMSE."
+  ],
+  "next": "If PICP gate passes, consider one stronger predictor (single model) and then the thin calibration demo screen. If it fails, recalibrate before any UI.",
+  "status": "COMPLETE",
+  "run_id": 1048860487972876,
+  "workspace": "dbc-2504bec5-b5ab.cloud.databricks.com"
+}
