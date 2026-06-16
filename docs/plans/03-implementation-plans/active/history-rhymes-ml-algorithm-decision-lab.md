@@ -93,3 +93,13 @@ A3 Feature Foundry (#210) → B1 schema+materializer (#213) → B2 FRED (#215) �
 `quant_slot=None`). Fixtures-only tests, dry-run-by-default ingest, no live
 infra exercised. Next: B4 VIX (`vix_term` nullable), then FOMC text, DefiLlama;
 then B7 infra manifests; then C gated `episode_embeddings` backfill.
+
+## Feature Store stack — B4 VIX (2026-06-16)
+
+B4 adds the VIX connector: `vix_spot` (FRED VIXCLS) → canonical slot;
+`vix_term_structure` is a canonical slot reported **unavailable**
+(`term_structure_source_not_configured`) — never fabricated from spot; MOVE omitted
+(no confirmed source). Fixtures-only tests, dry-run-by-default ingest, no schema
+change, no `episode_embeddings`. Stack: A1 #206 → A2 #209 → A3 #210 → B1 #213 →
+B2 #215 → B3 #216 → **B4 (this)**. Next: B5 FOMC text (fetch/normalize text only;
+embeddings deferred to a separate materializer step).
