@@ -103,3 +103,14 @@ B4 adds the VIX connector: `vix_spot` (FRED VIXCLS) → canonical slot;
 change, no `episode_embeddings`. Stack: A1 #206 → A2 #209 → A3 #210 → B1 #213 →
 B2 #215 → B3 #216 → **B4 (this)**. Next: B5 FOMC text (fetch/normalize text only;
 embeddings deferred to a separate materializer step).
+
+## Feature Store stack — B5 FOMC text (2026-06-16)
+
+B5 adds the FOMC text connector: `fomc_statement` → `fomc_statement_text` (text in
+silver provenance, `value` NULL, no schema change); `fomc_minutes` reported
+unavailable (`minutes_source_not_configured`). TEXT ONLY — no embeddings, LLM,
+summarization, or classification; embedding deferred to a separate materializer
+(`embedding_materializer_not_configured`). Fixtures-only tests, dry-run-by-default
+ingest, no `episode_embeddings`. Stack: A1 #206 → A2 #209 → A3 #210 → B1 #213 →
+B2 #215 → B3 #216 → B4 #219 → **B5 (this)**. Next: B6 DefiLlama stablecoins
+(public/keyless, liquidity proxies only).
