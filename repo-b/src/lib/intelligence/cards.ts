@@ -151,6 +151,49 @@ export async function generateReels(env: string, biz: string): Promise<GenerateR
   }
 }
 
+// ── Agent personalities (deterministic role lenses) ───────────────────────────
+// Run a role agent (or all) to filter existing cards into role-tagged rollup cards.
+// Deterministic, NO LLM. created_by on produced cards is 'agent:<type>'.
+export type AgentType = "cfo" | "operations" | "data_quality" | "risk";
+
+export const AGENT_LABELS: Record<AgentType, string> = {
+  cfo: "CFO",
+  operations: "Operations",
+  data_quality: "Data Quality",
+  risk: "Risk",
+};
+
+// The created_by tag an agent stamps on its cards — used to filter the feed by agent.
+export const agentCreatedBy = (a: AgentType): string => `agent:${a}`;
+
+interface AgentRunResponse {
+  results?: { agent_type: string; matched: number; card_id: string | null; null_reason: string | null }[];
+  cards_upserted?: number;
+  null_reason?: string | null;
+}
+
+export interface RunAgentResult {
+  cardsUpserted: number;
+  ok: boolean;
+}
+
+// Run one agent (agentType) or all four (omit). Persists role-tagged rollup cards.
+export async function runAgent(
+  env: string,
+  biz: string,
+  agentType?: AgentType,
+): Promise<RunAgentResult> {
+  try {
+    const res = await apiFetch<AgentRunResponse>("/api/ade/agents/run", {
+      method: "POST",
+      body: JSON.stringify({ env_id: env, business_id: biz, agent_type: agentType ?? null }),
+    });
+    return { cardsUpserted: res?.cards_upserted ?? 0, ok: true };
+  } catch {
+    return { cardsUpserted: 0, ok: false };
+  }
+}
+
 export const CARD_TYPE_LABELS: Record<CardType, string> = {
   dashboard: "Dashboard",
   report: "Report",
