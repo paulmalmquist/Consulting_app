@@ -106,6 +106,105 @@ def model_obs_to_params(obs: dict[str, Any]) -> dict[str, Any]:
     return params
 
 
+SILVER_UPSERT_SQL = """
+INSERT INTO public.hr_fs_readings (
+    connector, series_key, ts_source, value, quality_flag, null_reason, source_quality, provenance
+) VALUES (
+    %(connector)s, %(series_key)s, %(ts_source)s, %(value)s, %(quality_flag)s,
+    %(null_reason)s, %(source_quality)s, %(provenance)s::jsonb
+)
+ON CONFLICT (connector, series_key, ts_source) DO UPDATE SET
+    value = EXCLUDED.value,
+    quality_flag = EXCLUDED.quality_flag,
+    null_reason = EXCLUDED.null_reason,
+    source_quality = EXCLUDED.source_quality,
+    provenance = EXCLUDED.provenance,
+    updated_at = now()
+RETURNING (xmax = 0) AS inserted;
+"""
+
+_STATUS_UPSERT_SQL = """
+INSERT INTO public.hr_fs_pipeline_status (
+    connector, surface, status, expected_cadence, as_of_ts, lag_seconds, reason, updated_at
+) VALUES (
+    %(connector)s, %(surface)s, %(status)s, %(expected_cadence)s, %(as_of_ts)s, %(lag_seconds)s, %(reason)s, now()
+)
+ON CONFLICT (connector, surface) DO UPDATE SET
+    status = EXCLUDED.status,
+    expected_cadence = EXCLUDED.expected_cadence,
+    as_of_ts = EXCLUDED.as_of_ts,
+    lag_seconds = EXCLUDED.lag_seconds,
+    reason = EXCLUDED.reason,
+    updated_at = now();
+"""
+
+
+def silver_reading_to_params(reading: dict[str, Any]) -> dict[str, Any]:
+    """Map a normalized reading → silver SQL params. Missing value stays None (never 0)."""
+    return {
+        "connector": reading.get("connector"),
+        "series_key": reading.get("series_key"),
+        "ts_source": reading.get("ts_source"),
+        "value": reading.get("value"),
+        "quality_flag": reading.get("quality_flag", "ok"),
+        "null_reason": reading.get("null_reason"),
+        "source_quality": reading.get("source_quality", "fixture"),
+        "provenance": json.dumps(reading.get("provenance", {})),
+    }
+
+
+def upsert_silver_readings(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Idempotent UPSERT of normalized readings into SILVER. Never raises on DB issues."""
+    counts = {"inserted": 0, "updated": 0, "skipped": 0, "unavailable": 0}
+    valid: list[dict[str, Any]] = []
+    for r in rows:
+        if not r.get("connector") or not r.get("series_key") or not r.get("ts_source"):
+            counts["skipped"] += 1
+        else:
+            valid.append(r)
+    if not valid:
+        return counts
+    try:
+        from app.db import get_cursor  # lazy so tests can patch app.db.get_cursor
+
+        with get_cursor() as cur:
+            for r in valid:
+                cur.execute(SILVER_UPSERT_SQL, silver_reading_to_params(r))
+                row = cur.fetchone()
+                inserted = bool(row["inserted"]) if row and "inserted" in row else True
+                counts["inserted" if inserted else "updated"] += 1
+    except Exception as exc:  # noqa: BLE001 — surface unavailable, never raise
+        logger.warning("hr_feature_store silver upsert unavailable: %s", exc)
+        counts["unavailable"] = len(valid) - (counts["inserted"] + counts["updated"])
+    return counts
+
+
+def update_pipeline_status(
+    connector: str,
+    surface: str,
+    status: str,
+    *,
+    expected_cadence: str | None = None,
+    as_of_ts: str | None = None,
+    lag_seconds: float | None = None,
+    reason: str | None = None,
+) -> bool:
+    """Fail-closed freshness write. Returns False if the DB is unavailable."""
+    try:
+        from app.db import get_cursor  # lazy
+
+        with get_cursor() as cur:
+            cur.execute(_STATUS_UPSERT_SQL, {
+                "connector": connector, "surface": surface, "status": status,
+                "expected_cadence": expected_cadence, "as_of_ts": as_of_ts,
+                "lag_seconds": lag_seconds, "reason": reason,
+            })
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("hr_feature_store pipeline status update unavailable: %s", exc)
+        return False
+
+
 def upsert_model_observations(rows: list[dict[str, Any]]) -> dict[str, int]:
     """Idempotent UPSERT of gold rows. Returns counts; never raises on DB issues."""
     counts = {"inserted": 0, "updated": 0, "skipped": 0, "unavailable": 0}
