@@ -801,6 +801,17 @@ async def _stream_template_result(
 
 # ── REPE Fast-Path Engine ────────────────────────────────────────────────────
 
+# Internal control sentinel. When the fast path classifies an intent it cannot
+# actually serve with data (e.g. dashboard composition has no tool/data step, or
+# an intent that lands in the catch-all), it yields this line INSTEAD of emitting
+# a `done` event with a 0-tool empty shell. The caller intercepts it, does NOT
+# forward it to the client, and falls through to the full LLM+tools pipeline so a
+# real answer is produced (or a real fail-closed reason is surfaced). This is the
+# fix for the repe_fast_path "empty dashboard, tools=0 tokens=0" bug: the fast
+# path must never return a structurally-empty success.
+_FAST_PATH_FALLTHROUGH = "event: __fast_path_fallthrough__\n\n"
+
+
 async def _run_repe_fast_path(
     *,
     intent,
@@ -818,6 +829,11 @@ async def _run_repe_fast_path(
 
     Emits SSE events: status → tool_call → structured_result → done.
     Target latency: <2s for metrics, <4s for scenario + waterfall.
+
+    If the classified intent cannot be served with real data (dashboard
+    composition, or an unhandled catch-all intent), the generator yields
+    ``_FAST_PATH_FALLTHROUGH`` and returns WITHOUT a `done` event, signalling the
+    caller to run the full pipeline instead of shipping an empty shell.
     """
     from app.services.repe_intent import (
         INTENT_ANALYTICS_QUERY,
@@ -867,6 +883,9 @@ async def _run_repe_fast_path(
     session_state = get_session(str(conversation_id) if conversation_id else None)
     response_blocks: list[dict[str, Any]] = []
     collected_text_parts: list[str] = []
+    # Set True when the classified intent cannot be served with real data here;
+    # the function then yields _FAST_PATH_FALLTHROUGH instead of a `done` event.
+    fall_through = False
 
     # Extract analytical query intent (group_by, time_grain, chart_preference, etc.)
     query_intent = extract_query_intent(intent.original_message)
@@ -1313,27 +1332,16 @@ async def _run_repe_fast_path(
                 yield _sse("response_block", {"block": block})
 
         elif family == INTENT_GENERATE_DASHBOARD:
-            from app.services.dashboard_composer import compose_dashboard_spec
-
-            yield _sse("status", {"message": "Composing dashboard layout...", "stage": "compose", "progress": 0.3})
-            dashboard_spec = compose_dashboard_spec(
-                message=intent.original_message,
-                env_id=scenario.env_id,
-                business_id=scenario.business_id,
-                fund_id=scenario.fund_id,
-                quarter=scenario.quarter,
+            # Dashboard composition produces widget STRUCTURE only — compose_dashboard_spec
+            # runs no tools and fetches no data, so serving it from the fast path yields an
+            # empty shell (tools=0, tokens=0). Fall through to the full LLM+tools pipeline,
+            # which actually fetches and populates the data. (repe_fast_path empty-dashboard fix.)
+            emit_log(
+                level="info", service="backend", action="ai.gateway.repe_fast_path.fallthrough",
+                message="Dashboard intent cannot be served by fast path (no data step) — falling through to full pipeline",
+                context={"intent": family},
             )
-            yield _sse("status", {"message": "Dashboard ready", "stage": "results", "progress": 0.9})
-            card = _build_dashboard_card(dashboard_spec)
-            yield _sse("structured_result", {
-                "result_type": "dynamic_dashboard",
-                "card": card,
-                "dashboard_spec": dashboard_spec,
-            })
-            blocks = legacy_structured_result_to_blocks("dynamic_dashboard", card)
-            response_blocks.extend(blocks)
-            for block in blocks:
-                yield _sse("response_block", {"block": block})
+            fall_through = True
 
         elif family == INTENT_LIST_INVESTORS:
             yield _sse("status", {"message": "Loading investors...", "stage": "compute", "progress": 0.3})
@@ -1718,10 +1726,16 @@ async def _run_repe_fast_path(
             collected_text_parts.append(text)
 
         else:
-            # Explain returns / fallback — emit as text
-            text = f"I recognized this as a **{family.replace('_', ' ')}** request but the fast-path engine doesn't handle it yet. Let me use the full analysis pipeline instead."
-            yield _sse("token", {"text": text})
-            collected_text_parts.append(text)
+            # Intent classified but not served by the fast path. Previously this
+            # emitted a "let me use the full analysis pipeline instead" message and
+            # then returned anyway — the promised fallback never ran. Now actually
+            # fall through to the full pipeline.
+            emit_log(
+                level="info", service="backend", action="ai.gateway.repe_fast_path.fallthrough",
+                message=f"Intent '{family}' not handled by fast path — falling through to full pipeline",
+                context={"intent": family},
+            )
+            fall_through = True
 
         # ── Update session state ───────────────────────────────────────
         conversation_key = str(conversation_id) if conversation_id else None
@@ -1772,9 +1786,21 @@ async def _run_repe_fast_path(
             message=f"REPE fast-path error: {exc}",
             context={"intent": intent.family, "error": str(exc)},
         )
-        text = f"I encountered an error running the {family.replace('_', ' ')}: {exc}\n\nLet me try the full analysis pipeline instead."
-        yield _sse("token", {"text": text})
-        collected_text_parts.append(text)
+        # If nothing substantive was streamed yet, fall through to the full
+        # pipeline (it may succeed where the deterministic path errored) instead
+        # of returning a half-finished/empty answer. If we already streamed tool
+        # results or blocks, surface an honest error rather than double-emitting.
+        if not tool_timeline and not response_blocks:
+            fall_through = True
+        else:
+            text = f"I encountered an error running the {family.replace('_', ' ')}: {exc}"
+            yield _sse("token", {"text": text})
+            collected_text_parts.append(text)
+
+    # ── Fall through to the full pipeline (no `done`, caller continues) ──
+    if fall_through:
+        yield _FAST_PATH_FALLTHROUGH
+        return
 
     # ── Done ───────────────────────────────────────────────────────────
     timings["total_ms"] = int((time.time() - start) * 1000)
@@ -3154,6 +3180,7 @@ async def _legacy_run_gateway_stream(
         except Exception:
             pass
 
+        _fast_path_fell_through = False
         try:
             async for sse_line in _run_repe_fast_path(
                 intent=repe_intent,
@@ -3167,6 +3194,15 @@ async def _legacy_run_gateway_stream(
                 trace=trace,
                 actor=actor,
             ):
+                if sse_line == _FAST_PATH_FALLTHROUGH:
+                    # The fast path classified an intent it cannot serve with real
+                    # data (dashboard composition / unhandled intent / pre-output
+                    # error). Do NOT forward this control line to the client and do
+                    # NOT return — fall through to the full LLM+tools pipeline below
+                    # so a populated answer (or a real fail-closed reason) is produced
+                    # instead of an empty 0-tool dashboard shell.
+                    _fast_path_fell_through = True
+                    break
                 yield sse_line
         except Exception as fp_exc:
             emit_log(
@@ -3175,7 +3211,14 @@ async def _legacy_run_gateway_stream(
                 context={"intent": repe_intent.family, "error": str(fp_exc)},
             )
             yield _sse("error", {"message": f"Fast-path error ({repe_intent.family}): {fp_exc}"})
-        return
+            return
+        if not _fast_path_fell_through:
+            return
+        emit_log(
+            level="info", service="backend", action="ai.gateway.repe_fast_path.continue_full_pipeline",
+            message="Fast path fell through; continuing with full LLM+tools pipeline",
+            context={"intent": repe_intent.family},
+        )
 
     # ── Graceful degradation: write request but no write tools ────────
     if route.is_write and not _has_write_tools():
