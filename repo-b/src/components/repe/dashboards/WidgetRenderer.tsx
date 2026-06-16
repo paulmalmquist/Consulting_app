@@ -40,6 +40,19 @@ interface Props {
 /* --------------------------------------------------------------------------
  * Fetch a single entity + period from the statements API
  * -------------------------------------------------------------------------- */
+/** Why a widget could not render real authoritative numbers. Surfaced as an
+ *  explicit diagnostic empty-state instead of a silent blank/zeroed widget. */
+type WidgetDiagnostic = { reason: string; detail?: string } | null;
+
+type StatementFetch = {
+  /** line_code -> amount; empty when the read was degraded/unavailable. */
+  values: Record<string, number>;
+  /** True only when the response was a healthy 2xx with a usable payload. */
+  ok: boolean;
+  /** Why the read is not usable, if known (null_reason / state_origin / http). */
+  diagnostic: WidgetDiagnostic;
+};
+
 async function fetchStatementData(
   entityType: string,
   entityId: string,
@@ -50,7 +63,7 @@ async function fetchStatementData(
   comparison: string,
   envId: string,
   businessId: string,
-): Promise<Record<string, number>> {
+): Promise<StatementFetch> {
   const basePath = entityType === "investment"
     ? `/api/re/v2/investments/${entityId}/statements`
     : `/api/re/v2/assets/${entityId}/statements`;
@@ -66,12 +79,33 @@ async function fetchStatementData(
   });
 
   const res = await fetch(`${basePath}?${params}`);
+  if (!res.ok) {
+    return { values: {}, ok: false, diagnostic: { reason: "data_unavailable", detail: `HTTP ${res.status}` } };
+  }
   const json = await res.json();
+
+  // Fail closed on an explicit authoritative null_reason / non-authoritative
+  // origin — never render fabricated or zeroed numbers for a released period.
+  const nullReason: string | undefined = json?.null_reason ?? undefined;
+  const stateOrigin: string | undefined = json?.state_origin ?? undefined;
+  if (nullReason) {
+    return { values: {}, ok: false, diagnostic: { reason: nullReason } };
+  }
+  if (stateOrigin && stateOrigin !== "authoritative" && stateOrigin !== "decomposition_overlay") {
+    return { values: {}, ok: false, diagnostic: { reason: "not_authoritative", detail: stateOrigin } };
+  }
+
+  const lines = json?.lines ?? [];
   const map: Record<string, number> = {};
-  for (const line of json.lines ?? []) {
+  for (const line of lines) {
     map[line.line_code] = line.amount;
   }
-  return map;
+  // A released, authoritative payload with zero lines is still "no data" — flag
+  // it rather than rendering an empty shell.
+  if (lines.length === 0) {
+    return { values: map, ok: false, diagnostic: { reason: "no_statement_data" } };
+  }
+  return { values: map, ok: true, diagnostic: null };
 }
 
 /* --------------------------------------------------------------------------
@@ -87,6 +121,7 @@ function useWidgetData(
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
   const [seriesLines, setSeriesLines] = useState<LineDef[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [diagnostic, setDiagnostic] = useState<WidgetDiagnostic>(null);
 
   useEffect(() => {
     const entityType = widget.config.entity_type || "asset";
@@ -94,6 +129,8 @@ function useWidgetData(
     const effectiveQuarter = widget.config.quarter || quarter;
     const groupBy = widget.config.group_by;
     const timeGrain = widget.config.time_grain;
+
+    setDiagnostic(null);
 
     if (!entityIds?.length || !effectiveQuarter) {
       setData(null);
@@ -148,16 +185,20 @@ function useWidgetData(
             });
           });
 
+          // First degraded read across the grid becomes the widget diagnostic.
+          let firstDiag: WidgetDiagnostic = null;
           // Fetch all entity x period combos in parallel
           const fetches = periods.map(async (period) => {
             const row: Record<string, unknown> = { quarter: period };
             const entityFetches = entitiesToFetch.map(async (eid) => {
-              const values = await fetchStatementData(
+              const fetched = await fetchStatementData(
                 entityType, eid, period, statement, periodType, scenario, comparison, envId, businessId,
               );
+              if (!fetched.ok && !firstDiag) firstDiag = fetched.diagnostic;
               const eName = entityNames?.[eid] ?? eid.slice(0, 8);
               metrics.forEach((m: WidgetMetricRef) => {
-                row[`${eName}_${m.key}`] = values[m.key] ?? 0;
+                // Only populate from an ok read; never coerce a degraded read to 0.
+                if (fetched.ok) row[`${eName}_${m.key}`] = fetched.values[m.key] ?? 0;
               });
             });
             await Promise.all(entityFetches);
@@ -166,34 +207,60 @@ function useWidgetData(
 
           const results = await Promise.all(fetches);
           chartData.push(...results);
-          setData(chartData);
-          setSeriesLines(lines);
+          // Every cell degraded (rows carry only `quarter`) => diagnostic, not a blank chart.
+          const anyData = results.some((r) => Object.keys(r).length > 1);
+          if (!anyData && firstDiag) {
+            setDiagnostic(firstDiag);
+            setData(null);
+            setSeriesLines(null);
+          } else {
+            setData(chartData);
+            setSeriesLines(lines);
+          }
         } else if (needsMultiPeriod) {
           // Single-entity multi-period (standard trend line)
+          let firstDiag: WidgetDiagnostic = null;
           const periodFetches = periods.map(async (period) => {
-            const values = await fetchStatementData(
+            const fetched = await fetchStatementData(
               entityType, entitiesToFetch[0], period, statement, periodType, scenario, comparison, envId, businessId,
             );
+            if (!fetched.ok && !firstDiag) firstDiag = fetched.diagnostic;
             const row: Record<string, unknown> = { quarter: period };
-            for (const [k, v] of Object.entries(values)) {
-              row[k] = v;
+            if (fetched.ok) {
+              for (const [k, v] of Object.entries(fetched.values)) row[k] = v;
             }
             return row;
           });
           const chartData = await Promise.all(periodFetches);
-          setData(chartData);
-          setSeriesLines(null); // use default metric-based lines
+          const anyData = chartData.some((r) => Object.keys(r).length > 1);
+          if (!anyData && firstDiag) {
+            setDiagnostic(firstDiag);
+            setData(null);
+            setSeriesLines(null);
+          } else {
+            setData(chartData);
+            setSeriesLines(null); // use default metric-based lines
+          }
         } else {
           // Single entity, single period (original behavior)
-          const values = await fetchStatementData(
+          const fetched = await fetchStatementData(
             entityType, entitiesToFetch[0], periods[0], statement, periodType, scenario, comparison, envId, businessId,
           );
-          setData([values]);
-          setSeriesLines(null);
+          if (!fetched.ok) {
+            // Degraded / not-released / no-data: surface the reason, do not render
+            // a blank or zeroed widget.
+            setDiagnostic(fetched.diagnostic);
+            setData(null);
+            setSeriesLines(null);
+          } else {
+            setData([fetched.values]);
+            setSeriesLines(null);
+          }
         }
       } catch {
         setData(null);
         setSeriesLines(null);
+        setDiagnostic({ reason: "data_unavailable", detail: "fetch_error" });
       } finally {
         setLoading(false);
       }
@@ -202,7 +269,7 @@ function useWidgetData(
     return () => controller.abort();
   }, [widget, envId, businessId, quarter, entityNames]);
 
-  return { data, seriesLines, loading };
+  return { data, seriesLines, loading, diagnostic };
 }
 
 /* --------------------------------------------------------------------------
@@ -541,8 +608,37 @@ function SensitivityHeatWidget({ widget }: { widget: DashboardWidget }) {
 /* --------------------------------------------------------------------------
  * Main renderer
  * -------------------------------------------------------------------------- */
+/** Human-readable label for a widget diagnostic reason code. Falls back to the
+ *  raw code so an unknown reason is still surfaced (never silently blank). */
+function diagnosticLabel(reason: string): string {
+  const map: Record<string, string> = {
+    authoritative_state_not_released: "Not released",
+    authoritative_state_not_found: "No snapshot found",
+    not_authoritative: "Not an authoritative source",
+    no_statement_data: "No data for this period",
+    data_unavailable: "Data unavailable",
+    out_of_scope_requires_waterfall: "Requires waterfall (out of scope)",
+  };
+  return map[reason] ?? reason;
+}
+
+/** Explicit diagnostic empty-state. Replaces a silent blank/zeroed widget when
+ *  the authoritative read was degraded, not released, or returned no data. */
+function DiagnosticEmptyState({ diagnostic }: { diagnostic: { reason: string; detail?: string } }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-1 text-center px-3">
+      <span className="text-amber-500 text-lg leading-none">&#9888;</span>
+      <p className="text-sm text-bm-text font-medium">{diagnosticLabel(diagnostic.reason)}</p>
+      <p className="font-mono text-[10px] text-bm-muted2">
+        null_reason: {diagnostic.reason}{diagnostic.detail ? ` (${diagnostic.detail})` : ""}
+      </p>
+      <p className="text-[10px] text-bm-muted2">No authoritative data to display — not a zero value.</p>
+    </div>
+  );
+}
+
 export default function WidgetRenderer({ widget, envId, businessId, quarter, entityNames, onConfigure, isEditing, queryManifest, dataAvailability }: Props) {
-  const { data, seriesLines, loading } = useWidgetData(widget, envId, businessId, quarter, entityNames);
+  const { data, seriesLines, loading, diagnostic } = useWidgetData(widget, envId, businessId, quarter, entityNames);
   const [showInfo, setShowInfo] = useState(false);
 
   return (
@@ -628,6 +724,8 @@ export default function WidgetRenderer({ widget, envId, businessId, quarter, ent
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-bm-muted2">Loading...</p>
           </div>
+        ) : diagnostic ? (
+          <DiagnosticEmptyState diagnostic={diagnostic} />
         ) : (
           <>
             {widget.type === "metrics_strip" && <MetricsStripWidget widget={widget} data={data} />}
