@@ -1,7 +1,6 @@
 // Single source of truth for History Rhymes navigation. The desktop rail and
 // the mobile drawer (HistoryRhymesShell) both consume this list, so adding a
-// section means adding one entry here. Later PRs append entries: Admin (PR 6),
-// Research (PR 14), Episodes + Calibration (PR 15).
+// section means adding one entry here.
 
 export type HrNavItem = {
   slug: string;
@@ -14,6 +13,8 @@ export const HR_NAV: HrNavItem[] = [
   { slug: "morning-book", label: "Morning Book", testId: "hr-nav-morning-book" },
   { slug: "research", label: "Research", testId: "hr-nav-research" },
   { slug: "planning", label: "Planning", testId: "hr-nav-planning" },
+  { slug: "episodes", label: "Episodes", testId: "hr-nav-episodes" },
+  { slug: "calibration", label: "Calibration", testId: "hr-nav-calibration" },
   { slug: "admin", label: "Admin", testId: "hr-nav-admin" },
 ];
 

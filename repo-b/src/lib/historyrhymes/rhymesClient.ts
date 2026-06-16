@@ -135,6 +135,47 @@ export async function fetchRhymesAlerts(filters: {
   }
 }
 
+export interface Episode {
+  episode_id: string;
+  episode_name: string;
+  episode_start_year: number;
+  episode_end_year: number | null;
+  asset_class: string | null;
+  is_non_event: boolean;
+  tags: string[];
+  description: string | null;
+}
+
+export interface EpisodesResponse {
+  episodes: Episode[];
+  count: number;
+}
+
+export async function fetchRhymesEpisodes(filters: {
+  asset_class?: string;
+  is_non_event?: boolean;
+  has_hoyt_peak_tag?: boolean;
+  limit?: number;
+} = {}): Promise<EpisodesResponse | null> {
+  const params = new URLSearchParams();
+  if (filters.asset_class) params.set("asset_class", filters.asset_class);
+  if (filters.is_non_event !== undefined) params.set("is_non_event", String(filters.is_non_event));
+  if (filters.has_hoyt_peak_tag !== undefined) params.set("has_hoyt_peak_tag", String(filters.has_hoyt_peak_tag));
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  const qs = params.toString();
+  try {
+    const res = await fetch(`/api/v1/rhymes/episodes${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+    if (!res.ok) {
+      console.error(`[rhymes-client] /api/v1/rhymes/episodes → ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as EpisodesResponse;
+  } catch (err) {
+    console.error("[rhymes-client] /api/v1/rhymes/episodes failed:", err);
+    return null;
+  }
+}
+
 /**
  * Acknowledge a structural alert. Mutating call: returns the backend receipt
  * or null on failure (404 = already acknowledged or unknown id). Callers must
