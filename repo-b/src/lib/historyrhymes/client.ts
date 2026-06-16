@@ -301,3 +301,64 @@ export interface MorningBookData {
 export function fetchMorningBook(): Promise<MorningBookData | null> {
   return getJson<MorningBookData>("/api/hr/v1/research/morning-book");
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Polymarket pulse (backed by backend/app/routes/hr_polymarket.py).
+ * Read-only market-implied probabilities plus History Rhymes forecast overlays.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type PredictionMarketStatus =
+  | "LIVE"
+  | "STALE"
+  | "THIN"
+  | "AMBIGUOUS"
+  | "RESEARCH"
+  | "UNSUPPORTED";
+
+export interface PolymarketPulseItem {
+  market_id: string;
+  question: string;
+  slug?: string | null;
+  category?: string | null;
+  end_at?: string | null;
+  as_of: string | null;
+  yes_probability: number | null;
+  price_basis: string | null;
+  probability_change_5m: number | null;
+  probability_change_1h: number | null;
+  probability_change_24h: number | null;
+  liquidity_confidence: number | null;
+  shock_score: number | null;
+  connection_stale: boolean;
+  market_stale: boolean;
+  thin_liquidity_flag: boolean;
+  ambiguity_flag: boolean;
+  null_reason: string | null;
+  provenance?: Record<string, unknown>;
+  p_hr: number | null;
+  signed_divergence: number | null;
+  forecast_status: string | null;
+  forecast_null_reason: string | null;
+  model_version: string | null;
+  status?: PredictionMarketStatus;
+}
+
+export interface PolymarketPulseResponse {
+  ok: boolean;
+  source: "polymarket";
+  as_of: string | null;
+  stale: boolean;
+  null_reason: string | null;
+  provenance: Record<string, unknown>;
+  price_basis: string[];
+  forecast_status: string[] | string;
+  items: PolymarketPulseItem[];
+}
+
+export function fetchPolymarketPulse(
+  limit = 25,
+): Promise<PolymarketPulseResponse | null> {
+  return getJson<PolymarketPulseResponse>(
+    `/api/hr/v1/polymarket/pulse?limit=${encodeURIComponent(String(limit))}`,
+  );
+}

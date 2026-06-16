@@ -9,6 +9,7 @@ and publishing becomes a silent, assertable no-op.
 
 from __future__ import annotations
 
+import os
 from typing import Protocol
 
 from app.events import config
@@ -37,7 +38,7 @@ class KafkaTransport:
     def __init__(self, broker_url: str, timeout_ms: int) -> None:
         from confluent_kafka import Producer  # lazy: optional dependency
 
-        self._producer = Producer({"bootstrap.servers": broker_url})
+        self._producer = Producer(build_kafka_producer_config(broker_url))
         self._timeout_s = max(timeout_ms, 0) / 1000.0
 
     def send(self, topic: str, key: str | None, value: bytes) -> bool:
@@ -82,3 +83,31 @@ def reset_transport() -> None:
     """Drop the cached Kafka producer (used by tests / config changes)."""
     global _kafka_singleton
     _kafka_singleton = None
+
+
+def build_kafka_producer_config(broker_url: str | None = None) -> dict[str, object]:
+    """Build a librdkafka producer config from shared broker env.
+
+    ``EVENTS_*`` is the canonical app config. ``CONFLUENT_*`` aliases are kept
+    for standalone smoke scripts and older tests.
+    """
+    bootstrap = (
+        broker_url
+        or os.getenv("EVENTS_BROKER_URL")
+        or os.getenv("CONFLUENT_BOOTSTRAP_SERVERS")
+        or ""
+    ).strip()
+    producer_config: dict[str, object] = {"bootstrap.servers": bootstrap}
+
+    security_config = config.producer_security_config()
+    if not security_config and os.getenv("CONFLUENT_API_KEY") and os.getenv("CONFLUENT_API_SECRET"):
+        security_config = {
+            "security.protocol": "SASL_SSL",
+            "sasl.mechanisms": "PLAIN",
+            "sasl.username": os.getenv("CONFLUENT_API_KEY", "").strip(),
+            "sasl.password": os.getenv("CONFLUENT_API_SECRET", "").strip(),
+        }
+    if security_config:
+        producer_config["enable.idempotence"] = True
+    producer_config.update(security_config)
+    return producer_config

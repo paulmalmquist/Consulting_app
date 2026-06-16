@@ -25,3 +25,37 @@ EVENTS_TRANSPORT: str = (os.getenv("EVENTS_TRANSPORT", "auto") or "auto").strip(
 
 # Hard ceiling on how long a single best-effort publish may block.
 EVENTS_PUBLISH_TIMEOUT_MS: int = int(os.getenv("EVENTS_PUBLISH_TIMEOUT_MS", "200"))
+
+# Broker security.
+# Local Redpanda needs none of this (PLAINTEXT). A managed broker such as
+# Confluent Cloud needs SASL_SSL + PLAIN with an API key/secret. All empty by
+# default, the producer stays a plain PLAINTEXT client, so local dev is unchanged.
+#
+#   EVENTS_SECURITY_PROTOCOL  PLAINTEXT (default) | SASL_SSL | SASL_PLAINTEXT | SSL
+#   EVENTS_SASL_MECHANISM     PLAIN (default for Confluent) | SCRAM-SHA-256 | ...
+#   EVENTS_SASL_USERNAME      Confluent API key
+#   EVENTS_SASL_PASSWORD      Confluent API secret (never commit; env only)
+EVENTS_SECURITY_PROTOCOL: str = (
+    os.getenv("EVENTS_SECURITY_PROTOCOL", "PLAINTEXT") or "PLAINTEXT"
+).strip().upper()
+EVENTS_SASL_MECHANISM: str = (
+    os.getenv("EVENTS_SASL_MECHANISM", "PLAIN") or "PLAIN"
+).strip().upper()
+EVENTS_SASL_USERNAME: str = _clean(os.getenv("EVENTS_SASL_USERNAME", ""))
+EVENTS_SASL_PASSWORD: str = _clean(os.getenv("EVENTS_SASL_PASSWORD", ""))
+
+
+def producer_security_config() -> dict[str, str]:
+    """librdkafka security settings derived from env.
+
+    Returns the SASL/SSL keys only when a non-PLAINTEXT protocol is configured,
+    so the default (local Redpanda) producer config is untouched.
+    """
+    if EVENTS_SECURITY_PROTOCOL == "PLAINTEXT":
+        return {}
+    cfg: dict[str, str] = {"security.protocol": EVENTS_SECURITY_PROTOCOL}
+    if EVENTS_SECURITY_PROTOCOL in ("SASL_SSL", "SASL_PLAINTEXT"):
+        cfg["sasl.mechanisms"] = EVENTS_SASL_MECHANISM
+        cfg["sasl.username"] = EVENTS_SASL_USERNAME
+        cfg["sasl.password"] = EVENTS_SASL_PASSWORD
+    return cfg
