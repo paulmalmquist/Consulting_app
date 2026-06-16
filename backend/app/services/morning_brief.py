@@ -170,6 +170,17 @@ def generate(env_id: str, business_id: str | UUID, *, brief_date: str | None = N
     priority = round(max((c.get("priority_score") or 0.0) for c in pool), 4) if pool else 0.0
     anomaly = any(c.get("anomaly_flag") for c in pool)
 
+    # Optional single-call LLM narration (PR 16b). Off by default → deterministic digest used,
+    # zero model calls. The wrapper validates the narration adds no uncited facts and falls
+    # back to the digest otherwise; it never raises into this path.
+    digest = _digest(brief)
+    from app.services import morning_brief_summary
+    summary_result = morning_brief_summary.summarize_brief(
+        brief, env_id=env_id, business_id=business_id, deterministic_digest=digest)
+    brief["summary"] = {"used_llm": summary_result["used_llm"], "model": summary_result["model"],
+                        "null_reason": summary_result["null_reason"]}
+    card_summary = summary_result["summary_text"]
+
     card_id = None
     try:
         card = intelligence_cards.upsert_card(
@@ -177,7 +188,7 @@ def generate(env_id: str, business_id: str | UUID, *, brief_date: str | None = N
             card_type="story",
             title=f"Morning brief — {date}: {brief['counts']['anomaly_count']} signal(s), "
                   f"{brief['counts']['watch_count']} to watch",
-            summary=_digest(brief),
+            summary=card_summary,
             source_ref=brief,
             dedup_ref={"type": BRIEF_TYPE, "env_id": env_id, "brief_date": date},
             priority_score=priority,
