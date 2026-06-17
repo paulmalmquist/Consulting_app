@@ -6,7 +6,6 @@ test: never fabricate a URL; always return a copyable identifier; never raise.
 
 from __future__ import annotations
 
-import pytest
 
 from app.services.hr_ml_demo.cloud_links import (
     ResourceRef,
