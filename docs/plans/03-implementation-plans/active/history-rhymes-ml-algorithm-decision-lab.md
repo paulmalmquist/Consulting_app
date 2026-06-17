@@ -127,3 +127,17 @@ dry-run-by-default ingest, no schema change, no `episode_embeddings`. Stack: A1 
 The 5 first-pass connectors (FRED/Census/VIX/FOMC/DefiLlama) are now complete.
 Next: B7 infra manifests only (k8s base + gke-prod overlay + Confluent topics +
 BigQuery sink wiring; no connector logic).
+
+## Feature Store stack — B7 infra manifests (2026-06-17)
+
+B7 authors the feature-store k8s lane (mirroring history-rhymes-polymarket):
+base (ns/sa/configmap/ingest+materializer Deployments at replicas 0/kustomization)
++ gke-prod overlay (SecretProviderClass = database-url + fred-api-key only; WI
+sa-patch; config-patch; README). Topic constants
+winston.hr.feature_store.{readings,pipeline_status,materialized}.v1 added to
+events/topics.py + listed in EVENT_SINK_TOPICS (config-only sink routing, BQ off).
+DEFAULT-OFF (FS_*_ENABLED=false AND replicas 0); kustomize build validated; no live
+deploy/apply, no connector logic, no schema change, no episode_embeddings. Worker
+entrypoints + FRED run_ingest harmonization are a runtime follow-up. Stack: A1 #206
+→ A2 #209 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → B6 #224 →
+**B7 (this)**. Next: C1 gated episode_embeddings backfill (plan/dry-run only).
