@@ -220,3 +220,24 @@ tests (fake repo, no DB/network); 243 feature-store+ML-demo tests green. Stack: 
 C1 #234 → C2-B #236 → C3 #237 → **C4 (this)**. Next: C5 — promotion review API /
 internal admin surface DESIGN only (still no automatic episode creation or
 `episode_embeddings` write).
+
+## Feature Store stack — C5 promotion review surface (DESIGN ONLY, 2026-06-18)
+
+C5 is a docs/design PR (no code, no API, no UI, no schema, no episode creation, no
+`episode_embeddings` write, no LLM). New design doc
+`docs/history-rhymes/promotion-review-surface.md` specifies how an internal admin
+reviewer operates the C4 airlock: 8 surface areas (candidate queue · detail/review
+packet · evidence gate panel · non-event coverage panel · no-lookahead audit panel ·
+approval action bar · receipt history panel · promoted-episode link panel), each with
+purpose/data/empty/blocked/allowed/forbidden/audit. Maps 1:1 onto the C4 service
+functions (the surface adds no authority); preserves the status machine and the exact
+C4 blocked reasons (HTTP 409 `{status, blocked_reasons[], candidate_id, current_status,
+allowed_actions[]}`). Recommends the `/api/hr/v1/promotion-candidates*` route family
+(per-route request/response/auth/side-effects), a `promotions` `HrSubNav` tab +
+component boundaries, the `admin_prompt_receipts.py` admin gate
+(`require_authenticated_request` + `x-bm-platform-admin`, actor from `x-bm-actor`),
+and audit-in-receipt for now (platform `ai_decision_audit_log` needs a CHECK migration
+→ deferred C7). Regression guard: `_search_analogs` + Feature Foundry stay read-only
+wrt promotion. Stack: … C2-B #236 → C3 #237 → C4 #240 → **C5 (this)**. Next: C6 —
+implement the protected promotion-candidate API only (no UI, no episode creation, no
+`episode_embeddings` write).
