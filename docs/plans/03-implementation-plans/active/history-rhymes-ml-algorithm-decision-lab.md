@@ -277,3 +277,23 @@ C4/C6 suites unchanged. Stack: … C4 #240 → C5 #242 → C6 #246 → **C7 (thi
 C8 — either the platform audit-table integration migration for promotion actions, or
 the external episode-creation/linking workflow design, depending on which gap is more
 urgent.
+
+## Feature Store stack — C8-A promotion audit integration (2026-06-18)
+
+C8-A wires C6 promotion-candidate actions into the platform audit log (no episode
+creation, no `episode_embeddings` write, no UI, no LLM). Migration
+`10022_history_rhymes_promotion_audit_type.sql` controlled-widens the inline
+`ai_decision_audit_log.decision_type` CHECK (discover-by-definition → drop → re-add
+with all 4 legacy values + `history_rhymes_promotion_candidate_action`; verify
+block). `promotion_audit.py` builds a safe-metadata payload (stable
+`request_payload_hash`/`candidate_receipt_hash`) and writes best-effort via
+`governance.record_decision` (sentinel business_id for the single-tenant hr_
+domain). C6 routes audit every state-changing action — success AND blocked — adding
+an additive `audit_status` to both envelopes; audit-write failure surfaces
+`audit_status="failed"` and never hides/reverses the service result. The audit layer
+adds no authority. 13 new tests (fake writer/repo, no DB/network); 274 HR
+feature-store + ML-demo + promotion API/audit tests green; C7 client unaffected.
+Stack: … C5 #242 → C6 #246 → C7 #249 → **C8-A (this)**. Next: C9 — external episode
+creation/linking workflow design (how an approved candidate becomes a real
+`episodes` row and only then an `episode_embeddings` row, still human-gated +
+append-only).

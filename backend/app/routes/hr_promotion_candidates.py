@@ -20,12 +20,16 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.platform import require_authenticated_request
+from app.services.hr_feature_store import promotion_audit as AUDIT
 from app.services.hr_feature_store import promotion_candidates as PC
 
 router = APIRouter(prefix="/api/hr/v1/promotion-candidates", tags=["history-rhymes-promotion"])
 
 # Repository factory — overridable in tests via dependency-free monkeypatch.
 _repo_factory = PC.DbCandidateRepository
+
+# Audit writer — overridable in tests; None ⇒ governance.record_decision (best-effort).
+_audit_writer = None
 
 
 def _repo():
@@ -46,6 +50,24 @@ def _actor(request: Request) -> str:
     return (request.headers.get("x-bm-actor") or "").strip()
 
 
+def _audit(*, action: str, candidate_id: str, actor: str | None, old_status: str | None,
+           new_status: str | None, source_route: str, request_payload: dict | None,
+           candidate: dict | None, success: bool,
+           blocked_reasons: list[str] | None = None,
+           allowed_actions: list[str] | None = None) -> str:
+    """Build + write a platform audit record. Returns audit_status ("ok"/"failed").
+    Best-effort: never raises, never alters the route result."""
+    payload = AUDIT.build_audit_payload(
+        action=action, candidate_id=candidate_id, actor=actor, old_status=old_status,
+        new_status=new_status, source_route=source_route, request_payload=request_payload,
+        candidate=candidate, blocked_reasons=blocked_reasons, allowed_actions=allowed_actions,
+    )
+    try:
+        return AUDIT.record_promotion_audit(payload, success=success, writer=_audit_writer)
+    except Exception:
+        return "failed"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -53,23 +75,26 @@ def _now() -> str:
 # --- envelopes --------------------------------------------------------------
 
 
-def _ok(candidate: dict[str, Any]) -> dict[str, Any]:
+def _ok(candidate: dict[str, Any], *, audit_status: str | None = None) -> dict[str, Any]:
     return {
         "status": "ok",
         "candidate_id": candidate.get("candidate_id"),
         "approval_status": candidate.get("approval_status"),
         "candidate": candidate,
+        "audit_status": audit_status,
     }
 
 
 def _blocked(err: PC.PromotionCandidateError, candidate_id: str,
-             current_status: str | None) -> HTTPException:
+             current_status: str | None, *, audit_status: str | None = None) -> HTTPException:
+    # 409 envelope is unchanged except an optional audit_status; blocked_reasons exact.
     return HTTPException(status_code=409, detail={
         "status": "blocked",
         "blocked_reasons": err.reasons,
         "candidate_id": candidate_id,
         "current_status": current_status,
         "allowed_actions": sorted(PC.ALLOWED_TRANSITIONS.get(current_status, set())),
+        "audit_status": audit_status,
     })
 
 
@@ -171,33 +196,57 @@ def get_candidate(request: Request, candidate_id: str) -> dict[str, Any]:
 def create_candidate(request: Request, candidate: dict[str, Any]) -> dict[str, Any]:
     _require_admin(request)
     repo = _repo()
+    cid = candidate.get("candidate_id", "")
+    route = str(request.url.path)
     try:
         PC.create_candidate(repo, candidate)
     except PC.PromotionCandidateError as e:
-        raise _blocked(e, candidate.get("candidate_id", ""), None)
-    return _ok(_detail(repo, candidate["candidate_id"]))
+        astatus = _audit(action="create_candidate", candidate_id=cid, actor=_actor(request),
+                         old_status=None, new_status=None, source_route=route,
+                         request_payload=candidate, candidate=None, success=False,
+                         blocked_reasons=e.reasons)
+        raise _blocked(e, cid, None, audit_status=astatus)
+    after = _detail(repo, candidate["candidate_id"])
+    astatus = _audit(action="create_candidate", candidate_id=cid, actor=_actor(request),
+                     old_status=None, new_status=after.get("approval_status"), source_route=route,
+                     request_payload=candidate, candidate=after, success=True)
+    return _ok(after, audit_status=astatus)
 
 
-def _transition(request: Request, candidate_id: str, fn, **kwargs) -> dict[str, Any]:
+def _transition(request: Request, candidate_id: str, action: str, fn,
+                request_payload: dict | None = None, **kwargs) -> dict[str, Any]:
     repo = _repo()
+    actor = _actor(request)
     before = _current_status(repo, candidate_id)
+    route = str(request.url.path)
     try:
         fn(repo, candidate_id, **kwargs)
     except PC.PromotionCandidateError as e:
-        raise _blocked(e, candidate_id, before)
-    return _ok(_detail(repo, candidate_id))
+        # audit the BLOCKED action with exact reasons, then raise the 409 unchanged
+        astatus = _audit(action=action, candidate_id=candidate_id, actor=actor,
+                         old_status=before, new_status=before, source_route=route,
+                         request_payload=request_payload, candidate=repo.get(candidate_id),
+                         success=False, blocked_reasons=e.reasons,
+                         allowed_actions=sorted(PC.ALLOWED_TRANSITIONS.get(before, set())))
+        raise _blocked(e, candidate_id, before, audit_status=astatus)
+    after = _detail(repo, candidate_id)
+    astatus = _audit(action=action, candidate_id=candidate_id, actor=actor,
+                     old_status=before, new_status=after.get("approval_status"),
+                     source_route=route, request_payload=request_payload, candidate=after,
+                     success=True)
+    return _ok(after, audit_status=astatus)
 
 
 @router.post("/{candidate_id}/needs-evidence")
 def needs_evidence(request: Request, candidate_id: str) -> dict[str, Any]:
     _require_admin(request)
-    return _transition(request, candidate_id, PC.mark_needs_evidence)
+    return _transition(request, candidate_id, "mark_needs_evidence", PC.mark_needs_evidence)
 
 
 @router.post("/{candidate_id}/needs-review")
 def needs_review(request: Request, candidate_id: str) -> dict[str, Any]:
     _require_admin(request)
-    return _transition(request, candidate_id, PC.mark_needs_review)
+    return _transition(request, candidate_id, "mark_needs_review", PC.mark_needs_review)
 
 
 @router.post("/{candidate_id}/approve")
@@ -206,34 +255,51 @@ def approve(request: Request, candidate_id: str, payload: ApprovePayload) -> dic
     actor = _actor(request)
     repo = _repo()
     before = _current_status(repo, candidate_id)
+    route = str(request.url.path)
+    rp = payload.model_dump()
+
+    def _blocked_audit(reasons: list[str]) -> HTTPException:
+        astatus = _audit(action="approve_candidate", candidate_id=candidate_id, actor=actor,
+                         old_status=before, new_status=before, source_route=route,
+                         request_payload=rp, candidate=repo.get(candidate_id), success=False,
+                         blocked_reasons=reasons,
+                         allowed_actions=sorted(PC.ALLOWED_TRANSITIONS.get(before, set())))
+        return _blocked(PC.PromotionCandidateError(reasons), candidate_id, before, audit_status=astatus)
+
     # actor missing → surface the same C4 reason rather than a generic 4xx
     if not actor:
-        raise _blocked(PC.PromotionCandidateError(["missing_approval_actor"]), candidate_id, before)
+        raise _blocked_audit(["missing_approval_actor"])
     if payload.reviewer_notes is not None:
         try:
             PC.attach_evidence(repo, candidate_id, {"reviewer_notes": payload.reviewer_notes})
         except PC.PromotionCandidateError as e:
-            raise _blocked(e, candidate_id, before)
+            raise _blocked_audit(e.reasons)
     try:
         PC.approve_candidate(repo, candidate_id, approval_actor=actor,
                              approval_timestamp=_now(),
                              coverage_override_reason=payload.override_reason)
     except PC.PromotionCandidateError as e:
-        raise _blocked(e, candidate_id, before)
-    return _ok(_detail(repo, candidate_id))
+        raise _blocked_audit(e.reasons)
+    after = _detail(repo, candidate_id)
+    astatus = _audit(action="approve_candidate", candidate_id=candidate_id, actor=actor,
+                     old_status=before, new_status=after.get("approval_status"),
+                     source_route=route, request_payload=rp, candidate=after, success=True)
+    return _ok(after, audit_status=astatus)
 
 
 @router.post("/{candidate_id}/reject")
 def reject(request: Request, candidate_id: str, payload: RejectPayload) -> dict[str, Any]:
     _require_admin(request)
-    return _transition(request, candidate_id, PC.reject_candidate,
+    return _transition(request, candidate_id, "reject_candidate", PC.reject_candidate,
+                       request_payload=payload.model_dump(),
                        rejection_reason=payload.rejection_reason)
 
 
 @router.post("/{candidate_id}/supersede")
 def supersede(request: Request, candidate_id: str, payload: SupersedePayload) -> dict[str, Any]:
     _require_admin(request)
-    return _transition(request, candidate_id, PC.supersede_candidate,
+    return _transition(request, candidate_id, "supersede_candidate", PC.supersede_candidate,
+                       request_payload=payload.model_dump(),
                        superseded_by_candidate_id=payload.superseded_by_candidate_id)
 
 
@@ -243,5 +309,6 @@ def link_promoted_episode(request: Request, candidate_id: str,
     """Link an episode created ELSEWHERE. This route never creates an episode or
     writes an embedding; it only records the link and seals the receipt via C4."""
     _require_admin(request)
-    return _transition(request, candidate_id, PC.record_promoted_episode_link,
+    return _transition(request, candidate_id, "link_promoted_episode",
+                       PC.record_promoted_episode_link, request_payload=payload.model_dump(),
                        created_episode_id=payload.created_episode_id, promoted_at=_now())

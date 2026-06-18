@@ -359,3 +359,32 @@ changes, no episode creation, no `episode_embeddings` write, no LLM):
 The actions map 1:1 to the C6 routes; the UI enables an action only when its target
 status is in `allowed_actions` (derived by C6 from the C4 machine). Episode creation
 and embedding writes remain outside this surface entirely.
+
+---
+
+## C8-A — platform audit integration (IMPLEMENTED, 2026-06-18)
+
+The audit-deferral noted in §"Audit requirements" / C5 is now resolved. Promotion
+actions are logged at the platform layer in addition to the C4 immutable receipt:
+
+- **Migration** `repo-b/db/schema/10022_history_rhymes_promotion_audit_type.sql` —
+  a controlled widening of the (inline, auto-named) `ai_decision_audit_log`
+  `decision_type` CHECK: it drops the existing constraint by discovered name and
+  re-adds it with EVERY legacy value (`tool_call`, `response`, `classification`,
+  `fast_path`) PLUS one new value `history_rhymes_promotion_candidate_action`. No
+  data dropped, table not recreated, no wildcard; `episodes`/`episode_embeddings`
+  untouched. A verification DO block asserts legacy values survive + the new one is
+  present.
+- **`backend/app/services/hr_feature_store/promotion_audit.py`** — pure
+  `build_audit_payload` (safe metadata + stable hashes: `request_payload_hash`,
+  `candidate_receipt_hash`) and `record_promotion_audit` writing via
+  `governance.record_decision` (best-effort). Single-tenant `hr_` has no
+  business_id → a documented sentinel UUID satisfies the NOT NULL column.
+- **C6 routes** now audit every state-changing action — successful AND blocked —
+  capturing actor/old→new status/action/route/hashes. The 409 blocked envelope is
+  unchanged except an additive `audit_status`; success responses also carry
+  `audit_status`. An audit-write failure surfaces `audit_status="failed"` and never
+  hides or reverses the C4/C6 result.
+
+The audit layer adds NO authority: it records what C4 already did/refused, and
+creates no episode and writes no embedding.
