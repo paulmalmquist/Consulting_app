@@ -141,3 +141,22 @@ deploy/apply, no connector logic, no schema change, no episode_embeddings. Worke
 entrypoints + FRED run_ingest harmonization are a runtime follow-up. Stack: A1 #206
 → A2 #209 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → B6 #224 →
 **B7 (this)**. Next: C1 gated episode_embeddings backfill (plan/dry-run only).
+
+## Feature Store stack — C1 gated embedding backfill, dry-run only (2026-06-18)
+
+C1 adds the dry-run-first gated planner that promotes vetted
+`hr_history_rhymes_model_observations` into `episode_embeddings`:
+`embedding_backfill.py` (planner + gated executor + fail-soft DB repo + C2 mapping
+proposal), `backfill_gates.py` (Brier<0.22, permutation p<0.05, version bump,
+256-dim, source_quality=live, non-overwrite, 2:1 non-event coverage),
+`backfill_audit.py` (deterministic no-lookahead), the
+`scripts/history_rhymes/episode_embeddings_backfill.py` CLI (dry-run default;
+write behind `--write --confirm --model-version --calibration-evidence` + all
+gates), fixtures, fixture-only tests, and `docs/history-rhymes/episode-embeddings-backfill.md`.
+**No writes by default; no production mutation; no schema change.** Verified schema
+gap: `episode_embeddings` is keyed by `episode_id` (FK→episodes), gold rows have no
+`episode_id` → the live DB repo blocks on `episode_mapping_unresolved` and proposes
+C2 (read-only adapter OR a new fs-keyed embedding table). Stack: A1 #206 → A2 #209
+→ A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → B6 #224 → B7 #230 →
+**C1 (this)**. Next: C2 — only after C1, either the schema/adapter mapping work or
+calibration-evidence plumbing.
