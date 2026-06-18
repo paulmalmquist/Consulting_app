@@ -2,6 +2,15 @@
 
 Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 
+## Approval escrow + preflight — PR 5A (test_ade_ops_approvals.py + ApprovalsPanel.test.tsx)
+- Recommendation → pending request; a blocked recommendation escrows blocked and cannot be approved out.
+- Human approve sets approved + approver + approved_at; wrong token → `invalid_approval_token` (fails closed); past TTL → `expired`.
+- Preflight requires all six (rollback_plan, observation_window, target_ref, provider, risk_tier, evidence); missing any → not passed.
+- **The invariant:** `EXECUTION_ENABLED is False`; even approved + preflight-passed → `can_execute` returns `execution_not_enabled`; `attempt_execution` returns `executed:false`. Not-approved/preflight-failed also cannot execute.
+- Allowlist is shape-only and disabled; module (code, docstrings stripped) contains no execution token (subprocess/alter/run-now/gcloud/aws/snowsql/…).
+- Schema guard: `ade_ops_approvals.CHECK (executed = false)` rejects an `executed=true` insert (verified via Supabase CLI).
+- FE: the four states render; an execution-disabled banner always shows; `executed:false` is surfaced; read failure fails closed to empty.
+
 ## Registry / tier (test_ade_ops_registry.py)
 - The 5 PR-1 commands present and executable (tier ≤1).
 - Tier-executability invariant: every tier ≥2 skill is `executable=False`; every executable skill has a wired executor.

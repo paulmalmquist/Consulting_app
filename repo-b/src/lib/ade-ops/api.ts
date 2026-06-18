@@ -75,3 +75,96 @@ export const runSkill = (skill: string, inputs: Record<string, unknown>, busines
     method: "POST",
     body: JSON.stringify({ skill, inputs, business_id: businessId, env_id: envId }),
   });
+
+// ── Approval escrow + execution preflight (PR 5A) ────────────────────────────
+// The control spine. Nothing here executes a provider write — `attemptExecute`
+// hits a gate that always returns blocked in PR 5A.
+
+export type ApprovalStateName = "pending" | "approved" | "expired" | "blocked";
+
+export interface PreflightResult {
+  passed: boolean;
+  missing: string[];
+  checked: string[];
+}
+
+export interface ApprovalRequest {
+  approval_id: string;
+  recommendation_id: string;
+  command_name: string;
+  category: string | null;
+  provider: string | null;
+  target_ref: string | null;
+  target_type: string | null;
+  risk_tier: number;
+  approval_token: string;
+  state: ApprovalStateName;
+  requested_by: string | null;
+  approver: string | null;
+  approved_at: string | null;
+  requested_at: string;
+  expires_at: string;
+  rollback_plan: string | null;
+  observation_window: string | null;
+  evidence: Evidence[];
+  preflight: PreflightResult | null;
+  executed: boolean;
+  null_reason: string | null;
+}
+
+export interface ApprovalsResponse {
+  approvals: ApprovalRequest[];
+  null_reason: string | null;
+}
+
+export interface ExecuteResponse {
+  approval: ApprovalRequest;
+  execution: {
+    executed: boolean;
+    execution_enabled: boolean;
+    gate_allowed: boolean;
+    reason: string;
+    note: string;
+  };
+}
+
+export const listApprovals = (businessId: string, envId?: string) =>
+  apiFetch<ApprovalsResponse>("/api/ade-ops/approvals", {
+    params: envId ? { business_id: businessId, env_id: envId } : { business_id: businessId },
+  });
+
+export const createApproval = (
+  recommendation: Record<string, unknown>,
+  businessId: string,
+  envId?: string,
+  opts?: { rollback_plan?: string; observation_window?: string; ttl_seconds?: number },
+) =>
+  apiFetch<ApprovalRequest>("/api/ade-ops/approvals", {
+    method: "POST",
+    body: JSON.stringify({ recommendation, business_id: businessId, env_id: envId, ...opts }),
+  });
+
+export const approveApproval = (
+  approvalId: string,
+  approver: string,
+  approvalToken: string,
+  businessId: string,
+  envId?: string,
+) =>
+  apiFetch<ApprovalRequest>(`/api/ade-ops/approvals/${approvalId}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ approver, approval_token: approvalToken, business_id: businessId, env_id: envId }),
+  });
+
+export const preflightApproval = (approvalId: string, businessId: string, envId?: string) =>
+  apiFetch<ApprovalRequest>(`/api/ade-ops/approvals/${approvalId}/preflight`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId, env_id: envId }),
+  });
+
+// PR 5A: this never executes a provider write — the gate returns blocked.
+export const attemptExecute = (approvalId: string, businessId: string, envId?: string) =>
+  apiFetch<ExecuteResponse>(`/api/ade-ops/approvals/${approvalId}/execute`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId, env_id: envId }),
+  });
