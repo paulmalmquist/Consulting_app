@@ -3,7 +3,7 @@
 // consume this list, so adding a section means adding one entry here.
 // Icon strings are 16x16 SVG path data, ported from the Option B reference.
 
-export type TelemetryNavGroup = "Operations" | "ML & Models" | "Factory" | "AI & Governance";
+export type TelemetryNavGroup = "Operations" | "ML & Models" | "Factory" | "AI & Governance" | "Evidence & Architecture";
 
 export type TelemetryNavItem = {
   slug: string;
@@ -28,9 +28,10 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "factory-ml", label: "Factory ML", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6", group: "Factory" },
   { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "AI & Governance", mobilePrimary: true },
   { slug: "governance", label: "AI Governance", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z", group: "AI & Governance" },
+  { slug: "how-it-works", label: "How This Works", icon: "M2 4l4-2 4 2 4-2v10l-4 2-4-2-4 2zM6 2v10M10 4v10", group: "Evidence & Architecture" },
 ];
 
-export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = ["Operations", "ML & Models", "Factory", "AI & Governance"];
+export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = ["Operations", "ML & Models", "Factory", "AI & Governance", "Evidence & Architecture"];
 
 export function telemetryHref(envId: string, slug: string): string {
   const base = `/lab/env/${envId}/telemetry`;

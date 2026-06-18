@@ -2,6 +2,14 @@
 
 **Last updated:** 2026-06-11
 
+> **Also shipped (2026-06-17):** the "How This Works" architecture & evidence exhibit — dispatch
+> `docs/plans/03-implementation-plans/active/0007-telemetry-how-it-works-exhibit.md`, ADO Story #654
+> (Feature #513 / Epic #497), route `/lab/env/[envId]/telemetry/how-it-works`, branch
+> `feat/telemetry-how-it-works`. Companion interview docs live in this folder
+> (`RS_DEMO_SCRIPT.md`, `RS_INTERVIEW_TALK_TRACK.md`, `RS_EVIDENCE_CHECKLIST.md`,
+> `architecture-mermaid.md`). Open follow-up: production-verify the deep-links on novendor.ai and
+> promote those rows from `code_verified` to `prod_verified` in `howItWorksData.ts`.
+
 The existing telemetry platform remains the only user-facing environment. RS Factory work is
 additive inside that environment; do not create another template or top-level route.
 
