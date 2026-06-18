@@ -15,6 +15,14 @@ Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 - `scan pipelines` reports per-provider `cloud:<provider>` config status (default not_configured) while registries are real (degraded, per-source).
 - **Receipts:** written with `decision_type="ade_op"` on success; on insert failure → `receipt_status=failed` + `receipt_write_failed`, `receipt_id=None` (never silent); skipped with no business context.
 
+## Recommendation engine — PR 4 (test_ade_ops_recommendations.py)
+- Freshness: no as_of → blocked durable_source_unavailable; failed → incident follow-up; stale → cadence-change candidate (Tier 1, no dry-run).
+- Cost: missing billing → blocked, **no `expected_impact`** (no savings); available → rank candidate only, still no dollar figure.
+- Rightsize: missing evidence → blocked, no resize, no dry-run; all evidence → candidate with **text-only** dry-run (NOT EXECUTED), Tier 2 + approval_required + rollback_required, and the dry-run text contains **no executable command token** (alter/resize/modify-instance/run-now/terminate/drop).
+- ADO payload: `import_ready:true`, `pushed:false`.
+- Executor wiring: cost/rightsize emit one artifact per provider (blocked by default, candidate-not-action); freshness attaches a recommendation; `recommendations` serializes in `to_dict()`.
+- The recommendations module contains **no execution token** (subprocess/os.system/alter table/run-now/gcloud/aws/snowsql).
+
 ## Cloud inventory adapters — PR 3 (test_ade_ops_cloud.py)
 - Every adapter with no input → `not_configured` + provider-specific null_reason; no fabricated `observed_at`; `rightsizing_candidate_available=False`.
 - Rows present but missing identity (account/workspace/project/region) → explicit null_reason.

@@ -185,21 +185,27 @@ def _assess_freshness(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResul
     # A failed/stale product is real-but-degraded; a fresh one is OK.
     status = OpsStatus.OK if reading.status == "fresh" else OpsStatus.DEGRADED
     null_reason = None if status == OpsStatus.OK else OpsNullReason.DURABLE_SOURCE_UNAVAILABLE if reading.status == "failed" else None
+    # PR 4: governed recommendation artifact alongside the raw read.
+    from app.services.ade_ops import recommendations as rec
+    rec_art = rec.freshness_recommendation(
+        product_label=product.label, status=reading.status, age_seconds=reading.age_seconds,
+        target_seconds=product.cadence_seconds, evidence=[e.model_dump() for e in evidence],
+        reason=reading.detail)
     return _result(skill, status=status, recommendation=recommendation,
                    confidence={"low": OpsConfidence.LOW, "medium": OpsConfidence.MEDIUM, "high": OpsConfidence.HIGH}[conf],
-                   evidence=evidence, null_reason=null_reason)
+                   evidence=evidence, null_reason=null_reason,
+                   recommendations=[rec_art.to_dict()])
 
 
-# ── show_cost_hotspots (tier 1, PR 3) — AVAILABILITY ONLY, no recommendation ──
+# ── show_cost_hotspots (tier 1, PR 4) — recommendation ARTIFACTS, no savings $ ─
 
 def _show_cost_hotspots(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
-    """PR 3 reports per-provider cost-OBSERVATION availability from the read-only
-    adapters; it does NOT compute hotspots or recommend anything (that is PR 4).
-
-    With no provider telemetry wired (the default), every provider is
-    not_configured -> the command stays recommendation-disabled and fails closed,
-    but it can still report which providers *could* offer cost observation.
+    """PR 4: per-provider cost-recommendation artifacts. A provider with cost
+    observation gets a candidate "rank hotspots" recommendation (no dollar savings
+    asserted); a provider without billing evidence gets a blocked recommendation
+    with NO savings estimate. The command still issues no provider call.
     """
+    from app.services.ade_ops import recommendations as rec
     from app.services.ade_ops.cloud import providers as cloud_providers
     statuses = cloud_providers.all_provider_status()
     evidence = [
@@ -210,26 +216,55 @@ def _show_cost_hotspots(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunRes
             source=st.evidence_source or "ade_ops.cloud")
         for st in statuses
     ]
+    recs = [
+        rec.cost_recommendation(
+            provider=st.provider.value, cost_observation_available=st.cost_observation_available,
+            null_reason=st.null_reason,
+            evidence=[e.model_dump() for e in evidence if e.label.endswith(st.provider.value)])
+        for st in statuses
+    ]
     any_cost = any(st.cost_observation_available for st in statuses)
     if not any_cost:
-        # No provider can offer cost observation yet -> fail closed, no recommendation.
+        # No billing evidence anywhere -> blocked, no savings estimate (artifacts still returned).
         return _result(skill, status=OpsStatus.BLOCKED, evidence=evidence,
                        null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED,
-                       recommendation=None)
-    # Some provider exposes cost observation, but PR 3 does not optimize: report
-    # availability only, explicitly no recommendation yet.
+                       recommendation=None, recommendations=[r.to_dict() for r in recs])
     return _result(skill, status=OpsStatus.DEGRADED, evidence=evidence,
                    confidence=OpsConfidence.LOW,
-                   recommendation="Cost observation is available, but hotspot analysis and recommendations are not enabled until PR 4.",
-                   null_reason=None)
+                   recommendation="Cost hotspot candidates ranked from observed usage. No dollar savings asserted in PR 4.",
+                   null_reason=None, recommendations=[r.to_dict() for r in recs])
 
 
-# ── recommend_rightsize (tier 1) — RECOMMENDATION-DISABLED in PR 3 ────────────
+# ── recommend_rightsize (tier 1, PR 4) — CANDIDATE artifacts, never apply ─────
 
-def _blocked_no_source(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
-    return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
-                   null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED,
-                   recommendation=None)
+def _recommend_rightsize(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
+    """PR 4: a right-size recommendation needs runtime + cost + utilization
+    evidence. Utilization telemetry is not wired in PR 4, so the default path is a
+    BLOCKED candidate (missing utilization) — no resize is ever recommended, and no
+    provider command is issued. The all-evidence-present candidate path is covered
+    by the recommendation rule's tests.
+    """
+    from app.services.ade_ops import recommendations as rec
+    from app.services.ade_ops.cloud import providers as cloud_providers
+    statuses = cloud_providers.all_provider_status()
+    recs = [
+        rec.rightsize_recommendation(
+            provider=st.provider.value, target_ref=req.inputs.get("resource_id"),
+            runtime=st.runtime_observation_available, cost=st.cost_observation_available,
+            utilization=False,  # no utilization adapter in PR 4 -> always a candidate-blocker
+            evidence=[])
+        for st in statuses
+    ]
+    any_candidate = any(r.status is not OpsStatus.BLOCKED for r in recs)
+    if not any_candidate:
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED,
+                       recommendation=None, recommendations=[r.to_dict() for r in recs])
+    # (approval_required lives on each recommendation artifact; the result's flag
+    # comes from the skill def, so we don't pass it here to avoid a duplicate kwarg.)
+    return _result(skill, status=OpsStatus.DEGRADED, confidence=OpsConfidence.LOW,
+                   recommendation="Right-size CANDIDATE(s) for human review — not applied.",
+                   recommendations=[r.to_dict() for r in recs])
 
 
 EXECUTORS: dict[str, Callable[[OpsSkillDef, OpsCommandRequest], OpsRunResult]] = {
@@ -237,5 +272,5 @@ EXECUTORS: dict[str, Callable[[OpsSkillDef, OpsCommandRequest], OpsRunResult]] =
     "ade.lineage.trust_number": _trust_number,
     "ade.freshness.assess": _assess_freshness,
     "ade.cost.show_hotspots": _show_cost_hotspots,
-    "ade.compute.recommend_rightsize": _blocked_no_source,  # no optimization until PR 4
+    "ade.compute.recommend_rightsize": _recommend_rightsize,
 }
