@@ -1,0 +1,61 @@
+# AI Provider Dispatch — reference
+
+A standalone governed model router. Routes each request to OpenAI, Claude, or Gemma by task mode, risk,
+and privacy; records a per-call receipt; fails closed instead of substituting a provider silently. It
+does not touch the production `ai_gateway`.
+
+## Provider matrix
+
+| Provider | Wins these modes | Max risk | Max privacy | PR 1 state |
+|---|---|---|---|---|
+| OpenAI | code, tool_execution, sql_draft, eval_grading, summarization, classification, low_risk_rag, log_explanation, telemetry_narrative | high | sensitive | real |
+| Claude | planning, adversarial_review, research_synthesis, summarization, log_explanation | high | sensitive | real (needs `ANTHROPIC_API_KEY`) |
+| Gemma | summarization, classification, low_risk_rag, log_explanation, telemetry_narrative | medium | internal | fail-closed stub |
+
+Preference per mode: code/tool/sql → OpenAI; planning/adversarial/research → Claude;
+summarization/classification/rag/log/telemetry → Gemma (then OpenAI/Claude only on opt-in fallback).
+
+## Statuses and null reasons
+
+`status` ∈ `success | degraded | blocked | unavailable`. `null_reason` ∈
+`provider_not_configured, capability_unavailable, risk_tier_forbidden, privacy_forbidden,
+no_eligible_provider, invalid_inputs, fallback_disabled, provider_call_failed, receipt_write_failed`.
+
+## CLI
+
+```
+python -m scripts.ai_dispatch.cli providers
+python -m scripts.ai_dispatch.cli route --task "summarize logs" --mode summarization --risk low
+python -m scripts.ai_dispatch.cli route --mode code --risk high --provider gemma_gcp   # blocked
+python -m scripts.ai_dispatch.cli ask  --mode log_explanation --risk low --task "..." --no-fallback
+python -m scripts.ai_dispatch.cli eval --suite routing_policy
+```
+
+`providers` and `route` are pure (no DB, no network). `ask` performs a real dispatch and writes a local
+receipt mirror under `.ai_receipts/`. `--no-fallback` means no fallback.
+
+## HTTP route (`/api/ai/dispatch`)
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/providers`, `/providers/{name}` | none | provider list / detail |
+| POST | `/route` | none | dry-run routing decision |
+| GET | `/runs` | required | recent receipts, tenant-scoped |
+| POST | `/run` | required | execute; gated by `AI_DISPATCH_ENABLED` |
+
+## Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AI_DISPATCH_ENABLED` | `false` | gate `POST /run` (cost-bearing) |
+| `AI_DISPATCH_ALLOW_FALLBACK` | `false` | global fallback guard (per-request opt-in still required) |
+| `OPENAI_API_KEY` | — | OpenAI availability (already used platform-wide) |
+| `ANTHROPIC_API_KEY` | — | Claude availability (already used by psychrag) |
+| `AI_DISPATCH_ANTHROPIC_MODEL` | `claude-opus-4-20250514` | Claude API model id |
+| `GEMMA_VERTEX_PROJECT_ID` / `GEMMA_VERTEX_LOCATION` / `GEMMA_VERTEX_ENDPOINT_ID` | — / `us-central1` / — | Gemma Vertex contract (unused in PR 1) |
+
+## Receipts
+
+Each dispatch writes to `ai_decision_audit_log` via `governance.record_decision(decision_type="provider_dispatch")`.
+Requires migration `repo-b/db/schema/541_ai_dispatch_decision_type.sql`. If the receipt cannot be written,
+the result reports `receipt_status="failed"` and `null_reason="receipt_write_failed"` — never a phantom id.

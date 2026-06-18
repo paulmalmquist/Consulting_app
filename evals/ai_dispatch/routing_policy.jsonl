@@ -1,0 +1,8 @@
+# AI dispatch routing-policy eval suite (scaffold). Each line is one case.
+# These cases are deterministic regardless of which provider creds are set, because
+# they assert policy denials and the Gemma fail-closed path (Gemma is unimplemented in PR 1).
+# Real grading against live providers lands in a later PR.
+{"name": "forced gemma + high-risk code is blocked on risk", "mode": "code", "risk": "high", "forced_provider": "gemma_gcp", "expect_status": "blocked", "expect_null_reason": "risk_tier_forbidden"}
+{"name": "forced gemma + code is blocked on capability", "mode": "code", "risk": "low", "forced_provider": "gemma_gcp", "expect_status": "blocked", "expect_null_reason": "capability_unavailable"}
+{"name": "summarization fails closed to gemma without fallback", "mode": "summarization", "risk": "low", "expect_status": "unavailable", "expect_null_reason": "provider_not_configured"}
+{"name": "telemetry narrative fails closed to gemma", "mode": "telemetry_narrative", "risk": "low", "expect_status": "unavailable", "expect_null_reason": "provider_not_configured"}

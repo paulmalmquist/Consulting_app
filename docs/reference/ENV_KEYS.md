@@ -11,6 +11,16 @@
 | `ADMIN_INVITE_CODE` | `SWvxEtVPMK_YanlB` | Legacy invite code — fallback if email auth fails |
 | `ENV_INVITE_CODE` | *(check Vercel env vars)* | Grants access to environments as env_user |
 
+## AI Provider Dispatch (standalone model router)
+
+| Variable | Value | Notes |
+|---|---|---|
+| `AI_DISPATCH_ENABLED` | `false` (default) | Gates the cost-bearing `POST /api/ai/dispatch/run`. Read-only routing/inspection stays available. |
+| `AI_DISPATCH_ALLOW_FALLBACK` | `false` (default) | Global cross-provider fallback guard; a request must also opt in per call. |
+| `AI_DISPATCH_ANTHROPIC_MODEL` | `claude-opus-4-20250514` (default) | Concrete Anthropic API model id for the Claude adapter. |
+| `ANTHROPIC_API_KEY` | *(already set for psychrag)* | Enables the Claude provider. |
+| `GEMMA_VERTEX_PROJECT_ID` / `GEMMA_VERTEX_LOCATION` / `GEMMA_VERTEX_ENDPOINT_ID` | *(unset in PR 1)* | Gemma-on-Vertex contract; unused until the Vertex adapter lands. Their absence keeps Gemma fail-closed. |
+
 ## Stargate streaming lane (Confluent Cloud — PR 4)
 
 | Variable | Value | Notes |

@@ -48,7 +48,13 @@ Standard null_reasons across all environments:
 | `channel_not_scored` | Channel exists but has no prediction rows yet (Telemetry) |
 | `data_source_not_configured` | A skill's upstream data source (cloud warehouse/cost/lineage) is not wired in this build (ADE Ops) |
 | `write_capability_not_enabled` | A write-capable (tier ≥2) operation was requested but writes are intentionally disabled (ADE Ops) |
-| `receipt_write_failed` | The governed-decision receipt could not be persisted; result surfaced as degraded, never silently dropped (ADE Ops) |
+| `receipt_write_failed` | A governed-decision receipt could not be persisted; result surfaced as degraded, never silently dropped or claimed as a phantom id (ADE Ops / AI Provider Dispatch) |
+| `provider_not_configured` | Chosen dispatch provider is eligible but not configured/available; no fallback taken (AI Provider Dispatch) |
+| `capability_unavailable` | Provider cannot serve the requested mode (AI Provider Dispatch) |
+| `risk_tier_forbidden` | Provider's max risk tier is below the request's risk (AI Provider Dispatch) |
+| `privacy_forbidden` | Provider's max privacy is below the request's privacy (AI Provider Dispatch) |
+| `no_eligible_provider` | No provider can serve this mode/risk/privacy (AI Provider Dispatch) |
+| `fallback_disabled` | Chosen provider unavailable and per-request fallback was not enabled (AI Provider Dispatch) |
 
 ## Rule for eval coverage
 
