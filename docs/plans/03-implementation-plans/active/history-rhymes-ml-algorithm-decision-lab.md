@@ -297,3 +297,24 @@ Stack: … C5 #242 → C6 #246 → C7 #249 → **C8-A (this)**. Next: C9 — ext
 creation/linking workflow design (how an approved candidate becomes a real
 `episodes` row and only then an `episode_embeddings` row, still human-gated +
 append-only).
+
+## Feature Store stack — C9 approved-candidate→episode workflow (DESIGN ONLY, 2026-06-18)
+
+C9 is a docs/design PR (no code, no schema, no API, no UI, no episode creation, no
+`episode_embeddings` write, no LLM). New design doc
+`docs/history-rhymes/approved-candidate-to-episode-workflow.md` specifies the final
+human-gated path: eligible approved candidate → human-authored episode draft →
+required-field validation → `episodes` insert (`source='promotion'`) → embedding
+plan → `episode_embeddings` insert (append-only, `full_state`, vector(256)) → C4
+`record_promoted_episode_link` seal → receipt + C8-A audit → retrieval regression
+check (10 stages, each with purpose/inputs/outputs/required/failure/actor/audit/
+rollback). Verified the real `episodes` NOT NULL set (`name`/`asset_class`/
+`start_date`/`macro_conditions_entering`/`catalyst_trigger`/`timeline_narrative`) →
+human-authored, no placeholders; `episode_embeddings` already versions via
+`UNIQUE(episode_id, embedding_type, model_version)` (no schema change). Documented
+gap: `episodes` has no origin/candidate_id column → keep origin in receipt + audit,
+propose schema ticket C11. Recommends transaction Option C (episode now, embedding
+async with honest searchability state) or Option A if immediate analog use is
+required; never Option B. Stack: … C6 #246 → C7 #249 → C8-A #251 → **C9 (this)**.
+Next: C10 — implement the approved-candidate episode-creation API only (no
+`episode_embeddings` write; embedding creation a separate explicit step).
