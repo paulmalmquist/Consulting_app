@@ -2,6 +2,13 @@
 
 Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 
+## Post-change watcher — PR 6A (test_ade_ops_watcher.py + WatcherPanel.test.tsx)
+- Window parsing: '14-day'/'6 hours'/'30m' parsed; unparseable ('3 refresh cycles') / None → 14-day default.
+- The five verdicts: not-executed / missing-evidence-after-window → `insufficient_evidence`; missing-within-window → `still_observing`; failed/stale telemetry → `degraded`; improved/stable after window → `accepted`; worse → `rollback_recommended`.
+- Good signal still within the window → `still_observing` (no early victory). No observation window recorded → `insufficient_evidence`/`observation_window_unavailable`.
+- Honesty: missing evidence is never `accepted`. A `rollback_recommended` verdict is an artifact — the watcher does not roll back (req.rolled_back stays False, req.executed unchanged); module has no execution token.
+- FE: WatcherPanel renders the verdicts, distinguishes simulated / live non-prod, surfaces "evidence unavailable"; fails closed to empty on read error.
+
 ## First real provider write — PR 5C (test_ade_ops_snowflake.py + ApprovalsPanel.test.tsx)
 - SQL built from typed fields only; `validate_sql` accepts ONLY `ALTER WAREHOUSE <allowlisted> SET AUTO_SUSPEND = <int>` and rejects semicolons, piggyback statements, comments, resize, wrong case, non-int, non-allowlisted.
 - Blocked: env flag off · prod environment · no approval · expired · missing observation · missing rollback · non-allowlisted warehouse · non-snowflake provider.
