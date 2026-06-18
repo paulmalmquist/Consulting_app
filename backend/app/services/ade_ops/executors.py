@@ -57,10 +57,19 @@ def _scan_pipelines(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
         except Exception:  # noqa: BLE001
             pass
 
-    # Cloud pipelines: explicitly NOT configured in PR 1 — reported, not faked.
-    evidence.append(Evidence(
-        label="cloud_pipelines", value="data_source_not_configured",
-        source="(none — cloud adapters land in PR 3)"))
+    # Cloud providers (PR 3): real per-provider config status via the read-only
+    # adapters. With no telemetry wired (the default), each reports not_configured
+    # with its own null_reason — honest, never faked.
+    try:
+        from app.services.ade_ops.cloud import providers as cloud_providers
+        for st in cloud_providers.all_provider_status():
+            evidence.append(Evidence(
+                label=f"cloud:{st.provider.value}",
+                value=(st.status.value if st.status.value == "configured"
+                       else f"{st.status.value} ({st.null_reason})"),
+                source=st.evidence_source or "ade_ops.cloud"))
+    except Exception:  # noqa: BLE001 — never fabricate; omit on failure
+        pass
 
     return _result(
         skill, status=OpsStatus.DEGRADED,
@@ -181,7 +190,41 @@ def _assess_freshness(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResul
                    evidence=evidence, null_reason=null_reason)
 
 
-# ── Cloud-dependent commands (tier 1) — FAIL CLOSED until PR 3 ─────────────────
+# ── show_cost_hotspots (tier 1, PR 3) — AVAILABILITY ONLY, no recommendation ──
+
+def _show_cost_hotspots(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
+    """PR 3 reports per-provider cost-OBSERVATION availability from the read-only
+    adapters; it does NOT compute hotspots or recommend anything (that is PR 4).
+
+    With no provider telemetry wired (the default), every provider is
+    not_configured -> the command stays recommendation-disabled and fails closed,
+    but it can still report which providers *could* offer cost observation.
+    """
+    from app.services.ade_ops.cloud import providers as cloud_providers
+    statuses = cloud_providers.all_provider_status()
+    evidence = [
+        Evidence(
+            label=f"cost_observation:{st.provider.value}",
+            value=("available" if st.cost_observation_available
+                   else f"unavailable ({st.null_reason})" if st.null_reason else "unavailable"),
+            source=st.evidence_source or "ade_ops.cloud")
+        for st in statuses
+    ]
+    any_cost = any(st.cost_observation_available for st in statuses)
+    if not any_cost:
+        # No provider can offer cost observation yet -> fail closed, no recommendation.
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=evidence,
+                       null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED,
+                       recommendation=None)
+    # Some provider exposes cost observation, but PR 3 does not optimize: report
+    # availability only, explicitly no recommendation yet.
+    return _result(skill, status=OpsStatus.DEGRADED, evidence=evidence,
+                   confidence=OpsConfidence.LOW,
+                   recommendation="Cost observation is available, but hotspot analysis and recommendations are not enabled until PR 4.",
+                   null_reason=None)
+
+
+# ── recommend_rightsize (tier 1) — RECOMMENDATION-DISABLED in PR 3 ────────────
 
 def _blocked_no_source(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
     return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
@@ -193,6 +236,6 @@ EXECUTORS: dict[str, Callable[[OpsSkillDef, OpsCommandRequest], OpsRunResult]] =
     "ade.inventory.scan_pipelines": _scan_pipelines,
     "ade.lineage.trust_number": _trust_number,
     "ade.freshness.assess": _assess_freshness,
-    "ade.cost.show_hotspots": _blocked_no_source,
-    "ade.compute.recommend_rightsize": _blocked_no_source,
+    "ade.cost.show_hotspots": _show_cost_hotspots,
+    "ade.compute.recommend_rightsize": _blocked_no_source,  # no optimization until PR 4
 }

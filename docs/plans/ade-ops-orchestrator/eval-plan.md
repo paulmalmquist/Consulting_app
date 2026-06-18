@@ -12,8 +12,16 @@ Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 - **Anti-fabrication:** every non-blocked result has evidence with a non-empty `source`; blocked results carry a `null_reason`.
 - Cloud commands (freshness/cost/rightsize) fail closed `data_source_not_configured` (no recommendation, no evidence).
 - `trust_number` with no metric → `invalid_inputs`. Unknown skill → `unknown_skill`.
-- `scan pipelines` reports `cloud_pipelines = data_source_not_configured` while registries are real (degraded, per-source).
+- `scan pipelines` reports per-provider `cloud:<provider>` config status (default not_configured) while registries are real (degraded, per-source).
 - **Receipts:** written with `decision_type="ade_op"` on success; on insert failure → `receipt_status=failed` + `receipt_write_failed`, `receipt_id=None` (never silent); skipped with no business context.
+
+## Cloud inventory adapters — PR 3 (test_ade_ops_cloud.py)
+- Every adapter with no input → `not_configured` + provider-specific null_reason; no fabricated `observed_at`; `rightsizing_candidate_available=False`.
+- Rows present but missing identity (account/workspace/project/region) → explicit null_reason.
+- Mocked output normalizes into the ONE `ProviderInventoryObservation` model; provider detail lives in `raw_summary`.
+- **Read-only wall:** the adapters module contains no write verb (alter/drop/terminate/modify/delete/resize/insert/run-now/start-job-run); `READ_ONLY_VERBS` is read-only only.
+- Rollup defaults to `not_configured` for all four; a mock flips a provider to `configured`.
+- Executor wiring: `scan pipelines` carries `cloud:<provider>` status; `show cost hotspots` is availability-only and BLOCKED by default (never recommends in PR 3); `recommend rightsize` stays recommendation-disabled.
 
 ## Freshness adapter — PR 2 (test_ade_ops_freshness.py)
 - Fresh durable product → `ok` with real evidence (product, status, **non-null as_of**, age, target cadence); every evidence item sourced.
