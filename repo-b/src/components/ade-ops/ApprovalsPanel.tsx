@@ -34,10 +34,10 @@ export function ExecutionDisabledBanner() {
         border: `1px solid ${C.amber}40`, borderRadius: 8, padding: "10px 12px", marginBottom: 12,
       }}
     >
-      Execution capability is <strong>disabled</strong> in PR 5A. Approval and
-      preflight are recorded, but no provider write runs — even an approved,
-      preflight-passed request. Simulated execution lands in PR 5B; a real,
-      fully-gated provider write in PR 5C.
+      Only <strong>simulated</strong> execution runs in PR 5B. A simulated execute
+      records the full paper trail (receipt + observation window) but touches no
+      provider. Real provider writes remain <strong>impossible</strong> — the real,
+      fully-gated path lands in PR 5C.
     </div>
   );
 }
@@ -68,9 +68,24 @@ function ApprovalRow({ a }: { a: ApprovalRequest }) {
           {a.null_reason}
         </div>
       )}
-      {/* PR 5A: executed must always be false. Surfaced so it can never silently flip. */}
+      {/* PR 5B: executed:true is only ever a SIMULATION; the mode is shown so a
+          real write can never masquerade as done. */}
+      {a.executed && a.execution_mode === "simulation" && (
+        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+          <Tag color={C.violet}>Simulated</Tag>
+          {a.observation_window_opened_at && (
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>
+              observation window opened
+            </span>
+          )}
+          {a.rolled_back && (
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>· rolled back (sim)</span>
+          )}
+        </div>
+      )}
       <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 4 }}>
         executed: {String(a.executed)}
+        {a.execution_mode ? ` · mode: ${a.execution_mode}` : ""}
       </div>
     </div>
   );

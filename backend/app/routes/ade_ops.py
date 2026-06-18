@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from app.auth.platform import require_authenticated_request
 from app.observability.logger import emit_log
 from app.services import governance
-from app.services.ade_ops import approval_store, approvals
+from app.services.ade_ops import approval_store, approvals, simulation
 from app.services.ade_ops.models import OpsCommandRequest
 from app.services.ade_ops.registry import ops_registry
 from app.services.ade_ops.supervisor import run_skill
@@ -194,16 +194,48 @@ def preflight_approval(approval_id: str, body: TenantBody, request: Request):
     return req_obj.to_dict()
 
 
+class ExecuteBody(TenantBody):
+    # PR 5B: only 'simulation' is executable. Real modes are blocked (PR 5C).
+    execution_mode: str = "simulation"
+
+
 @router.post("/approvals/{approval_id}/execute")
-def execute_approval(approval_id: str, body: TenantBody, request: Request):
-    """PR 5A: this endpoint NEVER executes a provider write. It runs the gate and
-    returns the (always-blocked) execution decision so the UI can show it honestly."""
+def execute_approval(approval_id: str, body: ExecuteBody, request: Request):
+    """PR 5B: runs the SIMULATED execution ceremony when execution_mode=simulation
+    (approved + preflight required). A real mode ('nonprod'/'prod') is blocked —
+    there is no real executor until PR 5C. No provider write happens here."""
     require_authenticated_request(request)
     req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id)
     if req_obj is None:
         raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown approval"})
-    outcome = approvals.attempt_execution(req_obj, _now())  # executed is always False
+    outcome = simulation.simulate_execution(req_obj, mode=body.execution_mode, now=_now())
+    if outcome.get("executed"):
+        approval_store.record_simulated_execution(
+            approval_id, env_id=body.env_id or "", business_id=body.business_id,
+            executed_at=outcome["executed_at"],
+            observation_window_opened_at=outcome["observation_window_opened_at"])
+        req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id) or req_obj
+    _record_approval_receipt(business_id=body.business_id, env_id=body.env_id,
+                             action=f"execute.{body.execution_mode}", req_obj=req_obj)
     return {"approval": req_obj.to_dict(), "execution": outcome}
+
+
+@router.post("/approvals/{approval_id}/rollback")
+def rollback_approval(approval_id: str, body: TenantBody, request: Request):
+    """PR 5B: records a SIMULATED rollback (requires a rollback plan + a prior
+    simulated execution). Touches no provider."""
+    require_authenticated_request(request)
+    req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id)
+    if req_obj is None:
+        raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown approval"})
+    outcome = simulation.simulate_rollback(req_obj, now=_now())
+    if outcome.get("rolled_back"):
+        approval_store.record_simulated_rollback(
+            approval_id, env_id=body.env_id or "", business_id=body.business_id,
+            rolled_back_at=outcome["rolled_back_at"])
+    _record_approval_receipt(business_id=body.business_id, env_id=body.env_id,
+                             action="rollback.simulation", req_obj=req_obj)
+    return {"approval": req_obj.to_dict(), "rollback": outcome}
 
 
 def _serialize(row: dict) -> dict:

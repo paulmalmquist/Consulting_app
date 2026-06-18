@@ -89,7 +89,13 @@ class ApprovalRequest(BaseModel):
     observation_window: str | None = None
     evidence: list[dict] = Field(default_factory=list)
     preflight: PreflightResult | None = None
-    executed: bool = False           # ALWAYS False in PR 5A
+    executed: bool = False           # PR 5A: always False; PR 5B: True only for simulation
+    # PR 5B execution-ceremony fields (None until a simulated execution runs).
+    execution_mode: str | None = None
+    executed_at: str | None = None
+    observation_window_opened_at: str | None = None
+    rolled_back: bool = False
+    rolled_back_at: str | None = None
     null_reason: str | None = None
 
     def to_dict(self) -> dict:

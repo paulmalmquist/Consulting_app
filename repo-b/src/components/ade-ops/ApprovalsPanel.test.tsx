@@ -21,14 +21,18 @@ function approval(over: Record<string, unknown> = {}) {
     risk_tier: 2, approval_token: "tok", state: "pending", requested_by: null,
     approver: null, approved_at: null, requested_at: "2026-06-18T12:00:00Z",
     expires_at: "2026-06-18T13:00:00Z", rollback_plan: "snapshot", observation_window: "14-day",
-    evidence: [], preflight: null, executed: false, null_reason: null, ...over,
+    evidence: [], preflight: null, executed: false, execution_mode: null, executed_at: null,
+    observation_window_opened_at: null, rolled_back: false, rolled_back_at: null,
+    null_reason: null, ...over,
   };
 }
 
 describe("ApprovalsPanel", () => {
-  it("always shows that execution is disabled in PR 5A", () => {
+  it("shows that only simulated execution runs (real writes impossible)", () => {
     render(<ExecutionDisabledBanner />);
-    expect(screen.getByTestId("execution-disabled-banner").textContent).toContain("disabled");
+    const text = screen.getByTestId("execution-disabled-banner").textContent ?? "";
+    expect(text).toContain("simulated");
+    expect(text).toContain("impossible");
   });
 
   it("renders the four states honestly", async () => {
@@ -49,7 +53,21 @@ describe("ApprovalsPanel", () => {
     expect(screen.getByText("Blocked")).toBeTruthy();
   });
 
-  it("never shows executed=true (PR 5A invariant)", async () => {
+  it("shows executed:true only as a simulation, with the mode visible", async () => {
+    mockList.mockResolvedValue({
+      approvals: [approval({
+        state: "approved", approver: "paul", executed: true, execution_mode: "simulation",
+        executed_at: "2026-06-18T12:05:00Z", observation_window_opened_at: "2026-06-18T12:05:00Z",
+      })],
+      null_reason: null,
+    });
+    render(<ApprovalsPanel businessId="b1" />);
+    await waitFor(() => expect(screen.getByTestId("approval-row")).toBeTruthy());
+    expect(screen.getByText("Simulated")).toBeTruthy();
+    expect(screen.getByText(/executed: true · mode: simulation/)).toBeTruthy();
+  });
+
+  it("a non-executed request shows executed:false", async () => {
     mockList.mockResolvedValue({ approvals: [approval()], null_reason: null });
     render(<ApprovalsPanel businessId="b1" />);
     await waitFor(() => expect(screen.getByTestId("approval-row")).toBeTruthy());

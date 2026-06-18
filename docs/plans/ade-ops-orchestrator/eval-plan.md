@@ -2,6 +2,15 @@
 
 Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 
+## Simulated execution — PR 5B (test_ade_ops_simulation.py + ApprovalsPanel.test.tsx)
+- Without approval / expired approval / missing rollback-observation-evidence (preflight fail) → blocked, executed stays False.
+- Valid approval + preflight + `mode='simulation'` → simulated execute succeeds, executed=True, observation window opened, plan says "no provider command issued".
+- Real modes (`nonprod`/`prod`) → `real_execution_not_enabled`; unknown mode → blocked.
+- Simulated rollback records (requires rollback plan + prior execution) and touches no provider.
+- PR 5A invariant intact: `approvals.EXECUTION_ENABLED is False`; `attempt_execution` still executed:false. Simulation module (docstrings stripped) has no provider/subprocess token.
+- Schema: migration 615 `CHECK (executed=false OR execution_mode='simulation')` rejects a `prod` executed=true insert, allows `simulation` (verified via Supabase CLI).
+- FE: banner states only-simulated/real-impossible; `executed:true` renders a "Simulated" tag + the mode; non-executed shows `executed:false`.
+
 ## Approval escrow + preflight — PR 5A (test_ade_ops_approvals.py + ApprovalsPanel.test.tsx)
 - Recommendation → pending request; a blocked recommendation escrows blocked and cannot be approved out.
 - Human approve sets approved + approver + approved_at; wrong token → `invalid_approval_token` (fails closed); past TTL → `expired`.
