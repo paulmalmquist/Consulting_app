@@ -180,3 +180,26 @@ A2 #209 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 
 B7 #230 → C1 #234 → **C2-B (this)**. Next: C3 — observation→episode promotion
 workflow DESIGN only (reviewed candidate creation, non-event labeling,
 calibration receipt attachment, explicit human approval).
+
+## Feature Store stack — C3 observation→episode promotion (DESIGN ONLY, 2026-06-18)
+
+C3 is a docs/design PR (no code, no schema, no migration, no API/UI, no backfill,
+`episode_embeddings` untouched). New design doc
+`docs/history-rhymes/observation-to-episode-promotion.md` specifies the
+human-reviewed promotion path: model observation (+ C2-B observation embedding) →
+reviewed candidate → human-approved candidate → `episodes` row → `episode_embeddings`
+row → immutable receipt. Defines the 10 stages (discovery → review packet →
+non-event/crisis labeling → evidence → calibration receipt → no-lookahead audit →
+human approval → episode creation → episode embedding → post-promotion receipt),
+the review-packet contract, the `draft→needs_evidence→needs_review→approved/
+rejected/superseded→promoted` status machine, exclusion rules, the faithful
+`episodes` field mapping (verified against `434_history_rhymes_wss.sql`) + the
+documented NOT-NULL and metadata gaps, and three storage options
+(A=`hr_episode_promotion_candidates` table, B=receipt-only, C=reuse Winston
+work-item/audit). **Recommendation: Option A eventually, but implement only in C4
+after this design is approved — agree the gate before building the table.**
+Non-event discipline (`>=2.0` ratio, block or audited override) and the C1
+no-lookahead guard are preserved; the `_search_analogs` retrieval contract is the
+regression guard. Stack: … B7 #230 → C1 #234 → C2-B #236 → **C3 (this)**. Next: C4
+— implement the chosen promotion-candidate storage/receipt contract (no automatic
+`episode_embeddings` writes), only after C3 approval.
