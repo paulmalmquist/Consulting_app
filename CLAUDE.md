@@ -131,6 +131,7 @@ deployment docs, security/compliance docs). Full standard:
 | Demo Lab environments, industry templates, repo-c APIs, lab pages, uploads, pipeline, Excel touchpoints | `agents/lab-environment.md` |
 | AI gateway, prompt policy, RAG, assistant behavior, model routing, response rendering | `agents/ai-copilot.md` |
 | MCP registry, tool schemas, permissions, audit policy, planner and tool-context contracts | `agents/mcp.md` |
+| AI provider dispatch, model dispatch, provider routing, route between OpenAI/Claude/Gemma, Gemma on GCP, which model should handle this, dispatch CLI/registry/policy/receipts | `.skills/ai-provider-dispatch/SKILL.md` (standalone; does NOT touch `ai_gateway.py`) |
 | credit decisioning, walled garden, chain-of-thought, format lock, consumer credit AI, credit underwriting, corpus, citation chain | `.skills/credit-decisioning/SKILL.md` |
 | credit environment build, credit workspace implementation, credit MCP tools | `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support |
 | PDS platform build, PDS prompt sequence, executive automation, JLL PDS analytics | `skills/winston-pds-delivery/SKILL.md` |
@@ -182,6 +183,7 @@ deployment docs, security/compliance docs). Full standard:
 | `repo-b/src/app/lab/`, `repo-b/src/lib/lab/`, `repo-b/src/app/api/v1/`, `excel-addin/` | Demo Lab frontend, environment workflows, and Excel touchpoints | `agents/lab-environment.md`, `feature-dev`, `qa-winston` |
 | `backend/app/mcp/` | MCP registry, tools, schemas, audit, and permissions | `agents/mcp.md`, `qa-winston` |
 | `backend/app/services/ai_gateway.py`, `backend/app/services/ai_conversations.py`, `backend/app/services/assistant_blocks.py`, `repo-b/src/components/copilot/`, `repo-b/src/components/winston/` | AI gateway, RAG, assistant behavior, and response rendering | `agents/ai-copilot.md`, `feature-dev`, `qa-winston` |
+| `backend/app/services/ai_dispatch/`, `backend/app/routes/ai_dispatch.py`, `scripts/ai_dispatch/`, `docs/reference/AI_PROVIDER_DISPATCH.md` | AI provider dispatch — standalone governed model router (OpenAI/Claude/Gemma), independent of `ai_gateway` | `.skills/ai-provider-dispatch/SKILL.md`, `feature-dev` |
 | `backend/` | FastAPI Business OS APIs and domain services outside MCP and AI-specialist slices | `agents/bos-domain.md`, `feature-dev`, `architect-winston`, `qa-winston`, `data-winston` |
 | `repo-c/` | Demo Lab backend and environment provisioning | `agents/lab-environment.md`, `feature-dev`, `qa-winston` |
 | `META_PROMPT_CHAT_WORKSPACE.md` | Winston chat workspace brief | `winston-chat-workspace`, `feature-dev` |
@@ -382,6 +384,9 @@ This is not optional busywork — these files contain real production data (test
 - `build the credit decisioning MCP tools` -> `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support
 - `evaluate a loan against the underwriting policy` -> `.skills/credit-decisioning/SKILL.md`
 - `what does the auto loan policy say about DTI limits` -> `.skills/credit-decisioning/SKILL.md` (walled garden query)
+- `which model should handle this summarization` -> `.skills/ai-provider-dispatch/SKILL.md`
+- `route this between OpenAI and Claude` / `add Gemma on GCP as a provider` -> `.skills/ai-provider-dispatch/SKILL.md`
+- `run the dispatch CLI / add a provider to the dispatch registry` -> `.skills/ai-provider-dispatch/SKILL.md`
 - `add a document to the credit corpus` -> `.skills/credit-decisioning/SKILL.md`
 - `build the credit portfolio detail page` -> `.skills/feature-dev/SKILL.md` with `skills/winston-credit-environment/SKILL.md` as reference
 - `deploy the credit schema migrations` -> `agents/data.md`

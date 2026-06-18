@@ -171,6 +171,21 @@ PSYCHRAG_EMBEDDING_DIMENSION: int = int(os.getenv("PSYCHRAG_EMBEDDING_DIMENSION"
 PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
 PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
 
+# ── AI provider dispatch (standalone governed model router) ─────────
+# Gates the cost-bearing POST /api/ai/dispatch/run. Read-only routing/inspection
+# (/providers, /route, /runs) stays available regardless. Default off so the layer
+# is inert in production until deliberately enabled.
+AI_DISPATCH_ENABLED: bool = os.getenv("AI_DISPATCH_ENABLED", "false").lower() == "true"
+# Global guard for cross-provider fallback; a request must ALSO opt in per call.
+AI_DISPATCH_ALLOW_FALLBACK: bool = os.getenv("AI_DISPATCH_ALLOW_FALLBACK", "false").lower() == "true"
+# Concrete Anthropic API model id used by the dispatch Claude adapter.
+AI_DISPATCH_ANTHROPIC_MODEL: str = os.getenv("AI_DISPATCH_ANTHROPIC_MODEL", "claude-opus-4-20250514")
+# Gemma-on-Vertex contract (declared but unused in PR 1 — their absence is exactly
+# why the Gemma adapter fails closed).
+GEMMA_VERTEX_PROJECT_ID: str = os.getenv("GEMMA_VERTEX_PROJECT_ID", "")
+GEMMA_VERTEX_LOCATION: str = os.getenv("GEMMA_VERTEX_LOCATION", "us-central1")
+GEMMA_VERTEX_ENDPOINT_ID: str = os.getenv("GEMMA_VERTEX_ENDPOINT_ID", "")
+
 # ── Resume LLM (public resume agent on /paul) ─────────────────────
 RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "gpt-4o")
 RESUME_LLM_MAX_TOKENS: int = int(os.getenv("RESUME_LLM_MAX_TOKENS", "800"))

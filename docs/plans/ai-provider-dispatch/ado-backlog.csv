@@ -1,0 +1,18 @@
+Work Item Type,Title,Parent,Description,Tags,State
+Epic,AI Provider Dispatch,,Standalone governed model router across OpenAI/Claude/Gemma with per-call receipts and no silent fallback. Independent of the production ai_gateway.,ai;dispatch;platform-core,New
+Feature,PR 1 — Standalone spine + 4 CLI commands,AI Provider Dispatch,Backend package + governed route + migration 541 + CLI (providers/route/ask/eval) + tests. OpenAI real, Claude real, Gemma fail-closed. No gateway changes.,ai;dispatch;pr1,New
+User Story,Provider registry + routing policy,PR 1 — Standalone spine + 4 CLI commands,ProviderDef registry (mirrors mcp/registry) + select_provider policy gate; eligibility by mode/risk/privacy; every rejection recorded; Gemma barred from code/high-risk/sensitive.,ai;dispatch,New
+User Story,Provider adapters + supervisor + receipts,PR 1 — Standalone spine + 4 CLI commands,OpenAI (instrumented client + sanitize_params) and Claude (httpx Messages) adapters; Gemma fail-closed stub; supervisor never raises; receipts via governance.record_decision with fail-closed receipt guard.,ai;dispatch,New
+User Story,Route + migration 541,PR 1 — Standalone spine + 4 CLI commands,FastAPI router /api/ai/dispatch (providers/route/runs/run); POST /run flag-gated by AI_DISPATCH_ENABLED; migration 541 extends decision_type CHECK (idempotent; unions provider_dispatch + ade_op).,ai;dispatch;db,New
+User Story,CLI + eval scaffold,PR 1 — Standalone spine + 4 CLI commands,scripts/ai_dispatch CLI (providers/route/ask/eval); local receipt mirror; deterministic routing eval suite under evals/ai_dispatch.,ai;dispatch;cli,New
+User Story,Docs / skill / guardrails,PR 1 — Standalone spine + 4 CLI commands,Dispatch record 0007 + plan folder + SKILL.md + instruction-index row + CLAUDE.md rows + fail-closed-rules null reasons + ENV_KEYS + tips note.,ai;dispatch;docs,New
+Task,models.py + enums + ProviderDef,Provider registry + routing policy,Pure type contracts; risk/privacy ordering helpers.,ai;dispatch,Done
+Task,registry.py singleton + availability,Provider registry + routing policy,Implemented/available logic; Gemma not implemented in PR 1.,ai;dispatch,Done
+Task,policy.py select_provider,Provider registry + routing policy,Preference per mode; rejection map; forced-provider handling; no silent fallback.,ai;dispatch,Done
+Task,openai/anthropic/gemma adapters,Provider adapters + supervisor + receipts,Sync Provider protocol; reuse instrumented client + sanitize_params; httpx Anthropic; Gemma stub.,ai;dispatch,Done
+Task,supervisor.py + receipts.py,Provider adapters + supervisor + receipts,run_dispatch/route_only; record_dispatch_receipt; receipt-write-failed downgrade.,ai;dispatch,Done
+Task,routes/ai_dispatch.py + main.py wiring,Route + migration 541,Five endpoints; auth + flag gate; register next to ai_audit_router.,ai;dispatch,Done
+Task,541_ai_dispatch_decision_type.sql,Route + migration 541,Idempotent CHECK extension; coordinate number/values with ADE Ops.,ai;dispatch;db,Done
+Task,backend tests (33),CLI + eval scaffold,Registry/policy/supervisor/route tests; mock adapters; no network.,ai;dispatch,Done
+Task,cli.py + routing_policy.jsonl,CLI + eval scaffold,argparse CLI; placeholder env bootstrap; eval suite.,ai;dispatch;cli,Done
+Task,docs bundle,Docs / skill / guardrails,All routing/governance docs consistent so validate_assistant_runtime passes.,ai;dispatch;docs,Done
