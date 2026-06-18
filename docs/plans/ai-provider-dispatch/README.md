@@ -26,6 +26,7 @@ It does not touch the production `ai_gateway`. See the dispatch record
 - `roadmap.md` — the 6-PR arc.
 - `ai-behavior.md` — the hard agent boundaries (what the layer may and may not do).
 - `eval-plan.md` — null-reason coverage and the Gemma promotion criteria.
+- `autonomous-capture.md` — how every dispatch/eval is captured without human oversight, and which levers stay human-gated.
 
 ## Surfaces
 
