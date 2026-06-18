@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "org": "paulmalmquist1984",
+    "project": "Novendor",
+    "area_path_suggestion": "Novendor\\ADE-Ops",
+    "cli_notes": [
+      "az boards work-item create needs --project Novendor when --org is passed.",
+      "az boards work-item relation add REJECTS --project; pass --org only and assert System.Parent took.",
+      "Create the Epic first, then Features (parent=Epic), then Stories (parent=Feature), then Tasks (parent=Story)."
+    ],
+    "status": "import-ready; not pushed. Create via azure-devops-intake."
+  },
+  "epic": {
+    "title": "ADE Operations Platform",
+    "description": "Governed agentic data-engineering operations: a supervisor of risk-tiered skills turning platform telemetry into safe, approved, reversible improvements to freshness, cost, quality, and trust. Read-only first; execution approval-gated. Built on durable primitives, independent of the deletable ADE connector surface.",
+    "area": "Novendor\\ADE-Ops"
+  },
+  "features": [
+    {
+      "title": "PR 1 — Skeleton + 5 read-only commands",
+      "description": "Read-only governed skeleton: risk tiers 0-5, supervisor-of-skills, OpsSkillDef registry, immutable receipts on ai_decision_audit_log, /api/ade/ops, console, fail-closed honesty. Tier >=2 visible but non-executable. The 5 commands: scan pipelines, assess freshness, show cost hotspots, recommend rightsize, can I trust this number.",
+      "stories": [
+        {"title": "OpsSkillDef registry + risk-tier model", "tasks": ["models.py (tiers, null reasons, typed inputs, receipt contract)", "registry.py (~10 families; 5 executable; tier>=2 non-executable)", "registry/tier invariant + no-shell tests"]},
+        {"title": "Supervisor + read-only executors", "tasks": ["executors.py (real evidence or fail-closed)", "supervisor.py (tier gate, receipt, honest write-failure)", "supervisor tests: no-write wall, anti-fabrication, inputs, receipts"]},
+        {"title": "Migration + /api/ade/ops route", "tasks": ["484_ade_ops_decision_type.sql (extend CHECK, idempotent)", "routes/ade_ops.py + main.py registration", "route auth/tenant + migration tests"]},
+        {"title": "ade-ops console (independent package)", "tasks": ["proxy + lib + console + lab route + isDomainRoute", "capability-honesty banner + per-source scan breakdown", "console tests + typecheck/eslint"]},
+        {"title": "Docs / skill / guardrails", "tasks": ["fail-closed null_reasons", "SKILL.md + instruction-index + CLAUDE.md (validator-consistent)", "0006 plan + plan folder + tips"]}
+      ]
+    },
+    {"title": "PR 2 — Freshness adapter", "description": "as-of/last-refresh reads + business-impact scoring; assess freshness returns real evidence.", "stories": []},
+    {"title": "PR 3 — Cloud read-only inventory adapters", "description": "Snowflake/Databricks/GCP/AWS read-only telemetry, fail-closed on missing creds.", "stories": []},
+    {"title": "PR 4 — Recommendation engine", "description": "right-size + cadence heuristics, confidence/risk, dry-run patch + ADO ticket (tier 2 dry-run).", "stories": []},
+    {"title": "PR 5 — Approval-gated execution", "description": "allowlisted CLI/SQL writes, approval tokens, rollback, observation windows (tiers 3-4).", "stories": []},
+    {"title": "PR 6 — Incidents + post-change watcher", "description": "incident state machine, blast radius, watch next N runs, auto-rollback recommendation (tier 5).", "stories": []}
+  ]
+}

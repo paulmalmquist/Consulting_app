@@ -79,6 +79,7 @@ from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import telemetry
 from app.routes import telemetry_copilot
+from app.routes import ade_ops
 from app.routes import automated_data_engineering
 from app.routes import intelligence_cards
 from app.routes import morning_brief
@@ -462,6 +463,7 @@ app.include_router(consulting.router)
 app.include_router(telemetry.router)
 app.include_router(telemetry_copilot.router)
 app.include_router(automated_data_engineering.router)
+app.include_router(ade_ops.router)
 app.include_router(intelligence_cards.router)
 app.include_router(morning_brief.router)
 app.include_router(enterprise_memory.router)

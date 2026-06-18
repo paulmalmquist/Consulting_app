@@ -46,6 +46,9 @@ Standard null_reasons across all environments:
 | `no_relevant_documents` | RAG found no relevant context for this query |
 | `model_not_promoted` | No promoted model version exists for the requested channel/model (Telemetry) |
 | `channel_not_scored` | Channel exists but has no prediction rows yet (Telemetry) |
+| `data_source_not_configured` | A skill's upstream data source (cloud warehouse/cost/lineage) is not wired in this build (ADE Ops) |
+| `write_capability_not_enabled` | A write-capable (tier ≥2) operation was requested but writes are intentionally disabled (ADE Ops) |
+| `receipt_write_failed` | The governed-decision receipt could not be persisted; result surfaced as degraded, never silently dropped (ADE Ops) |
 
 ## Rule for eval coverage
 
