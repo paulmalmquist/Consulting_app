@@ -10,11 +10,17 @@ def test_all_three_providers_registered():
     assert names == {ProviderName.OPENAI, ProviderName.ANTHROPIC, ProviderName.GEMMA_GCP}
 
 
-def test_gemma_not_implemented_so_unavailable_even_with_env(monkeypatch):
+def test_gemma_implemented_availability_is_env_gated(monkeypatch):
+    # PR 3 wired the real Vertex adapter, so Gemma is now implemented; availability is
+    # purely credential-gated (and the adapter still fails closed at call time without ADC).
+    for k in ("GEMMA_VERTEX_PROJECT_ID", "GEMMA_VERTEX_LOCATION", "GEMMA_VERTEX_ENDPOINT_ID"):
+        monkeypatch.delenv(k, raising=False)
+    assert provider_registry.is_implemented(ProviderName.GEMMA_GCP) is True
+    assert provider_registry.available(ProviderName.GEMMA_GCP) is False  # no creds → unavailable
     monkeypatch.setenv("GEMMA_VERTEX_PROJECT_ID", "proj")
+    monkeypatch.setenv("GEMMA_VERTEX_LOCATION", "us-central1")
     monkeypatch.setenv("GEMMA_VERTEX_ENDPOINT_ID", "endpoint")
-    assert provider_registry.is_implemented(ProviderName.GEMMA_GCP) is False
-    assert provider_registry.available(ProviderName.GEMMA_GCP) is False
+    assert provider_registry.available(ProviderName.GEMMA_GCP) is True
 
 
 def test_openai_availability_reflects_env(monkeypatch):
