@@ -9,9 +9,15 @@ honesty. Commands: `scan pipelines` (real, cloud not configured), `can I trust
 this number` (real degraded), `assess freshness` / `show cost hotspots` /
 `recommend rightsize` (fail closed until adapters land).
 
-## PR 2 — Freshness adapter
-Read `authoritative_data_as_of` / last-refresh; business-impact scoring →
-`assess freshness` returns real evidence + a recommended cadence.
+## PR 2 — Freshness adapter — SHIPPED (ADO #652/#653)
+`assess freshness` is real for Winston-owned **durable** data products. A product
+registry (`backend/app/services/ade_ops/freshness.py::DURABLE_PRODUCTS`) maps a
+product id to its own durable freshness contract; PR 2 wires the Telemetry
+pipeline-status handshake (`tel_pipeline_status`: status fresh|stale|failed +
+as_of_ts + reason) and recommends a cadence from the real age vs the product's
+declared target. Fresh → `ok`; stale/failed → `degraded` with a recommendation.
+**No fabrication:** unknown product, missing row, or any **cloud platform**
+(snowflake/databricks/gcp/aws/bigquery) fails closed — cloud freshness is PR 3.
 
 ## PR 3 — Cloud read-only inventory adapters
 Snowflake / Databricks / GCP / AWS read-only telemetry (query history, metering,

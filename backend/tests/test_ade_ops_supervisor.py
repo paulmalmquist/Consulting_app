@@ -70,7 +70,9 @@ def test_all_five_commands_evidence_or_blocked(monkeypatch):
 
 
 def test_cloud_commands_fail_closed():
-    for skill in ("ade.freshness.assess", "ade.cost.show_hotspots", "ade.compute.recommend_rightsize"):
+    # ade.freshness.assess became real in PR 2 (durable products); it now fails
+    # closed only for cloud/unknown products — covered by test_ade_ops_freshness.py.
+    for skill in ("ade.cost.show_hotspots", "ade.compute.recommend_rightsize"):
         r = supervisor.run_skill(OpsCommandRequest(skill=skill, business_id=BIZ))
         assert r.status == OpsStatus.BLOCKED
         assert r.null_reason == OpsNullReason.DATA_SOURCE_NOT_CONFIGURED
