@@ -342,3 +342,36 @@ schema migration · promotion table · promotion API · promotion UI · episode
 creation code · `episode_embeddings` write path · live backfill · OpenAI/Anthropic
 calls · new connectors · infra changes · Feature Foundry changes. If answering the
 design required implementation, that is recorded above as a documented gap, not built.
+
+---
+
+## C4 — promotion-candidate storage + receipt (IMPLEMENTED, 2026-06-18)
+
+C4 builds the airlock storage layer recommended above (Option A), storage only —
+**no episode creation, no `episode_embeddings` write, no UI, no auto-promotion, no
+LLM**:
+
+- **Migration** `repo-b/db/schema/10021_history_rhymes_episode_promotion_candidates.sql`
+  — additive `hr_episode_promotion_candidates`; CHECK constraints on
+  `approval_status` / `candidate_type` / `candidate_label` / `source_quality` /
+  `readiness_score`; the indexes from the design; `COMMENT ON TABLE`/`COLUMN` on the
+  gate fields; a verification DO block. `episodes` / `episode_embeddings` untouched.
+- **`backend/app/services/hr_feature_store/promotion_candidates.py`** — repository
+  protocol + fail-soft `DbCandidateRepository` (writes only this table) + the
+  service ops (`create/get/list/attach_evidence/mark_needs_review/approve/reject/
+  supersede/record_promoted_episode_link`), the status machine
+  (`ALLOWED_TRANSITIONS`), the evidence gate (`evidence_blockers`), and the
+  non-event guard (`non_event_coverage`, ratio ≥ 2.0 or audited override).
+- **`backend/app/services/hr_feature_store/promotion_receipts.py`** — deterministic
+  `stable_hash` (canonical JSON SHA-256), `build_receipt` (evidence fingerprints),
+  and `append_receipt` (never overwrites — prior receipt → `receipt_history`,
+  `version` bump).
+- `record_promoted_episode_link` only *links* an `episode_id` created by a later
+  ticket and seals the receipt; it never creates an episode or embedding.
+
+Status machine: `draft → needs_evidence → needs_review → approved → promoted`
+(terminal), with `needs_review → rejected`, `approved → superseded`. Approval
+requires every evidence gate to pass AND a human `approval_actor`; `approved →
+promoted` requires a `created_episode_id`. The promotion API / admin surface is
+deferred to **C5** (design first; still no automatic episode creation or
+`episode_embeddings` write).

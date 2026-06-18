@@ -203,3 +203,20 @@ no-lookahead guard are preserved; the `_search_analogs` retrieval contract is th
 regression guard. Stack: … B7 #230 → C1 #234 → C2-B #236 → **C3 (this)**. Next: C4
 — implement the chosen promotion-candidate storage/receipt contract (no automatic
 `episode_embeddings` writes), only after C3 approval.
+
+## Feature Store stack — C4 promotion-candidate storage + receipt (2026-06-18)
+
+C4 implements the C3 Option-A airlock, storage only (no episode creation, no
+`episode_embeddings` write, no UI, no auto-promotion, no LLM). Additive migration
+`10021_history_rhymes_episode_promotion_candidates.sql` (`hr_episode_promotion_candidates`
+with status/type/label/source_quality/readiness CHECKs, the design indexes,
+gate-field COMMENTs, verification DO block; `episodes`/`episode_embeddings`
+untouched). `promotion_candidates.py` = repo protocol + fail-soft DB repo + service
+ops + status machine + evidence gate + non-event guard (ratio ≥2.0 or audited
+override). `promotion_receipts.py` = deterministic `stable_hash` + immutable
+`build_receipt`/`append_receipt` (prior receipt → `receipt_history`, version bump).
+`record_promoted_episode_link` only links an episode created elsewhere. 25 new
+tests (fake repo, no DB/network); 243 feature-store+ML-demo tests green. Stack: …
+C1 #234 → C2-B #236 → C3 #237 → **C4 (this)**. Next: C5 — promotion review API /
+internal admin surface DESIGN only (still no automatic episode creation or
+`episode_embeddings` write).
