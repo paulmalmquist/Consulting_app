@@ -51,9 +51,38 @@ changes, no rollback/exec logic.** `risk_tier` on the artifact describes the
 recommended action's tier; the command stays tier-1 read-only. Tier-2 *skills*
 remain non-executable. Apply/rollback is PR 5.
 
-## PR 5 — Approval-gated execution
-Allowlisted CLI/SQL write commands behind approval tokens, mandatory rollback,
-observation windows, immutable receipts. Tiers 3–4.
+## PR 5 — Approval-gated execution (split into 5A / 5B / 5C)
+
+### PR 5A — Approval Escrow + Execution Preflight — SHIPPED (ADO #678/#679)
+The approval/execution-CONTROL spine with **no provider writes**. A PR-4
+recommendation is escrowed into an `ApprovalRequest` (opaque token + TTL + human
+state pending/approved/expired/blocked) in `ade_ops_approvals` (migration 614,
+RLS, plus a schema-level `CHECK (executed = false)` that rejects any execution
+row). A human can approve (token + TTL checked, fails closed on wrong token /
+expiry / blocked); preflight requires rollback plan + observation window + target
++ provider + risk tier + evidence. **The invariant:** `EXECUTION_ENABLED=False`,
+no provider-write/subprocess path exists, and `can_execute` returns
+`execution_not_enabled` even for an approved, preflight-passed request. Allowlist
+is data-shape only (no commands). Receipts for create/approve via
+`ai_decision_audit_log`. UI shows the four states + an "execution disabled"
+banner. Tier 3/4 skills remain non-mutating.
+
+### PR 5B — Simulated (non-prod) execution only — SHIPPED (ADO #681/#682)
+Proves the approved-execution ceremony end-to-end against a SIMULATED executor
+(`simulation.py`): approved + preflight + `execution_mode='simulation'` →
+simulated execute → receipt → observation window → optional simulated rollback
+receipt. **Real providers stay impossible:** `nonprod`/`prod` modes return
+`real_execution_not_enabled` (no real executor exists), `approvals.EXECUTION_ENABLED`
+stays False, the simulation module reaches no provider/subprocess (test-enforced),
+and migration 615 relaxes the schema CHECK to `executed=false OR
+execution_mode='simulation'` (verified: a `prod` executed=true insert is rejected,
+`simulation` allowed). UI shows `executed:true` only as a "Simulated" state with
+the mode visible. The real, fully-gated single write is PR 5C.
+
+### PR 5C — One real, fully-gated provider write
+A single provider path (likely Snowflake or Databricks) behind the full gate:
+approved + preflight + allowlist + rollback plan + observation window, with
+immutable receipts and post-change watch. Tiers 3–4.
 
 ## PR 6 — Incidents + post-change watcher
 Data-incident state machine, blast-radius mapping, watch the next N runs after a

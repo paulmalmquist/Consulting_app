@@ -2,6 +2,24 @@
 
 Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 
+## Simulated execution — PR 5B (test_ade_ops_simulation.py + ApprovalsPanel.test.tsx)
+- Without approval / expired approval / missing rollback-observation-evidence (preflight fail) → blocked, executed stays False.
+- Valid approval + preflight + `mode='simulation'` → simulated execute succeeds, executed=True, observation window opened, plan says "no provider command issued".
+- Real modes (`nonprod`/`prod`) → `real_execution_not_enabled`; unknown mode → blocked.
+- Simulated rollback records (requires rollback plan + prior execution) and touches no provider.
+- PR 5A invariant intact: `approvals.EXECUTION_ENABLED is False`; `attempt_execution` still executed:false. Simulation module (docstrings stripped) has no provider/subprocess token.
+- Schema: migration 615 `CHECK (executed=false OR execution_mode='simulation')` rejects a `prod` executed=true insert, allows `simulation` (verified via Supabase CLI).
+- FE: banner states only-simulated/real-impossible; `executed:true` renders a "Simulated" tag + the mode; non-executed shows `executed:false`.
+
+## Approval escrow + preflight — PR 5A (test_ade_ops_approvals.py + ApprovalsPanel.test.tsx)
+- Recommendation → pending request; a blocked recommendation escrows blocked and cannot be approved out.
+- Human approve sets approved + approver + approved_at; wrong token → `invalid_approval_token` (fails closed); past TTL → `expired`.
+- Preflight requires all six (rollback_plan, observation_window, target_ref, provider, risk_tier, evidence); missing any → not passed.
+- **The invariant:** `EXECUTION_ENABLED is False`; even approved + preflight-passed → `can_execute` returns `execution_not_enabled`; `attempt_execution` returns `executed:false`. Not-approved/preflight-failed also cannot execute.
+- Allowlist is shape-only and disabled; module (code, docstrings stripped) contains no execution token (subprocess/alter/run-now/gcloud/aws/snowsql/…).
+- Schema guard: `ade_ops_approvals.CHECK (executed = false)` rejects an `executed=true` insert (verified via Supabase CLI).
+- FE: the four states render; an execution-disabled banner always shows; `executed:false` is surfaced; read failure fails closed to empty.
+
 ## Registry / tier (test_ade_ops_registry.py)
 - The 5 PR-1 commands present and executable (tier ≤1).
 - Tier-executability invariant: every tier ≥2 skill is `executable=False`; every executable skill has a wired executor.
