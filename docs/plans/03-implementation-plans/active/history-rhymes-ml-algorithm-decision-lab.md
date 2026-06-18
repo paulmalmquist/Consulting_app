@@ -259,3 +259,21 @@ API tests (TestClient + fake repo, no DB/network); 261 HR feature-store + ML-dem
 API tests green. Stack: … C3 #237 → C4 #240 → C5 #242 → **C6 (this)**. Next: C7 —
 internal promotion review UI, calling only the C6 API (still no episode creation or
 `episode_embeddings` write).
+
+## Feature Store stack — C7 promotion review UI (2026-06-18)
+
+C7 implements the C5-designed reviewer surface (UI only — no schema, no backend
+route change, no episode creation, no `episode_embeddings` write, no LLM). New
+route `…/historyrhymes/promotions/page.tsx` + a `Promotions` `HrSubNav` tab; typed
+client `repo-b/src/lib/historyrhymes/promotions.ts` calling only the C6
+`/api/hr/v1/promotion-candidates*` routes with exact 409 blocked-reason parsing; and
+8 components under `components/historyrhymes/promotions/` (queue, detail/review
+packet, evidence gate, non-event coverage, no-lookahead audit, action bar, receipt
+history, promoted-episode link). Action buttons gate on `allowed_actions`; approve is
+disabled on a no-lookahead failure (non-overridable); link only records an
+externally-created episode id. 20 frontend tests (5 client + 13 panel + 2 nav);
+typecheck clean for C7 files (one pre-existing unrelated repe/assets error); backend
+C4/C6 suites unchanged. Stack: … C4 #240 → C5 #242 → C6 #246 → **C7 (this)**. Next:
+C8 — either the platform audit-table integration migration for promotion actions, or
+the external episode-creation/linking workflow design, depending on which gap is more
+urgent.

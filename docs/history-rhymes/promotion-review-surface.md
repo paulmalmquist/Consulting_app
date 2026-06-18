@@ -330,3 +330,32 @@ creation, no `episode_embeddings` write, no LLM):
 The frontend review UI (the components/route in §Frontend design) remains **C7**.
 Audit stays in the receipt (the `ai_decision_audit_log` CHECK migration is still
 deferred).
+
+---
+
+## C7 — review UI (IMPLEMENTED, 2026-06-18)
+
+C7 implements the internal reviewer surface (UI only — no schema, no backend route
+changes, no episode creation, no `episode_embeddings` write, no LLM):
+
+- **Route** `repo-b/src/app/lab/env/[envId]/historyrhymes/promotions/page.tsx`
+  (thin server wrapper forwarding `envId`) + a `Promotions` tab in `HrSubNav`
+  (longest-prefix active logic). Behind the existing app/lab auth boundary.
+- **Client** `repo-b/src/lib/historyrhymes/promotions.ts` — typed, calls ONLY
+  `/api/hr/v1/promotion-candidates*` (C6); a 409 is parsed into a discriminated
+  `{kind:"blocked"}` result that preserves the EXACT `blocked_reasons` (never a
+  generic banner); reads degrade to stable empty envelopes.
+- **Components** under `repo-b/src/components/historyrhymes/promotions/`:
+  `PromotionReviewClient` (orchestrator), `PromotionCandidateQueue` (columns,
+  status/leakage/blocked badges, empty-state copy), `PromotionCandidateDetail`
+  (review packet + missing-episode-field warning + raw-evidence drawers),
+  `EvidenceGatePanel` (exact reason strings), `NonEventCoveragePanel`
+  (ratio + audited-override warning), `NoLookaheadAuditPanel` (failed = shown as
+  non-overridable), `PromotionActionBar` (buttons gated on `allowed_actions`;
+  approve also disabled when no-lookahead failed), `ReceiptHistoryPanel`
+  (version + hashes + prior receipts), `PromotedEpisodeLinkPanel` (links an
+  externally-created episode id; "does not create an episode or write embeddings").
+
+The actions map 1:1 to the C6 routes; the UI enables an action only when its target
+status is in `allowed_actions` (derived by C6 from the C4 machine). Episode creation
+and embedding writes remain outside this surface entirely.
