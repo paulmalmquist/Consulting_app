@@ -44,6 +44,14 @@ def dry_run_route(payload: AIRequest):
     return route_only(payload).model_dump(mode="json")
 
 
+@router.get("/evals")
+def routing_evals():
+    """Run the deterministic routing-policy eval suite. Read-only: no model calls, no receipts."""
+    from app.services.ai_dispatch.evals import run_routing_evals
+
+    return run_routing_evals()
+
+
 @router.get("/runs")
 def list_runs(
     request: Request,
