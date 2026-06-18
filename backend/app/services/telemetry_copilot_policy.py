@@ -28,6 +28,9 @@ NULL_MISSING_RUN = "missing_run"
 NULL_NO_PREDICTIONS = "no_prediction_rows"
 NULL_CHANNEL_NOT_SCORED = "channel_not_scored"
 NULL_MODEL_NOT_PROMOTED = "model_not_promoted"
+# Distinct from unsupported_question: the question is IN scope (live stream state) but the live
+# source is stale/unavailable right now. Fails closed with this reason rather than a generic refusal.
+NULL_LIVE_DATA_UNAVAILABLE = "live_data_not_available"
 
 # ── Refusals (checked first; all map to unsupported_question) ──────────────────
 # These are deliberately specific so that supported phrasings ("why did this flip to NO-GO",
@@ -95,6 +98,30 @@ INTENT_PLAN: dict[str, dict] = {
         "patterns": [r"\bwhat\s+should\b.*\b(review|inspect|check|look)\b", r"\bnext\s+steps?\b",
                      r"\bhuman\b.*\b(review|follow)\b", r"\bfollow[\s-]?up\b"],
     },
+    # Aggregate inventory counts — answered from approved structured evidence (svc.summary), scoped to
+    # KNOWN platform entities only so arbitrary "how many X" still falls through to refuse.
+    "inventory_counts": {
+        "tools": ["get_inventory_counts"],
+        "patterns": [
+            r"\bhow\s+many\b.*\b(test\s+runs?|runs?|predictions?|models?|champions?|"
+            r"drift\s+monitors?|monitors?|anomaly\s+events?|events?|channels?)\b",
+            r"\b(count|number|total)\s+of\b.*\b(runs?|predictions?|models?|monitors?|"
+            r"anomaly\s+events?|events?|channels?)\b",
+            r"\binventory\b.*\b(runs?|models?|predictions?|telemetry)\b",
+        ],
+    },
+    # Live stream freshness/availability — IN scope (platform telemetry state). Answers from
+    # tel_pipeline_status; when stale/disabled it fails closed with NULL_LIVE_DATA_UNAVAILABLE (a
+    # distinct reason), never a fabricated live value.
+    "live_status": {
+        "tools": ["get_stream_freshness"],
+        "patterns": [
+            r"\b(live|current|currently|right\s+now|now|real[\s-]?time)\b.*\b(pressure|temperature|"
+            r"temp|reading|readings|value|values|telemetry|stream|feed|sensor|chamber|channel)\b",
+            r"\b(stream|feed|pipeline)\b.*\b(fresh|stale|status|health|live|up|running|flowing)\b",
+            r"\bis\s+(the\s+)?(stream|feed|data)\b.*\b(live|fresh|stale|current|up|flowing)\b",
+        ],
+    },
     # Reserved for Phase 7 — not active in Phase 6 (see ACTIVE_INTENTS).
     "draft_report": {
         "tools": ["get_triggering_prediction", "get_model_run_detail", "get_anomaly_events_in_window"],
@@ -102,10 +129,12 @@ INTENT_PLAN: dict[str, dict] = {
     },
 }
 
-# Phase 6 ships intents 1–7; draft_report is enabled in Phase 7.
+# Phase 6 ships intents 1–7; draft_report is enabled in Phase 7. inventory_counts + live_status
+# (scope expansion, ADO #680) are appended LAST so the specific verdict/model intents win on overlap.
 ACTIVE_INTENTS: tuple[str, ...] = (
     "why_no_go", "which_channel", "what_model", "model_performance",
     "point_vs_contextual", "evidence", "human_followup",
+    "inventory_counts", "live_status",
 )
 
 _COMPILED_INTENTS = {
