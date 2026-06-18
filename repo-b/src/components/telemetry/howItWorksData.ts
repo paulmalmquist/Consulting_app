@@ -136,7 +136,7 @@ export const VERIFY_LABEL: Record<VerifyStatus, string> = {
 };
 
 // ── Demo-mode strip ──
-export const LAST_VERIFIED = "2026-06-17"; // static; bump only when re-checked. No computed coverage %.
+export const LAST_VERIFIED = "2026-06-18"; // prod-verified on novendor.ai 2026-06-18 (every Built deep-link clicked live). No computed coverage %.
 export const ENVIRONMENT_BADGE = "telemetry-demo · serving prod";
 export const COVERAGE_NOTE = "Evidence coverage not computed — each row is hand-verified, not a derived percentage.";
 
@@ -169,55 +169,55 @@ export const HERO_CARDS: HeroCard[] = [
 export const CAPABILITIES: CapabilityItem[] = [
   {
     capability: "Telemetry environment — 13-page dark full-bleed console",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Overview", slug: "" }, { label: "Mission Control", slug: "stream" }],
     note: "Operations, ML & Models, Factory, AI & Governance groups; this exhibit adds Evidence & Architecture.",
   },
   {
     capability: "Live hot-fire / printer stream",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Mission Control", slug: "stream" }, { label: "Stargate Live", slug: "stargate" }],
     note: "Stream worker gated by TELEMETRY_STREAM_ENABLED; when off it fails closed with a specific reason (derive_stream_reason), never fake zeros.",
   },
   {
     capability: "Medallion ETL — bronze → silver → gold",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Monitoring", slug: "monitoring" }, { label: "Mission Control", slug: "stream" }],
     note: "tel_stream_readings_bronze → tel_stream_readings → tel_stream_minute_agg, with tel_etl_watermarks, tel_pipeline_status, tel_dq_assertions. Postgres demo substrate; BigQuery/Spark is the production crosswalk, not running here.",
   },
   {
     capability: "Anomaly champion scoring (GO / REVIEW / NO_GO verdict)",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Model Performance", slug: "model-performance" }, { label: "Replay", slug: "replay" }],
     note: "telemetry_serving.score_window applies a frozen MAD rule (MAD_K=4.0) from Databricks Phase 2 and persists a receipt to tel_predictions. Not a live-retraining loop.",
   },
   {
     capability: "Model registry + promotion gate",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Model Registry", slug: "registry" }],
     note: "tel_model_runs (version, alias, mlflow_run_id, metrics + gate JSONB, promotion_state) + tel_drift_metrics. Display-only — promotion happens in Databricks; backend has no mutation route.",
   },
   {
     capability: "RUL calibration — graduated CNN-LSTM champion",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "RUL Calibration", slug: "calibration" }],
-    note: "Present on this branch (origin/main). Verification: code-only until the deployed novendor.ai route is clicked — do not present as production-verified before then.",
+    note: "Production-verified on novendor.ai 2026-06-18 — the /telemetry/calibration route loads live (this was the branch-risk item; it survived the merge intact).",
   },
   {
     capability: "Factory / NCR recurrence intelligence",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "Factory · NCR", slug: "factory" }, { label: "Factory ML", slug: "factory-ml" }],
     note: "UMAP/HDBSCAN clusters + backlog forecast (XGBoost + MLflow). NCR clustering is the checklist's cuttable item.",
   },
   {
     capability: "MCP tool registry — typed, permissioned, audited (platform)",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "AI Governance", slug: "governance" }],
     note: "backend/app/mcp: ToolDef with read/write permission, READ/WRITE_CONFIRMED/ADMIN scopes, confirmation gate, redaction policy, ~100+ tools. No in-env telemetry MCP-registry UI — surfaced here as a static snapshot + via the copilot tool-trace.",
   },
   {
     capability: "Agent audit trail / decision receipts",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "AI Governance", slug: "governance" }],
     note: "ai_decision_audit_log: redacted input/output summaries, grounding_score, tokens, latency, tags. decision_type CHECK allows tool_call|response|classification|fast_path — a new type needs a migration or the receipt is silently dropped.",
   },
@@ -229,7 +229,7 @@ export const CAPABILITIES: CapabilityItem[] = [
   },
   {
     capability: "AI Governance dashboard — refusal / eval / tool stats",
-    impl: "built", verify: "code_verified",
+    impl: "built", verify: "prod_verified",
     evidence: [{ label: "AI Governance", slug: "governance" }],
     note: "Grounded/refusal/fallback rates, latency, evals, conformal budget, smoke. Verify the eval pass-rate on the running app before quoting numbers.",
   },
@@ -303,11 +303,11 @@ export const ARCHITECTURE_EDGES: FlowEdge[] = [
 // ── "Follow one stream aggregate" — the genuinely-real medallion trace ──
 export const MEDALLION: MedallionHop[] = [
   { stage: "source", label: "ISS session (CAPTURE replay)", table: "telemetry_stream_ingest.py", impl: "built", verify: "code_verified", detail: "Deterministic source adapter — the proof path; live ISS / ADS-B are optional alternates.", failureMode: "Adapter silent >30s → watchdog restarts; >60s → pipeline marked stale." },
-  { stage: "bronze", label: "Raw landing", table: "tel_stream_readings_bronze", impl: "built", verify: "code_verified", detail: "Append-only, 2s micro-batch, one batch_id per flush.", failureMode: "No frames → bronze empty → downstream shows data_source_not_configured, not zeros.", slug: "stream" },
+  { stage: "bronze", label: "Raw landing", table: "tel_stream_readings_bronze", impl: "built", verify: "prod_verified", detail: "Append-only, 2s micro-batch, one batch_id per flush.", failureMode: "No frames → bronze empty → downstream shows data_source_not_configured, not zeros.", slug: "stream" },
   { stage: "silver", label: "Conformed", table: "tel_stream_readings", impl: "built", verify: "code_verified", detail: "Dedup on (env_id, channel_id, ts_source); conformed types.", failureMode: "Dedup key collision would surface as a DQ assertion, not silent overwrite." },
-  { stage: "gold", label: "Aggregated", table: "tel_stream_minute_agg", impl: "built", verify: "code_verified", detail: "1-minute aggregates, restatable for late-arriving data.", failureMode: "Late data restates the affected minute; never mutates history silently.", slug: "monitoring" },
+  { stage: "gold", label: "Aggregated", table: "tel_stream_minute_agg", impl: "built", verify: "prod_verified", detail: "1-minute aggregates, restatable for late-arriving data.", failureMode: "Late data restates the affected minute; never mutates history silently.", slug: "monitoring" },
   { stage: "serving", label: "API", table: "/api/telemetry/stream/{live,health}", impl: "built", verify: "code_verified", detail: "Ring-buffer tail + per-channel freshness, ingest lag p50/p95, rows/min, DQ count.", failureMode: "Stale watermark → /stream/health returns a specific reason." },
-  { stage: "ui", label: "Mission Control", table: "MissionControlStream", impl: "built", verify: "code_verified", detail: "~1s cadence; flips STALE on silence, no interpolation.", failureMode: "Worker disabled → fail-closed reason banner, not a flatline chart.", slug: "stream" },
+  { stage: "ui", label: "Mission Control", table: "MissionControlStream", impl: "built", verify: "prod_verified", detail: "~1s cadence; flips STALE on silence, no interpolation.", failureMode: "Worker disabled → fail-closed reason banner, not a flatline chart.", slug: "stream" },
 ];
 
 // ── The governed-KPI chain is the REPE pattern, NOT telemetry — rendered greyed / Planned ──
@@ -365,9 +365,9 @@ export const BATCH_VS_STREAM: CrosswalkRow[] = [
 
 // ── ML lifecycle cards ──
 export const ML_LIFECYCLE: MlModelCard[] = [
-  { name: "Anomaly champion (MAD residual rule)", version: "champion (tel_model_runs)", training: "SMAP/MSL + C-MAPSS, Databricks Phase 2", eval: "honest_gate JSONB (f1_pointwise, affiliation_f1)", decision: "Hot-fire GO / REVIEW / NO_GO; flag off-nominal segments.", impl: "built", verify: "code_verified", slug: "model-performance" },
-  { name: "RUL calibration (CNN-LSTM challenger)", version: "calibration champion", training: "C-MAPSS run-to-failure", eval: "calibration baseline vs challenger", decision: "Remaining useful life — maintenance / review timing.", impl: "built", verify: "code_verified", slug: "calibration" },
-  { name: "Factory backlog forecast (XGBoost)", version: "MLflow run", training: "rs_factory_seed (synthetic)", eval: "MAE / MAPE vs naive baseline", decision: "NCR backlog capacity planning.", impl: "built", verify: "code_verified", slug: "factory-ml" },
+  { name: "Anomaly champion (MAD residual rule)", version: "champion (tel_model_runs)", training: "SMAP/MSL + C-MAPSS, Databricks Phase 2", eval: "honest_gate JSONB (f1_pointwise, affiliation_f1)", decision: "Hot-fire GO / REVIEW / NO_GO; flag off-nominal segments.", impl: "built", verify: "prod_verified", slug: "model-performance" },
+  { name: "RUL calibration (CNN-LSTM challenger)", version: "calibration champion", training: "C-MAPSS run-to-failure", eval: "calibration baseline vs challenger", decision: "Remaining useful life — maintenance / review timing.", impl: "built", verify: "prod_verified", slug: "calibration" },
+  { name: "Factory backlog forecast (XGBoost)", version: "MLflow run", training: "rs_factory_seed (synthetic)", eval: "MAE / MAPE vs naive baseline", decision: "NCR backlog capacity planning.", impl: "built", verify: "prod_verified", slug: "factory-ml" },
 ];
 
 // ── Delivery operating-system timeline ──
