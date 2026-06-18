@@ -85,3 +85,26 @@ Performed after PR #235 merged (`9b7c9de9`) and the Vercel `consulting-app` prod
 **Deliberately NOT promoted:** the Test Intelligence copilot row stays `partial / not_verified` — a route-load does not verify grounding/citation depth; that requires exercising answers live, which this pass did not do. Medallion `source`/`silver`/`serving` hops stay `code_verified` (no standalone clickable surface). The Planned/Partial non-route rows (metric registry, lineage drawer, cost guardrail, cross-platform spine, ticket→PR, deployment exhibit) are unchanged.
 
 **Invariant updated** (`howItWorksData.test.ts`): the v1 "nothing is prod_verified" guard is replaced by the permanent rule "a `prod_verified` row must expose a live surface (evidence link / slug)."
+
+---
+
+## Copilot grounding verification — 2026-06-18 (ADO #675)
+
+The Test Intelligence copilot row was held at `not_verified` after the route-load pass because a route load does not prove grounding. This is the live behavior verification. Drove `POST /api/telemetry/copilot/ask` (+ `explain-verdict`, `governance`) on production novendor.ai (authenticated, env `dc82d39d…`, demo tenant) with a scripted set. Screenshots: `prod_copilot_desktop.png`, `prod_governance_after_verify.png`.
+
+| Question (category) | Result | Evidence |
+|---|---|---|
+| Champion model + version (cited) | ✅ `live_llm`, evidence `model`, tool `get_model_run_detail:success` | cites `tel_anomaly_detector` v1, MLflow `4a48cb6a…`, score 0.6387 |
+| Champion F1 / gate (metric) | ✅ `live_llm`, evidence `model`, tool success | F1 0.6387, precision 0.546, recall 0.769 |
+| Recent anomaly events / channel (tool-trace) | ✅ `live_llm`, 4 evidence (run/prediction/threshold/mlflow), tool `get_triggering_prediction:success` | run id, receipt id, score 2.46, window 726–728, channel "value" |
+| Explain a NO_GO verdict (tool-trace) | ✅ `live_llm`, tools `get_model_run_detail:success` + `get_triggering_prediction:error` + `get_anomaly_events_in_window:skipped` | **when a tool errored it said the threshold was "not provided in the evidence" — did not fabricate** |
+| Fund IV carry/TVPI (out-of-scope) | ✅ refusal, `null_reason=unsupported_question`, 0 evidence | no fabricated finance answer |
+| S&P 500 tomorrow (out-of-scope) | ✅ refusal | — |
+| First-pass yield this month (not-available) | ✅ refusal | — |
+| Live chamber pressure now (stale/missing) | ⚠️ refusal (`unsupported_question`) — treated as out-of-scope, **not** a freshness/stale-specific reason | honest, but the stale-source signal is not distinctly surfaced |
+| Exact engine serial number (anti-fabrication) | ✅ refusal — did **not** invent a serial | — |
+| "How many runs / models" (aggregate count) | ⚠️ refusal — copilot refuses aggregate counts rather than guess | conservative-but-honest scope boundary |
+
+**Governance aggregates (corroborating):** 62 interactions, grounded ~69%, refusal ~31%, live_llm ~66%, fallback ~3%, post-validator block count 1, tool calls success 77 / error 2 / skipped 33; model `gpt-5-mini`, 5-tool allow-list, 15 refusal rules. (Governance page renders these live — see screenshot.)
+
+**Verdict — PASS, with documented scope.** Within scope the copilot grounds on real evidence with typed tool-traces, refuses out-of-scope/unanswerable questions cleanly, and does not fabricate (it stated missing values rather than inventing them; the post-validator blocked one). Row promoted to **Partial · Production verified** (`impl` stays Partial — narrow scope; it refuses aggregate-count questions). **Not** upgraded to `built`: it is grounded structured-evidence Q&A, not document RAG, and the stale/missing-source category is folded into a generic refusal rather than a distinct freshness reason — a candidate for a future targeted improvement, not a blocker.
