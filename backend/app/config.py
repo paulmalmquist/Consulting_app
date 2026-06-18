@@ -185,6 +185,10 @@ AI_DISPATCH_ANTHROPIC_MODEL: str = os.getenv("AI_DISPATCH_ANTHROPIC_MODEL", "cla
 GEMMA_VERTEX_PROJECT_ID: str = os.getenv("GEMMA_VERTEX_PROJECT_ID", "")
 GEMMA_VERTEX_LOCATION: str = os.getenv("GEMMA_VERTEX_LOCATION", "us-central1")
 GEMMA_VERTEX_ENDPOINT_ID: str = os.getenv("GEMMA_VERTEX_ENDPOINT_ID", "")
+# Model Garden deployments are *dedicated* endpoints reachable only via their dedicated
+# DNS (endpoint resource field `dedicatedEndpointDns`); set this for those. Leave empty
+# for a regular shared-domain endpoint.
+GEMMA_VERTEX_DEDICATED_DNS: str = os.getenv("GEMMA_VERTEX_DEDICATED_DNS", "")
 
 # ── Resume LLM (public resume agent on /paul) ─────────────────────
 RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "gpt-4o")

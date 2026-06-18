@@ -19,7 +19,8 @@
 | `AI_DISPATCH_ALLOW_FALLBACK` | `false` (default) | Global cross-provider fallback guard; a request must also opt in per call. |
 | `AI_DISPATCH_ANTHROPIC_MODEL` | `claude-opus-4-20250514` (default) | Concrete Anthropic API model id for the Claude adapter. |
 | `ANTHROPIC_API_KEY` | *(already set for psychrag)* | Enables the Claude provider. |
-| `GEMMA_VERTEX_PROJECT_ID` / `GEMMA_VERTEX_LOCATION` / `GEMMA_VERTEX_ENDPOINT_ID` | *(unset in PR 1)* | Gemma-on-Vertex contract; unused until the Vertex adapter lands. Their absence keeps Gemma fail-closed. |
+| `GEMMA_VERTEX_PROJECT_ID` / `GEMMA_VERTEX_LOCATION` / `GEMMA_VERTEX_ENDPOINT_ID` | *(unset in prod)* | Gemma-on-Vertex contract. Their absence keeps Gemma fail-closed; set (stage only) to point the adapter at a deployed endpoint. |
+| `GEMMA_VERTEX_DEDICATED_DNS` | *(unset in prod)* | Endpoint's `dedicatedEndpointDns`. **Required for Model Garden (dedicated) endpoints** — they reject the shared aiplatform.googleapis.com domain. Empty for shared-domain endpoints. |
 
 ## Stargate streaming lane (Confluent Cloud — PR 4)
 

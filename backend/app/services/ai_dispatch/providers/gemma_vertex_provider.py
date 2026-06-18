@@ -98,6 +98,7 @@ class GemmaVertexProvider:
 
     def complete(self, req: AIRequest, model: str) -> ProviderCompletion:
         from app.config import (
+            GEMMA_VERTEX_DEDICATED_DNS,
             GEMMA_VERTEX_ENDPOINT_ID,
             GEMMA_VERTEX_LOCATION,
             GEMMA_VERTEX_PROJECT_ID,
@@ -111,11 +112,20 @@ class GemmaVertexProvider:
         except Exception as exc:  # noqa: BLE001 — missing/invalid ADC ⇒ fail closed
             raise ProviderUnavailable(f"google auth unavailable: {exc}") from exc
 
-        url = (
-            f"https://{GEMMA_VERTEX_LOCATION}-aiplatform.googleapis.com/v1/"
+        # Model Garden deployments create *dedicated* endpoints, which reject the shared
+        # aiplatform.googleapis.com domain and must be hit via their dedicated DNS (the
+        # endpoint resource's `dedicatedEndpointDns`). Set GEMMA_VERTEX_DEDICATED_DNS for
+        # those; leave it empty for a regular (shared-domain) endpoint.
+        resource = (
             f"projects/{GEMMA_VERTEX_PROJECT_ID}/locations/{GEMMA_VERTEX_LOCATION}/"
-            f"endpoints/{GEMMA_VERTEX_ENDPOINT_ID}:predict"
+            f"endpoints/{GEMMA_VERTEX_ENDPOINT_ID}"
         )
+        host = (
+            GEMMA_VERTEX_DEDICATED_DNS
+            if GEMMA_VERTEX_DEDICATED_DNS
+            else f"{GEMMA_VERTEX_LOCATION}-aiplatform.googleapis.com"
+        )
+        url = f"https://{host}/v1/{resource}:predict"
         payload = {"instances": [{"prompt": req.task, "max_tokens": req.max_tokens}]}
 
         try:
