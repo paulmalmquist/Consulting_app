@@ -15,6 +15,13 @@ Built on durable primitives; **no** import of `ade_connectors`/`ade_connector_*`
 | `cloud/providers.py` (PR 3) | `config_status` / `all_provider_status`: rolls observations into per-provider configured/not_configured/unavailable. Env presence ≠ configured; only a real read flips it. |
 | `recommendations.py` (PR 4) | `AdeOpsRecommendation` (one common shape) + boring/explainable rules (`freshness_recommendation`/`cost_recommendation`/`rightsize_recommendation`) + `dry_run_text` (text-only, NOT EXECUTED) + `ado_ticket_payload` (import-ready, `pushed:false`). `risk_tier` derived: dry-run artifact ⇒ Tier 2 + approval_required + rollback_required; else Tier 1. |
 
+| `approvals.py` (PR 5A) | `ApprovalRequest` (token + TTL + state pending/approved/expired/blocked) + `create_approval_request`/`approve`/`refresh_state`/`run_preflight`/`can_execute`/`attempt_execution` + `PREFLIGHT_REQUIRED` (6 dims) + `EXECUTION_ALLOWLIST` (data shape). `EXECUTION_ENABLED=False`; `can_execute` returns `execution_not_enabled` even when approved+preflight-passed; no provider-write/subprocess path. Time injected (`now`) for deterministic TTL. |
+| `approval_store.py` (PR 5A) | CRUD over `ade_ops_approvals` (tenant-scoped env_id+business_id); never writes `executed=true` (schema CHECK enforces). |
+| `ade_ops_approvals` (migration 614) | RLS escrow table; `CHECK (executed = false)` is a schema-level guard that PR 5A records no execution (verified: rejects an executed=true insert). |
+| FE `ApprovalsPanel.tsx` (PR 5A) | Four states + execution-disabled banner; surfaces `executed:false` so it can't silently flip. |
+
+PR 5A route: `POST /approvals` (escrow), `GET /approvals[/{id}]`, `POST /approvals/{id}/approve|preflight|execute` — `execute` runs the gate and returns the always-blocked decision; receipts for create/approve. Provider execution is PR 5B (simulated) → 5C (one real, fully-gated write).
+
 PR 4 executor wiring: cost/rightsize/freshness attach `recommendations: list[dict]` to `OpsRunResult` (pre-serialized, to avoid a models↔recommendations import cycle). Candidate-only — no provider command issued; cost asserts no dollar savings; rightsize blocked by default (no utilization adapter). Tier-2 *skills* stay non-executable; only the *artifact's* `risk_tier` reflects a recommended action. Apply/rollback is PR 5.
 
 PR 3 executor wiring: `scan_pipelines` adds per-provider `cloud:<provider>` config evidence; `show_cost_hotspots` reports per-provider cost-observation availability but never recommends (blocked by default); `recommend_rightsize` stays recommendation-disabled. Optimization is PR 4.
