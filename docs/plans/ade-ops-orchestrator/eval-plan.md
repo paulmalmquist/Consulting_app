@@ -15,6 +15,12 @@ Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 - `scan pipelines` reports `cloud_pipelines = data_source_not_configured` while registries are real (degraded, per-source).
 - **Receipts:** written with `decision_type="ade_op"` on success; on insert failure → `receipt_status=failed` + `receipt_write_failed`, `receipt_id=None` (never silent); skipped with no business context.
 
+## Freshness adapter — PR 2 (test_ade_ops_freshness.py)
+- Fresh durable product → `ok` with real evidence (product, status, **non-null as_of**, age, target cadence); every evidence item sourced.
+- Stale / failed pipeline → `degraded` with a cadence recommendation referencing the real age.
+- Cloud platform (snowflake/databricks/gcp/aws/bigquery) → fail closed `data_source_not_configured` (deferred to PR 3).
+- Unknown product → `data_source_not_configured`; missing product id → `invalid_inputs`; registered product with **no row** → `durable_source_unavailable` (no fabricated timestamp).
+
 ## Route (test_ade_ops_routes.py)
 - Unauthenticated `/skills`, `/runs`, `/run` → 401 (auth fail closed, not empty).
 - `/runs` empty + `runs_read_unavailable` only on a read failure.

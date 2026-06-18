@@ -117,7 +117,71 @@ def _trust_number(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
     )
 
 
-# ── Cloud-dependent commands (tier 1) — FAIL CLOSED in PR 1 ────────────────────
+# ── assess_freshness (tier 1) — REAL for Winston durable products (PR 2) ───────
+
+def _assess_freshness(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
+    """Real freshness for a *known* durable data product; fail closed otherwise.
+
+    A cloud platform (snowflake/databricks/gcp/aws) is explicitly out of scope in
+    PR 2 and fails closed. An unknown product id fails closed. A known durable
+    product is read from its own freshness contract (no fabricated timestamp).
+    """
+    platform = (req.inputs.get("platform") or "").strip().lower()
+    if platform in {"snowflake", "databricks", "gcp", "aws", "bigquery"}:
+        # Cloud-platform freshness lands in PR 3.
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED,
+                       recommendation=None)
+
+    product_id = (req.inputs.get("data_product_id") or req.inputs.get("table_name") or "").strip()
+    if not product_id:
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.INVALID_INPUTS, recommendation=None)
+    if not req.business_id:
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.AUTH_CONTEXT_UNAVAILABLE, recommendation=None)
+
+    from app.services.ade_ops import freshness as fr
+
+    product = fr.resolve_product(product_id)
+    if product is None:
+        # Known-unknown: not a durable product ADE Ops can read yet.
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.DATA_SOURCE_NOT_CONFIGURED, recommendation=None)
+
+    try:
+        reading = fr.read_product(product, req.env_id or "", req.business_id)
+    except Exception:  # noqa: BLE001
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.DURABLE_SOURCE_UNAVAILABLE, recommendation=None)
+    if reading is None:
+        # Product is registered but its freshness contract has no row here
+        # (e.g. tables not migrated / surface never marked) — fail closed, no guess.
+        return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
+                       null_reason=OpsNullReason.DURABLE_SOURCE_UNAVAILABLE, recommendation=None)
+
+    recommendation, conf = fr.recommend_cadence(reading, product)
+    evidence = [
+        Evidence(label="product", value=product.label, source=reading.source),
+        Evidence(label="status", value=reading.status, source=reading.source),
+        Evidence(label="as_of", value=reading.as_of.isoformat() if reading.as_of else None,
+                 source=reading.source),
+        Evidence(label="age_seconds", value=reading.age_seconds, source=reading.source),
+        Evidence(label="target_cadence_seconds", value=product.cadence_seconds,
+                 source="ade_ops.freshness.DURABLE_PRODUCTS"),
+    ]
+    if reading.detail:
+        evidence.append(Evidence(label="pipeline_reason", value=reading.detail, source=reading.source))
+
+    # A failed/stale product is real-but-degraded; a fresh one is OK.
+    status = OpsStatus.OK if reading.status == "fresh" else OpsStatus.DEGRADED
+    null_reason = None if status == OpsStatus.OK else OpsNullReason.DURABLE_SOURCE_UNAVAILABLE if reading.status == "failed" else None
+    return _result(skill, status=status, recommendation=recommendation,
+                   confidence={"low": OpsConfidence.LOW, "medium": OpsConfidence.MEDIUM, "high": OpsConfidence.HIGH}[conf],
+                   evidence=evidence, null_reason=null_reason)
+
+
+# ── Cloud-dependent commands (tier 1) — FAIL CLOSED until PR 3 ─────────────────
 
 def _blocked_no_source(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResult:
     return _result(skill, status=OpsStatus.BLOCKED, evidence=[],
@@ -128,7 +192,7 @@ def _blocked_no_source(skill: OpsSkillDef, req: OpsCommandRequest) -> OpsRunResu
 EXECUTORS: dict[str, Callable[[OpsSkillDef, OpsCommandRequest], OpsRunResult]] = {
     "ade.inventory.scan_pipelines": _scan_pipelines,
     "ade.lineage.trust_number": _trust_number,
-    "ade.freshness.assess": _blocked_no_source,
+    "ade.freshness.assess": _assess_freshness,
     "ade.cost.show_hotspots": _blocked_no_source,
     "ade.compute.recommend_rightsize": _blocked_no_source,
 }
