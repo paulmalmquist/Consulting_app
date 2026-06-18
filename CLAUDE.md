@@ -132,6 +132,7 @@ deployment docs, security/compliance docs). Full standard:
 | AI gateway, prompt policy, RAG, assistant behavior, model routing, response rendering | `agents/ai-copilot.md` |
 | MCP registry, tool schemas, permissions, audit policy, planner and tool-context contracts | `agents/mcp.md` |
 | AI provider dispatch, model dispatch, provider routing, route between OpenAI/Claude/Gemma, Gemma on GCP, which model should handle this, dispatch CLI/registry/policy/receipts | `.skills/ai-provider-dispatch/SKILL.md` (standalone; does NOT touch `ai_gateway.py`) |
+| spin up Gemma on Vertex, deploy/stage a Gemma endpoint, test Gemma through dispatch, tear down Gemma endpoint, gemma vertex stage provisioning | `.skills/gemma-vertex-stage/SKILL.md` (stage-only; never sets prod GEMMA_VERTEX_*/AI_DISPATCH_ENABLED) |
 | credit decisioning, walled garden, chain-of-thought, format lock, consumer credit AI, credit underwriting, corpus, citation chain | `.skills/credit-decisioning/SKILL.md` |
 | credit environment build, credit workspace implementation, credit MCP tools | `skills/winston-credit-environment/SKILL.md` with `.skills/credit-decisioning/SKILL.md` as support |
 | PDS platform build, PDS prompt sequence, executive automation, JLL PDS analytics | `skills/winston-pds-delivery/SKILL.md` |

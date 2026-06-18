@@ -22,7 +22,13 @@ production after this PR merges** — the adapter only becomes live where creden
 | `GEMMA_VERTEX_PROJECT_ID` | GCP project hosting the Vertex endpoint (required) |
 | `GEMMA_VERTEX_LOCATION` | Vertex region, e.g. `us-central1` (defaults to `us-central1`) |
 | `GEMMA_VERTEX_ENDPOINT_ID` | Deployed Vertex endpoint id (required) |
+| `GEMMA_VERTEX_DEDICATED_DNS` | The endpoint's dedicated DNS (`dedicatedEndpointDns`). **Required for Model Garden deployments** — they are *dedicated* endpoints that reject the shared `aiplatform.googleapis.com` domain. Leave empty for a regular shared-domain endpoint. |
 | Google auth | Application Default Credentials — `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON path) or workload identity already approved for the backend runtime. The service-account JSON is **never** read into a receipt or the UI. |
+
+> **Spin-up automation:** the `.skills/gemma-vertex-stage/` skill (`scripts/gemma_vertex_stage/`)
+> deploys the smallest Gemma on the cheapest GPU, auto-fetches the dedicated DNS, exercises the
+> dispatch path, and tears the endpoint down — one command each. Verified end-to-end on 2026-06-18
+> (gemma-3-1b-it on L4: real `:predict` 200, dispatch SUCCESS, then teardown).
 
 ## Fail-closed behavior
 

@@ -111,6 +111,37 @@ def test_vertex_timeout_is_call_error(gemma_configured, monkeypatch):
         GemmaVertexProvider().complete(_req(), "gemma")
 
 
+def test_dedicated_dns_url_used_when_set(gemma_configured, monkeypatch):
+    # Model Garden deployments are dedicated endpoints — must hit the dedicated DNS,
+    # not the shared aiplatform.googleapis.com domain.
+    monkeypatch.setattr(
+        "app.config.GEMMA_VERTEX_DEDICATED_DNS",
+        "ep-abc.us-central1-123.prediction.vertexai.goog",
+        raising=False,
+    )
+    seen = {}
+
+    def fake_predict(url, token, payload, timeout=60.0):
+        seen["url"] = url
+        return {"predictions": ["ok"]}
+
+    monkeypatch.setattr(gv, "_vertex_access_token", lambda: "fake-token")
+    monkeypatch.setattr(gv, "_vertex_predict", fake_predict)
+    GemmaVertexProvider().complete(_req(), "gemma")
+    assert seen["url"].startswith("https://ep-abc.us-central1-123.prediction.vertexai.goog/v1/")
+    assert "aiplatform.googleapis.com" not in seen["url"]
+    assert "endpoint-123:predict" in seen["url"]
+
+
+def test_shared_domain_used_when_no_dedicated_dns(gemma_configured, monkeypatch):
+    monkeypatch.setattr("app.config.GEMMA_VERTEX_DEDICATED_DNS", "", raising=False)
+    seen = {}
+    monkeypatch.setattr(gv, "_vertex_access_token", lambda: "fake-token")
+    monkeypatch.setattr(gv, "_vertex_predict", lambda url, *a, **k: seen.update(url=url) or {"predictions": ["ok"]})
+    GemmaVertexProvider().complete(_req(), "gemma")
+    assert "us-central1-aiplatform.googleapis.com" in seen["url"]
+
+
 # ── Through the supervisor (default real adapter + mocked Vertex) ────
 
 

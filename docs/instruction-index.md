@@ -59,6 +59,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |
 | `ade-ops-orchestrator` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/ade-ops-orchestrator/SKILL.md` |
 | `ai-provider-dispatch` | `skill` | `active` | `backend, cross-repo` | `no` | `.skills/ai-provider-dispatch/SKILL.md` |
+| `gemma-vertex-stage` | `skill` | `active` | `backend, cross-repo` | `no` | `.skills/gemma-vertex-stage/SKILL.md` |
 | `winston-post-deploy-verify` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-post-deploy-verify/SKILL.md` |
 | `historyrhymes` | `skill` | `active` | `cross-repo` | `yes` | `skills/historyrhymes/SKILL.md` |
 | `market-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/market-rotation-engine/SKILL.md` |
