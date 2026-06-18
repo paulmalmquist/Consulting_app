@@ -52,6 +52,10 @@ ib_insync>=0.9.86
 # Event streaming — BigQuery sink (Phase 2+). BQ_ENABLED defaults to false so
 # the sink is inert unless explicitly enabled.
 google-cloud-bigquery>=3.11
+# AI dispatch — Gemma-on-Vertex adapter mints ADC tokens via google.auth (imported
+# lazily; already present transitively via google-cloud-bigquery, declared here because
+# app/services/ai_dispatch/providers/gemma_vertex_provider.py uses it directly).
+google-auth>=2.0
 # Event streaming — Kafka transport (Phase 3B+). Lazy-imported in transport.py:
 # absent or unconfigured → get_transport() falls back to NoopTransport, so its
 # presence here never changes default-off behavior. Needed once a real broker
