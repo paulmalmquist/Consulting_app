@@ -9,6 +9,9 @@ backend/app/_git_sha.txt
 # Stale path from an earlier deploy script revision.
 backend/.git_sha
 
+# Local AI-dispatch receipt mirrors written by `python -m scripts.ai_dispatch.cli ask`.
+.ai_receipts/
+
 # Loose research / outreach notes that landed at the repo root. Keep
 # locally if useful, don't ship them as source.
 /ai_remote_roles.md

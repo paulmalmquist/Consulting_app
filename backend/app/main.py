@@ -74,6 +74,7 @@ from app.routes import (
 from app.routes import re_authoritative, re_operator_diagnostics
 from app.routes.ai import router as ai_router
 from app.routes.ai_audit import router as ai_audit_router
+from app.routes.ai_dispatch import router as ai_dispatch_router
 from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
@@ -379,6 +380,7 @@ if STARGATE_BRIDGE_ENABLED:
     from app.routes.stargate_bridge import router as stargate_bridge_router  # noqa: E402
     app.include_router(stargate_bridge_router)
 app.include_router(ai_audit_router)
+app.include_router(ai_dispatch_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
 app.include_router(admin_tools.router)
