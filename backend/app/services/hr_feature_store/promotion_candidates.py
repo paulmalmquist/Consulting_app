@@ -128,6 +128,12 @@ def list_candidates(repo: CandidateRepository, *, status: str | None = None,
     return repo.list(status=status, candidate_type=candidate_type)
 
 
+def allowed_actions(candidate: dict[str, Any]) -> list[str]:
+    """Read-only: the transitions legal from the candidate's current status. Lets a
+    read surface disable forbidden actions without re-implementing the machine."""
+    return sorted(ALLOWED_TRANSITIONS.get(candidate.get("approval_status"), set()))
+
+
 def attach_evidence(repo: CandidateRepository, candidate_id: str,
                     evidence: dict[str, Any]) -> dict[str, Any]:
     """Attach/replace evidence fields (calibration, no-lookahead, non-event, lineage,
@@ -140,6 +146,14 @@ def attach_evidence(repo: CandidateRepository, candidate_id: str,
     }
     patch = {k: v for k, v in evidence.items() if k in allowed}
     return repo.update(candidate_id, patch)
+
+
+def mark_needs_evidence(repo: CandidateRepository, candidate_id: str) -> dict[str, Any]:
+    """Send a candidate back for more evidence. No gate — it is the 'not ready yet'
+    move from draft or needs_review; the status machine validates the transition."""
+    c = _require(repo, candidate_id)
+    _assert_transition(c["approval_status"], NEEDS_EVIDENCE)
+    return repo.update(candidate_id, {"approval_status": NEEDS_EVIDENCE})
 
 
 def mark_needs_review(repo: CandidateRepository, candidate_id: str) -> dict[str, Any]:

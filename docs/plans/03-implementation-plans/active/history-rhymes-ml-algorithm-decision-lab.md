@@ -241,3 +241,21 @@ and audit-in-receipt for now (platform `ai_decision_audit_log` needs a CHECK mig
 wrt promotion. Stack: … C2-B #236 → C3 #237 → C4 #240 → **C5 (this)**. Next: C6 —
 implement the protected promotion-candidate API only (no UI, no episode creation, no
 `episode_embeddings` write).
+
+## Feature Store stack — C6 protected promotion API (2026-06-18)
+
+C6 implements the C5-designed route layer (API only — no UI, no schema, no episode
+creation, no `episode_embeddings` write, no LLM, no audit-table migration).
+`backend/app/routes/hr_promotion_candidates.py` mounts
+`/api/hr/v1/promotion-candidates` (9 routes: list/get + needs-evidence/needs-review/
+approve/reject/supersede/link-promoted-episode + create), admin-gated
+(`require_authenticated_request` + `x-bm-platform-admin`, actor from `x-bm-actor`),
+delegating every transition to the C4 service and surfacing `PromotionCandidateError`
+as HTTP 409 with the exact `{status, blocked_reasons[], candidate_id, current_status,
+allowed_actions[]}` envelope. Added two minimal C4 helpers (`mark_needs_evidence`,
+`allowed_actions`) — no schema change, rules preserved — and registered the router in
+`main.py`. `link-promoted-episode` only links an externally-created episode id. 18 new
+API tests (TestClient + fake repo, no DB/network); 261 HR feature-store + ML-demo +
+API tests green. Stack: … C3 #237 → C4 #240 → C5 #242 → **C6 (this)**. Next: C7 —
+internal promotion review UI, calling only the C6 API (still no episode creation or
+`episode_embeddings` write).

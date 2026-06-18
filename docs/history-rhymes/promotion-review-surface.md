@@ -304,3 +304,29 @@ API routes · React components · schema migration · episode creation ·
 `episode_embeddings` writes · embedding-provider calls · LLM summaries/labels ·
 automatic candidate discovery · connector changes · infra changes · production
 deploy. Anything requiring implementation to answer is recorded here as a gap, not built.
+
+---
+
+## C6 — protected API (IMPLEMENTED, 2026-06-18)
+
+C6 implements the route layer above (API only — no UI, no schema, no episode
+creation, no `episode_embeddings` write, no LLM):
+
+- **`backend/app/routes/hr_promotion_candidates.py`** — prefix
+  `/api/hr/v1/promotion-candidates`, admin-gated (`require_authenticated_request` +
+  `x-bm-platform-admin: true`; actor from `x-bm-actor`). All 9 routes delegate to
+  the C4 service; a `PromotionCandidateError` becomes **HTTP 409** with the exact
+  envelope `{status, blocked_reasons[], candidate_id, current_status, allowed_actions[]}`.
+  Success uses `{status:"ok", candidate_id, approval_status, candidate}`. The list
+  route adds the C5 filters + `{items,count,limit,offset}`; GET returns the detail
+  packet plus `allowed_actions`/`blocked_reasons`/`coverage`.
+- **Two minimal C4 helpers** added (no schema change, rules preserved):
+  `mark_needs_evidence` (the `draft|needs_review → needs_evidence` move) and the
+  read-only `allowed_actions(candidate)`.
+- **Registered** in `backend/app/main.py`.
+- `link-promoted-episode` only links an externally-created `episode_id` via
+  `record_promoted_episode_link`; it creates no episode and writes no embedding.
+
+The frontend review UI (the components/route in §Frontend design) remains **C7**.
+Audit stays in the receipt (the `ai_decision_audit_log` CHECK migration is still
+deferred).
