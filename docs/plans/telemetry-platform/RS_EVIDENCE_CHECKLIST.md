@@ -108,3 +108,22 @@ The Test Intelligence copilot row was held at `not_verified` after the route-loa
 **Governance aggregates (corroborating):** 62 interactions, grounded ~69%, refusal ~31%, live_llm ~66%, fallback ~3%, post-validator block count 1, tool calls success 77 / error 2 / skipped 33; model `gpt-5-mini`, 5-tool allow-list, 15 refusal rules. (Governance page renders these live — see screenshot.)
 
 **Verdict — PASS, with documented scope.** Within scope the copilot grounds on real evidence with typed tool-traces, refuses out-of-scope/unanswerable questions cleanly, and does not fabricate (it stated missing values rather than inventing them; the post-validator blocked one). Row promoted to **Partial · Production verified** (`impl` stays Partial — narrow scope; it refuses aggregate-count questions). **Not** upgraded to `built`: it is grounded structured-evidence Q&A, not document RAG, and the stale/missing-source category is folded into a generic refusal rather than a distinct freshness reason — a candidate for a future targeted improvement, not a blocker.
+
+---
+
+## Copilot scope expansion — deployed + re-verified live — 2026-06-18 (ADO #680, PR #250)
+
+The two findings above were fixed and **deployed to the Railway backend** (`authentic-sparkle`, commit `c416cf59`) and re-verified live on novendor.ai via the same `POST /api/telemetry/copilot/ask` path.
+
+| Behavior | Before | After (prod-observed) |
+|---|---|---|
+| Known aggregate count ("how many runs / predictions / models / drift monitors") | refused (`unsupported_question`) | ✅ **answers** — `intent: inventory_counts`, 5 `inventory` evidence items: *43 test runs, 59898 predictions, 102 anomaly events, 4 promoted models, 8 drift monitors* |
+| "live chamber pressure right now" | refused (`unsupported_question`) | ✅ **in scope** — `intent: live_status`, `stream_status` evidence; reports stream freshness and explicitly **does not invent a live value** |
+| Unknown aggregate ("launches / customers / engines") | refused | ✅ still refuses (`unsupported_question`), 0 evidence |
+| Governance | 5-tool allow-list | ✅ **7-tool allow-list** (the two new tools live), 68 interactions, grounded ~68% / refusal ~32% |
+
+**Honest caveats (not papered over):**
+- The distinct **`live_data_not_available`** reason was **unit-verified only**, not prod-observed this run — the live stream's `tel_pipeline_status` was `fresh` at verification time, so the fresh path ran (correct, non-fabricating). Forcing a stale stream needs admin; the stale→distinct-reason branch is covered by `test_stream_freshness_stale_sets_distinct_null_reason`.
+- **`/version` could not confirm the SHA:** `resolve_git_sha()` reads only `RAILWAY_GIT_COMMIT_SHA`, which Railway populates for GitHub-connected builds but not for `railway up` CLI deploys (and the deploy script's `_git_sha.txt` is gitignored and unread). The live-behavior change (`allow_list` 5→7, counts answering, `live_status` intent) is the proof the new code is live. Follow-up: make `resolve_git_sha()` fall back to a shipped stamp so CLI deploys self-report.
+
+**Backend tests:** 37 passed (+7 new) ; ruff clean. The How This Works copilot row note updated to the verified widened scope (impl stays Partial — grounded structured-evidence Q&A, fixed intent set; not document RAG).

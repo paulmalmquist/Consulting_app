@@ -144,7 +144,7 @@ export const KNOWN_GAPS: string[] = [
   "Telemetry governed metric registry not adapted yet (REPE pattern only).",
   "Telemetry lineage drawer not adapted yet (REPE AuditDrawer only).",
   "Cost guardrail estimates only — no enforcement.",
-  "Telemetry copilot is grounded structured-evidence Q&A (not document RAG) — production-verified but narrow: it refuses aggregate-count and out-of-scope questions rather than guess (refusal rate ~31%).",
+  "Telemetry copilot is grounded structured-evidence Q&A (not document RAG): a fixed allow-listed intent set — answers verdicts, model metadata, known aggregate counts, and live-stream freshness; refuses anything outside it rather than guess (refusal rate ~32%).",
   "Deployment status page planned, not built (status is CLI-verifiable today).",
 ];
 
@@ -225,7 +225,7 @@ export const CAPABILITIES: CapabilityItem[] = [
     capability: "Test Intelligence copilot — evidence cards, tool trace, grounded facts",
     impl: "partial", verify: "prod_verified",
     evidence: [{ label: "Test Intelligence", slug: "copilot" }],
-    note: "Grounding production-verified on novendor.ai 2026-06-18 (scripted question set): grounded answers cite real evidence (model/prediction/threshold/mlflow) with typed tool-traces (get_model_run_detail, get_triggering_prediction); refuses out-of-scope cleanly (null_reason=unsupported_question) and does not fabricate — when a tool errored it stated the value was 'not provided in the evidence' rather than inventing it. Stays Partial: grounded structured-evidence Q&A (NOT document RAG) with a narrow scope — it refuses aggregate-count questions rather than guess. Governance: grounded ~69%, refusal ~31%, 1 post-validator block.",
+    note: "Grounding + scope production-verified on novendor.ai (2026-06-18): grounded answers cite real evidence with typed tool-traces; refuses out-of-scope cleanly (null_reason=unsupported_question) and does not fabricate. Scope widened and re-verified live (ADO #680): now answers known aggregate counts (runs/predictions/models/drift monitors/anomaly events) from structured evidence — e.g. 43 runs, 4 promoted models — and reports live-stream freshness without inventing a live value; a distinct live_data_not_available reason is returned when the stream is stale. Stays Partial: grounded structured-evidence Q&A (NOT document RAG), a fixed intent set.",
   },
   {
     capability: "AI Governance dashboard — refusal / eval / tool stats",
