@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from app.auth.platform import require_authenticated_request
 from app.observability.logger import emit_log
 from app.services import governance
-from app.services.ade_ops import approval_store, approvals, simulation
+from app.services.ade_ops import approval_store, approvals, simulation, snowflake_executor
 from app.services.ade_ops.models import OpsCommandRequest
 from app.services.ade_ops.registry import ops_registry
 from app.services.ade_ops.supervisor import run_skill
@@ -195,19 +195,44 @@ def preflight_approval(approval_id: str, body: TenantBody, request: Request):
 
 
 class ExecuteBody(TenantBody):
-    # PR 5B: only 'simulation' is executable. Real modes are blocked (PR 5C).
+    # 'simulation' (PR 5B) or 'nonprod' (PR 5C, Snowflake auto_suspend only).
     execution_mode: str = "simulation"
+    # PR 5C typed fields for the one real action (ignored for simulation):
+    warehouse: str | None = None
+    auto_suspend_seconds: int | None = None
+    prior_auto_suspend_seconds: int | None = None
+    target_environment: str = "nonprod"
 
 
 @router.post("/approvals/{approval_id}/execute")
 def execute_approval(approval_id: str, body: ExecuteBody, request: Request):
-    """PR 5B: runs the SIMULATED execution ceremony when execution_mode=simulation
-    (approved + preflight required). A real mode ('nonprod'/'prod') is blocked —
-    there is no real executor until PR 5C. No provider write happens here."""
+    """Simulation (PR 5B) → simulated ceremony. nonprod (PR 5C) → the ONE real
+    Snowflake warehouse AUTO_SUSPEND write, fully gated (approval + preflight +
+    allowlist + rollback + observation window + env flag + non-prod). prod and any
+    other mode are blocked. SQL is generated from typed fields and validated; no
+    user-supplied SQL is accepted."""
     require_authenticated_request(request)
     req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id)
     if req_obj is None:
         raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown approval"})
+
+    if body.execution_mode == "nonprod":
+        if body.warehouse is None or body.auto_suspend_seconds is None or body.prior_auto_suspend_seconds is None:
+            return {"approval": req_obj.to_dict(),
+                    "execution": {"outcome": "blocked", "executed": False,
+                                  "reason": "missing_typed_fields"}}
+        outcome = snowflake_executor.execute_auto_suspend(
+            req_obj, warehouse=body.warehouse, auto_suspend_seconds=body.auto_suspend_seconds,
+            prior_auto_suspend_seconds=body.prior_auto_suspend_seconds,
+            environment=body.target_environment, now=_now())
+        if outcome.get("executed"):
+            approval_store.record_real_execution(
+                approval_id, env_id=body.env_id or "", business_id=body.business_id, outcome=outcome)
+            req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id) or req_obj
+        _record_approval_receipt(business_id=body.business_id, env_id=body.env_id,
+                                 action="execute.nonprod.snowflake", req_obj=req_obj)
+        return {"approval": req_obj.to_dict(), "execution": outcome}
+
     outcome = simulation.simulate_execution(req_obj, mode=body.execution_mode, now=_now())
     if outcome.get("executed"):
         approval_store.record_simulated_execution(

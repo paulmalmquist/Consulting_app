@@ -114,6 +114,12 @@ export interface ApprovalRequest {
   observation_window_opened_at: string | null;
   rolled_back: boolean;
   rolled_back_at: string | null;
+  // PR 5C: the one real action's audit trail (Snowflake auto_suspend).
+  action_kind: string | null;
+  before_value: string | null;
+  after_value: string | null;
+  generated_sql_hash: string | null;
+  rollback_sql_hash: string | null;
   null_reason: string | null;
 }
 

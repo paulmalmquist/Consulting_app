@@ -34,10 +34,12 @@ export function ExecutionDisabledBanner() {
         border: `1px solid ${C.amber}40`, borderRadius: 8, padding: "10px 12px", marginBottom: 12,
       }}
     >
-      Only <strong>simulated</strong> execution runs in PR 5B. A simulated execute
-      records the full paper trail (receipt + observation window) but touches no
-      provider. Real provider writes remain <strong>impossible</strong> — the real,
-      fully-gated path lands in PR 5C.
+      One real action is enabled (PR 5C): Snowflake <strong>non-prod warehouse
+      AUTO_SUSPEND</strong> only, behind approval + preflight + allowlist + rollback
+      + observation window + an env flag, never in prod. SQL is generated from typed
+      fields and validated; no arbitrary or user-supplied SQL. Everything else is
+      simulated. Resize, tasks, dynamic tables, Databricks/GCP/AWS, and prod remain
+      <strong>impossible</strong>.
     </div>
   );
 }
@@ -80,6 +82,23 @@ function ApprovalRow({ a }: { a: ApprovalRequest }) {
           )}
           {a.rolled_back && (
             <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>· rolled back (sim)</span>
+          )}
+        </div>
+      )}
+      {/* PR 5C: a real non-prod Snowflake auto_suspend write. Shows before→after +
+          the SQL hash so the action is auditable and unambiguous. */}
+      {a.executed && a.execution_mode === "nonprod" && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Tag color={C.red}>Live · non-prod</Tag>
+            <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>
+              {a.action_kind ?? "—"}: {a.before_value ?? "?"} → {a.after_value ?? "?"}
+            </span>
+          </div>
+          {a.generated_sql_hash && (
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 4 }}>
+              sql {a.generated_sql_hash.slice(0, 12)}… · rollback {(a.rollback_sql_hash ?? "").slice(0, 12)}…
+            </div>
           )}
         </div>
       )}

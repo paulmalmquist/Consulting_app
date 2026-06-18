@@ -2,6 +2,16 @@
 
 Backend `backend/tests/test_ade_ops_*.py`, frontend `AdeOpsConsole.test.tsx`.
 
+## First real provider write — PR 5C (test_ade_ops_snowflake.py + ApprovalsPanel.test.tsx)
+- SQL built from typed fields only; `validate_sql` accepts ONLY `ALTER WAREHOUSE <allowlisted> SET AUTO_SUSPEND = <int>` and rejects semicolons, piggyback statements, comments, resize, wrong case, non-int, non-allowlisted.
+- Blocked: env flag off · prod environment · no approval · expired · missing observation · missing rollback · non-allowlisted warehouse · non-snowflake provider.
+- Happy path: exactly one validated statement sent to the (mock) client; before/after + distinct SQL/rollback hashes recorded.
+- Rollback SQL generated + validated **before** execution — an invalid rollback value blocks and nothing runs.
+- A provider error reports `failed` (not executed), rollback SQL available.
+- No user-supplied SQL path (signature has no `sql` param; params are typed); no subprocess token in the module.
+- Schema: migration 616 permits a real `nonprod` executed row ONLY for snowflake + warehouse_auto_suspend + both hashes (verified via Supabase CLI: without-hashes rejected, prod rejected, with-hashes allowed).
+- FE: banner states the one gated action + everything-else-impossible; a real execution renders "Live · non-prod" with before→after + SQL hash.
+
 ## Simulated execution — PR 5B (test_ade_ops_simulation.py + ApprovalsPanel.test.tsx)
 - Without approval / expired approval / missing rollback-observation-evidence (preflight fail) → blocked, executed stays False.
 - Valid approval + preflight + `mode='simulation'` → simulated execute succeeds, executed=True, observation window opened, plan says "no provider command issued".
