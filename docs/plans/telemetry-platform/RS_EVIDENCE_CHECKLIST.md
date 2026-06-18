@@ -57,3 +57,31 @@ One block per claim. Each: route/file/table → screenshot target → verificati
 
 ## Planned/Blocked rows — honest "verification"
 For governed metric registry, lineage drawer, cost guardrail, deployment-status page: the verification IS the statement of why it's not live for telemetry, plus the route that proves the pattern elsewhere (REPE AuditDrawer for lineage; `ai_gateway_logs.cost_*` for cost logging; `railway status` / `/version` for deploy). Never a fabricated screenshot.
+
+---
+
+## Production verification record — 2026-06-18
+
+Performed after PR #235 merged (`9b7c9de9`) and the Vercel `consulting-app` production deploy reached READY. Authenticated session on **novendor.ai** (admin login), env `dc82d39d-9be2-49b0-a01d-c7181b13a8b6`. Each Built deep-link target was loaded and confirmed to render the telemetry shell (no login bounce, no 404).
+
+| Route | Result | Screenshot |
+|---|---|---|
+| `/telemetry/how-it-works` | ✅ heading "How This Works" rendered | `telemetry-platform/docs/screenshots/prod_how-it-works_desktop.png` |
+| `/telemetry` (Overview) | ✅ shell | — |
+| `/telemetry/stream` (Mission Control) | ✅ shell | — |
+| `/telemetry/stargate` | ✅ shell | — |
+| `/telemetry/monitoring` | ✅ shell | — |
+| `/telemetry/model-performance` | ✅ shell | — |
+| `/telemetry/replay` | ✅ shell | — |
+| `/telemetry/registry` (Model Registry) | ✅ shell | `prod_registry_desktop.png` |
+| `/telemetry/calibration` (RUL — branch-risk item) | ✅ shell | `prod_calibration_desktop.png` |
+| `/telemetry/factory` | ✅ shell | — |
+| `/telemetry/factory-ml` | ✅ shell | — |
+| `/telemetry/governance` (AI Governance) | ✅ shell | `prod_governance_desktop.png` |
+| `/telemetry/copilot` (Test Intelligence) | ✅ route loads | — |
+
+**Promotions applied** (`howItWorksData.ts`): the 10 Built capabilities, the 3 medallion hops with a live surface (bronze/gold/ui), and all 3 ML lifecycle cards moved `code_verified → prod_verified`. `LAST_VERIFIED` bumped to `2026-06-18`.
+
+**Deliberately NOT promoted:** the Test Intelligence copilot row stays `partial / not_verified` — a route-load does not verify grounding/citation depth; that requires exercising answers live, which this pass did not do. Medallion `source`/`silver`/`serving` hops stay `code_verified` (no standalone clickable surface). The Planned/Partial non-route rows (metric registry, lineage drawer, cost guardrail, cross-platform spine, ticket→PR, deployment exhibit) are unchanged.
+
+**Invariant updated** (`howItWorksData.test.ts`): the v1 "nothing is prod_verified" guard is replaced by the permanent rule "a `prod_verified` row must expose a live surface (evidence link / slug)."

@@ -49,12 +49,20 @@ describe("howItWorksData — honesty invariants (the page is honest by construct
     }
   });
 
-  it("NOTHING is prod_verified in v1 — production verification only after the live click", () => {
+  it("a prod_verified row must have a live surface to click — no production claim without evidence", () => {
+    // Production verification happened on novendor.ai 2026-06-18 (every Built deep-link clicked live),
+    // so rows may now be prod_verified — but ONLY if they expose a clickable live surface.
     for (const c of CAPABILITIES) {
-      expect(c.verify, `capability "${c.capability}"`).not.toBe("prod_verified");
+      if (c.verify === "prod_verified") {
+        expect(c.evidence.length, `prod_verified "${c.capability}" must carry an evidence link`).toBeGreaterThan(0);
+      }
     }
-    for (const hop of MEDALLION) expect(hop.verify, `medallion ${hop.stage}`).not.toBe("prod_verified");
-    for (const m of ML_LIFECYCLE) expect(m.verify, `ml ${m.name}`).not.toBe("prod_verified");
+    for (const hop of MEDALLION) {
+      if (hop.verify === "prod_verified") expect(hop.slug, `prod_verified medallion ${hop.stage} must have a slug`).toBeTruthy();
+    }
+    for (const m of ML_LIFECYCLE) {
+      if (m.verify === "prod_verified") expect(m.slug, `prod_verified ml ${m.name} must have a slug`).toBeTruthy();
+    }
   });
 
   it("planned/blocked capabilities never carry an evidence link (no overclaim)", () => {
