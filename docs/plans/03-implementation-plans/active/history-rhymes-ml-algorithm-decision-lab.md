@@ -160,3 +160,23 @@ C2 (read-only adapter OR a new fs-keyed embedding table). Stack: A1 #206 → A2 
 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → B6 #224 → B7 #230 →
 **C1 (this)**. Next: C2 — only after C1, either the schema/adapter mapping work or
 calibration-evidence plumbing.
+
+## Feature Store stack — C2-B observation embedding target (2026-06-18)
+
+C2-B resolves the C1-discovered mapping gap WITHOUT touching `episode_embeddings`
+or forcing observations into the episode library. New additive migration
+`10020_history_rhymes_observation_embeddings.sql` creates
+`hr_feature_store_observation_embeddings` (keyed by
+`(observation_id, model_obs_version, embedding_model_version)`, vector(256) +
+HNSW, source_quality/readiness CHECKs, verification DO block, COMMENTs explaining
+the deliberate separation). The C1 planner gains a `target`:
+`observation_embeddings` (default; no episode mapping; requires
+`--embedding-model-version`) vs `episode_embeddings` (historical library; still
+blocks on `episode_mapping_unresolved`). CLI adds `--target` +
+`--embedding-model-version`. All C1 gates still apply; dry-run remains default;
+writes stay behind `--write --confirm` + all gates; append-only by encoder
+version (no in-place overwrite). Fixture/fake-repo tests only. Stack: A1 #206 →
+A2 #209 → A3 #210 → B1 #213 → B2 #215 → B3 #216 → B4 #219 → B5 #221 → B6 #224 →
+B7 #230 → C1 #234 → **C2-B (this)**. Next: C3 — observation→episode promotion
+workflow DESIGN only (reviewed candidate creation, non-event labeling,
+calibration receipt attachment, explicit human approval).

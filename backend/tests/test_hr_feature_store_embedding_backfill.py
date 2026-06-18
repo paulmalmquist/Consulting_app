@@ -64,11 +64,12 @@ class FakeBackfillRepository:
     """In-memory repo. Records every insert; never mutates input rows."""
 
     def __init__(self, candidates, *, episode_map=None, existing_versions=None,
-                 existing_keys=None):
+                 existing_keys=None, existing_obs_keys=None):
         self._candidates = candidates
         self._episode_map = episode_map or {}        # observation_id -> episode_id
         self._existing_versions = set(existing_versions or [])
         self._existing_keys = set(existing_keys or [])
+        self._existing_obs_keys = set(existing_obs_keys or [])  # (obs_id, obs_ver, enc_ver)
         self.inserted: list[dict] = []
         self.deleted = 0
         self.updated = 0
@@ -91,6 +92,23 @@ class FakeBackfillRepository:
         for r in rows:
             k = (r["episode_id"], r["embedding_type"], r["model_version"])
             if k in keys or k in {(eid, EMBEDDING_TYPE, r["model_version"]) for eid in self._existing_keys}:
+                continue  # append-only: skip duplicates, never overwrite
+            self.inserted.append(r)
+            keys.add(k)
+            added += 1
+        return added
+
+    # C2-B observation-embeddings target (separate table)
+    def existing_observation_keys(self, embedding_model_version):
+        return {k for k in self._existing_obs_keys if k[2] == embedding_model_version}
+
+    def insert_observation_embeddings(self, rows):
+        added = 0
+        keys = {(r["observation_id"], r["model_obs_version"], r["embedding_model_version"])
+                for r in self.inserted}
+        for r in rows:
+            k = (r["observation_id"], r["model_obs_version"], r["embedding_model_version"])
+            if k in keys or k in self._existing_obs_keys:
                 continue  # append-only: skip duplicates, never overwrite
             self.inserted.append(r)
             keys.add(k)
@@ -170,10 +188,11 @@ def test_no_candidates_is_not_available():
     assert receipt["write_allowed"] is False
 
 
-def test_valid_fixture_returns_eligible_plan():
+def test_valid_fixture_returns_eligible_plan_episode_target():
     repo = _eligible_repo()
     receipt, full = plan_backfill(repo, requested_model_version="hr_feature_store_v2",
-                                  calibration_evidence=_evidence("calibration_pass.json"))
+                                  calibration_evidence=_evidence("calibration_pass.json"),
+                                  target="episode_embeddings")
     assert receipt["status"] == "eligible"
     assert receipt["write_allowed"] is True
     assert receipt["blocked_reasons"] == []
@@ -249,11 +268,12 @@ def test_synthetic_source_quality_not_promotable():
     assert full == []
 
 
-def test_episode_mapping_unresolved_blocks_and_proposes_c2():
-    # no episode_map → live-schema reality: observation_id has no episode_id
+def test_episode_target_mapping_unresolved_blocks_and_proposes_c2():
+    # episode_embeddings target with no episode_map → live-schema reality: observation_id has no episode_id
     repo = FakeBackfillRepository(_balanced_candidates())
     receipt, full = plan_backfill(repo, requested_model_version="hr_feature_store_v2",
-                                  calibration_evidence=_evidence("calibration_pass.json"))
+                                  calibration_evidence=_evidence("calibration_pass.json"),
+                                  target="episode_embeddings")
     assert receipt["status"] == "blocked"
     assert "episode_mapping_unresolved" in receipt["blocked_reasons"]
     assert full == []
@@ -261,13 +281,14 @@ def test_episode_mapping_unresolved_blocks_and_proposes_c2():
     assert receipt["mapping_proposal"]["blocked_reason"] == "episode_mapping_unresolved"
 
 
-def test_duplicate_for_model_version_skips():
+def test_episode_target_duplicate_for_model_version_skips():
     cands = _balanced_candidates()
     episode_map = {c["observation_id"]: f"ep-{c['observation_id']}" for c in cands}
     existing = {f"ep-{c['observation_id']}" for c in cands[:2]}  # already present
     repo = FakeBackfillRepository(cands, episode_map=episode_map, existing_keys=existing)
     receipt, full = plan_backfill(repo, requested_model_version="hr_feature_store_v2",
-                                  calibration_evidence=_evidence("calibration_pass.json"))
+                                  calibration_evidence=_evidence("calibration_pass.json"),
+                                  target="episode_embeddings")
     dup_skips = [r for r in receipt["planned_skips"]
                  if "duplicate_for_model_version" in r["reasons"]]
     assert len(dup_skips) == 2
@@ -319,10 +340,11 @@ def test_write_blocked_when_gates_fail():
     assert repo.inserted == []
 
 
-def test_write_path_works_with_all_gates_and_flags():
+def test_episode_target_write_path_works_with_all_gates_and_flags():
     repo = _eligible_repo()
     receipt, full = plan_backfill(repo, requested_model_version="hr_feature_store_v2",
-                                  calibration_evidence=_evidence("calibration_pass.json"))
+                                  calibration_evidence=_evidence("calibration_pass.json"),
+                                  target="episode_embeddings")
     res = execute_backfill(repo, receipt, full, write=True, confirm=True)
     assert res["write_performed"] is True
     assert res["written"] == 7
@@ -330,10 +352,11 @@ def test_write_path_works_with_all_gates_and_flags():
     assert repo.deleted == 0 and repo.updated == 0  # append-only, no in-place overwrite
 
 
-def test_no_overwrite_on_repeat_write():
+def test_episode_target_no_overwrite_on_repeat_write():
     repo = _eligible_repo()
     receipt, full = plan_backfill(repo, requested_model_version="hr_feature_store_v2",
-                                  calibration_evidence=_evidence("calibration_pass.json"))
+                                  calibration_evidence=_evidence("calibration_pass.json"),
+                                  target="episode_embeddings")
     execute_backfill(repo, receipt, full, write=True, confirm=True)
     # second identical write inserts nothing new (ON CONFLICT DO NOTHING semantics)
     res2 = execute_backfill(repo, receipt, full, write=True, confirm=True)

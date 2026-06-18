@@ -1,9 +1,23 @@
-# Episode-embeddings backfill (C1) — gated, dry-run-first promotion
+# Embedding backfill (C1 / C2-B) — gated, dry-run-first promotion
 
-Promoting vetted feature-store model observations into the live analog spine
-(`episode_embeddings`) is a **gated promotion, not a materializer side effect**.
-This is the safety contract for C1; the planner refuses to write unless every
-gate passes, and even then only behind explicit flags.
+Promoting vetted feature-store model observations into an embedding store is a
+**gated promotion, not a materializer side effect**. This is the safety contract;
+the planner refuses to write unless every gate passes, and even then only behind
+explicit flags.
+
+## Two targets (C2-B)
+
+| Target | Table | Default? | Keyed by | Notes |
+|---|---|---|---|---|
+| `observation_embeddings` | `hr_feature_store_observation_embeddings` (10020) | **yes** | `(observation_id, model_obs_version, embedding_model_version)` | The safe home for feature-store observations. No episode mapping needed. Requires `--embedding-model-version`. |
+| `episode_embeddings` | `episode_embeddings` (503) | no | `(episode_id, embedding_type, model_version)` | The historical analog library. Stays **blocked** unless an explicit episode mapping resolves — and none exists for gold rows, so it emits a mapping proposal. C2-B does not weaken this. |
+
+**Why a separate table (C2-B):** `episode_embeddings` is keyed by `episode_id`
+(FK → `episodes`); gold observations carry no `episode_id`. Rather than hack the
+mismatch or force observations into the episode library, feature-store
+observations get their own append-only table. Promotion of an observation *into*
+the episode library is a separate human-reviewed workflow (C3), never an implicit
+write. `episode_embeddings` is left entirely untouched by C2-B.
 
 ## Default behavior
 
@@ -83,14 +97,23 @@ run a calibration job or a full permutation engine — it *requires* the evidenc
 ## CLI
 
 ```bash
-# dry-run (default): plan only, exit 0 even if blocked
-python scripts/history_rhymes/episode_embeddings_backfill.py --dry-run --limit 25 --json
-
-# write (all gates must pass; against live DB this blocks on episode mapping)
+# dry-run (default target = observation_embeddings): plan only, exit 0 even if blocked
 python scripts/history_rhymes/episode_embeddings_backfill.py \
-  --write --confirm --model-version hr_feature_store_v2 \
+  --dry-run --target observation_embeddings \
+  --model-version hr_feature_store_v2 --embedding-model-version state_vector_encoder_v1 \
   --calibration-evidence backend/tests/fixtures/hr_feature_store/backfill/calibration_pass.json \
   --limit 25 --json
+
+# write to the observation table (all gates must pass; tested only with a fake repo)
+python scripts/history_rhymes/episode_embeddings_backfill.py \
+  --write --confirm --target observation_embeddings \
+  --model-version hr_feature_store_v2 --embedding-model-version state_vector_encoder_v1 \
+  --calibration-evidence backend/tests/fixtures/hr_feature_store/backfill/calibration_pass.json \
+  --limit 25 --json
+
+# episode_embeddings target: blocks on episode mapping against the live DB
+python scripts/history_rhymes/episode_embeddings_backfill.py \
+  --dry-run --target episode_embeddings --model-version hr_feature_store_v2 --json
 ```
 
 The write command is exercised only in tests with a fake repository. Do not run
@@ -98,8 +121,10 @@ it against production.
 
 ## Files
 
-- `backend/app/services/hr_feature_store/embedding_backfill.py` — planner, gated executor, fail-soft DB repo, C2 mapping proposal.
+- `backend/app/services/hr_feature_store/embedding_backfill.py` — planner (two targets), gated executor, fail-soft DB repo, C2 mapping proposal.
 - `backend/app/services/hr_feature_store/backfill_gates.py` — gate primitives + thresholds.
 - `backend/app/services/hr_feature_store/backfill_audit.py` — deterministic no-lookahead audit.
-- `scripts/history_rhymes/episode_embeddings_backfill.py` — dry-run-first CLI.
-- `backend/tests/test_hr_feature_store_embedding_backfill.py` — fixture-only tests (no DB, no network).
+- `scripts/history_rhymes/episode_embeddings_backfill.py` — dry-run-first CLI (`--target`, `--embedding-model-version`).
+- `repo-b/db/schema/10020_history_rhymes_observation_embeddings.sql` — C2-B observation-keyed table (additive; `episode_embeddings` untouched).
+- `backend/tests/test_hr_feature_store_embedding_backfill.py` — C1 fixture-only tests.
+- `backend/tests/test_hr_feature_store_observation_embeddings.py` — C2-B observation-target + migration static tests.

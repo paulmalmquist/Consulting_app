@@ -51,7 +51,13 @@ def main() -> int:
     p.add_argument("--dry-run", action="store_true", help="default; plan only, write nothing")
     p.add_argument("--write", action="store_true", help="required for any write path")
     p.add_argument("--confirm", action="store_true", help="required in addition to --write")
+    p.add_argument("--target", default="observation_embeddings",
+                   choices=["observation_embeddings", "episode_embeddings"],
+                   help="default observation_embeddings (safe, observation-keyed); "
+                        "episode_embeddings is the historical library and stays gated on an episode mapping")
     p.add_argument("--model-version", default=None, help="new model_version (required for write)")
+    p.add_argument("--embedding-model-version", default=None,
+                   help="encoder/embedding version (required for an observation_embeddings write)")
     p.add_argument("--calibration-evidence", default=None, help="path to calibration evidence JSON")
     p.add_argument("--limit", type=int, default=None, help="max candidate rows")
     p.add_argument("--json", action="store_true", help="emit the receipt as JSON")
@@ -65,6 +71,8 @@ def main() -> int:
         requested_model_version=args.model_version,
         calibration_evidence=evidence,
         limit=args.limit,
+        target=args.target,
+        embedding_model_version=args.embedding_model_version,
     )
 
     result = execute_backfill(
@@ -76,9 +84,10 @@ def main() -> int:
     if args.json:
         print(json.dumps(receipt, indent=2, default=str))
     else:
-        print(f"status={receipt['status']} write_allowed={receipt['write_allowed']} "
-              f"candidates={receipt['candidate_count']} eligible={receipt['eligible_count']} "
-              f"blocked={receipt['blocked_reasons']} write_performed={result['write_performed']}")
+        print(f"target={receipt['target']} status={receipt['status']} "
+              f"write_allowed={receipt['write_allowed']} candidates={receipt['candidate_count']} "
+              f"eligible={receipt['eligible_count']} blocked={receipt['blocked_reasons']} "
+              f"write_performed={result['write_performed']}")
     return 0  # blocked dry-run is a normal, exit-0 outcome
 
 

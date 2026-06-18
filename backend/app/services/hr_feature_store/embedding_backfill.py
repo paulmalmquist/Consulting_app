@@ -22,6 +22,13 @@ from app.services.hr_feature_store.backfill_audit import audit_no_lookahead
 
 EMBEDDING_TYPE = "full_state"
 
+# Planner targets. observation_embeddings is the DEFAULT safe home for feature-store
+# rows (C2-B); episode_embeddings is the historical library and stays gated behind
+# an explicit episode mapping (C1 behavior, never weakened).
+TARGET_OBSERVATION = "observation_embeddings"
+TARGET_EPISODE = "episode_embeddings"
+VALID_TARGETS = (TARGET_OBSERVATION, TARGET_EPISODE)
+
 CANDIDATE_FIELDS = (
     "observation_id", "as_of_date", "model_obs_version", "features_normalized",
     "feature_vector", "text_embedding", "narrative_text", "source_quality",
@@ -41,6 +48,11 @@ class BackfillRepository(Protocol):
     def existing_episode_keys(self, model_version: str, embedding_type: str = EMBEDDING_TYPE) -> set[str]: ...
     def resolve_episode_id(self, candidate: dict[str, Any]) -> str | None: ...
     def insert_episode_embeddings(self, rows: list[dict[str, Any]]) -> int: ...
+    # C2-B observation-embeddings target (separate table; episode_embeddings untouched).
+    # Keyed by embedding_model_version (batch-wide); returns the full (observation_id,
+    # model_obs_version, embedding_model_version) triples already present.
+    def existing_observation_keys(self, embedding_model_version: str) -> set[tuple[str, str, str]]: ...
+    def insert_observation_embeddings(self, rows: list[dict[str, Any]]) -> int: ...
 
 
 # --------------------------------------------------------------------------- planning
@@ -52,27 +64,48 @@ def plan_backfill(
     requested_model_version: str | None = None,
     calibration_evidence: dict[str, Any] | None = None,
     limit: int | None = None,
+    target: str = TARGET_OBSERVATION,
+    embedding_model_version: str | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Build a dry-run receipt and the full eligible insert rows (kept out of the
-    receipt to keep it small). Returns (receipt, full_inserts). Never writes."""
+    receipt to keep it small). Returns (receipt, full_inserts). Never writes.
+
+    target=observation_embeddings (default) → safe observation-keyed table; needs
+    --embedding-model-version. target=episode_embeddings → historical library;
+    still BLOCKS unless an explicit episode mapping resolves (C1 behavior)."""
+
+    if target not in VALID_TARGETS:
+        raise ValueError(f"unknown target: {target}")
 
     candidates = repo.list_candidates(limit)
     if not candidates:
         return _receipt(
             status="not_available",
             requested_model_version=requested_model_version,
+            target=target,
             null_reason="no_model_observation_candidates",
         ), []
 
     existing_versions = repo.existing_model_versions()
-    existing_keys = (
-        repo.existing_episode_keys(requested_model_version) if requested_model_version else set()
-    )
+    obs_target = target == TARGET_OBSERVATION
+    if obs_target:
+        existing_obs_keys = (
+            repo.existing_observation_keys(embedding_model_version)
+            if embedding_model_version else set()
+        )
+        existing_keys: set = set()
+    else:
+        existing_keys = (
+            repo.existing_episode_keys(requested_model_version) if requested_model_version else set()
+        )
+        existing_obs_keys = set()
 
     # ---- batch-level gates (evidence + aggregate) ----
     brier = G.gate_brier(calibration_evidence)
     perm = G.gate_permutation(calibration_evidence)
     version = G.gate_model_version_bump(requested_model_version, existing_versions, calibration_evidence)
+    # observation target additionally requires an explicit embedding/encoder version
+    embedding_version_missing = obs_target and not embedding_model_version
 
     batch_lookahead_ok = True
     blocked_reasons: list[str] = []
@@ -86,31 +119,67 @@ def plan_backfill(
         ok_la, _ = audit_no_lookahead(c)
         if not ok_la:
             batch_lookahead_ok = False
-        episode_id = repo.resolve_episode_id(c)
-        duplicate = episode_id is not None and episode_id in existing_keys
-        reasons = G.row_gate_failures(
-            c, episode_id=episode_id, duplicate=duplicate, no_lookahead_ok=ok_la
-        )
-        if "episode_mapping_unresolved" in reasons:
-            mapping_gap = True
+
+        if obs_target:
+            # observation-keyed: the key (observation_id) is intrinsic, no mapping gate
+            obs_key = (c.get("observation_id"), c.get("model_obs_version"), embedding_model_version)
+            duplicate = bool(embedding_model_version) and obs_key in existing_obs_keys
+            episode_id = None
+            reasons = G.row_gate_failures(
+                c, episode_id="__intrinsic__", duplicate=duplicate, no_lookahead_ok=ok_la
+            )
+        else:
+            episode_id = repo.resolve_episode_id(c)
+            duplicate = episode_id is not None and episode_id in existing_keys
+            reasons = G.row_gate_failures(
+                c, episode_id=episode_id, duplicate=duplicate, no_lookahead_ok=ok_la
+            )
+            if "episode_mapping_unresolved" in reasons:
+                mapping_gap = True
+
         if reasons:
             planned_skips.append({"observation_id": c.get("observation_id"), "reasons": reasons})
             continue
-        planned_inserts.append({
-            "observation_id": c.get("observation_id"),
-            "episode_id": episode_id,
-            "embedding_type": EMBEDDING_TYPE,
-            "model_version": requested_model_version,
-            "vector_dim": len(c.get("feature_vector") or []),
-        })
-        full_inserts.append({
-            "episode_id": episode_id,
-            "embedding_type": EMBEDDING_TYPE,
-            "embedding": c.get("feature_vector"),
-            "model_version": requested_model_version,
-            "feature_panel": c.get("features_normalized"),
-            "observation_id": c.get("observation_id"),
-        })
+
+        if obs_target:
+            planned_inserts.append({
+                "observation_id": c.get("observation_id"),
+                "model_obs_version": c.get("model_obs_version"),
+                "embedding_model_version": embedding_model_version,
+                "model_version": requested_model_version,
+                "vector_dim": len(c.get("feature_vector") or []),
+            })
+            full_inserts.append({
+                "observation_id": c.get("observation_id"),
+                "as_of_date": c.get("as_of_date"),
+                "model_obs_version": c.get("model_obs_version"),
+                "embedding_model_version": embedding_model_version,
+                "feature_vector": c.get("feature_vector"),
+                "text_embedding": c.get("text_embedding"),
+                "features_normalized": c.get("features_normalized"),
+                "narrative_text": c.get("narrative_text"),
+                "source_quality": c.get("source_quality"),
+                "model_readiness_score": c.get("model_readiness_score"),
+                "readiness_degrade_reasons": c.get("readiness_degrade_reasons"),
+                "lineage_json": c.get("lineage_json"),
+                "provenance": c.get("provenance"),
+            })
+        else:
+            planned_inserts.append({
+                "observation_id": c.get("observation_id"),
+                "episode_id": episode_id,
+                "embedding_type": EMBEDDING_TYPE,
+                "model_version": requested_model_version,
+                "vector_dim": len(c.get("feature_vector") or []),
+            })
+            full_inserts.append({
+                "episode_id": episode_id,
+                "embedding_type": EMBEDDING_TYPE,
+                "embedding": c.get("feature_vector"),
+                "model_version": requested_model_version,
+                "feature_panel": c.get("features_normalized"),
+                "observation_id": c.get("observation_id"),
+            })
 
     no_lookahead = G.gate_no_lookahead({"passed": batch_lookahead_ok, "violations": [] if batch_lookahead_ok else [1]})
     coverage = G.gate_non_event_coverage(candidates)
@@ -130,6 +199,8 @@ def plan_backfill(
         blocked_reasons.append("model_version_not_specified")
     elif version["status"] == "fail":
         blocked_reasons.append("model_version_not_bumped")
+    if embedding_version_missing:
+        blocked_reasons.append("embedding_model_version_not_specified")
     if coverage["status"] in ("degraded", "fail"):
         blocked_reasons.append("insufficient_non_event_coverage")
     if not planned_inserts:
@@ -150,6 +221,8 @@ def plan_backfill(
     receipt = _receipt(
         status=status,
         requested_model_version=requested_model_version,
+        target=target,
+        embedding_model_version=embedding_model_version,
         candidate_count=len(candidates),
         eligible_count=len(planned_inserts),
         blocked_count=len(planned_skips),
@@ -170,12 +243,16 @@ def plan_backfill(
     return receipt, full_inserts
 
 
-def _receipt(*, status: str, requested_model_version: str | None, **kw: Any) -> dict[str, Any]:
+def _receipt(*, status: str, requested_model_version: str | None,
+             target: str = TARGET_OBSERVATION, embedding_model_version: str | None = None,
+             **kw: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "mode": "dry_run",
         "status": status,
         "write_allowed": status == "eligible",
+        "target": target,
         "model_version": requested_model_version,
+        "embedding_model_version": embedding_model_version,
         "candidate_count": kw.get("candidate_count", 0),
         "eligible_count": kw.get("eligible_count", 0),
         "blocked_count": kw.get("blocked_count", 0),
@@ -238,7 +315,10 @@ def execute_backfill(
         return {"write_performed": False, "written": 0, "reason": "confirm_required"}
     if receipt.get("status") != "eligible" or not receipt.get("write_allowed"):
         return {"write_performed": False, "written": 0, "reason": "gates_not_passed"}
-    written = repo.insert_episode_embeddings(full_inserts)  # append-only by model_version
+    if receipt.get("target", TARGET_OBSERVATION) == TARGET_OBSERVATION:
+        written = repo.insert_observation_embeddings(full_inserts)  # append-only by (obs, obs_ver, enc_ver)
+    else:
+        written = repo.insert_episode_embeddings(full_inserts)      # append-only by model_version
     return {"write_performed": True, "written": written, "reason": "ok"}
 
 
@@ -298,6 +378,50 @@ class DbBackfillRepository:
     def resolve_episode_id(self, candidate: dict[str, Any]) -> str | None:
         # No observation->episode mapping exists in the schema. Do NOT hack one.
         return None
+
+    def existing_observation_keys(self, embedding_model_version: str) -> set[tuple[str, str, str]]:
+        try:
+            from app.db import get_cursor
+            with get_cursor() as cur:
+                cur.execute(
+                    "SELECT observation_id, model_obs_version, embedding_model_version "
+                    "FROM hr_feature_store_observation_embeddings "
+                    "WHERE embedding_model_version=%s",
+                    (embedding_model_version,),
+                )
+                return {(str(a), str(b), str(c)) for a, b, c in cur.fetchall()}
+        except Exception:
+            return set()
+
+    def insert_observation_embeddings(self, rows: list[dict[str, Any]]) -> int:
+        import json
+        from app.db import get_cursor
+        inserted = 0
+        with get_cursor() as cur:
+            for r in rows:
+                vec = "[" + ",".join(str(float(x)) for x in r["feature_vector"]) + "]"
+                txt = r.get("text_embedding")
+                txt_vec = ("[" + ",".join(str(float(x)) for x in txt) + "]") if txt else None
+                # text_embedding may be NULL; cast happens in-SQL so the param stays a plain str/None
+                cur.execute(
+                    "INSERT INTO hr_feature_store_observation_embeddings "
+                    "(observation_id, as_of_date, model_obs_version, embedding_model_version, "
+                    " feature_vector, text_embedding, features_normalized, narrative_text, "
+                    " source_quality, model_readiness_score, readiness_degrade_reasons, "
+                    " lineage_json, provenance) "
+                    "VALUES (%s,%s,%s,%s,%s::vector,%s::vector,%s::jsonb,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb) "
+                    "ON CONFLICT (observation_id, model_obs_version, embedding_model_version) DO NOTHING "
+                    "RETURNING id",
+                    (r["observation_id"], r["as_of_date"], r["model_obs_version"],
+                     r["embedding_model_version"], vec, txt_vec,
+                     json.dumps(r.get("features_normalized") or {}), r.get("narrative_text"),
+                     r.get("source_quality"), r.get("model_readiness_score"),
+                     json.dumps(r.get("readiness_degrade_reasons") or []),
+                     json.dumps(r.get("lineage_json") or {}), json.dumps(r.get("provenance") or {})),
+                )
+                if cur.fetchone():
+                    inserted += 1
+        return inserted
 
     def insert_episode_embeddings(self, rows: list[dict[str, Any]]) -> int:
         from app.db import get_cursor
