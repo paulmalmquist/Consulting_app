@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-11
 
 > **Also shipped (2026-06-17):** the "How This Works" architecture & evidence exhibit — dispatch
-> `docs/plans/03-implementation-plans/active/0007-telemetry-how-it-works-exhibit.md`, ADO Story #654
+> `docs/plans/03-implementation-plans/active/0008-telemetry-how-it-works-exhibit.md`, ADO Story #654
 > (Feature #513 / Epic #497), route `/lab/env/[envId]/telemetry/how-it-works`, branch
 > `feat/telemetry-how-it-works`. Companion interview docs live in this folder
 > (`RS_DEMO_SCRIPT.md`, `RS_INTERVIEW_TALK_TRACK.md`, `RS_EVIDENCE_CHECKLIST.md`,

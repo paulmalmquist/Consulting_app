@@ -1,0 +1,34 @@
+# Architecture — ADE Ops Orchestrator (PR 1)
+
+Built on durable primitives; **no** import of `ade_connectors`/`ade_connector_*`.
+
+## Backend — `backend/app/services/ade_ops/`
+| File | Role |
+|---|---|
+| `models.py` | `RiskTier` (0–5) + `RISK_TIER_TO_PERMISSION` (display map onto `PermissionMode`), `OpsMode`, `OpsStatus(OK/DEGRADED/BLOCKED)`, `OpsConfidence`, `OpsNullReason` (8), `Evidence` (mandatory non-empty `source`), `OpsSkillDef`, `OpsCommandRequest` (no shell/command field), `OpsRunResult` (+`receipt_status`). |
+| `registry.py` | `ops_registry`: ~10 families; 5 tier-0/1 executable commands; tier ≥2 skills `executable=False`. Registration enforces "only tiers 0–1 may be executable". |
+| `executors.py` | One read-only executor per command. Real evidence from durable sources OR fail-closed. `EXECUTORS` maps only the executable commands. |
+| `supervisor.py` | `run_skill`: lookup → risk-tier gate (tier ≥2/non-executable ⇒ `blocked/write_capability_not_enabled`, executor never invoked) → dispatch → receipt. |
+
+Receipts via `governance.record_decision(decision_type="ade_op", …)` →
+`ai_decision_audit_log`. `record_decision` returns `None` on failure (it swallows
+the DB error); the supervisor maps that to `receipt_status=failed` +
+`receipt_write_failed` and never claims a `receipt_id`.
+
+## Migration
+`repo-b/db/schema/484_ade_ops_decision_type.sql` — looks up + drops the auto-named
+inline `decision_type` CHECK from 407, re-adds a stably-named CHECK including
+`ade_op` (all prior values preserved). Idempotent.
+
+## Route — `backend/app/routes/ade_ops.py` (`/api/ade/ops`)
+`GET /skills`, `GET /skills/{name}`, `GET /runs` (business-scoped; empty+null_reason
+only on read failure), `POST /run` (tier ≥2 → 200 `status:"blocked"`). All
+require auth (`require_authenticated_request`). Registered in `backend/app/main.py`.
+
+## Frontend — `ade-ops` (independent of the deletable `ade` package)
+Proxy `repo-b/src/app/api/ade-ops/[...path]/route.ts` (auth-gated, forwards to
+`/api/ade/ops`); lib `repo-b/src/lib/ade-ops/api.ts`; console
+`repo-b/src/components/ade-ops/` (capability banner, skill catalog by lane,
+runnable read-only commands, receipts; all five states); route
+`repo-b/src/app/lab/env/[envId]/ade-ops/page.tsx`; `isDomainRoute` regex updated
+in `LabEnvironmentShell.tsx` for full-bleed.

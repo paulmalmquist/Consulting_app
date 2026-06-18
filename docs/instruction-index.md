@@ -57,6 +57,8 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `plan-budget-augmentor` | `skill` | `active` | `cross-repo` | `yes` | `.skills/plan-budget-augmentor/SKILL.md` |
 | `research-ingest` | `skill` | `active` | `docs, cross-repo` | `yes` | `.skills/research-ingest/SKILL.md` |
 | `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |
+| `ade-ops-orchestrator` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/ade-ops-orchestrator/SKILL.md` |
+| `ai-provider-dispatch` | `skill` | `active` | `backend, cross-repo` | `no` | `.skills/ai-provider-dispatch/SKILL.md` |
 | `winston-post-deploy-verify` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-post-deploy-verify/SKILL.md` |
 | `historyrhymes` | `skill` | `active` | `cross-repo` | `yes` | `skills/historyrhymes/SKILL.md` |
 | `market-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/market-rotation-engine/SKILL.md` |

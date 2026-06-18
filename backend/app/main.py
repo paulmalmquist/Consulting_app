@@ -74,11 +74,13 @@ from app.routes import (
 from app.routes import re_authoritative, re_operator_diagnostics
 from app.routes.ai import router as ai_router
 from app.routes.ai_audit import router as ai_audit_router
+from app.routes.ai_dispatch import router as ai_dispatch_router
 from app.routes.admin_prompt_receipts import router as admin_prompt_receipts_router
 from app.routes import website_content, website_rankings, website_analytics
 from app.routes import consulting
 from app.routes import telemetry
 from app.routes import telemetry_copilot
+from app.routes import ade_ops
 from app.routes import automated_data_engineering
 from app.routes import intelligence_cards
 from app.routes import morning_brief
@@ -378,6 +380,7 @@ if STARGATE_BRIDGE_ENABLED:
     from app.routes.stargate_bridge import router as stargate_bridge_router  # noqa: E402
     app.include_router(stargate_bridge_router)
 app.include_router(ai_audit_router)
+app.include_router(ai_dispatch_router)
 app.include_router(extraction.router)
 app.include_router(compliance.router)
 app.include_router(admin_tools.router)
@@ -462,6 +465,7 @@ app.include_router(consulting.router)
 app.include_router(telemetry.router)
 app.include_router(telemetry_copilot.router)
 app.include_router(automated_data_engineering.router)
+app.include_router(ade_ops.router)
 app.include_router(intelligence_cards.router)
 app.include_router(morning_brief.router)
 app.include_router(enterprise_memory.router)
