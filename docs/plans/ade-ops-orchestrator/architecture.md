@@ -9,6 +9,12 @@ Built on durable primitives; **no** import of `ade_connectors`/`ade_connector_*`
 | `registry.py` | `ops_registry`: ~10 families; 5 tier-0/1 executable commands; tier ≥2 skills `executable=False`. Registration enforces "only tiers 0–1 may be executable". |
 | `executors.py` | One read-only executor per command. Real evidence from durable sources OR fail-closed. `EXECUTORS` maps only the executable commands. |
 | `supervisor.py` | `run_skill`: lookup → risk-tier gate (tier ≥2/non-executable ⇒ `blocked/write_capability_not_enabled`, executor never invoked) → dispatch → receipt. |
+| `freshness.py` (PR 2) | `DURABLE_PRODUCTS` registry → reads a product's own freshness contract (`tel_pipeline_status`); real age + cadence recommendation; fail-closed otherwise. |
+| `cloud/models.py` (PR 3) | The ONE shared `ProviderInventoryObservation` (provider, account_or_workspace, region, resource_type/id, observed_at, evidence_source, status, null_reason, runtime/cost/freshness_observation_available, rightsizing_candidate_available=False, nested `raw_summary`) + `ProviderConfigStatus` rollup. |
+| `cloud/adapters.py` (PR 3) | Four parse-only read-only adapters (snowflake/databricks/gcp/aws) normalizing mocked CLI/query output into observations; fail closed on missing identity; no write verb (test-enforced). |
+| `cloud/providers.py` (PR 3) | `config_status` / `all_provider_status`: rolls observations into per-provider configured/not_configured/unavailable. Env presence ≠ configured; only a real read flips it. |
+
+PR 3 executor wiring: `scan_pipelines` adds per-provider `cloud:<provider>` config evidence; `show_cost_hotspots` reports per-provider cost-observation availability but never recommends (blocked by default); `recommend_rightsize` stays recommendation-disabled. Optimization is PR 4.
 
 Receipts via `governance.record_decision(decision_type="ade_op", …)` →
 `ai_decision_audit_log`. `record_decision` returns `None` on failure (it swallows

@@ -70,14 +70,20 @@ def test_all_five_commands_evidence_or_blocked(monkeypatch):
 
 
 def test_cloud_commands_fail_closed():
-    # ade.freshness.assess became real in PR 2 (durable products); it now fails
-    # closed only for cloud/unknown products — covered by test_ade_ops_freshness.py.
-    for skill in ("ade.cost.show_hotspots", "ade.compute.recommend_rightsize"):
-        r = supervisor.run_skill(OpsCommandRequest(skill=skill, business_id=BIZ))
-        assert r.status == OpsStatus.BLOCKED
-        assert r.null_reason == OpsNullReason.DATA_SOURCE_NOT_CONFIGURED
-        assert r.recommendation is None
-        assert r.evidence == []
+    # freshness.assess became real in PR 2; cost.show_hotspots became
+    # availability-aware in PR 3 (blocked by default, but now carries per-provider
+    # cost-observation evidence — see test_ade_ops_cloud.py). recommend_rightsize
+    # stays recommendation-disabled with no evidence until PR 4.
+    r = supervisor.run_skill(OpsCommandRequest(skill="ade.compute.recommend_rightsize", business_id=BIZ))
+    assert r.status == OpsStatus.BLOCKED
+    assert r.null_reason == OpsNullReason.DATA_SOURCE_NOT_CONFIGURED
+    assert r.recommendation is None
+    assert r.evidence == []
+
+    r2 = supervisor.run_skill(OpsCommandRequest(skill="ade.cost.show_hotspots", business_id=BIZ))
+    assert r2.status == OpsStatus.BLOCKED  # no provider cost observation wired by default
+    assert r2.null_reason == OpsNullReason.DATA_SOURCE_NOT_CONFIGURED
+    assert r2.recommendation is None       # PR 3 never recommends
 
 
 def test_trust_number_requires_metric():
@@ -94,9 +100,10 @@ def test_scan_pipelines_reports_cloud_not_configured(monkeypatch):
     assert r.status == OpsStatus.DEGRADED
     labels = {e.label for e in r.evidence}
     assert "ade_ops_skills" in labels
-    assert "cloud_pipelines" in labels  # explicitly reported as not configured
-    cloud = next(e for e in r.evidence if e.label == "cloud_pipelines")
-    assert cloud.value == "data_source_not_configured"
+    # PR 3: per-provider cloud config status (default not_configured), reported honestly.
+    assert "cloud:snowflake" in labels
+    snow = next(e for e in r.evidence if e.label == "cloud:snowflake")
+    assert "not_configured" in str(snow.value)
 
 
 # ── Receipts ──────────────────────────────────────────────────────────────────
