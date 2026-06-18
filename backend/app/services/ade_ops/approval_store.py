@@ -16,7 +16,8 @@ _COLS = (
     "id, env_id, business_id, recommendation_id, command_name, category, provider, "
     "target_ref, target_type, risk_tier, approval_token, state, requested_by, approver, "
     "approved_at, expires_at, rollback_plan, observation_window, preflight_passed, "
-    "preflight_missing, executed, null_reason, evidence, created_at"
+    "preflight_missing, executed, null_reason, evidence, created_at, "
+    "execution_mode, executed_at, observation_window_opened_at, rolled_back, rolled_back_at"
 )
 
 
@@ -59,7 +60,9 @@ def list_recent(*, env_id: str, business_id: str, limit: int = 50) -> list[Appro
 
 
 def update_state(req: ApprovalRequest, *, env_id: str, business_id: str) -> None:
-    """Persist a state transition. Never sets executed=true (schema CHECK enforces)."""
+    """Persist an approval/preflight state transition. Does not touch execution
+    columns; setting executed=true goes through record_simulated_execution (and
+    the schema CHECK only allows it for execution_mode='simulation')."""
     with get_cursor() as cur:
         cur.execute(
             """UPDATE ade_ops_approvals
@@ -70,6 +73,30 @@ def update_state(req: ApprovalRequest, *, env_id: str, business_id: str) -> None
              bool(req.preflight and req.preflight.passed),
              json.dumps(req.preflight.missing if req.preflight else []),
              req.null_reason, req.approval_id, env_id, business_id))
+
+
+def record_simulated_execution(approval_id: str, *, env_id: str, business_id: str,
+                               executed_at: str, observation_window_opened_at: str) -> None:
+    """Persist a SIMULATED execution. execution_mode='simulation' is the only
+    value the schema CHECK permits alongside executed=true."""
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE ade_ops_approvals
+               SET executed=true, execution_mode='simulation', executed_at=%s,
+                   observation_window_opened_at=%s, updated_at=now()
+               WHERE id=%s AND env_id=%s AND business_id=%s""",
+            (executed_at, observation_window_opened_at, approval_id, env_id, business_id))
+
+
+def record_simulated_rollback(approval_id: str, *, env_id: str, business_id: str,
+                              rolled_back_at: str) -> None:
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE ade_ops_approvals
+               SET rolled_back=true, rolled_back_at=%s, updated_at=now()
+               WHERE id=%s AND env_id=%s AND business_id=%s
+                 AND execution_mode='simulation'""",
+            (rolled_back_at, approval_id, env_id, business_id))
 
 
 def _row_to_request(row: dict) -> ApprovalRequest:
@@ -103,5 +130,11 @@ def _row_to_request(row: dict) -> ApprovalRequest:
         evidence=ev,
         preflight=pf,
         executed=bool(row.get("executed")),
+        execution_mode=row.get("execution_mode"),
+        executed_at=row["executed_at"].isoformat() if row.get("executed_at") else None,
+        observation_window_opened_at=(row["observation_window_opened_at"].isoformat()
+                                      if row.get("observation_window_opened_at") else None),
+        rolled_back=bool(row.get("rolled_back")),
+        rolled_back_at=row["rolled_back_at"].isoformat() if row.get("rolled_back_at") else None,
         null_reason=row.get("null_reason"),
     )

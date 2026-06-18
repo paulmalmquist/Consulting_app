@@ -67,9 +67,17 @@ is data-shape only (no commands). Receipts for create/approve via
 `ai_decision_audit_log`. UI shows the four states + an "execution disabled"
 banner. Tier 3/4 skills remain non-mutating.
 
-### PR 5B — Simulated (non-prod) execution only
-Run the gate to completion against a simulator; record a simulated-execution
-receipt. Still no real provider write.
+### PR 5B — Simulated (non-prod) execution only — SHIPPED (ADO #681/#682)
+Proves the approved-execution ceremony end-to-end against a SIMULATED executor
+(`simulation.py`): approved + preflight + `execution_mode='simulation'` →
+simulated execute → receipt → observation window → optional simulated rollback
+receipt. **Real providers stay impossible:** `nonprod`/`prod` modes return
+`real_execution_not_enabled` (no real executor exists), `approvals.EXECUTION_ENABLED`
+stays False, the simulation module reaches no provider/subprocess (test-enforced),
+and migration 615 relaxes the schema CHECK to `executed=false OR
+execution_mode='simulation'` (verified: a `prod` executed=true insert is rejected,
+`simulation` allowed). UI shows `executed:true` only as a "Simulated" state with
+the mode visible. The real, fully-gated single write is PR 5C.
 
 ### PR 5C — One real, fully-gated provider write
 A single provider path (likely Snowflake or Databricks) behind the full gate:

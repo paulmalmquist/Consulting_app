@@ -109,6 +109,11 @@ export interface ApprovalRequest {
   evidence: Evidence[];
   preflight: PreflightResult | null;
   executed: boolean;
+  execution_mode: "simulation" | "nonprod" | "prod" | null;
+  executed_at: string | null;
+  observation_window_opened_at: string | null;
+  rolled_back: boolean;
+  rolled_back_at: string | null;
   null_reason: string | null;
 }
 
@@ -117,14 +122,31 @@ export interface ApprovalsResponse {
   null_reason: string | null;
 }
 
+// PR 5B: execute runs the SIMULATED ceremony. executed:true only for simulation;
+// real modes are blocked (no real executor until PR 5C).
 export interface ExecuteResponse {
   approval: ApprovalRequest;
   execution: {
+    outcome: "simulated" | "blocked";
     executed: boolean;
-    execution_enabled: boolean;
-    gate_allowed: boolean;
+    execution_mode: "simulation" | null;
+    executed_at?: string;
+    observation_window_opened_at?: string;
+    simulated_plan?: string[];
     reason: string;
-    note: string;
+    note?: string;
+  };
+}
+
+export interface RollbackResponse {
+  approval: ApprovalRequest;
+  rollback: {
+    outcome: "simulated" | "blocked";
+    execution_mode?: "simulation" | null;
+    rolled_back?: boolean;
+    rolled_back_at?: string;
+    simulated_plan?: string[];
+    reason: string;
   };
 }
 
@@ -162,9 +184,22 @@ export const preflightApproval = (approvalId: string, businessId: string, envId?
     body: JSON.stringify({ business_id: businessId, env_id: envId }),
   });
 
-// PR 5A: this never executes a provider write — the gate returns blocked.
-export const attemptExecute = (approvalId: string, businessId: string, envId?: string) =>
+// PR 5B: runs the SIMULATED execution ceremony. Defaults to simulation; a real
+// mode is blocked server-side. Never touches a provider.
+export const simulateExecute = (
+  approvalId: string,
+  businessId: string,
+  envId?: string,
+  executionMode: "simulation" | "nonprod" | "prod" = "simulation",
+) =>
   apiFetch<ExecuteResponse>(`/api/ade-ops/approvals/${approvalId}/execute`, {
+    method: "POST",
+    body: JSON.stringify({ business_id: businessId, env_id: envId, execution_mode: executionMode }),
+  });
+
+// PR 5B: records a simulated rollback. Touches no provider.
+export const simulateRollback = (approvalId: string, businessId: string, envId?: string) =>
+  apiFetch<RollbackResponse>(`/api/ade-ops/approvals/${approvalId}/rollback`, {
     method: "POST",
     body: JSON.stringify({ business_id: businessId, env_id: envId }),
   });
