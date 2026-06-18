@@ -24,7 +24,7 @@ from app.services import telemetry_serving as svc
 from app.services import telemetry_copilot_policy as policy
 from app.services.telemetry_copilot_policy import (
     COPILOT_MODEL, SYSTEM_PROMPT_TEXT, INTENT_PLAN, REFUSAL_MESSAGE,
-    NULL_INSUFFICIENT,
+    NULL_INSUFFICIENT, NULL_LIVE_DATA_UNAVAILABLE,
 )
 
 # Canonical demo run (the flagship). Used when a free-form /ask carries no explicit run context.
@@ -39,7 +39,8 @@ _ARTIFACT_DIR = Path(__file__).resolve().parent.parent / "data" / "telemetry"
 
 # Prompt version: stable id over the policy that produces every answer.
 ALLOW_LIST = ["get_triggering_prediction", "get_prediction", "get_predictions_by_window",
-              "get_model_run_detail", "get_anomaly_events_in_window"]
+              "get_model_run_detail", "get_anomaly_events_in_window",
+              "get_inventory_counts", "get_stream_freshness"]
 PROMPT_VERSION = policy.compute_prompt_version_hash(
     SYSTEM_PROMPT_TEXT, COPILOT_MODEL, ALLOW_LIST, policy.refusal_rule_sources())
 
@@ -114,10 +115,39 @@ def _tool_get_anomaly_events_in_window(ctx: dict, state: dict):
     return res, "skipped", "no labeled anomaly in window"
 
 
+def _tool_get_inventory_counts(ctx: dict, state: dict):
+    # Aggregate counts from the same approved structured source the Overview uses (svc.summary).
+    res = svc.summary(env_id=ctx["env_id"], business_id=ctx["business_id"])
+    kpi = (res or {}).get("kpi") or {}
+    counts = {k: kpi.get(k) for k in
+              ("test_runs", "predictions", "anomaly_events", "promoted_models", "drift_monitors")}
+    counts = {k: int(v) for k, v in counts.items() if isinstance(v, (int, float))}
+    if counts:
+        state["counts"] = counts
+        return res, "success", "inventory " + " ".join(f"{k}={v}" for k, v in counts.items())
+    return res, "skipped", "no inventory counts available"
+
+
+def _tool_get_stream_freshness(ctx: dict, state: dict):
+    # In scope (platform telemetry state). Fresh -> evidence; stale/disabled/absent -> distinct
+    # fail-closed reason (NULL_LIVE_DATA_UNAVAILABLE), never a fabricated live value.
+    res = svc.monitoring(env_id=ctx["env_id"], business_id=ctx["business_id"])
+    stream = (res or {}).get("stream")
+    status = (stream or {}).get("status")
+    if stream and status in ("fresh", "ok", "live"):
+        state["stream_freshness"] = stream
+        return res, "success", f"stream {status} as_of={stream.get('as_of_ts')}"
+    state["null_reason_override"] = NULL_LIVE_DATA_UNAVAILABLE
+    reason = (stream or {}).get("reason") or "stream worker disabled or no live frames"
+    return res, "skipped", f"live stream unavailable: {status or 'no_stream'} ({reason})"
+
+
 ALLOWED_TOOLS: dict[str, Callable[[dict, dict], tuple]] = {
     "get_triggering_prediction": _tool_get_triggering_prediction,
     "get_model_run_detail": _tool_get_model_run_detail,
     "get_anomaly_events_in_window": _tool_get_anomaly_events_in_window,
+    "get_inventory_counts": _tool_get_inventory_counts,
+    "get_stream_freshness": _tool_get_stream_freshness,
 }
 
 
@@ -168,6 +198,16 @@ def _assemble_evidence(state: dict) -> list[dict]:
                    "metadata": {"channel_name": e.get("channel_name"),
                                 "start_t": e.get("start_t"), "end_t": e.get("end_t"),
                                 "source": e.get("source")}})
+    for entity, n in (state.get("counts") or {}).items():
+        ev.append({"type": "inventory", "id": None, "label": entity.replace("_", " "),
+                   "value": n, "metadata": {"entity": entity, "source": "recorded tel_ summary"}})
+    sf = state.get("stream_freshness")
+    if sf:
+        ev.append({"type": "stream_status", "id": None, "label": "live stream freshness",
+                   "value": sf.get("status"),
+                   "metadata": {"as_of_ts": str(sf.get("as_of_ts")),
+                                "last_frame_at": str(sf.get("last_frame_at")),
+                                "rows_per_min": sf.get("rows_per_min"), "reason": sf.get("reason")}})
     return ev
 
 
@@ -304,6 +344,17 @@ def _fallback_template_answer(intent: str, state: dict, evidence: list[dict]) ->
                 f"{model.get('mlflow_run_id')}. Metrics: F1 {m.get('f1')}, precision "
                 f"{m.get('precision')}, recall {m.get('recall')}.\n\n"
                 "**Human review:** assistant-generated draft from recorded model metadata.")
+    counts = state.get("counts")
+    if counts:
+        parts = ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items())
+        return (f"**Inventory.** Recorded on the platform: {parts}. These are counts from the "
+                "platform record.\n\n**Human review:** assistant-generated from recorded inventory counts.")
+    sf = state.get("stream_freshness")
+    if sf:
+        return (f"**Live stream.** Status {sf.get('status')} as of {sf.get('as_of_ts')}; last frame "
+                f"{sf.get('last_frame_at')}, {sf.get('rows_per_min')} rows/min. The copilot reports "
+                "recorded predictions and stream freshness, not raw live sensor values.\n\n"
+                "**Human review:** assistant-generated from recorded pipeline status.")
     return "Insufficient evidence to answer from the platform record."
 
 
@@ -356,12 +407,16 @@ async def answer(*, env_id: str, business_id, question: str | None = None,
 
     # 6. fail closed if nothing to cite
     if not evidence:
-        nr = NULL_INSUFFICIENT
+        nr = state.get("null_reason_override") or NULL_INSUFFICIENT
         for t in tool_trace:
             if t["status"] == "error" and "missing_run" in t["result_summary"]:
                 nr = policy.NULL_MISSING_RUN
-        result = {**base, "answer": "No grounded evidence is available for this question on the "
-                  "current run, so the copilot cannot answer.", "is_refusal": False,
+        msg = ("Live telemetry is not currently available for this environment, so the copilot "
+               "cannot report a live value (the recorded record is still queryable)."
+               if nr == NULL_LIVE_DATA_UNAVAILABLE else
+               "No grounded evidence is available for this question on the current run, so the "
+               "copilot cannot answer.")
+        result = {**base, "answer": msg, "is_refusal": False,
                   "intent": intent, "null_reason": nr, "answer_source": "fallback_template"}
         _log(env_id, business_id, question, result, t0)
         return result

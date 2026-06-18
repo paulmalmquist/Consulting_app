@@ -240,6 +240,73 @@ def test_governance_summary_aggregates(fake_cursor):
     assert g["active_prompt_version"] == "e1d3a0daab52"
 
 
+# ── Scope expansion (ADO #680): inventory counts + live-status freshness ───────
+def test_inventory_count_questions_classify_in_scope():
+    for q in ["How many test runs are in this environment?",
+              "How many predictions and promoted models exist?",
+              "What is the count of drift monitors?"]:
+        intent, refusal = policy.classify(q)
+        assert intent == "inventory_counts" and refusal is None, q
+
+
+def test_unsupported_aggregates_still_refuse():
+    # Not a known platform entity -> falls through to refuse; never a fabricated count.
+    for q in ["How many launches happened this year?",
+              "How many customers do we have?",
+              "How many engines are there?"]:
+        intent, refusal = policy.classify(q)
+        assert intent is None and refusal == policy.NULL_UNSUPPORTED, q
+
+
+def test_live_status_questions_classify_in_scope():
+    for q in ["What is the live chamber pressure right now?",
+              "Is the stream fresh?",
+              "What is the current sensor reading now?"]:
+        intent, refusal = policy.classify(q)
+        assert intent == "live_status" and refusal is None, q
+
+
+def test_inventory_counts_tool_grounds_counts(monkeypatch):
+    monkeypatch.setattr(tc.svc, "summary", lambda **k: {
+        "kpi": {"test_runs": 42, "predictions": 364, "anomaly_events": 102,
+                "promoted_models": 2, "drift_monitors": 104}})
+    state: dict = {}
+    _res, status, _summary = tc._tool_get_inventory_counts({"env_id": ENV, "business_id": BIZ}, state)
+    assert status == "success"
+    assert state["counts"] == {"test_runs": 42, "predictions": 364, "anomaly_events": 102,
+                               "promoted_models": 2, "drift_monitors": 104}
+    vals = {e["value"] for e in tc._assemble_evidence(state) if e["type"] == "inventory"}
+    assert {42, 364, 102, 2, 104} <= vals   # each count is a citable evidence value
+
+
+def test_stream_freshness_fresh_grounds_evidence(monkeypatch):
+    monkeypatch.setattr(tc.svc, "monitoring", lambda **k: {
+        "stream": {"status": "fresh", "as_of_ts": "2026-06-18T12:00:00Z",
+                   "last_frame_at": "2026-06-18T11:59:59Z", "rows_per_min": 60, "reason": None}})
+    state: dict = {}
+    _res, status, _ = tc._tool_get_stream_freshness({"env_id": ENV, "business_id": BIZ}, state)
+    assert status == "success" and state.get("stream_freshness")
+    assert "null_reason_override" not in state
+    assert any(e["type"] == "stream_status" for e in tc._assemble_evidence(state))
+
+
+def test_stream_freshness_stale_sets_distinct_null_reason(monkeypatch):
+    monkeypatch.setattr(tc.svc, "monitoring", lambda **k: {
+        "stream": {"status": "stale", "as_of_ts": None, "reason": "stream worker disabled"}})
+    state: dict = {}
+    _res, status, _ = tc._tool_get_stream_freshness({"env_id": ENV, "business_id": BIZ}, state)
+    assert status == "skipped"
+    assert state["null_reason_override"] == policy.NULL_LIVE_DATA_UNAVAILABLE
+    assert tc._assemble_evidence(state) == []   # no fabricated live value
+
+
+def test_stream_freshness_absent_sets_distinct_null_reason(monkeypatch):
+    monkeypatch.setattr(tc.svc, "monitoring", lambda **k: {"stream": None})
+    state: dict = {}
+    _res, status, _ = tc._tool_get_stream_freshness({"env_id": ENV, "business_id": BIZ}, state)
+    assert status == "skipped" and state["null_reason_override"] == policy.NULL_LIVE_DATA_UNAVAILABLE
+
+
 # ── Track B: operator usefulness (disposition capture + measurement) ────────────
 REPORT_ID = str(uuid4())
 
