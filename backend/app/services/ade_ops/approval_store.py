@@ -88,6 +88,24 @@ def record_simulated_execution(approval_id: str, *, env_id: str, business_id: st
             (executed_at, observation_window_opened_at, approval_id, env_id, business_id))
 
 
+def record_real_execution(approval_id: str, *, env_id: str, business_id: str, outcome: dict) -> None:
+    """Persist the ONE real (nonprod Snowflake auto_suspend) execution. The schema
+    CHECK only permits executed=true for nonprod when provider=snowflake +
+    action_kind=warehouse_auto_suspend + both SQL hashes present."""
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE ade_ops_approvals
+               SET executed=true, execution_mode='nonprod', action_kind=%s,
+                   generated_sql_hash=%s, rollback_sql_hash=%s,
+                   before_value=%s, after_value=%s,
+                   executed_at=%s, observation_window_opened_at=%s, updated_at=now()
+               WHERE id=%s AND env_id=%s AND business_id=%s""",
+            (outcome["action_kind"], outcome["generated_sql_hash"], outcome["rollback_sql_hash"],
+             outcome["before_value"], outcome["after_value"],
+             outcome["executed_at"], outcome["observation_window_opened_at"],
+             approval_id, env_id, business_id))
+
+
 def record_simulated_rollback(approval_id: str, *, env_id: str, business_id: str,
                               rolled_back_at: str) -> None:
     with get_cursor() as cur:

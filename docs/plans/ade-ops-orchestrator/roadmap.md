@@ -79,10 +79,24 @@ execution_mode='simulation'` (verified: a `prod` executed=true insert is rejecte
 `simulation` allowed). UI shows `executed:true` only as a "Simulated" state with
 the mode visible. The real, fully-gated single write is PR 5C.
 
-### PR 5C — One real, fully-gated provider write
-A single provider path (likely Snowflake or Databricks) behind the full gate:
-approved + preflight + allowlist + rollback plan + observation window, with
-immutable receipts and post-change watch. Tiers 3–4.
+### PR 5C — First real provider write: Snowflake non-prod AUTO_SUSPEND only — SHIPPED (ADO #683/#684)
+The ONE real, reversible action: `ALTER WAREHOUSE <allowlisted> SET AUTO_SUSPEND
+= <approved int>` — Snowflake only, non-prod only, one action_kind, allowlisted
+warehouses only. No resize/tasks/dynamic-tables/prod/arbitrary/user-supplied SQL,
+no subprocess, no other provider. SQL is built from typed fields and re-validated
+by a strict parser (`validate_sql`) that accepts only that exact statement shape
+against an allowlisted warehouse (rejects semicolons, comments, piggybacks, resize,
+wrong case, non-int, non-allowlisted). Rollback SQL is generated and validated
+BEFORE execution. Gated by approval + preflight + allowlist + rollback + observation
+window + env flag (`ADE_OPS_REAL_EXEC_ENABLED`, default off) + non-prod (prod
+blocked). The Snowflake client is injected (CI mock; no creds; real connector only
+behind the flag). Migration 616 tightens the schema CHECK so a real (`nonprod`)
+executed row is permitted ONLY for `provider='snowflake'` +
+`action_kind='warehouse_auto_suspend'` with both SQL hashes present (verified:
+without-hashes and prod rejected, with-hashes allowed). Receipt records
+before/after, actor, approval id, preflight, SQL hash, rollback SQL hash,
+observation window. NOT a Snowflake write framework — one boring reversible
+mutation. Broader execution + post-change watch is PR 6.
 
 ## PR 6 — Incidents + post-change watcher
 Data-incident state machine, blast-radius mapping, watch the next N runs after a

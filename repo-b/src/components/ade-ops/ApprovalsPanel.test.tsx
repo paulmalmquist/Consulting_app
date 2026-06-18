@@ -23,15 +23,17 @@ function approval(over: Record<string, unknown> = {}) {
     expires_at: "2026-06-18T13:00:00Z", rollback_plan: "snapshot", observation_window: "14-day",
     evidence: [], preflight: null, executed: false, execution_mode: null, executed_at: null,
     observation_window_opened_at: null, rolled_back: false, rolled_back_at: null,
+    action_kind: null, before_value: null, after_value: null,
+    generated_sql_hash: null, rollback_sql_hash: null,
     null_reason: null, ...over,
   };
 }
 
 describe("ApprovalsPanel", () => {
-  it("shows that only simulated execution runs (real writes impossible)", () => {
+  it("states the one real action is gated and everything else impossible", () => {
     render(<ExecutionDisabledBanner />);
     const text = screen.getByTestId("execution-disabled-banner").textContent ?? "";
-    expect(text).toContain("simulated");
+    expect(text).toContain("AUTO_SUSPEND");
     expect(text).toContain("impossible");
   });
 
@@ -72,6 +74,23 @@ describe("ApprovalsPanel", () => {
     render(<ApprovalsPanel businessId="b1" />);
     await waitFor(() => expect(screen.getByTestId("approval-row")).toBeTruthy());
     expect(screen.getByText("executed: false")).toBeTruthy();
+  });
+
+  it("shows a real non-prod execution with before→after and SQL hash", async () => {
+    mockList.mockResolvedValue({
+      approvals: [approval({
+        provider: "snowflake", target_ref: "ADE_OPS_NONPROD_WH",
+        state: "approved", approver: "paul", executed: true, execution_mode: "nonprod",
+        action_kind: "warehouse_auto_suspend", before_value: "600", after_value: "300",
+        generated_sql_hash: "abcdef0123456789", rollback_sql_hash: "9876543210fedcba",
+      })],
+      null_reason: null,
+    });
+    render(<ApprovalsPanel businessId="b1" />);
+    await waitFor(() => expect(screen.getByTestId("approval-row")).toBeTruthy());
+    expect(screen.getByText("Live · non-prod")).toBeTruthy();
+    expect(screen.getByText(/warehouse_auto_suspend: 600 → 300/)).toBeTruthy();
+    expect(screen.getByText(/executed: true · mode: nonprod/)).toBeTruthy();
   });
 
   it("fails closed to empty on read error", async () => {
