@@ -10,7 +10,7 @@ does not touch the production `ai_gateway`.
 |---|---|---|---|---|
 | OpenAI | code, tool_execution, sql_draft, eval_grading, summarization, classification, low_risk_rag, log_explanation, telemetry_narrative | high | sensitive | real |
 | Claude | planning, adversarial_review, research_synthesis, summarization, log_explanation | high | sensitive | real (needs `ANTHROPIC_API_KEY`) |
-| Gemma | summarization, classification, low_risk_rag, log_explanation, telemetry_narrative | medium | internal | fail-closed stub |
+| Gemma | summarization, classification, low_risk_rag, log_explanation, telemetry_narrative | medium | internal | real Vertex adapter (creds-gated; fails closed without `GEMMA_VERTEX_*` + ADC). Not promoted; see `docs/plans/ai-provider-dispatch/gemma-vertex-setup.md` |
 
 Preference per mode: code/tool/sql → OpenAI; planning/adversarial/research → Claude;
 summarization/classification/rag/log/telemetry → Gemma (then OpenAI/Claude only on opt-in fallback).

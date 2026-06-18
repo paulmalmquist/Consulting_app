@@ -18,9 +18,14 @@ criteria** (a mode flips Gemma to default only after ≥90% suite pass on that m
 hallucinations, and a better latency/cost profile than the frontier model). PR 2 ships routing-policy
 eval *visibility*, not live-provider grading.
 
-## PR 3 — Real Gemma on Vertex
-Deploy Gemma via Model Garden to a Vertex endpoint; wire `gemma_vertex_provider` to call it. Fails closed
-on missing creds. Removes Gemma from the not-implemented set once verified.
+## PR 3 — Real Gemma on Vertex (adapter shipped — ADO Feature #669)
+Wired `gemma_vertex_provider` to a real Vertex endpoint (`:predict` + ADC auth); Gemma is now in the
+implemented set so availability is purely credential-gated. Fails closed on missing env/ADC
+(`provider_not_configured`); Vertex errors → `provider_call_failed`. Receipts redacted, no secrets/raw
+answers. Mocked-Vertex tests; no GCP provisioning in this PR, so Gemma stays unavailable in prod until
+credentials are set. Gemma is **not promoted** and `POST /run` stays gated. Setup/stage runbook:
+`gemma-vertex-setup.md`. Still deferred: provisioning a real endpoint + the first real call (stage-first),
+which is an infra step, not code.
 
 ## PR 4 — Cost + budget
 Per-provider cost/latency metering recorded on the receipt; a budget guard returning

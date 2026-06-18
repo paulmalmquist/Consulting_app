@@ -144,7 +144,7 @@ export const KNOWN_GAPS: string[] = [
   "Telemetry governed metric registry not adapted yet (REPE pattern only).",
   "Telemetry lineage drawer not adapted yet (REPE AuditDrawer only).",
   "Cost guardrail estimates only — no enforcement.",
-  "Telemetry copilot RAG/grounding depth requires live verification before quoting numbers.",
+  "Telemetry copilot is grounded structured-evidence Q&A (not document RAG) — production-verified but narrow: it refuses aggregate-count and out-of-scope questions rather than guess (refusal rate ~31%).",
   "Deployment status page planned, not built (status is CLI-verifiable today).",
 ];
 
@@ -223,9 +223,9 @@ export const CAPABILITIES: CapabilityItem[] = [
   },
   {
     capability: "Test Intelligence copilot — evidence cards, tool trace, grounded facts",
-    impl: "partial", verify: "not_verified",
+    impl: "partial", verify: "prod_verified",
     evidence: [{ label: "Test Intelligence", slug: "copilot" }],
-    note: "Grounds on fetched structured evidence with a two-pass anti-fabrication validator — NOT document RAG. Grounding/citation depth must be checked on the running app before quoting coverage.",
+    note: "Grounding production-verified on novendor.ai 2026-06-18 (scripted question set): grounded answers cite real evidence (model/prediction/threshold/mlflow) with typed tool-traces (get_model_run_detail, get_triggering_prediction); refuses out-of-scope cleanly (null_reason=unsupported_question) and does not fabricate — when a tool errored it stated the value was 'not provided in the evidence' rather than inventing it. Stays Partial: grounded structured-evidence Q&A (NOT document RAG) with a narrow scope — it refuses aggregate-count questions rather than guess. Governance: grounded ~69%, refusal ~31%, 1 post-validator block.",
   },
   {
     capability: "AI Governance dashboard — refusal / eval / tool stats",

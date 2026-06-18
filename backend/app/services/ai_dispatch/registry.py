@@ -18,10 +18,11 @@ from app.services.ai_dispatch.models import (
     TaskMode,
 )
 
-# Providers with a real adapter wired in this PR. Gemma is intentionally absent —
-# its adapter is a stub that fails closed until the Vertex wiring lands.
+# Providers with a real adapter. Gemma's Vertex adapter is wired (PR 3); availability is now
+# purely credential-gated — `available()` is True only when GEMMA_VERTEX_* is fully set (and the
+# adapter still fails closed at call time if Application Default Credentials are missing).
 _IMPLEMENTED: frozenset[ProviderName] = frozenset(
-    {ProviderName.OPENAI, ProviderName.ANTHROPIC}
+    {ProviderName.OPENAI, ProviderName.ANTHROPIC, ProviderName.GEMMA_GCP}
 )
 
 _OPENAI_MODES = frozenset(
