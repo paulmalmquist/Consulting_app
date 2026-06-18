@@ -13,6 +13,9 @@ Built on durable primitives; **no** import of `ade_connectors`/`ade_connector_*`
 | `cloud/models.py` (PR 3) | The ONE shared `ProviderInventoryObservation` (provider, account_or_workspace, region, resource_type/id, observed_at, evidence_source, status, null_reason, runtime/cost/freshness_observation_available, rightsizing_candidate_available=False, nested `raw_summary`) + `ProviderConfigStatus` rollup. |
 | `cloud/adapters.py` (PR 3) | Four parse-only read-only adapters (snowflake/databricks/gcp/aws) normalizing mocked CLI/query output into observations; fail closed on missing identity; no write verb (test-enforced). |
 | `cloud/providers.py` (PR 3) | `config_status` / `all_provider_status`: rolls observations into per-provider configured/not_configured/unavailable. Env presence ≠ configured; only a real read flips it. |
+| `recommendations.py` (PR 4) | `AdeOpsRecommendation` (one common shape) + boring/explainable rules (`freshness_recommendation`/`cost_recommendation`/`rightsize_recommendation`) + `dry_run_text` (text-only, NOT EXECUTED) + `ado_ticket_payload` (import-ready, `pushed:false`). `risk_tier` derived: dry-run artifact ⇒ Tier 2 + approval_required + rollback_required; else Tier 1. |
+
+PR 4 executor wiring: cost/rightsize/freshness attach `recommendations: list[dict]` to `OpsRunResult` (pre-serialized, to avoid a models↔recommendations import cycle). Candidate-only — no provider command issued; cost asserts no dollar savings; rightsize blocked by default (no utilization adapter). Tier-2 *skills* stay non-executable; only the *artifact's* `risk_tier` reflects a recommended action. Apply/rollback is PR 5.
 
 PR 3 executor wiring: `scan_pipelines` adds per-provider `cloud:<provider>` config evidence; `show_cost_hotspots` reports per-provider cost-observation availability but never recommends (blocked by default); `recommend_rightsize` stays recommendation-disabled. Optimization is PR 4.
 

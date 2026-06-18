@@ -146,6 +146,9 @@ class OpsRunResult(BaseModel):
     approval_required: bool = False
     receipt_id: str | None = None
     receipt_status: ReceiptStatus = ReceiptStatus.SKIPPED
+    # PR 4: governed recommendation artifacts (pre-serialized AdeOpsRecommendation
+    # dicts; stored as dicts to avoid a models<->recommendations import cycle).
+    recommendations: list[dict] = Field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -160,4 +163,5 @@ class OpsRunResult(BaseModel):
             "approval_required": self.approval_required,
             "receipt_id": self.receipt_id,
             "receipt_status": self.receipt_status.value,
+            "recommendations": self.recommendations,
         }

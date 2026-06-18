@@ -34,9 +34,22 @@ availability but **does not recommend** (blocked by default); `recommend
 rightsize` stays recommendation-disabled. No credentials in CI; tests use mocked
 output only. Optimization is PR 4.
 
-## PR 4 — Recommendation engine
-Right-size + cadence heuristics, confidence/risk scoring, ADO ticket + dry-run
-patch generation. Tier 2 becomes executable as **dry-run only**.
+## PR 4 — Recommendation engine — SHIPPED (ADO #676/#677)
+Observations → governed recommendation **artifacts**, never actions. One common
+`AdeOpsRecommendation` shape (`recommendations.py`): finding, recommendation,
+confidence, risk_tier, expected_impact, evidence[], assumptions[], null_reason,
+dry_run_artifact, approval_required, next_step, observation_window,
+rollback_required. Boring/explainable rules — FRESHNESS: stale→cadence-change
+candidate, failed→incident follow-up, no as_of→blocked durable_source_unavailable;
+COST: cost-observation present→rank hotspots (candidate, **no dollar savings**),
+missing billing→blocked/degraded no estimate; RIGHTSIZE: runtime+cost+utilization
+present→candidate with **text-only** dry-run (Tier 2 + approval + rollback flags),
+missing any→blocked no resize. The dry-run is descriptive text labelled NOT
+EXECUTED; the ADO payload is local/import-ready (`pushed:false`) — real tickets
+route through azure-devops-intake. **No provider execution, no writes, no schedule
+changes, no rollback/exec logic.** `risk_tier` on the artifact describes the
+recommended action's tier; the command stays tier-1 read-only. Tier-2 *skills*
+remain non-executable. Apply/rollback is PR 5.
 
 ## PR 5 — Approval-gated execution
 Allowlisted CLI/SQL write commands behind approval tokens, mandatory rollback,
