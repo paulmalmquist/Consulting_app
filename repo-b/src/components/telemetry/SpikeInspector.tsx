@@ -1,12 +1,13 @@
 "use client";
 
-// Telemetry Spike Inspector — read-only "evaluate and recommend" workspace.
+// Telemetry Spike Inspector — real findings from the telemetry analyzer (single source of truth).
 //
-// This surface NEVER aborts, rolls back, or mutates anything. Choosing an action STAGES a
-// recommendation into a local, in-memory queue that RESETS ON REFRESH. Nothing is executed,
-// persisted, or sent. Missing/stale evidence renders as `insufficient_evidence` (fail closed).
+// This surface EVALUATES AND RECOMMENDS only. It never aborts, rolls back, or mutates anything.
+// Operator dispositions are staged into a local, in-memory queue that RESETS ON REFRESH — nothing is
+// executed or persisted. There is NO static/demo data: when the analyzer returns no findings or a
+// source is unavailable, the UI fails closed and names the reason.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   C,
   Panel,
@@ -15,47 +16,50 @@ import {
   StatGrid,
   Tag,
   EmptyState,
+  Loading,
+  ErrorState,
   DisclosureFooter,
 } from "./primitives";
 import { telemetryHref } from "./telemetryNav";
 import {
-  ACTION_CATALOG,
-  DEMO_RECEIPTS,
-  DEMO_SPIKES,
-  SPIKE_TYPE_META,
-  detectorColor,
-  detectorLabel,
-  freshnessColor,
-  isInsufficientEvidence,
-  posture,
-  postureColor,
-  riskColor,
+  getFindings,
   severityColor,
-  spikeStatusLabel,
-  statusColor,
-  type RiskLevel,
-  type SpikeActionId,
-  type TelemetrySpike,
+  severityRank,
+  humanGateRequired,
+  findingFreshness,
+  sourceLabel,
+  type AnalyzerFinding,
+  type FindingsResponse,
+  type Severity,
 } from "@/lib/telemetry/spikeInspector";
 
-type TabId = "live" | "packets" | "queue" | "receipts";
+type Posture = "STABLE" | "WATCH" | "DEGRADED";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "live", label: "Live Feed" },
-  { id: "packets", label: "Inspection Packets" },
-  { id: "queue", label: "Action Queue" },
-  { id: "receipts", label: "Receipts" },
+function posture(by: Record<Severity, number>): Posture {
+  if ((by.critical ?? 0) > 0) return "DEGRADED";
+  if ((by.warning ?? 0) > 0) return "WATCH";
+  return "STABLE";
+}
+function postureColor(p: Posture): string {
+  if (p === "DEGRADED") return C.red;
+  if (p === "WATCH") return C.amber;
+  return C.green;
+}
+
+type DispositionId = "acknowledge" | "stage_recommendation" | "escalate_go_no_go_review";
+const DISPOSITIONS: { id: DispositionId; label: string; gate: boolean; note: string }[] = [
+  { id: "acknowledge", label: "Acknowledge", gate: false, note: "Marks the finding seen. Changes no metric and resolves nothing." },
+  { id: "stage_recommendation", label: "Stage recommendation", gate: false, note: "Queues the analyzer's recommendation for a human. Does not execute it." },
+  { id: "escalate_go_no_go_review", label: "Escalate to Go/No-Go review", gate: true, note: "Hands off to the Control Tower for a human gate. Sets no verdict here." },
 ];
 
-interface StagedAction {
+interface Staged {
   key: string;
-  spikeId: string;
-  spikeSignal: string;
-  actionId: SpikeActionId;
-  label: string;
-  risk: RiskLevel;
-  gateRequired: boolean;
-  stagedAt: string;
+  findingId: string;
+  title: string;
+  disposition: string;
+  gate: boolean;
+  at: string;
 }
 
 const lbl = {
@@ -67,160 +71,144 @@ const lbl = {
 };
 
 export default function SpikeInspector({ envId }: { envId?: string }) {
-  const spikes = DEMO_SPIKES;
-  const [tab, setTab] = useState<TabId>("live");
-  const [selectedId, setSelectedId] = useState<string>(spikes[0]?.id ?? "");
+  const [data, setData] = useState<FindingsResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("");
   // demo/in-memory: resets on refresh. Never persisted, never executed.
-  const [staged, setStaged] = useState<StagedAction[]>([]);
+  const [staged, setStaged] = useState<Staged[]>([]);
 
-  const summary = useMemo(() => posture(spikes), [spikes]);
-  const selected = spikes.find((s) => s.id === selectedId) ?? spikes[0];
+  useEffect(() => {
+    let active = true;
+    getFindings(envId)
+      .then((d) => {
+        if (!active) return;
+        setData(d);
+        setSelectedId(d.findings.length ? rankedFindings(d.findings)[0].finding_id : "");
+      })
+      .catch((e) => active && setError(String(e?.message ?? e)));
+    return () => {
+      active = false;
+    };
+  }, [envId]);
 
-  const feed = tab === "packets" ? spikes.filter((s) => s.evidence.length > 0) : spikes;
+  const heading = (
+    <PageHeading
+      eyebrow="Telemetry · Anomaly Ops"
+      title="Spike Inspector"
+      blurb="Real telemetry findings from the analyzer — anomaly rate, distribution drift, and model health — grounded in the seeded tel_* serving reads. Evaluate and recommend only: no auto-abort, no auto-rollback, no production mutation."
+      right={
+        data ? <Tag color={postureColor(posture(data.by_severity))}>Posture · {posture(data.by_severity)}</Tag> : undefined
+      }
+    />
+  );
 
-  function stage(spike: TelemetrySpike, actionId: SpikeActionId) {
-    const spec = ACTION_CATALOG[actionId];
+  if (error) return <>{heading}<ErrorState message={error} /></>;
+  if (!data) return <>{heading}<Loading label="Loading telemetry findings…" /></>;
+
+  const ranked = rankedFindings(data.findings);
+  const selected = ranked.find((f) => f.finding_id === selectedId) ?? ranked[0];
+  const unavailable = data.null_reason === "telemetry_findings_unavailable";
+
+  function stage(f: AnalyzerFinding, d: (typeof DISPOSITIONS)[number]) {
     setStaged((prev) => [
-      {
-        key: `${spike.id}:${actionId}:${prev.length}`,
-        spikeId: spike.id,
-        spikeSignal: spike.signal,
-        actionId,
-        label: spec.label,
-        risk: spec.risk,
-        gateRequired: spec.gateRequired,
-        stagedAt: new Date().toISOString(),
-      },
+      { key: `${f.finding_id}:${d.id}:${prev.length}`, findingId: f.finding_id, title: f.what_changed, disposition: d.label, gate: d.gate, at: new Date().toISOString() },
       ...prev,
     ]);
   }
 
   return (
     <>
-      <PageHeading
-        eyebrow="Telemetry · Anomaly Ops"
-        title="Spike Inspector"
-        blurb="Inspect telemetry spikes — threshold, drift, pipeline, model, governance, and post-change degradation — then stage a recommendation. This surface evaluates and recommends only: it never aborts, rolls back, or mutates any system."
-        right={
-          <Tag color={postureColor(summary.posture)}>Posture · {summary.posture}</Tag>
-        }
-      />
+      {heading}
 
-      <StatGrid cols={5} style={{ marginBottom: 16 }}>
-        <MetricCard label="Open spikes" value={String(summary.open)} />
-        <MetricCard label="Critical" value={String(summary.critical)} accent={summary.critical ? C.red : C.text} />
-        <MetricCard label="Insufficient evidence" value={String(summary.insufficientEvidence)} accent={summary.insufficientEvidence ? C.amber : C.text} />
-        <MetricCard label="Governance blocks" value={String(summary.governanceBlocks)} accent={summary.governanceBlocks ? C.red : C.text} />
-        <MetricCard label="Post-change degraded" value={String(summary.postChangeDegradations)} accent={summary.postChangeDegradations ? C.amber : C.text} />
+      <StatGrid cols={4} style={{ marginBottom: 16 }}>
+        <MetricCard label="Findings" value={String(data.finding_count)} />
+        <MetricCard label="Critical" value={String(data.by_severity.critical ?? 0)} accent={(data.by_severity.critical ?? 0) ? C.red : C.text} />
+        <MetricCard label="Warning" value={String(data.by_severity.warning ?? 0)} accent={(data.by_severity.warning ?? 0) ? C.amber : C.text} />
+        <MetricCard label="Sources unavailable" value={String(data.null_reasons.length)} accent={data.null_reasons.length ? C.amber : C.text} />
       </StatGrid>
 
-      <Panel title="Capability — honest scope" style={{ marginBottom: 16 }}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <ScopeNote color={C.green} head="Evaluate & recommend" body="Detects spikes over static demo telemetry, assembles evidence, and recommends a next step for a human." />
-          <ScopeNote color={C.amber} head="Fail closed" body="Missing or stale evidence resolves to insufficient_evidence — never a success verdict or a guess." />
-          <ScopeNote color={C.red} head="No automatic action" body="No auto-abort, no auto-rollback, no production mutation. High-risk actions require a human gate." />
+      <ProvenancePanel data={data} />
+
+      {unavailable ? (
+        <div style={{ border: `1px solid ${C.red}66`, background: C.red + "12", borderRadius: 10, padding: 16, marginTop: 16 }}>
+          <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: C.red }}>Not available</div>
+          <p style={{ fontFamily: C.sans, fontSize: 13, color: C.text, lineHeight: 1.5, marginTop: 6 }}>
+            The telemetry analyzer could not be reached. null_reason: <strong>telemetry_findings_unavailable</strong>.
+            No findings are shown — this surface fails closed rather than render stale or fabricated data.
+          </p>
         </div>
-      </Panel>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        {TABS.map((t) => {
-          const active = t.id === tab;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                fontFamily: C.mono,
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: active ? C.text : C.dim,
-                background: active ? C.panelHi : "transparent",
-                border: `1px solid ${active ? C.borderHi : C.border}`,
-                borderRadius: 7,
-                padding: "7px 13px",
-                cursor: "pointer",
-              }}
-            >
-              {t.label}
-              {t.id === "queue" && staged.length > 0 ? ` · ${staged.length}` : ""}
-            </button>
-          );
-        })}
-      </div>
-
-      {(tab === "live" || tab === "packets") && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,320px)]">
-          <SpikeFeed spikes={feed} selectedId={selected?.id ?? ""} onSelect={setSelectedId} />
-          <InspectionWorkspace spike={selected} envId={envId} />
-          <ActionQueuePanel spike={selected} onStage={stage} />
+      ) : ranked.length === 0 ? (
+        <div style={{ marginTop: 16 }}>
+          <EmptyState label="No active telemetry findings." hint="The analyzer evaluated the seeded serving reads and surfaced nothing above the alert thresholds. Sources that could not be evaluated are listed below." />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,320px)]" style={{ marginTop: 16 }}>
+          <FindingsFeed findings={ranked} selectedId={selected?.finding_id ?? ""} onSelect={setSelectedId} />
+          <Inspection finding={selected} envId={envId} />
+          <Actions finding={selected} onStage={stage} />
         </div>
       )}
 
-      {tab === "queue" && <StagedQueue staged={staged} onClear={() => setStaged([])} />}
-
-      {tab === "receipts" && <ReceiptsTable envId={envId} />}
+      <SourcesUnavailable nullReasons={data.null_reasons} />
+      <StagedQueue staged={staged} onClear={() => setStaged([])} />
 
       <DisclosureFooter />
       <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6, marginTop: 12 }}>
-        Static demo telemetry. This surface evaluates and recommends only; it does not abort, roll
-        back, or mutate any system. Staged actions are in-memory and reset on refresh.
+        Findings are live from the telemetry analyzer over the seeded telemetry-demo serving reads. This
+        surface evaluates and recommends only; it does not abort, roll back, or mutate any system. Staged
+        dispositions are in-memory and reset on refresh.
       </p>
     </>
   );
 }
 
-function ScopeNote({ color, head, body }: { color: string; head: string; body: string }) {
+function rankedFindings(findings: AnalyzerFinding[]): AnalyzerFinding[] {
+  return [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+}
+
+function ProvenancePanel({ data }: { data: FindingsResponse }) {
+  const p = data.provenance;
+  const rows: { label: string; value: string }[] = [
+    { label: "surface", value: "Spike Inspector" },
+    { label: "mode", value: p.mode },
+    { label: "source", value: p.source },
+    { label: "tenant", value: p.tenant },
+    { label: "rows evaluated", value: p.rows_evaluated == null ? "Not available" : String(p.rows_evaluated) },
+    { label: "last refresh", value: p.last_refresh },
+    { label: "fallback used", value: p.fallback_used ? "YES" : "NO" },
+  ];
   return (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-      <div style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color }}>{head}</div>
-      <p style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.5, marginTop: 6 }}>{body}</p>
-    </div>
+    <Panel title="Data Source Audit" right={<Tag color={p.fallback_used ? C.red : C.green}>{p.fallback_used ? "fallback" : "real_backend"}</Tag>}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px 16px" }}>
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div style={lbl}>{r.label}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 12, color: r.label === "fallback used" ? (data.provenance.fallback_used ? C.red : C.green) : C.text, marginTop: 4, wordBreak: "break-word" }}>{r.value}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
 
-function SpikeFeed({
-  spikes,
-  selectedId,
-  onSelect,
-}: {
-  spikes: TelemetrySpike[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-}) {
+function FindingsFeed({ findings, selectedId, onSelect }: { findings: AnalyzerFinding[]; selectedId: string; onSelect: (id: string) => void }) {
   return (
-    <Panel title={`Spike feed · ${spikes.length}`} pad={10}>
+    <Panel title={`Findings · ${findings.length}`} pad={10}>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 620, overflowY: "auto" }}>
-        {spikes.length === 0 && <EmptyState label="No spikes" hint="No spikes match this tab." />}
-        {spikes.map((s) => {
-          const active = s.id === selectedId;
-          const insufficient = isInsufficientEvidence(s);
+        {findings.map((f) => {
+          const active = f.finding_id === selectedId;
           return (
             <button
-              key={s.id}
+              key={f.finding_id}
               type="button"
-              onClick={() => onSelect(s.id)}
-              style={{
-                textAlign: "left",
-                background: active ? C.panelHi : C.panel,
-                border: `1px solid ${active ? C.borderHi : C.border}`,
-                borderRadius: 9,
-                padding: 11,
-                cursor: "pointer",
-              }}
+              onClick={() => onSelect(f.finding_id)}
+              style={{ textAlign: "left", background: active ? C.panelHi : C.panel, border: `1px solid ${active ? C.borderHi : C.border}`, borderRadius: 9, padding: 11, cursor: "pointer" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text, fontWeight: 600 }}>{s.signal}</span>
-                <Tag color={severityColor(s.severity)}>{s.severity}</Tag>
+                <Tag color={severityColor(f.severity)}>{f.severity}</Tag>
+                <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>{Math.round((f.confidence ?? 0) * 100)}%</span>
               </div>
-              <div style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, marginTop: 5 }}>
-                {SPIKE_TYPE_META[s.spike_type].label}
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                <Tag color={statusColor(s.status)}>{spikeStatusLabel(s.status)}</Tag>
-                {insufficient && <Tag color={C.amber}>fail-closed</Tag>}
-              </div>
+              <div style={{ fontFamily: C.sans, fontSize: 12.5, color: C.text, marginTop: 6, lineHeight: 1.4 }}>{f.what_changed}</div>
             </button>
           );
         })}
@@ -229,141 +217,77 @@ function SpikeFeed({
   );
 }
 
-function InspectionWorkspace({ spike, envId }: { spike?: TelemetrySpike; envId?: string }) {
-  if (!spike) return <Panel title="Inspection"><EmptyState label="Select a spike" hint="Pick a spike from the feed to inspect its evidence." /></Panel>;
-
-  const insufficient = isInsufficientEvidence(spike);
-  const meta = SPIKE_TYPE_META[spike.spike_type];
-  const rec = ACTION_CATALOG[spike.recommended_action];
-
+function Inspection({ finding, envId }: { finding?: AnalyzerFinding; envId?: string }) {
+  if (!finding) return <Panel title="Inspection"><EmptyState label="Select a finding" hint="Pick a finding from the feed to inspect its evidence." /></Panel>;
+  const freshness = findingFreshness(finding);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Panel
-        title={`Inspection · ${meta.label}`}
-        right={<Tag color={severityColor(spike.severity)}>{spike.severity}</Tag>}
-      >
-        <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.5, marginBottom: 12 }}>{meta.blurb}</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px 14px" }}>
-          <Field label="status" value={<Tag color={statusColor(spike.status)}>{spikeStatusLabel(spike.status)}</Tag>} />
-          <Field label="stand" value={spike.stand_id} />
-          <Field label="run" value={spike.run_id} />
-          <Field label="signal" value={spike.signal} />
-          <Field label="detected" value={spike.detected_at} />
-          <Field label="evidence freshness" value={<Tag color={freshnessColor(spike.freshness)}>{spike.freshness}</Tag>} />
+      <Panel title="Inspection" right={<Tag color={severityColor(finding.severity)}>{finding.severity}</Tag>}>
+        <div style={{ fontFamily: C.sans, fontSize: 14, color: C.text, fontWeight: 600, lineHeight: 1.4 }}>{finding.what_changed}</div>
+        <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.5, marginTop: 8 }}>{finding.why_it_matters}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px 14px", marginTop: 12 }}>
+          <Field label="confidence" value={`${Math.round((finding.confidence ?? 0) * 100)}%`} />
+          <Field label="freshness" value={freshness ?? "unknown"} />
+          <Field label="finding id" value={finding.finding_id} />
         </div>
-      </Panel>
-
-      {spike.spike_type === "governance_receipt" && (
-        <div style={{ border: `1px solid ${C.red}66`, background: C.red + "12", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: C.red }}>
-            Decision promotion blocked
-          </div>
-          <p style={{ fontFamily: C.sans, fontSize: 13, color: C.text, lineHeight: 1.5, marginTop: 6 }}>
-            A governance receipt for this run failed verification. No Go/No-Go decision may be promoted on
-            this run until a human resolves the receipt provenance in the Control Tower.
-          </p>
-        </div>
-      )}
-
-      {insufficient ? (
-        <div style={{ border: `1px solid ${C.amber}66`, background: C.amber + "12", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber }}>
-            Insufficient evidence
-          </div>
-          <p style={{ fontFamily: C.sans, fontSize: 13, color: C.text, lineHeight: 1.5, marginTop: 6 }}>
-            No anomaly judgement can be made. null_reason: <strong>{spike.null_reason ?? "stale_or_missing"}</strong>.
-            The recommendation below is to gather evidence, not to conclude.
-          </p>
-        </div>
-      ) : (
-        <Panel title="Detector outputs">
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {spike.detector_outputs.map((d) => (
-              <div key={d.detector} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-                <div>
-                  <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{d.detector}</div>
-                  {d.note && <div style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, marginTop: 3 }}>{d.note}</div>}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <Tag color={detectorColor(d.verdict)}>{detectorLabel(d.verdict)}</Tag>
-                  <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 4 }}>
-                    {d.score === null ? "—" : d.score}{d.threshold === null ? "" : ` / thr ${d.threshold}`}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <Panel title="Corroborating channels">
-        {spike.corroborating_channels.length === 0 ? (
-          <span style={{ fontFamily: C.mono, fontSize: 12, color: C.faint }}>None — single-source observation.</span>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-            {spike.corroborating_channels.map((c) => (
-              <div key={c.channel} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{c.channel}</span>
-                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {c.note && <span style={{ fontFamily: C.sans, fontSize: 12, color: C.dim }}>{c.note}</span>}
-                  <Tag color={c.agrees ? C.green : C.dim}>{c.agrees ? "agrees" : "disagrees"}</Tag>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </Panel>
 
       <Panel title="Evidence">
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {spike.evidence.map((e, i) => (
-            <div key={`${e.label}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>
-                {e.label} = <span style={{ color: C.cyan }}>{e.value}</span>
-              </span>
-              <span style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, display: "flex", gap: 8, alignItems: "center" }}>
-                src: {e.source} · {e.as_of ?? "no timestamp"}
-                <Tag color={freshnessColor(e.freshness)}>{e.freshness}</Tag>
-              </span>
-            </div>
-          ))}
+        <div style={{ marginBottom: 10 }}>
+          <div style={lbl}>provenance</div>
+          <div style={{ fontFamily: C.mono, fontSize: 12, color: C.cyan, marginTop: 4 }}>{sourceLabel(finding.source_ref)}</div>
         </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {(finding.evidence_refs ?? []).length === 0 ? (
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.faint }}>No evidence references.</span>
+          ) : (
+            finding.evidence_refs.map((e, i) => (
+              <div key={`${e}-${i}`} style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{e}</div>
+            ))
+          )}
+        </div>
+        {(finding.metric_refs ?? []).length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={lbl}>governed metrics</div>
+            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.dim, marginTop: 4 }}>{finding.metric_refs!.join(", ")}</div>
+          </div>
+        )}
       </Panel>
 
-      <Panel title="Recommendation" right={<Tag color={riskColor(rec.risk)}>{rec.risk} risk</Tag>}>
-        <div style={{ fontFamily: C.sans, fontSize: 13, color: C.text, fontWeight: 600 }}>{rec.label}</div>
-        <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.5, marginTop: 6 }}>{spike.recommendation_reason}</p>
-        {rec.gateRequired && (
-          <div style={{ marginTop: 10 }}>
-            <Tag color={C.amber}>Human gate required</Tag>
+      <Panel title="Recommendation" right={humanGateRequired(finding.severity) ? <Tag color={C.amber}>Human gate required</Tag> : undefined}>
+        {(finding.recommendations ?? []).length === 0 ? (
+          <span style={{ fontFamily: C.mono, fontSize: 12, color: C.faint }}>No recommendation from the analyzer for this finding.</span>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {finding.recommendations.map((r) => (
+              <li key={r} style={{ fontFamily: C.sans, fontSize: 13, color: C.text, lineHeight: 1.55 }}>{r}</li>
+            ))}
+          </ul>
+        )}
+        {(finding.next_questions ?? []).length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={lbl}>investigation forks</div>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {finding.next_questions!.map((q) => (
+                <li key={q} style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.5 }}>{q}</li>
+              ))}
+            </ul>
           </div>
         )}
         <div style={{ marginTop: 14 }}>
-          <div style={lbl}>What this will NOT do</div>
+          <div style={lbl}>what this will NOT do</div>
           <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-            {spike.does_not_do.map((d) => (
-              <li key={d} style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55 }}>{d}</li>
-            ))}
+            <li style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55 }}>Does not abort the run or change any metric.</li>
+            <li style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55 }}>Does not execute or schedule a rollback.</li>
+            <li style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55 }}>Does not promote a Go/No-Go decision here.</li>
           </ul>
         </div>
       </Panel>
 
       <Panel title="Links">
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <Field label="incident" value={spike.incident_id ?? "—"} />
-          <Field label="receipt" value={spike.receipt_id ?? "—"} />
-          <Field
-            label="control tower"
-            value={
-              <a
-                href={telemetryHref(envId ?? "telemetry-demo", "control-tower")}
-                style={{ fontFamily: C.mono, fontSize: 12, color: C.cyan, textDecoration: "none" }}
-              >
-                {spike.control_tower_run_key ? `Go/No-Go · ${spike.control_tower_run_key}` : "Open Control Tower"}
-              </a>
-            }
-          />
-        </div>
+        <a href={telemetryHref(envId ?? "telemetry-demo", "control-tower")} style={{ fontFamily: C.mono, fontSize: 12, color: C.cyan, textDecoration: "none" }}>
+          Open Control Tower (Go/No-Go) →
+        </a>
       </Panel>
     </div>
   );
@@ -373,161 +297,87 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div style={lbl}>{label}</div>
-      <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text, marginTop: 4 }}>{value}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text, marginTop: 4, wordBreak: "break-word" }}>{value}</div>
     </div>
   );
 }
 
-function ActionQueuePanel({
-  spike,
-  onStage,
-}: {
-  spike?: TelemetrySpike;
-  onStage: (spike: TelemetrySpike, actionId: SpikeActionId) => void;
-}) {
-  if (!spike) return null;
-  const recommendedId = spike.recommended_action;
-  const ordered = Object.values(ACTION_CATALOG).sort((a, b) =>
-    a.id === recommendedId ? -1 : b.id === recommendedId ? 1 : 0,
-  );
+function Actions({ finding, onStage }: { finding?: AnalyzerFinding; onStage: (f: AnalyzerFinding, d: (typeof DISPOSITIONS)[number]) => void }) {
+  if (!finding) return null;
   return (
-    <Panel title="Actions — recommend only" pad={10}>
+    <Panel title="Dispositions — recommend only" pad={10}>
       <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
-        Staging a recommendation does not execute anything. It is held in a local, in-memory queue
-        that resets on refresh.
+        Staging a disposition does not execute anything. It is held in a local, in-memory queue that
+        resets on refresh.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 640, overflowY: "auto" }}>
-        {ordered.map((a) => {
-          const recommended = a.id === recommendedId;
-          return (
-            <div
-              key={a.id}
-              style={{
-                border: `1px solid ${recommended ? C.borderHi : C.border}`,
-                background: recommended ? C.panelHi : C.panel,
-                borderRadius: 9,
-                padding: 11,
-              }}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {DISPOSITIONS.map((d) => (
+          <div key={d.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 9, padding: 11 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: C.sans, fontSize: 12.5, color: C.text, fontWeight: 600 }}>{d.label}</span>
+              <Tag color={d.gate ? C.amber : C.green}>gate: {d.gate ? "yes" : "no"}</Tag>
+            </div>
+            <p style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, lineHeight: 1.45, marginTop: 6 }}>{d.note}</p>
+            <button
+              type="button"
+              onClick={() => onStage(finding, d)}
+              style={{ marginTop: 10, width: "100%", fontFamily: C.mono, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: C.text, background: "transparent", border: `1px solid ${C.borderHi}`, borderRadius: 7, padding: "8px 10px", cursor: "pointer" }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: C.sans, fontSize: 12.5, color: C.text, fontWeight: 600 }}>{a.label}</span>
-                {recommended && <Tag color={C.cyan}>recommended</Tag>}
-              </div>
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                <Facet label="Does" value={a.does} color={C.dim} />
-                <Facet label="Does not" value={a.doesNot} color={C.dim} />
-                <Facet label="Required evidence" value={a.requiredEvidence} color={C.dim} />
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 9, flexWrap: "wrap", alignItems: "center" }}>
-                <Tag color={riskColor(a.risk)}>{a.risk} risk</Tag>
-                <Tag color={a.gateRequired ? C.amber : C.green}>gate: {a.gateRequired ? "yes" : "no"}</Tag>
-              </div>
-              <button
-                type="button"
-                onClick={() => onStage(spike, a.id)}
-                style={{
-                  marginTop: 10,
-                  width: "100%",
-                  fontFamily: C.mono,
-                  fontSize: 11,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: C.text,
-                  background: "transparent",
-                  border: `1px solid ${C.borderHi}`,
-                  borderRadius: 7,
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                {a.gateRequired ? "Queue for human gate" : "Stage recommendation"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
-}
-
-function Facet({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div>
-      <span style={{ fontFamily: C.mono, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: C.faint }}>{label}: </span>
-      <span style={{ fontFamily: C.sans, fontSize: 12, color, lineHeight: 1.45 }}>{value}</span>
-    </div>
-  );
-}
-
-function StagedQueue({ staged, onClear }: { staged: StagedAction[]; onClear: () => void }) {
-  return (
-    <Panel
-      title={`Action queue · ${staged.length}`}
-      right={
-        staged.length > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            style={{ fontFamily: C.mono, fontSize: 10, color: C.dim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}
-          >
-            CLEAR
-          </button>
-        ) : undefined
-      }
-    >
-      <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
-        Demo / in-memory: staged recommendations are not persisted and nothing is executed. Refreshing the
-        page clears this queue.
-      </p>
-      {staged.length === 0 ? (
-        <EmptyState label="Nothing staged" hint="Stage a recommendation from a spike's action list." />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {staged.map((s) => (
-            <div key={s.key} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-              <div>
-                <div style={{ fontFamily: C.sans, fontSize: 12.5, color: C.text, fontWeight: 600 }}>{s.label}</div>
-                <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 4 }}>
-                  {s.spikeId} · {s.spikeSignal} · {s.stagedAt}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <Tag color={riskColor(s.risk)}>{s.risk} risk</Tag>
-                {s.gateRequired && <Tag color={C.amber}>human gate</Tag>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-function ReceiptsTable({ envId }: { envId?: string }) {
-  return (
-    <Panel title={`Governance receipts · ${DEMO_RECEIPTS.length}`}>
-      <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
-        Read-only demo receipts derived from inspected spikes. Verification and decision promotion happen
-        in the{" "}
-        <a href={telemetryHref(envId ?? "telemetry-demo", "control-tower")} style={{ color: C.cyan, textDecoration: "none" }}>
-          Control Tower
-        </a>
-        .
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {DEMO_RECEIPTS.map((r) => (
-          <div key={r.receipt_id} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-            <div>
-              <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{r.receipt_id}</div>
-              <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 4 }}>
-                {r.actor} · {r.decision_type} · spike {r.spike_id}
-                {r.incident_id ? ` · ${r.incident_id}` : ""}
-              </div>
-            </div>
-            <Tag color={r.outcome === "recorded" ? C.green : C.amber}>{r.outcome}</Tag>
+              {d.gate ? "Queue for human gate" : "Stage"}
+            </button>
           </div>
         ))}
       </div>
     </Panel>
+  );
+}
+
+function SourcesUnavailable({ nullReasons }: { nullReasons: { source: string; reason: string }[] }) {
+  if (nullReasons.length === 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Panel title={`Sources not available · ${nullReasons.length}`} right={<Tag color={C.amber}>fail-closed</Tag>}>
+        <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
+          These sources could not be evaluated. They are listed explicitly rather than hidden — no finding
+          is inferred from missing data.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {nullReasons.map((n, i) => (
+            <div key={`${n.source}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 7 }}>
+              <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{n.source}</span>
+              <span style={{ fontFamily: C.mono, fontSize: 12, color: C.amber }}>{n.reason}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function StagedQueue({ staged, onClear }: { staged: Staged[]; onClear: () => void }) {
+  if (staged.length === 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Panel
+        title={`Staged dispositions · ${staged.length}`}
+        right={<button type="button" onClick={onClear} style={{ fontFamily: C.mono, fontSize: 10, color: C.dim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>CLEAR</button>}
+      >
+        <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
+          Demo / in-memory: staged dispositions are not persisted and nothing is executed. Refreshing the
+          page clears this queue.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {staged.map((s) => (
+            <div key={s.key} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+              <div>
+                <div style={{ fontFamily: C.sans, fontSize: 12.5, color: C.text, fontWeight: 600 }}>{s.disposition}</div>
+                <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, marginTop: 4 }}>{s.findingId} · {s.at}</div>
+              </div>
+              {s.gate && <Tag color={C.amber}>human gate</Tag>}
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
   );
 }
