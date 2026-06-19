@@ -56,6 +56,22 @@ export interface ProductionSmoke {
   note?: string;
 }
 
+export interface PostureControl {
+  control: string;
+  detail: string;
+  evidence: string;
+  status?: string;           // enforced (implicit) | not_enforced | not_applicable
+}
+
+export interface SecurityPosture {
+  enforced: PostureControl[];
+  not_enforced: PostureControl[];
+  tel_table_count: number;
+  rls_enabled_count: number;
+  tenant_policy_count: number;
+  null_reason: string | null;
+}
+
 export interface GovernanceSummary {
   total_interactions: number;
   refusal_rate: number | null;
@@ -77,6 +93,7 @@ export interface GovernanceSummary {
   recent_refusals: { created_at: string | null; question: string; null_reason: string | null }[];
   unsupported_blocked_examples: { created_at: string | null; question: string }[];
   production_smoke: ProductionSmoke;
+  security_posture?: SecurityPosture | null;
   null_reason: string | null;
 }
 

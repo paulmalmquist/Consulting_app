@@ -723,6 +723,108 @@ def governance_summary(*, env_id: str, business_id) -> dict:
         }
 
 
+def security_posture(*, env_id: str, business_id) -> dict:
+    """Honest, evidence-derived security/access posture for the telemetry surface.
+
+    The DB-layer numbers are read from pg_catalog (real coverage, never hardcoded). Every line names
+    the artifact a skeptic can open. Critically, this distinguishes *enforced* controls from honest
+    *non-controls* so the panel never overclaims:
+
+      - DB-layer RLS exists on the tel_* tables, but the FastAPI runtime pool connects with a
+        privileged role and does NOT `SET ROLE` / `app.env_id` per request (see app/db.py:get_cursor).
+        So RLS protects direct Supabase/PostgREST clients; the *runtime* tenant boundary is the
+        app-layer business_id scoping every telemetry read applies via resolve_tenant_id.
+      - The copilot grounds on fetched structured evidence — there is no document RAG corpus, hence
+        no retrieval-layer ACL to claim. tel_fused_state_vectors (pgvector) exists but is not queried.
+
+    `env_id`/`business_id` are accepted for signature parity with the other governance reads; the
+    posture itself is tenant-independent (it describes the platform's controls, not one tenant's data).
+    """
+    from app.db import get_cursor
+    with get_cursor() as cur:
+        # Real RLS coverage across logical tel_* tables (exclude partition children to keep the count
+        # meaningful — the streaming bronze parent stands in for its daily partitions).
+        cur.execute(
+            """SELECT c.relname AS table_name,
+                      c.relrowsecurity AS rls_enabled,
+                      (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
+                 FROM pg_class c
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind IN ('r', 'p')
+                  AND left(c.relname, 4) = 'tel_'
+                  AND c.relispartition = false
+                ORDER BY c.relname""")
+        rows = [dict(r) for r in cur.fetchall()]
+
+    tel_tables = len(rows)
+    rls_on = sum(1 for r in rows if r.get("rls_enabled"))
+    with_policy = sum(1 for r in rows if (r.get("policy_count") or 0) > 0)
+
+    enforced = [
+        {"control": "DB-layer RLS (tel_* tables)",
+         "detail": (f"{rls_on}/{tel_tables} tel_* tables have ROW LEVEL SECURITY enabled; "
+                    f"{with_policy} carry a tenant-isolation policy on "
+                    "env_id = current_setting('app.env_id', true)."),
+         "evidence": "repo-b/db/schema/100*_*.sql; backend/tests/test_telemetry_rls_isolation.py"},
+        {"control": "App-layer tenant scoping (runtime boundary)",
+         "detail": ("Every telemetry read validates the caller's tenant via resolve_tenant_id and "
+                    "filters by business_id. Because the pool connects with a privileged role, this "
+                    "app-layer scope — not RLS — is the runtime isolation boundary."),
+         "evidence": "backend/app/services/telemetry_serving.py; backend/app/db.py:get_cursor"},
+        {"control": "Copilot allow-list (fixed tool set)",
+         "detail": (f"{len(ALLOW_LIST)} read-only tools; the LLM cannot select, invent, or escalate "
+                    "tools."),
+         "evidence": "backend/app/services/telemetry_copilot.py:ALLOW_LIST"},
+        {"control": "Anti-fabrication post-validator",
+         "detail": ("Every live LLM answer is two-pass validated; any ungrounded id or number forces "
+                    "a deterministic fallback (fallback_reason=postvalidate_block)."),
+         "evidence": "backend/app/services/telemetry_copilot.py:_postvalidate"},
+        {"control": "Deterministic refusal gate",
+         "detail": (f"{len(policy.REFUSAL_PATTERNS)} refusal rules block out-of-scope (root-cause / "
+                    "safety / proprietary) questions before any tool or LLM call."),
+         "evidence": "backend/app/services/telemetry_copilot_policy.py:REFUSAL_PATTERNS"},
+        {"control": "Admin-key gate on stream-source switch",
+         "detail": ("POST /api/telemetry/stream/source requires the TELEMETRY_STREAM_ADMIN_KEY header "
+                    "to match; an unset key fails closed (always 403)."),
+         "evidence": "backend/app/routes/telemetry.py:stream_source"},
+        {"control": "Audit receipts",
+         "detail": ("Every copilot answer and every /score persists a receipt row with provenance "
+                    "(tel_copilot_interactions, tel_predictions)."),
+         "evidence": "tel_copilot_interactions; tel_predictions"},
+    ]
+
+    not_enforced = [
+        {"control": "Retrieval-layer RAG ACL", "status": "not_applicable",
+         "detail": ("The copilot grounds on fetched structured evidence; there is no document RAG "
+                    "corpus, so there is no retrieval-layer ACL. tel_fused_state_vectors (pgvector) "
+                    "exists but the copilot does not query it."),
+         "evidence": "backend/app/services/telemetry_copilot.py:_assemble_evidence"},
+        {"control": "Runtime RLS enforcement (per-request role / GUC)", "status": "not_enforced",
+         "detail": ("The backend does not SET ROLE or app.env_id per request; the pooled connection "
+                    "uses a privileged role that bypasses RLS. RLS protects direct Supabase/PostgREST "
+                    "clients — runtime isolation is the app-layer scoping above."),
+         "evidence": "backend/app/db.py:get_cursor"},
+        {"control": "OT / local inference", "status": "not_applicable",
+         "detail": ("All inference runs cloud-side; there is no factory-floor/OT isolated path or "
+                    "local model."),
+         "evidence": "—"},
+        {"control": "Telemetry MCP audit integration", "status": "not_enforced",
+         "detail": ("Copilot tools are an inline allow-list, not registered in backend/app/mcp; tool "
+                    "calls are audited in tel_copilot_interactions, not the MCP audit log."),
+         "evidence": "backend/app/mcp/ (no telemetry-specific tools)"},
+    ]
+
+    return {
+        "enforced": enforced,
+        "not_enforced": not_enforced,
+        "tel_table_count": tel_tables,
+        "rls_enabled_count": rls_on,
+        "tenant_policy_count": with_policy,
+        "null_reason": None if tel_tables else "schema_not_applied",
+    }
+
+
 # ── Track B: operator-usefulness capture + measurement ──────────────────────────
 _VALID_ARMS = ("assisted", "unassisted")
 _VALID_HUMAN_VERDICTS = ("GO", "NO_GO", "DEFER")
