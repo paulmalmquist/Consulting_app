@@ -338,3 +338,14 @@ in audit/response (episodes origin column deferred to C11). 28 new tests
 feature-store + ML-demo + promotion API/audit/episode tests green. Stack: … C7 #249
 → C8-A #251 → C9 #256 → **C10 (this)**. Next: C11 (additive episodes origin column)
 or C12 (explicit episode-embedding creation + C4 seal).
+
+## Feature Store stack — C11 episodes promotion-origin columns (2026-06-19)
+
+C11 adds additive migration `10023_history_rhymes_episode_origin.sql`: nullable
+`origin_candidate_id`/`origin_observation_id`/`origin_model_obs_version`/
+`origin_embedding_model_version`/`origin_receipt_hash`/`origin_metadata_json` on
+`episodes` (no backfill, COMMENTs, verify block; `episode_embeddings` untouched).
+C10's `episode_creation` now attaches origin via `build_origin_fields` and the DB
+repo fails soft (retries without origin cols if 10023 isn't applied). C10 behavior
+preserved (`searchable:false`). 7 new tests; 35 C10+C11 green. Stack: … C9 #256 →
+C10 #257 → **C11 (this)**. Next: C12 explicit episode-embedding creation API.

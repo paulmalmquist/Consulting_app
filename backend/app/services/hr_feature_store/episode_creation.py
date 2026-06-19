@@ -38,6 +38,13 @@ OPTIONAL_EPISODE_FIELDS = (
     "modern_analog_thesis", "volatility_regime",
 )
 
+# C11 additive promotion-origin columns on episodes (10023). Written only when the
+# migration is present; the DB repo fails soft + retries without them otherwise.
+ORIGIN_EPISODE_FIELDS = (
+    "origin_candidate_id", "origin_observation_id", "origin_model_obs_version",
+    "origin_embedding_model_version", "origin_receipt_hash", "origin_metadata_json",
+)
+
 
 class EpisodeCreationError(Exception):
     def __init__(self, reasons: list[str]):
@@ -116,7 +123,30 @@ def build_episode_preview(candidate: dict[str, Any], episode: dict[str, Any]) ->
     merged = {k: v for k, v in defaults.items() if v is not None}
     merged.update({k: v for k, v in episode.items() if v is not None})
     merged["source"] = "promotion"
+    merged.update(build_origin_fields(candidate))
     return merged
+
+
+def build_origin_fields(candidate: dict[str, Any]) -> dict[str, Any]:
+    """C11 promotion-origin provenance carried onto the episodes row."""
+    import json
+
+    from app.services.hr_feature_store.promotion_receipts import stable_hash
+    receipt = candidate.get("promotion_receipt_json")
+    return {
+        "origin_candidate_id": candidate.get("candidate_id"),
+        "origin_observation_id": candidate.get("observation_id"),
+        "origin_model_obs_version": candidate.get("model_obs_version"),
+        "origin_embedding_model_version": candidate.get("embedding_model_version"),
+        "origin_receipt_hash": stable_hash(receipt) if receipt else None,
+        "origin_metadata_json": json.dumps({
+            "candidate_type": candidate.get("candidate_type"),
+            "candidate_label": candidate.get("candidate_label"),
+            "condition_cluster": candidate.get("condition_cluster"),
+            "approval_actor": candidate.get("approval_actor"),
+            "approval_timestamp": candidate.get("approval_timestamp"),
+        }),
+    }
 
 
 # --- operations -------------------------------------------------------------
@@ -146,9 +176,10 @@ def create_episode(repo: EpisodeRepository, candidate_id: str,
     so the episode is created but NOT searchable yet."""
     result = validate_episode(repo, candidate_id, episode)  # raises on block
     preview = result["episode_preview"]
-    # keep only real episodes columns
-    row = {k: preview[k] for k in (("source",) + REQUIRED_EPISODE_FIELDS + OPTIONAL_EPISODE_FIELDS + ("is_non_event",))
-           if k in preview}
+    # keep only real episodes columns (incl. C11 origin fields when present)
+    keep = (("source",) + REQUIRED_EPISODE_FIELDS + OPTIONAL_EPISODE_FIELDS
+            + ("is_non_event",) + ORIGIN_EPISODE_FIELDS)
+    row = {k: preview[k] for k in keep if k in preview}
     episode_id = repo.insert_episode(row)
     return {
         "status": "created",
@@ -172,9 +203,23 @@ class DbEpisodeRepository:
         return DbCandidateRepository().get(candidate_id)
 
     def insert_episode(self, episode: dict[str, Any]) -> str:
+        """Insert one episodes row. If the C11 origin columns aren't present yet
+        (migration 10023 not applied), retry without them — origin still lives in
+        the audit/response, exactly as before C11."""
+        try:
+            return self._insert(episode)
+        except Exception as exc:  # noqa: BLE001
+            if "origin_" in str(exc).lower() and any(k in episode for k in ORIGIN_EPISODE_FIELDS):
+                stripped = {k: v for k, v in episode.items() if k not in ORIGIN_EPISODE_FIELDS}
+                return self._insert(stripped)
+            raise
+
+    def _insert(self, episode: dict[str, Any]) -> str:
         from app.db import get_cursor
         cols = [k for k in episode if episode[k] is not None]
-        placeholders = ", ".join(f"%({c})s" for c in cols)
+        placeholders = ", ".join(
+            f"%({c})s::jsonb" if c == "origin_metadata_json" else f"%({c})s" for c in cols
+        )
         with get_cursor() as cur:
             cur.execute(
                 f"INSERT INTO episodes ({', '.join(cols)}) VALUES ({placeholders}) RETURNING id",
