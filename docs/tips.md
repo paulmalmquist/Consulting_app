@@ -3872,3 +3872,21 @@ Reusable rules discovered:
 - Verify the tenant is actually seeded before claiming "real" (read-only count): telemetry-demo had
   59,898 predictions / 104 drift / 102 anomaly events / 6 model runs — so the analyzer yields findings
   rather than fail-closed-everywhere.
+
+### The Winston merge gate (scripts/winston/merge_gate.ps1) and its self-reference traps (2026-06-19)
+
+`scripts/winston/merge_gate.ps1` is a local pre-PR sanity gate (dirty state, mass deletions, skip-marker
+adds, route/nav integrity, schema readiness, secret-shaped content, CI). A local `.git/hooks/pre-push`
+runs it with `-SkipCI`. Two traps that cost real time:
+
+- **Parse/run it via native PowerShell, never through Git Bash.** Invoking it as `powershell -File …`
+  from the Bash tool (or a Bash heredoc with escaped `$`) mangles the command/encoding and produces a
+  bogus "parse error" / `ERRORS: 1`. The script is valid UTF-8-with-BOM and parses clean; confirm with
+  `[System.Management.Automation.Language.Parser]::ParseFile(path,[ref]$null,[ref]$errs)` in PowerShell.
+- **The gate flags its own pattern-definition strings.** The PR that adds or edits the gate trips its own
+  skip-marker check (its skip-pattern array reads as added skip markers) and its secrets scan (its
+  secret-pattern array reads as secret-shaped lines). That is a false positive limited to the gate's own
+  diff — bootstrap *that one* PR with `--no-verify`; unrelated PRs that don't touch the gate run clean.
+- **It lives only when present in the worktree.** It is referenced by `<toplevel>/scripts/winston/...`,
+  so a branch/worktree cut from a base that lacks the file makes the hook fail file-not-found. Keeping it
+  tracked on `main` is what lets the hook run from any worktree.
