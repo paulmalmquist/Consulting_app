@@ -1,6 +1,18 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-19
+
+> **Shipped (2026-06-19):** Telemetry demo→real data audit + Spike Inspector conversion. Full
+> data-source classification in [`data-source-matrix.md`](./data-source-matrix.md); the Spike Inspector
+> now reads real analyzer findings via the new thin route `GET /api/telemetry/findings`
+> (`backend/app/routes/telemetry.py`, delegates to `telemetry_analyzer`) with a Data Source Audit
+> provenance panel and fail-closed states — static `DEMO_SPIKES` deleted. Genuinely-local gaps are
+> tracked in [`local-seed-backlog.md`](./local-seed-backlog.md) (NCR mirror, fused vectors, stream
+> worker, stargate bridge, calibration endpoint, post-change watcher, Gemma/Vertex). **Next pickup for
+> this track:** the top backlog item is the **NCR Databricks mirror seed** so `/telemetry/factory`
+> renders real clusters instead of failing closed; after that, a post-change-degradation analyzer
+> finding family (needs a watcher table). telemetry-demo seeding verified: 59,898 predictions / 104
+> drift / 102 anomaly events / 6 model runs.
 
 > **Parallel track (research gap remediation):** A 2026-06-18 inspection compared the research reports
 > against the actual telemetry code and produced

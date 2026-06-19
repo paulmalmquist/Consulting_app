@@ -3846,3 +3846,29 @@ API `/api/hr/v1/ml-demo/*`). Reusable lessons:
 ### AI dispatch Gemma runtime toggle + controlled fallback (frontend on/off, gpt-5-mini default) (2026-06-19)
 
 "Deploy on demand, frontend toggle, fall back when off" implemented WITHOUT a persistent GPU bill: (1) **Runtime toggle** = a module-level flag (`ai_dispatch/runtime.py`, lazy-init from `AI_DISPATCH_GEMMA_ENABLED`, flipped via `POST /api/ai/dispatch/config`) — process-local, resets to the env default on restart (safe: a restart can't leave Gemma silently on). For a durable toggle, back it with a DB row later. (2) **Controlled fallback** lives in `supervisor.run_dispatch`, NOT in `policy.select_provider` (keeps routing pure): for a *Gemma-home* mode (Gemma is `_PREFERENCE[mode][0]`), if `gemma_enabled() AND registry.available(GEMMA)` is false, dispatch to the small frontier model (`AI_DISPATCH_FALLBACK_MODEL`=gpt-5-mini on OpenAI) and mark `fallback_used=True` + `rejected[gemma_gcp]=gemma_disabled|gemma_unavailable`. **Recorded, never silent.** A **forced** Gemma request skips the fallback (honored literally → fails closed). Validate the fallback target with `select_provider(req.model_copy(update={forced_provider: fb}))` so it still respects risk/privacy ceilings; if the target isn't eligible/available, fall through to normal routing (fails closed). (3) **This flips the old "no silent fallback" tests** for Gemma-home modes — they now fall back; update them to assert `fallback_used=True` + Gemma-never-called instead of UNAVAILABLE. The no-silent-fallback invariant still holds for FORCED requests and the general `allow_fallback=False` path. (4) **Frontend**: the read-only GET-only proxy now allows POST for **`config` only** (allowlist `new Set(["config"])`) so the admin toggle works but the UI still can't POST `/run`/`/route`. The console's "no buttons" read-only test becomes "the only control is the toggle" (`getAllByRole("button")` length 1). (5) Test gotcha: a `gpt-5-mini` string appears in BOTH the OpenAI provider row and the fallback disclosure — use `getAllByText`, not `getByText`.
+
+### Convert a static surface to a real "evaluate & recommend" backend via the analyzer, not a new mapping layer (2026-06-19)
+
+The Spike Inspector shipped on static `DEMO_SPIKES`. The honest conversion was NOT a new `/spikes`
+service that re-maps `tel_*` rows into a bespoke taxonomy — that just relocates the fabrication risk.
+The telemetry **analyzer** (`backend/app/services/telemetry_analyzer.py`, `AnalyzerFinding` contract)
+already turns the seeded serving reads (monitoring/model_performance) into rule-based-severity findings
+with `null_reasons`. So the conversion was: (1) a **thin pass-through route** `GET /api/telemetry/findings`
+that delegates to the analyzer and adds a provenance block, adding zero numbers of its own; (2) delete
+`DEMO_SPIKES`/`ACTION_CATALOG` entirely; (3) render real findings, fail closed on each `null_reason`.
+Reusable rules discovered:
+- **Auth/proxy gotcha:** the analyzer's own route `POST /api/ade/analyze/telemetry` requires
+  `require_authenticated_request`, but the `/api/ade/[...path]` proxy forwards only Content-Type +
+  x-bm-request-id (drops cookies) — a browser call 401s. The `/api/telemetry/[...path]` serving routes
+  are `business_id`-scoped and reachable. So expose analyzer output through a telemetry-router route
+  rather than calling `/api/ade` from the browser. Check proxy header forwarding before wiring.
+- **Provenance panel = regression tripwire.** A visible "Data Source Audit" block (surface · mode ·
+  source · tenant · rows evaluated · last refresh · fallback used: NO), backed by a `provenance` field
+  on the response, makes a silent slide back to static data obvious in one glance.
+- **Empty-state wording is a correctness claim.** "No active telemetry findings." (factual) ≠ "No
+  findings detected." (implies comprehensive observation). Use the former.
+- **Don't fabricate fields the contract lacks.** `AnalyzerFinding` has no `risk_level`/`requires_human_gate`;
+  derive the human gate from `severity` as a *documented UI rule*, never as a fake backend field.
+- Verify the tenant is actually seeded before claiming "real" (read-only count): telemetry-demo had
+  59,898 predictions / 104 drift / 102 anomaly events / 6 model runs — so the analyzer yields findings
+  rather than fail-closed-everywhere.

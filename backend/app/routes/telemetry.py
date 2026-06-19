@@ -12,6 +12,7 @@ Paths follow the repo /api/{domain} convention. Final paths:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 import psycopg
@@ -21,6 +22,7 @@ from app.observability.logger import emit_log
 from app.schemas.telemetry import (
     MonitoringResponse, RunDetailOut, ScoreRequest, ScoreResponse, StreamSourceRequest, TestRunOut,
 )
+from app.services import telemetry_analyzer
 from app.services import telemetry_serving as svc
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
@@ -81,6 +83,59 @@ def monitoring(env_id: str = Query(...), business_id: UUID = Query(...)):
         return MonitoringResponse(**svc.monitoring(env_id=env_id, business_id=business_id))
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/findings")
+def findings(env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Real telemetry findings for the Spike Inspector.
+
+    Delegates to the telemetry analyzer — the single source of truth — which grounds findings in the
+    already-seeded tel_* serving reads (monitoring / model_performance) with rule-based severity. This
+    route adds NO numbers of its own and never fabricates: on any analyzer error it fails closed with
+    a null_reason and an empty findings list. A provenance block makes the data source auditable.
+    """
+    def _provenance(rows_evaluated: int | None) -> dict:
+        return {
+            "surface": "spike_inspector",
+            "mode": "real_backend",
+            "source": "telemetry_analyzer → telemetry_serving.monitoring/model_performance",
+            "tenant": env_id,
+            "rows_evaluated": rows_evaluated,
+            "last_refresh": datetime.now(timezone.utc).isoformat(),
+            "fallback_used": False,
+        }
+
+    try:
+        result = telemetry_analyzer.analyze(env_id, business_id)
+        fnds = result.get("findings", [])
+        by_severity = {"info": 0, "warning": 0, "critical": 0}
+        for f in fnds:
+            sev = f.get("severity")
+            if sev in by_severity:
+                by_severity[sev] += 1
+        # rows_evaluated is the real prediction_count from monitoring; null (never faked) if absent.
+        rows_evaluated: int | None = None
+        try:
+            mon = svc.monitoring(env_id=env_id, business_id=business_id)
+            rows_evaluated = mon.get("prediction_count")
+        except Exception:  # noqa: BLE001 — provenance is best-effort, never blocks the findings
+            rows_evaluated = None
+        return {
+            "analyzer_type": result.get("analyzer_type", "telemetry"),
+            "findings": fnds,
+            "null_reasons": result.get("null_reasons", []),
+            "by_severity": by_severity,
+            "finding_count": len(fnds),
+            "provenance": _provenance(rows_evaluated),
+            "null_reason": None,
+        }
+    except Exception as exc:  # noqa: BLE001 — fail closed; never 500 with fabricated data
+        emit_log(level="error", service="telemetry", action="findings_failed", message=str(exc), error=exc)
+        return {
+            "analyzer_type": "telemetry", "findings": [], "null_reasons": [],
+            "by_severity": {"info": 0, "warning": 0, "critical": 0}, "finding_count": 0,
+            "provenance": _provenance(None), "null_reason": "telemetry_findings_unavailable",
+        }
 
 
 @router.get("/replay")
