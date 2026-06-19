@@ -13,7 +13,7 @@ telemetry window → score_window() verdict (GO / REVIEW / NO_GO / NOT_AVAILABLE
 
 - **Screen:** `/lab/env/<envId>/telemetry/control-tower` (nav group "AI & Governance").
 - **Backend:** `backend/app/routes/telemetry_control_tower.py` → `backend/app/services/control_tower/`.
-- **Tables:** `tel_ct_decision`, `tel_ct_receipt`, `tel_ct_gemma_state`, `tel_ct_gemma_job` (migration `repo-b/db/schema/10016_control_tower.sql`; RLS + `env_id` enforced).
+- **Tables:** `tel_ct_decision`, `tel_ct_receipt`, `tel_ct_gemma_state`, `tel_ct_gemma_job` (migration `repo-b/db/schema/10020_control_tower.sql`; RLS + `env_id` enforced).
 
 ## Sensitivity routing posture (ITAR-aware, NOT a compliance claim)
 A scoped provider registry (`control_tower/routing.py`) inverts the production posture: the self-hosted,
@@ -88,7 +88,7 @@ GOOGLE_APPLICATION_CREDENTIALS=~/.gcp-stage-sa.json \
   "No routing yet", Gemma Private Tier showing real cold/`unavailable` fields — `gemma-3-1b-it`,
   `us-central1`, 0 deployed, $0 — Approval gate "No open gates", Signed receipt "No receipt selected").
 - **Backend wiring:** real. Captured against `next dev` (port 3100) → `/api/telemetry/control-tower/*`
-  proxy → local backend (port 8001) → the linked Supabase with migration 10016 applied. The
+  proxy → local backend (port 8001) → the linked Supabase with migration 10020 applied. The
   control-tower endpoints returned **200** (`gemma-tier`, `decisions`); **Gemma was not warmed**.
 - **How it was captured:** Playwright (chromium) logged in via `POST /api/auth/telemetry-login`
   (local dev reviewer creds in `.env.local`: `TELEMETRY_REVIEWER_USERNAME=telemetry` /

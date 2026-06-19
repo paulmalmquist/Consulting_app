@@ -2,7 +2,7 @@
 
 Exercises the parts a mock can't: the per-env advisory lock + UNIQUE(env_id, chain_seq) backstop, real
 signature/hash verification through the DB, tamper detection, and fork rejection. Requires the tel_ct_*
-schema (migration 10016) — skips if absent, so the standard unit run is unaffected.
+schema (migration 10020) — skips if absent, so the standard unit run is unaffected.
 """
 from __future__ import annotations
 
