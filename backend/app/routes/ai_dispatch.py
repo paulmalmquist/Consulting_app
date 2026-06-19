@@ -11,14 +11,45 @@ This router is standalone — it does not import or touch ``ai_gateway``.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from app.auth.platform import require_authenticated_request
 from app.services.ai_dispatch.models import AIRequest
 from app.services.ai_dispatch.receipts import list_dispatch_runs
 from app.services.ai_dispatch.registry import provider_registry
+from app.services.ai_dispatch.runtime import gemma_enabled, set_gemma_enabled
 from app.services.ai_dispatch.supervisor import route_only, run_dispatch
 
 router = APIRouter(prefix="/api/ai/dispatch", tags=["ai-dispatch"])
+
+
+def _config_payload() -> dict:
+    from app import config
+
+    return {
+        "gemma_enabled": gemma_enabled(),
+        "fallback_provider": getattr(config, "AI_DISPATCH_FALLBACK_PROVIDER", "openai"),
+        "fallback_model": getattr(config, "AI_DISPATCH_FALLBACK_MODEL", "gpt-5-mini"),
+        "execution_enabled": bool(getattr(config, "AI_DISPATCH_ENABLED", False)),
+    }
+
+
+class ConfigUpdate(BaseModel):
+    gemma_enabled: bool
+
+
+@router.get("/config")
+def get_config():
+    """Current runtime dispatch config (the Gemma toggle + fallback). Safe to read."""
+    return _config_payload()
+
+
+@router.post("/config")
+def set_config(payload: ConfigUpdate, request: Request):
+    """Flip the runtime Gemma toggle. Auth required. When off, Gemma-home modes fall back to the small model."""
+    require_authenticated_request(request)
+    set_gemma_enabled(payload.gemma_enabled)
+    return _config_payload()
 
 
 @router.get("/providers")

@@ -63,7 +63,22 @@ export interface EvalsResponse {
   note: string;
 }
 
+export interface DispatchConfig {
+  gemma_enabled: boolean;
+  fallback_provider: string;
+  fallback_model: string;
+  execution_enabled: boolean;
+}
+
 export const getProviders = () => apiFetch<ProvidersResponse>("/api/ai-dispatch/providers");
+
+export const getConfig = () => apiFetch<DispatchConfig>("/api/ai-dispatch/config");
+
+export const setGemmaEnabled = (enabled: boolean) =>
+  apiFetch<DispatchConfig>("/api/ai-dispatch/config", {
+    method: "POST",
+    body: JSON.stringify({ gemma_enabled: enabled }),
+  });
 
 export const getRuns = (envId?: string) =>
   apiFetch<RunsResponse>("/api/ai-dispatch/runs", {

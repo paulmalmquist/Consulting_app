@@ -3,9 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import {
+  getConfig,
   getEvals,
   getProviders,
   getRuns,
+  setGemmaEnabled,
+  type DispatchConfig,
   type EvalsResponse,
   type ProvidersResponse,
   type RunsResponse,
@@ -190,6 +193,61 @@ function RunsPanel({ load }: { load: Load<RunsResponse> }) {
   );
 }
 
+function GemmaControlPanel() {
+  const [cfg, setCfg] = useState<DispatchConfig | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getConfig().then(setCfg).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  const toggle = async () => {
+    if (!cfg || busy) return;
+    setBusy(true);
+    try {
+      setCfg(await setGemmaEnabled(!cfg.gemma_enabled));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel title="Gemma private tier — runtime control" style={{ marginBottom: 16 }}>
+      {err && <ErrorState message={err} />}
+      {!cfg && !err && <Loading label="Loading config…" />}
+      {cfg && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.55, maxWidth: 660 }}>
+            When Gemma is <strong style={{ color: C.text }}>on</strong> and a Vertex endpoint is configured,
+            Gemma-eligible modes route to the private tier. When <strong style={{ color: C.text }}>off</strong> (or
+            no endpoint), they fall back to{" "}
+            <span style={{ fontFamily: C.mono, color: C.accent }}>{cfg.fallback_model}</span> — recorded as a
+            fallback, never silent.
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={busy}
+            style={{
+              fontFamily: C.mono, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase",
+              cursor: busy ? "default" : "pointer", padding: "9px 16px", borderRadius: 6, whiteSpace: "nowrap",
+              color: cfg.gemma_enabled ? C.green : C.faint,
+              background: (cfg.gemma_enabled ? C.green : C.faint) + "18",
+              border: `1px solid ${(cfg.gemma_enabled ? C.green : C.faint)}55`,
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            Gemma: {cfg.gemma_enabled ? "ON" : "OFF"} · {busy ? "saving…" : cfg.gemma_enabled ? "click to disable" : "click to enable"}
+          </button>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export default function AiDispatchConsole() {
   const providers = useLoad<ProvidersResponse>(getProviders);
   const evals = useLoad<EvalsResponse>(getEvals);
@@ -201,9 +259,10 @@ export default function AiDispatchConsole() {
         <PageHeading
           eyebrow="Platform · AI Provider Dispatch"
           title="Provider Dispatch"
-          blurb="Read-only view of the standalone model router: which providers are registered and configured, how requests route by mode / risk / privacy, the routing eval suite, and recent governed dispatch receipts. This panel never triggers a provider call."
+          blurb="View of the standalone model router: which providers are registered and configured, how requests route by mode / risk / privacy, the routing eval suite, and recent governed dispatch receipts. The only control here is the Gemma on/off toggle; this panel never triggers a provider call directly."
         />
         <CapabilityBanner providers={providers.state === "ok" ? providers.data : null} />
+        <GemmaControlPanel />
         <div style={{ display: "grid", gap: 16 }}>
           <ProvidersPanel load={providers} />
           <EvalsPanel load={evals} />
