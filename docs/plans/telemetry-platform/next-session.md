@@ -1,6 +1,16 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-18
+
+> **Parallel track (research gap remediation):** A 2026-06-18 inspection compared the research reports
+> against the actual telemetry code and produced
+> [`docs/plans/03-implementation-plans/active/telemetry-research-gap-remediation.md`](../03-implementation-plans/active/telemetry-research-gap-remediation.md).
+> Its **recommended first PR** is *Ticket 1 — Security & Access Posture panel + cross-tenant RLS
+> permission-leak test* (no migration, no deploy; adds the first automated cross-tenant isolation test
+> and an honest enforced/not-enforced posture panel on `/telemetry/governance`). Pick that up if not
+> continuing RS Factory PR 3. The plan also flags a **working-tree hazard**: 83 uncommitted deletions
+> (RUL Calibration screen + notebooks, ADE/audit-dashboard/workflow-registry, telemetry-trust/
+> calibration plans) that must NOT be committed as part of gap remediation.
 
 > **Also shipped (2026-06-17):** the "How This Works" architecture & evidence exhibit — dispatch
 > `docs/plans/03-implementation-plans/active/0008-telemetry-how-it-works-exhibit.md`, ADO Story #654
