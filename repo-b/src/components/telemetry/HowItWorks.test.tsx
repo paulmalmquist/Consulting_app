@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 import HowItWorks from "./HowItWorks";
 
@@ -49,5 +49,48 @@ describe("HowItWorks — honest architecture exhibit", () => {
   it("does not compute an evidence coverage percentage", () => {
     render(<HowItWorks envId="telemetry-demo" />);
     expect(screen.getByText(/coverage not computed/i)).toBeInTheDocument();
+  });
+});
+
+describe("FlowExplorer — interactive scenario trace board", () => {
+  it("renders the scenario selector with at least 4 scenarios", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    for (const label of ["Aggregate count answer", "Live freshness / unavailable",
+      "Anomaly verdict", "Medallion stream aggregate", "Audited tool call"]) {
+      expect(screen.getByRole("button", { name: new RegExp(label, "i") })).toBeInTheDocument();
+    }
+  });
+
+  it("carries the 'not a live execution' disclaimer (anti-overclaim guard)", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    expect(screen.getByText("Static trace")).toBeInTheDocument();
+    const caption = screen.getByText(/No live call is made/i);
+    expect(caption).toHaveTextContent(/nothing here executes/i);
+  });
+
+  it("selecting a scenario swaps the trace packet", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    // default = aggregate-count → its trace mentions inventory_counts
+    expect(screen.getAllByText(/inventory_counts/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Anomaly verdict/i }));
+    expect(screen.getAllByText(/score_window/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/inventory_counts/i)).toBeNull(); // the old scenario's content is gone
+  });
+
+  it("shows the real fail-closed reason per scenario (no fabrication)", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    expect(screen.getAllByText(/unsupported_question/i).length).toBeGreaterThan(0); // aggregate default
+    fireEvent.click(screen.getByRole("button", { name: /Live freshness/i }));
+    expect(screen.getAllByText(/live_data_not_available/i).length).toBeGreaterThan(0);
+    // the stale-path honesty note is surfaced, not buried
+    expect(screen.getByText(/unit-verified, not production-observed/i)).toBeInTheDocument();
+  });
+
+  it("an evidence node deep-links to a real telemetry surface", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    // select the gold-aggregate node in the default scenario's evidence lane
+    fireEvent.click(screen.getByRole("button", { name: /Structured fetch/i }));
+    const link = screen.getByRole("link", { name: /see live surface/i });
+    expect(link).toHaveAttribute("href", "/lab/env/telemetry-demo/telemetry/registry");
   });
 });

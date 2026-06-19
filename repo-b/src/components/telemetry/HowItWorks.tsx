@@ -5,9 +5,10 @@ import Link from "next/link";
 
 import { C, Panel, MetricCard, PageHeading, StatGrid, ScrollTable, ResponsiveSwap, RowCard, DisclosureFooter } from "./primitives";
 import { telemetryHref } from "./telemetryNav";
+import FlowExplorer from "./FlowExplorer";
 import {
   IMPL_LABEL, VERIFY_LABEL, LAST_VERIFIED, ENVIRONMENT_BADGE, COVERAGE_NOTE, KNOWN_GAPS,
-  JUMP_SECTIONS, HERO_CARDS, CAPABILITIES, ARCHITECTURE_NODES, MEDALLION, GOVERNED_KPI_CHAIN,
+  HERO_CARDS, CAPABILITIES, ARCHITECTURE_NODES, MEDALLION, GOVERNED_KPI_CHAIN,
   GOVERNED_KPI_NOTE, ORCHESTRATION_STEPS, MCP_REGISTRY_HEADER, MCP_REGISTRY_SNAPSHOT,
   TOOL_INVENTORY, BATCH_VS_STREAM, ML_LIFECYCLE, DELIVERY_TIMELINE,
   type ImplStatus, type CapabilityItem, type EvidenceLink, type FlowNode,
@@ -86,17 +87,15 @@ function SectionHeading({ id, n, title, blurb }: { id: string; n: number; title:
   );
 }
 
-// ── Jump nav (presentation mode) ──
-function JumpNav() {
+// ── Proof summary (visible at-a-glance evidence, above the collapsed full ledger) ──
+function ProofSummary() {
+  const prodVerified = CAPABILITIES.filter((c) => c.verify === "prod_verified").length;
+  const planned = CAPABILITIES.filter((c) => c.impl === "planned").length;
   return (
-    <StatGrid cols={5} style={{ marginBottom: 18 }}>
-      {JUMP_SECTIONS.map((s) => (
-        <a key={s.anchor} href={`#${s.anchor}`}
-          style={{ display: "block", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 9, padding: 12, textDecoration: "none" }}>
-          <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 700, color: C.cyan }}>{s.n}</div>
-          <div style={{ fontFamily: C.sans, fontSize: 13, color: C.text, marginTop: 4 }}>{s.label}</div>
-        </a>
-      ))}
+    <StatGrid cols={3} style={{ marginTop: 16 }}>
+      <MetricCard label="Production verified" value={String(prodVerified)} sub="capabilities confirmed live on novendor.ai" accent={C.green} />
+      <MetricCard label="Partial · verified scope" value="Copilot" sub="grounded structured-evidence Q&A — not document RAG" accent={C.amber} />
+      <MetricCard label="Planned gaps" value={String(planned)} sub="telemetry metric registry · lineage · cost enforcement" accent={C.cyan} />
     </StatGrid>
   );
 }
@@ -424,38 +423,46 @@ export default function HowItWorks({ envId }: { envId: string }) {
         title="How This Works"
         blurb="This telemetry environment turns aerospace-analog operations data into governed dashboards, grounded AI answers, model-scored verdicts, and auditable engineering work. Every claim below is labeled Built / Partial / Planned / Blocked and links to the live surface that proves it. Planned and Blocked items say 'Not available' with the reason — nothing here is fabricated."
       />
-      <JumpNav />
+      <FlowExplorer envId={envId} />
       <StatusLegend />
       <DemoModeStrip />
       <HeroStatusCards />
+      <ProofSummary />
 
-      <SectionHeading id="data-trust" n={1} title="Data trust"
-        blurb="Medallion ETL with watermarks and data-quality assertions, fail-closed on stale. Trace one stream aggregate end to end; the governed-KPI chain is the REPE pattern, not yet adapted to telemetry." />
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <ArchitectureMap />
-        <CapabilityMatrix envId={envId} />
-        <FollowOneStreamAggregate envId={envId} />
-      </div>
+      <details style={{ marginTop: 24, border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
+        <summary style={{ cursor: "pointer", listStyle: "none", padding: "12px 16px", fontFamily: C.mono, fontSize: 11.5, letterSpacing: "0.1em", color: C.text, textTransform: "uppercase" }}>
+          ▸ Proof ledger — full capability matrix, architecture map, registries, crosswalk, ML lifecycle, delivery timeline
+        </summary>
+        <div style={{ padding: "4px 16px 18px" }}>
+          <SectionHeading id="data-trust" n={1} title="Data trust"
+            blurb="Medallion ETL with watermarks and data-quality assertions, fail-closed on stale. Trace one stream aggregate end to end; the governed-KPI chain is the REPE pattern, not yet adapted to telemetry." />
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <ArchitectureMap />
+            <CapabilityMatrix envId={envId} />
+            <FollowOneStreamAggregate envId={envId} />
+          </div>
 
-      <SectionHeading id="ai-orchestration" n={2} title="AI orchestration"
-        blurb="The AI is not freewheeling: it classifies intent, selects a typed permissioned tool, checks permission, grounds on fetched evidence, and logs a receipt." />
-      <OrchestrationCallFlow />
+          <SectionHeading id="ai-orchestration" n={2} title="AI orchestration"
+            blurb="The AI is not freewheeling: it classifies intent, selects a typed permissioned tool, checks permission, grounds on fetched evidence, and logs a receipt." />
+          <OrchestrationCallFlow />
 
-      <SectionHeading id="model-lifecycle" n={3} title="Model lifecycle"
-        blurb="Databricks training → MLflow promotion gate → champion registry → live scoring with version attribution. Each card names the operational decision it informs." />
-      <MlLifecyclePanel envId={envId} />
+          <SectionHeading id="model-lifecycle" n={3} title="Model lifecycle"
+            blurb="Databricks training → MLflow promotion gate → champion registry → live scoring with version attribution. Each card names the operational decision it informs." />
+          <MlLifecyclePanel envId={envId} />
 
-      <SectionHeading id="audit-tools" n={4} title="Audit & tools"
-        blurb="Typed, permissioned, audited tools and an honest registry snapshot. The batch-vs-streaming crosswalk maps the demo substrate to its production-scale equivalent." />
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <McpRegistrySnapshot />
-        <ToolSkillInventory />
-        <BatchVsStreamCrosswalk />
-      </div>
+          <SectionHeading id="audit-tools" n={4} title="Audit & tools"
+            blurb="Typed, permissioned, audited tools and an honest registry snapshot. The batch-vs-streaming crosswalk maps the demo substrate to its production-scale equivalent." />
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <McpRegistrySnapshot />
+            <ToolSkillInventory />
+            <BatchVsStreamCrosswalk />
+          </div>
 
-      <SectionHeading id="delivery-os" n={5} title="Delivery operating system"
-        blurb="Non-trivial work goes through Azure DevOps intake → Session Brief → scoped PR → tests → evidence → one-way DONE. This page itself shipped that way (Story #654)." />
-      <DeliveryTimeline />
+          <SectionHeading id="delivery-os" n={5} title="Delivery operating system"
+            blurb="Non-trivial work goes through Azure DevOps intake → Session Brief → scoped PR → tests → evidence → one-way DONE. This page itself shipped that way (Story #654)." />
+          <DeliveryTimeline />
+        </div>
+      </details>
 
       <DisclosureFooter />
     </div>
