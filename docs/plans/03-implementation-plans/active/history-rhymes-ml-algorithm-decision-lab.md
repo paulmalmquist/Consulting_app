@@ -385,3 +385,16 @@ seal disabled until embedding exists, exact blocked reasons, approved-only gatin
 no placeholders/LLM/Feature-Foundry calls. 8 new component tests (26 promotion UI
 total green); typecheck clean. Stack: … C12 #264 → C13 #265 → **C14 (this)**. Next:
 C15 e2e smoke + deploy verify.
+
+## Feature Store stack — C15 promotion workflow e2e smoke (2026-06-19)
+
+C15 adds `test_hr_promotion_workflow_smoke.py`: a TestClient walk of the full
+protected flow (approve → validate-episode → create-episode[not searchable] →
+create-episode-embedding[searchable] → seal-promoted-episode[promoted]) against one
+in-memory WorldRepo, asserting every safety invariant (no embedding before episode,
+no searchability before embedding, no seal before embedding, promoted terminal,
+confirm+admin on writes, C11 origin on the episode, retrieval contract unchanged,
+Feature Foundry read-only, audit present). 5 smoke tests; 340 HR backend + 28
+promotion-UI frontend tests green; typecheck clean. Stack: … C13 #265 → C14 #266 →
+**C15 (this)**. The full observation→episode promotion airlock (C1–C15) is complete
+behind admin auth + explicit human confirmation at every historical-library write.
