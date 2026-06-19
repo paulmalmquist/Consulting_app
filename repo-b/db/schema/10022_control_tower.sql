@@ -1,4 +1,4 @@
--- 10020_control_tower.sql
+-- 10022_control_tower.sql
 -- Test Telemetry Go/No-Go Control Tower (MVP vertical slice).
 --
 -- Composes existing pieces (telemetry verdict + ai_dispatch router + governance audit) into a single

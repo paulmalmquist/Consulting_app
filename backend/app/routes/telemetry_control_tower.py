@@ -31,7 +31,7 @@ def _to_http(exc: Exception) -> HTTPException:
         return HTTPException(403, {"error_code": "LIFECYCLE_FORBIDDEN", "message": str(exc)})
     if isinstance(exc, (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn)):
         return HTTPException(503, {"error_code": "SCHEMA_NOT_MIGRATED",
-                                   "message": "Control Tower schema not migrated (apply 10020_control_tower.sql)."})
+                                   "message": "Control Tower schema not migrated (apply 10022_control_tower.sql)."})
     if isinstance(exc, LookupError):
         return HTTPException(404, {"error_code": "NOT_FOUND", "message": str(exc)})
     if isinstance(exc, ValueError):
