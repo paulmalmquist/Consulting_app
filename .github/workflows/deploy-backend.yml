@@ -1,0 +1,71 @@
+name: Deploy Backend (Railway)
+
+# Ships the FastAPI backend to Railway. Runs automatically on a push to main ONLY when backend
+# code (or its Railway/Docker config) changed — non-backend merges (frontend, docs, plans) are
+# skipped by the path filter and never start this workflow. Also exposes a manual trigger so a
+# deploy can be kicked on demand (e.g. to ship an already-merged backend change).
+#
+# Setup required once: add a repo secret RAILWAY_TOKEN = a Railway *project token* scoped to the
+# production environment of the project that owns the `authentic-sparkle` service. Until the secret
+# exists the job runs but no-ops with a warning (it does not fail the commit).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "railway.json"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Railway service to deploy"
+        required: false
+        default: "authentic-sparkle"
+
+concurrency:
+  group: deploy-backend-railway
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Project token — empty when the secret is unset, which the guard step detects.
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE: ${{ github.event.inputs.service || 'authentic-sparkle' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Guard — require RAILWAY_TOKEN
+        id: guard
+        run: |
+          if [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "::warning::RAILWAY_TOKEN secret is not set — skipping backend deploy. Add it to enable Railway auto-deploy."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.guard.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Railway CLI
+        if: steps.guard.outputs.enabled == 'true'
+        run: npm i -g @railway/cli
+
+      - name: Stamp git SHA for /version
+        if: steps.guard.outputs.enabled == 'true'
+        # Mirrors scripts/deploy_backend.sh: the backend reads this at startup and serves it on
+        # GET /version, so a deploy is traceable to a commit.
+        run: echo "${GITHUB_SHA}" > backend/app/_git_sha.txt
+
+      - name: Deploy to Railway
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: backend
+        run: railway up --service "${SERVICE}" --ci
