@@ -2,6 +2,7 @@
 
 import type { PromotionCandidate } from "@/lib/historyrhymes/promotions";
 
+import { EpisodePromotionPanel } from "./EpisodePromotionPanel";
 import { EvidenceGatePanel } from "./EvidenceGatePanel";
 import { NoLookaheadAuditPanel } from "./NoLookaheadAuditPanel";
 import { NonEventCoveragePanel } from "./NonEventCoveragePanel";
@@ -24,7 +25,10 @@ function Drawer({ label, value, testid }: { label: string; value: unknown; testi
   );
 }
 
-export function PromotionCandidateDetail({ candidate }: { candidate: PromotionCandidate }) {
+export function PromotionCandidateDetail({ candidate, onChanged }: {
+  candidate: PromotionCandidate;
+  onChanged?: () => void;
+}) {
   const missingEpisodeFields = REQUIRED_EPISODE_FIELDS.filter((f) => {
     const v = candidate[f];
     return v == null || (typeof v === "string" && !v.trim());
@@ -56,6 +60,7 @@ export function PromotionCandidateDetail({ candidate }: { candidate: PromotionCa
       <EvidenceGatePanel candidate={candidate} />
       <NonEventCoveragePanel candidate={candidate} />
       <NoLookaheadAuditPanel candidate={candidate} />
+      <EpisodePromotionPanel candidate={candidate} onChanged={onChanged} />
       <ReceiptHistoryPanel candidate={candidate} />
       <PromotedEpisodeLinkPanel candidate={candidate} />
 

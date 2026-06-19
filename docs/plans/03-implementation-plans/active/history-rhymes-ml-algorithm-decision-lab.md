@@ -372,3 +372,16 @@ audited (`candidate_promoted_sealed`). Blocked reasons: candidate_not_approved/
 already_promoted, missing_episode_id, episode_not_found, episode_embedding_missing,
 confirmation_required, missing_actor. 12 new tests; 335 HR backend green. Stack: …
 C11 #262 → C12 #264 → **C13 (this)**. Next: C14 UI wiring.
+
+## Feature Store stack — C14 promotion workflow UI (2026-06-19)
+
+C14 wires the C10/C12/C13 episode workflow into the C7 review UI:
+`promotions.ts` gains `validateEpisode`/`createEpisode`/`planEpisodeEmbedding`/
+`createEpisodeEmbedding`/`sealPromotedEpisode` (C6-namespace routes, exact 409
+parsing). New `EpisodePromotionPanel` (rendered in `PromotionCandidateDetail`,
+refreshed via a threaded `onChanged`) drives three explicit confirmed steps with a
+searchability badge (`no episode` → `not searchable` → `searchable` → `promoted`),
+seal disabled until embedding exists, exact blocked reasons, approved-only gating,
+no placeholders/LLM/Feature-Foundry calls. 8 new component tests (26 promotion UI
+total green); typecheck clean. Stack: … C12 #264 → C13 #265 → **C14 (this)**. Next:
+C15 e2e smoke + deploy verify.

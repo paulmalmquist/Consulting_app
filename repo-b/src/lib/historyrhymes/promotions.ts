@@ -216,5 +216,28 @@ export const supersedeCandidate = (c: string, body: { superseded_by_candidate_id
 export const linkPromotedEpisode = (c: string, body: { created_episode_id: string }) =>
   post(`${id(c)}/link-promoted-episode`, body);
 
+// --- C10/C12/C13 episode workflow (each maps to a protected route) ----------
+
+export interface EpisodeFields {
+  name?: string;
+  asset_class?: string;
+  macro_conditions_entering?: string;
+  catalyst_trigger?: string;
+  timeline_narrative?: string;
+  start_date?: string;
+  tags?: string[];
+}
+
+export const validateEpisode = (c: string, episode: EpisodeFields) =>
+  post(`${id(c)}/validate-episode`, { episode });
+export const createEpisode = (c: string, episode: EpisodeFields, reviewer_notes?: string) =>
+  post(`${id(c)}/create-episode`, { confirm: true, episode, reviewer_notes });
+export const planEpisodeEmbedding = (c: string, body: { episode_id: string; model_version?: string }) =>
+  post(`${id(c)}/plan-episode-embedding`, body);
+export const createEpisodeEmbedding = (c: string, body: { episode_id: string; model_version?: string }) =>
+  post(`${id(c)}/create-episode-embedding`, { confirm: true, ...body });
+export const sealPromotedEpisode = (c: string, body: { episode_id: string; model_version?: string }) =>
+  post(`${id(c)}/seal-promoted-episode`, { confirm: true, ...body });
+
 /** Coverage target shared with the UI. */
 export const NON_EVENT_RATIO_TARGET = 2.0;

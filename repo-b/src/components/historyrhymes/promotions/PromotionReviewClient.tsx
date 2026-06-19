@@ -108,7 +108,7 @@ export function PromotionReviewClient({ envId }: { envId: string }) {
           {detail && handlers ? (
             <>
               <PromotionActionBar candidate={detail} handlers={handlers} onResult={onResult} />
-              <PromotionCandidateDetail candidate={detail} />
+              <PromotionCandidateDetail candidate={detail} onChanged={refresh} />
             </>
           ) : (
             <p className="text-xs text-neutral-500">{items.length ? "Select a candidate." : ""}</p>
