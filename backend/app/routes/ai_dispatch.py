@@ -13,7 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from app.auth.platform import require_authenticated_request
+from app.auth.platform import require_authenticated_request, require_tenant_context
 from app.services.ai_dispatch.models import AIRequest
 from app.services.ai_dispatch.receipts import list_dispatch_runs
 from app.services.ai_dispatch.registry import provider_registry
@@ -105,8 +105,17 @@ def list_runs(
 
 @router.post("/run")
 def execute_run(payload: AIRequest, request: Request):
-    """Execute a governed dispatch. Auth required; gated behind AI_DISPATCH_ENABLED."""
-    auth = require_authenticated_request(request)
+    """Execute a governed dispatch.
+
+    Fails closed before any provider call: requires an authenticated, **tenant-scoped**
+    caller (401 unauthenticated, 403 if authenticated but tenantless) and the
+    ``AI_DISPATCH_ENABLED`` flag. No provider/fallback/receipt runs for a tenantless
+    request — that path previously executed a real model call and then degraded the
+    receipt for lack of a ``business_id``.
+    """
+    # Auth + tenant gate FIRST — nothing below runs (no routing, no adapter, no
+    # fallback, no receipt) until a real tenant context is present.
+    auth = require_tenant_context(request)
 
     from app.config import AI_DISPATCH_ENABLED
 
@@ -117,11 +126,10 @@ def execute_run(payload: AIRequest, request: Request):
         )
 
     # Scope to the caller's tenant — never trust a client-supplied tenant id.
-    updates: dict = {}
-    if auth.business_id:
-        updates["business_id"] = auth.business_id
+    # business_id is guaranteed present by require_tenant_context.
+    updates: dict = {"business_id": auth.business_id}
     if auth.env_id and not payload.env_id:
         updates["env_id"] = auth.env_id
-    scoped = payload.model_copy(update=updates) if updates else payload
+    scoped = payload.model_copy(update=updates)
 
     return run_dispatch(scoped).model_dump(mode="json")

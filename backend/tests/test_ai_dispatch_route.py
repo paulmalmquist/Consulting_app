@@ -54,7 +54,8 @@ def test_runs_rejects_unauthenticated(client, monkeypatch):
 
 
 def test_run_rejects_unauthenticated(client, monkeypatch):
-    monkeypatch.setattr("app.routes.ai_dispatch.require_authenticated_request", _deny_auth)
+    # /run is gated by require_tenant_context (auth + tenant); unauthenticated → 401.
+    monkeypatch.setattr("app.routes.ai_dispatch.require_tenant_context", _deny_auth)
     body = {"task": "x", "mode": "summarization", "risk_level": "low"}
     assert client.post("/api/ai/dispatch/run", json=body).status_code == 401
 
@@ -67,14 +68,15 @@ def test_runs_authed_returns_scoped_payload(client, monkeypatch):
 
 
 def test_run_disabled_returns_403(client, monkeypatch):
-    monkeypatch.setattr("app.routes.ai_dispatch.require_authenticated_request", _fake_auth())
+    # Authenticated + tenant present, but execution flag off → 403.
+    monkeypatch.setattr("app.routes.ai_dispatch.require_tenant_context", _fake_auth())
     monkeypatch.setattr("app.config.AI_DISPATCH_ENABLED", False)
     body = {"task": "x", "mode": "summarization", "risk_level": "low"}
     assert client.post("/api/ai/dispatch/run", json=body).status_code == 403
 
 
 def test_run_enabled_gemma_unavailable(client, monkeypatch):
-    monkeypatch.setattr("app.routes.ai_dispatch.require_authenticated_request", _fake_auth())
+    monkeypatch.setattr("app.routes.ai_dispatch.require_tenant_context", _fake_auth())
     monkeypatch.setattr("app.config.AI_DISPATCH_ENABLED", True)
     # Avoid any DB by short-circuiting the receipt write.
     monkeypatch.setattr("app.services.ai_dispatch.receipts.record_decision", lambda **kw: None)
