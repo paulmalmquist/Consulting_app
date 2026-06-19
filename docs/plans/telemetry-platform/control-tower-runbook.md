@@ -81,6 +81,26 @@ GOOGLE_APPLICATION_CREDENTIALS=~/.gcp-stage-sa.json \
 | `CONTROL_TOWER_IS_PROD` | mark this deployment as production | `false` |
 | `GEMMA_VERTEX_PROJECT_ID` / `_LOCATION` / `_ENDPOINT_ID` / `_DEDICATED_DNS` | Vertex endpoint contract (shared with `ai_dispatch`) | — |
 
+## Screenshot evidence (2026-06-19)
+- **Path:** `docs/plans/telemetry-platform/screenshots/control-tower.png`
+- **Rendered:** yes — full dark console, "Control Tower" active in the nav, heading + ITAR-aware-posture
+  blurb + "STAGED REAL BACKEND" truth label, and all five panels (Verdict "No decisions yet", Routing
+  "No routing yet", Gemma Private Tier showing real cold/`unavailable` fields — `gemma-3-1b-it`,
+  `us-central1`, 0 deployed, $0 — Approval gate "No open gates", Signed receipt "No receipt selected").
+- **Backend wiring:** real. Captured against `next dev` (port 3100) → `/api/telemetry/control-tower/*`
+  proxy → local backend (port 8001) → the linked Supabase with migration 10016 applied. The
+  control-tower endpoints returned **200** (`gemma-tier`, `decisions`); **Gemma was not warmed**.
+- **How it was captured:** Playwright (chromium) logged in via `POST /api/auth/telemetry-login`
+  (local dev reviewer creds in `.env.local`: `TELEMETRY_REVIEWER_USERNAME=telemetry` /
+  `TELEMETRY_REVIEWER_PASSWORD=localdemo` / `TELEMETRY_REVIEWER_ENV_ID=telemetry-demo`,
+  `BM_SESSION_SECRET` dev value, `BOS_API_ORIGIN=http://127.0.0.1:8001`), then navigated to
+  `/lab/env/telemetry-demo/telemetry/control-tower` and screenshotted full-page.
+- **Visual limitation:** an unrelated app-shell call `GET /api/auth/me` returns 500 under the scoped
+  local reviewer session (it has no full backend user record) — it does **not** affect the Control Tower
+  panels, which render from their own 200 responses. Full green-path (a real verdict, a populated gate +
+  signed receipt) still needs a promoted anomaly champion + a real `run_key` in `tel_test_runs` for the
+  env.
+
 ## Known limitations
 - Triage executes a provider call only when `execute_triage=true` on score-and-gate; the default is
   routing-only (shows the decision + rejected map, no cost, no live key needed).
