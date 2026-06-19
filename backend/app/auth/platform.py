@@ -24,6 +24,25 @@ def require_authenticated_request(request: Request) -> AuthContext:
     return auth
 
 
+def require_tenant_context(request: Request) -> AuthContext:
+    """Authenticated **and** tenant-scoped.
+
+    For cost-bearing / tenant-writing routes (e.g. AI dispatch ``/run``) that must
+    never execute for a tenantless caller. ``require_authenticated_request`` alone is
+    not enough: the MCP dev-bypass (``MCP_API_TOKEN`` unset) authenticates any request
+    as an admin with **no** ``business_id``. Without a tenant, a dispatch cannot be
+    scoped or have its receipt written — so we fail closed (403) before any provider
+    call rather than executing and degrading the receipt.
+    """
+    auth = require_authenticated_request(request)
+    if not auth.business_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Tenant context required: this request carries no business_id",
+        )
+    return auth
+
+
 def _split_legacy_allowed_roles(allowed_roles: set[str] | None) -> tuple[set[str] | None, set[str] | None]:
     """Route a legacy ``allowed_roles`` value into the new two-family API.
 
