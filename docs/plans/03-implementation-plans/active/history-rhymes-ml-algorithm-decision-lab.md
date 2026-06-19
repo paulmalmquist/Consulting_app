@@ -318,3 +318,23 @@ async with honest searchability state) or Option A if immediate analog use is
 required; never Option B. Stack: … C6 #246 → C7 #249 → C8-A #251 → **C9 (this)**.
 Next: C10 — implement the approved-candidate episode-creation API only (no
 `episode_embeddings` write; embedding creation a separate explicit step).
+
+## Feature Store stack — C10 episode-creation API (2026-06-18)
+
+C10 implements C9 stages 1-5+9 (validate + create the `episodes` row), API only:
+no embedding, no seal, no searchability, no schema change.
+`episode_creation.py` = eligibility (approved + actor + receipt + carried C4
+evidence gate) + required-field validation (verified NOT NULL set, placeholder
+rejection, exact `missing_<field>` reasons) + `build_episode_preview` (candidate
+`proposed_*` defaults under the reviewer payload; `source='promotion'`) + one
+append-only `episodes` insert via `DbEpisodeRepository`. Two protected routes in the
+C6 file: `validate-episode` (no write) and `create-episode` (admin + actor +
+`confirm:true`), 409 with exact reasons, success
+`{status:"created", episode_id, searchable:false, embedding_status:"not_created",
+next_required_step:"create_episode_embedding"}`, both C8-A-audited. Never writes
+embeddings, seals, calls an encoder/LLM, or changes candidate status; origin stays
+in audit/response (episodes origin column deferred to C11). 28 new tests
+(TestClient + fake episode repo + fake audit writer, no DB/network); 302 HR
+feature-store + ML-demo + promotion API/audit/episode tests green. Stack: … C7 #249
+→ C8-A #251 → C9 #256 → **C10 (this)**. Next: C11 (additive episodes origin column)
+or C12 (explicit episode-embedding creation + C4 seal).

@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.platform import require_authenticated_request
+from app.services.hr_feature_store import episode_creation as EC
 from app.services.hr_feature_store import promotion_audit as AUDIT
 from app.services.hr_feature_store import promotion_candidates as PC
 
@@ -30,6 +31,9 @@ _repo_factory = PC.DbCandidateRepository
 
 # Audit writer — overridable in tests; None ⇒ governance.record_decision (best-effort).
 _audit_writer = None
+
+# Episode-creation repo factory — overridable in tests.
+_episode_repo_factory = EC.DbEpisodeRepository
 
 
 def _repo():
@@ -137,6 +141,31 @@ class SupersedePayload(BaseModel):
 
 class LinkEpisodePayload(BaseModel):
     created_episode_id: str
+
+
+class EpisodeFields(BaseModel):
+    name: str | None = None
+    asset_class: str | None = None
+    macro_conditions_entering: str | None = None
+    catalyst_trigger: str | None = None
+    timeline_narrative: str | None = None
+    start_date: str | None = None
+    peak_date: str | None = None
+    trough_date: str | None = None
+    end_date: str | None = None
+    category: str | None = None
+    tags: list[str] | None = None
+    regime_type: str | None = None
+
+
+class ValidateEpisodePayload(BaseModel):
+    episode: EpisodeFields = EpisodeFields()
+
+
+class CreateEpisodePayload(BaseModel):
+    confirm: bool = False
+    episode: EpisodeFields = EpisodeFields()
+    reviewer_notes: str | None = None
 
 
 # --- read routes ------------------------------------------------------------
@@ -312,3 +341,84 @@ def link_promoted_episode(request: Request, candidate_id: str,
     return _transition(request, candidate_id, "link_promoted_episode",
                        PC.record_promoted_episode_link, request_payload=payload.model_dump(),
                        created_episode_id=payload.created_episode_id, promoted_at=_now())
+
+
+# --- C10: episode creation (no embedding, no seal) ---------------------------
+
+
+def _episode_repo():
+    return _episode_repo_factory()
+
+
+def _episode_blocked(reasons: list[str], candidate_id: str, status: str | None,
+                     audit_status: str | None = None) -> HTTPException:
+    return HTTPException(status_code=409, detail={
+        "status": "blocked",
+        "candidate_id": candidate_id,
+        "approval_status": status,
+        "blocked_reasons": reasons,
+        "allowed_actions": sorted(PC.ALLOWED_TRANSITIONS.get(status, set())),
+        "audit_status": audit_status,
+    })
+
+
+@router.post("/{candidate_id}/validate-episode")
+def validate_episode(request: Request, candidate_id: str,
+                     payload: ValidateEpisodePayload) -> dict[str, Any]:
+    """Eligibility + human-authored-field validation. Writes nothing."""
+    _require_admin(request)
+    erepo = _episode_repo()
+    route = str(request.url.path)
+    actor = _actor(request)
+    status = _current_status(_repo(), candidate_id)
+    epi = payload.episode.model_dump(exclude_none=True)
+    try:
+        result = EC.validate_episode(erepo, candidate_id, epi)
+    except EC.EpisodeCreationError as e:
+        astatus = _audit(action="episode_validation_blocked", candidate_id=candidate_id,
+                         actor=actor, old_status=status, new_status=status, source_route=route,
+                         request_payload=epi, candidate=None, success=False, blocked_reasons=e.reasons)
+        raise _episode_blocked(e.reasons, candidate_id, status, audit_status=astatus)
+    _audit(action="episode_validation_eligible", candidate_id=candidate_id, actor=actor,
+           old_status=status, new_status=status, source_route=route, request_payload=epi,
+           candidate=None, success=True)
+    return result
+
+
+@router.post("/{candidate_id}/create-episode")
+def create_episode(request: Request, candidate_id: str,
+                   payload: CreateEpisodePayload) -> dict[str, Any]:
+    """Create exactly one episodes row from an approved candidate. Does NOT write an
+    embedding, does NOT seal the candidate, does NOT make the episode searchable."""
+    _require_admin(request)
+    actor = _actor(request)
+    erepo = _episode_repo()
+    route = str(request.url.path)
+    status = _current_status(_repo(), candidate_id)
+    epi = payload.episode.model_dump(exclude_none=True)
+
+    if not actor:
+        astatus = _audit(action="episode_creation_blocked", candidate_id=candidate_id, actor=None,
+                         old_status=status, new_status=status, source_route=route,
+                         request_payload=epi, candidate=None, success=False,
+                         blocked_reasons=["missing_actor"])
+        raise _episode_blocked(["missing_actor"], candidate_id, status, audit_status=astatus)
+    if not payload.confirm:
+        astatus = _audit(action="episode_creation_blocked", candidate_id=candidate_id, actor=actor,
+                         old_status=status, new_status=status, source_route=route,
+                         request_payload=epi, candidate=None, success=False,
+                         blocked_reasons=["confirmation_required"])
+        raise _episode_blocked(["confirmation_required"], candidate_id, status, audit_status=astatus)
+    try:
+        result = EC.create_episode(erepo, candidate_id, epi)
+    except EC.EpisodeCreationError as e:
+        astatus = _audit(action="episode_creation_blocked", candidate_id=candidate_id, actor=actor,
+                         old_status=status, new_status=status, source_route=route,
+                         request_payload=epi, candidate=None, success=False, blocked_reasons=e.reasons)
+        raise _episode_blocked(e.reasons, candidate_id, status, audit_status=astatus)
+
+    astatus = _audit(action="episode_created_from_candidate", candidate_id=candidate_id, actor=actor,
+                     old_status=status, new_status=status, source_route=route, request_payload=epi,
+                     candidate={"created_episode_id": result["episode_id"]}, success=True)
+    result["audit_status"] = astatus
+    return result

@@ -354,3 +354,35 @@ schema migration · API routes · React components · episode creation ·
 automatic candidate discovery · backfill · connector/infra changes · production
 deploy. Anything requiring implementation to answer is recorded here as a gap
 (the `episodes` origin-column gap → C11), not built.
+
+---
+
+## C10 — episode-creation API (IMPLEMENTED, 2026-06-18)
+
+C10 implements stages 1-5 + 9 of this design (validate + create the `episodes`
+row), API only — NO embedding, NO seal, NO searchability:
+
+- **`backend/app/services/hr_feature_store/episode_creation.py`** —
+  `eligibility_blockers` (approved + actor + receipt + the carried C4 evidence
+  gate; blocks `candidate_not_approved`/`_rejected`/`_superseded`/
+  `_already_promoted`/`_already_has_episode`), `field_blockers` (exact
+  `missing_<field>` reasons for the verified NOT NULL set, rejecting empty/
+  placeholder values), `build_episode_preview` (candidate `proposed_*` defaults
+  UNDER the reviewer payload; never invents a required value; sets
+  `source='promotion'`), and `validate_episode`/`create_episode` (insert exactly
+  one row via `DbEpisodeRepository`). It never writes embeddings, seals, or calls
+  an encoder/LLM.
+- **Routes** (in the C6 file): `POST …/validate-episode` (writes nothing) and
+  `POST …/create-episode` (admin gate + actor + `confirm:true`). Blocked → HTTP 409
+  with exact reasons + `allowed_actions`; success →
+  `{status:"created", episode_id, searchable:false, embedding_status:"not_created",
+  next_required_step:"create_episode_embedding"}`. Both audit via C8-A
+  (`episode_validation_blocked`/`_eligible`, `episode_created_from_candidate`).
+- **Origin gap** stays as C9 documented: `source='promotion'` is set, but the
+  originating `candidate_id` lives in the audit/response, not an `episodes` column
+  (→ C11). The candidate is NOT sealed and its status is unchanged — sealing +
+  embedding are C12.
+
+Searchability is still false after C10: the episode exists as reviewed historical
+memory but won't appear in `_search_analogs` until its `full_state`
+`episode_embeddings` row is created later.
