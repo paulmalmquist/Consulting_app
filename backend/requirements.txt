@@ -3,6 +3,8 @@ uvicorn[standard]==0.33.0
 psycopg[binary]==3.2.4
 psycopg-pool>=3.2
 python-dotenv==1.0.1
+# Control Tower — Ed25519 signed/hash-chained decision receipts (was transitive; now a direct dep)
+cryptography>=42.0
 pydantic==2.10.4
 httpx==0.28.1
 
