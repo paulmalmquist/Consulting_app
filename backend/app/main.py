@@ -126,6 +126,8 @@ from app.routes import hr as hr_routes
 from app.routes import hr_stream as hr_stream_routes
 from app.routes import hr_research as hr_research_routes
 from app.routes import hr_morning_book as hr_morning_book_routes
+from app.routes import hr_ml_demo as hr_ml_demo_routes
+from app.routes import hr_promotion_candidates as hr_promotion_candidates_routes
 from app.routes import altered_mind as altered_mind_routes
 from app.routes import hha as hha_routes
 from app.routes import ncf_grant_friction
@@ -441,6 +443,8 @@ app.include_router(hr_routes.router)
 app.include_router(hr_stream_routes.router)
 app.include_router(hr_research_routes.router)
 app.include_router(hr_morning_book_routes.router)
+app.include_router(hr_ml_demo_routes.router)
+app.include_router(hr_promotion_candidates_routes.router)
 app.include_router(altered_mind_routes.router)
 app.include_router(hha_routes.router)
 app.include_router(ncf_grant_friction.router)

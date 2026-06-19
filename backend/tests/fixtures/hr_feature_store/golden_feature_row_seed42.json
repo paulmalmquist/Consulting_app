@@ -1,0 +1,53 @@
+{
+  "model_obs_version": "hr-fs-v1",
+  "observation_id": "2026-06-12",
+  "as_of_date": "2026-06-12",
+  "source_quality": "synthetic",
+  "signature_values": {
+    "yield_curve_10y2y_velocity_30d": 0.3199,
+    "yield_curve_10y2y_acceleration_30d": 0.3575,
+    "credit_complacency_gap": 0.2542,
+    "liquidity_fragmentation_score": -0.1235,
+    "narrative_flow_mismatch": 1.0704,
+    "non_event_counterexample_score": -3.8204,
+    "model_readiness_score": 1.0
+  },
+  "readiness": {
+    "score": 1.0,
+    "degrade_reasons": []
+  },
+  "features_normalized": {
+    "yield_curve_10y2y": 0.194,
+    "fed_funds_rate": -0.0691,
+    "term_premium": -0.2339,
+    "cpi_yoy": -0.6065,
+    "pce_yoy": -0.6428,
+    "initial_claims": -0.227,
+    "unemployment_rate": 0.0283,
+    "nonfarm_payrolls_3mo": -0.1855,
+    "housing_starts_saar": 0.0176,
+    "case_shiller_yoy": 0.1132,
+    "mortgage_rate_30y": -0.1391,
+    "hy_credit_spread": 0.0984,
+    "ig_credit_spread": 0.0786,
+    "libor_ois_spread": -0.4429,
+    "vix_spot": -0.0463,
+    "vix_term_structure": 0.108,
+    "move_index": -0.1254,
+    "sp500_return_1m": 0.3344,
+    "sp500_return_3m": 0.1934,
+    "sp500_drawdown_60d": 0.4762,
+    "btc_price_usd": 0.1773,
+    "btc_return_1m": 0.0717,
+    "btc_mvrv_zscore": -0.0126,
+    "crypto_fear_greed": 0.1633,
+    "btc_dominance": 0.3194,
+    "perp_funding_rate": -0.1337,
+    "epu_us_daily": -0.3504,
+    "epu_world_weekly": -0.1735,
+    "aaii_bull_bear_spread": -0.0137,
+    "put_call_ratio": -0.2858,
+    "margin_debt_yoy": -0.0566,
+    "hoyt_cycle_position": 1.0024
+  }
+}
