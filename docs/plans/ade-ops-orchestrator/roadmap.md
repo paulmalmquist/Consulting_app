@@ -99,8 +99,23 @@ observation window. NOT a Snowflake write framework — one boring reversible
 mutation. Broader execution + post-change watch is PR 6.
 
 ## PR 6 — Incidents + post-change watcher
-Data-incident state machine, blast-radius mapping, watch the next N runs after a
-change, auto-rollback recommendation, closeout report. Tier 5.
+
+### PR 6A — Post-Change Watcher (ADO #685/#686, PR #259)
+Evaluate an executed change in its observation window → verdict (accepted /
+still_observing / degraded / rollback_recommended / insufficient_evidence).
+Evaluate + recommend, never act.
+
+### PR 6B — Incident state machine — SHIPPED (ADO #687/#688)
+Failed/stale/degraded/rollback_recommended outcomes → governed incident records
+(`ade_ops_incidents`, migration 617, RLS). State machine detected → triaged →
+owner_notified → mitigation_planned → resolved → closed; validated transitions (no
+skipping/reopening); `open_from_verdict` refuses non-incident verdicts. **No silent
+close** — resolve needs a resolution note; close needs note + evidence (enforced in
+code AND by a schema CHECK, verified). Every transition receipted. UI
+`IncidentsPanel`. **Decoupled from the watcher** (verdict passed as data, not a
+`watcher.py` import) so it merges independent of 6A. No auto provider rollback, no
+production mutation, no external paging — auto-rollback stays a later explicit
+decision.
 
 ## Later
 Centralized scheduling (Railway/Vercel cron → a trigger endpoint); remaining
