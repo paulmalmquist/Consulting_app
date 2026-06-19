@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from app.auth.platform import require_authenticated_request
 from app.services.hr_feature_store import episode_creation as EC
+from app.services.hr_feature_store import episode_embedding_creation as EEC
 from app.services.hr_feature_store import promotion_audit as AUDIT
 from app.services.hr_feature_store import promotion_candidates as PC
 
@@ -34,6 +35,9 @@ _audit_writer = None
 
 # Episode-creation repo factory — overridable in tests.
 _episode_repo_factory = EC.DbEpisodeRepository
+
+# Episode-embedding repo factory — overridable in tests.
+_embedding_repo_factory = EEC.DbEpisodeEmbeddingRepository
 
 
 def _repo():
@@ -166,6 +170,19 @@ class CreateEpisodePayload(BaseModel):
     confirm: bool = False
     episode: EpisodeFields = EpisodeFields()
     reviewer_notes: str | None = None
+
+
+class PlanEmbeddingPayload(BaseModel):
+    episode_id: str
+    model_version: str = "concat-l2-v1"
+    feature_vector: list[float] | None = None
+
+
+class CreateEmbeddingPayload(BaseModel):
+    confirm: bool = False
+    episode_id: str
+    model_version: str = "concat-l2-v1"
+    feature_vector: list[float] | None = None
 
 
 # --- read routes ------------------------------------------------------------
@@ -419,6 +436,71 @@ def create_episode(request: Request, candidate_id: str,
 
     astatus = _audit(action="episode_created_from_candidate", candidate_id=candidate_id, actor=actor,
                      old_status=status, new_status=status, source_route=route, request_payload=epi,
+                     candidate={"created_episode_id": result["episode_id"]}, success=True)
+    result["audit_status"] = astatus
+    return result
+
+
+# --- C12: episode-embedding creation (makes the episode searchable; no seal) --
+
+
+def _embedding_repo():
+    return _embedding_repo_factory()
+
+
+@router.post("/{candidate_id}/plan-episode-embedding")
+def plan_episode_embedding(request: Request, candidate_id: str,
+                           payload: PlanEmbeddingPayload) -> dict[str, Any]:
+    """Dim/dedup/relationship plan for the episode embedding. Writes nothing."""
+    _require_admin(request)
+    erepo = _embedding_repo()
+    route = str(request.url.path)
+    actor = _actor(request)
+    rp = payload.model_dump(exclude={"feature_vector"})
+    try:
+        result = EEC.plan_episode_embedding(erepo, candidate_id, episode_id=payload.episode_id,
+                                            model_version=payload.model_version,
+                                            request_vector=payload.feature_vector)
+    except EEC.EpisodeEmbeddingError as e:
+        astatus = _audit(action="episode_embedding_planned", candidate_id=candidate_id, actor=actor,
+                         old_status=None, new_status=None, source_route=route, request_payload=rp,
+                         candidate=None, success=False, blocked_reasons=e.reasons)
+        raise _episode_blocked(e.reasons, candidate_id, None, audit_status=astatus)
+    _audit(action="episode_embedding_planned", candidate_id=candidate_id, actor=actor,
+           old_status=None, new_status=None, source_route=route, request_payload=rp,
+           candidate=None, success=True)
+    return result
+
+
+@router.post("/{candidate_id}/create-episode-embedding")
+def create_episode_embedding(request: Request, candidate_id: str,
+                             payload: CreateEmbeddingPayload) -> dict[str, Any]:
+    """Append-only write of one full_state episode_embeddings row → searchable.
+    Requires admin + actor + confirm. Does NOT seal the candidate."""
+    _require_admin(request)
+    actor = _actor(request)
+    erepo = _embedding_repo()
+    route = str(request.url.path)
+    rp = payload.model_dump(exclude={"feature_vector"})
+
+    def _blk(reasons: list[str]) -> HTTPException:
+        astatus = _audit(action="episode_embedding_blocked", candidate_id=candidate_id, actor=actor,
+                         old_status=None, new_status=None, source_route=route, request_payload=rp,
+                         candidate=None, success=False, blocked_reasons=reasons)
+        return _episode_blocked(reasons, candidate_id, None, audit_status=astatus)
+
+    if not actor:
+        raise _blk(["missing_actor"])
+    if not payload.confirm:
+        raise _blk(["confirmation_required"])
+    try:
+        result = EEC.create_episode_embedding(erepo, candidate_id, episode_id=payload.episode_id,
+                                              model_version=payload.model_version,
+                                              request_vector=payload.feature_vector)
+    except EEC.EpisodeEmbeddingError as e:
+        raise _blk(e.reasons)
+    astatus = _audit(action="episode_embedding_created", candidate_id=candidate_id, actor=actor,
+                     old_status=None, new_status=None, source_route=route, request_payload=rp,
                      candidate={"created_episode_id": result["episode_id"]}, success=True)
     result["audit_status"] = astatus
     return result

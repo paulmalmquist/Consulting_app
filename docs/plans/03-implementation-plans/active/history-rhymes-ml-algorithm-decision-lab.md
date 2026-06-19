@@ -349,3 +349,15 @@ C10's `episode_creation` now attaches origin via `build_origin_fields` and the D
 repo fails soft (retries without origin cols if 10023 isn't applied). C10 behavior
 preserved (`searchable:false`). 7 new tests; 35 C10+C11 green. Stack: … C9 #256 →
 C10 #257 → **C11 (this)**. Next: C12 explicit episode-embedding creation API.
+
+## Feature Store stack — C12 explicit episode-embedding API (2026-06-19)
+
+C12 adds `episode_embedding_creation.py` + two protected routes
+(`plan-episode-embedding`, `create-episode-embedding`). Append-only write of one
+`full_state` vector(256) `episode_embeddings` row for a C10-created episode_id,
+gated on: approved candidate, episode tied to candidate via C11
+`origin_candidate_id`, 256-dim, dedup, admin+actor+confirm. Success →
+`searchable:true`, `next_required_step:"seal_promoted_candidate"`. Does NOT seal
+(C13) or change candidate status; uses the existing retrieval contract. C8-A
+audited (`episode_embedding_planned`/`_created`/`_blocked`). 14 new tests. Stack: …
+C10 #257 → C11 #262 → **C12 (this)**. Next: C13 seal-promoted-episode.
