@@ -361,3 +361,14 @@ gated on: approved candidate, episode tied to candidate via C11
 (C13) or change candidate status; uses the existing retrieval contract. C8-A
 audited (`episode_embedding_planned`/`_created`/`_blocked`). 14 new tests. Stack: …
 C10 #257 → C11 #262 → **C12 (this)**. Next: C13 seal-promoted-episode.
+
+## Feature Store stack — C13 seal promoted episode (2026-06-19)
+
+C13 adds `episode_seal.py` + `seal-promoted-episode` route. Pre-checks episode +
+full_state embedding exist, then delegates to C4 `record_promoted_episode_link`
+(status=promoted, created_episode_id, receipt v→2, prior receipt preserved).
+Admin+actor+confirm; promoted terminal; no extra episode/embedding writes; C8-A
+audited (`candidate_promoted_sealed`). Blocked reasons: candidate_not_approved/
+already_promoted, missing_episode_id, episode_not_found, episode_embedding_missing,
+confirmation_required, missing_actor. 12 new tests; 335 HR backend green. Stack: …
+C11 #262 → C12 #264 → **C13 (this)**. Next: C14 UI wiring.

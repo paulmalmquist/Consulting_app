@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from app.auth.platform import require_authenticated_request
 from app.services.hr_feature_store import episode_creation as EC
 from app.services.hr_feature_store import episode_embedding_creation as EEC
+from app.services.hr_feature_store import episode_seal as ESEAL
 from app.services.hr_feature_store import promotion_audit as AUDIT
 from app.services.hr_feature_store import promotion_candidates as PC
 
@@ -38,6 +39,9 @@ _episode_repo_factory = EC.DbEpisodeRepository
 
 # Episode-embedding repo factory — overridable in tests.
 _embedding_repo_factory = EEC.DbEpisodeEmbeddingRepository
+
+# Episode-seal repo factory — overridable in tests.
+_seal_repo_factory = ESEAL.DbEpisodeSealRepository
 
 
 def _repo():
@@ -183,6 +187,12 @@ class CreateEmbeddingPayload(BaseModel):
     episode_id: str
     model_version: str = "concat-l2-v1"
     feature_vector: list[float] | None = None
+
+
+class SealEpisodePayload(BaseModel):
+    confirm: bool = False
+    episode_id: str
+    model_version: str = "concat-l2-v1"
 
 
 # --- read routes ------------------------------------------------------------
@@ -501,6 +511,48 @@ def create_episode_embedding(request: Request, candidate_id: str,
         raise _blk(e.reasons)
     astatus = _audit(action="episode_embedding_created", candidate_id=candidate_id, actor=actor,
                      old_status=None, new_status=None, source_route=route, request_payload=rp,
+                     candidate={"created_episode_id": result["episode_id"]}, success=True)
+    result["audit_status"] = astatus
+    return result
+
+
+# --- C13: seal promoted episode candidate (C4 link; promoted is terminal) -----
+
+
+def _seal_repo():
+    return _seal_repo_factory()
+
+
+@router.post("/{candidate_id}/seal-promoted-episode")
+def seal_promoted_episode(request: Request, candidate_id: str,
+                          payload: SealEpisodePayload) -> dict[str, Any]:
+    """Seal an approved candidate as promoted once its episode + embedding exist.
+    Requires admin + actor + confirm. Delegates the state change to the C4 service
+    (record_promoted_episode_link); promoted is terminal."""
+    _require_admin(request)
+    actor = _actor(request)
+    repo = _seal_repo()
+    route = str(request.url.path)
+    before = _current_status(_repo(), candidate_id)
+    rp = payload.model_dump()
+
+    def _blk(reasons: list[str]) -> HTTPException:
+        astatus = _audit(action="candidate_promoted_sealed", candidate_id=candidate_id, actor=actor,
+                         old_status=before, new_status=before, source_route=route, request_payload=rp,
+                         candidate=None, success=False, blocked_reasons=reasons)
+        return _episode_blocked(reasons, candidate_id, before, audit_status=astatus)
+
+    if not actor:
+        raise _blk(["missing_actor"])
+    if not payload.confirm:
+        raise _blk(["confirmation_required"])
+    try:
+        result = ESEAL.seal_promoted_episode(repo, candidate_id, episode_id=payload.episode_id,
+                                             model_version=payload.model_version, resolved_at=_now())
+    except ESEAL.EpisodeSealError as e:
+        raise _blk(e.reasons)
+    astatus = _audit(action="candidate_promoted_sealed", candidate_id=candidate_id, actor=actor,
+                     old_status=before, new_status="promoted", source_route=route, request_payload=rp,
                      candidate={"created_episode_id": result["episode_id"]}, success=True)
     result["audit_status"] = astatus
     return result
