@@ -1,6 +1,6 @@
 # 0006 — ADE Ops Orchestrator: read-only skeleton + 5 commands
 
-- **Status:** PR 1 implemented (branch `feat/ade-ops-skeleton`).
+- **Status:** PR 1–6 SHIPPED as of 2026-06-20 — skeleton + freshness/cloud adapters + recommendation engine + approval-gated execution (5A/5B/5C) + post-change watcher (6A, #259) + incident state machine (6B, #263) all merged to main. See `docs/plans/ade-ops-orchestrator/roadmap.md` for the full PR ledger; this skeleton doc is historical.
 - **Source vision:** `AUTO_ENGINEERING_2.md` (Agentic Data Engineering Operations).
 - **Plan folder:** `docs/plans/ade-ops-orchestrator/`.
 - **ADO:** Epic "ADE Operations Platform" → Feature "PR 1 skeleton + 5 read-only commands" (created via azure-devops-intake; import file at `docs/plans/ade-ops-orchestrator/ado/ado-backlog.json`).
