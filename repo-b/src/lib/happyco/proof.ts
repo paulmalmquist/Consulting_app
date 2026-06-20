@@ -15,10 +15,10 @@ export const HAPPYCO_DATABRICKS_RECEIPT = {
 export const HAPPYCO_AUTOMATION_ROWS = [
   {
     status: "Ready",
-    trigger: "Role / recruiter context",
-    tool: "recruiter brief intake",
+    trigger: "Role / stakeholder brief",
+    tool: "stakeholder brief intake",
     output: "role-specific proof scope tied to the Head of Data requirements",
-    control: "human-approved scope; no private recruiter content committed",
+    control: "human-approved scope; no private sensitive content committed",
     evidence: "Session Brief + ADO work item",
   },
   {
@@ -81,7 +81,7 @@ export const HAPPYCO_AUTOMATION_ROWS = [
     status: "Template ready",
     trigger: "Outlook WinCOM draft workflow",
     tool: "WinCOM params templates",
-    output: "draft-only recruiter follow-up workflow template",
+    output: "draft-only follow-up workflow template",
     control: "no send without explicit local confirmation",
     evidence: "draft params dry-run receipt",
   },
