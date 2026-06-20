@@ -17,7 +17,13 @@ from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, Header, HTTPException, Query
+from pydantic import BaseModel, Field
 
+from app.mcp.auth import McpContext
+from app.mcp.registry import registry as mcp_registry
+from app.mcp.tools.telemetry_tools import (
+    SCOPE_DENIED_REASON, TELEMETRY_TOOL_NAMES, telemetry_scoped_call,
+)
 from app.observability.logger import emit_log
 from app.schemas.telemetry import (
     MonitoringResponse, RunDetailOut, ScoreRequest, ScoreResponse, StreamSourceRequest, TestRunOut,
@@ -244,5 +250,70 @@ def stream_source(req: StreamSourceRequest, x_stream_admin_key: str | None = Hea
                                   "message": "stream worker is not running on this instance"})
     try:
         return worker.switch_source(req.source)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+# ── MCP tool registry (telemetry, read-only) + denied-call demo ────────────────
+class McpCheckRequest(BaseModel):
+    """Request for the live telemetry MCP scope check (denied/allowed demo)."""
+    model_config = {"extra": "forbid"}
+    business_id: UUID = Field(description="Tenant business id")
+    tool_name: str = Field(description="Tool to attempt (in-scope telemetry tool, or anything else)")
+    input: dict | None = Field(default=None, description="Tool input payload")
+
+
+@router.get("/mcp/tools")
+def mcp_tools():
+    """Honest view of the telemetry-environment MCP tools: the REAL registered ToolDefs (read-only),
+    their permission scope + typed input fields, and the scope policy that denies (and audits) any
+    out-of-scope tool call. No telemetry write tools exist."""
+    try:
+        tools = []
+        for t in mcp_registry.list_by_module("telemetry"):
+            m = t.manifest()
+            tools.append({
+                "name": t.name,
+                "description": t.description,
+                "permission": t.permission,
+                "module": t.module,
+                "tags": sorted(t.tags),
+                "side_effect_class": m.get("side_effect_class"),
+                "permission_required": m.get("permission_required"),
+                "input_fields": sorted((t.input_schema.get("properties") or {}).keys()),
+            })
+        return {
+            "tools": tools,
+            "registered": len(tools),
+            "all_read_only": all(t["permission"] == "read" for t in tools) if tools else None,
+            "scope_policy": {
+                "denied_reason": SCOPE_DENIED_REASON,
+                "explanation": ("The telemetry surface may only call tools in the telemetry scope; any "
+                                "other tool call is denied and audited. Telemetry registers read tools "
+                                "only — there is no telemetry write path."),
+                "scope": sorted(TELEMETRY_TOOL_NAMES),
+            },
+            "null_reason": None if tools else "mcp_registry_unavailable",
+        }
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.post("/mcp/check")
+def mcp_check(req: McpCheckRequest):
+    """Live demo of the telemetry scope policy through the real audited executor. An out-of-scope
+    tool returns the NAMED policy reason (tool_not_in_telemetry_scope) with a denied audit receipt;
+    an in-scope read tool runs through execute_tool (JSON-Schema validation + audit). Read-only."""
+    ctx = McpContext(actor="telemetry_demo", token_valid=True,
+                     resolved_scope={"business_id": str(req.business_id)})
+    try:
+        res = telemetry_scoped_call(req.tool_name, dict(req.input or {}), ctx)
+        return {
+            "allowed": bool(res.get("allowed")),
+            "tool_name": req.tool_name,
+            "null_reason": res.get("null_reason"),
+            "policy": res.get("policy"),
+            "output_present": bool(res.get("output")),
+        }
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)

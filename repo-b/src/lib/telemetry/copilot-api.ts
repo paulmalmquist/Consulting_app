@@ -152,6 +152,29 @@ export const getGovernance = () =>
     params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID },
   });
 
+// ── Telemetry MCP tools (read-only) + scope policy ──────────────────────────────
+export interface McpTool {
+  name: string;
+  description: string;
+  permission: string;          // "read"
+  module: string;              // "telemetry"
+  tags: string[];
+  side_effect_class?: string;
+  permission_required?: string;
+  input_fields: string[];
+}
+
+export interface McpToolsResponse {
+  tools: McpTool[];
+  registered: number;
+  all_read_only: boolean | null;
+  scope_policy: { denied_reason: string; explanation: string; scope: string[] };
+  null_reason: string | null;
+}
+
+export const getMcpTools = () =>
+  apiFetch<McpToolsResponse>("/api/telemetry/mcp/tools", {});
+
 // ── Phase 7: Test Report Workflow ──────────────────────────────────────────────
 export interface DraftReportResponse {
   report_id: string | null;

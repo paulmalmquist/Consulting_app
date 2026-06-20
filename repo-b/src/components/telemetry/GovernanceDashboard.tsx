@@ -2,9 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  getGovernance, getEvals, getUsefulness,
+  getGovernance, getEvals, getUsefulness, getMcpTools,
   type GovernanceSummary, type EvalResults, type UsefulnessSummary, type ArmMeasures,
-  type SecurityPosture, type PostureControl,
+  type SecurityPosture, type PostureControl, type McpToolsResponse,
 } from "@/lib/telemetry/copilot-api";
 import {
   C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
@@ -36,11 +36,17 @@ export default function GovernanceDashboard() {
   const [g, setG] = useState<GovernanceSummary | null>(null);
   const [e, setE] = useState<EvalResults | null>(null);
   const [u, setU] = useState<UsefulnessSummary | null>(null);
+  const [mcp, setMcp] = useState<McpToolsResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getGovernance(), getEvals().catch(() => null), getUsefulness().catch(() => null)])
-      .then(([gov, ev, use]) => { setG(gov); setE(ev); setU(use); })
+    Promise.all([
+      getGovernance(),
+      getEvals().catch(() => null),
+      getUsefulness().catch(() => null),
+      getMcpTools().catch(() => null),
+    ])
+      .then(([gov, ev, use, tools]) => { setG(gov); setE(ev); setU(use); setMcp(tools); })
       .catch((x) => setErr(String(x)));
   }, []);
 
@@ -78,6 +84,9 @@ export default function GovernanceDashboard() {
 
       {/* security & access posture — enforced controls vs honest boundaries */}
       <PosturePanel p={g.security_posture} />
+
+      {/* telemetry MCP tools (read-only) + scope-denial policy */}
+      <McpToolsPanel m={mcp} />
 
       {/* metric strip */}
       <StatGrid cols={4} style={{ marginTop: 16 }}>
