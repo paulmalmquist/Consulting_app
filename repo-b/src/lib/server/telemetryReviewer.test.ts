@@ -65,6 +65,7 @@ describe("telemetryReviewer", () => {
     expect(ok(`/lab/env/${ENV}/telemetry`)).toBe(true);
     expect(ok(`/lab/env/${ENV}/telemetry/replay`)).toBe(true);
     expect(ok(`/lab/env/${ENV}/telemetry/governance`)).toBe(true);
+    expect(ok(`/lab/env/${ENV}/telemetry/metadata`)).toBe(true);
     // blocked: other departments, other envs, admin/app, slug surfaces
     expect(ok(`/lab/env/${ENV}/consulting`)).toBe(false);
     expect(ok(`/lab/env/${ENV}`)).toBe(false);

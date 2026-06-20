@@ -1,6 +1,21 @@
-# Next Session - RS Factory Digital Thread PR 3
+# Next Session - Telemetry Metadata Explorer Release
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-12
+
+The Telemetry Metadata Explorer implementation is complete on
+`feat/telemetry-metadata-explorer`, tracked by ADO Story #537. Before closing the Story:
+
+1. Review and merge the branch.
+2. Deploy backend and frontend through the normal Winston release path.
+3. Smoke `GET /api/telemetry/metadata/graph?env_id=telemetry-demo&business_id=...` and confirm HTTP
+   200 with nodes, edges, warnings, and matching statistics.
+4. Repeat desktop/mobile browser checks against the deployed route.
+5. Close Story #537 only after deploy evidence is attached.
+
+Recommended follow-up Story: add a lightweight CI catalog validator for committed source references
+and disconnected lineage.
+
+## Prior RS Factory handoff
 
 The existing telemetry platform remains the only user-facing environment. RS Factory work is
 additive inside that environment; do not create another template or top-level route.

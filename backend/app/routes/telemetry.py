@@ -21,6 +21,7 @@ from app.observability.logger import emit_log
 from app.schemas.telemetry import (
     MonitoringResponse, RunDetailOut, ScoreRequest, ScoreResponse, StreamSourceRequest, TestRunOut,
 )
+from app.schemas.telemetry_metadata import TelemetryMetadataGraph
 from app.services import telemetry_serving as svc
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
@@ -107,6 +108,34 @@ def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
     """Single KPI + serving-inventory contract for the Overview (counts + headline metrics)."""
     try:
         return svc.summary(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/metadata/graph", response_model=TelemetryMetadataGraph)
+def metadata_graph(
+    env_id: str = Query(..., min_length=1),
+    business_id: UUID = Query(...),
+):
+    """Reviewed telemetry lineage plus optional, allowlisted serving metadata."""
+    from app.services import telemetry_metadata as metadata_svc
+
+    try:
+        return metadata_svc.get_metadata_graph(env_id=env_id, business_id=business_id)
+    except metadata_svc.MetadataCatalogError:
+        emit_log(
+            level="error",
+            service="telemetry",
+            action="metadata_catalog_invalid",
+            message="Committed telemetry metadata catalog failed validation.",
+        )
+        raise HTTPException(
+            500,
+            {
+                "error_code": "INVALID_METADATA_CATALOG",
+                "message": "Telemetry metadata catalog failed validation.",
+            },
+        )
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
 

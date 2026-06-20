@@ -26,6 +26,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z", group: "Factory" },
   { slug: "factory-ml", label: "Factory ML", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6", group: "Factory" },
   { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "AI & Governance", mobilePrimary: true },
+  { slug: "metadata", label: "Metadata Explorer", icon: "M2 3h5v4H2zM9 3h5v4H9zM5 9h6v4H5zM4.5 7v2M11.5 7v2M7 11H5M11 11h-1", group: "AI & Governance" },
   { slug: "governance", label: "AI Governance", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z", group: "AI & Governance" },
 ];
 

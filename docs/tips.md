@@ -3224,3 +3224,31 @@ layout primitives in `primitives.tsx` (`StatGrid`, `SplitGrid`, `ScrollTable`, `
   items in a bottom bar don't fit; group the drawer instead.
 - When re-verifying after a rebuild, confirm the new server actually bound the port — an EADDRINUSE
   leftover from the previous `next start` will happily serve the stale build and "disprove" the fix.
+
+### Telemetry metadata and lineage conventions (2026-06-12)
+
+- Telemetry storage definitions are split across `repo-b/db/schema/10006_telemetry_serving.sql`
+  through the later `10009`-`10016` telemetry/factory migrations, Databricks assets under
+  `telemetry-platform/databricks/`, deterministic seed definitions under `rs_factory_seed/`, Factory
+  ML exports under `skills/rs-factory-ml/` and `repo-b/public/labs/factory-ml/`, and Stargate
+  contracts under `infra/confluent/stargate/` plus `scripts/streaming/stargate/`. Do not infer a
+  complete platform schema from any one directory.
+- The lab route `envId` and the telemetry serving scope are intentionally different concepts.
+  Authorization uses `/lab/env/[envId]`; telemetry reads currently use the configured
+  `TELEMETRY_SERVING_ENV_ID` (`telemetry-demo` by default). Metadata UI and API proxy code must keep
+  those values separate and visible.
+- Metadata discovery is reviewed and allowlisted, not dynamic. Keep committed objects in
+  `backend/app/data/telemetry/metadata_catalog.json`; validate source references, duplicate object
+  definitions, edge uniqueness, dangling references, and disconnected nodes before serving.
+- Safe Postgres enrichment uses one static query over catalog-listed `tel_*` objects. Never construct
+  identifiers or SQL from the client/catalog, and treat enrichment failure as sanitized `partial`
+  status while preserving the valid base graph.
+- `@xyflow/react` is already installed. Stable telemetry graphs work best with deterministic layer
+  columns, non-draggable nodes, explicit edge IDs, `strokeDasharray` for inferred edges, and a generic
+  reverse-edge traversal for metric/gold trace highlighting.
+- Scoped telemetry reviewer sessions are DB-free. The login field must accept the non-email reviewer
+  username, and `/api/auth/me` must return the signed reviewer membership without attempting UUID/DB
+  rehydration.
+- `next start` sets secure cookies, so authenticated HTTP localhost evidence should use `next dev`
+  after the production build has been verified separately. Clear only the worktree `.next` directory
+  when switching modes if stale dev asset 404s appear.

@@ -11,6 +11,8 @@
 6. Model Performance shows live, non-round metrics (precision/recall/F1, RMSE, PHM) with MLflow run
    IDs and the promotion-gate status — sourced from the API, not frontend constants.
 7. Monitoring shows PSI, rolling anomaly rate, and prediction counts from the real prediction log.
+8. Metadata Explorer shows a supported source-to-consumer path, distinguishes route environment
+   from serving scope, and traces a selected metric or gold object to its committed upstream source.
 
 ## Negative tests (each maps to a null_reason + a UI render check)
 
@@ -22,6 +24,11 @@
 - Copilot asked an out-of-scope question → `null_reason: "out_of_scope_environment"`, labeled as such.
 - Cross-tenant read attempt against a `tel_*` table → blocked by RLS (no rows), not an error leak.
 
+- Optional metadata enrichment unavailable: the base graph remains available with `status=partial`
+  and a sanitized warning.
+- Unsafe fields, non-telemetry objects, duplicate/dangling edges, or isolated nodes: the base catalog
+  fails closed without exposing invalid catalog detail.
+
 ## Visual checks
 
 - [ ] Dark console only; no light-mode surfaces.
@@ -29,6 +36,9 @@
 - [ ] Go/No-Go reads as a redline indicator, not a generic status badge.
 - [ ] Depth order holds: shell background < card < nested panel < input.
 - [ ] Anomaly regions and threshold bands are visible on the traces.
+- [x] Metadata graph uses solid explicit edges and dashed inferred edges.
+- [x] Metadata drawer identifies inferred lineage and explicit unavailable values.
+- [x] Metadata page remains usable at 375px and exposes navigation through the mobile More drawer.
 
 ## AI answer evals (copilot, optional)
 

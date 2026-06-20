@@ -251,11 +251,10 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
 
             <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
               <label className="block space-y-2 text-sm text-white/60">
-                <span>Email</span>
+                <span>Email or reviewer username</span>
                 <Input
-                  autoComplete="email"
-                  inputMode="email"
-                  type="email"
+                  autoComplete="username"
+                  type="text"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   className={panelInputClassName()}
