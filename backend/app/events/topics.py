@@ -20,6 +20,11 @@ class Topics:
     HR_FEATURE_STORE_READINGS = "winston.hr.feature_store.readings.v1"
     HR_FEATURE_STORE_PIPELINE_STATUS = "winston.hr.feature_store.pipeline_status.v1"
     HR_FEATURE_STORE_MATERIALIZED = "winston.hr.feature_store.materialized.v1"
+    # History Rhymes Polymarket streaming lane.
+    HR_POLYMARKET_MARKETS = "winston.hr.polymarket.markets.v1"
+    HR_POLYMARKET_RAW = "winston.hr.polymarket.raw.v1"
+    HR_POLYMARKET_FEATURES = "winston.hr.polymarket.features.v1"
+    HR_POLYMARKET_FORECASTS = "winston.hr.polymarket.forecasts.v1"
     DEAD_LETTER = "winston.dead-letter.v1"
 
 

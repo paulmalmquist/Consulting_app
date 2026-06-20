@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: winston-observational-sink
+  namespace: winston-streaming
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: winston-observational-sink
+  template:
+    metadata:
+      labels:
+        app: winston-observational-sink
+    spec:
+      serviceAccountName: winston-observational-sink
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: sink
+          image: winston-backend:local
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - app.events.sink_worker
+          envFrom:
+            - configMapRef:
+                name: hr-polymarket-config
+          env:
+            - name: CONFLUENT_BOOTSTRAP_SERVERS_FILE
+              value: /var/run/winston-secrets/bootstrap-servers
+            - name: CONFLUENT_API_KEY_FILE
+              value: /var/run/winston-secrets/confluent-api-key
+            - name: CONFLUENT_API_SECRET_FILE
+              value: /var/run/winston-secrets/confluent-api-secret
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /var/run/winston-secrets
+              readOnly: true
+      volumes:
+        - name: runtime-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: winston-observational-sink

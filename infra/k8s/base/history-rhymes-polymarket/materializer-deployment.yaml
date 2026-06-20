@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-polymarket-materializer
+  namespace: winston-streaming
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hr-polymarket-materializer
+  template:
+    metadata:
+      labels:
+        app: hr-polymarket-materializer
+    spec:
+      serviceAccountName: hr-polymarket-materializer
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: materializer
+          image: winston-backend:local
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - app.services.hr_polymarket.materializer_worker
+          envFrom:
+            - configMapRef:
+                name: hr-polymarket-config
+          env:
+            - name: CONFLUENT_BOOTSTRAP_SERVERS_FILE
+              value: /var/run/winston-secrets/bootstrap-servers
+            - name: CONFLUENT_API_KEY_FILE
+              value: /var/run/winston-secrets/confluent-api-key
+            - name: CONFLUENT_API_SECRET_FILE
+              value: /var/run/winston-secrets/confluent-api-secret
+            - name: DATABASE_URL_FILE
+              value: /var/run/winston-secrets/database-url
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /var/run/winston-secrets
+              readOnly: true
+            - name: calibration
+              mountPath: /etc/winston/calibration
+              readOnly: true
+        - name: forecast
+          image: winston-backend:local
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - app.services.hr_polymarket.forecast_worker
+          envFrom:
+            - configMapRef:
+                name: hr-polymarket-config
+          env:
+            - name: CONFLUENT_BOOTSTRAP_SERVERS_FILE
+              value: /var/run/winston-secrets/bootstrap-servers
+            - name: CONFLUENT_API_KEY_FILE
+              value: /var/run/winston-secrets/confluent-api-key
+            - name: CONFLUENT_API_SECRET_FILE
+              value: /var/run/winston-secrets/confluent-api-secret
+            - name: DATABASE_URL_FILE
+              value: /var/run/winston-secrets/database-url
+            - name: FRED_API_KEY_FILE
+              value: /var/run/winston-secrets/fred-api-key
+            - name: DATABRICKS_HOST_FILE
+              value: /var/run/winston-secrets/databricks-host
+            - name: DATABRICKS_PAT_FILE
+              value: /var/run/winston-secrets/databricks-pat
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /var/run/winston-secrets
+              readOnly: true
+            - name: calibration
+              mountPath: /etc/winston/calibration
+              readOnly: true
+      volumes:
+        - name: runtime-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: hr-polymarket-materializer
+        - name: calibration
+          configMap:
+            name: hr-polymarket-calibration

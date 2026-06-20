@@ -27,6 +27,7 @@ from app.services.ade_ops import (
     incidents,
     simulation,
     snowflake_executor,
+    watcher,
 )
 from app.services.ade_ops.models import OpsCommandRequest
 from app.services.ade_ops.registry import ops_registry
@@ -353,6 +354,68 @@ def transition_incident(incident_id: str, body: TransitionBody, request: Request
     _incident_receipt(business_id=body.business_id, env_id=body.env_id,
                       action=f"transition.{to_state.value}", inc=inc)
     return {"incident": inc.to_dict(), "null_reason": None}
+
+
+# ── Post-change watcher (PR 6A) — evaluate, never act ─────────────────────────
+
+class WatchBody(TenantBody):
+    # Optional observation evidence. Absent → insufficient_evidence (never success).
+    evidence_status: str = "missing"
+    metric: str | None = None
+    expected: float | None = None
+    observed: float | None = None
+    lower_is_better: bool = True
+
+
+def _watch_receipt(*, business_id: str, env_id: str | None, result) -> None:
+    try:
+        governance.record_decision(
+            business_id=business_id, env_id=env_id, actor="ade_ops_watcher",
+            decision_type="ade_op", tool_name="watcher.evaluate",
+            input_summary={"approval_id": result.approval_id},
+            output_summary=result.to_dict(),
+            success=(result.verdict in (watcher.WatcherVerdict.ACCEPTED,
+                                         watcher.WatcherVerdict.STILL_OBSERVING)),
+            tags=["ade_op", "watcher", result.verdict.value])
+    except Exception as exc:  # noqa: BLE001 — receipts never break the flow
+        emit_log(level="error", service="ade_ops", action="watcher_receipt_failed",
+                 message=str(exc), error=exc)
+
+
+@router.post("/approvals/{approval_id}/watch")
+def watch_approval(approval_id: str, body: WatchBody, request: Request):
+    """Evaluate an executed change against its observation window and return a
+    verdict (accepted/still_observing/degraded/rollback_recommended/
+    insufficient_evidence). Recommends only — no rollback is executed."""
+    require_authenticated_request(request)
+    req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id)
+    if req_obj is None:
+        raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown approval"})
+    obs = watcher.Observation(
+        evidence_status=body.evidence_status, metric=body.metric, expected=body.expected,
+        observed=body.observed, lower_is_better=body.lower_is_better, source="watch_request")
+    result = watcher.evaluate(req_obj, observation=obs, now=_now())
+    _watch_receipt(business_id=body.business_id, env_id=body.env_id, result=result)
+    return result.to_dict()
+
+
+@router.get("/approvals/watch")
+def watch_state(request: Request, business_id: str = Query(...),
+                env_id: str | None = Query(None), limit: int = Query(50, ge=1, le=200)):
+    """Watcher state for the panel: each EXECUTED change evaluated with whatever
+    observation evidence is currently available (none wired yet → still_observing
+    while the window is open, else insufficient_evidence). Honest by default."""
+    require_authenticated_request(request)
+    try:
+        items = approval_store.list_recent(env_id=env_id or "", business_id=business_id, limit=limit)
+    except Exception as exc:  # noqa: BLE001 — fail closed on storage error
+        emit_log(level="error", service="ade_ops", action="watch_state_failed",
+                 message=str(exc), error=exc)
+        return {"watching": [], "null_reason": "watch_state_unavailable"}
+    now = _now()
+    watching = [watcher.evaluate(i, observation=None, now=now).to_dict()
+                for i in items if i.executed]
+    return {"watching": watching, "null_reason": None}
 
 
 def _serialize(row: dict) -> dict:

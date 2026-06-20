@@ -98,12 +98,21 @@ before/after, actor, approval id, preflight, SQL hash, rollback SQL hash,
 observation window. NOT a Snowflake write framework — one boring reversible
 mutation. Broader execution + post-change watch is PR 6.
 
-## PR 6 — Incidents + post-change watcher
+## PR 6 — Incidents + post-change watcher (split into 6A / 6B)
 
-### PR 6A — Post-Change Watcher (ADO #685/#686, PR #259)
-Evaluate an executed change in its observation window → verdict (accepted /
-still_observing / degraded / rollback_recommended / insufficient_evidence).
-Evaluate + recommend, never act.
+### PR 6A — Post-Change Watcher + Observation Evaluation — SHIPPED (ADO #685/#686, PR #259)
+Evaluates an executed change (simulated PR 5B or real non-prod PR 5C) during its
+observation window and produces a verdict — **evaluate + recommend, never act**.
+`watcher.py::evaluate(req, observation, now)` reads the receipt + observation
+window and returns one of: `accepted` (improved/stable, window closed) ·
+`still_observing` (window open) · `degraded` (failed/stale telemetry) ·
+`rollback_recommended` (worse outcome — **artifact only, executes nothing**) ·
+`insufficient_evidence` (no observation evidence — never success). The verdict
+cites evidence + null_reason. No provider write, no auto-rollback, no schedule
+change (a test asserts the module has no execution token). Route: `POST
+/approvals/{id}/watch` (optional observation evidence) + `GET /approvals/watch`
+(watcher state, honest by default); both receipted. UI `WatcherPanel`
+distinguishes simulated / live non-prod / unavailable evidence.
 
 ### PR 6B — Incident state machine — SHIPPED (ADO #687/#688)
 Failed/stale/degraded/rollback_recommended outcomes → governed incident records
