@@ -17,7 +17,7 @@ export type IndustrySection = {
 };
 
 export type IndustryVertical = {
-  slug: 'real-estate-private-equity' | 'consumer-credit' | 'medical' | 'legal';
+  slug: 'real-estate-private-equity' | 'consumer-credit' | 'medical' | 'legal' | 'trades';
   label: string;
   themeKey: 'cyan' | 'amber' | 'rose' | 'violet';
   teaser: string;
@@ -617,6 +617,149 @@ export const INDUSTRY_VERTICALS: IndustryVertical[] = [
       'AI drafting and review tools that produce output partners will sign without rewriting.'
     ],
     pageEndCta: 'See where the matter data is blocking the AI tools you\'ve already bought.'
+  },
+  {
+    slug: 'trades',
+    label: 'Trades & Field Operations',
+    themeKey: 'cyan',
+    teaser:
+      'Run the work from estimate to invoice.',
+    contactLabel: 'Trades & Field Operations',
+    heroImageUrl: '/assets/bg-trades.jpg',
+    heroHeadline:
+      'Run the work from estimate to invoice.',
+    heroSubheadline:
+      'One operating layer for jobs, crews, customers, schedules, documents, and cash flow. Keep the tools that work. Bring the work into one place.',
+    whyItBreaks: {
+      title: 'Why It Breaks',
+      intro: 'The business works because people remember what matters. That breaks down as volume grows.',
+      items: [
+        'Calls and texts become work orders only if someone writes them down.',
+        'Estimates lose the photos, notes, and scope they were built on.',
+        'Crew schedules live in one person\'s head and a group chat.',
+        'Invoices go out without the backup that proves the work.'
+      ],
+      closing: [
+        'The work is moving faster than the back office.',
+        'The owner is the system of record, and the owner is busy.'
+      ]
+    },
+    whatWeChange: {
+      title: 'What We Change',
+      intro:
+        'Novendor connects the daily flow of work: intake, estimate, scheduling, dispatch, job status, materials, documents, approvals, invoicing, and follow-up.',
+      items: [
+        'Calls, forms, emails, and repeat work land in one intake queue.',
+        'Crews get assigned and the day stays visible to dispatch.',
+        'Pricing, scope, photos, notes, and approvals stay with the estimate.',
+        'Work performed ties to backup, approvals, and the customer record before it bills.'
+      ],
+      closing: [
+        'Cleaner jobs.',
+        'Faster billing.',
+        'Fewer missed handoffs.'
+      ]
+    },
+    buyerProfile: [
+      'Owners of 10–100 person trade businesses who are still the back office.',
+      'Operations managers running dispatch out of a whiteboard and a phone.',
+      'Service businesses where estimates and invoices drift apart.',
+      'Field-heavy companies that want one view of jobs, crews, and cash timing.'
+    ],
+    buyerSentence: 'Built for trade owners who want one place to run the operating day.',
+    reconstructCards: [
+      {
+        title: 'Job Intake',
+        description:
+          'Capture calls, forms, emails, and repeat work requests in one queue instead of scattered across phones and inboxes.',
+        outcome: 'Nothing falls through between the call and the work order.'
+      },
+      {
+        title: 'Scheduling and Dispatch',
+        description:
+          'Assign crews, track timing, and keep the day visible to whoever runs the board.',
+        outcome: 'The schedule reflects reality, not a guess from this morning.'
+      },
+      {
+        title: 'Estimate Tracking',
+        description:
+          'Keep pricing, scope, photos, notes, and approvals together on the estimate.',
+        outcome: 'The estimate carries its own context all the way to the invoice.'
+      },
+      {
+        title: 'Invoice Readiness',
+        description:
+          'Tie work performed to backup, approvals, and the customer record before billing.',
+        outcome: 'Estimate-to-invoice time drops and disputes lose their footing.'
+      }
+    ],
+    engagementModel: {
+      intro:
+        'One workflow at a time. Fixed scope. Keep the tools that work. Novendor sits beside QuickBooks, spreadsheets, and dispatch tools and gives the owner a cleaner operating view.',
+      principles: [
+        'We start with the workflow causing the most dropped balls.',
+        'We build alongside the current tools. Nothing stops while we work.',
+        'The crews keep working. The office gets clearer.',
+        'The operating layer is yours — no rip-and-replace.'
+      ]
+    },
+    credibility: {
+      intro:
+        'Trade businesses run on calls, texts, spreadsheets, accounting tools, job photos, estimates, and crew updates. We work where those meet.',
+      pillars: [
+        {
+          title: 'Field Operations Fluency',
+          description:
+            'Intake, dispatch, job status, and materials treated as one operating day, not a pile of apps.'
+        },
+        {
+          title: 'Estimate-to-Invoice Integrity',
+          description:
+            'Scope, photos, approvals, and backup stay attached to the work from quote to bill.'
+        },
+        {
+          title: 'Owner-Grade Visibility',
+          description:
+            'Open jobs, aging estimates, crew load, cash timing, and exceptions in one view.'
+        },
+        {
+          title: 'Keep the Tools',
+          description:
+            'QuickBooks, sheets, and dispatch tools stay useful. Novendor gives them a common operating layer.'
+        }
+      ]
+    },
+    controlStatement:
+      'When the owner is the only system of record, growth is the thing that breaks the business.',
+    outcomeCards: [
+      {
+        title: 'See Every Open Job',
+        description:
+          'One view of what is open, what is scheduled, and what needs attention today.'
+      },
+      {
+        title: 'Shorter Estimate-to-Invoice',
+        description:
+          'Work performed ties to backup and approvals, so billing goes out faster with less rework.'
+      },
+      {
+        title: 'Fewer Dropped Handoffs',
+        description:
+          'Intake, dispatch, and follow-up carry context instead of relying on memory.'
+      },
+      {
+        title: 'Proof With the Work',
+        description:
+          'Photos, notes, and approvals stay with the job and the customer record.'
+      }
+    ],
+    typicalResults: [
+      'One queue for calls, forms, emails, and repeat work.',
+      'A schedule dispatch can trust through the day.',
+      'Estimates that keep their scope, photos, and approvals.',
+      'Invoices that bill on the backup, not on memory.'
+    ],
+    pageEndCta: 'Give the business one place to run the day.'
   }
 ];
 

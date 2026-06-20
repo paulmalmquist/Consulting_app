@@ -1,0 +1,14 @@
+{
+  "realtime_start": "2026-06-16",
+  "realtime_end": "2026-06-16",
+  "units": "lin",
+  "file_type": "json",
+  "count": 5,
+  "observations": [
+    { "date": "2026-06-08", "value": "17.21" },
+    { "date": "2026-06-09", "value": "16.84" },
+    { "date": "2026-06-10", "value": "." },
+    { "date": "2026-06-11", "value": "18.50" },
+    { "date": "2026-06-12", "value": "19.07" }
+  ]
+}

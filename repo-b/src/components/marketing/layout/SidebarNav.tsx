@@ -25,7 +25,6 @@ import navigation from '@content/navigation.json';
 import { cn } from '../ui/cn';
 
 const ALLOWED_NAV_ITEMS = new Set([
-  'Home',
   'What We Do',
   'Industries',
   'Operational Assessment',
@@ -40,7 +39,8 @@ const INDUSTRY_CHILDREN = [
   { label: 'Real Estate Private Equity', href: '/industries/real-estate-private-equity' },
   { label: 'Consumer Credit', href: '/industries/consumer-credit' },
   { label: 'Medical', href: '/industries/medical' },
-  { label: 'Legal', href: '/industries/legal' }
+  { label: 'Legal', href: '/industries/legal' },
+  { label: 'Trades & Field Operations', href: '/industries/trades' }
 ];
 
 const VISIBLE_NAV_GROUPS = navigation.groups
@@ -80,7 +80,7 @@ export function SidebarNav({ isCollapsed, toggleCollapsed, drawerOpen, setDrawer
     });
     return initial;
   });
-  const [industriesOpen, setIndustriesOpen] = useState(pathname.startsWith('/industries'));
+  const [industriesOpen, setIndustriesOpen] = useState(true);
 
   useEffect(() => {
     if (pathname.startsWith('/industries')) {

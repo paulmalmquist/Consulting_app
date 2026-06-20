@@ -14,6 +14,12 @@ class Topics:
     # kept for back-compat; HISTORY_RHYMES_SIGNALS is the active topic.
     HR_SIGNALS = "winston.hr.signals.v1"
     HISTORY_RHYMES_SIGNALS = "history-rhymes.signals.v1"
+    # History Rhymes feature-store lane (B7 infra). Constants only — connector
+    # publishing is wired in a later runtime PR; today connectors write SILVER
+    # directly to Postgres. The observational sink may route these to BigQuery.
+    HR_FEATURE_STORE_READINGS = "winston.hr.feature_store.readings.v1"
+    HR_FEATURE_STORE_PIPELINE_STATUS = "winston.hr.feature_store.pipeline_status.v1"
+    HR_FEATURE_STORE_MATERIALIZED = "winston.hr.feature_store.materialized.v1"
     DEAD_LETTER = "winston.dead-letter.v1"
 
 

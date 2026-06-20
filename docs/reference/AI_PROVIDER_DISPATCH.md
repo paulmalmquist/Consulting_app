@@ -41,13 +41,38 @@ receipt mirror under `.ai_receipts/`. `--no-fallback` means no fallback.
 | GET | `/providers`, `/providers/{name}` | none | provider list / detail |
 | POST | `/route` | none | dry-run routing decision |
 | GET | `/runs` | required | recent receipts, tenant-scoped |
-| POST | `/run` | required | execute; gated by `AI_DISPATCH_ENABLED` |
+| POST | `/run` | **required + tenant** | execute; gated by `AI_DISPATCH_ENABLED`; fails closed without a `business_id` |
+| GET | `/config` | none | runtime config: `gemma_enabled`, fallback provider/model, `execution_enabled` |
+| POST | `/config` | required | flip the runtime Gemma toggle (`{gemma_enabled: bool}`) |
+
+## `/run` auth + tenant gate
+
+`POST /run` is cost-bearing, so it fails closed **before any provider call** unless the caller is both
+authenticated and tenant-scoped (`require_tenant_context`): **401** when unauthenticated, **403** when
+authenticated but carrying no `business_id`. This closes a leak where the MCP dev-bypass (`MCP_API_TOKEN`
+unset) authenticated a tenantless admin and a real model call would execute, then the receipt would degrade
+for lack of a tenant. The `business_id` is taken from the auth context, never from the request body (a
+client-supplied `business_id` is overridden). Read-only endpoints (`/providers`, `/route`, `/evals`,
+`GET /config`) keep their existing (open) boundary; `/runs` and `POST /config` still require auth.
+
+## Gemma toggle + controlled fallback
+
+Gemma is gated by a **runtime, frontend-controllable toggle** (`gemma_enabled`, flipped via `POST /config`
+or the admin panel's toggle — no redeploy). For a **Gemma-home mode** (summarization, classification,
+low_risk_rag, log_explanation, telemetry_narrative): Gemma serves only when the toggle is **on** AND a
+Vertex endpoint is configured/available; otherwise the request **falls back to the small frontier model**
+(`AI_DISPATCH_FALLBACK_MODEL`, default `gpt-5-mini` on OpenAI). The fallback is **recorded** on the receipt
+(`fallback_used=true`, `rejected[gemma_gcp]=gemma_disabled|gemma_unavailable`), never silent. A **forced**
+Gemma request is honored literally and fails closed if Gemma is off — no auto-fallback. The toggle is
+process-local and resets to `AI_DISPATCH_GEMMA_ENABLED` on restart.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `AI_DISPATCH_ENABLED` | `false` | gate `POST /run` (cost-bearing) |
+| `AI_DISPATCH_GEMMA_ENABLED` | `false` | initial value of the runtime Gemma toggle |
+| `AI_DISPATCH_FALLBACK_PROVIDER` / `AI_DISPATCH_FALLBACK_MODEL` | `openai` / `gpt-5-mini` | small-model fallback for Gemma-home modes when Gemma is off/unavailable |
 | `AI_DISPATCH_ALLOW_FALLBACK` | `false` | global fallback guard (per-request opt-in still required) |
 | `OPENAI_API_KEY` | — | OpenAI availability (already used platform-wide) |
 | `ANTHROPIC_API_KEY` | — | Claude availability (already used by psychrag) |
