@@ -35,6 +35,7 @@ const INDUSTRY_SLUGS = [
   'consumer-credit',
   'medical',
   'legal',
+  'trades',
 ];
 
 function url(path: string): MetadataRoute.Sitemap[number] {

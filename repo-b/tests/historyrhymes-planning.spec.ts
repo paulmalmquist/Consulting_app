@@ -1,36 +1,53 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Best-effort smoke for the History Rhymes research → planning page.
+ * History Rhymes research → planning smoke tests (PR 14).
  *
- * The full loop (paste → extract → candidates → drawer) requires a live
- * FastAPI backend. CI runs `next dev` only, so the backend-dependent flow is
- * gated behind HR_E2E=1 and otherwise skipped (documented manual path).
- * The unconditional check verifies the page shell + upload panel render.
+ * Upload moved from /planning to /research. Unconditional checks verify the
+ * page shell + upload panel at /research and the candidates shell at /planning.
+ * The full ingest-and-promote loop (HR_E2E=1) uploads on /research, then
+ * asserts candidates appear on /planning.
  */
 
 const ENV = process.env.HR_E2E_ENV || "demo";
-const PAGE = `/lab/env/${ENV}/historyrhymes/planning`;
+const RESEARCH_PAGE = `/lab/env/${ENV}/historyrhymes/research`;
+const PLANNING_PAGE = `/lab/env/${ENV}/historyrhymes/planning`;
 
-test("planning page shell + upload panel render", async ({ page }) => {
-  const resp = await page.goto(PAGE, { waitUntil: "domcontentloaded" });
-  // Auth-gated environments may redirect; only assert when the page resolves.
+// ── unconditional shell smokes ────────────────────────────────────────────────
+
+test("research page shell + upload panel render", async ({ page }) => {
+  const resp = await page.goto(RESEARCH_PAGE, { waitUntil: "domcontentloaded" });
+  test.skip(
+    !resp || resp.status() >= 400,
+    "research page not reachable without auth/backend in this run",
+  );
+  await expect(page.getByTestId("hr-research-page")).toBeVisible();
+  await expect(page.getByTestId("hr-brief-upload")).toBeVisible();
+});
+
+test("planning page shell renders without upload panel", async ({ page }) => {
+  const resp = await page.goto(PLANNING_PAGE, { waitUntil: "domcontentloaded" });
   test.skip(
     !resp || resp.status() >= 400,
     "planning page not reachable without auth/backend in this run",
   );
   await expect(page.getByTestId("hr-planning-page")).toBeVisible();
-  await expect(page.getByTestId("hr-brief-upload")).toBeVisible();
+  // Upload was demoted to /research — must NOT appear on /planning.
+  await expect(page.getByTestId("hr-brief-upload")).not.toBeVisible();
 });
 
-test("paste → extract → candidates (requires live backend)", async ({
+// ── full ingest loop: upload on /research, candidates on /planning ────────────
+
+test("paste on /research → extract → candidates on /planning (requires live backend)", async ({
   page,
 }) => {
   test.skip(
     process.env.HR_E2E !== "1",
     "set HR_E2E=1 with a live backend to run the full loop",
   );
-  await page.goto(PAGE, { waitUntil: "domcontentloaded" });
+
+  await page.goto(RESEARCH_PAGE, { waitUntil: "domcontentloaded" });
+
   const sample = `# HR Weekly Brief — 2026-05-18
 
 **Regime call:** late_cycle
@@ -62,11 +79,15 @@ Late cycle persists.
 
 ## Honeypot Alert
 None`;
+
   await page.getByTestId("hr-brief-textarea").fill(sample);
   await page.getByTestId("hr-brief-submit").click();
   await expect(page.getByTestId("hr-ingest-result")).toContainText(
     "Extraction OK",
   );
+
+  // Navigate to /planning — candidates should now appear.
+  await page.goto(PLANNING_PAGE, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("hr-candidate-card").first()).toBeVisible();
   await page.getByText("View plan").first().click();
   await expect(page.getByTestId("hr-plan-drawer")).toBeVisible();

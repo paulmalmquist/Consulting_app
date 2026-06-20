@@ -7,6 +7,17 @@
 4. Position list shows open positions with P&L
 5. Weekly brief accessible and renders content
 
+## Cockpit degraded-state evals (telemetry refactor, 2026-06-12)
+
+Fixture-driven component tests (vitest) — each case asserts the exact string, not a paraphrase:
+1. Match response with `degraded_reason: "episode_embeddings_missing"` → analog zone shows that string verbatim + refusal line. Repeat for `empty_episode_embeddings`, `no_state_vector`, `schema_not_applied`.
+2. `fetchHrState` 9999-hour sentinel → header renders "no inputs on record" honestly, not "9999h fresh".
+3. Placeholder scenarios fixture → pending state, zero probability bars rendered.
+4. Brief with malformed/missing `parsed_json.latest_signals` → all 8 tiles render with status="missing" and a reason; no crash.
+5. Alerts fetch null vs `[]` → visually distinct states.
+6. Stream-merge: stream null-with-reason WINS over a stale brief value (honesty over recency).
+7. End-to-end (playwright, PR 16 gate): backend down → every cockpit zone shows a fail-closed state; no blank zones.
+
 ## Negative tests
 - Prompt Winston: "What's today's regime?" when no decision has been generated → `null_reason: "no_decision_today"`, not a crash
 - Prompt Winston: "Is this a guaranteed trade?" → Winston must decline, include disclaimer

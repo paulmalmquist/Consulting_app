@@ -1,46 +1,61 @@
 # Next Session — History Rhymes
 
-**Last updated:** 2026-05-16
+**Last updated:** 2026-06-12
+
+## Status
+
+All 16 PRs of the telemetry-cockpit refactor are committed and open:
+
+| PR | GitHub | ADO | Scope |
+|---|---|---|---|
+| 1–9 | #156–#164 | #541–#549 | Done, merged |
+| 10 | #167 | #550 | Evidence drawer — open, stacked |
+| 11 | #170 | #551 | Kafka consumer scaffold — open, stacked |
+| 12 | #172 | #552 | Persist + migration 10017 — open, stacked |
+| 13 | #173 | #553 | Live cockpit updates — open, stacked |
+| 14 | #173 | #554 | Research/planning demotion — open, stacked |
+| 15 | #174 | #555 | Episodes + calibration — open, stacked |
+| 16 | #175 | #556 | Polish + hardening — open, stacked |
+
+## Remaining before ship
+
+1. **Apply schema migration 10017** (`repo-b/db/schema/10017_history_rhymes_streaming.sql`) to Supabase.
+   ```bash
+   supabase link --project-ref ozboonlsplroialdwuxj
+   supabase db push
+   ```
+2. **Merge stacked PRs in order** — retarget each PR to main before merge once the prior PR lands. Do not delete base branches until the next PR has been retargeted.
+3. **Degraded-backend Playwright pass** (PR 16 gate that requires a live environment): run `npx playwright test tests/historyrhymes-cockpit.spec.ts` with the backend intentionally down; confirm all zones show explicit fail-closed state, no blank zones.
+4. **Confluent live connection** (optional, post-merge): set `HR_STREAM_MODE=live_kafka` + Confluent credentials; verify health chip transitions to "connected".
 
 ## Copy-paste prompt for next Claude Code session
 
 ```
-You are working on History Rhymes / Trading Research in the Novendor / BusinessMachine platform.
+You are working on the History Rhymes telemetry-cockpit refactor in Winston / Consulting_app.
 
-Read first:
-- docs/plans/history-rhymes/architecture.md
-- docs/plans/history-rhymes/backlog.md
-- docs/plans/HISTORY_RHYMES_BUILD_PLAN.md
-- skills/historyrhymes-execution-layer/SKILL.md
-- scripts/hr_daily_decision.py
+All 16 PRs are committed and open (see docs/plans/history-rhymes/next-session.md for the PR table).
+The immediate action is to merge stacked PRs in order, starting from the lowest-numbered open PR
+and retargeting each to main before merge.
 
-Objective:
-1. Run the daily decision script and verify it completes without errors.
-2. Verify the trading routine page renders today's decision.
-3. Identify the Supabase tables for decisions, positions, and trades.
-4. Document findings in docs/plans/history-rhymes/architecture.md.
+After merges, run:
+  supabase link --project-ref ozboonlsplroialdwuxj && supabase db push  # applies 10017
+  cd repo-b && npx vitest run src/components/historyrhymes/ src/lib/historyrhymes/
+  cd repo-b && npm run typecheck
 
-Files to inspect:
-- scripts/hr_daily_decision.py
-- backend/app/routes/rhymes.py
-- backend/app/services/history_rhymes_service.py
-- backend/app/schemas/trading.py
-- repo-b/src/app/lab/env/[envId]/historyrhymes/routine/
+Hard rules (from the dispatch record):
+- Do not rename or reshape /api/hr/v1/* or /api/v1/rhymes/*.
+- Fail closed: every zone renders an explicit degraded/empty state with a concrete reason string.
+- Degraded_reason strings from the backend matrix appear verbatim in UI and tests.
+- v1 placeholder scenarios render as pending, never as real probabilities.
+- No silent stream fallback; mode and source always labeled.
+- Cockpit copy avoids buy/sell/trade/position-size language.
 
-Acceptance criteria:
-- [ ] Daily decision script runs without errors
-- [ ] Trading routine page shows a decision (not empty)
-- [ ] Supabase table names confirmed in architecture.md
-- [ ] Response shape of rhymes endpoint documented
-
-Tests to run:
-python scripts/hr_daily_decision.py
-cd backend && python -m pytest tests/ -k "rhymes or trading" -v
-
-Update docs/plans/history-rhymes/next-session.md and backlog.md before finishing.
+Update docs/plans/history-rhymes/{backlog,next-session}.md and the dispatch record status table
+before finishing. Reusable lessons go to docs/tips.md.
 ```
 
 ## Context notes
-- The execution layer skill (`skills/historyrhymes-execution-layer/SKILL.md`) owns the daily decision routine
-- MLflow experiments may be on Databricks — verify before assuming local
-- Paper trading ledger appends should be non-destructive
+- Branch chain: stacked PRs off main (`feat/hr-cockpit-NN-*`). Retarget each to main before merge once the prior PR lands. Do not delete base branches until the next PR in the stack has been retargeted.
+- The execution layer skill (`skills/historyrhymes-execution-layer/SKILL.md`) owns the daily decision routine; the cockpit consumes its outputs read-only.
+- Schema file is `repo-b/db/schema/10017_history_rhymes_streaming.sql` (10015 = telemetry streaming, 10016 = factory NCR intelligence, 10017 = HR streaming).
+- `tips.md` is at `docs/tips.md` — confirmed canonical path. HR cockpit streaming conventions were appended in PR 16.

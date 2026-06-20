@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   getGovernance, getEvals, getUsefulness,
   type GovernanceSummary, type EvalResults, type UsefulnessSummary, type ArmMeasures,
+  type SecurityPosture, type PostureControl,
 } from "@/lib/telemetry/copilot-api";
 import {
   C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
@@ -74,6 +75,9 @@ export default function GovernanceDashboard() {
           ))}
         </div>
       </Panel>
+
+      {/* security & access posture — enforced controls vs honest boundaries */}
+      <PosturePanel p={g.security_posture} />
 
       {/* metric strip */}
       <StatGrid cols={4} style={{ marginTop: 16 }}>
@@ -214,6 +218,67 @@ export default function GovernanceDashboard() {
 
       <DisclosureFooter />
     </>
+  );
+}
+
+// ── Security & access posture — enforced controls vs honest boundaries (never styled as failures) ──
+function PostureList({ items, kind }: { items: PostureControl[]; kind: "enforced" | "gap" }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {items.map((it, i) => {
+        const dot = kind === "enforced" ? C.green : it.status === "not_applicable" ? C.faint : C.amber;
+        return (
+          <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: dot, boxShadow: `0 0 6px ${dot}`, marginTop: 5, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>
+                {it.control}
+                {kind === "gap" && it.status ? (
+                  <span style={{ color: it.status === "not_applicable" ? C.faint : C.amber, fontSize: 10, marginLeft: 6 }}>
+                    {it.status === "not_applicable" ? "N/A" : "not enforced"}
+                  </span>
+                ) : null}
+              </div>
+              <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.45 }}>{it.detail}</div>
+              <div style={{ fontFamily: C.mono, fontSize: 9.5, color: C.faint, opacity: 0.8, marginTop: 2 }}>↳ {it.evidence}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const SubHead = ({ children }: { children: ReactNode }) => (
+  <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{children}</div>
+);
+
+function PosturePanel({ p }: { p?: SecurityPosture | null }) {
+  if (!p) {
+    return (
+      <Panel title="Security & access posture" style={{ marginTop: 16 }}>
+        <span style={{ fontFamily: C.mono, fontSize: 12, color: C.amber }}>Not available.</span>
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Security & access posture" style={{ marginTop: 16 }}
+      right={<Tag color={C.green}>{p.rls_enabled_count}/{p.tel_table_count} tel_* RLS</Tag>}>
+      <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginBottom: 12, lineHeight: 1.5 }}>
+        What protects tenant data on this surface — and what it explicitly does not claim. Honest
+        boundaries are not failures: they mark where a capability is out of scope or enforced elsewhere.
+      </div>
+      <SplitGrid variant="halves">
+        <div>
+          <SubHead>Enforced controls</SubHead>
+          <PostureList items={p.enforced} kind="enforced" />
+        </div>
+        <div>
+          <SubHead>Not enforced / not applicable</SubHead>
+          <PostureList items={p.not_enforced} kind="gap" />
+        </div>
+      </SplitGrid>
+    </Panel>
   );
 }
 

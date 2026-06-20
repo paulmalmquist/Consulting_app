@@ -89,9 +89,12 @@ def get_report(report_id: UUID, env_id: str = Query(...), business_id: UUID = Qu
 
 @router.get("/governance")
 def governance(env_id: str = Query(...), business_id: UUID = Query(...)):
-    """Real aggregates over the copilot audit log + the active policy version (no hardcoded numbers)."""
+    """Real aggregates over the copilot audit log + the active policy version (no hardcoded numbers),
+    plus the honest security/access posture (enforced controls vs explicit non-controls)."""
     try:
-        return svc.governance_summary(env_id=env_id, business_id=business_id)
+        data = svc.governance_summary(env_id=env_id, business_id=business_id)
+        data["security_posture"] = svc.security_posture(env_id=env_id, business_id=business_id)
+        return data
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
 

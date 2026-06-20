@@ -3,12 +3,15 @@ uvicorn[standard]==0.33.0
 psycopg[binary]==3.2.4
 psycopg-pool>=3.2
 python-dotenv==1.0.1
+# Control Tower — Ed25519 signed/hash-chained decision receipts (was transitive; now a direct dep)
+cryptography>=42.0
 pydantic==2.10.4
 httpx==0.28.1
 
 # RS Demo streaming slice: ISS Lightstreamer live adapter (lazy-imported; capture mode needs no network)
 lightstreamer-client-lib==2.2.2
 scikit-learn==1.6.1
+pandas>=2.2
 
 # Test dependencies
 pytest==8.3.2
@@ -50,10 +53,17 @@ redis>=5.0
 ib_insync>=0.9.86
 
 # Event streaming — BigQuery sink (Phase 2+). BQ_ENABLED defaults to false so
-# the sink is inert unless explicitly enabled. confluent-kafka is optional (lazy
-# import in transport.py) and is NOT listed here; install separately for local
-# Kafka/Redpanda testing.
+# the sink is inert unless explicitly enabled.
 google-cloud-bigquery>=3.11
+# AI dispatch — Gemma-on-Vertex adapter mints ADC tokens via google.auth (imported
+# lazily; already present transitively via google-cloud-bigquery, declared here because
+# app/services/ai_dispatch/providers/gemma_vertex_provider.py uses it directly).
+google-auth>=2.0
+# Event streaming — Kafka transport (Phase 3B+). Lazy-imported in transport.py:
+# absent or unconfigured → get_transport() falls back to NoopTransport, so its
+# presence here never changes default-off behavior. Needed once a real broker
+# (local Redpanda or Confluent Cloud) is exercised.
+confluent-kafka>=2.3
 
 # Podcast Intelligence (migration 425)
 yt-dlp>=2024.0.0

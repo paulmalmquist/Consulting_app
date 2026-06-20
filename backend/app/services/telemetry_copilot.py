@@ -24,7 +24,7 @@ from app.services import telemetry_serving as svc
 from app.services import telemetry_copilot_policy as policy
 from app.services.telemetry_copilot_policy import (
     COPILOT_MODEL, SYSTEM_PROMPT_TEXT, INTENT_PLAN, REFUSAL_MESSAGE,
-    NULL_INSUFFICIENT,
+    NULL_INSUFFICIENT, NULL_LIVE_DATA_UNAVAILABLE,
 )
 
 # Canonical demo run (the flagship). Used when a free-form /ask carries no explicit run context.
@@ -39,7 +39,8 @@ _ARTIFACT_DIR = Path(__file__).resolve().parent.parent / "data" / "telemetry"
 
 # Prompt version: stable id over the policy that produces every answer.
 ALLOW_LIST = ["get_triggering_prediction", "get_prediction", "get_predictions_by_window",
-              "get_model_run_detail", "get_anomaly_events_in_window"]
+              "get_model_run_detail", "get_anomaly_events_in_window",
+              "get_inventory_counts", "get_stream_freshness"]
 PROMPT_VERSION = policy.compute_prompt_version_hash(
     SYSTEM_PROMPT_TEXT, COPILOT_MODEL, ALLOW_LIST, policy.refusal_rule_sources())
 
@@ -114,10 +115,39 @@ def _tool_get_anomaly_events_in_window(ctx: dict, state: dict):
     return res, "skipped", "no labeled anomaly in window"
 
 
+def _tool_get_inventory_counts(ctx: dict, state: dict):
+    # Aggregate counts from the same approved structured source the Overview uses (svc.summary).
+    res = svc.summary(env_id=ctx["env_id"], business_id=ctx["business_id"])
+    kpi = (res or {}).get("kpi") or {}
+    counts = {k: kpi.get(k) for k in
+              ("test_runs", "predictions", "anomaly_events", "promoted_models", "drift_monitors")}
+    counts = {k: int(v) for k, v in counts.items() if isinstance(v, (int, float))}
+    if counts:
+        state["counts"] = counts
+        return res, "success", "inventory " + " ".join(f"{k}={v}" for k, v in counts.items())
+    return res, "skipped", "no inventory counts available"
+
+
+def _tool_get_stream_freshness(ctx: dict, state: dict):
+    # In scope (platform telemetry state). Fresh -> evidence; stale/disabled/absent -> distinct
+    # fail-closed reason (NULL_LIVE_DATA_UNAVAILABLE), never a fabricated live value.
+    res = svc.monitoring(env_id=ctx["env_id"], business_id=ctx["business_id"])
+    stream = (res or {}).get("stream")
+    status = (stream or {}).get("status")
+    if stream and status in ("fresh", "ok", "live"):
+        state["stream_freshness"] = stream
+        return res, "success", f"stream {status} as_of={stream.get('as_of_ts')}"
+    state["null_reason_override"] = NULL_LIVE_DATA_UNAVAILABLE
+    reason = (stream or {}).get("reason") or "stream worker disabled or no live frames"
+    return res, "skipped", f"live stream unavailable: {status or 'no_stream'} ({reason})"
+
+
 ALLOWED_TOOLS: dict[str, Callable[[dict, dict], tuple]] = {
     "get_triggering_prediction": _tool_get_triggering_prediction,
     "get_model_run_detail": _tool_get_model_run_detail,
     "get_anomaly_events_in_window": _tool_get_anomaly_events_in_window,
+    "get_inventory_counts": _tool_get_inventory_counts,
+    "get_stream_freshness": _tool_get_stream_freshness,
 }
 
 
@@ -168,6 +198,16 @@ def _assemble_evidence(state: dict) -> list[dict]:
                    "metadata": {"channel_name": e.get("channel_name"),
                                 "start_t": e.get("start_t"), "end_t": e.get("end_t"),
                                 "source": e.get("source")}})
+    for entity, n in (state.get("counts") or {}).items():
+        ev.append({"type": "inventory", "id": None, "label": entity.replace("_", " "),
+                   "value": n, "metadata": {"entity": entity, "source": "recorded tel_ summary"}})
+    sf = state.get("stream_freshness")
+    if sf:
+        ev.append({"type": "stream_status", "id": None, "label": "live stream freshness",
+                   "value": sf.get("status"),
+                   "metadata": {"as_of_ts": str(sf.get("as_of_ts")),
+                                "last_frame_at": str(sf.get("last_frame_at")),
+                                "rows_per_min": sf.get("rows_per_min"), "reason": sf.get("reason")}})
     return ev
 
 
@@ -304,6 +344,17 @@ def _fallback_template_answer(intent: str, state: dict, evidence: list[dict]) ->
                 f"{model.get('mlflow_run_id')}. Metrics: F1 {m.get('f1')}, precision "
                 f"{m.get('precision')}, recall {m.get('recall')}.\n\n"
                 "**Human review:** assistant-generated draft from recorded model metadata.")
+    counts = state.get("counts")
+    if counts:
+        parts = ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items())
+        return (f"**Inventory.** Recorded on the platform: {parts}. These are counts from the "
+                "platform record.\n\n**Human review:** assistant-generated from recorded inventory counts.")
+    sf = state.get("stream_freshness")
+    if sf:
+        return (f"**Live stream.** Status {sf.get('status')} as of {sf.get('as_of_ts')}; last frame "
+                f"{sf.get('last_frame_at')}, {sf.get('rows_per_min')} rows/min. The copilot reports "
+                "recorded predictions and stream freshness, not raw live sensor values.\n\n"
+                "**Human review:** assistant-generated from recorded pipeline status.")
     return "Insufficient evidence to answer from the platform record."
 
 
@@ -356,12 +407,16 @@ async def answer(*, env_id: str, business_id, question: str | None = None,
 
     # 6. fail closed if nothing to cite
     if not evidence:
-        nr = NULL_INSUFFICIENT
+        nr = state.get("null_reason_override") or NULL_INSUFFICIENT
         for t in tool_trace:
             if t["status"] == "error" and "missing_run" in t["result_summary"]:
                 nr = policy.NULL_MISSING_RUN
-        result = {**base, "answer": "No grounded evidence is available for this question on the "
-                  "current run, so the copilot cannot answer.", "is_refusal": False,
+        msg = ("Live telemetry is not currently available for this environment, so the copilot "
+               "cannot report a live value (the recorded record is still queryable)."
+               if nr == NULL_LIVE_DATA_UNAVAILABLE else
+               "No grounded evidence is available for this question on the current run, so the "
+               "copilot cannot answer.")
+        result = {**base, "answer": msg, "is_refusal": False,
                   "intent": intent, "null_reason": nr, "answer_source": "fallback_template"}
         _log(env_id, business_id, question, result, t0)
         return result
@@ -666,6 +721,108 @@ def governance_summary(*, env_id: str, business_id) -> dict:
                                                             "null_reason": "smoke_not_recorded"}),
             "null_reason": None if n else "no_prediction_rows",
         }
+
+
+def security_posture(*, env_id: str, business_id) -> dict:
+    """Honest, evidence-derived security/access posture for the telemetry surface.
+
+    The DB-layer numbers are read from pg_catalog (real coverage, never hardcoded). Every line names
+    the artifact a skeptic can open. Critically, this distinguishes *enforced* controls from honest
+    *non-controls* so the panel never overclaims:
+
+      - DB-layer RLS exists on the tel_* tables, but the FastAPI runtime pool connects with a
+        privileged role and does NOT `SET ROLE` / `app.env_id` per request (see app/db.py:get_cursor).
+        So RLS protects direct Supabase/PostgREST clients; the *runtime* tenant boundary is the
+        app-layer business_id scoping every telemetry read applies via resolve_tenant_id.
+      - The copilot grounds on fetched structured evidence — there is no document RAG corpus, hence
+        no retrieval-layer ACL to claim. tel_fused_state_vectors (pgvector) exists but is not queried.
+
+    `env_id`/`business_id` are accepted for signature parity with the other governance reads; the
+    posture itself is tenant-independent (it describes the platform's controls, not one tenant's data).
+    """
+    from app.db import get_cursor
+    with get_cursor() as cur:
+        # Real RLS coverage across logical tel_* tables (exclude partition children to keep the count
+        # meaningful — the streaming bronze parent stands in for its daily partitions).
+        cur.execute(
+            """SELECT c.relname AS table_name,
+                      c.relrowsecurity AS rls_enabled,
+                      (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
+                 FROM pg_class c
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind IN ('r', 'p')
+                  AND left(c.relname, 4) = 'tel_'
+                  AND c.relispartition = false
+                ORDER BY c.relname""")
+        rows = [dict(r) for r in cur.fetchall()]
+
+    tel_tables = len(rows)
+    rls_on = sum(1 for r in rows if r.get("rls_enabled"))
+    with_policy = sum(1 for r in rows if (r.get("policy_count") or 0) > 0)
+
+    enforced = [
+        {"control": "DB-layer RLS (tel_* tables)",
+         "detail": (f"{rls_on}/{tel_tables} tel_* tables have ROW LEVEL SECURITY enabled; "
+                    f"{with_policy} carry a tenant-isolation policy on "
+                    "env_id = current_setting('app.env_id', true)."),
+         "evidence": "repo-b/db/schema/100*_*.sql; backend/tests/test_telemetry_rls_isolation.py"},
+        {"control": "App-layer tenant scoping (runtime boundary)",
+         "detail": ("Every telemetry read validates the caller's tenant via resolve_tenant_id and "
+                    "filters by business_id. Because the pool connects with a privileged role, this "
+                    "app-layer scope — not RLS — is the runtime isolation boundary."),
+         "evidence": "backend/app/services/telemetry_serving.py; backend/app/db.py:get_cursor"},
+        {"control": "Copilot allow-list (fixed tool set)",
+         "detail": (f"{len(ALLOW_LIST)} read-only tools; the LLM cannot select, invent, or escalate "
+                    "tools."),
+         "evidence": "backend/app/services/telemetry_copilot.py:ALLOW_LIST"},
+        {"control": "Anti-fabrication post-validator",
+         "detail": ("Every live LLM answer is two-pass validated; any ungrounded id or number forces "
+                    "a deterministic fallback (fallback_reason=postvalidate_block)."),
+         "evidence": "backend/app/services/telemetry_copilot.py:_postvalidate"},
+        {"control": "Deterministic refusal gate",
+         "detail": (f"{len(policy.REFUSAL_PATTERNS)} refusal rules block out-of-scope (root-cause / "
+                    "safety / proprietary) questions before any tool or LLM call."),
+         "evidence": "backend/app/services/telemetry_copilot_policy.py:REFUSAL_PATTERNS"},
+        {"control": "Admin-key gate on stream-source switch",
+         "detail": ("POST /api/telemetry/stream/source requires the TELEMETRY_STREAM_ADMIN_KEY header "
+                    "to match; an unset key fails closed (always 403)."),
+         "evidence": "backend/app/routes/telemetry.py:stream_source"},
+        {"control": "Audit receipts",
+         "detail": ("Every copilot answer and every /score persists a receipt row with provenance "
+                    "(tel_copilot_interactions, tel_predictions)."),
+         "evidence": "tel_copilot_interactions; tel_predictions"},
+    ]
+
+    not_enforced = [
+        {"control": "Retrieval-layer RAG ACL", "status": "not_applicable",
+         "detail": ("The copilot grounds on fetched structured evidence; there is no document RAG "
+                    "corpus, so there is no retrieval-layer ACL. tel_fused_state_vectors (pgvector) "
+                    "exists but the copilot does not query it."),
+         "evidence": "backend/app/services/telemetry_copilot.py:_assemble_evidence"},
+        {"control": "Runtime RLS enforcement (per-request role / GUC)", "status": "not_enforced",
+         "detail": ("The backend does not SET ROLE or app.env_id per request; the pooled connection "
+                    "uses a privileged role that bypasses RLS. RLS protects direct Supabase/PostgREST "
+                    "clients — runtime isolation is the app-layer scoping above."),
+         "evidence": "backend/app/db.py:get_cursor"},
+        {"control": "OT / local inference", "status": "not_applicable",
+         "detail": ("All inference runs cloud-side; there is no factory-floor/OT isolated path or "
+                    "local model."),
+         "evidence": "—"},
+        {"control": "Telemetry MCP audit integration", "status": "not_enforced",
+         "detail": ("Copilot tools are an inline allow-list, not registered in backend/app/mcp; tool "
+                    "calls are audited in tel_copilot_interactions, not the MCP audit log."),
+         "evidence": "backend/app/mcp/ (no telemetry-specific tools)"},
+    ]
+
+    return {
+        "enforced": enforced,
+        "not_enforced": not_enforced,
+        "tel_table_count": tel_tables,
+        "rls_enabled_count": rls_on,
+        "tenant_policy_count": with_policy,
+        "null_reason": None if tel_tables else "schema_not_applied",
+    }
 
 
 # ── Track B: operator-usefulness capture + measurement ──────────────────────────

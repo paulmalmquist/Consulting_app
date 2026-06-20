@@ -301,3 +301,124 @@ export interface MorningBookData {
 export function fetchMorningBook(): Promise<MorningBookData | null> {
   return getJson<MorningBookData>("/api/hr/v1/research/morning-book");
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Stream status (backed by backend/app/routes/hr_stream.py). Same direct
+ * convention as the rest of the /api/hr/v1 namespace. The payload is
+ * allowlisted server-side — it never carries broker URLs or credentials.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type StreamMode = "off" | "synthetic" | "replay" | "live_kafka";
+
+export type StreamStatus =
+  | "connected"
+  | "delayed"
+  | "replaying"
+  | "disconnected"
+  | "not_configured";
+
+export interface StreamHealth {
+  mode: StreamMode;
+  provider: "confluent" | "google" | null;
+  status: StreamStatus;
+  consumer_group: string;
+  topic_prefix: string;
+  latest_event_at: string | null;
+  lag_seconds: number | null;
+  degraded_reason: string | null;
+}
+
+export function fetchStreamHealth(): Promise<StreamHealth | null> {
+  return getJson<StreamHealth>("/api/hr/v1/stream/health");
+}
+
+export interface StreamSignalQuality {
+  status: "fresh" | "stale" | "missing";
+  null_reason: string | null;
+  source_lag_seconds: number | null;
+  validation_errors: string[];
+}
+
+export interface StreamSignal {
+  signal_key: string;
+  domain: string;
+  value: number | string | null;
+  unit: string | null;
+  previous_value: number | null;
+  delta: number | null;
+  observed_at: string | null;
+  source: string;
+  mode: StreamMode;
+  quality: StreamSignalQuality;
+  tags: string[];
+}
+
+export interface StreamSignalsResponse {
+  mode: StreamMode;
+  signals: StreamSignal[];
+}
+
+export function fetchStreamSignals(): Promise<StreamSignalsResponse | null> {
+  return getJson<StreamSignalsResponse>("/api/hr/v1/stream/signals/latest");
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Polymarket pulse (backed by backend/app/routes/hr_polymarket.py).
+ * Read-only market-implied probabilities plus History Rhymes forecast overlays.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type PredictionMarketStatus =
+  | "LIVE"
+  | "STALE"
+  | "THIN"
+  | "AMBIGUOUS"
+  | "RESEARCH"
+  | "UNSUPPORTED";
+
+export interface PolymarketPulseItem {
+  market_id: string;
+  question: string;
+  slug?: string | null;
+  category?: string | null;
+  end_at?: string | null;
+  as_of: string | null;
+  yes_probability: number | null;
+  price_basis: string | null;
+  probability_change_5m: number | null;
+  probability_change_1h: number | null;
+  probability_change_24h: number | null;
+  liquidity_confidence: number | null;
+  shock_score: number | null;
+  connection_stale: boolean;
+  market_stale: boolean;
+  thin_liquidity_flag: boolean;
+  ambiguity_flag: boolean;
+  null_reason: string | null;
+  provenance?: Record<string, unknown>;
+  p_hr: number | null;
+  signed_divergence: number | null;
+  forecast_status: string | null;
+  forecast_null_reason: string | null;
+  model_version: string | null;
+  status?: PredictionMarketStatus;
+}
+
+export interface PolymarketPulseResponse {
+  ok: boolean;
+  source: "polymarket";
+  as_of: string | null;
+  stale: boolean;
+  null_reason: string | null;
+  provenance: Record<string, unknown>;
+  price_basis: string[];
+  forecast_status: string[] | string;
+  items: PolymarketPulseItem[];
+}
+
+export function fetchPolymarketPulse(
+  limit = 25,
+): Promise<PolymarketPulseResponse | null> {
+  return getJson<PolymarketPulseResponse>(
+    `/api/hr/v1/polymarket/pulse?limit=${encodeURIComponent(String(limit))}`,
+  );
+}

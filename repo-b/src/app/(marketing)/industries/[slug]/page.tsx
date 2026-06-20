@@ -14,6 +14,7 @@ const BESPOKE_INDUSTRY_SLUGS = new Set([
   'consumer-credit',
   'medical',
   'legal',
+  'trades',
 ]);
 
 export function generateStaticParams() {

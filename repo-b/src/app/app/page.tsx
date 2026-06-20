@@ -1,12 +1,33 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createSession } from "@/lib/investigation/sessionStream";
 
 import AccountMenu from "@/components/AccountMenu";
-import { useEnv } from "@/components/EnvProvider";
+import { useEnv, type Environment } from "@/components/EnvProvider";
 import { humanIndustry } from "@/components/lab/environments/constants";
+import IntelligenceCardFeed from "@/components/intelligence/IntelligenceCardFeed";
+import { InvestigateButton } from "@/components/investigation/InvestigateButton";
+import {
+  getCards,
+  upsertCard,
+  dismissCard,
+  runAnalyzers,
+  generateReels,
+  generateMorningBrief,
+  runAgent,
+  agentCreatedBy,
+  type IntelCard,
+  type AgentType,
+} from "@/lib/intelligence/cards";
+import {
+  deriveEnvironmentStatus,
+  statusToneColor,
+  type EnvStatus,
+} from "@/lib/intelligence/envStatus";
+import { AgentPills, AGENT_PILL_TYPES } from "@/components/intelligence/AgentPills";
 import { cn } from "@/lib/cn";
 import {
   environmentCatalog,
@@ -46,55 +67,129 @@ const SYSTEM_LINKS = [
   { href: "/lab/system/ai-usage", label: "AI Usage", detail: "Token spend, attribution, and savings recommendations" },
 ] as const;
 
-// ── Mode A: default overview ──────────────────────────────────────────────────
-function CenterModeA({
-  envCount,
-  isPlatformAdmin,
-}: {
-  envCount: number;
-  isPlatformAdmin: boolean;
-}) {
-  return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
-          Execution layer
-        </p>
-        <h2 className="text-[clamp(1.75rem,3.2vw,2.4rem)] font-semibold leading-tight tracking-tight text-white">
-          Ready
-        </h2>
-        <p className="max-w-xl text-sm leading-6 text-white/60">
-          {envCount > 0
-            ? `${envCount} workspace${envCount === 1 ? "" : "s"} provisioned. Select one from the rail on the left to enter.`
-            : "Access is provisioned per environment. Once a workspace is assigned to your account, it will appear in the rail on the left."}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-        <span className="inline-flex items-center gap-2">
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "rgba(107, 174, 127, 0.95)" }}
-          />
-          AI gateway online
-        </span>
-        <span className="text-white/20">/</span>
-        <span>{envCount} environment{envCount === 1 ? "" : "s"}</span>
-        {isPlatformAdmin && (
-          <>
-            <span className="text-white/20">/</span>
-            <span style={{ color: "rgba(92, 213, 204, 0.85)" }}>Platform admin</span>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // Novendor action color — teal/cyan, used for primary CTA and selected accents.
 const ACTION_TEAL = "92, 213, 204";
 
-// ── Mode B: workspace preview ─────────────────────────────────────────────────
+// Deterministic source_ref for the one seeded dashboard card per environment.
+// Seeding is idempotent: the backend upserts on (env_id, source_ref_key).
+function dashboardSourceRef(envId: string) {
+  return { type: "app_home_dashboard", env_id: envId };
+}
+
+// ── Agent pills: deterministic role lenses (PR 13). Click to filter the feed to that
+// agent's cards; the count is the agent's cards already in the feed. Run-now lives in the
+// header "Run agents" button. Disabled (no handler) until an env+tenant is resolved.
+// ── Intelligence feed hook (PR 5) ─────────────────────────────────────────────
+// Binds to the SELECTED environment (never hover). Fails closed when there is no
+// real business_id — never falls back to the cards.ts default tenant.
+type FeedState = {
+  cards: IntelCard[];
+  loading: boolean;
+  error: string | null;
+  nullReason: string | null;
+};
+
+function useIntelligenceFeed(env: Environment | null, bizId: string | null) {
+  const [state, setState] = useState<FeedState>({
+    cards: [],
+    loading: false,
+    error: null,
+    nullReason: null,
+  });
+  // Keys we've attempted to seed this mount — guards against double-seed.
+  const seededRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Fail closed: no env, or no real tenant → no fetch, no seed.
+    if (!env || !bizId) {
+      setState({
+        cards: [],
+        loading: false,
+        error: null,
+        nullReason: !env ? null : "missing_business_id",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setState((s) => ({ ...s, loading: true, error: null, nullReason: null }));
+
+    (async () => {
+      const seedKey = `${env.env_id}:${bizId}`;
+      try {
+        const { cards, null_reason } = await getCards(env.env_id, { biz: bizId, limit: 50 });
+        if (cancelled) return;
+        setState({ cards, loading: false, error: null, nullReason: null_reason ?? null });
+
+        // Seed ONE dashboard card only on a clean-empty result (not failure/null_reason).
+        if (cards.length === 0 && !null_reason && !seededRef.current.has(seedKey)) {
+          seededRef.current.add(seedKey); // mark before await — no double-fire
+          const title = env.client_name?.trim() || "Workspace";
+          try {
+            const created = await upsertCard(
+              env.env_id,
+              {
+                card_type: "dashboard",
+                title,
+                summary: `Open the ${humanIndustry(env.industry_type || env.industry)} workspace.`,
+                source_ref: dashboardSourceRef(env.env_id),
+                priority_score: 0,
+                anomaly_flag: false,
+                created_by: "system",
+              },
+              bizId,
+            );
+            // Optimistic insert — NO refetch (avoids the eventual-consistency seed loop).
+            if (!cancelled && created?.id) {
+              setState((s) => ({ ...s, cards: [created, ...s.cards] }));
+            }
+          } catch {
+            // Best-effort: seeding failure is non-fatal; seededRef already marked.
+          }
+        }
+      } catch (cause) {
+        if (cancelled) return;
+        setState({
+          cards: [],
+          loading: false,
+          error: cause instanceof Error ? cause.message : "Failed to load intelligence",
+          nullReason: null,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Primitive deps — one fetch per (env, tenant) selection, never per hover.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [env?.env_id, bizId]);
+
+  const removeCard = useCallback((cardId: string) => {
+    setState((s) => ({ ...s, cards: s.cards.filter((c) => c.id !== cardId) }));
+  }, []);
+
+  // Re-pull cards only (no seed) after a user-triggered analyzer run. Authoritative —
+  // shows whatever the analyzers just upserted. Fail-closed without a real tenant.
+  const refetch = useCallback(async () => {
+    if (!env || !bizId) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const { cards, null_reason } = await getCards(env.env_id, { biz: bizId, limit: 50 });
+      setState({ cards, loading: false, error: null, nullReason: null_reason ?? null });
+    } catch (cause) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: cause instanceof Error ? cause.message : "Failed to load intelligence",
+      }));
+    }
+  }, [env, bizId]);
+
+  return { ...state, removeCard, refetch };
+}
+
+// ── Mode B: workspace preview (reachable via toggle) ──────────────────────────
 function CenterModeB({
   environment,
   onOpen,
@@ -217,10 +312,12 @@ function workspaceDescription(
   return map[key] || "Operational workspace for the connected business surface.";
 }
 
-// ── Side panel: workspace metadata strip ──────────────────────────────────────
-function SidePanel({
+// ── Environment Status panel (PR 5) — derived status, NOT a health score ──────
+function EnvironmentStatusPanel({
   environment,
+  envStatus,
   envCount,
+  variant = "desktop",
 }: {
   environment: {
     env_id: string;
@@ -230,23 +327,23 @@ function SidePanel({
     industry_type?: string | null;
     workspace_template_key?: string | null;
     is_active?: boolean;
-    created_at?: string;
   } | null;
+  envStatus: EnvStatus;
   envCount: number;
+  variant?: "desktop" | "mobile";
 }) {
   const tone = environment ? environmentTone(environment) : { glow: "148, 163, 184" };
-  const capConfig = environment
-    ? getCapabilityConfig(
-        environment.workspace_template_key,
-        environment.industry_type || environment.industry,
-      )
-    : null;
   const templateLabel = environment?.workspace_template_key
     ? environment.workspace_template_key.replace(/_/g, " ")
     : "—";
 
+  const shellClass =
+    variant === "desktop"
+      ? "hidden w-[280px] shrink-0 xl:block"
+      : "block xl:hidden";
+
   return (
-    <aside className="hidden w-[280px] shrink-0 xl:block">
+    <aside className={shellClass}>
       <div
         className="rounded-md border bg-[rgba(8,11,18,0.7)] p-5"
         style={{
@@ -255,38 +352,48 @@ function SidePanel({
         }}
       >
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
-          Workspace
+          Environment Status
         </p>
 
         {environment ? (
           <div className="mt-4 space-y-4">
-            <SidePanelRow label="Type" value={capConfig?.entryLabel.replace(/^Open\s+/, "") || "—"} />
-            <SidePanelRow label="Template" value={templateLabel} mono />
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/42">
+                Status
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: statusToneColor(envStatus.tone) }}
+                />
+                <span
+                  className="text-right text-[13px]"
+                  style={{ color: statusToneColor(envStatus.tone) }}
+                  title={envStatus.reason ?? undefined}
+                >
+                  {envStatus.label}
+                </span>
+              </span>
+            </div>
+            {envStatus.reason ? (
+              <p className="-mt-2 text-right text-[11px] leading-4 text-white/40">
+                {envStatus.reason}
+              </p>
+            ) : null}
             <SidePanelRow
               label="Industry"
               value={humanIndustry(environment.industry_type || environment.industry)}
             />
-            <SidePanelRow
-              label="Status"
-              value={environment.is_active === false ? "Inactive" : "Active"}
-              tone={environment.is_active === false ? "amber" : "teal"}
-            />
-            <SidePanelRow
-              label="Env ID"
-              value={environment.env_id.slice(0, 8)}
-              mono
-            />
+            <SidePanelRow label="Template" value={templateLabel} mono />
+            <SidePanelRow label="Env ID" value={environment.env_id.slice(0, 8)} mono />
           </div>
         ) : (
           <div className="mt-4 space-y-3 text-sm text-white/55">
-            <p>Select a workspace from the rail to see details.</p>
+            <p>Select a workspace from the rail to see its status.</p>
           </div>
         )}
 
-        <div
-          className="mt-6 border-t pt-4"
-          style={{ borderColor: "rgba(232,236,242,0.08)" }}
-        >
+        <div className="mt-6 border-t pt-4" style={{ borderColor: "rgba(232,236,242,0.08)" }}>
           <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
             Session
           </p>
@@ -307,6 +414,8 @@ function SidePanel({
             </div>
           </div>
         </div>
+
+        {/* TODO(PR6): environment comparison mode */}
 
         {environment ? (
           <div
@@ -354,13 +463,19 @@ function SidePanelRow({
   );
 }
 
-
 function AppIndexPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { environments, selectedEnv, selectEnv, loading, isPlatformAdmin } = useEnv();
   const [openingEnvId, setOpeningEnvId] = useState<string | null>(null);
   const [hoveredEnvId, setHoveredEnvId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [buildingReels, setBuildingReels] = useState(false);
+  const [buildingBrief, setBuildingBrief] = useState(false);
+  const [runningAgents, setRunningAgents] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<AgentType | null>(null);
 
   const deniedTarget = searchParams.get("denied");
   const selectedEnvironment = useMemo(
@@ -371,11 +486,53 @@ function AppIndexPageInner() {
     ? assertEnvironmentClientName(selectedEnvironment)
     : null;
 
-  // State priority: hovered > selected > null
+  // Hover drives ONLY the workspace preview, never the feed.
   const previewEnvironment = useMemo(
     () => environments.find((e) => e.env_id === hoveredEnvId) ?? selectedEnvironment ?? null,
     [hoveredEnvId, selectedEnvironment, environments],
   );
+
+  // Intelligence feed binds to the SELECTED environment + its tenant (fail-closed).
+  const bizId = selectedEnvironment?.business_id ?? null;
+  const feed = useIntelligenceFeed(selectedEnvironment, bizId);
+  const anomalyCount = useMemo(
+    () => feed.cards.filter((c) => c.anomaly_flag && !c.is_dismissed).length,
+    [feed.cards],
+  );
+  const envStatus = useMemo(
+    () => deriveEnvironmentStatus(selectedEnvironment, anomalyCount, bizId),
+    [selectedEnvironment, anomalyCount, bizId],
+  );
+
+  // Per-agent card counts (cards an agent has already produced, by created_by tag).
+  const agentCounts = useMemo(() => {
+    const counts: Record<AgentType, number> = { cfo: 0, operations: 0, data_quality: 0, risk: 0 };
+    for (const card of feed.cards) {
+      for (const t of AGENT_PILL_TYPES) {
+        if (card.created_by === agentCreatedBy(t)) counts[t] += 1;
+      }
+    }
+    return counts;
+  }, [feed.cards]);
+
+  // Feed filtered to the active agent's cards (null => all cards).
+  const visibleCards = useMemo(
+    () =>
+      agentFilter
+        ? feed.cards.filter((c) => c.created_by === agentCreatedBy(agentFilter))
+        : feed.cards,
+    [feed.cards, agentFilter],
+  );
+
+  // Reset the agent filter when the selected env changes (its cards differ).
+  useEffect(() => {
+    setAgentFilter(null);
+  }, [selectedEnvironment?.env_id]);
+
+  // Reset the preview toggle when the selected env changes.
+  useEffect(() => {
+    setShowPreview(false);
+  }, [selectedEnvironment?.env_id]);
 
   async function openEnvironment(envId: string, slug?: string | null) {
     setOpeningEnvId(envId);
@@ -399,6 +556,121 @@ function AppIndexPageInner() {
     }
   }
 
+  // Card open: dashboard cards carry {type:'app_home_dashboard', env_id}; route through openEnvironment.
+  const handleCardOpen = useCallback(
+    (card: IntelCard) => {
+      const ref = card.source_ref as { type?: string; env_id?: string } | null;
+      const targetId = ref?.env_id;
+      const target = targetId ? environments.find((e) => e.env_id === targetId) : null;
+      if (target) {
+        void openEnvironment(target.env_id, target.slug || null);
+      }
+      // Non-environment cards have no destination yet (investigations are a later PR) — no-op.
+    },
+    // openEnvironment is a stable closure recreated each render; environments is the real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [environments],
+  );
+
+  const handleCardDismiss = useCallback(
+    (card: IntelCard) => {
+      if (!selectedEnvironment || !bizId) return;
+      feed.removeCard(card.id); // optimistic
+      void dismissCard(selectedEnvironment.env_id, card.id, bizId).catch(() => {
+        // Best-effort; the next load reflects server truth.
+      });
+    },
+    [selectedEnvironment, bizId, feed],
+  );
+
+  // Investigate a card: create a grounded session (source_type='card', source_ref ->
+  // the card) via the existing PR 6 endpoint, then route to the workspace. Fail-closed:
+  // no-op without a real env/tenant (the card button is also disabled in that case).
+  const handleCardInvestigate = useCallback(
+    (card: IntelCard) => {
+      if (!selectedEnvironment || !bizId) return;
+      const sourceRef = { type: "card", card_id: card.id, card_type: card.card_type, ...card.source_ref };
+      void createSession(
+        selectedEnvironment.env_id,
+        `Investigate: ${card.title}`,
+        { source_ref: sourceRef },
+        bizId,
+      )
+        .then((res) => {
+          if (res?.session_id) router.push(`/app/investigate/${res.session_id}`);
+        })
+        .catch(() => {
+          // Leave the user on the home; nothing fabricated, no partial state.
+        });
+    },
+    [selectedEnvironment, bizId, router],
+  );
+
+  // Run the deterministic analyzers, persisting findings as cards, then refetch the feed.
+  // Fail-closed: no-op without a real env/tenant (the button is disabled in that case).
+  const handleAnalyze = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || analyzing) return;
+    setAnalyzing(true);
+    try {
+      await runAnalyzers(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // Each analyzer already fails closed server-side; nothing fabricated on error.
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [selectedEnvironment, bizId, analyzing, feed]);
+
+  // Roll up the env's finding cards into story (reel) cards, then refetch the feed.
+  // Deterministic, no LLM. Fail-closed: no-op without a real env/tenant.
+  const handleBuildReels = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || buildingReels) return;
+    setBuildingReels(true);
+    try {
+      await generateReels(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // Reels generation fails closed server-side; nothing fabricated on error.
+    } finally {
+      setBuildingReels(false);
+    }
+  }, [selectedEnvironment, bizId, buildingReels, feed]);
+
+  // Generate today's deterministic morning brief (autopilot story card), then refetch.
+  // No LLM. Fail-closed: no-op without a real env/tenant.
+  const handleGenerateBrief = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || buildingBrief) return;
+    setBuildingBrief(true);
+    try {
+      await generateMorningBrief(selectedEnvironment.env_id, bizId);
+      await feed.refetch();
+    } catch {
+      // The brief fails closed server-side; nothing fabricated on error.
+    } finally {
+      setBuildingBrief(false);
+    }
+  }, [selectedEnvironment, bizId, buildingBrief, feed]);
+
+  // Run all role agents (deterministic role lenses, NO LLM), then refetch the feed.
+  // Fail-closed: no-op without a real env/tenant.
+  const handleRunAgents = useCallback(async () => {
+    if (!selectedEnvironment || !bizId || runningAgents) return;
+    setRunningAgents(true);
+    try {
+      await runAgent(selectedEnvironment.env_id, bizId); // omit type => run all four
+      await feed.refetch();
+    } catch {
+      // Agents fail closed server-side; nothing fabricated on error.
+    } finally {
+      setRunningAgents(false);
+    }
+  }, [selectedEnvironment, bizId, runningAgents, feed]);
+
+  // Toggle the feed filter to one agent's cards (click again to clear).
+  const handleToggleAgentFilter = useCallback((agent: AgentType) => {
+    setAgentFilter((cur) => (cur === agent ? null : agent));
+  }, []);
+
   useEffect(() => {
     if (loading || environments.length !== 1 || isPlatformAdmin || deniedTarget) {
       return;
@@ -413,9 +685,32 @@ function AppIndexPageInner() {
     ? `You do not have access to ${deniedTarget}. Your account can only enter provisioned environments.`
     : null;
 
-  // Determine center panel mode
-  const centerMode: "A" | "B" =
-    previewEnvironment === null ? "A" : "B";
+  const feedSection = (
+    <section
+      className="bm-bridge relative rounded-md border bg-[rgba(8,11,18,0.55)] p-5 backdrop-blur-md"
+      style={{
+        borderColor: "rgba(232,236,242,0.10)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 28px 56px -32px rgba(0,0,0,0.7)",
+      }}
+    >
+      <IntelligenceCardFeed
+        cards={visibleCards}
+        loading={feed.loading}
+        error={feed.error}
+        nullReason={feed.nullReason}
+        onOpen={handleCardOpen}
+        onDismiss={handleCardDismiss}
+        onForkInvestigation={handleCardInvestigate}
+      />
+    </section>
+  );
+
+  // Agent pill props — disabled (null onToggle) until a real env + tenant resolves.
+  const agentPillProps = {
+    activeFilter: agentFilter,
+    counts: agentCounts,
+    onToggle: selectedEnvironment && bizId ? handleToggleAgentFilter : null,
+  };
 
   return (
     <div className="min-h-screen bg-[#03070e] text-white">
@@ -498,6 +793,20 @@ function AppIndexPageInner() {
               </button>
             ) : null}
           </section>
+
+          {/* Agent pills — filter the feed to a role lens */}
+          <AgentPills {...agentPillProps} />
+
+          {/* Intelligence feed — the core of the home, kept near the top on mobile too */}
+          {feedSection}
+
+          {/* Environment Status (inline on mobile) */}
+          <EnvironmentStatusPanel
+            environment={previewEnvironment}
+            envStatus={envStatus}
+            envCount={environments.length}
+            variant="mobile"
+          />
 
           {/* Provisioned workspaces list */}
           <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
@@ -737,7 +1046,7 @@ function AppIndexPageInner() {
           {/* Content area */}
           <div className="flex flex-1 px-8 pt-10 pb-8 lg:px-10 xl:px-12 2xl:px-14">
             <div className="grid w-full grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:gap-10">
-              {/* Primary detail panel — anchored top-left */}
+              {/* Primary column — intelligence feed (or workspace preview via toggle) */}
               <div className="min-w-0 space-y-4">
                 {deniedMessage ? (
                   <div
@@ -765,42 +1074,103 @@ function AppIndexPageInner() {
                   </div>
                 ) : null}
 
-                <div
-                  className="relative rounded-md border bg-[rgba(8,11,18,0.7)] p-7 backdrop-blur-md"
-                  style={{
-                    borderColor: previewEnvironment
-                      ? `rgba(${ACTION_TEAL}, 0.22)`
-                      : "rgba(232,236,242,0.10)",
-                    boxShadow: previewEnvironment
-                      ? `inset 0 1px 0 0 rgba(${ACTION_TEAL}, 0.16), 0 0 0 1px rgba(${ACTION_TEAL}, 0.06), 0 28px 56px -32px rgba(0,0,0,0.7)`
-                      : "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 28px 56px -32px rgba(0,0,0,0.7)",
-                  }}
-                >
-                  <div
-                    key={previewEnvironment?.env_id ?? "mode-a"}
-                    className="transition-opacity duration-200"
-                  >
-                    {centerMode === "A" && (
-                      <CenterModeA
-                        envCount={environments.length}
-                        isPlatformAdmin={isPlatformAdmin}
+                <div className="flex items-center justify-between gap-4">
+                  <AgentPills {...agentPillProps} />
+                  <div className="flex shrink-0 items-center gap-3">
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleAnalyze()}
+                        disabled={analyzing}
+                        title="Run the analyzers and add their findings to the feed"
+                        className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors disabled:cursor-default disabled:opacity-60"
+                        style={{
+                          borderColor: `rgba(${ACTION_TEAL}, 0.30)`,
+                          color: `rgba(${ACTION_TEAL}, 0.95)`,
+                          background: `rgba(${ACTION_TEAL}, 0.06)`,
+                        }}
+                      >
+                        {analyzing ? "Analyzing…" : "Analyze"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleBuildReels()}
+                        disabled={buildingReels}
+                        title="Roll up the current findings into story cards"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {buildingReels ? "Building…" : "Stories"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleGenerateBrief()}
+                        disabled={buildingBrief}
+                        title="Generate today's deterministic morning brief"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {buildingBrief ? "Briefing…" : "Brief"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment && bizId ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleRunAgents()}
+                        disabled={runningAgents}
+                        title="Run the role agents over the current findings"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55 transition-colors hover:text-white/80 disabled:cursor-default disabled:opacity-60"
+                      >
+                        {runningAgents ? "Running…" : "Run agents"}
+                      </button>
+                    ) : null}
+                    {selectedEnvironment ? (
+                      <InvestigateButton
+                        envId={selectedEnvironment.env_id}
+                        businessId={selectedEnvironment.business_id ?? undefined}
+                        title={`${selectedEnvironment.client_name} investigation`}
+                        sourceRef={{ type: "environment", env_id: selectedEnvironment.env_id }}
                       />
-                    )}
-                    {centerMode === "B" && previewEnvironment && (
-                      <CenterModeB
-                        environment={previewEnvironment}
-                        onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
-                        isOpening={openingEnvId === previewEnvironment.env_id}
-                      />
-                    )}
+                    ) : null}
+                    {selectedEnvironment ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowPreview((v) => !v)}
+                        className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:text-white/75"
+                      >
+                        {showPreview ? "← Intelligence" : "Workspace preview →"}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
+
+                {showPreview && previewEnvironment ? (
+                  <div
+                    className="relative rounded-md border bg-[rgba(8,11,18,0.7)] p-7 backdrop-blur-md"
+                    style={{
+                      borderColor: `rgba(${ACTION_TEAL}, 0.22)`,
+                      boxShadow: `inset 0 1px 0 0 rgba(${ACTION_TEAL}, 0.16), 0 0 0 1px rgba(${ACTION_TEAL}, 0.06), 0 28px 56px -32px rgba(0,0,0,0.7)`,
+                    }}
+                  >
+                    <CenterModeB
+                      environment={previewEnvironment}
+                      onOpen={() => void openEnvironment(previewEnvironment.env_id, previewEnvironment.slug || null)}
+                      isOpening={openingEnvId === previewEnvironment.env_id}
+                    />
+                  </div>
+                ) : (
+                  feedSection
+                )}
               </div>
 
-              {/* Secondary side panel — workspace metadata */}
-              <SidePanel
+              {/* Right column — derived Environment Status */}
+              <EnvironmentStatusPanel
                 environment={previewEnvironment}
+                envStatus={envStatus}
                 envCount={environments.length}
+                variant="desktop"
               />
             </div>
           </div>

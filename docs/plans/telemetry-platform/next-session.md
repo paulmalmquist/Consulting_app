@@ -1,21 +1,36 @@
-# Next Session - Telemetry Metadata Explorer Release
+# Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-19
 
-The Telemetry Metadata Explorer implementation is complete on
-`feat/telemetry-metadata-explorer`, tracked by ADO Story #537. Before closing the Story:
+> **Shipped (2026-06-19):** Telemetry demo→real data audit + Spike Inspector conversion. Full
+> data-source classification in [`data-source-matrix.md`](./data-source-matrix.md); the Spike Inspector
+> now reads real analyzer findings via the new thin route `GET /api/telemetry/findings`
+> (`backend/app/routes/telemetry.py`, delegates to `telemetry_analyzer`) with a Data Source Audit
+> provenance panel and fail-closed states — static `DEMO_SPIKES` deleted. Genuinely-local gaps are
+> tracked in [`local-seed-backlog.md`](./local-seed-backlog.md) (NCR mirror, fused vectors, stream
+> worker, stargate bridge, calibration endpoint, post-change watcher, Gemma/Vertex). **Next pickup for
+> this track:** the top backlog item is the **NCR Databricks mirror seed** so `/telemetry/factory`
+> renders real clusters instead of failing closed; after that, a post-change-degradation analyzer
+> finding family (needs a watcher table). telemetry-demo seeding verified: 59,898 predictions / 104
+> drift / 102 anomaly events / 6 model runs.
 
-1. Review and merge the branch.
-2. Deploy backend and frontend through the normal Winston release path.
-3. Smoke `GET /api/telemetry/metadata/graph?env_id=telemetry-demo&business_id=...` and confirm HTTP
-   200 with nodes, edges, warnings, and matching statistics.
-4. Repeat desktop/mobile browser checks against the deployed route.
-5. Close Story #537 only after deploy evidence is attached.
+> **Parallel track (research gap remediation):** A 2026-06-18 inspection compared the research reports
+> against the actual telemetry code and produced
+> [`docs/plans/03-implementation-plans/active/telemetry-research-gap-remediation.md`](../03-implementation-plans/active/telemetry-research-gap-remediation.md).
+> Its **recommended first PR** is *Ticket 1 — Security & Access Posture panel + cross-tenant RLS
+> permission-leak test* (no migration, no deploy; adds the first automated cross-tenant isolation test
+> and an honest enforced/not-enforced posture panel on `/telemetry/governance`). Pick that up if not
+> continuing RS Factory PR 3. The plan also flags a **working-tree hazard**: 83 uncommitted deletions
+> (RUL Calibration screen + notebooks, ADE/audit-dashboard/workflow-registry, telemetry-trust/
+> calibration plans) that must NOT be committed as part of gap remediation.
 
-Recommended follow-up Story: add a lightweight CI catalog validator for committed source references
-and disconnected lineage.
-
-## Prior RS Factory handoff
+> **Also shipped (2026-06-17):** the "How This Works" architecture & evidence exhibit — dispatch
+> `docs/plans/03-implementation-plans/active/0008-telemetry-how-it-works-exhibit.md`, ADO Story #654
+> (Feature #513 / Epic #497), route `/lab/env/[envId]/telemetry/how-it-works`, branch
+> `feat/telemetry-how-it-works`. Companion interview docs live in this folder
+> (`RS_DEMO_SCRIPT.md`, `RS_INTERVIEW_TALK_TRACK.md`, `RS_EVIDENCE_CHECKLIST.md`,
+> `architecture-mermaid.md`). Open follow-up: production-verify the deep-links on novendor.ai and
+> promote those rows from `code_verified` to `prod_verified` in `howItWorksData.ts`.
 
 The existing telemetry platform remains the only user-facing environment. RS Factory work is
 additive inside that environment; do not create another template or top-level route.

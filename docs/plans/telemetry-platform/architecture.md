@@ -252,6 +252,18 @@ Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (
 - [ ] Wire `app.environment_contract` so the v2 verify gate passes (pre-existing, platform-wide) — backlog.
 - [ ] Phase 5: Railway API deploy footprint (keep lean; no pyspark), Vercel deploy (repo-b manual), env vars.
 
+## Findings route + data-source audit (2026-06-19)
+
+- **`GET /api/telemetry/findings`** (`backend/app/routes/telemetry.py`) — thin pass-through to
+  `telemetry_analyzer.analyze`/`summary` (the single source of truth) over the seeded serving reads;
+  adds a `provenance` block (surface/mode/source/tenant/rows_evaluated/last_refresh/fallback_used) and
+  fails closed with `null_reason: telemetry_findings_unavailable`. No new table, no migration.
+- **Spike Inspector** (`repo-b/src/components/telemetry/SpikeInspector.tsx`) consumes it and renders a
+  visible Data Source Audit panel; static `DEMO_SPIKES` deleted. Tests:
+  `backend/tests/test_telemetry_findings.py`.
+- Per-surface classification: [`data-source-matrix.md`](./data-source-matrix.md). Local-only gaps:
+  [`local-seed-backlog.md`](./local-seed-backlog.md).
+
 ## Telemetry metadata control plane (2026-06-12)
 
 - Protected route: `/lab/env/[envId]/telemetry/metadata`.

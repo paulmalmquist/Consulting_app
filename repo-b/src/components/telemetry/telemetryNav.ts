@@ -3,7 +3,7 @@
 // consume this list, so adding a section means adding one entry here.
 // Icon strings are 16x16 SVG path data, ported from the Option B reference.
 
-export type TelemetryNavGroup = "Operations" | "ML & Models" | "Factory" | "AI & Governance";
+export type TelemetryNavGroup = "Operations" | "ML & Models" | "Factory" | "AI & Governance" | "Evidence & Architecture";
 
 export type TelemetryNavItem = {
   slug: string;
@@ -22,15 +22,19 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z", group: "ML & Models", mobilePrimary: true },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "ML & Models" },
+  { slug: "calibration", label: "RUL Calibration", icon: "M2 13h12M4 13V7m4 6V4m4 9V9", group: "ML & Models" },
   { slug: "registry", label: "Model Registry", icon: "M3 2h10v3H3zM3 7h10v3H3zM3 12h6v2H3z", group: "ML & Models" },
   { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z", group: "Factory" },
   { slug: "factory-ml", label: "Factory ML", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6", group: "Factory" },
   { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "AI & Governance", mobilePrimary: true },
   { slug: "metadata", label: "Metadata Explorer", icon: "M2 3h5v4H2zM9 3h5v4H9zM5 9h6v4H5zM4.5 7v2M11.5 7v2M7 11H5M11 11h-1", group: "AI & Governance" },
+  { slug: "control-tower", label: "Control Tower", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6", group: "AI & Governance" },
+  { slug: "spike-inspector", label: "Spike Inspector", icon: "M1 11h3l2-7 3 11 2-6 1 2h3", group: "AI & Governance" },
   { slug: "governance", label: "AI Governance", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z", group: "AI & Governance" },
+  { slug: "how-it-works", label: "How This Works", icon: "M2 4l4-2 4 2 4-2v10l-4 2-4-2-4 2zM6 2v10M10 4v10", group: "Evidence & Architecture" },
 ];
 
-export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = ["Operations", "ML & Models", "Factory", "AI & Governance"];
+export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = ["Operations", "ML & Models", "Factory", "AI & Governance", "Evidence & Architecture"];
 
 export function telemetryHref(envId: string, slug: string): string {
   const base = `/lab/env/${envId}/telemetry`;

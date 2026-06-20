@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-feature-store-materializer
+  namespace: winston-streaming
+  labels:
+    app: hr-feature-store-materializer
+    lane: history-rhymes-feature-store
+spec:
+  # DEFAULT-OFF: replicas 0 until the materializer worker entrypoint lands in the
+  # runtime PR. It runs the B1 gold materialization path (deterministic; reads the
+  # Phase A frame, NOT live external sources) gated by FS_MATERIALIZER_ENABLED.
+  replicas: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hr-feature-store-materializer
+  template:
+    metadata:
+      labels:
+        app: hr-feature-store-materializer
+        lane: history-rhymes-feature-store
+    spec:
+      serviceAccountName: hr-feature-store-materializer
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: materializer
+          image: winston-backend:local
+          imagePullPolicy: IfNotPresent
+          # Entrypoint deferred to the runtime PR; runs the B1 gold materializer.
+          command:
+            - python
+            - -m
+            - app.services.hr_feature_store.materializer_worker
+          envFrom:
+            - configMapRef:
+                name: hr-feature-store-config
+          env:
+            - name: DATABASE_URL_FILE
+              value: /var/run/winston-secrets/database-url
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /var/run/winston-secrets
+              readOnly: true
+      volumes:
+        - name: runtime-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: hr-feature-store-materializer
