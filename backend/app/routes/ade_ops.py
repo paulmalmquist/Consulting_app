@@ -20,7 +20,15 @@ from pydantic import BaseModel
 from app.auth.platform import require_authenticated_request
 from app.observability.logger import emit_log
 from app.services import governance
-from app.services.ade_ops import approval_store, approvals, simulation, snowflake_executor
+from app.services.ade_ops import (
+    approval_store,
+    approvals,
+    incident_store,
+    incidents,
+    simulation,
+    snowflake_executor,
+    watcher,
+)
 from app.services.ade_ops.models import OpsCommandRequest
 from app.services.ade_ops.registry import ops_registry
 from app.services.ade_ops.supervisor import run_skill
@@ -261,6 +269,153 @@ def rollback_approval(approval_id: str, body: TenantBody, request: Request):
     _record_approval_receipt(business_id=body.business_id, env_id=body.env_id,
                              action="rollback.simulation", req_obj=req_obj)
     return {"approval": req_obj.to_dict(), "rollback": outcome}
+
+
+# ── Incident state machine (PR 6B) — records + remediation, never act ─────────
+
+class OpenIncidentBody(TenantBody):
+    verdict: str                       # watcher verdict that justifies an incident
+    approval_id: str | None = None
+    provider: str | None = None
+    target_ref: str | None = None
+    recommendation_id: str | None = None
+    evidence: list[dict] = []
+    severity: str = "medium"
+
+
+class TransitionBody(TenantBody):
+    to_state: str
+    owner: str | None = None
+    mitigation_plan: str | None = None
+    resolution_note: str | None = None
+    evidence: list[dict] = []
+
+
+def _incident_receipt(*, business_id: str, env_id: str | None, action: str, inc) -> None:
+    try:
+        governance.record_decision(
+            business_id=business_id, env_id=env_id, actor="ade_ops_incident",
+            decision_type="ade_op", tool_name=f"incident.{action}",
+            input_summary={"incident_id": inc.id, "source_verdict": inc.source_verdict},
+            output_summary={"state": inc.state.value, "severity": inc.severity},
+            success=True, tags=["ade_op", "incident", action, inc.state.value])
+    except Exception as exc:  # noqa: BLE001 — receipts never break the flow
+        emit_log(level="error", service="ade_ops", action="incident_receipt_failed",
+                 message=str(exc), error=exc)
+
+
+@router.post("/incidents")
+def open_incident(body: OpenIncidentBody, request: Request):
+    """Open an incident from a watcher verdict (degraded / rollback_recommended).
+    Records only — no provider rollback, no production mutation."""
+    require_authenticated_request(request)
+    if not incidents.can_open_from_verdict(body.verdict):
+        return {"incident": None, "null_reason": f"verdict_not_incident_worthy:{body.verdict}"}
+    inc = incidents.open_from_verdict(
+        verdict=body.verdict, approval_id=body.approval_id, provider=body.provider,
+        target_ref=body.target_ref, recommendation_id=body.recommendation_id,
+        evidence=body.evidence, severity=body.severity)
+    inc.id = incident_store.insert(inc, env_id=body.env_id or "", business_id=body.business_id)
+    _incident_receipt(business_id=body.business_id, env_id=body.env_id, action="opened", inc=inc)
+    return {"incident": inc.to_dict(), "null_reason": None}
+
+
+@router.get("/incidents")
+def list_incidents(request: Request, business_id: str = Query(...),
+                   env_id: str | None = Query(None), limit: int = Query(50, ge=1, le=200)):
+    require_authenticated_request(request)
+    try:
+        items = incident_store.list_recent(env_id=env_id or "", business_id=business_id, limit=limit)
+        return {"incidents": [i.to_dict() for i in items], "null_reason": None}
+    except Exception as exc:  # noqa: BLE001 — fail closed on storage error, not auth
+        emit_log(level="error", service="ade_ops", action="incidents_read_failed",
+                 message=str(exc), error=exc)
+        return {"incidents": [], "null_reason": "incidents_read_unavailable"}
+
+
+@router.post("/incidents/{incident_id}/transition")
+def transition_incident(incident_id: str, body: TransitionBody, request: Request):
+    """Move an incident through its state machine. Invalid transitions and a close
+    without a resolution note + evidence are rejected (no silent close)."""
+    require_authenticated_request(request)
+    inc = incident_store.get(incident_id, env_id=body.env_id or "", business_id=body.business_id)
+    if inc is None:
+        raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown incident"})
+    try:
+        to_state = incidents.IncidentState(body.to_state)
+    except ValueError:
+        return {"incident": inc.to_dict(), "null_reason": f"unknown_state:{body.to_state}"}
+    try:
+        incidents.transition(inc, to_state, owner=body.owner, mitigation_plan=body.mitigation_plan,
+                             resolution_note=body.resolution_note, evidence=body.evidence)
+    except incidents.IncidentTransitionError as exc:
+        return {"incident": inc.to_dict(), "null_reason": str(exc)}
+    incident_store.save_transition(inc, env_id=body.env_id or "", business_id=body.business_id)
+    _incident_receipt(business_id=body.business_id, env_id=body.env_id,
+                      action=f"transition.{to_state.value}", inc=inc)
+    return {"incident": inc.to_dict(), "null_reason": None}
+
+
+# ── Post-change watcher (PR 6A) — evaluate, never act ─────────────────────────
+
+class WatchBody(TenantBody):
+    # Optional observation evidence. Absent → insufficient_evidence (never success).
+    evidence_status: str = "missing"
+    metric: str | None = None
+    expected: float | None = None
+    observed: float | None = None
+    lower_is_better: bool = True
+
+
+def _watch_receipt(*, business_id: str, env_id: str | None, result) -> None:
+    try:
+        governance.record_decision(
+            business_id=business_id, env_id=env_id, actor="ade_ops_watcher",
+            decision_type="ade_op", tool_name="watcher.evaluate",
+            input_summary={"approval_id": result.approval_id},
+            output_summary=result.to_dict(),
+            success=(result.verdict in (watcher.WatcherVerdict.ACCEPTED,
+                                         watcher.WatcherVerdict.STILL_OBSERVING)),
+            tags=["ade_op", "watcher", result.verdict.value])
+    except Exception as exc:  # noqa: BLE001 — receipts never break the flow
+        emit_log(level="error", service="ade_ops", action="watcher_receipt_failed",
+                 message=str(exc), error=exc)
+
+
+@router.post("/approvals/{approval_id}/watch")
+def watch_approval(approval_id: str, body: WatchBody, request: Request):
+    """Evaluate an executed change against its observation window and return a
+    verdict (accepted/still_observing/degraded/rollback_recommended/
+    insufficient_evidence). Recommends only — no rollback is executed."""
+    require_authenticated_request(request)
+    req_obj = approval_store.get(approval_id, env_id=body.env_id or "", business_id=body.business_id)
+    if req_obj is None:
+        raise HTTPException(404, {"error_code": "NOT_FOUND", "message": "Unknown approval"})
+    obs = watcher.Observation(
+        evidence_status=body.evidence_status, metric=body.metric, expected=body.expected,
+        observed=body.observed, lower_is_better=body.lower_is_better, source="watch_request")
+    result = watcher.evaluate(req_obj, observation=obs, now=_now())
+    _watch_receipt(business_id=body.business_id, env_id=body.env_id, result=result)
+    return result.to_dict()
+
+
+@router.get("/approvals/watch")
+def watch_state(request: Request, business_id: str = Query(...),
+                env_id: str | None = Query(None), limit: int = Query(50, ge=1, le=200)):
+    """Watcher state for the panel: each EXECUTED change evaluated with whatever
+    observation evidence is currently available (none wired yet → still_observing
+    while the window is open, else insufficient_evidence). Honest by default."""
+    require_authenticated_request(request)
+    try:
+        items = approval_store.list_recent(env_id=env_id or "", business_id=business_id, limit=limit)
+    except Exception as exc:  # noqa: BLE001 — fail closed on storage error
+        emit_log(level="error", service="ade_ops", action="watch_state_failed",
+                 message=str(exc), error=exc)
+        return {"watching": [], "null_reason": "watch_state_unavailable"}
+    now = _now()
+    watching = [watcher.evaluate(i, observation=None, now=now).to_dict()
+                for i in items if i.executed]
+    return {"watching": watching, "null_reason": None}
 
 
 def _serialize(row: dict) -> dict:

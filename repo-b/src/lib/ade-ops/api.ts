@@ -209,3 +209,70 @@ export const simulateRollback = (approvalId: string, businessId: string, envId?:
     method: "POST",
     body: JSON.stringify({ business_id: businessId, env_id: envId }),
   });
+
+// ── Incident state machine (PR 6B) — records + remediation; never act ────────
+
+export type IncidentStateName =
+  | "detected"
+  | "triaged"
+  | "owner_notified"
+  | "mitigation_planned"
+  | "resolved"
+  | "closed";
+
+export interface Incident {
+  id: string | null;
+  approval_id: string | null;
+  source_verdict: string | null;
+  provider: string | null;
+  target_ref: string | null;
+  recommendation_id: string | null;
+  title: string;
+  severity: "low" | "medium" | "high" | "critical";
+  state: IncidentStateName;
+  owner: string | null;
+  mitigation_plan: string | null;
+  resolution_note: string | null;
+  evidence: Evidence[];
+}
+
+export interface IncidentsResponse {
+  incidents: Incident[];
+  null_reason: string | null;
+}
+
+export const getIncidents = (businessId: string, envId?: string) =>
+  apiFetch<IncidentsResponse>("/api/ade-ops/incidents", {
+    params: envId ? { business_id: businessId, env_id: envId } : { business_id: businessId },
+  });
+
+// ── Post-change watcher (PR 6A) — evaluate + recommend; never roll back ──────
+
+export type WatcherVerdictName =
+  | "accepted"
+  | "still_observing"
+  | "degraded"
+  | "rollback_recommended"
+  | "insufficient_evidence";
+
+export interface WatcherResult {
+  approval_id: string | null;
+  execution_mode: "simulation" | "nonprod" | "prod" | null;
+  verdict: WatcherVerdictName;
+  finding: string | null;
+  recommendation: string | null; // artifact only — never executed
+  evidence: Evidence[];
+  null_reason: string | null;
+  window_open: boolean | null;
+  rollback_required: boolean;
+}
+
+export interface WatchStateResponse {
+  watching: WatcherResult[];
+  null_reason: string | null;
+}
+
+export const getWatchState = (businessId: string, envId?: string) =>
+  apiFetch<WatchStateResponse>("/api/ade-ops/approvals/watch", {
+    params: envId ? { business_id: businessId, env_id: envId } : { business_id: businessId },
+  });

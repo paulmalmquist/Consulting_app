@@ -9,5 +9,7 @@
   "model_metric_name": "synthetic_top_decile_capture_rate",
   "model_metric_value": 0.72,
   "model_metric_honesty_warning": "Local contract metric is a synthetic validation signal, not expected production performance.",
-  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data."
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data.",
+  "validation_status": "passed",
+  "mlflow_status": "not_available_local_fallback"
 }

@@ -201,7 +201,78 @@ function WeatherRiskTimeline() {
 }
 function AutomationPipelineGraph() { return <Panel className="p-5"><SectionHeader eyebrow="Automation proof" title="Automation Pipeline Graph" /><div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">{HAPPYCO_AUTOMATION_ROWS.map((row, index) => <div key={row.trigger} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4"><div className="mb-3 flex items-center justify-between"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#35146B] text-xs font-black text-white">{index + 1}</span><StatusPill value={row.status} /></div><div className="text-sm font-black text-[#35146B]">{row.trigger}</div><div className="mt-2 text-xs font-bold text-[#5430C0]">{row.tool}</div><p className="mt-2 text-xs font-medium leading-5 text-[#514574]">{row.output}</p><div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-[#6F6590]">Gate: {row.control}</div><div className="mt-2 text-[11px] font-semibold text-[#4025A8]">Receipt: {row.evidence}</div></div>)}</div></Panel>; }
 function VendorPerformanceMatrix({ benchmarks }: { benchmarks: OperatorPropertyOpsBenchmark[] }) { return <Panel className="p-5"><SectionHeader eyebrow="Vendor operations" title="Vendor Performance Matrix" /><div className="relative h-72 rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4"><div className="absolute bottom-3 left-4 right-4 border-t border-[#DDD8EA]" /><div className="absolute bottom-3 left-4 top-4 border-l border-[#DDD8EA]" />{benchmarks.map((row) => { const x = Math.min(88, Math.max(8, (row.average_aging_days ?? 8) * 5)); const y = Math.min(84, Math.max(12, (row.reopened_rate ?? 8) * 3)); const size = Math.min(52, Math.max(22, row.work_order_count / 3)); return <div key={row.property_id} title={`${row.property_name}: ${row.average_aging_days}d aging, ${row.reopened_rate}% reopen`} className="absolute rounded-full border-2 border-white bg-[#5430C0]/80 text-[10px] font-black text-white shadow-md" style={{ left: `${x}%`, bottom: `${y}%`, width: size, height: size, lineHeight: `${size - 4}px`, textAlign: "center" }}>{row.risk_flag.slice(0, 1).toUpperCase()}</div>; })}<div className="absolute bottom-0 right-4 text-xs font-bold text-[#6F6590]">avg aging days</div><div className="absolute left-1 top-4 -rotate-90 text-xs font-bold text-[#6F6590]">reopen rate</div></div></Panel>; }
-function DataFlowTab() { const stages = [[Database, "Weather ingest", "Public weather and incident signals land in bronze tables", "Bronze source status"], [Layers3, "Feature table", "Canonical property operations join to weather exposure and benchmark windows", "Gold feature rows"], [Sparkles, "Model training", "Databricks bundle trains risk model and records MLflow metrics", "Metrics + run IDs"], [BarChart3, "Predictions", "Batch scores identify maintenance-risk concentration", "Risk bands"], [ShieldCheck, "Receipt", "Run receipt controls allowed and disallowed claims", "Gated proof copy"]] as const; return <div className="space-y-6"><SectionHeader eyebrow="Behind the curtain" title="Public weather + synthetic operations pipeline" /><div className="grid gap-4 lg:grid-cols-5">{stages.map(([Icon, title, subtitle, output], index) => <Panel key={title} className="p-5"><div className="mb-4 flex items-center justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5F1FF]"><Icon className="h-5 w-5 text-[#4025A8]" /></div><div className="text-2xl font-black text-[#DDD8EA]">0{index + 1}</div></div><h3 className="text-lg font-black leading-tight">{title}</h3><p className="mt-2 text-sm font-medium leading-6 text-[#514574]">{subtitle}</p><div className="mt-5 rounded-2xl bg-[#FBFAF7] p-3"><div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#6F6590]">Output</div><div className="mt-1 text-sm font-black">{output}</div></div></Panel>)}</div><WeatherRiskTimeline /><div><Link href="/happyco/weather-risk" className="inline-flex rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]">Open the full weather-risk intelligence page</Link></div></div>; }
+// DataFlowTab is the stack-overlap surface inside the demo client. It mirrors
+// the landing-page Stack Overlap + HappyCo Relevance Map sections so the demo
+// reads as "applied stack" rather than a HappyCo-specific build.
+const STACK_OVERLAP_ROWS: Array<[string, string, string]> = [
+  ["ADO intake + sequenced PRs", "Multi-stakeholder delivery discipline with a paper trail", "Data-team backlog, sequenced ML/data work against HappyCo property goals"],
+  ["Codex + Claude multi-PR planning", "Plan-then-execute with human gates and AI execution", "Head of Data scoping AI-assisted analytics and data-product work without losing the plot"],
+  ["FastAPI canonical APIs", "Source-of-truth product surfaces for entities and analytics", "Property / unit / inspection / work-order canonical layer behind HappyCo product features"],
+  ["Databricks weather-risk ML", "Public + synthetic data joined into operational signals", "Maintenance-risk, make-ready, vendor-performance ML on real HappyCo property ops data"],
+  ["Next.js gated proof surfaces", "Stakeholder-ready evidence dashboards behind invite cookies", "Internal HappyCo operator dashboards and customer-facing analytics views"],
+  ["Excel / PowerPoint / Outlook automation", "Same data turns into operator-ready artifacts on demand", "Customer reports, executive decks, and owner/operator follow-up from one source"],
+];
+
+function DataFlowTab() {
+  return (
+    <div className="space-y-6">
+      <SectionHeader eyebrow="Stack overlap" title="My operating stack, applied to HappyCo" />
+      <Panel className="p-5">
+        <p className="text-sm font-semibold leading-6 text-[#514574]">
+          The durable thing is the stack — ADO intake, AI-assisted multi-PR delivery, a modular Databricks
+          ML pipeline, FastAPI / Next.js product surfaces, artifact generation, gated deployment, and receipts.
+          HappyCo is the applied case.
+        </p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="rounded-3xl border border-[#DDD8EA] bg-[#F5F1FF] p-4">
+            <div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#4025A8]/70">My stack</div>
+            <ul className="mt-2 space-y-2 text-sm font-bold text-[#35146B]">
+              <li>ADO &rarr; AI execution &rarr; receipts</li>
+              <li>Codex / Claude multi-PR planning</li>
+              <li>FastAPI operator APIs</li>
+              <li>Databricks weather-risk ML</li>
+              <li>Next.js gated proof surfaces</li>
+              <li>Excel / PowerPoint / Outlook automation</li>
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-[#DDD8EA] bg-[#E8FFF5] p-4">
+            <div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#0F766E]/80">HappyCo applied case</div>
+            <ul className="mt-2 space-y-2 text-sm font-bold text-[#0F766E]">
+              <li>Data-team backlog &amp; sequenced delivery</li>
+              <li>AI-assisted analytics and data-product work</li>
+              <li>Canonical property / unit / inspection layer</li>
+              <li>Maintenance-risk and make-ready ML</li>
+              <li>Operator dashboards and customer views</li>
+              <li>Customer reports and executive decks</li>
+            </ul>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel className="overflow-hidden">
+        <div className="hidden grid-cols-3 bg-[#35146B] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white lg:grid">
+          <div>Winston / Novendor stack</div>
+          <div>Translation layer</div>
+          <div>HappyCo relevance</div>
+        </div>
+        {STACK_OVERLAP_ROWS.map(([stack, translation, relevance]) => (
+          <div key={stack} className="grid gap-3 border-t border-[#DDD8EA] px-4 py-4 text-sm lg:grid-cols-3 lg:items-start">
+            <div className="font-black text-[#35146B]">{stack}</div>
+            <div className="font-medium text-[#514574]">{translation}</div>
+            <div className="font-medium text-[#514574]">{relevance}</div>
+          </div>
+        ))}
+      </Panel>
+
+      <WeatherRiskTimeline />
+      <div>
+        <Link href="/happyco/weather-risk" className="inline-flex rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]">
+          Open the full weather-risk intelligence page
+        </Link>
+      </div>
+    </div>
+  );
+}
 function MlRiskTab({ mlRisk, selectedMl, benchmarks }: { mlRisk: OperatorPropertyOpsMlRisk; selectedMl: OperatorPropertyOpsMlPrediction | null; benchmarks: OperatorPropertyOpsBenchmark[] }) { return <div className="space-y-6"><div className="grid gap-6 lg:grid-cols-[1fr_380px]"><Panel className="p-5"><SectionHeader eyebrow="Predictive maintenance" title="ML Risk Model" />{mlRisk.ml_status === "available" ? <div className="grid gap-4 md:grid-cols-3">{(mlRisk.predictions ?? []).slice(0, 6).map((prediction) => <div key={prediction.property_id} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4"><div className="text-xs font-black uppercase tracking-[0.14em] text-[#6F6590]">{prediction.source_category}</div><div className="mt-2 text-lg font-black">{prediction.property_id.replace("prop-", "").replaceAll("-", " ")}</div><div className="mt-3 text-4xl font-black">{Math.round(prediction.risk_score * 100)}%</div><div className="mt-2"><StatusPill value={prediction.risk_band} /></div></div>)}</div> : <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-sm font-semibold text-amber-900">ML artifacts are not available. Recommendations remain benchmark-only and deterministic.</div>}</Panel><Panel className="p-5"><div className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#6F6590]">Receipt-backed claim</div><p className="text-sm font-semibold leading-6 text-[#514574]">{HAPPYCO_DATABRICKS_RECEIPT.claim}</p><div className="mt-4 space-y-2"><div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">Job ID: {HAPPYCO_DATABRICKS_RECEIPT.jobId}</div><div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">Run ID: {HAPPYCO_DATABRICKS_RECEIPT.runId}</div><div className="rounded-2xl bg-[#FBFAF7] p-3 text-sm font-bold">Status: <StatusPill value={databricksStatusLabel(mlRisk)} /></div><div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">{HAPPYCO_DATABRICKS_RECEIPT.caveat}</div></div>{selectedMl ? <div className="mt-5"><div className="text-xs font-black uppercase tracking-[0.18em] text-[#6F6590]">Top drivers</div><div className="mt-3 space-y-2">{selectedMl.top_drivers.map((driver) => <div key={driver.feature} className="rounded-2xl border border-[#DDD8EA] bg-white p-3 text-sm font-bold">{driverLabel(driver)}</div>)}</div></div> : null}</Panel></div><div className="grid gap-6 xl:grid-cols-2"><WeatherRiskTimeline /><VendorPerformanceMatrix benchmarks={benchmarks} /></div></div>; }
 function AutomationTab() {
   return (
@@ -235,6 +306,35 @@ function AutomationTab() {
     </div>
   );
 }
-function ArtifactFactoryTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) { const artifacts = [["Excel Workbook", "Canonical model, benchmarks, ML tabs", "Generated local"], ["PowerPoint Deck", "90-day strategy, architecture, ML slide", "Generated local"], ["Outlook Draft", "Recruiter follow-up via WinCOM params", "Template ready"], ["Gated Package", "Invite-code HappyCo proof package", "Ready"], ["ML Artifacts", "Feature table, predictions, model card", mlRisk.ml_status === "available" ? "Ready" : "not_available"], ["Databricks Receipt", "Run id, notebook path, output paths, claim controls", "Completed"]] as const; return <div className="space-y-6"><SectionHeader eyebrow="Executive outputs" title="Same source data becomes Excel, PowerPoint, microsite, and recruiter draft" /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{artifacts.map(([label, detail, state]) => <Panel key={label} className="p-5"><div className="mb-4 flex items-start justify-between gap-3"><FileSpreadsheet className="h-5 w-5 text-[#4025A8]" /><StatusPill value={state} /></div><div className="font-black">{label}</div><p className="mt-2 text-sm font-medium leading-6 text-[#514574]">{detail}</p></Panel>)}</div><Link href="/happyco/artifacts" className="inline-flex rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white hover:bg-[#5430C0]">Open gated artifact hub</Link></div>; }
+function ArtifactFactoryTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) {
+  const artifacts = [
+    ["Excel Workbook", "Canonical model, benchmarks, ML tabs", "Available in local proof package"],
+    ["PowerPoint Deck", "90-day strategy, architecture, ML slide", "Available in local proof package"],
+    ["Outlook Draft", "WinCOM workflow template", "Available in local proof package"],
+    ["Gated Package", "Invite-code HappyCo proof package", "Ready"],
+    ["ML Artifacts", "Feature table, predictions, model card", mlRisk.ml_status === "available" ? "Available in local proof package" : "Pending gated upload"],
+    ["Databricks Receipt", "Run id, notebook path, output paths, claim controls", "Completed"],
+  ] as const;
+  return (
+    <div className="space-y-6">
+      <SectionHeader eyebrow="Executive outputs" title="Same source data becomes Excel, PowerPoint, microsite, and follow-up automation" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {artifacts.map(([label, detail, state]) => (
+          <Panel key={label} className="p-5">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <FileSpreadsheet className="h-5 w-5 text-[#4025A8]" />
+              <StatusPill value={state} />
+            </div>
+            <div className="font-black">{label}</div>
+            <p className="mt-2 text-sm font-medium leading-6 text-[#514574]">{detail}</p>
+          </Panel>
+        ))}
+      </div>
+      <Link href="/happyco/artifacts" className="inline-flex rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white hover:bg-[#5430C0]">
+        Open gated artifact hub
+      </Link>
+    </div>
+  );
+}
 function BuildLogTab({ mlRisk }: { mlRisk: OperatorPropertyOpsMlRisk }) { const tickets = [["Ticket 2", "Canonical seed data", "Complete"], ["Ticket 3A", "ML risk proof", "Complete"], ["Ticket 3B", "Live Databricks run receipt", mlRisk.databricks_status === "completed" ? "Complete" : "Pending receipt"], ["Ticket 3C", "Weather risk receipt integration", "Complete"], ["Polish", "Clean demo + gated artifacts", "In progress"]] as const; return <div className="space-y-6"><SectionHeader eyebrow="Workbench" title="Implementation plan and evidence are visible" /><div className="grid gap-4 md:grid-cols-5">{tickets.map(([ticket, title, status]) => <Panel key={ticket} className="p-5"><div className="mb-4 flex items-center justify-between gap-3"><div className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">{ticket}</div><StatusPill value={status} /></div><h3 className="text-base font-black leading-tight">{title}</h3></Panel>)}</div></div>; }
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) { return <div className="mb-5"><div className="text-xs font-black uppercase tracking-[0.2em] text-[#4025A8]/70">{eyebrow}</div><h2 className="mt-1 text-2xl font-black tracking-tight">{title}</h2></div>; }
