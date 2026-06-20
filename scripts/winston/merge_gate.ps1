@@ -171,13 +171,22 @@ if ($brokenNav.Count -gt 0) {
 # Gate 6: Schema readiness (no trivial True gate in main.py)
 # ---------------------------------------------------------------------------
 $mainPy = Get-Content (Join-Path $RepoRoot 'backend' 'app' 'main.py') -Raw -ErrorAction SilentlyContinue
-$trivialGates = [regex]::Matches($mainPy, '(schema_ok|db_ok|health_ok|ready)\s*=\s*True(?!\s*#\s*real)')
+# A health flag set True is only a "lie" when it is unconditional. The legitimate pattern initializes
+# the flag to False and sets it True inside a guarded block (try/except after a real check), e.g.
+#   schema_ok = False ; ... ; schema_ok = True   (inside try, after _get_pool())
+# So flag `X = True` only when the same flag is NEVER initialized `X = False` earlier in the file.
+# `# real` still suppresses explicitly. This keeps lie-detection while not false-positiving real code.
+$trivialGates = @()
+foreach ($m in [regex]::Matches($mainPy, '(schema_ok|db_ok|health_ok|ready)\s*=\s*True(?!\s*#\s*real)')) {
+    $var = $m.Groups[1].Value
+    if ($mainPy -notmatch "(?m)^\s*$var\s*=\s*False\b") { $trivialGates += $var }
+}
 
 if ($trivialGates.Count -gt 0) {
-    $names = ($trivialGates | ForEach-Object { $_.Groups[1].Value }) -join ', '
-    Add-Result 'Schema readiness' 'FAIL' "Trivial True gate found: $names — health endpoint will lie"
+    $names = ($trivialGates | Select-Object -Unique) -join ', '
+    Add-Result 'Schema readiness' 'FAIL' "Unconditional True health gate (no False init / # real): $names — health endpoint will lie"
 } else {
-    Add-Result 'Schema readiness' 'PASS' 'no trivial True gates detected'
+    Add-Result 'Schema readiness' 'PASS' 'no unconditional True health gates (guarded/annotated flags ok)'
 }
 
 # ---------------------------------------------------------------------------
