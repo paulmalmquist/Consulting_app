@@ -2,15 +2,16 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import GovernanceDashboard from "./GovernanceDashboard";
-import type { GovernanceSummary, SecurityPosture, EvalResults } from "@/lib/telemetry/copilot-api";
+import type { GovernanceSummary, SecurityPosture, EvalResults, McpToolsResponse } from "@/lib/telemetry/copilot-api";
 
-const { getGovernance, getEvals, getUsefulness } = vi.hoisted(() => ({
+const { getGovernance, getEvals, getUsefulness, getMcpTools } = vi.hoisted(() => ({
   getGovernance: vi.fn(),
   getEvals: vi.fn(),
   getUsefulness: vi.fn(),
+  getMcpTools: vi.fn(),
 }));
 
-vi.mock("@/lib/telemetry/copilot-api", () => ({ getGovernance, getEvals, getUsefulness }));
+vi.mock("@/lib/telemetry/copilot-api", () => ({ getGovernance, getEvals, getUsefulness, getMcpTools }));
 
 const POSTURE: SecurityPosture = {
   enforced: [
@@ -31,6 +32,16 @@ const AVAILABLE_EVAL: EvalResults = {
   available: true, summary: { passed: 1, total: 1 }, cases: [], generated_at: "2026-06-18T00:00:00Z", source: "pytest",
 };
 
+const MCP_TOOLS: McpToolsResponse = {
+  tools: [
+    { name: "telemetry.read_findings", description: "Read analyzer findings", permission: "read",
+      module: "telemetry", tags: ["read"], input_fields: [] },
+  ],
+  registered: 1, all_read_only: true,
+  scope_policy: { denied_reason: "out_of_scope", explanation: "Telemetry-scoped read-only tools only.", scope: ["telemetry"] },
+  null_reason: null,
+};
+
 function gov(overrides: Partial<GovernanceSummary> = {}): GovernanceSummary {
   return {
     total_interactions: 0, refusal_rate: null, grounded_rate: null, live_llm_rate: null,
@@ -48,6 +59,7 @@ describe("GovernanceDashboard — Security & access posture", () => {
     getGovernance.mockResolvedValue(gov());
     getEvals.mockResolvedValue(AVAILABLE_EVAL);
     getUsefulness.mockResolvedValue(null);
+    getMcpTools.mockResolvedValue(MCP_TOOLS);
 
     render(<GovernanceDashboard />);
 
@@ -66,6 +78,7 @@ describe("GovernanceDashboard — Security & access posture", () => {
     getGovernance.mockResolvedValue(gov({ security_posture: null }));
     getEvals.mockResolvedValue(AVAILABLE_EVAL);     // keep other panels off the "Not available" path
     getUsefulness.mockResolvedValue(null);
+    getMcpTools.mockResolvedValue(MCP_TOOLS);
 
     render(<GovernanceDashboard />);
 
