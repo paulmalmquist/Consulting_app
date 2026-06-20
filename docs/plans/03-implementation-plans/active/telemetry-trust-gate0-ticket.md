@@ -1,7 +1,9 @@
 # Gate 0 Ticket — Telemetry Trust Layer Falsification
 
 **Created:** 2026-06-13
-**Status:** RECONCILED 2026-06-13 against the live Databricks workspace — ready to file via
+**Status:** ☠️ KILLED 2026-06-13 — Gate 0 falsification ran and returned a negative result: embedding distance anti-correlates with RUL error (within-band Spearman ρ ≈ −0.127). The Telemetry Trust Layer thesis is dead; do NOT proceed to SupCon training, Trust/Divergence schema, or UI. Canonical post-kill plan is `telemetry-calibration-layer.md`. Original status retained below.
+
+**Original status:** RECONCILED 2026-06-13 against the live Databricks workspace — ready to file via
 `azure-devops-intake` then run. See **Data Reconciliation** below: the original "reuse existing fused
 vector + existing RUL predictions" premise was corrected after inspecting `novendor_1.telemetry`.
 **Type:** Read-only / inference-only analysis spike (falsification gate).

@@ -1,7 +1,9 @@
 # Telemetry Calibration Layer — Implementation Plan
 
 **Created:** 2026-06-13
-**Status:** ACTIVE — **Tickets 1 & 2 DONE 2026-06-13.** Ticket 1 reproduced + calibrated the GBM
+**Status:** ✅ DONE 2026-06-20 — Tickets 1–3 all shipped (RUL Calibration screen live at `/lab/env/[envId]/telemetry/calibration`). No further build work; demo-prep only. Kept in `active/` for reference. Original status retained below.
+
+**Original status:** ACTIVE — **Tickets 1 & 2 DONE 2026-06-13.** Ticket 1 reproduced + calibrated the GBM
 baseline (gate PASS; `evidence/telemetry-calibration-baseline.md`, commit `92ac2865`). **Ticket 2: a
 CNN-LSTM challenger GRADUATED** as FD001 RUL champion — RMSE 17.33 (vs 20.32), PHM 742 (vs 1423),
 calibrated 80/90% coverage, tighter intervals (`evidence/telemetry-calibration-challenger.md`). Still
