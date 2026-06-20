@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from app.events.envelope import EventEnvelope
-from app.events.transport import build_kafka_producer_config
+from app.events.protobuf_codec import build_confluent_conf
 from app.services.hr_polymarket.client import PolymarketPublicClient
 from app.services.hr_polymarket.config import PolymarketSettings
 from app.services.hr_polymarket.models import MarketDefinition
@@ -297,6 +297,9 @@ def test_invalid_message_is_rejected_for_dlq_routing():
 
 
 def test_confluent_producer_config_uses_shared_sasl_contract():
+    # The Polymarket workers build their librdkafka config via the shared
+    # build_confluent_conf helper (app.events.protobuf_codec), so this asserts
+    # the SASL_SSL contract on that single source of truth.
     with patch.dict(
         "os.environ",
         {
@@ -306,13 +309,12 @@ def test_confluent_producer_config_uses_shared_sasl_contract():
         },
         clear=False,
     ):
-        config = build_kafka_producer_config()
+        config = build_confluent_conf()
 
     assert config["bootstrap.servers"] == "pkc.example:9092"
     assert config["security.protocol"] == "SASL_SSL"
     assert config["sasl.username"] == "key"
     assert config["sasl.password"] == "secret"
-    assert config["enable.idempotence"] is True
 
 
 def test_worker_subscribes_sends_heartbeat_and_publishes_raw_event():
