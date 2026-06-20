@@ -24,8 +24,22 @@ import os
 
 
 def _env(name: str, default: str = "") -> str:
-    value = os.getenv(name, default)
-    return value.strip() if value else default
+    value = os.getenv(name)
+    if value:
+        return value.strip()
+
+    file_path = os.getenv(f"{name}_FILE")
+    if file_path:
+        return _read_secret_file(file_path, default)
+
+    return default
+
+
+def _read_secret_file(file_path: str, default: str = "") -> str:
+    try:
+        return open(file_path, encoding="utf-8").read().strip()
+    except OSError:
+        return default
 
 
 def build_confluent_conf(*, group_id: str | None = None) -> dict:
