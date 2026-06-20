@@ -109,7 +109,7 @@ describe("middleware — telemetry reviewer scope", () => {
   });
 
   it("allows the reviewer into its env's /telemetry routes (no redirect)", async () => {
-    for (const p of [`/lab/env/${TENV}/telemetry`, `/lab/env/${TENV}/telemetry/replay`, `/lab/env/${TENV}/telemetry/governance`]) {
+    for (const p of [`/lab/env/${TENV}/telemetry`, `/lab/env/${TENV}/telemetry/replay`, `/lab/env/${TENV}/telemetry/governance`, `/lab/env/${TENV}/telemetry/metadata`]) {
       const res = await middleware(await makeRequest(p, reviewerClaims()));
       expect(res.headers.get("location")).toBeNull();
     }

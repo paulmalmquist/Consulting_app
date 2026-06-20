@@ -263,3 +263,22 @@ Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (
   `backend/tests/test_telemetry_findings.py`.
 - Per-surface classification: [`data-source-matrix.md`](./data-source-matrix.md). Local-only gaps:
   [`local-seed-backlog.md`](./local-seed-backlog.md).
+
+## Telemetry metadata control plane (2026-06-12)
+
+- Protected route: `/lab/env/[envId]/telemetry/metadata`.
+- The route `envId` is an authorization/navigation scope. Serving data remains explicitly scoped to
+  the configured telemetry serving environment, currently `telemetry-demo`; the UI displays both.
+- `backend/app/data/telemetry/metadata_catalog.json` is a reviewed telemetry-only catalog. It covers
+  committed NASA/ISS, Postgres serving/streaming, RS Factory seed, Factory ML, NCR intelligence, and
+  Stargate artifacts. It is not a global schema crawler.
+- `backend/app/services/telemetry_metadata.py` rejects unsafe fields, non-telemetry schemas,
+  duplicate objects/edges, dangling lineage, and disconnected nodes. Runtime Postgres enrichment
+  uses one static allowlisted query over catalog-listed `tel_*` tables and returns sanitized partial
+  status when enrichment is unavailable.
+- Databricks and Confluent assets are represented from committed manifests, notebooks, exports,
+  SQL, runbooks, and configuration only. There is no live external-system query.
+- The frontend proxy authenticates the user, checks route-environment membership, and separately
+  enforces the configured telemetry serving scope before forwarding the request.
+- The React Flow layout is deterministic by lineage layer. Explicit edges are solid; inferred edges
+  are dashed and carry confidence and description into the detail drawer.

@@ -3938,3 +3938,31 @@ Building the telemetry "How This Works" Flow Explorer v2 (an interactive scenari
 - **`getByText(/X/)` matches both a `<summary>` and its parent `<details>`** (the `<details>` `textContent` includes the summary's text). Target `page.locator("summary")` (filtered) rather than the text, or use `.first()` deliberately.
 - **For interactive controls, do NOT use `ResponsiveSwap`** (`repo-b/src/components/telemetry/primitives.tsx` — it renders BOTH mobile+desktop branches into the DOM). Duplicated clickable buttons = accessibility + strict-mode test traps. Use single-DOM CSS reflow instead: `SplitGrid` + a literal responsive grid class string (`"grid grid-cols-1 gap-3 lg:grid-cols-6"`) — controls render once, stack on mobile, no duplication, and the new tests can use singular queries.
 - **Subtle motion with zero deps + hydration-safe:** a constant inline `<style>` block gated by `@media (prefers-reduced-motion: no-preference)` for a staggered reveal (CSS keyframes + `animation-delay: calc(var(--fx-i,0)*40ms)`), plus inline `transition` for selection glow/dim. **Never `window.matchMedia`** (the vitest setup lacks it). Apply the reveal animation only where it won't fight an inline `opacity` (e.g. trace lines, not the dimmed lane cards — `animation-fill-mode: both` would override the inline dim).
+
+### Telemetry metadata and lineage conventions (2026-06-12)
+
+- Telemetry storage definitions are split across `repo-b/db/schema/10006_telemetry_serving.sql`
+  through the later `10009`-`10016` telemetry/factory migrations, Databricks assets under
+  `telemetry-platform/databricks/`, deterministic seed definitions under `rs_factory_seed/`, Factory
+  ML exports under `skills/rs-factory-ml/` and `repo-b/public/labs/factory-ml/`, and Stargate
+  contracts under `infra/confluent/stargate/` plus `scripts/streaming/stargate/`. Do not infer a
+  complete platform schema from any one directory.
+- The lab route `envId` and the telemetry serving scope are intentionally different concepts.
+  Authorization uses `/lab/env/[envId]`; telemetry reads currently use the configured
+  `TELEMETRY_SERVING_ENV_ID` (`telemetry-demo` by default). Metadata UI and API proxy code must keep
+  those values separate and visible.
+- Metadata discovery is reviewed and allowlisted, not dynamic. Keep committed objects in
+  `backend/app/data/telemetry/metadata_catalog.json`; validate source references, duplicate object
+  definitions, edge uniqueness, dangling references, and disconnected nodes before serving.
+- Safe Postgres enrichment uses one static query over catalog-listed `tel_*` objects. Never construct
+  identifiers or SQL from the client/catalog, and treat enrichment failure as sanitized `partial`
+  status while preserving the valid base graph.
+- `@xyflow/react` is already installed. Stable telemetry graphs work best with deterministic layer
+  columns, non-draggable nodes, explicit edge IDs, `strokeDasharray` for inferred edges, and a generic
+  reverse-edge traversal for metric/gold trace highlighting.
+- Scoped telemetry reviewer sessions are DB-free. The login field must accept the non-email reviewer
+  username, and `/api/auth/me` must return the signed reviewer membership without attempting UUID/DB
+  rehydration.
+- `next start` sets secure cookies, so authenticated HTTP localhost evidence should use `next dev`
+  after the production build has been verified separately. Clear only the worktree `.next` directory
+  when switching modes if stale dev asset 404s appear.

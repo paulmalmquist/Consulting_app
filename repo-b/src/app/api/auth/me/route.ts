@@ -9,6 +9,7 @@ import {
   loadRichMembershipByEnvId,
   loadRichMembershipsForUser,
 } from "@/lib/server/platformMembershipRehydrate";
+import { isTelemetryReviewerSession } from "@/lib/server/telemetryReviewer";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,38 @@ export async function GET(request: NextRequest) {
   if (!session) {
     return NextResponse.json(
       { authenticated: false, session: null },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  if (isTelemetryReviewerSession(session)) {
+    const memberships = (session.memberships || []).map((membership) => ({
+      ...membership,
+      client_name: "RS Telemetry",
+      auth_mode: "private" as const,
+      business_id: null,
+      tenant_id: null,
+      industry: "aerospace",
+      industry_type: null,
+      workspace_template_key: null,
+    }));
+    const activeSlim = getActiveMembership(session);
+    const activeEnvironment = activeSlim
+      ? memberships.find((membership) => membership.env_id === activeSlim.env_id) || null
+      : null;
+
+    return NextResponse.json(
+      {
+        authenticated: true,
+        session: {
+          platformUserId: session.platform_user_id || null,
+          email: session.email || null,
+          displayName: session.display_name || null,
+          platformAdmin: false,
+          activeEnvironment,
+          memberships,
+        },
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
