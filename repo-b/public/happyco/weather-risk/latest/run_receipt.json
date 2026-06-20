@@ -17,5 +17,12 @@
     "a production HappyCo model was trained",
     "a production model serving endpoint was deployed",
     "a production deployment occurred"
-  ]
+  ],
+  "pipeline_mode": "local_fallback",
+  "validation_status": "passed",
+  "source_contract_status": "passed",
+  "charts_expected": 6,
+  "charts_available": 0,
+  "mlflow_status": "not_available_local_fallback",
+  "databricks_live_run_status": "requires_interactive_auth"
 }

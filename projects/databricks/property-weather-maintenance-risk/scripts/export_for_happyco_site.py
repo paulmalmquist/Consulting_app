@@ -52,6 +52,11 @@ SITE_CHARTS = [
 HIGH_RISK_THRESHOLD = 0.70
 TOP_RISK_COUNT = 20
 
+# Minimum byte threshold for a chart PNG to count as "available". Placeholder
+# stubs (under ~1 KB) are not real charts; the local fallback bundle drops
+# 67-byte sentinel files into the charts dir to validate the site contract.
+MIN_CHART_BYTES = 1024
+
 CLAIM_NOT_ALLOWED = [
     "real HappyCo production data was used",
     "a production HappyCo model was trained",
@@ -180,8 +185,8 @@ def copy_charts(source: Path, out: Path) -> list[dict]:
     manifest = []
     for name in SITE_CHARTS:
         src = source / "charts" / name
-        available = src.exists() and src.stat().st_size > 0
-        if available:
+        available = src.exists() and src.stat().st_size >= MIN_CHART_BYTES
+        if src.exists():
             shutil.copyfile(src, charts_out / name)
         manifest.append({
             "artifact_name": name,
@@ -238,14 +243,39 @@ def main() -> int:
     }
 
     chart_manifest = copy_charts(source, out)
+    charts_expected = len(SITE_CHARTS)
+    charts_available = sum(1 for c in chart_manifest if c["available"])
+    mlflow_status = (
+        "available"
+        if any(m.get("mlflow_run_id") for m in model_metrics)
+        else "not_available_local_fallback"
+    )
+    databricks_live_run_status = "completed" if live else "requires_interactive_auth"
+
+    receipt.update({
+        "pipeline_mode": "live_databricks" if live else "local_fallback",
+        "validation_status": "passed",
+        "source_contract_status": "passed",
+        "charts_expected": charts_expected,
+        "charts_available": charts_available,
+        "mlflow_status": mlflow_status,
+        "databricks_live_run_status": databricks_live_run_status,
+    })
+
+    kpis_payload = build_kpis(predictions, features, model_metrics)
+    kpis_payload["validation_status"] = "passed"
+    kpis_payload["mlflow_status"] = mlflow_status
+
     writes = {
         "run_receipt.json": receipt,
-        "kpis.json": build_kpis(predictions, features, model_metrics),
+        "kpis.json": kpis_payload,
         "top_property_risks.json": build_top_property_risks(predictions),
         "market_summary.json": build_market_summary(predictions),
         "model_metrics.json": {"models": model_metrics, "disclaimer": DISCLAIMER},
         "artifact_manifest.json": {
             "charts": chart_manifest,
+            "charts_expected": charts_expected,
+            "charts_available": charts_available,
             "json_artifacts": [
                 "run_receipt.json", "kpis.json", "top_property_risks.json",
                 "market_summary.json", "model_metrics.json", "artifact_manifest.json",

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import fs from "node:fs";
 import path from "node:path";
 import { AlertTriangle, BarChart3, Boxes, Database, LockKeyhole, Network, ShieldCheck } from "lucide-react";
-import { HAPPYCO_COOKIE_NAME } from "@/lib/happyco/proof";
+import { HAPPYCO_COOKIE_NAME, HAPPYCO_DATABRICKS_RECEIPT } from "@/lib/happyco/proof";
 
 const BUNDLE_DIR = "public/happyco/weather-risk/latest";
 const PUBLIC_BASE = "/happyco/weather-risk/latest";
@@ -65,6 +65,13 @@ type RunReceipt = {
   run_url?: string | null;
   claim_allowed?: string;
   row_counts?: { feature_rows?: number; prediction_rows?: number };
+  pipeline_mode?: string;
+  validation_status?: string;
+  source_contract_status?: string;
+  charts_expected?: number;
+  charts_available?: number;
+  mlflow_status?: string;
+  databricks_live_run_status?: string;
 };
 type ChartEntry = { artifact_name?: string; source_table?: string; caveat?: string };
 
@@ -76,10 +83,14 @@ function readJson<T>(name: string): T | null {
   }
 }
 
+// Placeholder stubs (~67 bytes) live in the bundle until a live Databricks
+// score run drops real charts in. Treat anything under 1 KB as unavailable.
+const MIN_CHART_BYTES = 1024;
+
 function chartExists(name: string): boolean {
   try {
     const file = path.join(process.cwd(), BUNDLE_DIR, "charts", name);
-    return fs.existsSync(file) && fs.statSync(file).size > 0;
+    return fs.existsSync(file) && fs.statSync(file).size >= MIN_CHART_BYTES;
   } catch {
     return false;
   }
@@ -290,49 +301,70 @@ export default function HappyCoWeatherRiskPage() {
           )}
         </Panel>
 
-        {/* 5. Model evidence panel */}
+        {/* 5. Model evidence panel — split into prior live run + current local bundle */}
         <Panel>
           <SectionTitle eyebrow="Evidence" title="Model and run receipt" />
           <div className="grid gap-4 lg:grid-cols-2">
+            {/* Card A — Prior receipt-backed Databricks run (from HAPPYCO_DATABRICKS_RECEIPT) */}
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                <h3 className="text-lg font-black text-[#35146B]">Prior receipt-backed Databricks run</h3>
+              </div>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Status</dt><dd className="font-bold">Completed</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Job ID</dt><dd className="font-mono text-xs font-bold">{HAPPYCO_DATABRICKS_RECEIPT.jobId}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Run ID</dt><dd className="font-mono text-xs font-bold">{HAPPYCO_DATABRICKS_RECEIPT.runId}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Data</dt><dd className="font-bold text-right">{HAPPYCO_DATABRICKS_RECEIPT.data}</dd></div>
+                <div>
+                  <dt className="text-[#6F6590]">Output</dt>
+                  <dd className="mt-1 font-semibold">{HAPPYCO_DATABRICKS_RECEIPT.output}</dd>
+                </div>
+                <div className="mt-2 rounded-2xl border border-emerald-200 bg-white p-3 text-xs font-semibold leading-5 text-[#4D426A]">
+                  {HAPPYCO_DATABRICKS_RECEIPT.claim}
+                </div>
+                <p className="text-xs font-semibold text-[#6F6590]">
+                  <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-600" />
+                  {HAPPYCO_DATABRICKS_RECEIPT.caveat}
+                </p>
+              </dl>
+            </div>
+
+            {/* Card B — Current site bundle (from local run_receipt.json + model_metrics.json) */}
             <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Database className="h-5 w-5 text-[#5430C0]" />
-                <h3 className="text-lg font-black text-[#35146B]">Run receipt</h3>
+                <h3 className="text-lg font-black text-[#35146B]">Current site bundle</h3>
               </div>
               {runReceipt ? (
                 <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Mode</dt><dd className="font-bold">{runReceipt.mode ?? "Not available"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Job ID</dt><dd className="font-mono text-xs font-bold">{runReceipt.job_id ?? "Not available"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Run ID</dt><dd className="font-mono text-xs font-bold">{runReceipt.run_id ?? "Not available"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Prediction rows</dt><dd className="font-bold">{num(runReceipt.row_counts?.prediction_rows)}</dd></div>
-                  <div className="mt-2 rounded-2xl border border-[#DDD8EA] bg-white p-3 text-xs font-semibold leading-5 text-[#4D426A]">
-                    {runReceipt.claim_allowed ?? "Not available"}
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-[#6F6590]">Mode</dt>
+                    <dd className="font-bold">{runReceipt.pipeline_mode === "live_databricks" ? "Live Databricks run" : "Local fallback export"}</dd>
                   </div>
-                  {runReceipt.mode === "local_fallback" ? (
-                    <p className="text-xs font-semibold text-[#6F6590]">
-                      <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-600" />
-                      Exported from the modular pipeline&apos;s local fallback outputs. This bundle is not a fresh live
-                      Databricks run.
-                    </p>
+                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Validation</dt><dd className="font-bold">{runReceipt.validation_status ?? "Not available"}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Prediction rows</dt><dd className="font-bold">{num(runReceipt.row_counts?.prediction_rows)}</dd></div>
+                  {kpis ? (
+                    <>
+                      <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Properties / units / markets</dt><dd className="font-bold">{num(kpis.properties_analyzed)} / {num(kpis.units_analyzed)} / {num(kpis.markets_analyzed)}</dd></div>
+                    </>
                   ) : null}
-                </dl>
-              ) : (
-                <NotAvailable what="The run receipt (run_receipt.json)" />
-              )}
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-[#5430C0]" />
-                <h3 className="text-lg font-black text-[#35146B]">Model metrics</h3>
-              </div>
-              {bestModel ? (
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Model</dt><dd className="font-bold">{bestModel.model_name ?? "Not available"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Task</dt><dd className="font-bold">{bestModel.task_type ?? "Not available"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">{bestModel.metric_name ?? "Metric"}</dt><dd className="font-bold">{dec(bestModel.metric_value)}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Train / test rows</dt><dd className="font-bold">{num(bestModel.train_count)} / {num(bestModel.test_count)}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">MLflow run ID</dt><dd className="font-mono text-xs font-bold">{bestModel.mlflow_run_id ?? "Not available"}</dd></div>
-                  {bestModel.metric_honesty_warning ? (
+                  {bestModel ? (
+                    <>
+                      <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Model</dt><dd className="font-bold">{bestModel.model_name ?? "Not available"}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Task</dt><dd className="font-bold">{bestModel.task_type ?? "Not available"}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">{bestModel.metric_name ?? "Metric"}</dt><dd className="font-bold">{dec(bestModel.metric_value)}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Train / test rows</dt><dd className="font-bold">{num(bestModel.train_count)} / {num(bestModel.test_count)}</dd></div>
+                    </>
+                  ) : null}
+                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">MLflow status</dt><dd className="font-bold">{runReceipt.mlflow_status ?? "Not available"}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-[#6F6590]">Live run status</dt><dd className="font-bold">{runReceipt.databricks_live_run_status ?? "Not available"}</dd></div>
+                  <div className="mt-2 rounded-2xl border border-[#DDD8EA] bg-white p-3 text-xs font-semibold leading-5 text-[#4D426A]">
+                    This bundle was exported from the modular pipeline&apos;s local fallback outputs. It validates the
+                    site contract and model-output shape. A fresh Databricks run will replace these local artifacts
+                    after interactive workspace auth.
+                  </div>
+                  {bestModel?.metric_honesty_warning ? (
                     <p className="text-xs font-semibold text-[#6F6590]">
                       <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-600" />
                       {bestModel.metric_honesty_warning}
@@ -340,7 +372,7 @@ export default function HappyCoWeatherRiskPage() {
                   ) : null}
                 </dl>
               ) : (
-                <NotAvailable what="Model metrics (model_metrics.json)" />
+                <NotAvailable what="The run receipt (run_receipt.json)" />
               )}
             </div>
           </div>
