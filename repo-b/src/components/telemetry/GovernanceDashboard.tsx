@@ -291,6 +291,60 @@ function PosturePanel({ p }: { p?: SecurityPosture | null }) {
   );
 }
 
+// ── Telemetry MCP tools (read-only) + scope-denial policy ──────────────────────
+// Honest surface: shows exactly which MCP tools the telemetry copilot can call,
+// that they are all read-only, and the explicit reason out-of-scope calls are denied.
+function McpToolsPanel({ m }: { m?: McpToolsResponse | null }) {
+  if (!m) {
+    return (
+      <Panel title="Telemetry MCP tools" style={{ marginTop: 16 }}>
+        <span style={{ fontFamily: C.mono, fontSize: 12, color: C.amber }}>Not available.</span>
+      </Panel>
+    );
+  }
+  const readOnly = m.all_read_only === true;
+  return (
+    <Panel title="Telemetry MCP tools" style={{ marginTop: 16 }}
+      right={<Tag color={readOnly ? C.green : C.amber}>{m.registered} registered{readOnly ? " · read-only" : ""}</Tag>}>
+      <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginBottom: 12, lineHeight: 1.5 }}>
+        The structured tools the telemetry copilot may call. Every tool is read-only and scoped to the
+        telemetry module — out-of-scope requests are denied, not approximated.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {m.tools.map((t, i) => {
+          const dot = (t.permission_required ?? t.permission) === "read" ? C.green : C.amber;
+          return (
+            <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: dot, boxShadow: `0 0 6px ${dot}`, marginTop: 5, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>
+                  {t.name}
+                  <span style={{ color: C.faint, fontSize: 10, marginLeft: 6 }}>{t.module}</span>
+                </div>
+                <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>{t.description}</div>
+              </div>
+            </div>
+          );
+        })}
+        {m.tools.length === 0 ? (
+          <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>
+            {m.null_reason ?? "No tools registered."}
+          </span>
+        ) : null}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <SubHead>Scope policy</SubHead>
+        <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.5 }}>
+          {m.scope_policy.explanation}
+          {m.scope_policy.scope?.length ? (
+            <span style={{ color: C.text }}> Scope: {m.scope_policy.scope.join(", ")}.</span>
+          ) : null}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 // ── Operator usefulness (within-reviewer A/B) — human metrics are honest-null until real sessions ──
 const NOT_MEASURED = "not yet measured (N=0)";
 
