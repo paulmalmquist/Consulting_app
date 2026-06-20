@@ -12,6 +12,7 @@ import {
   IconScales,
   IconStethoscope,
   IconWallet,
+  IconWorkflow,
   type NvIconProps,
 } from '../ui/icons';
 
@@ -41,6 +42,12 @@ const labels: Record<IndustryVertical['slug'], { label: string; Icon: IconType; 
     Icon: IconScales,
     microCase:
       'A regional firm rewrote intake for one practice group, captured matter state changes in the system, and tied billing narratives to the underlying events. Intake handoff errors dropped 34%. The drafting AI tool the firm had bought a year earlier finally produced output partners would sign, because the inputs finally matched the firm\'s actual taxonomy.'
+  },
+  trades: {
+    label: 'One Operating Layer',
+    Icon: IconWorkflow,
+    microCase:
+      'A growing service company moved intake, dispatch, estimates, and invoicing into one operating layer beside the tools they already ran. Dropped follow-ups fell, estimate-to-invoice time shortened, and the owner finally had one view of open jobs, crew load, and cash timing.'
   }
 };
 
@@ -72,6 +79,7 @@ const HERO_HIGHLIGHT_BY_SLUG: Record<IndustryVertical['slug'], string> = {
   'consumer-credit': 'Examiner-ready',
   medical: 'faster',
   legal: 'straight',
+  trades: 'estimate to invoice',
 };
 
 export function IndustryVerticalPage({ industry }: IndustryVerticalPageProps) {

@@ -12,11 +12,17 @@ from fastapi.responses import JSONResponse
 
 from app.db import get_cursor
 from app.schemas.lab_v2 import (
+    ContractVerificationReport,
     CreateEnvironmentV2Response,
+    EnvironmentContractOut,
     EnvironmentManifestV2,
     TemplateOut,
 )
-from app.services import environment_pipeline_v2, environment_templates_v2
+from app.services import (
+    environment_contract_v2,
+    environment_pipeline_v2,
+    environment_templates_v2,
+)
 
 
 router = APIRouter(prefix="/v2")
@@ -104,8 +110,39 @@ def create_environment_v2(manifest: EnvironmentManifestV2):
 
 
 @router.get("/environments/{env_id}/verify")
-def verify_environment(env_id: UUID):
+def verify_environment(env_id: UUID, strict: int = 0):
+    """Fail-closed EnvironmentContract verification.
+
+    Returns a structured ContractVerificationReport. `health_ok` is preserved for
+    backward compatibility with callers of the old thin verify stub.
+
+    Default: HTTP 200 with the report body even when not eligible (so the operator
+    UI can render the failing checks). With `?strict=1`, returns HTTP 503 when
+    `eligible_for_promotion` is False — this lets CI / promotion tooling fail closed
+    on a non-2xx, mirroring the /v2/environments/health 503 idiom.
+    """
     try:
-        return environment_pipeline_v2.verify_environment_v2(str(env_id))
+        report: ContractVerificationReport = (
+            environment_contract_v2.verify_environment_contract(str(env_id))
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    if strict and not report.eligible_for_promotion:
+        return JSONResponse(status_code=503, content=report.model_dump())
+    return report
+
+
+@router.get(
+    "/environments/{env_id}/contract", response_model=EnvironmentContractOut
+)
+def get_environment_contract(env_id: UUID):
+    """The declarative governance contract for a v2 environment.
+
+    Derives + persists a draft contract on first read. Never promotes. 404 if the
+    env is unknown or is not a v2 contract-governed environment.
+    """
+    try:
+        return environment_contract_v2.get_or_derive_contract(str(env_id))
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

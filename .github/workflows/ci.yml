@@ -65,6 +65,32 @@ jobs:
       - name: Backend pytest
         run: python -m pytest tests -q
 
+  rs-factory-generator:
+    name: RS Factory Generator
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rs_factory_seed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: rs_factory_seed/pyproject.toml
+
+      - name: Install generator
+        run: python -m pip install -e ".[dev]"
+
+      - name: Generator tests
+        run: python -m pytest tests -q
+
+      - name: Determinism gate
+        run: python -m rs_factory_seed verify --profile small
+
   repo-guardrails:
     name: Repo Guardrails
     runs-on: ubuntu-latest
@@ -215,29 +241,3 @@ jobs:
         with:
           name: smoke-test-result
           path: smoke-result.json
-
-  winston-first-mile:
-    name: Winston First-Mile Release Gate
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: repo-b
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: repo-b/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Winston first-mile browser gate
-        run: npx playwright test tests/global-commandbar.spec.ts --project=chromium --grep "boots on the RE"

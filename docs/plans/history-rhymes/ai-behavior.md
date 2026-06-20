@@ -33,6 +33,19 @@ Every regime call or signal summary must include:
 - `no_analog_found` — no historical period meets the similarity threshold
 - `signal_divergence` — multiple signals disagree; no dominant regime
 
+## Cockpit rendering requirements (telemetry refactor, 2026-06-12)
+
+The honesty rules above are rendering requirements in the cockpit, not just chat behavior:
+
+- Empty analog list renders the backend `degraded_reason` verbatim (`episode_embeddings_missing` | `empty_episode_embeddings` | `no_state_vector` | `schema_not_applied`) plus "The system refuses to force a rhyme."
+- v1 placeholder scenarios (0.25/0.50/0.25, "Awaiting multi-agent forecaster (Stage 5).") render as a pending state — never as probability bars.
+- Null confidence_meta fields (`agent_agreement`, `permutation_p_value`) render as "not yet computed (v1)" — shown, never zero-filled or hidden.
+- Trap detector all-null (v1) renders as "trap detector: v1 — not computing", distinct from "no trap flagged".
+- Alert rail distinguishes feed-unreachable (null) from no-alerts (empty list). "No alert" is never phrased as "safe".
+- Stream mode/source is always labeled; on stream loss tiles revert to brief values with an explicit note.
+- Weekly brief markdown is archive/evidence (evidence drawer, /research) — never the default content.
+- Decision positions render as implications ("implication", "watch item", "research item", "directional bias"), not trades.
+
 ## Special rules
 - If signal_divergence is detected, Winston must surface the disagreement — not pick one signal arbitrarily
 - Honeypot warnings (known manipulation patterns) must always be surfaced, not suppressed

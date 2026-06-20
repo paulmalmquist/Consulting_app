@@ -1,0 +1,68 @@
+{
+  "frozen_rule": "rolling-MAD, K=4.0, per-channel TRAIN-residual scale (global fallback)",
+  "test_channels": 81,
+  "test_ticks": 509555,
+  "test_anomaly_rate": 0.124781,
+  "f1_point_adjusted_reproduced": 0.645297,
+  "point_adjusted_detail": {
+    "precision": 0.556102,
+    "recall": 0.76857,
+    "f1": 0.645297,
+    "tp": 48868,
+    "fp": 39008,
+    "fn": 14715
+  },
+  "honest": {
+    "f1_pointwise": 0.312953,
+    "precision_pointwise": 0.3279,
+    "recall_pointwise": 0.29931,
+    "event_recall": 0.769231,
+    "alarm_precision": 0.3279,
+    "labeled_segments": 104
+  },
+  "affiliation": {
+    "affiliation_precision": 0.343198,
+    "affiliation_recall": 0.769231,
+    "affiliation_f1": 0.474634,
+    "cap_d_ticks": 50,
+    "predicted_positives": 58039,
+    "events": 104
+  },
+  "conformal": {
+    "conformal_alpha": 0.05,
+    "conformal_threshold_quantile": 6.663272,
+    "conformal_calib_coverage": 0.932693,
+    "conformal_measured_false_alarm_rate": 0.067307,
+    "conformal_frozen_k": 4.0,
+    "calib_block_n": 39238,
+    "method": "blocked (contiguous per-channel train tail), not i.i.d. shuffle; diagnostic only"
+  },
+  "vus": {
+    "vus_pr": null,
+    "vus_roc": null,
+    "vus_status": "pending: import failed (ModuleNotFoundError: No module named 'vus')"
+  },
+  "honest_gate": {
+    "thresholds": {
+      "f1_pointwise": 0.1,
+      "event_recall": 0.5,
+      "alarm_precision": 0.2,
+      "affiliation_f1": 0.25
+    },
+    "values": {
+      "f1_pointwise": 0.312953,
+      "event_recall": 0.769231,
+      "alarm_precision": 0.3279,
+      "affiliation_f1": 0.474634
+    },
+    "checks": {
+      "f1_pointwise": true,
+      "event_recall": true,
+      "alarm_precision": true,
+      "affiliation_f1": true
+    },
+    "passed": true,
+    "declared_before_recompute": true
+  },
+  "note": "Point-adjusted F1 inflates by crediting a whole labeled segment for one in-window hit. Point-wise/event/affiliation metrics are the honest floor. Affiliation uses a fixed cap D so long windows can't inflate it. Conformal is a blocked-calibration DIAGNOSTIC, not a distribution-free guarantee. VUS only if a vetted library runs cleanly."
+}

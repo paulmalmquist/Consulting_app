@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-feature-store-ingest
+  namespace: winston-streaming
+  labels:
+    app: hr-feature-store-ingest
+    lane: history-rhymes-feature-store
+spec:
+  # DEFAULT-OFF at the orchestration level: replicas 0 until the ingest worker
+  # entrypoint lands in a runtime follow-up PR (it must also harmonize the FRED
+  # connector's run_ingest with B3–B6). B7 authors infra only; nothing runs and
+  # nothing can crash-loop. To activate later: bump replicas + flip FS_*_ENABLED.
+  replicas: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hr-feature-store-ingest
+  template:
+    metadata:
+      labels:
+        app: hr-feature-store-ingest
+        lane: history-rhymes-feature-store
+    spec:
+      serviceAccountName: hr-feature-store-ingest
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: ingest
+          image: winston-backend:local
+          imagePullPolicy: IfNotPresent
+          # Entrypoint deferred to the runtime PR; selects enabled connectors via
+          # the FS_*_ENABLED flags and writes SILVER directly to Postgres.
+          command:
+            - python
+            - -m
+            - app.services.hr_feature_store.worker
+          envFrom:
+            - configMapRef:
+                name: hr-feature-store-config
+          env:
+            # DATABASE_URL is required to write silver; FRED key is the only API
+            # key in this lane. Census/VIX/FOMC/DefiLlama are public/keyless.
+            - name: DATABASE_URL_FILE
+              value: /var/run/winston-secrets/database-url
+            - name: FRED_API_KEY_FILE
+              value: /var/run/winston-secrets/fred-api-key
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /var/run/winston-secrets
+              readOnly: true
+      volumes:
+        - name: runtime-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: hr-feature-store-ingest

@@ -1,0 +1,62 @@
+{
+  "runtime": "databricks",
+  "exits": {
+    "ncr_corpus": {
+      "table": "novendor_1.telemetry.ncr_records",
+      "rows": 128,
+      "seed": 20260609,
+      "weeks": 16,
+      "families": [
+        "am_porosity",
+        "fastener_torque",
+        "harness_chafing",
+        "seal_thermal",
+        "surface_finish",
+        "weld_undercut"
+      ],
+      "noise_rows": 20,
+      "open_rows": 13
+    },
+    "ncr_clustering": {
+      "mlflow_run_id": "4a3c8afd13af40f8bec489a70e0e81b4",
+      "experiment_id": "3740651530987773",
+      "n_docs": 128,
+      "n_clusters": 7,
+      "noise": 7,
+      "sizes": {
+        "0": 18,
+        "1": 31,
+        "2": 34,
+        "3": 10,
+        "4": 8,
+        "5": 9,
+        "6": 11
+      },
+      "statuses": {
+        "0": "flat",
+        "1": "rising",
+        "2": "flat",
+        "3": "flat",
+        "4": "flat",
+        "5": "flat",
+        "6": "flat"
+      },
+      "tables": [
+        "novendor_1.telemetry.ncr_points",
+        "novendor_1.telemetry.ncr_clusters"
+      ]
+    },
+    "ncr_backlog_forecast": {
+      "mlflow_run_id": "f8fcc38357914edeb7f58f37b244d83f",
+      "experiment_id": "3740651530987773",
+      "mae": 1.234,
+      "mae_naive": 1.25,
+      "mape_pct": 9.15,
+      "mape_naive_pct": 9.06,
+      "skill_vs_naive": 0.0125,
+      "backtest_folds": 8,
+      "horizon_weeks": 4,
+      "table": "novendor_1.telemetry.ncr_backlog_weekly"
+    }
+  }
+}

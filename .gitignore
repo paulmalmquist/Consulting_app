@@ -9,6 +9,9 @@ backend/app/_git_sha.txt
 # Stale path from an earlier deploy script revision.
 backend/.git_sha
 
+# Local AI-dispatch receipt mirrors written by `python -m scripts.ai_dispatch.cli ask`.
+.ai_receipts/
+
 # Loose research / outreach notes that landed at the repo root. Keep
 # locally if useful, don't ship them as source.
 /ai_remote_roles.md
@@ -116,6 +119,7 @@ deal-opportunities-*.md
 # Binary files and outputs
 *.pdf
 !backend/tests/fixtures/sample_text.pdf
+!repo-b/public/assets/ai-roi/*.pdf
 *.docx
 *.pptx
 *.xlsx
@@ -181,3 +185,38 @@ novendor_business_to_ai_visual_directions.html
 # Host runner output (per-run JSON, not worth versioning)
 scripts/results/*.json
 !scripts/results/.gitkeep
+
+# Client-engagement scratch — receipts, drafts, gap-analysis, storyboards, and
+# per-client work product that regenerates and shouldn't ship as source.
+docs/happyco/
+docs/outreach-rewrites-*.md
+Hone_work/
+
+# Loose root scratch: a stray running-lessons file (the tracked one is docs/tips.md);
+# Option B UI reference mockups (already ported into repo-b/src/components/telemetry/);
+# one-off outreach/draft automation scripts that belong in scripts/ if they earn a place.
+/tips.md
+/OptionB_*.jsx
+/OptionB_handoff_prompt.md
+/apply_firm_specific_drafts.py
+/collect_bounces.py
+/update_outlook_drafts.py
+/update_quick_intro_drafts.py
+
+# Outreach skill runtime state (SKILL.md is tracked; the bounce-resolution receipt regenerates).
+skills/novendor-repe-outreach/resolved_bounces.json
+
+# Client execution plans (root, per-client) and lead-gen research prompts — work product kept
+# locally, not shipped as repo source.
+/capgemini_tpm_microsite_execution_plan.md
+/happyco_winston_sequential_execution_plan.md
+docs/prompts/
+
+# RS Factory generator artifacts (regenerated deterministically)
+rs_factory_seed/output/
+
+# Stargate streaming lane (PR 3+): local credentials and tooling venv stay out of git.
+/confluent)_kafka_api.json
+/aws_creds.json
+scripts/streaming/stargate/.env
+scripts/streaming/stargate/.venv/

@@ -1,0 +1,26 @@
+# Vercel builds only the frontend (Root Directory = repo-b). Exclude everything else from the
+# deploy upload — especially large ML/data artifacts that exceed Vercel's 100 MB file limit
+# (e.g. the 1 GB NASA IMS bearing archive under telemetry-platform/databricks/data/).
+telemetry-platform/
+backend/
+mcp-servers/
+notebooks/
+orchestration/
+verification/
+supabase/
+novendor-crm/
+excel-addin/
+ops/
+audit/
+compliance/
+eval_loop/
+artifacts/
+applications/
+Hone_work/
+reference/
+demo_docs/
+design_handoff_accounting_command_desk/
+*.pptx
+*.webp
+*.zip
+*.7z

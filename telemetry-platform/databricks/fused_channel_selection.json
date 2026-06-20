@@ -1,0 +1,298 @@
+{
+  "feature_dim": 256,
+  "n_channels": 32,
+  "features_per_channel": 8,
+  "buckets": 128,
+  "alignment": "normalized sequence progress per channel/split (NOT physical simultaneity)",
+  "adequacy": "train>=1500 & test>=2000 rows",
+  "selection": [
+    {
+      "chan_id": "A-1",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8640,
+      "anomaly_ticks_test": 85,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "A-2",
+      "spacecraft": "SMAP",
+      "n_train": 2648,
+      "n_test": 7914,
+      "anomaly_ticks_test": 111,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "A-3",
+      "spacecraft": "SMAP",
+      "n_train": 2736,
+      "n_test": 8205,
+      "anomaly_ticks_test": 186,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "A-4",
+      "spacecraft": "SMAP",
+      "n_train": 2690,
+      "n_test": 8080,
+      "anomaly_ticks_test": 111,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "A-7",
+      "spacecraft": "SMAP",
+      "n_train": 2879,
+      "n_test": 8631,
+      "anomaly_ticks_test": 2401,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "B-1",
+      "spacecraft": "SMAP",
+      "n_train": 2435,
+      "n_test": 8044,
+      "anomaly_ticks_test": 71,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "C-1",
+      "spacecraft": "MSL",
+      "n_train": 2158,
+      "n_test": 2264,
+      "anomaly_ticks_test": 312,
+      "anomaly_class": "[point, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "D-1",
+      "spacecraft": "SMAP",
+      "n_train": 2849,
+      "n_test": 8509,
+      "anomaly_ticks_test": 3259,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-11",
+      "spacecraft": "SMAP",
+      "n_train": 2611,
+      "n_test": 7431,
+      "anomaly_ticks_test": 61,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-14",
+      "spacecraft": "MSL",
+      "n_train": 3675,
+      "n_test": 2625,
+      "anomaly_ticks_test": 222,
+      "anomaly_class": "[point, point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "D-15",
+      "spacecraft": "MSL",
+      "n_train": 2074,
+      "n_test": 2158,
+      "anomaly_ticks_test": 641,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "D-2",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8595,
+      "anomaly_ticks_test": 4218,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-3",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8640,
+      "anomaly_ticks_test": 3276,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-4",
+      "spacecraft": "SMAP",
+      "n_train": 2833,
+      "n_test": 8473,
+      "anomaly_ticks_test": 3248,
+      "anomaly_class": "[point]",
+      "reason": "replay channel (forced)"
+    },
+    {
+      "chan_id": "D-5",
+      "spacecraft": "SMAP",
+      "n_train": 2561,
+      "n_test": 7628,
+      "anomaly_ticks_test": 51,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-6",
+      "spacecraft": "SMAP",
+      "n_train": 2594,
+      "n_test": 7884,
+      "anomaly_ticks_test": 81,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-7",
+      "spacecraft": "SMAP",
+      "n_train": 2583,
+      "n_test": 7642,
+      "anomaly_ticks_test": 2702,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "D-9",
+      "spacecraft": "SMAP",
+      "n_train": 2583,
+      "n_test": 7406,
+      "anomaly_ticks_test": 1156,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-1",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8516,
+      "anomaly_ticks_test": 508,
+      "anomaly_class": "[contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-10",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8505,
+      "anomaly_ticks_test": 322,
+      "anomaly_class": "[contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-11",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8514,
+      "anomaly_ticks_test": 295,
+      "anomaly_class": "[contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-12",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8512,
+      "anomaly_ticks_test": 583,
+      "anomaly_class": "[contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-13",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8640,
+      "anomaly_ticks_test": 264,
+      "anomaly_class": "[contextual, contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-2",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8532,
+      "anomaly_ticks_test": 1398,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "E-3",
+      "spacecraft": "SMAP",
+      "n_train": 2880,
+      "n_test": 8307,
+      "anomaly_ticks_test": 3213,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+    },
+    {
+      "chan_id": "F-4",
+      "spacecraft": "MSL",
+      "n_train": 2244,
+      "n_test": 3422,
+      "anomaly_ticks_test": 71,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "F-5",
+      "spacecraft": "MSL",
+      "n_train": 2598,
+      "n_test": 3922,
+      "anomaly_ticks_test": 151,
+      "anomaly_class": "[point]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "F-7",
+      "spacecraft": "MSL",
+      "n_train": 2511,
+      "n_test": 5054,
+      "anomaly_ticks_test": 423,
+      "anomaly_class": "[contextual, contextual, contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "F-8",
+      "spacecraft": "MSL",
+      "n_train": 3342,
+      "n_test": 2487,
+      "anomaly_ticks_test": 537,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "M-1",
+      "spacecraft": "MSL",
+      "n_train": 2209,
+      "n_test": 2277,
+      "anomaly_ticks_test": 1141,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "M-2",
+      "spacecraft": "MSL",
+      "n_train": 2208,
+      "n_test": 2277,
+      "anomaly_ticks_test": 1141,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    },
+    {
+      "chan_id": "M-3",
+      "spacecraft": "MSL",
+      "n_train": 2037,
+      "n_test": 2127,
+      "anomaly_ticks_test": 251,
+      "anomaly_class": "[contextual]",
+      "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+    }
+  ]
+}

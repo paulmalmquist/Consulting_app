@@ -1,0 +1,17 @@
+# Telemetry Platform — training / Databricks dependencies
+#
+# These belong to the Phase 1 ingestion and Phase 2 training context. They are NOT installed in
+# Phase 0, and they must NOT be added to backend/requirements.txt. The serving API (backend/) stays
+# lean: it reads promoted-model metadata from Supabase tel_model_runs and scores with the exported
+# model artifact, so it does not need pyspark or the full mlflow stack at serving time. Only add a
+# dependency to backend/requirements.txt if a serving path genuinely requires it, and document why.
+#
+# Pin versions in Phase 1 once the Databricks runtime is confirmed.
+
+mlflow
+databricks-sql-connector
+pyspark
+numpy
+pandas
+scikit-learn
+torch

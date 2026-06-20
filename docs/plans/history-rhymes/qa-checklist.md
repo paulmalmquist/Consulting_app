@@ -3,7 +3,17 @@
 **Last verified:** Never  
 **Verified by:** —
 
-## Manual browser checks
+## Cockpit checks (telemetry refactor, PR 2+)
+- [ ] `/lab/env/[envId]/historyrhymes` opens to the cockpit — regime, confidence, freshness, timestamps above the fold; never blank, never markdown-first
+- [ ] `/historyrhymes/routine` renders the same cockpit (compatibility alias)
+- [ ] All four HR routes (`/historyrhymes`, `/routine`, `/morning-book`, `/planning`) show the HR shell with no duplicate/nested lab chrome
+- [ ] With the backend down, every zone shows a fail-closed state with a concrete reason — no blank cards
+- [ ] Empty analog list shows the backend degraded_reason verbatim + "The system refuses to force a rhyme."
+- [ ] Placeholder scenarios (0.25/0.50/0.25) render as pending, not as probability bars
+- [ ] Stream health chip shows the active mode; `not_configured` when HR_STREAM_MODE is off
+- [ ] Signal tiles label their source (weekly brief vs stream · mode)
+
+## Manual browser checks (legacy — still valid via the /routine alias)
 - [ ] `/lab/env/[envId]/historyrhymes/routine` shows today's decision (not empty)
 - [ ] Decision shows regime call, signal, and rationale
 - [ ] Portfolio view shows positions

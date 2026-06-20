@@ -115,6 +115,10 @@ OPENAI_CHAT_MODEL_REASONING: str = os.getenv("OPENAI_CHAT_MODEL_REASONING", "gpt
 OPENAI_CHAT_MODEL_CODING: str = os.getenv("OPENAI_CHAT_MODEL_CODING", "gpt-5")
 OPENAI_CHAT_MODEL_AGENTIC: str = os.getenv("OPENAI_CHAT_MODEL_AGENTIC", "gpt-5")
 OPENAI_CHAT_MODEL_VERIFY: str = os.getenv("OPENAI_CHAT_MODEL_VERIFY", "gpt-5-mini")
+
+# ── Executive autopilot morning-brief narration (plan PR 16b) ─────
+# Opt-in: when false (default) the brief is deterministic-only, ZERO model calls.
+MORNING_BRIEF_SUMMARY_ENABLED: bool = os.getenv("MORNING_BRIEF_SUMMARY_ENABLED", "false").lower() == "true"
 OPENAI_CHAT_MODEL_FALLBACK: str = os.getenv("OPENAI_CHAT_MODEL_FALLBACK", "gpt-5-mini")
 OPENAI_CHAT_MODEL_DISPATCH: str = os.getenv("OPENAI_CHAT_MODEL_DISPATCH", OPENAI_CHAT_MODEL_FAST)
 OPENAI_DISPATCH_CONFIDENCE_THRESHOLD: float = float(os.getenv("OPENAI_DISPATCH_CONFIDENCE_THRESHOLD", "0.35"))
@@ -167,6 +171,32 @@ PSYCHRAG_EMBEDDING_DIMENSION: int = int(os.getenv("PSYCHRAG_EMBEDDING_DIMENSION"
 PSYCHRAG_TOP_K: int = int(os.getenv("PSYCHRAG_TOP_K", "5"))
 PSYCHRAG_SUPPORT_EMAIL: str = os.getenv("PSYCHRAG_SUPPORT_EMAIL", "support@example.com")
 
+# ── AI provider dispatch (standalone governed model router) ─────────
+# Gates the cost-bearing POST /api/ai/dispatch/run. Read-only routing/inspection
+# (/providers, /route, /runs) stays available regardless. Default off so the layer
+# is inert in production until deliberately enabled.
+AI_DISPATCH_ENABLED: bool = os.getenv("AI_DISPATCH_ENABLED", "false").lower() == "true"
+# Global guard for cross-provider fallback; a request must ALSO opt in per call.
+AI_DISPATCH_ALLOW_FALLBACK: bool = os.getenv("AI_DISPATCH_ALLOW_FALLBACK", "false").lower() == "true"
+# Concrete Anthropic API model id used by the dispatch Claude adapter.
+AI_DISPATCH_ANTHROPIC_MODEL: str = os.getenv("AI_DISPATCH_ANTHROPIC_MODEL", "claude-opus-4-20250514")
+# Runtime Gemma toggle: initial value for the frontend-controllable on/off switch. When Gemma is
+# off (or unconfigured/unavailable), Gemma-eligible modes fall back to a small frontier model below.
+AI_DISPATCH_GEMMA_ENABLED: bool = os.getenv("AI_DISPATCH_GEMMA_ENABLED", "false").lower() == "true"
+# Small-model fallback used for Gemma-eligible modes when Gemma is off/unavailable. Default OpenAI
+# (the provider configured in prod); recorded on the receipt as a fallback, never silent.
+AI_DISPATCH_FALLBACK_PROVIDER: str = os.getenv("AI_DISPATCH_FALLBACK_PROVIDER", "openai")
+AI_DISPATCH_FALLBACK_MODEL: str = os.getenv("AI_DISPATCH_FALLBACK_MODEL", "gpt-5-mini")
+# Gemma-on-Vertex contract (declared but unused in PR 1 — their absence is exactly
+# why the Gemma adapter fails closed).
+GEMMA_VERTEX_PROJECT_ID: str = os.getenv("GEMMA_VERTEX_PROJECT_ID", "")
+GEMMA_VERTEX_LOCATION: str = os.getenv("GEMMA_VERTEX_LOCATION", "us-central1")
+GEMMA_VERTEX_ENDPOINT_ID: str = os.getenv("GEMMA_VERTEX_ENDPOINT_ID", "")
+# Model Garden deployments are *dedicated* endpoints reachable only via their dedicated
+# DNS (endpoint resource field `dedicatedEndpointDns`); set this for those. Leave empty
+# for a regular shared-domain endpoint.
+GEMMA_VERTEX_DEDICATED_DNS: str = os.getenv("GEMMA_VERTEX_DEDICATED_DNS", "")
+
 # ── Resume LLM (public resume agent on /paul) ─────────────────────
 RESUME_LLM_MODEL: str = os.getenv("RESUME_LLM_MODEL", "gpt-4o")
 RESUME_LLM_MAX_TOKENS: int = int(os.getenv("RESUME_LLM_MAX_TOKENS", "800"))
@@ -180,6 +210,21 @@ IBKR_CLIENT_ID: int = int(os.getenv("IBKR_CLIENT_ID", "7"))
 TRADES_RECONNECT_INTERVAL_SEC: int = int(os.getenv("TRADES_RECONNECT_INTERVAL_SEC", "15"))
 TRADES_SLIPPAGE_ALERT_BPS: int = int(os.getenv("TRADES_SLIPPAGE_ALERT_BPS", "50"))
 TRADES_ENABLE_LIVE_SUBMISSION: bool = os.getenv("TRADES_ENABLE_LIVE_SUBMISSION", "false").lower() == "true"
+
+# ── RS Demo: live telemetry streaming slice ──────────────────────────────────
+# Source hierarchy: capture = the required proof path (CI + baseline demo);
+# iss = live-mode enhancement; adsb = fallback exhibit only (labeled).
+TELEMETRY_STREAM_ENABLED: bool = os.getenv("TELEMETRY_STREAM_ENABLED", "0").lower() in ("1", "true")
+TELEMETRY_STREAM_SOURCE: str = os.getenv("TELEMETRY_STREAM_SOURCE", "capture")
+TELEMETRY_STREAM_ENV_ID: str = os.getenv("TELEMETRY_STREAM_ENV_ID", "telemetry-demo")
+TELEMETRY_STREAM_BUSINESS_ID: str = os.getenv(
+    "TELEMETRY_STREAM_BUSINESS_ID", "7e1eb000-0000-4000-a000-000000000001")
+TELEMETRY_ETL_INTERVAL_SECONDS: int = int(os.getenv("TELEMETRY_ETL_INTERVAL_SECONDS", "60"))
+
+# ── RS Demo: Stargate streaming bridge (SSE; capture mode in prod) ───────────
+# Default off so the shared backend stays inert. When on, app/main.py mounts the
+# /stargate/* router and starts the bridge in STARGATE_MODE (capture in prod).
+STARGATE_BRIDGE_ENABLED: bool = os.getenv("STARGATE_BRIDGE_ENABLED", "0").lower() in ("1", "true")
 
 _db_validated = False
 

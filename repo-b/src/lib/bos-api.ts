@@ -14026,3 +14026,131 @@ export function resolveComplianceViolation(
     }),
   });
 }
+
+// ── ProfitSolv legal finance ─────────────────────────────────────────────────
+
+export interface LegalfinFirm {
+  firmKey: string;
+  firmName: string;
+  sourceSystem: string;
+  workedCents: number;
+  billedCents: number;
+  collectedCents: number;
+  billingRealizationRate: number;
+  collectionRate: number;
+  overallRealizationRate: number;
+}
+
+export interface LegalfinPortfolioHealth {
+  firms: LegalfinFirm[];
+  compiledSql: string;
+  period: string;
+}
+
+export interface LegalfinFunnelItem {
+  name: string;
+  value: number;
+  isTotal: boolean;
+}
+
+export interface LegalfinLeakageFunnel {
+  items: LegalfinFunnelItem[];
+  workedCents: number;
+  billedCents: number;
+  collectedCents: number;
+  endToEndLeakage: number | null;
+  compiledSql: string;
+  period: string;
+}
+
+export interface LegalfinMetricResult {
+  metricKey: string;
+  value: number | null;
+  dimensions: { firm_key: string | null; group_by: string | null };
+  rows: Record<string, unknown>[];
+  compiledSql: string;
+  period: string;
+}
+
+export function getLegalfinPortfolioHealth(firmKey?: string): Promise<LegalfinPortfolioHealth> {
+  return bosFetch("/api/legalfin/v1/portfolio/health", {
+    params: { firm_key: firmKey },
+  });
+}
+
+export function getLegalfinLeakageFunnel(firmKey?: string): Promise<LegalfinLeakageFunnel> {
+  return bosFetch("/api/legalfin/v1/portfolio/leakage-funnel", {
+    params: { firm_key: firmKey },
+  });
+}
+
+export function getLegalfinMetric(
+  metricKey: string,
+  opts: { firmKey?: string; groupBy?: string } = {}
+): Promise<LegalfinMetricResult> {
+  return bosFetch(`/api/legalfin/v1/metric/${metricKey}`, {
+    params: { firm_key: opts.firmKey, group_by: opts.groupBy },
+  });
+}
+
+// ── Event Analytics Dashboard (Plan 0004 observability surface) ──────────────
+// Read-only view over the BigQuery winston_events_analytics layer. Observability
+// only — never authoritative for operational state (execution status, REPE/HR
+// KPIs stay Postgres-authoritative). Backend fails closed → available: false.
+
+export interface EventAnalyticsVolume {
+  raw_rows: number;
+  deduped_rows: number;
+  dead_letter_rows: number;
+  replay_duplicates_collapsed: number;
+}
+
+export interface EventAnalyticsSourceRow {
+  source: string;
+  event_count: number;
+}
+
+export interface EventAnalyticsExecutionRow {
+  event_date: string;
+  event_type: string;
+  source: string;
+  event_count: number;
+}
+
+export interface EventAnalyticsHrSignalRow {
+  signal_name: string;
+  signal_value: string; // JSON-encoded (scalar/object/string preserved)
+  staleness_status: string;
+  as_of_date: string;
+  ingested_at: string;
+}
+
+export interface EventAnalyticsFreshnessRow {
+  staleness_status: string;
+  signal_count: number;
+}
+
+export interface EventAnalyticsDeadLetterRow {
+  ingested_at: string;
+  source: string;
+  dead_letter_reason: string;
+  raw_payload: string | null;
+}
+
+export interface EventAnalyticsDashboard {
+  available: boolean;
+  reason?: string;
+  observability_only?: boolean;
+  project?: string;
+  analytics_dataset?: string;
+  volume?: EventAnalyticsVolume;
+  by_source?: EventAnalyticsSourceRow[];
+  execution_events_daily?: EventAnalyticsExecutionRow[];
+  hr_signal_latest?: EventAnalyticsHrSignalRow[];
+  hr_signal_freshness?: EventAnalyticsFreshnessRow[];
+  hr_dead_letters?: EventAnalyticsDeadLetterRow[];
+}
+
+export function getEventAnalyticsDashboard(): Promise<EventAnalyticsDashboard> {
+  return bosFetch("/api/events/v1/analytics/dashboard");
+}

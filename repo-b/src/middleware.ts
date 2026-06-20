@@ -14,6 +14,12 @@ import {
   signPlatformSession,
   verifyPlatformSession,
 } from "@/lib/server/sessionAuth";
+import {
+  isTelemetryReviewerSession,
+  telemetryReviewerAllowedPath,
+  telemetryReviewerEnvId,
+  telemetryReviewerHome,
+} from "@/lib/server/telemetryReviewer";
 
 const TOP_LEVEL_ENV_RE = /^\/(novendor|floyorker|stone-pds|meridian|trading|ncf)(?:\/|$)/;
 const LAB_ENV_RE = /^\/lab\/env\/([^/]+)(?:\/|$)/;
@@ -86,7 +92,7 @@ async function maybeRotateSessionByMembership(
     ...claims,
     active_env_id: membership.env_id,
     active_env_slug: membership.env_slug as EnvironmentSlug,
-    active_role: membership.role as "owner" | "admin" | "member" | "viewer",
+    active_role: membership.role,
   };
   const token = await signPlatformSession(rotatedClaims);
   applyPlatformSessionCookies(response, {
@@ -124,6 +130,26 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/public/")
   ) {
     return NextResponse.next();
+  }
+
+  // Scoped telemetry reviewer: this session may reach ONLY its env's /telemetry routes. Everything
+  // else — other envs, /app, /lab/system, non-telemetry departments, top-level slugs, private APIs —
+  // is blocked here (before any membership/slug handling), so the credential exposes exactly one
+  // environment and nothing more. (The /api/telemetry/* proxy is not in the matcher, so the demo
+  // pages' data calls are unaffected.)
+  if (isTelemetryReviewerSession(session)) {
+    const reviewerEnvId = telemetryReviewerEnvId(session);
+    if (!telemetryReviewerAllowedPath(pathname, reviewerEnvId)) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "telemetry_reviewer scope" }, { status: 403 });
+      }
+      const url = request.nextUrl.clone();
+      url.search = "";
+      url.pathname = reviewerEnvId ? telemetryReviewerHome(reviewerEnvId) : "/login";
+      return NextResponse.redirect(url);
+    }
+    // Allowed telemetry route — fall through to the normal /lab membership handling (which passes
+    // for this env) so the session can rotate/refresh as usual.
   }
 
   const topLevelEnvironment = pathname.match(TOP_LEVEL_ENV_RE)?.[1] || null;
@@ -180,7 +206,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/ai/gateway", "/api/admin/access"];
+  const privateApiPrefixes = ["/api/commands", "/api/mcp", "/api/admin/access"];
   const isPrivateApi = privateApiPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -200,7 +226,6 @@ export const config = {
     "/api/public/:path*",
     "/api/commands/:path*",
     "/api/mcp/:path*",
-    "/api/ai/gateway/:path*",
     "/api/admin/access/:path*",
     "/lab",
     "/lab/:path*",

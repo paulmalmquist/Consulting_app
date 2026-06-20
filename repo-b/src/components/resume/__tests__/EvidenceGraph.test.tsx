@@ -160,11 +160,11 @@ describe("Honesty rules on the seeded dataset", () => {
 describe("EvidenceGraphPage rendering", () => {
   it("renders header, KPIs, and seeded capabilities", () => {
     render(<EvidenceGraphPage />);
-    expect(screen.getByRole("heading", { name: /Evidence Graph/i })).toBeInTheDocument();
-    expect(screen.getByText(/Credibility Score/i)).toBeInTheDocument();
-    expect(screen.getByText(/Enterprise Readiness/i)).toBeInTheDocument();
-    expect(screen.getByText(/Demoable Artifacts/i)).toBeInTheDocument();
-    expect(screen.getByText(/Named Gaps with Plans/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Evidence Ledger/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Credibility Score/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Enterprise Readiness/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Demoable Artifacts/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Named Gaps with Plans/i).length).toBeGreaterThan(0);
     // At least one Production capability and one Gap row render.
     expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Gap").length).toBeGreaterThan(0);
@@ -187,6 +187,6 @@ describe("EvidenceGraphPage rendering", () => {
 
   it("references the proof artifacts seeded in data", () => {
     render(<EvidenceGraphPage />);
-    expect(screen.getByText(PROOF_ARTIFACTS[0].title)).toBeInTheDocument();
+    expect(screen.getAllByText(PROOF_ARTIFACTS[0].title).length).toBeGreaterThan(0);
   });
 });

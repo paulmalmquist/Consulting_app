@@ -364,6 +364,20 @@
   max-width: 1600px;
 }
 
+/* Align the hero copy's left edge with a `.nv-page--wide` body below it.
+   `.nv-hero-bg` pads 48px OUTSIDE the centered content box, while `.nv-page`
+   pads 48px INSIDE its box — so matching max-widths alone leaves a gap. Capping
+   the hero content at (wide page max − the hero's 96px horizontal padding)
+   lands its left edge exactly on the `.nv-page--wide` content edge. */
+.nv-hero-bg__content--match-page-wide {
+  max-width: 1504px;
+}
+@media (min-width: 1680px) {
+  .nv-hero-bg__content--match-page-wide {
+    max-width: 1584px;
+  }
+}
+
 /* ── Cyberpunk accent utilities — DECORATIVE ONLY ─────────────────
  * Use sparingly: hero gradient overlays, ambient panel washes, and
  * brand-mood section dividers. NEVER on data state, alerts, KPIs,

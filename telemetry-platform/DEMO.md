@@ -1,0 +1,103 @@
+# DEMO
+
+## Reviewer script (3–4 minutes) — live
+
+**Demo URL:** `https://novendor.ai/lab/env/dc82d39d-9be2-49b0-a01d-c7181b13a8b6/telemetry`
+**Access:** authenticated lab tenant — log in at `https://novendor.ai/login` first
+(email `info@novendor.ai`; password from the `NOVENDOR_ADMIN_PASSWORD` production env var).
+**API (no auth):** `https://authentic-sparkle-production-7f37.up.railway.app/api/telemetry/health`
+
+1. **Log in** and open the demo URL. The Overview console (dark, instrument-like) shows the operated
+   loop and the headline numbers — 2 promoted champions, anomaly F1 **0.6387**, RUL RMSE **20.32**,
+   predictions logged — all fetched from the live API.
+2. **Read the architecture spine**: NASA datasets → Databricks Bronze/Silver/Gold → MLflow training →
+   registry + promotion gate → FastAPI `/score` → Supabase prediction log → this console → drift
+   monitoring. Real tool names, public-data disclaimer in the footer.
+3. **Open Replay.**
+4. **Click "Replay test feed."**
+5. The D-4 (MSL) traces advance in accelerated time.
+6. **At t=728, GO flips to NO-GO on its own** — the verdict turns red, the anomaly region shades, the
+   redline marker appears.
+7. **Sensor attribution** names D-4 and shows "Detected by `tel_anomaly_detector@champion` (MLflow run
+   `4a48cb6af8…`)". The flag the verdict flipped on is the model's own `model_pred`, not hand-authored.
+8. **Open Model Performance**: baseline vs champion, live from the API — MAD F1 0.6387 (promoted) over
+   PCA 0.4196; GBM RMSE 20.32 (promoted) over linear 21.70; real run IDs; promotion-gate badges.
+9. **Open Monitoring**: prediction count, rolling no-go rate, the champion currently serving,
+   last-scored timestamp; PSI shows "—" (not computed yet — honest, not a fabricated zero).
+10. **Independent verification**: everything above is in `PROOF.md` — real row counts, MLflow run IDs,
+    live-URL curl transcripts, and the persisted `/score` receipt.
+
+For a fully hands-off check, curl the live API directly (no login):
+`curl https://authentic-sparkle-production-7f37.up.railway.app/api/telemetry/replay`.
+
+---
+
+## The contract (why the demo is honest)
+
+This defines what a reviewer sees and what must be true for the demo to count as honest. It exists
+before any model is trained so the build stays pointed at the reviewer test, not at model
+sophistication.
+
+## Who this is for
+
+A senior engineer with no prior context, ~4 minutes, no introduction. The demo succeeds when that
+person independently concludes the platform is real, domain-aware, and operated — without taking any
+claim on faith. The single most persuasive moment is the replay: data moves and the system makes a
+call on its own.
+
+## The 4-minute reviewer journey
+
+**0:00–0:30 — Land on the console.** `/lab/env/[envId]/telemetry`. Dark, dense, instrument-like.
+A health banner and KPI cards: active test runs, models promoted, anomalies in the last 24h, current
+go/no-go. Every number comes from the API, not a frontend constant. The footer carries the
+public-NASA-analog disclaimer.
+
+**0:30–1:15 — Test Run Explorer.** A list of real test runs (C-MAPSS units, SMAP/MSL channels, IMS
+bearings) with row counts and ingest timestamps. Click a run. Stacked multi-channel traces render,
+with redline-style threshold bands overlaid so it reads like a test console.
+
+**1:15–2:30 — The replay moment.** Press "Replay test feed." (Storyboard below.) This is the screen
+the whole demo is built around.
+
+**2:30–3:15 — Model Performance.** Precision / recall / F1 for the anomaly detector against labeled
+windows; RMSE and PHM score for the RUL model; baseline vs autoencoder side by side. Real MLflow run
+IDs are shown. The promotion-gate status is visible — promoted, or honestly held back. Values arrive
+over the wire from the registry-backed API.
+
+**3:15–4:00 — Monitoring.** PSI, rolling anomaly rate, prediction counts, drift verdict — fed by the
+real prediction log. Then a one-line pointer to PROOF.md so the reviewer can verify row counts, run
+IDs, and deployed URLs themselves.
+
+## The replay storyboard (the load-bearing moment)
+
+1. Reviewer clicks **Replay test feed**.
+2. Pre-warmed traces advance tick by tick. Deterministic. No loading spinner, no stall.
+3. At a fixed fire-tick, an anomaly score crosses the redline and an anomaly region lights up — on
+   its own, with no further input.
+4. The **Go/No-Go** panel flips **GREEN → RED**, naming the off-nominal reason.
+5. **Sensor attribution** appears: the top contributing channels, ranked.
+6. The **Monitoring** panel updates: anomaly count +1, rolling rate moves.
+
+## Determinism contract
+
+The replay dataset, the tick schedule, the fire-tick, and the expected attribution are fixed and
+documented. The replay produces the identical sequence every time. It reads **precomputed real model
+outputs** from a Gold replay table (`novendor_1.telemetry.gold_replay_feed_scored`), scored by the
+promoted champion anomaly model (`tel_anomaly_detector@champion`).
+
+**As built after Phase 2:** the replay channel is **D-4 (MSL)** — chosen because the promoted
+detector actually fires inside its labeled anomaly window (8,473 ticks, 3,248 labeled anomaly ticks,
+model fires 4,488 ticks, first fire at **t=728**, covering every labeled anomaly tick). The `model_pred`
+column the Go/No-Go panel flips on is the champion model's output, loaded from the Unity Catalog
+registry — not a hand-authored flag. (T-1 was the original placeholder but its anomaly is
+contextual-only and the residual-threshold detector correctly never fires there, so the demo channel
+moved to one where the real model output drives the flip.)
+
+Replay determinism is allowed **only** by replaying real precomputed prediction rows generated by the
+Phase 2/3 pipeline. It must **not** use hand-authored anomaly flags. The flag a reviewer sees flip is
+the model's output, captured ahead of time so the demo cannot stall on a cold inference path — not a
+value typed in to make the screen look good.
+
+The same model is served live at `POST /score` (warmed), so a reviewer who wants to bypass the replay
+can hit the API directly and get a real, fresh scoring. The replay exists to guarantee a non-fragile
+demo, not to substitute for live inference.

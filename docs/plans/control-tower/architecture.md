@@ -24,8 +24,8 @@
 ### Routes
 | Method | Endpoint | File | Purpose |
 |---|---|---|---|
-| GET/POST | `/api/v1/lab/*` | `backend/app/routes/lab.py` | Lab environment CRUD |
-| GET/POST | `/api/v1/lab/v2/*` | `backend/app/routes/lab_v2.py` | Lab v2 endpoints |
+| GET/POST | `/v1/environments/*` | `backend/app/routes/lab.py` | Lab environment CRUD (legacy path) |
+| GET/POST | `/v2/environments/*` | `backend/app/routes/lab_v2.py` | v2 env blueprint + contract/verify (mounted at `/v2`, no `/api/v1/lab` prefix — verified 2026-05-19). Frontend reaches it via `bosFetch("/v2/...")` through the `/bos` same-origin proxy. |
 | GET/POST | `/api/v1/operator/*` | `backend/app/routes/operator.py` | Operator surface |
 | GET/POST | `/api/v1/operator/agent/*` | `backend/app/routes/operator_agent.py` | Agent-driven operator |
 | GET | `/api/v1/capability/*` | `backend/app/routes/capability.py` | Capability registry |
@@ -46,11 +46,28 @@
 | Lab schemas | `backend/app/schemas/lab.py` | lab routes |
 | Lab v2 schemas | `backend/app/schemas/lab_v2.py` | lab_v2 routes |
 
+## EnvironmentContract + Promotion Gate (governance layer)
+
+**Added 2026-05-19 (Ticket 1 — verifier + read-only). Status: verified.**
+
+| Piece | File | Notes |
+|---|---|---|
+| Migration | `repo-b/db/schema/10004_environment_contract_promotion.sql` | Additive, zero backfill. `app.environment_contract` (env_id-keyed sidecar to `app.environments`) + `app.environment_promotion_event` (append-only audit, **dead until Ticket 2**). |
+| Service | `backend/app/services/environment_contract_v2.py` | `get_or_derive_contract` (derives from `app.environments` + `app.environment_templates` only — no over-derivation), `verify_environment_contract` (fail-closed; `pass` is the only healthy status). |
+| Schemas | `backend/app/schemas/lab_v2.py` | `EnvironmentContractOut`, `ContractVerificationReport`, `ContractCheck`, `PromotionState`. Additive. |
+| API | `backend/app/routes/lab_v2.py` | `GET /v2/environments/{id}/verify` (upgraded from the thin stub; preserves `health_ok`; `?strict=1` → 503 fail-closed), `GET /v2/environments/{id}/contract`. |
+| UI | `repo-b/src/components/lab/environments/EnvironmentContractCard.tsx` + `repo-b/src/app/lab/env/[envId]/blueprint/page.tsx` | Read-only card (modeled on `AuditDrawer`, dark `bm-*` tokens), rendered additively above the existing `DomainPreviewState` placeholder. No write affordances. |
+
+**Key invariant:** `app.environment_contract.promotion_state` is governance state, **distinct from `app.environments.lifecycle_state`** (provisioning health). Capability binding is unimplemented (`environment_pipeline_v2._apply_template_metadata` is a no-op; no `app.environment_capabilities` table) → the verifier hard-codes `capability.binding_implemented = not_available, blocking`, so a structurally healthy env is still **not** promotable. This is intentional fail-closed posture, not a bug.
+
 ## Data map
 
 ### Tables
-- Needs repo verification — check Supabase for environment/lab tables
-- Likely: `environments`, `lab_environments`, `environment_capabilities`, `environment_departments`
+- **`app.environments`** — canonical v2 registry (verified live via Supabase CLI, 2026-05-19): carries `lifecycle_state`, `template_key/version`, `seed_pack_applied/version`, `manifest_json`, `last_health_report`. See `ARCHITECTURE.md` §"Environment registries".
+- **`v1.environments`** — legacy narrow mirror; co-canonical until the frontend env-identity read moves off `/v1/environments/:id`.
+- **`app.environment_templates`** — template registry, PK `(template_key, version)`.
+- **`app.environment_contract`** / **`app.environment_promotion_event`** — governance sidecar (migration `10004`, see section above).
+- **`app.environment_capabilities`** — does NOT exist yet (Phase 3). Verifier treats capability binding as `not_available`.
 
 ### Key patterns
 - Every environment has `env_id` as the tenant isolation key

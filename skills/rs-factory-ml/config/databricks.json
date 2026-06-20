@@ -1,0 +1,15 @@
+{
+  "workspace_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com",
+  "auth_env_var": "DATABRICKS_PAT",
+  "catalog": "novendor_1",
+  "schema": "rs_factory",
+  "landing_volume": "landing",
+  "sql_warehouse_id": "0e56420fb707d861",
+  "mlflow_experiment_path": "/Users/paulmalmquist@gmail.com/RSFactoryML",
+  "workspace_notebook_dir": "/Users/paulmalmquist@gmail.com/rs_factory_ml",
+  "cost_controls": {
+    "auto_stop_warehouse_after_min": 15,
+    "warehouse_size": "Small",
+    "stop_warehouse_on_exit": true
+  }
+}

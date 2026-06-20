@@ -53,8 +53,13 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `sync-winston` | `agent` | `active` | `scripts, cross-repo` | `yes` | `agents/sync.md` |
 | `azure-devops-intake` | `skill` | `active` | `cross-repo, orchestration` | `yes` | `.skills/azure-devops-intake/SKILL.md` |
 | `feature-dev` | `skill` | `active` | `backend, repo-b, repo-c, scripts, orchestration` | `yes` | `.skills/feature-dev/SKILL.md` |
+| `idea-to-delivery` | `skill` | `active` | `cross-repo` | `yes` | `.skills/idea-to-delivery/SKILL.md` |
+| `plan-budget-augmentor` | `skill` | `active` | `cross-repo` | `yes` | `.skills/plan-budget-augmentor/SKILL.md` |
 | `research-ingest` | `skill` | `active` | `docs, cross-repo` | `yes` | `.skills/research-ingest/SKILL.md` |
 | `credit-decisioning` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/credit-decisioning/SKILL.md` |
+| `ade-ops-orchestrator` | `skill` | `active` | `backend, repo-b` | `yes` | `.skills/ade-ops-orchestrator/SKILL.md` |
+| `ai-provider-dispatch` | `skill` | `active` | `backend, cross-repo` | `no` | `.skills/ai-provider-dispatch/SKILL.md` |
+| `gemma-vertex-stage` | `skill` | `active` | `backend, cross-repo` | `no` | `.skills/gemma-vertex-stage/SKILL.md` |
 | `winston-post-deploy-verify` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-post-deploy-verify/SKILL.md` |
 | `historyrhymes` | `skill` | `active` | `cross-repo` | `yes` | `skills/historyrhymes/SKILL.md` |
 | `market-rotation-engine` | `skill` | `active` | `cross-repo` | `yes` | `skills/market-rotation-engine/SKILL.md` |
@@ -74,6 +79,9 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `instruction-index` | `reference` | `active` | `docs, cross-repo` | `no` | `docs/instruction-index.md` |
 | `meta-prompt-chat-workspace` | `prompt` | `active` | `repo-b, backend` | `no` | `META_PROMPT_CHAT_WORKSPACE.md` |
 | `demo-features-meta-prompts` | `prompt` | `active` | `docs, backend, repo-b` | `yes` | `docs/plans/DEMO_FEATURES_META_PROMPTS.md` |
+| `rs-analytics-platform-plan` | `plan` | `active` | `docs, TELEMETRY_TEMPLATE, RS-Analytics ADO` | `no` | `docs/plans/RS_ANALYTICS_PLATFORM_PLAN.md` |
+| `automated-data-engineering-plan` | `plan` | `active` | `docs, backend, repo-b` | `no` | `docs/plans/automated-data-engineering/README.md` |
+| `history-rhymes-telemetry-cockpit-refactor` | `plan` | `active` | `repo-b, backend, docs` | `no` | `docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md` |
 
 ## Archived Prompt References
 
