@@ -38,3 +38,17 @@ consume provider selection. Separately gated; reversible.
 ## PR 6 — Fallback chains
 Explicit, recorded fallback chains with `fallback_chain_exhausted` when every eligible+available provider
 fails.
+
+## Toggle + fallback (shipped — PR #270)
+Runtime, frontend-controllable Gemma on/off toggle; Gemma-home modes fall back to `gpt-5-mini` (recorded,
+never silent) when Gemma is off/unavailable; forced Gemma fails closed. Execution enabled in prod
+(`AI_DISPATCH_ENABLED=true`). Gemma endpoint is deploy-on-demand (no idle GPU bill).
+
+## `/run` auth + tenant hardening (shipped — Bug #690)
+`POST /run` now requires an authenticated **and tenant-scoped** caller (`require_tenant_context`): 401
+unauthenticated, 403 authenticated-but-tenantless — checked **before** any provider/fallback/receipt path.
+Closes the leak where the MCP dev-bypass (`MCP_API_TOKEN` unset → authenticated admin, no `business_id`)
+let a tenantless caller execute a real model call and degrade the receipt. `business_id` is taken from the
+auth context, never the body. Read-only endpoints and `POST /config` boundaries unchanged.
+**Follow-up:** the global `MCP_API_TOKEN`-unset dev-bypass (platform-wide) should require a real token in
+prod — broader than per-route tenant gating, tracked separately.

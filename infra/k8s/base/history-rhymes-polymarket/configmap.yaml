@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hr-polymarket-config
+  namespace: winston-streaming
+data:
+  EVENTS_ENABLED: "true"
+  EVENTS_TRANSPORT: "kafka"
+  EVENTS_PUBLISH_TIMEOUT_MS: "5000"
+  HR_POLYMARKET_ENABLED: "true"
+  HR_POLYMARKET_MAX_MARKETS: "25"
+  HR_POLYMARKET_DISCOVERY_SECONDS: "900"
+  HR_POLYMARKET_RECONCILE_SECONDS: "300"
+  HR_POLYMARKET_FEATURE_SECONDS: "60"
+  HR_POLYMARKET_CONNECTION_STALE_SECONDS: "30"
+  HR_POLYMARKET_MARKET_STALE_SECONDS: "300"
+  HR_POLYMARKET_MIN_LIQUIDITY_USD: "1000"
+  HR_POLYMARKET_MAX_SPREAD_BPS: "1200"
+  HR_POLYMARKET_BLOCK_TAGS: "sports,culture,celebrity,entertainment"
+  HR_POLYMARKET_GAMMA_BASE_URL: "https://gamma-api.polymarket.com"
+  HR_POLYMARKET_CLOB_BASE_URL: "https://clob.polymarket.com"
+  HR_POLYMARKET_WS_URL: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+  HR_POLYMARKET_CALIBRATION_PATH: "/etc/winston/calibration/calibration.json"
+  EVENT_SINK_CONSUMER_GROUP: "winston-observational-bigquery-v1"
+  EVENT_SINK_OFFSET_RESET: "earliest"
+  EVENT_SINK_TOPICS: "winston.hr.polymarket.markets.v1,winston.hr.polymarket.raw.v1,winston.hr.polymarket.features.v1,winston.hr.polymarket.forecasts.v1"
+  BQ_ENABLED: "true"
+  BQ_DATASET: "winston_events_raw"
+  BQ_TABLE: "events"

@@ -41,9 +41,19 @@ receipt mirror under `.ai_receipts/`. `--no-fallback` means no fallback.
 | GET | `/providers`, `/providers/{name}` | none | provider list / detail |
 | POST | `/route` | none | dry-run routing decision |
 | GET | `/runs` | required | recent receipts, tenant-scoped |
-| POST | `/run` | required | execute; gated by `AI_DISPATCH_ENABLED` |
+| POST | `/run` | **required + tenant** | execute; gated by `AI_DISPATCH_ENABLED`; fails closed without a `business_id` |
 | GET | `/config` | none | runtime config: `gemma_enabled`, fallback provider/model, `execution_enabled` |
 | POST | `/config` | required | flip the runtime Gemma toggle (`{gemma_enabled: bool}`) |
+
+## `/run` auth + tenant gate
+
+`POST /run` is cost-bearing, so it fails closed **before any provider call** unless the caller is both
+authenticated and tenant-scoped (`require_tenant_context`): **401** when unauthenticated, **403** when
+authenticated but carrying no `business_id`. This closes a leak where the MCP dev-bypass (`MCP_API_TOKEN`
+unset) authenticated a tenantless admin and a real model call would execute, then the receipt would degrade
+for lack of a tenant. The `business_id` is taken from the auth context, never from the request body (a
+client-supplied `business_id` is overridden). Read-only endpoints (`/providers`, `/route`, `/evals`,
+`GET /config`) keep their existing (open) boundary; `/runs` and `POST /config` still require auth.
 
 ## Gemma toggle + controlled fallback
 

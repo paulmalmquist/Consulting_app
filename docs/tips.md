@@ -3847,6 +3847,77 @@ API `/api/hr/v1/ml-demo/*`). Reusable lessons:
 
 "Deploy on demand, frontend toggle, fall back when off" implemented WITHOUT a persistent GPU bill: (1) **Runtime toggle** = a module-level flag (`ai_dispatch/runtime.py`, lazy-init from `AI_DISPATCH_GEMMA_ENABLED`, flipped via `POST /api/ai/dispatch/config`) — process-local, resets to the env default on restart (safe: a restart can't leave Gemma silently on). For a durable toggle, back it with a DB row later. (2) **Controlled fallback** lives in `supervisor.run_dispatch`, NOT in `policy.select_provider` (keeps routing pure): for a *Gemma-home* mode (Gemma is `_PREFERENCE[mode][0]`), if `gemma_enabled() AND registry.available(GEMMA)` is false, dispatch to the small frontier model (`AI_DISPATCH_FALLBACK_MODEL`=gpt-5-mini on OpenAI) and mark `fallback_used=True` + `rejected[gemma_gcp]=gemma_disabled|gemma_unavailable`. **Recorded, never silent.** A **forced** Gemma request skips the fallback (honored literally → fails closed). Validate the fallback target with `select_provider(req.model_copy(update={forced_provider: fb}))` so it still respects risk/privacy ceilings; if the target isn't eligible/available, fall through to normal routing (fails closed). (3) **This flips the old "no silent fallback" tests** for Gemma-home modes — they now fall back; update them to assert `fallback_used=True` + Gemma-never-called instead of UNAVAILABLE. The no-silent-fallback invariant still holds for FORCED requests and the general `allow_fallback=False` path. (4) **Frontend**: the read-only GET-only proxy now allows POST for **`config` only** (allowlist `new Set(["config"])`) so the admin toggle works but the UI still can't POST `/run`/`/route`. The console's "no buttons" read-only test becomes "the only control is the toggle" (`getAllByRole("button")` length 1). (5) Test gotcha: a `gpt-5-mini` string appears in BOTH the OpenAI provider row and the fallback disclosure — use `getAllByText`, not `getByText`.
 
+### Convert a static surface to a real "evaluate & recommend" backend via the analyzer, not a new mapping layer (2026-06-19)
+
+The Spike Inspector shipped on static `DEMO_SPIKES`. The honest conversion was NOT a new `/spikes`
+service that re-maps `tel_*` rows into a bespoke taxonomy — that just relocates the fabrication risk.
+The telemetry **analyzer** (`backend/app/services/telemetry_analyzer.py`, `AnalyzerFinding` contract)
+already turns the seeded serving reads (monitoring/model_performance) into rule-based-severity findings
+with `null_reasons`. So the conversion was: (1) a **thin pass-through route** `GET /api/telemetry/findings`
+that delegates to the analyzer and adds a provenance block, adding zero numbers of its own; (2) delete
+`DEMO_SPIKES`/`ACTION_CATALOG` entirely; (3) render real findings, fail closed on each `null_reason`.
+Reusable rules discovered:
+- **Auth/proxy gotcha:** the analyzer's own route `POST /api/ade/analyze/telemetry` requires
+  `require_authenticated_request`, but the `/api/ade/[...path]` proxy forwards only Content-Type +
+  x-bm-request-id (drops cookies) — a browser call 401s. The `/api/telemetry/[...path]` serving routes
+  are `business_id`-scoped and reachable. So expose analyzer output through a telemetry-router route
+  rather than calling `/api/ade` from the browser. Check proxy header forwarding before wiring.
+- **Provenance panel = regression tripwire.** A visible "Data Source Audit" block (surface · mode ·
+  source · tenant · rows evaluated · last refresh · fallback used: NO), backed by a `provenance` field
+  on the response, makes a silent slide back to static data obvious in one glance.
+- **Empty-state wording is a correctness claim.** "No active telemetry findings." (factual) ≠ "No
+  findings detected." (implies comprehensive observation). Use the former.
+- **Don't fabricate fields the contract lacks.** `AnalyzerFinding` has no `risk_level`/`requires_human_gate`;
+  derive the human gate from `severity` as a *documented UI rule*, never as a fake backend field.
+- Verify the tenant is actually seeded before claiming "real" (read-only count): telemetry-demo had
+  59,898 predictions / 104 drift / 102 anomaly events / 6 model runs — so the analyzer yields findings
+  rather than fail-closed-everywhere.
+
+### The Winston merge gate (scripts/winston/merge_gate.ps1) and its self-reference traps (2026-06-19)
+
+`scripts/winston/merge_gate.ps1` is a local pre-PR sanity gate (dirty state, mass deletions, skip-marker
+adds, route/nav integrity, schema readiness, secret-shaped content, CI). A local `.git/hooks/pre-push`
+runs it with `-SkipCI`. Two traps that cost real time:
+
+- **Parse/run it via native PowerShell, never through Git Bash.** Invoking it as `powershell -File …`
+  from the Bash tool (or a Bash heredoc with escaped `$`) mangles the command/encoding and produces a
+  bogus "parse error" / `ERRORS: 1`. The script is valid UTF-8-with-BOM and parses clean; confirm with
+  `[System.Management.Automation.Language.Parser]::ParseFile(path,[ref]$null,[ref]$errs)` in PowerShell.
+- **The gate flags its own pattern-definition strings.** The PR that adds or edits the gate trips its own
+  skip-marker check (its skip-pattern array reads as added skip markers) and its secrets scan (its
+  secret-pattern array reads as secret-shaped lines). That is a false positive limited to the gate's own
+  diff — bootstrap *that one* PR with `--no-verify`; unrelated PRs that don't touch the gate run clean.
+- **It lives only when present in the worktree.** It is referenced by `<toplevel>/scripts/winston/...`,
+  so a branch/worktree cut from a base that lacks the file makes the hook fail file-not-found. Keeping it
+  tracked on `main` is what lets the hook run from any worktree.
+
+### Executable AI routes need auth AND tenant — `require_authenticated_request` is not enough (2026-06-19)
+
+A cost-bearing route (`POST /api/ai/dispatch/run`) that only called `require_authenticated_request` executed real model calls for **tenantless** callers, then degraded the receipt (no `business_id`). Root cause: the MCP auth dev-bypass in `mcp_provider.py` — `authenticated = bool(token == MCP_API_TOKEN) if MCP_API_TOKEN else True`. **When `MCP_API_TOKEN` is unset (prod), every header-less request is authenticated as `roles=["admin"], business_id=None`.** So "authenticated" ≠ "has a tenant." Lessons:
+- **For any route that calls a paid provider or writes a tenant-scoped row, gate on tenant, not just auth.** Add a `require_tenant_context(request)` = `require_authenticated_request` + `if not auth.business_id: raise 403`. Put it **first** in the handler so no routing / adapter / fallback / receipt runs before it (401 unauth, 403 authed-but-tenantless).
+- **A degraded receipt with `receipt_write_failed` for missing `business_id` is a symptom of a missing auth gate, not a receipt bug.** Fix the gate; the receipt path was fine.
+- **Take `business_id` from the auth context, never the request body** — a client-supplied tenant must be overridden (`model_copy(update={"business_id": auth.business_id})`).
+- **Testing the gate deterministically:** monkeypatch `app.auth.platform.get_request_auth` to return a crafted `AuthContext` (anonymous / authed-no-tenant / authed-with-tenant) — both `require_authenticated_request` and `require_tenant_context` resolve it by module global, so the real gate logic runs. **Spy on `run_dispatch`** (`monkeypatch.setattr("app.routes.ai_dispatch.run_dispatch", spy)`); a blocked request asserting `spy == []` proves *no provider call happened* — much stronger than asserting a status code. Add one header-less end-to-end test through the real middleware asserting `status in (401, 403)` (robust to whatever `MCP_API_TOKEN` state CI runs with).
+- The route flag (`AI_DISPATCH_ENABLED`) and the auth+tenant gate are **independent** layers — keep both, and keep the auth+tenant check before the flag so unauth fails 401 even when execution is enabled.
+- **Follow-up worth filing:** the global `MCP_API_TOKEN`-unset dev-bypass is a platform-wide leak (every authed route trusts header-less requests as admin); requiring a real token in prod is a separate, broader change than per-route tenant gating.
+
+### The 83-file deletion set is local-only WIP — inspect origin/main, not the dirty checkout (2026-06-19)
+
+The `feat/hr-ml-algorithm-decision-lab` checkout carries a large uncommitted deletion set (RUL Calibration
+screen + notebooks, ADE/audit-dashboard/workflow-registry, telemetry-trust/calibration plans — 100s of
+files). **None of it is merged.** `origin/main` has always had the calibration page/component/evidence dep
+and its `telemetryNav.ts` entry, and the route renders — there was never a dangling-nav 404 on main. Lesson:
+judge "what the app has" from `origin/main` (`git show origin/main:<path>` / `git grep … origin/main`), never
+from the working tree of an active feature branch. A "gap" the plan flagged may already be closed (or never
+existed) on main — the telemetry How-It-Works exhibit (`repo-b/src/components/telemetry/howItWorksData.ts`:
+`MCP_REGISTRY_HEADER`, `GOVERNED_KPI_NOTE`) already encodes the honest platform-vs-telemetry framing
+(telemetry MCP = Partial/inline allow-list; copilot = grounded structured-evidence Q&A, not document RAG),
+so reuse/extend it rather than re-stating.
+
+### ADE Ops PR 6A: the watcher closes the loop by recommending, never acting — and absence of signal is not success (2026-06-18)
+
+PR 6A adds the post-change watcher (`watcher.py`) that evaluates an executed change (simulated 5B or real non-prod 5C) during its observation window and returns one of five verdicts: accepted / still_observing / degraded / rollback_recommended / insufficient_evidence. Two design rules carry the trust: (1) **absence of signal is not success** — missing observation evidence returns `insufficient_evidence` (window closed) or `still_observing` (window open), NEVER `accepted`; a good signal while the window is still open also stays `still_observing` (no early victory). (2) **rollback_recommended is an artifact, not an action** — the watcher reads only and recommends only; it never sets rolled_back, never calls the executor, and a docstring-stripped module scan asserts no execution token (execute_auto_suspend/client.execute/subprocess/snowflake.connector). Verdict logic order matters: check failed/stale telemetry → degraded FIRST (don't wait out the window on a known-bad signal), then missing evidence, then the expected-vs-observed comparison with a tolerance band (within ±10% = stable = accepted). Window parsing is forgiving: `parse_window_seconds` reads '14-day'/'6 hours'/'30m' and falls back to a 14-day default for fuzzy strings like 'next 3 refresh cycles' (don't fail closed on an unparseable human window — you'd never accept anything). The `GET /approvals/watch` state endpoint evaluates executed approvals with NO injected observation, so it honestly shows still_observing/insufficient_evidence until real telemetry is wired — accepted/degraded/rollback_recommended only appear via `POST .../watch` with evidence, or once a provider-read feeds observations. Keep auto-rollback OUT of the watcher: it's a later explicit decision (PR 6B is the incident state machine, not auto-rollback).
+
 ### Collapsible `<details>` + interactive Flow Explorer: jsdom vs real-browser, and Playwright text-match traps (2026-06-19)
 
 Building the telemetry "How This Works" Flow Explorer v2 (an interactive scenario trace board over the static exhibit) surfaced reusable UI lessons:
