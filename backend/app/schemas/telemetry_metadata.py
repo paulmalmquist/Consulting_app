@@ -50,7 +50,7 @@ MetadataRelationship = Literal[
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 class MetadataWarning(StrictModel):
@@ -64,7 +64,10 @@ class TelemetryMetadataNode(StrictModel):
     label: str
     kind: MetadataKind
     layer: MetadataLayer | None = None
-    schema: str | None = None
+    # JSON contract key stays "schema"; the Python attribute is renamed to avoid
+    # shadowing pydantic's deprecated BaseModel.schema method (which resolves
+    # differently on pydantic 2.10 vs 2.13 and broke the catalog validator in CI).
+    schema_name: str | None = Field(default=None, alias="schema")
     object_name: str | None = None
     description: str | None = None
     status: MetadataStatus | None = None

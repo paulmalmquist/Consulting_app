@@ -73,7 +73,7 @@ def test_committed_catalog_is_reviewed_telemetry_only():
     assert catalog.edges
     assert all(node.domain == "telemetry" for node in catalog.nodes)
     assert all(
-        node.schema in {
+        node.schema_name in {
             None,
             "public",
             "novendor_1.telemetry",
@@ -83,7 +83,7 @@ def test_committed_catalog_is_reviewed_telemetry_only():
         for node in catalog.nodes
     )
     assert all(
-        node.schema != "public" or node.object_name.startswith("tel_")
+        node.schema_name != "public" or node.object_name.startswith("tel_")
         for node in catalog.nodes
     )
     _assert_no_sensitive_content(catalog.model_dump(mode="json"))

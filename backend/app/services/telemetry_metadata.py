@@ -460,12 +460,12 @@ def validate_catalog(raw: dict[str, Any]) -> TelemetryMetadataCatalog:
             raise MetadataCatalogError("Telemetry catalog contains duplicate node ids.")
         node_ids.add(node.id)
 
-        if bool(node.schema) != bool(node.object_name):
+        if bool(node.schema_name) != bool(node.object_name):
             raise MetadataCatalogError("Catalog objects require both schema and object_name.")
-        if not node.schema:
+        if not node.schema_name:
             continue
 
-        schema = node.schema.lower()
+        schema = node.schema_name.lower()
         if schema not in _ALLOWED_SCHEMAS:
             raise MetadataCatalogError("Catalog contains a non-telemetry schema.")
         if not _SAFE_OBJECT_NAME.fullmatch(node.object_name or ""):
@@ -592,7 +592,7 @@ def _apply_postgres_enrichment(
             by_object[object_name] = dict(row)
 
     for node in nodes:
-        if node.schema != "public" or node.object_name not in POSTGRES_ENRICHMENT_ALLOWLIST:
+        if node.schema_name != "public" or node.object_name not in POSTGRES_ENRICHMENT_ALLOWLIST:
             continue
         row = by_object.get(node.object_name)
         if row is None:
@@ -667,7 +667,7 @@ def build_metadata_graph(
         edges=edges,
         stats=derive_stats(nodes, edges),
     )
-    return graph.model_dump(mode="json")
+    return graph.model_dump(mode="json", by_alias=True)
 
 
 def get_metadata_graph(
