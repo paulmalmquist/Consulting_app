@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// Demo-critical route: the "How This Works" architecture & evidence exhibit. The page is static
-// (no backend fetch), so this smoke only needs the demo lab session cookie + the route.
+// Demo-critical route: the "How This Works" exhibit, now led by the Flow Explorer (v2).
+// Static page (no backend fetch) — needs only the demo lab session cookie + the route.
 
 const ENV_ID = "telemetry-demo";
 const ROUTE = `/lab/env/${ENV_ID}/telemetry/how-it-works`;
@@ -14,29 +14,28 @@ test.beforeEach(async ({ context, baseURL }) => {
   ]);
 });
 
-test("How This Works exhibit renders, surfaces gaps, and deep-links to a real surface", async ({ page }, testInfo) => {
+test("Flow Explorer renders, scenario selection works, ledger is collapsible, deep-link intact", async ({ page }, testInfo) => {
   await page.goto(ROUTE);
 
   await expect(page.getByRole("heading", { name: "How This Works" })).toBeVisible();
 
-  // honesty: both an implemented status and an explicit "Not available" are on the page
-  await expect(page.getByText("Built", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/Not available/i).first()).toBeVisible();
+  // Flow Explorer + the static-trace honesty disclaimer (no overclaiming of live execution).
+  await expect(page.getByText("Static trace", { exact: true })).toBeVisible(); // the badge (caption also contains it)
+  await expect(page.getByText(/No live call is made/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Aggregate count answer/i })).toBeVisible();
 
-  // known gaps surfaced up front
-  await expect(page.getByText(/cost guardrail estimates only/i)).toBeVisible();
+  // v2 evidence screenshot in the default (aggregate) scenario — chromium=desktop, webkit=mobile.
+  const variant = /webkit|iphone|mobile/i.test(testInfo.project.name) ? "mobile" : "desktop";
+  await page.screenshot({ path: `../telemetry-platform/docs/screenshots/flow-explorer_${variant}.png`, fullPage: variant === "desktop" });
 
-  // a Built capability deep-links to the real Model Registry route (env-scoped)
+  // Scenario selection swaps the trace packet (aggregate → anomaly verdict).
+  await expect(page.getByText(/inventory_counts/i).first()).toBeVisible();
+  await page.getByRole("button", { name: /Anomaly verdict/i }).click();
+  await expect(page.getByText(/score_window/i).first()).toBeVisible();
+
+  // The proof ledger is collapsed by default → expand it; the Model Registry deep-link is still there.
+  await page.locator("summary").filter({ hasText: /Proof ledger/i }).click();
   const registryLink = page.getByRole("link", { name: /Model Registry/i }).first();
   await registryLink.scrollIntoViewIfNeeded();
   await expect(registryLink).toHaveAttribute("href", `/lab/env/${ENV_ID}/telemetry/registry`);
-
-  // evidence screenshot — chromium = desktop, webkit (iPhone 14) = mobile.
-  // fullPage only for desktop; at 390px the page stacks taller than Playwright's 32767px limit,
-  // so the mobile shot is viewport-only (the top of the exhibit as it looks on a phone).
-  const variant = /webkit|iphone|mobile/i.test(testInfo.project.name) ? "mobile" : "desktop";
-  await page.screenshot({
-    path: `../telemetry-platform/docs/screenshots/how-it-works_${variant}.png`,
-    fullPage: variant === "desktop",
-  });
 });
