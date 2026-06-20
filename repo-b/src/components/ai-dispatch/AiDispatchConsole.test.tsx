@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 import AiDispatchConsole from "@/components/ai-dispatch/AiDispatchConsole";
 
@@ -7,13 +7,17 @@ vi.mock("@/lib/ai-dispatch/api", () => ({
   getProviders: vi.fn(),
   getRuns: vi.fn(),
   getEvals: vi.fn(),
+  getConfig: vi.fn(),
+  setGemmaEnabled: vi.fn(),
 }));
 
-import { getProviders, getRuns, getEvals } from "@/lib/ai-dispatch/api";
+import { getProviders, getRuns, getEvals, getConfig, setGemmaEnabled } from "@/lib/ai-dispatch/api";
 
 const mockProviders = getProviders as unknown as ReturnType<typeof vi.fn>;
 const mockRuns = getRuns as unknown as ReturnType<typeof vi.fn>;
 const mockEvals = getEvals as unknown as ReturnType<typeof vi.fn>;
+const mockConfig = getConfig as unknown as ReturnType<typeof vi.fn>;
+const mockSet = setGemmaEnabled as unknown as ReturnType<typeof vi.fn>;
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -33,41 +37,51 @@ const EVALS = {
   note: "deterministic routing-policy checks via select_provider; no model calls, no receipts",
 };
 
+const CONFIG = { gemma_enabled: false, fallback_provider: "openai", fallback_model: "gpt-5-mini", execution_enabled: true };
+
+function mountAll() {
+  mockProviders.mockResolvedValue(PROVIDERS);
+  mockEvals.mockResolvedValue(EVALS);
+  mockRuns.mockResolvedValue({ runs: [], count: 0 });
+  mockConfig.mockResolvedValue(CONFIG);
+}
+
 describe("AiDispatchConsole", () => {
-  it("renders provider inventory, honesty banner, eval summary, and empty runs", async () => {
-    mockProviders.mockResolvedValue(PROVIDERS);
-    mockEvals.mockResolvedValue(EVALS);
-    mockRuns.mockResolvedValue({ runs: [], count: 0 });
+  it("renders provider inventory, honesty banner, eval summary, empty runs, and the Gemma toggle", async () => {
+    mountAll();
     render(<AiDispatchConsole />);
 
     await waitFor(() => expect(screen.getByText("OpenAI")).toBeInTheDocument());
-    // Provider states: openai available, anthropic not configured, gemma fail-closed
     expect(screen.getByText("available")).toBeInTheDocument();
     expect(screen.getByText("not configured")).toBeInTheDocument();
     expect(screen.getByText("fail-closed")).toBeInTheDocument();
-    // Honest capability banner
     expect(screen.getByText(/Available now/i)).toBeInTheDocument();
-    expect(screen.getByText(/Not configured yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/Write capability/i)).toBeInTheDocument();
-    // Eval visibility
     expect(screen.getByText("4/4 pass")).toBeInTheDocument();
-    // Runs empty state — honest about POST /run being disabled
     expect(screen.getByText(/No governed dispatch runs yet/i)).toBeInTheDocument();
+    // Toggle + fallback disclosure
+    await waitFor(() => expect(screen.getByText(/Gemma: OFF/i)).toBeInTheDocument());
+    expect(screen.getByText(/recorded as a\s*fallback, never silent/i)).toBeInTheDocument();
+    expect(screen.getAllByText("gpt-5-mini").length).toBeGreaterThan(0);
   });
 
-  it("is read-only — renders no actionable controls (no buttons)", async () => {
-    mockProviders.mockResolvedValue(PROVIDERS);
-    mockEvals.mockResolvedValue(EVALS);
-    mockRuns.mockResolvedValue({ runs: [], count: 0 });
+  it("the only control is the Gemma toggle, and clicking it flips Gemma on", async () => {
+    mountAll();
+    mockSet.mockResolvedValue({ ...CONFIG, gemma_enabled: true });
     render(<AiDispatchConsole />);
-    await waitFor(() => expect(screen.getByText("OpenAI")).toBeInTheDocument());
-    expect(screen.queryByRole("button")).toBeNull();
+
+    await waitFor(() => expect(screen.getByText(/Gemma: OFF/i)).toBeInTheDocument());
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(1); // only the toggle — UI still cannot trigger /run
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(screen.getByText(/Gemma: ON/i)).toBeInTheDocument());
+    expect(mockSet).toHaveBeenCalledWith(true);
   });
 
   it("surfaces a load error without crashing", async () => {
     mockProviders.mockRejectedValue(new Error("boom (req: x)"));
     mockEvals.mockResolvedValue(EVALS);
     mockRuns.mockResolvedValue({ runs: [], count: 0 });
+    mockConfig.mockResolvedValue(CONFIG);
     render(<AiDispatchConsole />);
     await waitFor(() => expect(screen.getByText(/Could not load: boom/i)).toBeInTheDocument());
   });

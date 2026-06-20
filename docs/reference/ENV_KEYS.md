@@ -16,6 +16,8 @@
 | Variable | Value | Notes |
 |---|---|---|
 | `AI_DISPATCH_ENABLED` | `false` (default) | Gates the cost-bearing `POST /api/ai/dispatch/run`. Read-only routing/inspection stays available. |
+| `AI_DISPATCH_GEMMA_ENABLED` | `false` (default) | Initial value of the runtime, frontend-controllable Gemma toggle. When off, Gemma-home modes fall back to the small frontier model. |
+| `AI_DISPATCH_FALLBACK_PROVIDER` / `AI_DISPATCH_FALLBACK_MODEL` | `openai` / `gpt-5-mini` | Small-model fallback used for Gemma-home modes when Gemma is off/unavailable (recorded, not silent). |
 | `AI_DISPATCH_ALLOW_FALLBACK` | `false` (default) | Global cross-provider fallback guard; a request must also opt in per call. |
 | `AI_DISPATCH_ANTHROPIC_MODEL` | `claude-opus-4-20250514` (default) | Concrete Anthropic API model id for the Claude adapter. |
 | `ANTHROPIC_API_KEY` | *(already set for psychrag)* | Enables the Claude provider. |

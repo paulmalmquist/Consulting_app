@@ -24,6 +24,7 @@ const INDUSTRY_OPTIONS = [
   'Consumer Credit',
   'Medical',
   'Legal',
+  'Trades & Field Operations',
   'Other'
 ] as const;
 

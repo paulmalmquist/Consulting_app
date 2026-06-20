@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../base/history-rhymes-feature-store
+  - secret-provider-classes.yaml
+patches:
+  - path: serviceaccounts-patch.yaml
+  - path: config-patch.yaml
+images:
+  - name: winston-backend
+    newName: us-east1-docker.pkg.dev/PROJECT_ID/winston/backend
+    newTag: REPLACE_WITH_IMMUTABLE_TAG

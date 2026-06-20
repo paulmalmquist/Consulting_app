@@ -1,0 +1,4 @@
+Source:      https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1800&q=80
+License:     Unsplash License — free for commercial and noncommercial use, no permission or attribution required (https://unsplash.com/license)
+Downloaded:  2026-06-18
+Notes:       Two trade crew in hi-vis on a concrete jobsite deck — rebar, cables, tools, and staged materials. Dark/gritty operational feel after the hero's 0.45 dark overlay. Used as the /industries/trades hero background. 1800x1192 JPEG.

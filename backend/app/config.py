@@ -180,6 +180,13 @@ AI_DISPATCH_ENABLED: bool = os.getenv("AI_DISPATCH_ENABLED", "false").lower() ==
 AI_DISPATCH_ALLOW_FALLBACK: bool = os.getenv("AI_DISPATCH_ALLOW_FALLBACK", "false").lower() == "true"
 # Concrete Anthropic API model id used by the dispatch Claude adapter.
 AI_DISPATCH_ANTHROPIC_MODEL: str = os.getenv("AI_DISPATCH_ANTHROPIC_MODEL", "claude-opus-4-20250514")
+# Runtime Gemma toggle: initial value for the frontend-controllable on/off switch. When Gemma is
+# off (or unconfigured/unavailable), Gemma-eligible modes fall back to a small frontier model below.
+AI_DISPATCH_GEMMA_ENABLED: bool = os.getenv("AI_DISPATCH_GEMMA_ENABLED", "false").lower() == "true"
+# Small-model fallback used for Gemma-eligible modes when Gemma is off/unavailable. Default OpenAI
+# (the provider configured in prod); recorded on the receipt as a fallback, never silent.
+AI_DISPATCH_FALLBACK_PROVIDER: str = os.getenv("AI_DISPATCH_FALLBACK_PROVIDER", "openai")
+AI_DISPATCH_FALLBACK_MODEL: str = os.getenv("AI_DISPATCH_FALLBACK_MODEL", "gpt-5-mini")
 # Gemma-on-Vertex contract (declared but unused in PR 1 — their absence is exactly
 # why the Gemma adapter fails closed).
 GEMMA_VERTEX_PROJECT_ID: str = os.getenv("GEMMA_VERTEX_PROJECT_ID", "")

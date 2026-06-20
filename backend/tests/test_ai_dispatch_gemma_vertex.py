@@ -171,8 +171,12 @@ def test_supervisor_vertex_error_is_degraded(gemma_configured, monkeypatch):
     assert r.null_reason == DispatchNullReason.PROVIDER_CALL_FAILED
 
 
-def test_no_silent_fallback_when_gemma_unconfigured(monkeypatch):
-    # Gemma is the home for summarization but unconfigured → fail closed, never substitute OpenAI.
+def test_gemma_unconfigured_falls_back_recorded_not_silent(monkeypatch):
+    # Gemma is the home for summarization but unconfigured → controlled fallback to the small
+    # frontier model. Gemma is NEVER called; the fallback is RECORDED (fallback_used + rejected map).
+    from app.services.ai_dispatch import runtime
+
+    runtime._gemma_enabled = None  # default off
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     for k in ("GEMMA_VERTEX_PROJECT_ID", "GEMMA_VERTEX_LOCATION", "GEMMA_VERTEX_ENDPOINT_ID"):
         monkeypatch.delenv(k, raising=False)
@@ -184,23 +188,26 @@ def test_no_silent_fallback_when_gemma_unconfigured(monkeypatch):
 
         def complete(self, req, model):
             called["openai"] = True
-            raise AssertionError("should not be called")
+            from app.services.ai_dispatch.models import ProviderCompletion
+
+            return ProviderCompletion(text="fallback summary", model=model)
 
     class GemmaSpy:
         name = ProviderName.GEMMA_GCP
 
         def complete(self, req, model):
             called["gemma"] = True
-            raise AssertionError("should not be called")
+            raise AssertionError("Gemma must never be called when off")
 
     r = run_dispatch(
         _req("summarization", "low"),
         adapters={ProviderName.OPENAI: OpenAISpy(), ProviderName.GEMMA_GCP: GemmaSpy()},
         write_receipt=False,
     )
-    assert r.status == DispatchStatus.UNAVAILABLE
-    assert r.null_reason == DispatchNullReason.PROVIDER_NOT_CONFIGURED
-    assert called["openai"] is False and called["gemma"] is False
+    assert r.status == DispatchStatus.SUCCESS
+    assert r.provider == ProviderName.OPENAI
+    assert r.fallback_used is True  # recorded, not silent
+    assert called["gemma"] is False and called["openai"] is True
 
 
 # ── Policy is unchanged by the adapter being real ───────────────────

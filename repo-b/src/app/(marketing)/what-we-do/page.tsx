@@ -56,7 +56,12 @@ export default function WhatWeDoPage() {
 
   return (
     <>
-      <HeroBackground imageSrc={bgSrc} imageAlt="" overlayOpacity={0.45}>
+      <HeroBackground
+        imageSrc={bgSrc}
+        imageAlt=""
+        overlayOpacity={0.45}
+        contentClassName="nv-hero-bg__content--match-page-wide"
+      >
         <p className="nv-eyebrow">
           <span className="nv-eyebrow-dot" />
           What we do

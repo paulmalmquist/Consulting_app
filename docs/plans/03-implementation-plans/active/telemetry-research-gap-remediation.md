@@ -103,7 +103,7 @@ Severity: P0 must-fix for a credible telemetry/Relativity demo · P1 strong diff
 - **Demo verification:** open `/telemetry/governance`, screenshot the posture panel; show the enforced/not-enforced split + the passing isolation test.
 - **Risks/unknowns:** test must set the `app.env_id` GUC (Phase 3 did this manually — confirm the pytest DB fixture supports `SET app.env_id`/`SET ROLE authenticated`). If serving filters by `business_id` as defense-in-depth, assert **both** layers.
 
-### Ticket 2 — Honesty pass: overclaim reconciliation + nav consistency guard (P0)
+### Ticket 2 — Honesty pass: overclaim reconciliation + nav consistency guard (P0) — DONE (PR pending; see §12)
 - **Scope:** Reconcile `RS_DEMO_CAPABILITY_CHECKLIST.md` 6.1 (MCP registry → PARTIAL: platform yes, telemetry no); replace "secure RAG" language for telemetry with "grounded structured-evidence Q&A; no document RAG"; resolve the dangling `calibration` nav entry against the working-tree decision.
 - **Source areas:** `docs/plans/RS_DEMO_CAPABILITY_CHECKLIST.md`, demo copy, `repo-b/src/components/telemetry/telemetryNav.ts` (≤1 line).
 - **Data/schema impact:** none. **AI/runtime impact:** none. **Security impact:** none (anti-overclaim).
@@ -196,7 +196,7 @@ Relativity story, and verifies cleanly via a new automated cross-tenant isolatio
 
 ## 8. Open questions
 
-1. Working-tree deletions — intentional cleanup to commit separately, or revert? (Drives Ticket 2 nav reconcile.)
+1. ~~Working-tree deletions — intentional cleanup to commit separately, or revert? (Drives Ticket 2 nav reconcile.)~~ **RESOLVED (Ticket 2):** the 83-file deletion set (incl. the RUL Calibration screen) was never merged — it is local-only WIP on the `feat/hr-ml-algorithm-decision-lab` checkout. `origin/main` has always had the calibration page, component, evidence dep, and nav entry, and the route works. So there was never a dangling-nav 404 on main; the nav is kept as-is. The local deletions are the user's separate concern, out of scope here.
 2. PLM/ERP/MES (Ticket 10) — synthetic exhibit only, or a deeper mocked connector layer?
 3. Entity ontology (Ticket 4) — `tel_`-prefixed dimension tables, or a separate graph store?
 4. Purdue/OT story (Ticket 11) — wanted as an exhibit at all, given the demo runs cloud-only?
@@ -254,3 +254,15 @@ Added to `docs/tips.md` (canonical; not root `./tips.md`):
 **Isolation:** all work done in a `git worktree` at HEAD (`C:/Projects/Consulting_app-ticket1`, branch off committed HEAD) with `node_modules`/`.venv` junctioned from the main checkout — guaranteeing the commit contains only the 6 Ticket 1 files and none of the 83 working-tree deletions.
 
 **Next:** push + open PR when ready; then Ticket 2 (honesty pass: checklist 6.1 MCP → PARTIAL, drop "secure RAG" wording, reconcile the calibration nav vs the working-tree deletion).
+
+## 12. Session log — Ticket 2 (2026-06-19)
+
+**Honesty pass + calibration reconciliation. Mostly already satisfied by intervening work — inspection of `origin/main` mattered.**
+
+- **Checklist 6.1 corrected** (`docs/plans/RS_DEMO_CAPABILITY_CHECKLIST.md`): `EXISTS` → `PARTIAL`. Platform MCP registry exists (31 categories in `backend/app/mcp`), but the telemetry copilot uses an inline allow-list, not the MCP registry, and there is no telemetry MCP registry view / denied-call demo yet (Ticket 3).
+- **"secure RAG" / RAG overclaim — already clean on main.** Every occurrence is the gap-plan's own honesty analysis or an explicit "this would be an overclaim" flag. The telemetry UI already states the honest framing: `howItWorksData.ts` — `MCP_REGISTRY_HEADER` ("Telemetry registry UI: Partial … inline allow-list, not the MCP registry"), `GOVERNED_KPI_NOTE` ("Telemetry has no governed metric registry … not to imply it runs here"), and copilot described as "grounded structured-evidence Q&A (not document RAG)" (lines 147/163/228). `HowItWorks.tsx:287` says the same. The RAG-as-built rows are platform tools labeled `(REPE/credit)`. No UI copy change needed; no telemetry copy overclaims secure document RAG.
+- **RUL Calibration nav — KEEP (open question 1 resolved).** `origin/main` has `calibration/page.tsx` → `RulCalibration.tsx` → `calibrationEvidence.ts` and the `calibration` nav entry; the route renders. The 83-file deletion set (incl. the calibration screen) is local-only WIP, never merged — main never had a dangling-nav 404.
+
+**Verification:** frontend typecheck + telemetry vitest (calibration/governance components compile & pass); grep checks — no telemetry user-facing copy asserts "secure RAG"/document RAG as a telemetry capability; nav↔route consistency confirmed (every telemetry nav slug resolves to a `page.tsx`). Docs-only change; no runtime/schema impact.
+
+**Next:** Ticket 3 — register telemetry-specific read-only MCP tools (typed schemas, scopes, audit) + a visible denied-call demo; unify or clearly separate the copilot inline allow-list vs the MCP registry.

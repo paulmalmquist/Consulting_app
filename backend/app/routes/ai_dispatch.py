@@ -11,14 +11,45 @@ This router is standalone — it does not import or touch ``ai_gateway``.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
-from app.auth.platform import require_authenticated_request
+from app.auth.platform import require_authenticated_request, require_tenant_context
 from app.services.ai_dispatch.models import AIRequest
 from app.services.ai_dispatch.receipts import list_dispatch_runs
 from app.services.ai_dispatch.registry import provider_registry
+from app.services.ai_dispatch.runtime import gemma_enabled, set_gemma_enabled
 from app.services.ai_dispatch.supervisor import route_only, run_dispatch
 
 router = APIRouter(prefix="/api/ai/dispatch", tags=["ai-dispatch"])
+
+
+def _config_payload() -> dict:
+    from app import config
+
+    return {
+        "gemma_enabled": gemma_enabled(),
+        "fallback_provider": getattr(config, "AI_DISPATCH_FALLBACK_PROVIDER", "openai"),
+        "fallback_model": getattr(config, "AI_DISPATCH_FALLBACK_MODEL", "gpt-5-mini"),
+        "execution_enabled": bool(getattr(config, "AI_DISPATCH_ENABLED", False)),
+    }
+
+
+class ConfigUpdate(BaseModel):
+    gemma_enabled: bool
+
+
+@router.get("/config")
+def get_config():
+    """Current runtime dispatch config (the Gemma toggle + fallback). Safe to read."""
+    return _config_payload()
+
+
+@router.post("/config")
+def set_config(payload: ConfigUpdate, request: Request):
+    """Flip the runtime Gemma toggle. Auth required. When off, Gemma-home modes fall back to the small model."""
+    require_authenticated_request(request)
+    set_gemma_enabled(payload.gemma_enabled)
+    return _config_payload()
 
 
 @router.get("/providers")
@@ -74,8 +105,17 @@ def list_runs(
 
 @router.post("/run")
 def execute_run(payload: AIRequest, request: Request):
-    """Execute a governed dispatch. Auth required; gated behind AI_DISPATCH_ENABLED."""
-    auth = require_authenticated_request(request)
+    """Execute a governed dispatch.
+
+    Fails closed before any provider call: requires an authenticated, **tenant-scoped**
+    caller (401 unauthenticated, 403 if authenticated but tenantless) and the
+    ``AI_DISPATCH_ENABLED`` flag. No provider/fallback/receipt runs for a tenantless
+    request — that path previously executed a real model call and then degraded the
+    receipt for lack of a ``business_id``.
+    """
+    # Auth + tenant gate FIRST — nothing below runs (no routing, no adapter, no
+    # fallback, no receipt) until a real tenant context is present.
+    auth = require_tenant_context(request)
 
     from app.config import AI_DISPATCH_ENABLED
 
@@ -86,11 +126,10 @@ def execute_run(payload: AIRequest, request: Request):
         )
 
     # Scope to the caller's tenant — never trust a client-supplied tenant id.
-    updates: dict = {}
-    if auth.business_id:
-        updates["business_id"] = auth.business_id
+    # business_id is guaranteed present by require_tenant_context.
+    updates: dict = {"business_id": auth.business_id}
     if auth.env_id and not payload.env_id:
         updates["env_id"] = auth.env_id
-    scoped = payload.model_copy(update=updates) if updates else payload
+    scoped = payload.model_copy(update=updates)
 
     return run_dispatch(scoped).model_dump(mode="json")

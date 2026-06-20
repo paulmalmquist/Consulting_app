@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hr-feature-store-config
+  namespace: winston-streaming
+data:
+  # GCP project for the (off-by-default) observational BigQuery sink routing.
+  BQ_PROJECT_ID: "PROJECT_ID"

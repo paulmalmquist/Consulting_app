@@ -56,18 +56,21 @@ def test_success_with_mock_openai():
     assert spy.called is True
 
 
-def test_gemma_unavailable_makes_no_provider_call():
+def test_gemma_unavailable_falls_back_to_small_model_recorded():
+    # Gemma is off/unconfigured by default → Gemma-home modes fall back to the small frontier
+    # model. Gemma is NEVER called, and the fallback is RECORDED (not silent).
     gemma_spy = SpyAdapter(ProviderName.GEMMA_GCP)
-    openai_spy = SpyAdapter(ProviderName.OPENAI)
+    openai_spy = SpyAdapter(ProviderName.OPENAI, text="fallback")
     r = run_dispatch(
         _req("summarization", "low"),
         adapters={ProviderName.GEMMA_GCP: gemma_spy, ProviderName.OPENAI: openai_spy},
         write_receipt=False,
     )
-    assert r.status == DispatchStatus.UNAVAILABLE
-    assert r.null_reason == DispatchNullReason.PROVIDER_NOT_CONFIGURED
-    assert gemma_spy.called is False
-    assert openai_spy.called is False  # no silent fallback
+    assert r.status == DispatchStatus.SUCCESS
+    assert r.provider == ProviderName.OPENAI
+    assert r.fallback_used is True
+    assert gemma_spy.called is False  # Gemma never called
+    assert openai_spy.called is True
 
 
 def test_provider_call_error_is_degraded():

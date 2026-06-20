@@ -46,6 +46,7 @@ Standard null_reasons across all environments:
 | `no_relevant_documents` | RAG found no relevant context for this query |
 | `model_not_promoted` | No promoted model version exists for the requested channel/model (Telemetry) |
 | `channel_not_scored` | Channel exists but has no prediction rows yet (Telemetry) |
+| `telemetry_findings_unavailable` | The telemetry analyzer could not be reached; the Spike Inspector renders no findings and names the reason (Telemetry) |
 | `data_source_not_configured` | A skill's upstream data source (cloud warehouse/cost/lineage) is not wired in this build (ADE Ops) |
 | `write_capability_not_enabled` | A write-capable (tier ≥2) operation was requested but writes are intentionally disabled (ADE Ops) |
 | `receipt_write_failed` | A governed-decision receipt could not be persisted; result surfaced as degraded, never silently dropped or claimed as a phantom id (ADE Ops / AI Provider Dispatch) |
