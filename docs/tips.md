@@ -3900,3 +3900,16 @@ A cost-bearing route (`POST /api/ai/dispatch/run`) that only called `require_aut
 - **Testing the gate deterministically:** monkeypatch `app.auth.platform.get_request_auth` to return a crafted `AuthContext` (anonymous / authed-no-tenant / authed-with-tenant) — both `require_authenticated_request` and `require_tenant_context` resolve it by module global, so the real gate logic runs. **Spy on `run_dispatch`** (`monkeypatch.setattr("app.routes.ai_dispatch.run_dispatch", spy)`); a blocked request asserting `spy == []` proves *no provider call happened* — much stronger than asserting a status code. Add one header-less end-to-end test through the real middleware asserting `status in (401, 403)` (robust to whatever `MCP_API_TOKEN` state CI runs with).
 - The route flag (`AI_DISPATCH_ENABLED`) and the auth+tenant gate are **independent** layers — keep both, and keep the auth+tenant check before the flag so unauth fails 401 even when execution is enabled.
 - **Follow-up worth filing:** the global `MCP_API_TOKEN`-unset dev-bypass is a platform-wide leak (every authed route trusts header-less requests as admin); requiring a real token in prod is a separate, broader change than per-route tenant gating.
+
+### The 83-file deletion set is local-only WIP — inspect origin/main, not the dirty checkout (2026-06-19)
+
+The `feat/hr-ml-algorithm-decision-lab` checkout carries a large uncommitted deletion set (RUL Calibration
+screen + notebooks, ADE/audit-dashboard/workflow-registry, telemetry-trust/calibration plans — 100s of
+files). **None of it is merged.** `origin/main` has always had the calibration page/component/evidence dep
+and its `telemetryNav.ts` entry, and the route renders — there was never a dangling-nav 404 on main. Lesson:
+judge "what the app has" from `origin/main` (`git show origin/main:<path>` / `git grep … origin/main`), never
+from the working tree of an active feature branch. A "gap" the plan flagged may already be closed (or never
+existed) on main — the telemetry How-It-Works exhibit (`repo-b/src/components/telemetry/howItWorksData.ts`:
+`MCP_REGISTRY_HEADER`, `GOVERNED_KPI_NOTE`) already encodes the honest platform-vs-telemetry framing
+(telemetry MCP = Partial/inline allow-list; copilot = grounded structured-evidence Q&A, not document RAG),
+so reuse/extend it rather than re-stating.
