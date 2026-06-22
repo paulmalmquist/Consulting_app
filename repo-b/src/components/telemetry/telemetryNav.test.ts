@@ -36,6 +36,7 @@ describe("telemetry navigation structure (6-section redesign)", () => {
         "governance",
         "how-it-works",
         "metadata",
+        "metric-lineage",
         "model-performance",
         "monitoring",
         "registry",
