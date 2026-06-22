@@ -20,7 +20,6 @@ import {
   C,
   DisclosureFooter,
   EmptyState,
-  ErrorState,
   Loading,
   MetricCard,
   PageHeading,
@@ -41,6 +40,7 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TelemetryMetadataNode | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +51,7 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
         if (active) setGraph(g);
       })
       .catch((reason) => {
-        if (active) setError(String(reason));
+        if (active) setError(reason instanceof Error ? reason.message : String(reason));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -59,7 +59,7 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
     return () => {
       active = false;
     };
-  }, [envId]);
+  }, [envId, reload]);
 
   const heading = (
     <PageHeading
@@ -70,8 +70,34 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
   );
 
   if (loading && !graph) return <>{heading}<Loading label="Loading metric catalog..." /></>;
-  if (error) return <>{heading}<ErrorState message={error} /></>;
-  if (!graph) return <>{heading}<ErrorState message="Metadata graph unavailable." /></>;
+  if (error || !graph) {
+    // Fail closed gracefully: the metadata-graph endpoint did not return a catalog (e.g. the route
+    // is not yet available on this deployment's backend). Show a dignified null state with a
+    // null_reason + retry — never a raw error, and never a fabricated chain.
+    return (
+      <>
+        {heading}
+        <Panel title="Lineage index unavailable" right={<Tag color={C.amber}>fail-closed</Tag>}>
+          <p style={{ fontFamily: C.mono, fontSize: 12, color: C.dim, lineHeight: 1.6, margin: 0 }}>
+            null_reason: metadata_graph_unreachable — the telemetry metadata-graph endpoint did not return a
+            catalog in this deployment, so no lineage can be shown. This fails closed rather than rendering a
+            fabricated chain.
+          </p>
+          {error && (
+            <p style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.5, marginTop: 8 }}>
+              Detail: {error}
+            </p>
+          )}
+          <button type="button" onClick={() => setReload((r) => r + 1)}
+            style={{ marginTop: 12, fontFamily: C.mono, fontSize: 12, color: C.cyan, background: "transparent",
+              border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
+            Retry
+          </button>
+        </Panel>
+        <DisclosureFooter />
+      </>
+    );
+  }
 
   const metrics = graph.nodes
     .filter((n) => n.kind === "metric")

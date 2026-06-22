@@ -51,8 +51,21 @@ describe("TelemetryOverview — data-backed Mission Summary", () => {
     expect(screen.getByText(/Data as of/)).toBeInTheDocument();
   });
 
-  it("shows the Operational Leverage framework with projections failing closed", async () => {
+  it("collapses Operational Leverage to a single fail-closed projection (not a card wall)", async () => {
     render(<TelemetryOverview envId="env-1" />);
-    expect(await screen.findAllByText("Projection unavailable")).toHaveLength(5);
+    // Exactly one "Projection unavailable" now, not five large empty cards.
+    expect(await screen.findAllByText("Projection unavailable")).toHaveLength(1);
+  });
+
+  it("links to detail pages instead of re-hosting their tables (launchpads, no duplicate KPI strip)", async () => {
+    render(<TelemetryOverview envId="env-1" />);
+    expect(await screen.findByText("Continue the demo")).toBeInTheDocument();
+    // Launchpad cards link out; the Model Registry / Test Runs detail is NOT rendered inline.
+    expect(screen.getByText("Review model registry")).toBeInTheDocument();
+    expect(screen.getByText("Inspect test runs")).toBeInTheDocument();
+    expect(screen.getByText("Open metric lineage")).toBeInTheDocument();
+    // The old duplicate "Verdict distribution" panel is gone; scoring posture replaces it.
+    expect(screen.getByText("Current scoring posture")).toBeInTheDocument();
+    expect(screen.queryByText("Ingested test runs")).not.toBeInTheDocument();
   });
 });
