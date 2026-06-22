@@ -171,7 +171,7 @@ export const CAPABILITIES: CapabilityItem[] = [
     capability: "Telemetry environment — 13-page dark full-bleed console",
     impl: "built", verify: "prod_verified",
     evidence: [{ label: "Overview", slug: "" }, { label: "Mission Control", slug: "stream" }],
-    note: "Operations, ML & Models, Factory, AI & Governance groups; this exhibit adds Evidence & Architecture.",
+    note: "Six sections: Mission Summary, Operations, Models & Intelligence, Factory & Quality, Evidence & Lineage, Agent Operations; this exhibit lives under Evidence & Lineage.",
   },
   {
     capability: "Live hot-fire / printer stream",
