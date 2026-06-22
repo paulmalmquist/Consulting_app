@@ -61,6 +61,13 @@ export default function ReplayConsole() {
   return (
     <>
       {heading}
+      {/* Launch-stage timeline: fail-closed. The replay feed has no stage boundaries yet. */}
+      <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 8, padding: "9px 12px",
+        marginBottom: 16, fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.5 }}>
+        Launch stages (T-60 · T-30 · Ignition · Max-Q · Stage Sep · Orbit):{" "}
+        <span style={{ color: C.amber }}>not available</span> — the replay feed carries no stage boundaries yet
+        (requires a backend stage field). Showing the raw tick timeline below.
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <button onClick={() => { setCursor(0); setPlaying(true); }} disabled={playing}
           style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,

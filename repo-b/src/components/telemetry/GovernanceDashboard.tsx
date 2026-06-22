@@ -51,9 +51,9 @@ export default function GovernanceDashboard() {
   }, []);
 
   const head = (
-    <PageHeading eyebrow="AI Governance"
-      title="Can we trust the AI layer — and how do we know?"
-      blurb="Every number on this page is aggregated from real logged copilot interactions and a real eval run. Nothing is hardcoded. Where a metric isn't available, it says so." />
+    <PageHeading eyebrow="Evidence &amp; Lineage · Trust Center"
+      title="Trust Center — why you can trust the AI layer"
+      blurb="AI governance, security posture, model governance, and audit receipts in one place. Every number is aggregated from real logged copilot interactions and a real eval run — nothing is hardcoded. Where a metric is not available, it says so." />
   );
   if (err) return <>{head}<ErrorState message={err} /></>;
   if (!g) return <>{head}<Loading label="Loading governance metrics…" /></>;
