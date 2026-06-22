@@ -65,6 +65,35 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
     setError(null);
     setErrorKind(null);
 
+    // Scoped telemetry reviewer uses a non-email username. Route it to the dedicated endpoint and
+    // never touch the Supabase/admin path. (Real accounts, incl. info@novendor.ai, use an email.)
+    const identifier = email.trim();
+    if (identifier && !identifier.includes("@")) {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/auth/telemetry-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: identifier, password }),
+        });
+        const p = (await r.json().catch(() => ({}))) as { error?: string; redirectTo?: string };
+        if (r.ok) {
+          router.push(p.redirectTo || "/app");
+          router.refresh();
+          return;
+        }
+        setError(p.error || "Invalid username or password");
+        setErrorKind("auth");
+        return;
+      } catch {
+        setError("Authentication failed");
+        setErrorKind("auth");
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     const client = getSupabaseBrowserClient();
     if (!client) {
       console.error("Auth client unavailable: Supabase env vars missing or placeholder.");
@@ -222,11 +251,10 @@ export function WinstonLoginPortal({ returnTo }: { returnTo?: string | null }) {
 
             <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
               <label className="block space-y-2 text-sm text-white/60">
-                <span>Email</span>
+                <span>Email or reviewer username</span>
                 <Input
-                  autoComplete="email"
-                  inputMode="email"
-                  type="email"
+                  autoComplete="username"
+                  type="text"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   className={panelInputClassName()}

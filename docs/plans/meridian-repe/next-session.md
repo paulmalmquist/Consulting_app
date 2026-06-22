@@ -1,5 +1,7 @@
 # Next Session — Meridian / REPE
 
+> ✅ **Closed 2026-06-22** — roadmap T1–T6 all complete; no open work. See [`../CONSOLIDATED_BACKLOG.md`](../CONSOLIDATED_BACKLOG.md) for the live cross-workstream backlog. History below retained for reference.
+
 **Last updated:** 2026-05-18  
 **Active dispatch:** `docs/plans/03-implementation-plans/active/0001-meridian-repe-ui-data-integrity-roadmap.md`  
 **T1 status:** COMPLETE — dark mode contrast, chart readability, map tile swap, Leaflet CSS override  

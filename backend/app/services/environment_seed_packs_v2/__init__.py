@@ -37,10 +37,12 @@ from . import (  # noqa: E402  (import after protocol for circular-safety)
     client_delivery_starter,
     cloud_infra_starter,
     empty,
+    hha_starter,
     internal_ops_minimal,
     legal_ops_starter,
     repe_starter,
     supply_chain_starter,
+    telemetry_starter,
     trading_research_starter,
 )
 
@@ -52,8 +54,10 @@ SEED_PACKS: dict[str, SeedPack] = {
     "repe_starter": repe_starter,  # type: ignore[dict-item]
     "trading_research_starter": trading_research_starter,  # type: ignore[dict-item]
     "supply_chain_starter": supply_chain_starter,  # type: ignore[dict-item]
+    "telemetry_starter": telemetry_starter,  # type: ignore[dict-item]
     "cloud_infra_starter": cloud_infra_starter,  # type: ignore[dict-item]
     "legal_ops_starter": legal_ops_starter,  # type: ignore[dict-item]
+    "hha_starter": hha_starter,  # type: ignore[dict-item]
 }
 
 

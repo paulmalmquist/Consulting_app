@@ -5,13 +5,11 @@ import { usePathname } from "next/navigation";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   ClipboardList,
   FileText,
   Upload,
 } from "lucide-react";
 import { useDomainEnv } from "@/components/domain/DomainEnvProvider";
-import { useWinstonCompanion } from "@/components/winston-companion/WinstonCompanionProvider";
 import { WorkspaceContextLoader } from "@/components/ui/WinstonLoader";
 import { publishAssistantPageContext } from "@/lib/commandbar/appContextBridge";
 import {
@@ -176,54 +174,6 @@ function ComparisonMeter({
         </div>
       </div>
     </div>
-  );
-}
-
-function OperatorWinstonPanel({
-  headline,
-  lines,
-  prompts,
-}: {
-  headline: string;
-  lines: string[];
-  prompts: string[];
-}) {
-  const { openDrawer, setDraft, sendPrompt } = useWinstonCompanion();
-
-  async function triggerPrompt(prompt: string) {
-    openDrawer("contextual");
-    setDraft("contextual", prompt);
-    await sendPrompt("contextual", prompt);
-  }
-
-  return (
-    <SectionCard id="winston" title="Winston" eyebrow="AI Panel" className="h-full">
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-bm-border/60 bg-black/20 p-4">
-          <p className="text-sm font-medium text-bm-text">{headline}</p>
-          <div className="mt-3 space-y-2">
-            {lines.slice(0, 3).map((line) => (
-              <p key={line} className="text-sm text-bm-muted2">
-                {line}
-              </p>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2">
-          {prompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => void triggerPrompt(prompt)}
-              className="flex w-full items-center justify-between rounded-2xl border border-bm-border/70 bg-bm-surface/25 px-4 py-3 text-left text-sm text-bm-text transition hover:bg-bm-surface/40"
-            >
-              <span>{prompt}</span>
-              <ArrowRight size={15} className="text-bm-muted2" />
-            </button>
-          ))}
-        </div>
-      </div>
-    </SectionCard>
   );
 }
 
@@ -438,13 +388,6 @@ export function OperatorExecutivePage() {
             </SectionCard>
           ) : null}
 
-          {data.assistant_focus ? (
-            <OperatorWinstonPanel
-              headline={data.assistant_focus.headline}
-              lines={data.assistant_focus.summary_lines}
-              prompts={data.assistant_focus.prompt_suggestions}
-            />
-          ) : null}
         </div>
       </div>
 
@@ -780,15 +723,6 @@ export function OperatorProjectDetailPage({ projectId }: { projectId: string }) 
             </div>
           </div>
 
-          <OperatorWinstonPanel
-            headline={commandCenter.assistant_focus.headline}
-            lines={[detail.summary || "", ...detail.root_causes].filter(Boolean)}
-            prompts={[
-              `Why is ${detail.name} over budget?`,
-              `Where is ${detail.name} losing money?`,
-              `What should I do next on ${detail.name}?`,
-            ]}
-          />
         </div>
       </SectionCard>
 
@@ -1754,15 +1688,6 @@ function LegacyOperatorSiteDetailPage({ siteId }: { siteId: string }) {
             </div>
           </div>
 
-          <OperatorWinstonPanel
-            headline={`${detail.name} — ${detail.risk_level} risk`}
-            lines={[detail.summary || "", ...detail.blockers].filter(Boolean)}
-            prompts={[
-              `What is the risk on ${detail.name}?`,
-              `What approvals are needed for ${detail.name}?`,
-              `Should we continue investing in ${detail.name}?`,
-            ]}
-          />
         </div>
       </SectionCard>
 

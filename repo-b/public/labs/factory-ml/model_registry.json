@@ -1,0 +1,1014 @@
+{
+ "live_mlflow_run": {
+  "experiment": "/Users/paulmalmquist@gmail.com/RSFactoryML",
+  "headline_metrics": {
+   "mean_lr_auc": 0.5274,
+   "mean_ridge_mae": 0.541,
+   "mean_xgbclf_auc": 0.5148,
+   "mean_xgbclf_brier": 0.3136,
+   "mean_xgbclf_pr_auc": 0.6265,
+   "mean_xgbreg_mae": 0.5365,
+   "mean_xgbreg_r2": -0.1152,
+   "mean_xgbrun_auc": 0.9775,
+   "mean_xgbrun_pr_auc": 0.8708
+  },
+  "registered_models": [
+   "novendor_1.rs_factory.rs_print_strength",
+   "novendor_1.rs_factory.rs_print_passfail",
+   "novendor_1.rs_factory.rs_run_failure"
+  ],
+  "run_id": "9c25866d78184746a2a0ae28526009bf"
+ },
+ "seed_registry": [
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 9066,
+    "version": 4
+   },
+   "model_key": "defect_risk",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 5231,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 16451,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 43112,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 9066,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk@AVI-HARNESS scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 17979,
+    "version": 4
+   },
+   "model_key": "defect_risk@AVI-HARNESS",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@AVI-HARNESS scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 31344,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@AVI-HARNESS scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 56494,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@AVI-HARNESS scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 15064,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk@AVI-HARNESS scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 17979,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk@ENG-CHAMBER scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 12912,
+    "version": 4
+   },
+   "model_key": "defect_risk@ENG-CHAMBER",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-CHAMBER scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 58193,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-CHAMBER scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 5639,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-CHAMBER scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 22916,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk@ENG-CHAMBER scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 12912,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk@ENG-VALVE scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 51544,
+    "version": 4
+   },
+   "model_key": "defect_risk@ENG-VALVE",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-VALVE scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 27752,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-VALVE scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 46389,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@ENG-VALVE scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 46955,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk@ENG-VALVE scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 51544,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk@SEN-ASSY scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 47022,
+    "version": 4
+   },
+   "model_key": "defect_risk@SEN-ASSY",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@SEN-ASSY scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 28539,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@SEN-ASSY scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 25339,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@SEN-ASSY scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 49581,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk@SEN-ASSY scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 47022,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion defect_risk@STR-BRACKET scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 35834,
+    "version": 4
+   },
+   "model_key": "defect_risk@STR-BRACKET",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@STR-BRACKET scores operations. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 21763,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@STR-BRACKET scores operations. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 7022,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived defect_risk@STR-BRACKET scores operations. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 28994,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion defect_risk@STR-BRACKET scores operations. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 35834,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "groundedness": 0.97
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion document_assistant scores querys. Metrics: groundedness=0.97. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "groundedness",
+    "primary_metric_value": 0.97,
+    "stage": "champion",
+    "training_rows": 30269,
+    "version": 4
+   },
+   "model_key": "document_assistant",
+   "versions": [
+    {
+     "eval_metrics": {
+      "groundedness": 0.925
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived document_assistant scores querys. Metrics: groundedness=0.925. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "groundedness",
+     "primary_metric_value": 0.925,
+     "stage": "archived",
+     "training_rows": 51681,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "groundedness": 0.94
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived document_assistant scores querys. Metrics: groundedness=0.94. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "groundedness",
+     "primary_metric_value": 0.94,
+     "stage": "archived",
+     "training_rows": 28977,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "groundedness": 0.955
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived document_assistant scores querys. Metrics: groundedness=0.955. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "groundedness",
+     "primary_metric_value": 0.955,
+     "stage": "archived",
+     "training_rows": 39283,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "groundedness": 0.97
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion document_assistant scores querys. Metrics: groundedness=0.97. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "groundedness",
+     "primary_metric_value": 0.97,
+     "stage": "champion",
+     "training_rows": 30269,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "mae": 0.06
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion readiness scores vehicles. Metrics: mae=0.06. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "mae",
+    "primary_metric_value": 0.06,
+    "stage": "champion",
+    "training_rows": 13912,
+    "version": 4
+   },
+   "model_key": "readiness",
+   "versions": [
+    {
+     "eval_metrics": {
+      "mae": 0.105
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived readiness scores vehicles. Metrics: mae=0.105. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "mae",
+     "primary_metric_value": 0.105,
+     "stage": "archived",
+     "training_rows": 56399,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "mae": 0.09
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived readiness scores vehicles. Metrics: mae=0.09. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "mae",
+     "primary_metric_value": 0.09,
+     "stage": "archived",
+     "training_rows": 41748,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "mae": 0.075
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived readiness scores vehicles. Metrics: mae=0.075. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "mae",
+     "primary_metric_value": 0.075,
+     "stage": "archived",
+     "training_rows": 7582,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "mae": 0.06
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion readiness scores vehicles. Metrics: mae=0.06. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "mae",
+     "primary_metric_value": 0.06,
+     "stage": "champion",
+     "training_rows": 13912,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion schedule_risk scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 15551,
+    "version": 4
+   },
+   "model_key": "schedule_risk",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk scores work_orders. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 35003,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk scores work_orders. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 29675,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk scores work_orders. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 16674,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion schedule_risk scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 15551,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion schedule_risk@final_assembly scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 18418,
+    "version": 4
+   },
+   "model_key": "schedule_risk@final_assembly",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@final_assembly scores work_orders. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 59230,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@final_assembly scores work_orders. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 48911,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@final_assembly scores work_orders. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 42480,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion schedule_risk@final_assembly scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 18418,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion schedule_risk@integration scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 43804,
+    "version": 4
+   },
+   "model_key": "schedule_risk@integration",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@integration scores work_orders. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 37425,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@integration scores work_orders. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 22743,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived schedule_risk@integration scores work_orders. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 13548,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion schedule_risk@integration scores work_orders. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 43804,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.84
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion supplier_risk scores material_lots. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.84,
+    "stage": "champion",
+    "training_rows": 17728,
+    "version": 4
+   },
+   "model_key": "supplier_risk",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.795
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived supplier_risk scores material_lots. Metrics: pr_auc=0.795. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.795,
+     "stage": "archived",
+     "training_rows": 50973,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.81
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived supplier_risk scores material_lots. Metrics: pr_auc=0.81. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.81,
+     "stage": "archived",
+     "training_rows": 46732,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.825
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived supplier_risk scores material_lots. Metrics: pr_auc=0.825. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.825,
+     "stage": "archived",
+     "training_rows": 54275,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.84
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion supplier_risk scores material_lots. Metrics: pr_auc=0.84. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.84,
+     "stage": "champion",
+     "training_rows": 17728,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.91,
+     "recall_at_p90": 0.82
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion test_anomaly_detector scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.91,
+    "stage": "champion",
+    "training_rows": 20602,
+    "version": 4
+   },
+   "model_key": "test_anomaly_detector",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.865,
+      "recall_at_p90": 0.775
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector scores test_runs. Metrics: pr_auc=0.865, recall_at_p90=0.775. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.865,
+     "stage": "archived",
+     "training_rows": 13105,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.88,
+      "recall_at_p90": 0.79
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector scores test_runs. Metrics: pr_auc=0.88, recall_at_p90=0.79. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.88,
+     "stage": "archived",
+     "training_rows": 9438,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.895,
+      "recall_at_p90": 0.805
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector scores test_runs. Metrics: pr_auc=0.895, recall_at_p90=0.805. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.895,
+     "stage": "archived",
+     "training_rows": 6867,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.91,
+      "recall_at_p90": 0.82
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion test_anomaly_detector scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.91,
+     "stage": "champion",
+     "training_rows": 20602,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.91,
+     "recall_at_p90": 0.82
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion test_anomaly_detector@hotfire scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.91,
+    "stage": "champion",
+    "training_rows": 58378,
+    "version": 4
+   },
+   "model_key": "test_anomaly_detector@hotfire",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.865,
+      "recall_at_p90": 0.775
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@hotfire scores test_runs. Metrics: pr_auc=0.865, recall_at_p90=0.775. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.865,
+     "stage": "archived",
+     "training_rows": 28164,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.88,
+      "recall_at_p90": 0.79
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@hotfire scores test_runs. Metrics: pr_auc=0.88, recall_at_p90=0.79. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.88,
+     "stage": "archived",
+     "training_rows": 29824,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.895,
+      "recall_at_p90": 0.805
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@hotfire scores test_runs. Metrics: pr_auc=0.895, recall_at_p90=0.805. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.895,
+     "stage": "archived",
+     "training_rows": 50150,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.91,
+      "recall_at_p90": 0.82
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion test_anomaly_detector@hotfire scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.91,
+     "stage": "champion",
+     "training_rows": 58378,
+     "version": 4
+    }
+   ]
+  },
+  {
+   "champion": {
+    "eval_metrics": {
+     "pr_auc": 0.91,
+     "recall_at_p90": 0.82
+    },
+    "is_champion": true,
+    "model_card_summary": "Champion test_anomaly_detector@pressure scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+    "primary_metric": "pr_auc",
+    "primary_metric_value": 0.91,
+    "stage": "champion",
+    "training_rows": 38455,
+    "version": 4
+   },
+   "model_key": "test_anomaly_detector@pressure",
+   "versions": [
+    {
+     "eval_metrics": {
+      "pr_auc": 0.865,
+      "recall_at_p90": 0.775
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@pressure scores test_runs. Metrics: pr_auc=0.865, recall_at_p90=0.775. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.865,
+     "stage": "archived",
+     "training_rows": 55819,
+     "version": 1
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.88,
+      "recall_at_p90": 0.79
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@pressure scores test_runs. Metrics: pr_auc=0.88, recall_at_p90=0.79. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.88,
+     "stage": "archived",
+     "training_rows": 41111,
+     "version": 2
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.895,
+      "recall_at_p90": 0.805
+     },
+     "is_champion": false,
+     "model_card_summary": "Archived test_anomaly_detector@pressure scores test_runs. Metrics: pr_auc=0.895, recall_at_p90=0.805. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.895,
+     "stage": "archived",
+     "training_rows": 25236,
+     "version": 3
+    },
+    {
+     "eval_metrics": {
+      "pr_auc": 0.91,
+      "recall_at_p90": 0.82
+     },
+     "is_champion": true,
+     "model_card_summary": "Champion test_anomaly_detector@pressure scores test_runs. Metrics: pr_auc=0.91, recall_at_p90=0.82. Deterministic synthetic eval for demo; not a trained artifact.",
+     "primary_metric": "pr_auc",
+     "primary_metric_value": 0.91,
+     "stage": "champion",
+     "training_rows": 38455,
+     "version": 4
+    }
+   ]
+  }
+ ]
+}

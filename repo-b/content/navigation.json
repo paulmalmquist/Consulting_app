@@ -12,6 +12,7 @@
       "title": "Capabilities",
       "items": [
         { "label": "Operational Assessment", "href": "/operational-assessment", "icon": "🧰" },
+        { "label": "AI ROI", "href": "/ai-roi", "icon": "📊" },
         { "label": "AI Concierge", "href": "/ai-concierge", "icon": "🧭" }
       ]
     },

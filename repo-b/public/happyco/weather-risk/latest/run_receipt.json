@@ -1,0 +1,28 @@
+{
+  "mode": "local_fallback",
+  "status": "local_contract_export",
+  "generated_at": "2026-05-22T19:20:11.746583+00:00",
+  "job_id": null,
+  "run_id": null,
+  "run_url": null,
+  "source_dir": "C:\\Projects\\Consulting_app_databricks\\artifacts\\happyco\\weather-risk",
+  "row_counts": {
+    "feature_rows": 250,
+    "prediction_rows": 250
+  },
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data.",
+  "claim_allowed": "Databricks-ready modular weather-risk pipeline with a locally exported sample bundle.",
+  "claim_not_allowed": [
+    "real HappyCo production data was used",
+    "a production HappyCo model was trained",
+    "a production model serving endpoint was deployed",
+    "a production deployment occurred"
+  ],
+  "pipeline_mode": "local_fallback",
+  "validation_status": "passed",
+  "source_contract_status": "passed",
+  "charts_expected": 6,
+  "charts_available": 0,
+  "mlflow_status": "not_available_local_fallback",
+  "databricks_live_run_status": "requires_interactive_auth"
+}

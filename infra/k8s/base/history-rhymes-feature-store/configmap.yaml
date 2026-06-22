@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hr-feature-store-config
+  namespace: winston-streaming
+data:
+  # ── Connector live workers: DEFAULT-OFF ─────────────────────────────────────
+  # No connector fetches live until its flag is flipped true. Public/keyless
+  # sources (census/vix-via-fred/fomc_text/defillama) need no API key; FRED uses
+  # the already-provisioned key. The worker entrypoints land in a runtime PR;
+  # until then the deployments run at replicas 0 (see ingest-deployment.yaml).
+  FS_FRED_ENABLED: "false"
+  FS_CENSUS_ENABLED: "false"
+  FS_VIX_ENABLED: "false"
+  FS_FOMC_TEXT_ENABLED: "false"
+  FS_DEFILLAMA_ENABLED: "false"
+  FS_MATERIALIZER_ENABLED: "false"
+
+  # Cadence guards (seconds) for the (deferred) ingest loop.
+  FS_INGEST_INTERVAL_SECONDS: "3600"
+  FS_MATERIALIZER_INTERVAL_SECONDS: "86400"
+  FS_INGEST_LIMIT: "60"
+
+  # Public source base URLs (no secrets).
+  FS_CENSUS_BASE_URL: "https://api.census.gov/data/timeseries/eits"
+  FS_FOMC_TEXT_BASE_URL: "https://www.federalreserve.gov"
+  FS_DEFILLAMA_BASE_URL: "https://stablecoins.llama.fi"
+
+  # ── Observational BigQuery sink routing (config-only) ───────────────────────
+  # The shared winston-observational-sink can route these topics to the existing
+  # observational table. BQ_ENABLED is OFF here by default; no dataset/table is
+  # created by this PR. Connector publishing to these topics is a later runtime PR.
+  EVENT_SINK_TOPICS: "winston.hr.feature_store.readings.v1,winston.hr.feature_store.pipeline_status.v1,winston.hr.feature_store.materialized.v1"
+  BQ_ENABLED: "false"
+  BQ_DATASET: "winston_events_raw"
+  BQ_TABLE: "events"

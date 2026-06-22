@@ -1,0 +1,191 @@
+{
+ "clusters": [
+  {
+   "avg_age_days": 19.4,
+   "defect_code": "out_of_tolerance",
+   "exemplars": [
+    {
+     "disposition": "scrap",
+     "ncr_id": "NCR-2026-000085",
+     "opened_date": "2026-06-07",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "closed"
+    },
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000109",
+     "opened_date": "2026-06-07",
+     "part_id": "PART-ENG-CHAMBER-010",
+     "status": "open"
+    },
+    {
+     "disposition": "use_as_is",
+     "ncr_id": "NCR-2026-000157",
+     "opened_date": "2026-06-07",
+     "part_id": "PART-ENG-VALVE-022",
+     "status": "closed"
+    }
+   ],
+   "n": 1931,
+   "open_n": 709,
+   "trend": [
+    {
+     "month": "2026-03",
+     "n": 469
+    },
+    {
+     "month": "2026-04",
+     "n": 629
+    },
+    {
+     "month": "2026-05",
+     "n": 670
+    },
+    {
+     "month": "2026-06",
+     "n": 163
+    }
+   ]
+  },
+  {
+   "avg_age_days": 18.0,
+   "defect_code": "process_escape",
+   "exemplars": [
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000036",
+     "opened_date": "2026-05-24",
+     "part_id": "PART-ENG-VALVE-035",
+     "status": "open"
+    },
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000037",
+     "opened_date": "2026-05-24",
+     "part_id": "PART-ENG-VALVE-047",
+     "status": "open"
+    },
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000038",
+     "opened_date": "2026-05-24",
+     "part_id": "PART-ENG-CHAMBER-042",
+     "status": "open"
+    }
+   ],
+   "n": 34,
+   "open_n": 34,
+   "trend": [
+    {
+     "month": "2026-05",
+     "n": 34
+    }
+   ]
+  },
+  {
+   "avg_age_days": 13.0,
+   "defect_code": "weld_depth",
+   "exemplars": [
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000012",
+     "opened_date": "2026-05-29",
+     "part_id": "PART-ENG-VALVE-042",
+     "status": "open"
+    },
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000013",
+     "opened_date": "2026-05-29",
+     "part_id": "PART-STR-BRACKET-030",
+     "status": "open"
+    },
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000014",
+     "opened_date": "2026-05-29",
+     "part_id": "PART-SEN-ASSY-043",
+     "status": "open"
+    }
+   ],
+   "n": 24,
+   "open_n": 24,
+   "trend": [
+    {
+     "month": "2026-05",
+     "n": 24
+    }
+   ]
+  },
+  {
+   "avg_age_days": 11.1,
+   "defect_code": "weld_porosity",
+   "exemplars": [
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000007",
+     "opened_date": "2026-05-25",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "closed"
+    },
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000006",
+     "opened_date": "2026-05-24",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "closed"
+    },
+    {
+     "disposition": "rework",
+     "ncr_id": "NCR-2026-000005",
+     "opened_date": "2026-05-23",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "closed"
+    }
+   ],
+   "n": 7,
+   "open_n": 3,
+   "trend": [
+    {
+     "month": "2026-05",
+     "n": 7
+    }
+   ]
+  },
+  {
+   "avg_age_days": 31.5,
+   "defect_code": "dimensional",
+   "exemplars": [
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000011",
+     "opened_date": "2026-05-12",
+     "part_id": "PART-SEN-ASSY-003",
+     "status": "open"
+    },
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000010",
+     "opened_date": "2026-05-11",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "open"
+    },
+    {
+     "disposition": "eng_review_open",
+     "ncr_id": "NCR-2026-000009",
+     "opened_date": "2026-05-10",
+     "part_id": "PART-ENG-VALVE-014",
+     "status": "open"
+    }
+   ],
+   "n": 4,
+   "open_n": 4,
+   "trend": [
+    {
+     "month": "2026-05",
+     "n": 4
+    }
+   ]
+  }
+ ]
+}

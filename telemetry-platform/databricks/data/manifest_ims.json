@@ -1,0 +1,28 @@
+{
+  "dataset": "ims",
+  "status": "archive_verified",
+  "note": "NASA PCoE IMS Bearing run-to-failure. 1.075GB zip from phm-datasets S3 contains a nested IMS.7z with three run-to-failure RAR archives (1st/2nd/3rd_test) + Readme PDF. Archive verified real by magic-byte + 7z listing. Vibration feature engineering deferred beyond Phase 1 (triple-nested zip->7z->rar extraction of ~1GB does not gate the replay demo). Bronze records the verified provenance.",
+  "outer_zip": {
+    "path": "ims/4.+Bearings.zip",
+    "bytes": 1075597174,
+    "sha256": "21001ac266c465f5d345ec42d7b508c6a6328487fd9d4d7774422dd5ea10ad83"
+  },
+  "inner_7z_contents": [
+    {
+      "name": "1st_test.rar",
+      "bytes": 366567310
+    },
+    {
+      "name": "2nd_test.rar",
+      "bytes": 85581092
+    },
+    {
+      "name": "3rd_test.rar",
+      "bytes": 609047134
+    },
+    {
+      "name": "Readme Document for IMS Bearing Data.pdf",
+      "bytes": 400443
+    }
+  ]
+}

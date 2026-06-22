@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Upload } from "lucide-react";
-import { WinstonUmbrellaMenu } from "@/components/repe/workspace/WinstonUmbrellaMenu";
 import { RepeCommandBar } from "@/components/repe/workspace/RepeCommandBar";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
@@ -209,18 +208,7 @@ function InvestmentIntakeDialog({
       env_id: envId,
     });
 
-    void fetch("/api/ai/gateway/index", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        document_id: initRes.document_id,
-        version_id: initRes.version_id,
-        business_id: businessId,
-        env_id: envId,
-        entity_type: investmentId ? "investment" : undefined,
-        entity_id: investmentId,
-      }),
-    }).catch(() => {});
+
 
     setStatus(
       investmentId
@@ -730,7 +718,6 @@ export default function RepeWorkspaceShell({
       headerLabel={envLabel}
       headerAction={headerAction}
       mobileNavItems={mobileNavItems}
-      winstonMenu={<WinstonUmbrellaMenu />}
     >
       <InvestmentIntakeDialog
         open={investmentDialogOpen}

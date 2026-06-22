@@ -1,0 +1,8 @@
+{
+  "brier_score": 0.301,
+  "permutation_p_value": 0.012,
+  "no_lookahead_passed": true,
+  "model_version": "hr_feature_store_v2",
+  "evidence_generated_at": "2026-06-18T00:00:00Z",
+  "evidence_source": "fixture:hr_feature_store/backfill/calibration_fail_brier.json"
+}

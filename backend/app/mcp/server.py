@@ -56,6 +56,7 @@ def _register_all_tools():
     from app.mcp.tools.novendor_accounting_tools import register_novendor_accounting_tools
     from app.mcp.tools.repe_write_tools import register_repe_write_tools
     from app.mcp.tools.operator_tools import register_operator_tools
+    from app.mcp.tools.telemetry_tools import register_telemetry_tools
 
     register_meta_tools()
     register_business_tools()
@@ -97,6 +98,7 @@ def _register_all_tools():
     register_novendor_accounting_tools()
     register_repe_write_tools()
     register_operator_tools()
+    register_telemetry_tools()
 
 
 def _make_response(req_id, result=None, error=None):

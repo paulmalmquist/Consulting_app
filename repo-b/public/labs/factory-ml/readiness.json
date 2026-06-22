@@ -1,0 +1,101 @@
+{
+ "anchor_vehicle": "VEH-TR-003",
+ "vehicles": [
+  {
+   "inconclusive_tests": 10,
+   "missing_signoffs": 0,
+   "open_ncrs": 45,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-07-16",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-001",
+   "vehicle_name": "Terran R VEH-TR-001"
+  },
+  {
+   "inconclusive_tests": 5,
+   "missing_signoffs": 0,
+   "open_ncrs": 46,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-08-07",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-002",
+   "vehicle_name": "Terran R VEH-TR-002"
+  },
+  {
+   "inconclusive_tests": 11,
+   "missing_signoffs": 2,
+   "open_ncrs": 43,
+   "readiness_score": 0.58,
+   "scenario_open_ncrs": 4,
+   "status": "yellow",
+   "target_launch_date": "2026-07-11",
+   "unresolved_anomalies": 1,
+   "vehicle_id": "VEH-TR-003",
+   "vehicle_name": "Terran R VEH-TR-003"
+  },
+  {
+   "inconclusive_tests": 10,
+   "missing_signoffs": 0,
+   "open_ncrs": 43,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-08-03",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-004",
+   "vehicle_name": "Terran R VEH-TR-004"
+  },
+  {
+   "inconclusive_tests": 8,
+   "missing_signoffs": 0,
+   "open_ncrs": 46,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-08-03",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-005",
+   "vehicle_name": "Terran R VEH-TR-005"
+  },
+  {
+   "inconclusive_tests": 9,
+   "missing_signoffs": 0,
+   "open_ncrs": 42,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-07-05",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-006",
+   "vehicle_name": "Terran R VEH-TR-006"
+  },
+  {
+   "inconclusive_tests": 9,
+   "missing_signoffs": 0,
+   "open_ncrs": 47,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-09-19",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-007",
+   "vehicle_name": "Terran R VEH-TR-007"
+  },
+  {
+   "inconclusive_tests": 9,
+   "missing_signoffs": 0,
+   "open_ncrs": 36,
+   "readiness_score": 0.93,
+   "scenario_open_ncrs": 0,
+   "status": "green",
+   "target_launch_date": "2026-08-20",
+   "unresolved_anomalies": 0,
+   "vehicle_id": "VEH-TR-008",
+   "vehicle_name": "Terran R VEH-TR-008"
+  }
+ ]
+}

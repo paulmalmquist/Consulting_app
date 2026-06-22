@@ -1,0 +1,81 @@
+{
+  "available": true,
+  "generated_at": "2026-06-09T13:59:15.143657Z",
+  "source": "pytest backend/tests/test_copilot_telemetry.py",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  },
+  "cases": [
+    {
+      "key": "grounded_no_go",
+      "title": "Grounded NO-GO explanation cites the real receipt",
+      "k": "test_get_triggering_prediction_returns_no_go_receipt or test_postvalidate_passes_grounded_prose",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.18s"
+    },
+    {
+      "key": "refusal_proprietary_root_cause",
+      "title": "Proprietary / physical-root-cause questions refused before tools/LLM",
+      "k": "test_phase6_refusals_fire_pre_llm or test_flagship_question_is_not_refused",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.09s"
+    },
+    {
+      "key": "report_evidence_and_disclaimer",
+      "title": "Draft report includes the evidence trail + human-review disclaimer",
+      "k": "test_report_md_contains_required_evidence_trail or test_report_md_includes_human_review_disclaimer",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.09s"
+    },
+    {
+      "key": "fail_closed_missing_input",
+      "title": "Malformed / missing input fails closed (no fabricated answer/report)",
+      "k": "test_draft_report_missing_run_fails_closed or test_get_triggering_prediction_missing_run",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.12s"
+    },
+    {
+      "key": "no_invented_cause_or_disposition",
+      "title": "No invented root cause or safety disposition; ungrounded tokens blocked",
+      "k": "test_report_md_omits_root_cause_and_safety_disposition or test_postvalidate_rejects_fabricated_id",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.08s"
+    },
+    {
+      "key": "usefulness_disposition_records",
+      "title": "A human disposition records its arm + override flag (fail-closed on bad input)",
+      "k": "test_disposition_records_and_flags_override or test_disposition_bad_arm_fails_closed_no_write",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.12s"
+    },
+    {
+      "key": "usefulness_n0_not_measured",
+      "title": "Human-outcome metrics read 'not measured' at N=0; anchors stay real",
+      "k": "test_usefulness_n0_renders_not_measured_but_anchors_present",
+      "status": "pass",
+      "pytest_summary": "1 passed, 29 deselected in 0.11s"
+    },
+    {
+      "key": "usefulness_delta_and_precision",
+      "title": "Time-to-verdict delta needs both arms; override precision scored vs label",
+      "k": "test_usefulness_surfaces_per_arm_measures_and_delta or test_usefulness_delta_blank_when_one_arm_empty",
+      "status": "pass",
+      "pytest_summary": "2 passed, 28 deselected in 0.12s"
+    },
+    {
+      "key": "anchors_from_logs_not_selfreport",
+      "title": "Usefulness anchors come from the audit log, not constants/self-report",
+      "k": "test_usefulness_anchors_come_from_logs_not_constants",
+      "status": "pass",
+      "pytest_summary": "1 passed, 29 deselected in 0.11s"
+    }
+  ],
+  "usefulness": {
+    "status": "not_measured",
+    "assisted_n": 0,
+    "unassisted_n": 0,
+    "note": "Capture apparatus shipped; human-outcome numbers populate from real review sessions (Copilot tab -> 'Record your review'). Deterministic anchors are live now."
+  },
+  "note": "Deterministic structural evals (no live LLM). Live-LLM faithfulness is exercised separately by the production cold smoke recorded in last_smoke.json / PROOF.md."
+}

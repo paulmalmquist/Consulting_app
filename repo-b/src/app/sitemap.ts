@@ -14,6 +14,11 @@ const STATIC_ROUTES = [
   '/services',
   '/what-we-do',
   '/proof',
+  '/ai-roi',
+  '/ai-roi/assessment',
+  '/ai-roi/calculator',
+  '/ai-roi/case-studies',
+  '/ai-roi/resources',
   '/ai-concierge',
   '/cfo',
   '/operational-assessment',
@@ -30,6 +35,7 @@ const INDUSTRY_SLUGS = [
   'consumer-credit',
   'medical',
   'legal',
+  'trades',
 ];
 
 function url(path: string): MetadataRoute.Sitemap[number] {

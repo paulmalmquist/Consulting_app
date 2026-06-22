@@ -102,3 +102,29 @@ export const HAPPYCO_ARTIFACTS: HappyCoArtifact[] = [
     fileName: "predictions.csv",
   },
 ];
+
+export type HappyCoViewBundle = {
+  key: string;
+  title: string;
+  kind: string;
+  description: string;
+  caveat: string;
+  viewHref: string;
+  checkPath: string;
+};
+
+// Synthetic, non-sensitive weather-risk demo outputs are surfaced as an in-app
+// view (not a gated file download). The gated streaming API stays for the
+// private workbook/deck/screenshot artifacts above.
+export const HAPPYCO_VIEW_BUNDLES: HappyCoViewBundle[] = [
+  {
+    key: "weather-risk-bundle",
+    title: "Weather-aware maintenance risk output bundle",
+    kind: "Databricks export",
+    description:
+      "Public NOAA/FEMA weather and hazard signals joined to a synthetic property-operations layer, exported from the modular weather-risk pipeline for the HappyCo sample site.",
+    caveat: "Synthetic property operations data. Not HappyCo production data.",
+    viewHref: "/happyco/weather-risk",
+    checkPath: "public/happyco/weather-risk/latest/run_receipt.json",
+  },
+];

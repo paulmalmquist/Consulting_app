@@ -1,0 +1,885 @@
+{
+  "version": "1.0",
+  "domain": "telemetry",
+  "environment": "telemetry-demo",
+  "reviewed_at": "2026-06-12T00:00:00Z",
+  "nodes": [
+    {
+      "id": "src_nasa_cmapss",
+      "label": "NASA C-MAPSS",
+      "kind": "source",
+      "layer": "source",
+      "description": "Public turbofan run-to-failure data used for remaining-useful-life modeling.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "source_class": "public_nasa_analog",
+        "asset_path": "telemetry-platform/databricks/data/manifest_cmapss.json"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "src_nasa_smap_msl",
+      "label": "NASA/JPL SMAP and MSL",
+      "kind": "source",
+      "layer": "source",
+      "description": "Public channel telemetry and labeled anomaly windows used by the anomaly pipeline.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "source_class": "public_nasa_analog",
+        "asset_path": "telemetry-platform/databricks/data/manifest_smap_msl.json"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "src_nasa_ims",
+      "label": "NASA IMS Bearing Data",
+      "kind": "source",
+      "layer": "source",
+      "description": "Public bearing run-to-failure source retained for vibration feature work.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "source_class": "public_nasa_analog",
+        "asset_path": "telemetry-platform/databricks/data/manifest_ims.json"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "stream_iss_live",
+      "label": "ISS Lightstreamer Feed",
+      "kind": "stream",
+      "layer": "source",
+      "description": "Optional live public ISS telemetry adapter.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "source_class": "public_telemetry",
+        "mode": "optional_live"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "stream_iss_capture",
+      "label": "Recorded ISS Capture",
+      "kind": "stream",
+      "layer": "source",
+      "description": "Committed deterministic capture used as the baseline streaming proof path.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "capture",
+        "source_class": "committed_fixture",
+        "asset_path": "backend/app/data/telemetry/iss_capture.json"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "stream_adsb_fallback",
+      "label": "OpenSky ADS-B Fallback",
+      "kind": "stream",
+      "layer": "source",
+      "description": "Configured public fallback adapter; not the default proof path.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "source_class": "public_fallback",
+        "mode": "fallback_only"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_bronze_cmapss",
+      "label": "bronze_cmapss",
+      "kind": "table",
+      "layer": "bronze",
+      "schema": "novendor_1.telemetry",
+      "object_name": "bronze_cmapss",
+      "description": "Raw C-MAPSS sensor cycles as landed by the committed ingestion job.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/02_bronze_cmapss.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_bronze_smap_msl",
+      "label": "bronze_smap_msl_telemetry",
+      "kind": "table",
+      "layer": "bronze",
+      "schema": "novendor_1.telemetry",
+      "object_name": "bronze_smap_msl_telemetry",
+      "description": "Raw SMAP/MSL channel telemetry as landed by the committed ingestion job.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/03_bronze_smap_msl.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_bronze_ims",
+      "label": "bronze_ims",
+      "kind": "table",
+      "layer": "bronze",
+      "schema": "novendor_1.telemetry",
+      "object_name": "bronze_ims",
+      "description": "IMS bearing archive provenance landed by the committed ingestion job.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/04_bronze_ims.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_stream_bronze",
+      "label": "tel_stream_readings_bronze",
+      "kind": "table",
+      "layer": "bronze",
+      "schema": "public",
+      "object_name": "tel_stream_readings_bronze",
+      "description": "Append-only landing table for configured telemetry stream adapters.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_silver_cmapss",
+      "label": "silver_cmapss",
+      "kind": "table",
+      "layer": "silver",
+      "schema": "novendor_1.telemetry",
+      "object_name": "silver_cmapss",
+      "description": "Typed and ordered C-MAPSS rows with no-look-ahead target handling.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/05_silver.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_silver_smap_msl",
+      "label": "silver_smap_msl",
+      "kind": "table",
+      "layer": "silver",
+      "schema": "novendor_1.telemetry",
+      "object_name": "silver_smap_msl",
+      "description": "Typed and ordered SMAP/MSL telemetry with labels kept separate from features.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/05_silver.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_stream_silver",
+      "label": "tel_stream_readings",
+      "kind": "table",
+      "layer": "silver",
+      "schema": "public",
+      "object_name": "tel_stream_readings",
+      "description": "Conformed and deduplicated streaming readings with quality flags.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_gold_cmapss",
+      "label": "gold_cmapss_features",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "novendor_1.telemetry",
+      "object_name": "gold_cmapss_features",
+      "description": "C-MAPSS rolling features and RUL training frame.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/06_gold.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_gold_smap_msl",
+      "label": "gold_smap_msl_windows",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "novendor_1.telemetry",
+      "object_name": "gold_smap_msl_windows",
+      "description": "Window features and evaluation-only anomaly labels for SMAP/MSL channels.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/06_gold.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_gold_replay_scored",
+      "label": "gold_replay_feed_scored",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "novendor_1.telemetry",
+      "object_name": "gold_replay_feed_scored",
+      "description": "Deterministic replay sequence scored by the promoted anomaly champion.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/11_score_replay_feed.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dbx_gold_fused_vectors",
+      "label": "gold_fused_state_vectors",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "novendor_1.telemetry",
+      "object_name": "gold_fused_state_vectors",
+      "description": "Committed 256-dimensional fused analog state-vector output.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "batch",
+        "availability_reason": "committed_definition_only",
+        "asset_path": "telemetry-platform/databricks/14_fused_state_vector.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_stream_gold",
+      "label": "tel_stream_minute_agg",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "public",
+      "object_name": "tel_stream_minute_agg",
+      "description": "Restatable one-minute stream aggregates with anomaly counts.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_predictions",
+      "label": "tel_predictions",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "public",
+      "object_name": "tel_predictions",
+      "description": "Tenant-scoped scoring receipts and model attribution.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_anomaly_events",
+      "label": "tel_anomaly_events",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "public",
+      "object_name": "tel_anomaly_events",
+      "description": "Model-fired and labeled anomaly windows.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_fused_vectors",
+      "label": "tel_fused_state_vectors",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "public",
+      "object_name": "tel_fused_state_vectors",
+      "description": "Tenant-scoped mirror of the fused state vectors.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_feature_manifest",
+      "label": "tel_feature_manifest",
+      "kind": "table",
+      "layer": "gold",
+      "schema": "public",
+      "object_name": "tel_feature_manifest",
+      "description": "Traceable feature-index manifest for the fused vector.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_test_runs",
+      "label": "tel_test_runs",
+      "kind": "table",
+      "layer": "runtime",
+      "schema": "public",
+      "object_name": "tel_test_runs",
+      "description": "Tenant-scoped inventory of ingested telemetry test runs.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_channels",
+      "label": "tel_telemetry_channels",
+      "kind": "table",
+      "layer": "runtime",
+      "schema": "public",
+      "object_name": "tel_telemetry_channels",
+      "description": "Channel definitions and reviewed engineering redlines.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_model_runs",
+      "label": "tel_model_runs",
+      "kind": "table",
+      "layer": "model",
+      "schema": "public",
+      "object_name": "tel_model_runs",
+      "description": "Mirrored model metadata, metrics, gates, and promotion state.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_drift_metrics",
+      "label": "tel_drift_metrics",
+      "kind": "table",
+      "layer": "metric",
+      "schema": "public",
+      "object_name": "tel_drift_metrics",
+      "description": "Tenant-scoped PSI and rolling anomaly-rate history.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_copilot_interactions",
+      "label": "tel_copilot_interactions",
+      "kind": "table",
+      "layer": "runtime",
+      "schema": "public",
+      "object_name": "tel_copilot_interactions",
+      "description": "Grounded copilot interaction audit records.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_copilot_reports",
+      "label": "tel_copilot_reports",
+      "kind": "table",
+      "layer": "consumer",
+      "schema": "public",
+      "object_name": "tel_copilot_reports",
+      "description": "Grounded draft report receipts requiring human review.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "serving",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_pipeline_status",
+      "label": "tel_pipeline_status",
+      "kind": "table",
+      "layer": "runtime",
+      "schema": "public",
+      "object_name": "tel_pipeline_status",
+      "description": "Fail-closed freshness handshake for stream surfaces.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "pg_dq_assertions",
+      "label": "tel_dq_assertions",
+      "kind": "table",
+      "layer": "runtime",
+      "schema": "public",
+      "object_name": "tel_dq_assertions",
+      "description": "Telemetry data-quality assertion history.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "streaming",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "metric_anomaly_score",
+      "label": "Anomaly Score and Verdict",
+      "kind": "metric",
+      "layer": "metric",
+      "description": "Peak residual relative to the frozen champion threshold and its GO, REVIEW, or NO-GO band.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "derived",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "metric_rul",
+      "label": "Remaining Useful Life",
+      "kind": "metric",
+      "layer": "metric",
+      "description": "Held-out C-MAPSS remaining-useful-life regression output and evaluation metrics.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "derived",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "metric_drift",
+      "label": "PSI and Rolling Anomaly Rate",
+      "kind": "metric",
+      "layer": "metric",
+      "description": "Model drift and recent anomaly-rate monitoring measures.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "derived",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "metric_stream_health",
+      "label": "Stream Freshness and Data Quality",
+      "kind": "metric",
+      "layer": "metric",
+      "description": "Rows per minute, lag, watermark age, freshness, and assertion status.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "derived",
+        "owner": "Telemetry Platform"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "model_anomaly_champion",
+      "label": "tel_anomaly_detector Champion",
+      "kind": "model",
+      "layer": "model",
+      "description": "Promoted rolling-MAD anomaly champion registered by the committed training workflow.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "model",
+        "registry_name": "novendor_1.telemetry.tel_anomaly_detector",
+        "alias": "champion"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "model_rul_champion",
+      "label": "tel_rul_regressor Champion",
+      "kind": "model",
+      "layer": "model",
+      "description": "Promoted C-MAPSS remaining-useful-life regressor.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "model",
+        "registry_name": "novendor_1.telemetry.tel_rul_regressor",
+        "alias": "champion"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "api_telemetry",
+      "label": "Telemetry REST API",
+      "kind": "api",
+      "layer": "runtime",
+      "description": "Read and score endpoints under the existing FastAPI telemetry router.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "api",
+        "paths": [
+          "/api/telemetry/score",
+          "/api/telemetry/runs",
+          "/api/telemetry/monitoring",
+          "/api/telemetry/stream/live",
+          "/api/telemetry/metadata/graph"
+        ],
+        "asset_path": "backend/app/routes/telemetry.py"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dashboard_operations",
+      "label": "Telemetry Operations Console",
+      "kind": "dashboard",
+      "layer": "consumer",
+      "description": "Overview, replay, test-run, monitoring, and mission-control pages.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "dashboard",
+        "route_prefix": "/lab/env/[envId]/telemetry"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dashboard_models",
+      "label": "Model Performance and Registry",
+      "kind": "dashboard",
+      "layer": "consumer",
+      "description": "Read-only model metrics, drift, gates, and lifecycle surfaces.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "dashboard",
+        "routes": [
+          "model-performance",
+          "registry"
+        ]
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dashboard_governance",
+      "label": "AI Governance",
+      "kind": "dashboard",
+      "layer": "consumer",
+      "description": "Grounding, refusal, audit, evaluation, and operator-usefulness measures.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "dashboard",
+        "route": "governance"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "dashboard_metadata",
+      "label": "Metadata Explorer",
+      "kind": "dashboard",
+      "layer": "consumer",
+      "description": "Reviewed telemetry-only catalog and deterministic lineage explorer.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "dashboard",
+        "route": "metadata"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "report_test_anomaly",
+      "label": "Draft Test Anomaly Report",
+      "kind": "report",
+      "layer": "consumer",
+      "description": "Evidence-grounded draft report that always requires human review.",
+      "status": "unknown",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "report",
+        "review_status": "requires_human_review"
+      },
+      "domain": "telemetry"
+    },
+    {
+      "id": "ai_test_intelligence",
+      "label": "Test Intelligence Copilot",
+      "kind": "ai_consumer",
+      "layer": "runtime",
+      "description": "Narrow, allowlisted telemetry assistant over prediction, run, event, and model evidence.",
+      "status": "fresh",
+      "confidence": "explicit",
+      "metadata": {
+        "feed_type": "ai",
+        "route": "copilot"
+      },
+      "domain": "telemetry"
+    },
+    {"id":"dashboard_factory_ml","label":"Factory ML","kind":"dashboard","layer":"consumer","description":"Flight-readiness, model evaluation, feature-importance, and layer-heatmap console backed by committed Factory ML exports.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"dashboard","route":"factory-ml","owner":"RS Factory Analytics","source_references":["repo-b/src/components/telemetry/factory-ml/FactoryMlConsole.tsx","repo-b/public/labs/factory-ml/train_metadata.json"]},"domain":"telemetry"},
+    {"id":"pipeline_stream_etl","label":"Telemetry Stream ETL","kind":"pipeline","layer":"runtime","description":"Incremental bronze-to-silver-to-gold stream processing with watermarks, DQ assertions, and explicit freshness state.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"streaming","schedule":"continuous micro-batches while the worker is running","downstream_tables":["public.tel_stream_readings","public.tel_stream_minute_agg","public.tel_dq_assertions","public.tel_pipeline_status"],"fail_closed_behavior":"Failed assertions or stale ingestion mark the affected surface stale or failed; downstream reads show stale state instead of treating old data as current.","source_references":["backend/app/services/telemetry_stream_etl.py","repo-b/db/schema/10015_telemetry_streaming_slice.sql"]},"domain":"telemetry"},
+
+    {"id":"src_rs_factory_seed","label":"RS Factory Deterministic Seed","kind":"source","layer":"source","description":"Deterministic synthetic aerospace-manufacturing digital thread covering factory master data, test telemetry, QMS, model outputs, and gold read models.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"committed generator","schedule":"operator-triggered deterministic build","frequency":"fixed snapshot through 2026-06-08","fail_closed_behavior":"Determinism, key uniqueness, referential integrity, scenario anchors, and gold reconciliation are test gates.","source_references":["rs_factory_seed/README.md","rs_factory_seed/rs_factory_seed/dataset.py","rs_factory_seed/tests/test_determinism.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_facility","label":"dim_facility","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_facility","description":"Factory, test, launch, and receiving facility dimension.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["facility_id"],"columns":["facility_id","name","kind","location","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g01_master_data.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_work_center","label":"dim_work_center","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_work_center","description":"Manufacturing work-center dimension linked to facilities.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["work_center_id"],"foreign_keys":{"facility_id":"dim_facility.facility_id"},"columns":["work_center_id","name","facility_id","area","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g01_master_data.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_machine","label":"dim_machine","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_machine","description":"Machine dimension containing printers, welders, CNCs, test stands, CMMs, and torque benches without invented subtype dimensions.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["machine_id"],"foreign_keys":{"work_center_id":"dim_work_center.work_center_id"},"columns":["machine_id","machine_type","work_center_id","calibration_due_date","calibration_overdue","drift_onset_date","noisy_channel","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g01_master_data.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_vehicle","label":"dim_vehicle","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_vehicle","description":"Synthetic vehicle dimension used by readiness and test telemetry scenarios.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["vehicle_id"],"columns":["vehicle_id","name","program","build_site","target_launch_date","status_hint","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g01_master_data.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_part","label":"dim_part","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_part","description":"Part master with family and criticality used across the factory digital thread.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["part_id"],"columns":["part_id","part_family","name","criticality","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g01_master_data.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_serialized_item","label":"dim_serialized_item","kind":"table","layer":"source","schema":"rs_factory_seed","object_name":"dim_serialized_item","description":"Serialized hardware linking parts, revisions, and vehicles.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["serial_id"],"foreign_keys":{"part_id":"dim_part.part_id","revision_id":"dim_part_revision.revision_id","vehicle_id":"dim_vehicle.vehicle_id"},"columns":["serial_id","part_id","revision_id","vehicle_id","build_status","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g04_erp_materials.py"]},"domain":"telemetry"},
+    {"id":"rsf_raw_test_runs","label":"raw_test_runs","kind":"table","layer":"bronze","schema":"rs_factory_seed","object_name":"raw_test_runs","description":"Synthetic test-run facts including HOTFIRE, pressure, vibration, and acceptance runs.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id"],"foreign_keys":{"article_id":"raw_test_articles.article_id","test_stand":"dim_machine.machine_id","vehicle_id":"dim_vehicle.vehicle_id"},"columns":["run_id","test_type","article_id","test_stand","vehicle_id","started_date","duration_s","result","pattern","template","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g07_test_telemetry.py"]},"domain":"telemetry"},
+    {"id":"rsf_raw_iot_samples","label":"raw_iot_telemetry_samples","kind":"table","layer":"bronze","schema":"rs_factory_seed","object_name":"raw_iot_telemetry_samples","description":"Full-rate synthetic telemetry samples for the configured subset of factory test runs.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["sample_id"],"foreign_keys":{"run_id":"raw_test_runs.run_id","segment_id":"raw_iot_telemetry_segments.segment_id"},"columns":["sample_id","run_id","segment_id","channel","t_offset_ms","value","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g07_test_telemetry.py"]},"domain":"telemetry"},
+    {"id":"rsf_fact_feature_window","label":"fact_process_feature_window","kind":"table","layer":"silver","schema":"rs_factory_seed","object_name":"fact_process_feature_window","description":"Per-run, channel, and window telemetry features used by anomaly matching and Factory ML.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["feature_window_id"],"foreign_keys":{"run_id":"raw_test_runs.run_id"},"columns":["feature_window_id","run_id","channel","window_index","window_start_ms","window_end_ms","mean","std","rms","slope","peak_to_peak","pattern","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g07_test_telemetry.py"]},"domain":"telemetry"},
+    {"id":"rsf_dim_model_version","label":"dim_model_version","kind":"table","layer":"model","schema":"rs_factory_seed","object_name":"dim_model_version","description":"Deterministic seed registry versions and explicitly synthetic evaluation metadata.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["model_version_id"],"foreign_keys":{"model_id":"dim_model.model_id"},"columns":["model_version_id","model_id","model_key","version","is_champion","stage","primary_metric","primary_metric_value","eval_metrics_json","training_rows","feature_set","validation","model_card_summary","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g10_ai_ml_outputs.py","repo-b/public/labs/factory-ml/model_registry.json"]},"domain":"telemetry"},
+    {"id":"rsf_fact_ml_prediction","label":"fact_ml_prediction","kind":"table","layer":"model","schema":"rs_factory_seed","object_name":"fact_ml_prediction","description":"Explainable deterministic predictions tied to factory entities and decisions.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["prediction_id"],"foreign_keys":{"model_id":"dim_model.model_id","model_version_id":"dim_model_version.model_version_id"},"columns":["prediction_id","model_id","model_version_id","model_key","scored_entity_type","scored_entity_id","score","top_drivers_json","decision_this_informs","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g10_ai_ml_outputs.py"]},"domain":"telemetry"},
+    {"id":"rsf_gold_throughput","label":"gold_factory_throughput_daily","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_factory_throughput_daily","description":"Daily completed operations, late operations, and average cycle time by work center.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["day","work_center_id"],"foreign_keys":{"work_center_id":"dim_work_center.work_center_id"},"columns":["day","work_center_id","completed_operations","late_operations","avg_cycle_time_min","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py"]},"domain":"telemetry"},
+    {"id":"rsf_gold_quality_yield","label":"gold_quality_yield_daily","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_quality_yield_daily","description":"Daily first-pass yield by work center and revision.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["day","work_center_id","revision"],"foreign_keys":{"work_center_id":"dim_work_center.work_center_id"},"columns":["day","work_center_id","revision","first_pass_operations","inspected_operations","first_pass_yield","scenario_id","source_system"],"quality_checks":["first_pass_operations <= inspected_operations"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py","rs_factory_seed/tests/test_g11_gold_dq.py"]},"domain":"telemetry"},
+    {"id":"rsf_gold_readiness","label":"gold_vehicle_launch_readiness","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_vehicle_launch_readiness","description":"Traceable vehicle readiness frame over NCR, test, signoff, and prediction evidence.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["vehicle_id"],"foreign_keys":{"vehicle_id":"dim_vehicle.vehicle_id","readiness_prediction_id":"fact_ml_prediction.prediction_id"},"columns":["vehicle_id","vehicle_name","target_launch_date","status_hint","open_ncr_count","scenario_open_ncr_count","inconclusive_test_count","unresolved_anomaly_count","missing_inspection_signoff_count","readiness_score","readiness_prediction_id","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py","repo-b/public/labs/factory-ml/readiness.json"]},"domain":"telemetry"},
+    {"id":"rsf_gold_supplier_risk","label":"gold_supplier_material_risk","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_supplier_material_risk","description":"Supplier and material-lot exposure, defect rate, and deterministic risk score.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["lot_id"],"foreign_keys":{"supplier_id":"dim_supplier.supplier_id"},"columns":["lot_id","supplier_id","supplier_name","material","serials_exposed","serials_with_ncr","defect_rate","risk_score","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py"]},"domain":"telemetry"},
+    {"id":"rsf_gold_test_anomaly","label":"gold_test_anomaly_review","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_test_anomaly_review","description":"Test-run review frame with limit violations, anomaly score, and nearest historical match.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id"],"foreign_keys":{"run_id":"raw_test_runs.run_id","anomaly_prediction_id":"fact_ml_prediction.prediction_id"},"columns":["run_id","test_type","vehicle_id","result","limit_violation_count","anomaly_score","nearest_match_run","anomaly_prediction_id","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py"]},"domain":"telemetry"},
+    {"id":"rsf_gold_daily_report","label":"gold_daily_factory_report","kind":"table","layer":"gold","schema":"rs_factory_seed","object_name":"gold_daily_factory_report","description":"Daily factory handoff summary with explicit links to throughput, blockers, holds, and test anomalies.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["report_date"],"columns":["report_date","completed_operations","open_blockers","open_quality_holds","material_shortages","test_anomalies","recommended_followups","source_links","scenario_id","source_system"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py"]},"domain":"telemetry"},
+    {"id":"metric_factory_throughput","label":"Factory Daily Throughput","kind":"metric","layer":"metric","description":"Completed factory operations by day and work center.","status":"fresh","confidence":"explicit","metadata":{"definition":"Count of operation executions completed on a given day.","formula":"count(operation where op_status = complete)","owner":"RS Factory Analytics","grain":"day x work_center_id","source_table":"rs_factory_seed.gold_factory_throughput_daily","downstream_consumers":["Factory ML Console","Daily Factory Report"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py"]},"domain":"telemetry"},
+    {"id":"metric_factory_fpy","label":"Factory First-Pass Yield","kind":"metric","layer":"metric","description":"Share of inspected operations whose inspections all passed first time.","status":"fresh","confidence":"explicit","metadata":{"definition":"First-pass operations divided by inspected operations.","formula":"first_pass_operations / inspected_operations","owner":"RS Factory Quality","grain":"day x work_center_id x revision","source_table":"rs_factory_seed.gold_quality_yield_daily","downstream_consumers":["Factory ML Console"],"source_references":["rs_factory_seed/rs_factory_seed/generators/g11_gold_frames.py","rs_factory_seed/rs_factory_seed/sql/create_views.sql"]},"domain":"telemetry"},
+
+    {"id":"pipeline_factory_ml","label":"RS Factory ML Pipeline","kind":"pipeline","layer":"runtime","description":"Operator-triggered load, silver, gold, train, and export workflow for the committed Factory seed.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"batch","schedule":"operator-triggered; ordered load -> silver -> gold -> train -> export","downstream_tables":["novendor_1.rs_factory.silver_layer_features","novendor_1.rs_factory.gold_print_quality_train","novendor_1.rs_factory.gold_feature_importance"],"fail_closed_behavior":"Any failed stage aborts the pipeline; the warehouse stop runs in finally, and no success artifact is exported for a failed stage.","source_references":["skills/rs-factory-ml/run_pipeline.py","skills/rs-factory-ml/SKILL.md"]},"domain":"telemetry"},
+    {"id":"dbx_factory_bronze_samples","label":"bronze_raw_iot_telemetry_samples","kind":"table","layer":"bronze","schema":"novendor_1.rs_factory","object_name":"bronze_raw_iot_telemetry_samples","description":"Factory seed raw telemetry samples loaded into the RS Factory Unity Catalog schema.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["sample_id"],"foreign_keys":{"run_id":"bronze_raw_test_runs.run_id"},"columns":["sample_id","run_id","segment_id","channel","t_offset_ms","value","scenario_id"],"row_count_estimate":2000000,"source_references":["skills/rs-factory-ml/scripts/load_to_databricks.py","repo-b/public/labs/factory-ml/train_metadata.json"]},"domain":"telemetry"},
+    {"id":"dbx_factory_silver_layers","label":"silver_layer_features","kind":"table","layer":"silver","schema":"novendor_1.rs_factory","object_name":"silver_layer_features","description":"Rolling shape features per run, channel, and layer window.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id","channel","window_index"],"foreign_keys":{"run_id":"bronze_raw_test_runs.run_id"},"columns":["run_id","channel","window_index","std","slope","peak_to_peak","rolling_std_4","rolling_slope_4","rolling_p2p_max_4","p2p_drift_from_first","std_drift_from_first","pattern","scenario_id"],"row_count_estimate":500000,"source_references":["skills/rs-factory-ml/notebooks/02_silver_features.py","repo-b/public/labs/factory-ml/train_metadata.json"]},"domain":"telemetry"},
+    {"id":"dbx_factory_silver_agg","label":"silver_print_aggregates","kind":"table","layer":"silver","schema":"novendor_1.rs_factory","object_name":"silver_print_aggregates","description":"Per-run channel feature rollup with late-versus-early drift and limit-violation counts.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id"],"foreign_keys":{"run_id":"bronze_raw_test_runs.run_id"},"columns":["run_id","channel feature aggregates","n_windows","limit_violation_count"],"source_references":["skills/rs-factory-ml/notebooks/02_silver_features.py"]},"domain":"telemetry"},
+    {"id":"dbx_factory_gold_train","label":"gold_print_quality_train","kind":"table","layer":"gold","schema":"novendor_1.rs_factory","object_name":"gold_print_quality_train","description":"One row per test run joining silver telemetry features to QMS outcome targets.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id"],"foreign_keys":{"run_id":"bronze_raw_test_runs.run_id","serial_id":"bronze_dim_serialized_item.serial_id","part_id":"bronze_dim_part.part_id"},"columns":["run_id","test_type","vehicle_id","serial_id","part_id","part_family","criticality","feature columns","min_strength_margin","passed","run_failed","inspection_count","result","pattern","template","scenario_id"],"row_count_estimate":1000,"quality_checks":["more than 100 labeled rows","pattern, template, and result excluded from training features"],"source_references":["skills/rs-factory-ml/notebooks/03_gold_feature_store.py","repo-b/public/labs/factory-ml/train_metadata.json"]},"domain":"telemetry"},
+    {"id":"dbx_factory_gold_heatmap","label":"gold_layer_heatmap","kind":"table","layer":"gold","schema":"novendor_1.rs_factory","object_name":"gold_layer_heatmap","description":"Per-run and layer-window rolling-standard-deviation z-scores for the Factory ML dashboard.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id","window_index"],"foreign_keys":{"run_id":"bronze_raw_test_runs.run_id"},"columns":["run_id","window_index","std_z","pattern","scenario_id"],"source_references":["skills/rs-factory-ml/notebooks/03_gold_feature_store.py","repo-b/public/labs/factory-ml/layer_heatmap.json"]},"domain":"telemetry"},
+    {"id":"dbx_factory_gold_readiness","label":"gold_readiness_summary","kind":"table","layer":"gold","schema":"novendor_1.rs_factory","object_name":"gold_readiness_summary","description":"Vehicle readiness rollup reconciled to the seed gold frame.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["vehicle_id"],"foreign_keys":{"vehicle_id":"bronze_dim_vehicle.vehicle_id"},"columns":["vehicle_id","vehicle_name","target_launch_date","status_hint","readiness_score","open_ncr_count","scenario_open_ncr_count","inconclusive_test_count","unresolved_anomaly_count","missing_inspection_signoff_count","recomputed_open_ncrs"],"quality_checks":["SCN-001 VEH-TR-003 anchor preserved"],"source_references":["skills/rs-factory-ml/notebooks/03_gold_feature_store.py","repo-b/public/labs/factory-ml/readiness.json"]},"domain":"telemetry"},
+    {"id":"dbx_factory_gold_importance","label":"gold_feature_importance","kind":"table","layer":"gold","schema":"novendor_1.rs_factory","object_name":"gold_feature_importance","description":"Committed top feature drivers for strength, pass/fail, and run-failure models.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["run_id","model","rank"],"columns":["run_id","model","method","rank","feature","impact"],"source_references":["skills/rs-factory-ml/notebooks/04_train_print_quality.py","repo-b/public/labs/factory-ml/feature_importance.json"]},"domain":"telemetry"},
+    {"id":"model_factory_strength","label":"rs_print_strength","kind":"model","layer":"model","description":"XGBoost regression model for synthetic tolerance-margin strength proxy.","status":"fresh","confidence":"explicit","metadata":{"model_version":"MLflow run 9c25866d78184746a2a0ae28526009bf; registered version not captured in the export","training_data_window":"RS Factory seed snapshot 2025-10-01 through 2026-06-08","input_tables":["novendor_1.rs_factory.gold_print_quality_train"],"features":["39 numeric and one-hot encoded features; leakage columns excluded"],"output_destination":"novendor_1.rs_factory.rs_print_strength and gold_feature_importance","model_card":"min_strength_margin is a tolerance-margin stand-in; no MPa target exists in the synthetic seed.","eval_metrics":{"mean_ridge_mae":0.541,"mean_xgbreg_mae":0.5365,"mean_xgbreg_r2":-0.1152},"downstream_operational_decision":"Engineering review only; synthetic demo output","source_references":["skills/rs-factory-ml/notebooks/04_train_print_quality.py","repo-b/public/labs/factory-ml/train_metadata.json","repo-b/public/labs/factory-ml/feature_importance.json"]},"domain":"telemetry"},
+    {"id":"model_factory_passfail","label":"rs_print_passfail","kind":"model","layer":"model","description":"Calibrated/XGBoost pass-fail classifier over the committed Factory feature store.","status":"fresh","confidence":"explicit","metadata":{"model_version":"MLflow run 9c25866d78184746a2a0ae28526009bf; registered version not captured in the export","training_data_window":"RS Factory seed snapshot 2025-10-01 through 2026-06-08","input_tables":["novendor_1.rs_factory.gold_print_quality_train"],"features":["39 numeric and one-hot encoded features; leakage columns excluded"],"output_destination":"novendor_1.rs_factory.rs_print_passfail and gold_feature_importance","model_card":"GroupKFold by part_id; passed target is BOOL_AND(first_pass) per serialized item.","eval_metrics":{"mean_lr_auc":0.5274,"mean_xgbclf_auc":0.5148,"mean_xgbclf_pr_auc":0.6265,"mean_xgbclf_brier":0.3136},"downstream_operational_decision":"Quality triage only; synthetic demo output","source_references":["skills/rs-factory-ml/notebooks/04_train_print_quality.py","repo-b/public/labs/factory-ml/feature_importance.json"]},"domain":"telemetry"},
+    {"id":"model_factory_run_failure","label":"rs_run_failure","kind":"model","layer":"model","description":"XGBoost classifier for test-run failure over factory telemetry features.","status":"fresh","confidence":"explicit","metadata":{"model_version":"MLflow run 9c25866d78184746a2a0ae28526009bf; registered version not captured in the export","training_data_window":"RS Factory seed snapshot 2025-10-01 through 2026-06-08","input_tables":["novendor_1.rs_factory.gold_print_quality_train"],"features":["39 numeric and one-hot encoded features; limit_violation_count is the strongest committed driver"],"output_destination":"novendor_1.rs_factory.rs_run_failure and gold_feature_importance","model_card":"GroupKFold by part_id with the test-run verdict as target and leakage columns excluded.","eval_metrics":{"mean_xgbrun_auc":0.9775,"mean_xgbrun_pr_auc":0.8708},"downstream_operational_decision":"Test anomaly review","source_references":["skills/rs-factory-ml/notebooks/04_train_print_quality.py","repo-b/public/labs/factory-ml/feature_importance.json"]},"domain":"telemetry"},
+
+    {"id":"pipeline_ncr_intelligence","label":"Factory NCR Intelligence Pipeline","kind":"pipeline","layer":"runtime","description":"Deterministic NCR corpus, real embedding/clustering run, walk-forward backlog forecast, and scoped Postgres mirror.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"batch","schedule":"operator-triggered ncr_corpus -> ncr_clustering -> ncr_backlog_forecast -> mirror","downstream_tables":["novendor_1.telemetry.ncr_records","novendor_1.telemetry.ncr_points","novendor_1.telemetry.ncr_clusters","novendor_1.telemetry.ncr_backlog_weekly","public.tel_ncr_records","public.tel_ncr_clusters","public.tel_ncr_backlog_weekly"],"fail_closed_behavior":"Notebook failures stop the run; bounded local fallback is explicitly labeled local_fallback and never presented as Databricks provenance.","source_references":["telemetry-platform/databricks/15_run_ncr_pipeline.py","telemetry-platform/databricks/16_mirror_ncr_serving.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"src_ncr_corpus","label":"Synthetic NCR Corpus","kind":"source","layer":"source","description":"Deterministic 16-week synthetic NCR narrative corpus with six engineered defect families and labeled noise records.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"committed generator","schedule":"operator-triggered deterministic generation","frequency":"fixed 16-week window ending 2026-06-08","fail_closed_behavior":"Corpus regeneration is deterministic and import-tested before model execution.","source_references":["telemetry-platform/databricks/notebooks/ncr_corpus.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"dbx_ncr_records","label":"ncr_records","kind":"table","layer":"bronze","schema":"novendor_1.telemetry","object_name":"ncr_records","description":"Synthetic NCR narratives and closure attributes used by the real NCR models.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["ncr_key"],"columns":["ncr_key","defect_family","workcell","severity","summary","opened_at","closed_at","reopened"],"row_count_estimate":128,"source_references":["telemetry-platform/databricks/notebooks/ncr_corpus.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"dbx_ncr_points","label":"ncr_points","kind":"table","layer":"silver","schema":"novendor_1.telemetry","object_name":"ncr_points","description":"Per-NCR UMAP coordinates and HDBSCAN cluster assignment.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["ncr_key"],"foreign_keys":{"ncr_key":"ncr_records.ncr_key"},"columns":["ncr_key","umap_x","umap_y","cluster_id"],"source_references":["telemetry-platform/databricks/notebooks/ncr_clustering.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"dbx_ncr_clusters","label":"ncr_clusters","kind":"table","layer":"gold","schema":"novendor_1.telemetry","object_name":"ncr_clusters","description":"Cluster labels, c-TF-IDF keywords, exemplars, trend, and closure metrics.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["cluster_id"],"columns":["cluster_id","label","keywords","exemplars","n_records","status","slope_per_week","trend","median_ttc_days","reopen_rate","mlflow_run_id"],"source_references":["telemetry-platform/databricks/notebooks/ncr_clustering.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"dbx_ncr_backlog","label":"ncr_backlog_weekly","kind":"table","layer":"gold","schema":"novendor_1.telemetry","object_name":"ncr_backlog_weekly","description":"Weekly NCR history and four-week point forecast with empirical 90 percent band.","status":"fresh","confidence":"explicit","metadata":{"primary_key":["week_start","kind"],"columns":["week_start","kind","opened","closed","backlog","fc","lo","hi","mlflow_run_id"],"source_references":["telemetry-platform/databricks/notebooks/ncr_backlog_forecast.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"pg_ncr_records","label":"tel_ncr_records","kind":"table","layer":"runtime","schema":"public","object_name":"tel_ncr_records","description":"Tenant-scoped serving mirror of NCR corpus rows and clustering coordinates.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"serving","owner":"Telemetry Platform","source_references":["repo-b/db/schema/10016_factory_ncr_intelligence.sql","telemetry-platform/databricks/16_mirror_ncr_serving.py"]},"domain":"telemetry"},
+    {"id":"pg_ncr_clusters","label":"tel_ncr_clusters","kind":"table","layer":"runtime","schema":"public","object_name":"tel_ncr_clusters","description":"Tenant-scoped serving mirror of cluster summaries and model provenance.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"serving","owner":"Telemetry Platform","source_references":["repo-b/db/schema/10016_factory_ncr_intelligence.sql","telemetry-platform/databricks/16_mirror_ncr_serving.py"]},"domain":"telemetry"},
+    {"id":"pg_ncr_backlog","label":"tel_ncr_backlog_weekly","kind":"table","layer":"runtime","schema":"public","object_name":"tel_ncr_backlog_weekly","description":"Tenant-scoped serving mirror of NCR history and forecast rows.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"serving","owner":"Telemetry Platform","source_references":["repo-b/db/schema/10016_factory_ncr_intelligence.sql","telemetry-platform/databricks/16_mirror_ncr_serving.py"]},"domain":"telemetry"},
+    {"id":"model_ncr_cluster","label":"tel_ncr_cluster v1","kind":"model","layer":"model","description":"Sentence-transformer embeddings followed by UMAP, HDBSCAN, and c-TF-IDF cluster summaries.","status":"fresh","confidence":"explicit","metadata":{"model_version":"1; MLflow run 4a3c8afd13af40f8bec489a70e0e81b4","training_data_window":"16 weeks ending 2026-06-08; 128 synthetic NCR narratives","input_tables":["novendor_1.telemetry.ncr_records"],"features":["all-MiniLM-L6-v2 normalized summary embeddings","UMAP 2D cosine projection"],"output_destination":"novendor_1.telemetry.ncr_points, novendor_1.telemetry.ncr_clusters, and public tel_ncr mirrors","model_card":"UMAP n_neighbors=15, min_dist=0.1; HDBSCAN min_cluster_size=6, min_samples=4; c-TF-IDF labels and centroid exemplars.","eval_metrics":{"n_docs":128,"n_clusters":7,"noise_count":7},"downstream_operational_decision":"NCR family triage and trend review","source_references":["telemetry-platform/databricks/notebooks/ncr_clustering.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"model_ncr_forecast","label":"tel_ncr_forecast v1","kind":"model","layer":"model","description":"Declared drift forecast over weekly NCR backlog with strict walk-forward evaluation against naive last value.","status":"fresh","confidence":"explicit","metadata":{"model_version":"1; MLflow run f8fcc38357914edeb7f58f37b244d83f","training_data_window":"16 weekly NCR observations; walk-forward folds over weeks 8 through 15","input_tables":["novendor_1.telemetry.ncr_records"],"features":["weekly opened count","weekly closed count","trailing 8-week mean net flow"],"output_destination":"novendor_1.telemetry.ncr_backlog_weekly and public.tel_ncr_backlog_weekly","model_card":"Forecast equals latest backlog plus horizon times trailing mean net flow; empirical q90 absolute-residual band scales by square root of horizon.","eval_metrics":{"mae":1.234,"mae_naive":1.25,"mape_pct":9.15,"mape_naive_pct":9.06,"skill_vs_naive":0.0125,"backtest_folds":8,"horizon_weeks":4},"downstream_operational_decision":"Four-week NCR backlog staffing review","source_references":["telemetry-platform/databricks/notebooks/ncr_backlog_forecast.py","telemetry-platform/databricks/ncr_pipeline_result.json"]},"domain":"telemetry"},
+    {"id":"metric_ncr_backlog","label":"NCR Backlog Forecast","kind":"metric","layer":"metric","description":"Weekly open NCR backlog with a four-week forecast and empirical uncertainty band.","status":"fresh","confidence":"explicit","metadata":{"definition":"Open NCRs at week end and the declared drift forecast for future weeks.","formula":"backlog[t-1] + horizon * mean(opened - closed over trailing 8 weeks)","owner":"Factory NCR Intelligence","grain":"week_start x history-or-forecast","source_table":["novendor_1.telemetry.ncr_backlog_weekly","public.tel_ncr_backlog_weekly"],"downstream_consumers":["Factory NCR Intelligence"],"source_references":["telemetry-platform/databricks/notebooks/ncr_backlog_forecast.py","backend/app/services/telemetry_factory.py"]},"domain":"telemetry"},
+    {"id":"dashboard_factory_ncr","label":"Factory and NCR Intelligence","kind":"dashboard","layer":"consumer","description":"NCR cluster map, cluster summaries, Pareto view, and backlog forecast.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"dashboard","route":"factory","owner":"Telemetry Platform","source_references":["repo-b/src/components/telemetry/FactoryNcrIntelligence.tsx","backend/app/services/telemetry_factory.py"]},"domain":"telemetry"},
+
+    {"id":"src_stargate_waveforms","label":"RS Factory Stargate Waveforms","kind":"source","layer":"source","description":"Deterministic factory waveform generator mapped into Stargate printer telemetry units.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"simulated telemetry","frequency":"250 messages/second/printer by default","schedule":"continuous while the producer runs","fail_closed_behavior":"Schema Registry serialization occurs before publish; capture mode remains available without Kafka.","source_references":["scripts/streaming/stargate/producer.py","scripts/streaming/stargate/signal_mapping.py","rs_factory_seed/rs_factory_seed/waveforms.py"]},"domain":"telemetry"},
+    {"id":"stream_stargate_telemetry","label":"stargate.printer.telemetry.v1","kind":"stream","layer":"bronze","description":"Six-partition Protobuf Kafka topic for governed printer telemetry.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Kafka Protobuf","frequency":"default approximately 1,000 messages/second across four printers","columns":["printer_id","ts_us","layer","print_job_id","x","y","z","melt_pool_temp_c","deposition_rate_kg_hr","arm_vibration_g"],"schedule":"continuous producer stream","fail_closed_behavior":"Protobuf Schema Registry serialization enforces the wire contract before publish.","source_references":["infra/confluent/proto/stargate_telemetry.proto","infra/confluent/stargate/provision.ps1","scripts/streaming/stargate/producer.py"]},"domain":"telemetry"},
+    {"id":"pipeline_stargate_agg","label":"Stargate 5-Second Aggregation","kind":"pipeline","layer":"runtime","description":"Managed Flink five-second tumbling aggregation per printer, with an explicitly labeled local emulation fallback.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Flink SQL","schedule":"continuous 5-second tumbling windows","downstream_tables":["stargate.printer.telemetry.agg5s.v1"],"fail_closed_behavior":"Managed Flink poison records fail-stop the statement; bridge health labels Flink, local emulation, or capture rather than masking the engine.","source_references":["infra/confluent/stargate/flink/01_agg_5s.sql","scripts/streaming/stargate/signal_mapping.py","scripts/streaming/stargate/bridge.py"]},"domain":"telemetry"},
+    {"id":"stream_stargate_agg","label":"stargate.printer.telemetry.agg5s.v1","kind":"stream","layer":"silver","description":"JSON Schema Registry topic containing five-second per-printer aggregates.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Kafka JSON Registry","frequency":"one row per printer per closed 5-second window","columns":["printer_id","window_start_ms","window_end_ms","avg_temp_c","max_vibration_g","n"],"schedule":"continuous Flink sink","fail_closed_behavior":"No aggregate is emitted for an unclosed window or a stopped Flink statement.","source_references":["infra/confluent/stargate/flink/01_agg_5s.sql","scripts/streaming/stargate/bridge.py"]},"domain":"telemetry"},
+    {"id":"pipeline_stargate_anomaly","label":"Stargate Anomaly Route","kind":"pipeline","layer":"runtime","description":"Managed Flink route for the committed cold-melt-pool plus high-vibration signature.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Flink SQL","schedule":"continuous per telemetry event","downstream_tables":["stargate.printer.anomalies.v1"],"fail_closed_behavior":"Predicate constants are locked to signal_mapping.py by backend tests; poison records stop managed Flink instead of being silently skipped.","source_references":["infra/confluent/stargate/flink/02_anomaly_route.sql","scripts/streaming/stargate/signal_mapping.py","backend/tests/test_stargate_codec.py"]},"domain":"telemetry"},
+    {"id":"stream_stargate_anomalies","label":"stargate.printer.anomalies.v1","kind":"stream","layer":"gold","description":"JSON Schema Registry topic for printer events matching the committed anomaly signature.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Kafka JSON Registry","frequency":"event-driven","columns":["printer_id","ts_us","layer","print_job_id","melt_pool_temp_c","arm_vibration_g"],"schedule":"continuous Flink sink","fail_closed_behavior":"Only records satisfying both committed thresholds are routed.","source_references":["infra/confluent/stargate/flink/02_anomaly_route.sql","scripts/streaming/stargate/common.py"]},"domain":"telemetry"},
+    {"id":"stream_stargate_dlq","label":"stargate.printer.dlq.v1","kind":"stream","layer":"runtime","description":"One-partition, seven-day-retention dead-letter topic for invalid Stargate payloads.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"Kafka dead letter","frequency":"event-driven","schedule":"on decode or planted poison-record failure","fail_closed_behavior":"Invalid capture or broker payloads are surfaced with sanitized reason and size; they are not treated as telemetry.","source_references":["infra/confluent/stargate/provision.ps1","scripts/streaming/stargate/bad_producer.py","scripts/streaming/stargate/bridge.py"]},"domain":"telemetry"},
+    {"id":"stream_stargate_capture","label":"Stargate Replay Capture","kind":"stream","layer":"source","description":"Committed deterministic capture used for broker-free replay and CI, including planted invalid lines for DLQ behavior.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"capture","frequency":"deterministic replay loop","schedule":"capture mode preload plus replay","fail_closed_behavior":"Unparseable or explicitly bad lines route to the bridge DLQ ring and never enter telemetry buffers.","source_references":["scripts/streaming/stargate/fixtures/replay_capture.jsonl","scripts/streaming/stargate/capture_fixture.py","scripts/streaming/stargate/bridge.py"]},"domain":"telemetry"},
+    {"id":"metric_stargate_signature","label":"Stargate Structural-Flaw Signature","kind":"metric","layer":"metric","description":"Committed conjunctive anomaly predicate over melt-pool temperature and arm vibration.","status":"fresh","confidence":"explicit","metadata":{"definition":"Cold melt pool and high arm vibration occurring on the same printer event.","formula":"melt_pool_temp_c < 1400.0 AND arm_vibration_g > 0.08","owner":"Stargate Streaming Lane","grain":"printer telemetry event","source_table":"stargate.printer.telemetry.v1","downstream_consumers":["stargate.printer.anomalies.v1","Stargate Live"],"source_references":["scripts/streaming/stargate/signal_mapping.py","infra/confluent/stargate/flink/02_anomaly_route.sql"]},"domain":"telemetry"},
+    {"id":"api_stargate_bridge","label":"Stargate SSE Bridge","kind":"api","layer":"runtime","description":"Standalone FastAPI bridge exposing stream, snapshot, DLQ, and health endpoints over fixed-size in-memory rings.","status":"unknown","confidence":"explicit","metadata":{"feed_type":"SSE API","paths":["/stargate/stream","/snapshot","/dlq","/health"],"frequency":"coalesced frames every 100 milliseconds","fail_closed_behavior":"Cloud, local-emulation, and capture modes are explicit in health; no Postgres exists in the hot path.","source_references":["scripts/streaming/stargate/bridge.py","scripts/streaming/stargate/README.md"]},"domain":"telemetry"},
+    {"id":"dashboard_stargate","label":"Stargate Live","kind":"dashboard","layer":"consumer","description":"Live printer telemetry, five-second aggregation, anomaly ticker, and dead-letter console.","status":"fresh","confidence":"explicit","metadata":{"feed_type":"dashboard","route":"stargate","owner":"Stargate Streaming Lane","source_references":["repo-b/src/components/telemetry/stargate/StargateConsole.tsx","repo-b/src/lib/lab/stargateStream.ts"]},"domain":"telemetry"}
+  ],
+  "edges": [
+    {"id": "edge_cmapss_source_bronze", "source": "src_nasa_cmapss", "target": "dbx_bronze_cmapss", "relationship": "batch_loaded_from", "confidence": "explicit"},
+    {"id": "edge_smap_source_bronze", "source": "src_nasa_smap_msl", "target": "dbx_bronze_smap_msl", "relationship": "batch_loaded_from", "confidence": "explicit"},
+    {"id": "edge_ims_source_bronze", "source": "src_nasa_ims", "target": "dbx_bronze_ims", "relationship": "batch_loaded_from", "confidence": "explicit"},
+    {"id": "edge_iss_live_bronze", "source": "stream_iss_live", "target": "pg_stream_bronze", "relationship": "streamed_from", "confidence": "explicit"},
+    {"id": "edge_iss_capture_bronze", "source": "stream_iss_capture", "target": "pg_stream_bronze", "relationship": "streamed_from", "confidence": "explicit"},
+    {"id": "edge_adsb_bronze", "source": "stream_adsb_fallback", "target": "pg_stream_bronze", "relationship": "streamed_from", "confidence": "explicit"},
+    {"id": "edge_cmapss_bronze_silver", "source": "dbx_bronze_cmapss", "target": "dbx_silver_cmapss", "relationship": "cleans_to", "confidence": "explicit"},
+    {"id": "edge_smap_bronze_silver", "source": "dbx_bronze_smap_msl", "target": "dbx_silver_smap_msl", "relationship": "cleans_to", "confidence": "explicit"},
+    {"id": "edge_stream_bronze_silver", "source": "pg_stream_bronze", "target": "pg_stream_silver", "relationship": "cleans_to", "confidence": "explicit"},
+    {"id": "edge_cmapss_silver_gold", "source": "dbx_silver_cmapss", "target": "dbx_gold_cmapss", "relationship": "aggregates_to", "confidence": "explicit"},
+    {"id": "edge_smap_silver_gold", "source": "dbx_silver_smap_msl", "target": "dbx_gold_smap_msl", "relationship": "aggregates_to", "confidence": "explicit"},
+    {"id": "edge_stream_silver_gold", "source": "pg_stream_silver", "target": "pg_stream_gold", "relationship": "aggregates_to", "confidence": "explicit"},
+    {"id": "edge_smap_gold_replay", "source": "dbx_gold_smap_msl", "target": "dbx_gold_replay_scored", "relationship": "aggregates_to", "confidence": "explicit"},
+    {"id": "edge_smap_gold_fused", "source": "dbx_gold_smap_msl", "target": "dbx_gold_fused_vectors", "relationship": "aggregates_to", "confidence": "explicit"},
+    {"id": "edge_fused_mirror", "source": "dbx_gold_fused_vectors", "target": "pg_fused_vectors", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_fused_manifest", "source": "dbx_gold_fused_vectors", "target": "pg_feature_manifest", "relationship": "references", "confidence": "explicit"},
+    {"id": "edge_cmapss_model", "source": "dbx_gold_cmapss", "target": "model_rul_champion", "relationship": "feeds_model", "confidence": "explicit"},
+    {"id": "edge_smap_model", "source": "dbx_gold_smap_msl", "target": "model_anomaly_champion", "relationship": "feeds_model", "confidence": "explicit"},
+    {"id": "edge_models_registry_mirror", "source": "pg_model_runs", "target": "dashboard_models", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_anomaly_model_predictions", "source": "model_anomaly_champion", "target": "pg_predictions", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_rul_model_metric", "source": "model_rul_champion", "target": "metric_rul", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_predictions_anomaly_metric", "source": "pg_predictions", "target": "metric_anomaly_score", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_predictions_events", "source": "pg_predictions", "target": "pg_anomaly_events", "relationship": "references", "confidence": "explicit"},
+    {"id": "edge_drift_table_metric", "source": "pg_drift_metrics", "target": "metric_drift", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_stream_gold_health", "source": "pg_stream_gold", "target": "metric_stream_health", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_pipeline_health", "source": "pg_pipeline_status", "target": "metric_stream_health", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_dq_health", "source": "pg_dq_assertions", "target": "metric_stream_health", "relationship": "defines_metric", "confidence": "explicit"},
+    {"id": "edge_stream_dq", "source": "pg_stream_silver", "target": "pg_dq_assertions", "relationship": "quality_checked_by", "confidence": "explicit"},
+    {"id": "edge_runs_channels", "source": "pg_test_runs", "target": "pg_channels", "relationship": "references", "confidence": "explicit"},
+    {"id": "edge_channels_stream", "source": "pg_channels", "target": "pg_stream_silver", "relationship": "references", "confidence": "explicit"},
+    {"id": "edge_predictions_api", "source": "pg_predictions", "target": "api_telemetry", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_runs_api", "source": "pg_test_runs", "target": "api_telemetry", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_stream_api", "source": "pg_stream_gold", "target": "api_telemetry", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_api_operations", "source": "api_telemetry", "target": "dashboard_operations", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_anomaly_operations", "source": "metric_anomaly_score", "target": "dashboard_operations", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_drift_operations", "source": "metric_drift", "target": "dashboard_operations", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_stream_operations", "source": "metric_stream_health", "target": "dashboard_operations", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_rul_models", "source": "metric_rul", "target": "dashboard_models", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_predictions_ai", "source": "pg_predictions", "target": "ai_test_intelligence", "relationship": "used_by_ai", "confidence": "explicit"},
+    {"id": "edge_runs_ai", "source": "pg_test_runs", "target": "ai_test_intelligence", "relationship": "used_by_ai", "confidence": "explicit"},
+    {"id": "edge_events_ai", "source": "pg_anomaly_events", "target": "ai_test_intelligence", "relationship": "used_by_ai", "confidence": "explicit"},
+    {"id": "edge_models_ai", "source": "pg_model_runs", "target": "ai_test_intelligence", "relationship": "used_by_ai", "confidence": "explicit"},
+    {"id": "edge_ai_audit", "source": "ai_test_intelligence", "target": "pg_copilot_interactions", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_ai_report", "source": "ai_test_intelligence", "target": "report_test_anomaly", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_report_store", "source": "report_test_anomaly", "target": "pg_copilot_reports", "relationship": "exports_to", "confidence": "explicit"},
+    {"id": "edge_audit_governance", "source": "pg_copilot_interactions", "target": "dashboard_governance", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_reports_governance", "source": "pg_copilot_reports", "target": "dashboard_governance", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_catalog_metadata", "source": "api_telemetry", "target": "dashboard_metadata", "relationship": "feeds_dashboard", "confidence": "explicit"},
+    {"id": "edge_replay_metric_inferred", "source": "dbx_gold_replay_scored", "target": "metric_anomaly_score", "relationship": "defines_metric", "confidence": "inferred", "description": "The replay metric lineage is inferred from the committed scoring and fixture-export jobs."},
+    {"id":"edge_replay_serving_runs","source":"dbx_gold_replay_scored","target":"pg_test_runs","relationship":"exports_to","confidence":"inferred","description":"The serving-run mirror is inferred from the committed replay export and serving schema."},
+    {"id":"edge_anomaly_registry","source":"model_anomaly_champion","target":"pg_model_runs","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_rul_registry","source":"model_rul_champion","target":"pg_model_runs","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_predictions_drift","source":"pg_predictions","target":"pg_drift_metrics","relationship":"references","confidence":"explicit"},
+    {"id":"edge_stream_etl_input","source":"pg_stream_bronze","target":"pipeline_stream_etl","relationship":"references","confidence":"explicit"},
+    {"id":"edge_stream_etl_silver","source":"pipeline_stream_etl","target":"pg_stream_silver","relationship":"cleans_to","confidence":"explicit"},
+    {"id":"edge_stream_etl_gold","source":"pipeline_stream_etl","target":"pg_stream_gold","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_stream_etl_status","source":"pipeline_stream_etl","target":"pg_pipeline_status","relationship":"exports_to","confidence":"explicit"},
+
+    {"id":"edge_factory_seed_facility","source":"src_rs_factory_seed","target":"rsf_dim_facility","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_facility_work_center","source":"rsf_dim_facility","target":"rsf_dim_work_center","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_work_center_machine","source":"rsf_dim_work_center","target":"rsf_dim_machine","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_seed_vehicle","source":"src_rs_factory_seed","target":"rsf_dim_vehicle","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_seed_part","source":"src_rs_factory_seed","target":"rsf_dim_part","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_part_serial","source":"rsf_dim_part","target":"rsf_dim_serialized_item","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_vehicle_serial","source":"rsf_dim_vehicle","target":"rsf_dim_serialized_item","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_seed_runs","source":"src_rs_factory_seed","target":"rsf_raw_test_runs","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_machine_runs","source":"rsf_dim_machine","target":"rsf_raw_test_runs","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_vehicle_runs","source":"rsf_dim_vehicle","target":"rsf_raw_test_runs","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_runs_samples","source":"rsf_raw_test_runs","target":"rsf_raw_iot_samples","relationship":"ingests_to","confidence":"explicit"},
+    {"id":"edge_factory_samples_features","source":"rsf_raw_iot_samples","target":"rsf_fact_feature_window","relationship":"cleans_to","confidence":"explicit"},
+    {"id":"edge_factory_seed_model_version","source":"src_rs_factory_seed","target":"rsf_dim_model_version","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_features_predictions","source":"rsf_fact_feature_window","target":"rsf_fact_ml_prediction","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_factory_version_predictions","source":"rsf_dim_model_version","target":"rsf_fact_ml_prediction","relationship":"references","confidence":"explicit"},
+    {"id":"edge_factory_work_center_throughput","source":"rsf_dim_work_center","target":"rsf_gold_throughput","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_work_center_quality","source":"rsf_dim_work_center","target":"rsf_gold_quality_yield","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_vehicle_readiness","source":"rsf_dim_vehicle","target":"rsf_gold_readiness","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_prediction_readiness","source":"rsf_fact_ml_prediction","target":"rsf_gold_readiness","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_serial_supplier","source":"rsf_dim_serialized_item","target":"rsf_gold_supplier_risk","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_runs_anomaly","source":"rsf_raw_test_runs","target":"rsf_gold_test_anomaly","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_prediction_anomaly","source":"rsf_fact_ml_prediction","target":"rsf_gold_test_anomaly","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_throughput_report","source":"rsf_gold_throughput","target":"rsf_gold_daily_report","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_quality_report","source":"rsf_gold_quality_yield","target":"rsf_gold_daily_report","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_readiness_report","source":"rsf_gold_readiness","target":"rsf_gold_daily_report","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_supplier_report","source":"rsf_gold_supplier_risk","target":"rsf_gold_daily_report","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_anomaly_report","source":"rsf_gold_test_anomaly","target":"rsf_gold_daily_report","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_throughput_metric","source":"rsf_gold_throughput","target":"metric_factory_throughput","relationship":"defines_metric","confidence":"explicit"},
+    {"id":"edge_factory_quality_metric","source":"rsf_gold_quality_yield","target":"metric_factory_fpy","relationship":"defines_metric","confidence":"explicit"},
+    {"id":"edge_factory_metric_throughput_dashboard","source":"metric_factory_throughput","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_factory_metric_quality_dashboard","source":"metric_factory_fpy","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_factory_report_dashboard","source":"rsf_gold_daily_report","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+
+    {"id":"edge_factory_seed_pipeline","source":"src_rs_factory_seed","target":"pipeline_factory_ml","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_factory_pipeline_bronze","source":"pipeline_factory_ml","target":"dbx_factory_bronze_samples","relationship":"ingests_to","confidence":"explicit"},
+    {"id":"edge_factory_bronze_silver_layers","source":"dbx_factory_bronze_samples","target":"dbx_factory_silver_layers","relationship":"cleans_to","confidence":"explicit"},
+    {"id":"edge_factory_silver_layers_agg","source":"dbx_factory_silver_layers","target":"dbx_factory_silver_agg","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_silver_gold_train","source":"dbx_factory_silver_agg","target":"dbx_factory_gold_train","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_silver_heatmap","source":"dbx_factory_silver_layers","target":"dbx_factory_gold_heatmap","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_factory_gold_strength_model","source":"dbx_factory_gold_train","target":"model_factory_strength","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_factory_gold_passfail_model","source":"dbx_factory_gold_train","target":"model_factory_passfail","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_factory_gold_failure_model","source":"dbx_factory_gold_train","target":"model_factory_run_failure","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_factory_strength_importance","source":"model_factory_strength","target":"dbx_factory_gold_importance","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_factory_passfail_importance","source":"model_factory_passfail","target":"dbx_factory_gold_importance","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_factory_failure_importance","source":"model_factory_run_failure","target":"dbx_factory_gold_importance","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_factory_gold_readiness_dashboard","source":"dbx_factory_gold_readiness","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_factory_gold_heatmap_dashboard","source":"dbx_factory_gold_heatmap","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_factory_gold_importance_dashboard","source":"dbx_factory_gold_importance","target":"dashboard_factory_ml","relationship":"feeds_dashboard","confidence":"explicit"},
+
+    {"id":"edge_ncr_source_pipeline","source":"src_ncr_corpus","target":"pipeline_ncr_intelligence","relationship":"batch_loaded_from","confidence":"explicit"},
+    {"id":"edge_ncr_pipeline_records","source":"pipeline_ncr_intelligence","target":"dbx_ncr_records","relationship":"ingests_to","confidence":"explicit"},
+    {"id":"edge_ncr_records_points","source":"dbx_ncr_records","target":"dbx_ncr_points","relationship":"cleans_to","confidence":"explicit"},
+    {"id":"edge_ncr_records_cluster_model","source":"dbx_ncr_records","target":"model_ncr_cluster","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_ncr_model_points","source":"model_ncr_cluster","target":"dbx_ncr_points","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_ncr_points_clusters","source":"dbx_ncr_points","target":"dbx_ncr_clusters","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_ncr_records_forecast_model","source":"dbx_ncr_records","target":"model_ncr_forecast","relationship":"feeds_model","confidence":"explicit"},
+    {"id":"edge_ncr_forecast_backlog","source":"model_ncr_forecast","target":"dbx_ncr_backlog","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_ncr_records_mirror","source":"dbx_ncr_records","target":"pg_ncr_records","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_ncr_clusters_mirror","source":"dbx_ncr_clusters","target":"pg_ncr_clusters","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_ncr_backlog_mirror","source":"dbx_ncr_backlog","target":"pg_ncr_backlog","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_ncr_backlog_metric","source":"pg_ncr_backlog","target":"metric_ncr_backlog","relationship":"defines_metric","confidence":"explicit"},
+    {"id":"edge_ncr_records_dashboard","source":"pg_ncr_records","target":"dashboard_factory_ncr","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_ncr_clusters_dashboard","source":"pg_ncr_clusters","target":"dashboard_factory_ncr","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_ncr_metric_dashboard","source":"metric_ncr_backlog","target":"dashboard_factory_ncr","relationship":"feeds_dashboard","confidence":"explicit"},
+
+    {"id":"edge_stargate_waveforms_topic","source":"src_stargate_waveforms","target":"stream_stargate_telemetry","relationship":"streamed_from","confidence":"explicit"},
+    {"id":"edge_stargate_capture_bridge","source":"stream_stargate_capture","target":"api_stargate_bridge","relationship":"streamed_from","confidence":"explicit"},
+    {"id":"edge_stargate_topic_agg_pipeline","source":"stream_stargate_telemetry","target":"pipeline_stargate_agg","relationship":"references","confidence":"explicit"},
+    {"id":"edge_stargate_agg_pipeline_topic","source":"pipeline_stargate_agg","target":"stream_stargate_agg","relationship":"aggregates_to","confidence":"explicit"},
+    {"id":"edge_stargate_topic_anomaly_pipeline","source":"stream_stargate_telemetry","target":"pipeline_stargate_anomaly","relationship":"references","confidence":"explicit"},
+    {"id":"edge_stargate_anomaly_pipeline_topic","source":"pipeline_stargate_anomaly","target":"stream_stargate_anomalies","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_stargate_topic_dlq","source":"stream_stargate_telemetry","target":"stream_stargate_dlq","relationship":"quarantines_to","confidence":"explicit"},
+    {"id":"edge_stargate_anomalies_metric","source":"stream_stargate_anomalies","target":"metric_stargate_signature","relationship":"defines_metric","confidence":"explicit"},
+    {"id":"edge_stargate_topic_bridge","source":"stream_stargate_telemetry","target":"api_stargate_bridge","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_stargate_agg_bridge","source":"stream_stargate_agg","target":"api_stargate_bridge","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_stargate_anomaly_bridge","source":"stream_stargate_anomalies","target":"api_stargate_bridge","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_stargate_dlq_bridge","source":"stream_stargate_dlq","target":"api_stargate_bridge","relationship":"exports_to","confidence":"explicit"},
+    {"id":"edge_stargate_bridge_dashboard","source":"api_stargate_bridge","target":"dashboard_stargate","relationship":"feeds_dashboard","confidence":"explicit"},
+    {"id":"edge_stargate_metric_dashboard","source":"metric_stargate_signature","target":"dashboard_stargate","relationship":"feeds_dashboard","confidence":"explicit"}
+  ]
+}

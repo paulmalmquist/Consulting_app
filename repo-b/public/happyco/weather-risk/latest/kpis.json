@@ -1,0 +1,15 @@
+{
+  "properties_analyzed": 250,
+  "units_analyzed": 25000,
+  "markets_analyzed": 8,
+  "high_risk_properties": 250,
+  "high_risk_threshold": 0.7,
+  "predicted_maintenance_surge_rate": 1.0,
+  "best_model": "local_contract_weather_ops_baseline",
+  "model_metric_name": "synthetic_top_decile_capture_rate",
+  "model_metric_value": 0.72,
+  "model_metric_honesty_warning": "Local contract metric is a synthetic validation signal, not expected production performance.",
+  "disclaimer": "Synthetic property-operations layer modeled after multifamily inspection/work-order workflows, enriched with real NOAA/FEMA public hazard data. Not HappyCo production data.",
+  "validation_status": "passed",
+  "mlflow_status": "not_available_local_fallback"
+}

@@ -1,0 +1,25 @@
+from rs_factory_seed import ids
+
+
+def test_stable_id_formats():
+    assert ids.vehicle(3) == "VEH-TR-003"
+    assert ids.part("ENG-VALVE", 14) == "PART-ENG-VALVE-014"
+    assert ids.revision("PART-ENG-VALVE-014", "C") == "PART-ENG-VALVE-014-REV-C"
+    assert ids.serial("VALVE-014", 392) == "SN-VALVE-014-000392"
+    assert ids.work_order(2026, 4829) == "WO-2026-004829"
+    assert ids.operation(2026, 93012) == "OPX-2026-093012"
+    assert ids.ncr(2026, 442) == "NCR-2026-000442"
+    assert ids.test_run("HOTFIRE", 2026, 88) == "TEST-HOTFIRE-2026-00088"
+    assert ids.material_lot(8821) == "ML-8821"
+    assert ids.machine("WLD", 7) == "WLD-07"
+    assert ids.jira(1842) == "MFG-1842"
+    assert ids.labor_event(7) == "LBR-000007"
+    assert ids.machine_assignment(7) == "MA-000007"
+    assert ids.hold_event(7) == "HLD-00007"
+    assert ids.jira_history(12) == "JH-000012"
+    assert ids.jira_link(12) == "JL-000012"
+    assert ids.blocker(12) == "BLK-00012"
+    assert ids.document(12) == "DOC-00012"
+    assert ids.document_chunk(12) == "CHUNK-000012"
+    assert ids.document_entity_link(12) == "DEL-000012"
+    assert ids.document_revision(12) == "DREV-00012"

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Archive, CheckCircle2, LockKeyhole } from "lucide-react";
 import { HAPPYCO_COOKIE_NAME } from "@/lib/happyco/proof";
-import { HAPPYCO_ARTIFACTS } from "@/lib/happyco/artifacts";
+import { HAPPYCO_ARTIFACTS, HAPPYCO_VIEW_BUNDLES } from "@/lib/happyco/artifacts";
 
 function artifactExists(relativePath: string) {
   return fs.existsSync(path.resolve(process.cwd(), relativePath));
@@ -36,6 +36,7 @@ export default function HappyCoArtifactsPage() {
   if (!unlocked) return <LockedArtifacts />;
 
   const rows = HAPPYCO_ARTIFACTS.map((artifact) => ({ ...artifact, available: artifactExists(artifact.relativePath) }));
+  const viewBundles = HAPPYCO_VIEW_BUNDLES.map((bundle) => ({ ...bundle, available: artifactExists(bundle.checkPath) }));
 
   return (
     <main className="min-h-screen bg-[#FBFAF7] text-[#241437]">
@@ -55,6 +56,25 @@ export default function HappyCoArtifactsPage() {
             </div>
           </div>
         </div>
+
+        {viewBundles.map((bundle) => (
+          <section key={bundle.key} className="mt-6 rounded-[28px] border border-[#B9EFD8] bg-gradient-to-br from-[#E8FFF5] to-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${bundle.available ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>
+                  {bundle.available ? "Available" : "Not available"}
+                </span>
+                <h2 className="mt-3 text-2xl font-black text-[#35146B]">{bundle.title}</h2>
+                <div className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">{bundle.kind}</div>
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#4D426A]">{bundle.description}</p>
+                <div className="mt-3 rounded-2xl bg-white/70 p-3 text-xs font-bold leading-5 text-[#6F6590]">{bundle.caveat}</div>
+              </div>
+              <Link href={bundle.viewHref} className="rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white hover:bg-[#5430C0]">
+                View weather-risk intelligence
+              </Link>
+            </div>
+          </section>
+        ))}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((artifact) => (

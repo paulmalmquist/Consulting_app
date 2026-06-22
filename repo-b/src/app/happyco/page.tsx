@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import {
-  BarChart3,
   Bot,
-  Boxes,
   BrainCircuit,
   CheckCircle2,
+  ClipboardList,
   FileSpreadsheet,
-  GitBranch,
+  Layers,
   LockKeyhole,
   Mail,
   Network,
   Presentation,
   ShieldCheck,
 } from "lucide-react";
+import { HAPPYCO_AUTOMATION_ROWS, HAPPYCO_DATABRICKS_RECEIPT } from "@/lib/happyco/proof";
 
 const COOKIE_NAME = "happyco_demo_access";
 
@@ -22,9 +22,6 @@ type PageProps = {
     error?: string;
   };
 };
-
-const demoEnvId = process.env.NEXT_PUBLIC_HAPPYCO_DEMO_ENV_ID || "happyco-demo";
-const operatorDemoHref = `/lab/env/${demoEnvId}/operator/property-ops-intelligence`;
 
 function StatusPill({ children, tone = "ready" }: { children: React.ReactNode; tone?: "ready" | "planned" | "locked" }) {
   const cls =
@@ -36,8 +33,8 @@ function StatusPill({ children, tone = "ready" }: { children: React.ReactNode; t
   return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${cls}`}>{children}</span>;
 }
 
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-[28px] border border-[#DDD8EA] bg-white shadow-sm ${className}`}>{children}</section>;
+function Card({ children, className = "", id }: { children: React.ReactNode; className?: string; id?: string }) {
+  return <section id={id} className={`rounded-[28px] border border-[#DDD8EA] bg-white shadow-sm ${className}`}>{children}</section>;
 }
 
 function PublicGate({ invalid }: { invalid: boolean }) {
@@ -54,8 +51,9 @@ function PublicGate({ invalid }: { invalid: boolean }) {
               Property Ops Intelligence for a modern data platform.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-[#4D426A]">
-              A role-specific Head of Data proof package showing canonical property data, graph architecture,
-              benchmarking, ML risk modeling, AI recommendations, and controlled artifact automation.
+              A private proof-of-work package showing how my AI/data operating stack maps onto a
+              HappyCo-style Head of Data challenge: canonical data, graph architecture, benchmarking,
+              ML risk modeling, AI recommendations, and controlled artifact automation.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <StatusPill tone="locked">HappyCo-specific content locked</StatusPill>
@@ -98,115 +96,111 @@ function PublicGate({ invalid }: { invalid: boolean }) {
   );
 }
 
-function GatedPackage() {
-  const databricksReceipt = {
-    title: "Weather-aware maintenance risk Databricks run",
-    jobId: "172758362681895",
-    runId: "924781458483845",
-    data: "public weather + synthetic property operations",
-    output: "predictions, metrics, MLflow run metadata, validated receipt",
-    claim: "Databricks ML training run executed on public weather and synthetic property operations data.",
-    caveat: "Not HappyCo production data; not a production model; no serving endpoint.",
-  };
+// Six cards describing the underlying operating stack. The HappyCo-specific
+// proof package is the applied case, not the stack itself.
+const STACK_OVERLAP = [
+  {
+    icon: ClipboardList,
+    title: "ADO intake + sequenced PRs",
+    body: "Azure DevOps work-item intake, Epic → Feature → Story → Task, and scoped session briefs feed every change.",
+  },
+  {
+    icon: Bot,
+    title: "Codex + Claude execution",
+    body: "Multi-PR planning with plan-review gates; AI agents execute scoped tickets and leave receipts, not free-form output.",
+  },
+  {
+    icon: Network,
+    title: "FastAPI operator APIs",
+    body: "Canonical entity, graph, benchmark, recommendation, and ML-risk endpoints with caveat metadata on every response.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "Databricks weather-risk ML",
+    body: "Modular weather-risk package, MLflow metrics, run receipts; live runs replace local-fallback bundles when auth permits.",
+  },
+  {
+    icon: Layers,
+    title: "Next.js proof surfaces",
+    body: "Invite-gated /happyco package: demo client, weather-risk intelligence page, artifact hub — all behind the same cookie.",
+  },
+  {
+    icon: FileSpreadsheet,
+    title: "Excel + PowerPoint + Outlook automation",
+    body: "Same canonical data becomes a workbook, a deck, and a draft-only follow-up workflow template through generators.",
+  },
+];
 
-  const automationRows = [
-    {
-      trigger: "recruiter/job context",
-      tool: "HappyCo prompt stack + Codex planning",
-      output: "role-specific proof scope and active implementation plan",
-      control: "human-approved scope; no private recruiter content committed",
-    },
-    {
-      trigger: "deterministic data fixture",
-      tool: "canonical fixture generator + operator service",
-      output: "property, unit, inspection, work-order, vendor, benchmark, and recommendation spine",
-      control: "synthetic data only; API payloads carry demo metadata and caveats",
-    },
-    {
-      trigger: "weather/property risk feature pipeline",
-      tool: "Databricks bundle/job",
-      output: "maintenance-risk predictions + MLflow metrics + run receipt",
-      control: "public weather + synthetic ops only; receipt-backed claim; no production serving endpoint",
-    },
-    {
-      trigger: "operator APIs",
-      tool: "FastAPI operator routes",
-      output: "entities, graph, benchmarks, recommendations, and ML-risk JSON",
-      control: "demo_mode/data_source/caveat fields on product-facing responses",
-    },
-    {
-      trigger: "artifact package",
-      tool: "Excel, PowerPoint, and architecture generators",
-      output: "workbook, strategy deck, and architecture diagram",
-      control: "local artifacts only; no public downloads from this route",
-    },
-    {
-      trigger: "Outlook follow-up workflow",
-      tool: "WinCOM params templates",
-      output: "draft-only recruiter follow-up workflow template",
-      control: "no send without explicit local confirmation",
-    },
-    {
-      trigger: "gated deployment",
-      tool: "Next.js invite-code route + deployment env vars",
-      output: "private proof package at /happyco",
-      control: "invite-gated access; invite code remains server-side",
-    },
-  ];
+// Three columns: my stack on the left, the translation lens in the middle,
+// HappyCo's applied relevance on the right. Six rows that mirror STACK_OVERLAP.
+const RELEVANCE_MAP: Array<[string, string, string]> = [
+  [
+    "ADO intake + sequenced PRs",
+    "Multi-stakeholder delivery discipline with a paper trail",
+    "Data-team backlog, sequenced ML/data work against HappyCo property goals",
+  ],
+  [
+    "Codex + Claude multi-PR planning",
+    "Plan-then-execute with human gates and AI execution",
+    "Head of Data scoping AI-assisted analytics + data-product work without losing the plot",
+  ],
+  [
+    "FastAPI canonical APIs",
+    "Source-of-truth product surfaces for entities and analytics",
+    "Property / unit / inspection / work-order canonical layer behind HappyCo product features",
+  ],
+  [
+    "Databricks weather-risk ML",
+    "Public + synthetic data joined into operational signals",
+    "Maintenance-risk, make-ready, vendor-performance ML on real HappyCo property ops data",
+  ],
+  [
+    "Next.js gated proof surfaces",
+    "Stakeholder-ready evidence dashboards behind invite cookies",
+    "Internal HappyCo operator dashboards and customer-facing analytics views",
+  ],
+  [
+    "Excel / PowerPoint / Outlook automation",
+    "Same data turns into operator-ready artifacts on demand",
+    "Customer reports, executive decks, and owner/operator follow-up from one source",
+  ],
+];
+
+function GatedPackage() {
+  const databricksReceipt = HAPPYCO_DATABRICKS_RECEIPT;
+  const automationRows = HAPPYCO_AUTOMATION_ROWS;
 
   const artifacts = [
     {
       icon: FileSpreadsheet,
       title: "Excel workbook",
-      status: "Generated local artifact",
+      status: "Available in local proof package",
       body: "HappyCo_Property_Ops_Model.xlsx with canonical entities, benchmarks, work-order aging, vendor performance, AI recommendations, ML features, predictions, and model metrics.",
     },
     {
       icon: Presentation,
       title: "PowerPoint deck",
-      status: "Generated local artifact",
+      status: "Available in local proof package",
       body: "HappyCo_90_Day_Data_Strategy.pptx with the 90-day strategy, architecture diagram, ML proof, risks, controls, and artifact package story.",
     },
     {
       icon: Mail,
       title: "Outlook workflow",
-      status: "Draft templates ready",
-      body: "Parameter-driven WinCOM draft flow templates. Draft-only by default. No private recruiter content is stored in the repository.",
+      status: "Available in local proof package",
+      body: "Parameter-driven WinCOM draft-flow templates. Draft-only by default. No sensitive private content is stored in the repository.",
     },
     {
       icon: Network,
-      title: "Microsite/package",
+      title: "Microsite / package",
       status: "Gated page ready",
       body: "This route is invite-code gated. The artifact hub lists local/private outputs and streams only server-available files through an allowlisted gated API.",
-    },
-  ];
-
-  const proof = [
-    {
-      icon: Boxes,
-      title: "Canonical model",
-      body: "Operator, property, building, unit, inspection, finding, work order, vendor, resolution, resident-impact, and messy source records.",
-    },
-    {
-      icon: GitBranch,
-      title: "Property graph",
-      body: "Relationships connect properties to units, findings, work orders, vendors, resolution events, and resident-impact signals.",
-    },
-    {
-      icon: BarChart3,
-      title: "Benchmarks",
-      body: "Parkline Commons is intentionally above peer median for repeat HVAC work orders with reopen and vendor evidence.",
-    },
-    {
-      icon: BrainCircuit,
-      title: "ML proof",
-      body: "Receipt-backed Databricks run on public weather and synthetic property operations data, plus local logistic model fallback, feature table, predictions, feature importance, model card, and registry record.",
     },
   ];
 
   return (
     <main className="min-h-screen bg-[#FBFAF7] text-[#241437]">
       <section className="mx-auto max-w-[1600px] px-5 pb-12 pt-8 xl:px-8">
+        {/* 1. Hero */}
         <div className="rounded-[34px] border border-[#DDD8EA] bg-[#C6F4DF] p-7 lg:p-9">
           <div className="flex flex-wrap items-center justify-between gap-5">
             <div>
@@ -215,12 +209,20 @@ function GatedPackage() {
                 Property Ops Intelligence Kit
               </h1>
               <p className="mt-4 max-w-4xl text-base leading-7 text-[#241437]">
-                A private proof-of-work, synthetic-data proof package, and receipt-backed automation package for a Head of Data role spanning strategy, hands-on architecture prototype, canonical modeling, graph APIs, benchmark analytics, Databricks ML workflows, AI recommendations, Excel, PowerPoint, and Outlook automation.
+                A private proof-of-work package showing how my current AI/data operating stack maps onto a
+                HappyCo-style Head of Data challenge. The stack — ADO intake, AI-assisted multi-PR delivery,
+                a modular Databricks ML pipeline, FastAPI / Next.js product surfaces, artifact generation,
+                gated deployment, and receipts — is the durable thing; HappyCo is the applied case.
+              </p>
+              <p className="mt-3 max-w-4xl rounded-2xl border border-[#35146B]/15 bg-white/60 p-4 text-sm font-semibold leading-6 text-[#35146B]">
+                This is not HappyCo production data. The property-ops layer is synthetic, but the workflow
+                is real: ADO intake, AI-assisted delivery, a modular Databricks ML pipeline, FastAPI / Next.js
+                product surfaces, generated artifacts, gated deployment, and receipts.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
-                href={operatorDemoHref}
+                href="/happyco/demo"
                 className="rounded-2xl bg-[#35146B] px-5 py-3 text-sm font-black text-white transition hover:bg-[#5430C0]"
               >
                 Open HappyCo demo
@@ -232,119 +234,80 @@ function GatedPackage() {
                 View artifacts
               </Link>
               <Link
-                href="/happyco/demo"
+                href="/happyco/weather-risk"
+                className="rounded-2xl border border-[#35146B]/20 bg-white px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-[#F5F1FF]"
+              >
+                Weather-risk intelligence
+              </Link>
+              <Link
+                href="#automation-control-room"
                 className="rounded-2xl border border-[#35146B]/20 bg-[#FBFAF7] px-5 py-3 text-sm font-black text-[#35146B] transition hover:bg-white"
               >
-                Open gated demo copy
+                View automation receipts
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <Card className="p-5">
-            <StatusPill>Ready</StatusPill>
-            <div className="mt-3 text-2xl font-black text-[#35146B]">Fixture spine</div>
-            <p className="mt-2 text-sm leading-6 text-[#6F6590]">Deterministic synthetic property operations data.</p>
-          </Card>
-          <Card className="p-5">
-            <StatusPill>Ready</StatusPill>
-            <div className="mt-3 text-2xl font-black text-[#35146B]">ML artifacts</div>
-            <p className="mt-2 text-sm leading-6 text-[#6F6590]">
-              Local fallback trained; Databricks runs completed with receipt-backed caveats, including the weather-aware
-              maintenance risk proof.
-            </p>
-          </Card>
-          <Card className="p-5">
-            <StatusPill>Ready</StatusPill>
-            <div className="mt-3 text-2xl font-black text-[#35146B]">Operator APIs</div>
-            <p className="mt-2 text-sm leading-6 text-[#6F6590]">Entities, graph, benchmarks, recommendations, ML risk.</p>
-          </Card>
-          <Card className="p-5">
-            <StatusPill tone="planned">Template ready</StatusPill>
-            <div className="mt-3 text-2xl font-black text-[#35146B]">Outlook</div>
-            <p className="mt-2 text-sm leading-6 text-[#6F6590]">Safe WinCOM params are draft-only by default.</p>
-          </Card>
-        </div>
-
+        {/* 2. Stack overlap — 6 cards */}
         <Card className="mt-6 p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="mb-5 flex items-center gap-3">
+            <Layers className="h-6 w-6 text-[#35146B]" />
             <div>
-              <StatusPill>Completed</StatusPill>
-              <h2 className="mt-3 text-2xl font-black text-[#35146B]">{databricksReceipt.title}</h2>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-[#4D426A]">
-                Receipt-backed Databricks ML proof showing how public weather signals can be joined with synthetic property
-                operations patterns to create maintenance-risk predictions and model evidence.
-              </p>
+              <div className="text-xs font-black uppercase tracking-[0.18em] text-[#5430C0]/70">My operating stack</div>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#35146B]">Stack overlap</h2>
             </div>
-            <BrainCircuit className="h-8 w-8 text-[#5430C0]" />
           </div>
-          <dl className="mt-5 grid gap-3 lg:grid-cols-3">
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Job ID</dt>
-              <dd className="mt-2 font-mono text-sm font-bold text-[#35146B]">{databricksReceipt.jobId}</dd>
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Run ID</dt>
-              <dd className="mt-2 font-mono text-sm font-bold text-[#35146B]">{databricksReceipt.runId}</dd>
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Data</dt>
-              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.data}</dd>
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4 lg:col-span-3">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Output</dt>
-              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.output}</dd>
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4 lg:col-span-2">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Claim</dt>
-              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.claim}</dd>
-            </div>
-            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
-              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Caveat</dt>
-              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.caveat}</dd>
-            </div>
-          </dl>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {STACK_OVERLAP.map(({ icon: Icon, title, body }) => (
+              <div key={title} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
+                <Icon className="h-5 w-5 text-[#5430C0]" />
+                <div className="mt-3 text-lg font-black text-[#35146B]">{title}</div>
+                <p className="mt-2 text-sm leading-6 text-[#4D426A]">{body}</p>
+              </div>
+            ))}
+          </div>
         </Card>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.82fr]">
-          <Card className="p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <ShieldCheck className="h-6 w-6 text-[#35146B]" />
-              <h2 className="text-2xl font-black text-[#35146B]">Architecture proof</h2>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {proof.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.title} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
-                    <Icon className="h-5 w-5 text-[#5430C0]" />
-                    <div className="mt-3 text-lg font-black text-[#35146B]">{item.title}</div>
-                    <p className="mt-2 text-sm leading-6 text-[#4D426A]">{item.body}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <Bot className="h-6 w-6 text-[#35146B]" />
-              <h2 className="text-2xl font-black text-[#35146B]">Controls and caveats</h2>
-            </div>
-            <ul className="space-y-3 text-sm leading-6 text-[#4D426A]">
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Synthetic property operations data only; no HappyCo production data.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Public weather signals are used only for proof-of-work feature engineering.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Model metrics are demo-pipeline evidence, not expected real-world performance.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Databricks execution claims are limited to completed, receipt-backed runs.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />No production deployment or HappyCo model claim.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Local artifacts are not public downloads from this route.</li>
-              <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Outlook send remains disabled unless explicitly requested locally.</li>
-            </ul>
-          </Card>
-        </div>
-
+        {/* 3. HappyCo relevance map */}
         <Card className="mt-6 p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <Network className="h-6 w-6 text-[#35146B]" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.18em] text-[#5430C0]/70">Applied to HappyCo</div>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#35146B]">HappyCo relevance map</h2>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-[#DDD8EA]">
+            <div className="hidden grid-cols-3 bg-[#35146B] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white lg:grid">
+              <div>Winston / Novendor stack</div>
+              <div>Translation layer</div>
+              <div>HappyCo relevance</div>
+            </div>
+            {RELEVANCE_MAP.map(([stack, translation, relevance]) => (
+              <div
+                key={stack}
+                className="grid gap-3 border-t border-[#DDD8EA] bg-[#FBFAF7] px-4 py-4 text-sm text-[#4D426A] lg:grid-cols-3 lg:items-start"
+              >
+                <div>
+                  <div className="text-xs font-black uppercase tracking-[0.14em] text-[#6F6590] lg:hidden">Stack</div>
+                  <div className="font-bold text-[#35146B]">{stack}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-[0.14em] text-[#6F6590] lg:hidden">Translation</div>
+                  {translation}
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-[0.14em] text-[#6F6590] lg:hidden">HappyCo relevance</div>
+                  {relevance}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 4. Automation Control Room (anchor target for the hero CTA) */}
+        <Card id="automation-control-room" className="mt-6 p-6">
           <h2 className="text-2xl font-black text-[#35146B]">Automation Control Room</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-[#4D426A]">
             The package is itself an automation proof: planning, synthetic data, Databricks ML, API surfaces, artifacts,
@@ -380,12 +343,59 @@ function GatedPackage() {
           </div>
         </Card>
 
+        {/* 5. Prior receipt-backed Databricks run */}
+        <Card className="mt-6 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <StatusPill>Completed</StatusPill>
+              <h2 className="mt-3 text-2xl font-black text-[#35146B]">Prior receipt-backed Databricks run</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-[#4D426A]">
+                The historical Databricks ML training run on public weather and synthetic property-operations
+                data. The current site bundle is a separate local-fallback export — see the weather-risk page
+                for the split between this prior run and the current bundle.
+              </p>
+            </div>
+            <BrainCircuit className="h-8 w-8 text-[#5430C0]" />
+          </div>
+          <dl className="mt-5 grid gap-3 lg:grid-cols-3">
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Job ID</dt>
+              <dd className="mt-2 font-mono text-sm font-bold text-[#35146B]">{databricksReceipt.jobId}</dd>
+            </div>
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Run ID</dt>
+              <dd className="mt-2 font-mono text-sm font-bold text-[#35146B]">{databricksReceipt.runId}</dd>
+            </div>
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Data</dt>
+              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.data}</dd>
+            </div>
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4 lg:col-span-3">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Output</dt>
+              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.output}</dd>
+            </div>
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4 lg:col-span-2">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Claim</dt>
+              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.claim}</dd>
+            </div>
+            <div className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-4">
+              <dt className="text-xs font-black uppercase tracking-[0.16em] text-[#6F6590]">Caveat</dt>
+              <dd className="mt-2 text-sm font-bold text-[#35146B]">{databricksReceipt.caveat}</dd>
+            </div>
+          </dl>
+        </Card>
+
+        {/* 6. Artifact factory */}
         <Card className="mt-6 p-6">
           <h2 className="text-2xl font-black text-[#35146B]">Artifact factory</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-[#4D426A]">
+            Same canonical data, four artifact surfaces. Status copy distinguishes what is available in the
+            local proof package from what is gated behind the API.
+          </p>
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {artifacts.map((artifact) => {
               const Icon = artifact.icon;
-              const planned = artifact.status.toLowerCase().includes("planned");
+              const planned = artifact.status.toLowerCase().includes("pending");
               return (
                 <div key={artifact.title} className="rounded-3xl border border-[#DDD8EA] bg-[#FBFAF7] p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -398,6 +408,23 @@ function GatedPackage() {
               );
             })}
           </div>
+        </Card>
+
+        {/* 7. Claims and caveats */}
+        <Card className="mt-6 p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <ShieldCheck className="h-6 w-6 text-[#35146B]" />
+            <h2 className="text-2xl font-black text-[#35146B]">Claims and caveats</h2>
+          </div>
+          <ul className="space-y-3 text-sm leading-6 text-[#4D426A]">
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Synthetic property operations data only; no HappyCo production data.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Public weather signals are used only for proof-of-work feature engineering.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Model metrics are demo-pipeline evidence, not expected real-world performance.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Databricks execution claims are limited to completed, receipt-backed runs.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />No production deployment or HappyCo model claim.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Local artifacts are not public downloads from this route.</li>
+            <li><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-700" />Outlook send remains disabled unless explicitly requested locally.</li>
+          </ul>
         </Card>
       </section>
     </main>

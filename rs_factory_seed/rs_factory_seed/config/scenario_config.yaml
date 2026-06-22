@@ -1,0 +1,155 @@
+# Single source of truth for the named demo scenarios and distributions.
+# These numbers are CONSTRUCTED by the generators and ASSERTED by the tests
+# (convo.md §5, §10, §11, §14). Do not make these random.
+
+distributions:
+  part_criticality:        # convo §4 Phase 1
+    flight_critical: 0.15
+    safety_critical: 0.20
+    mission_critical: 0.25
+    standard: 0.40
+  mes_status:              # convo §4 Phase 4
+    complete: 0.65
+    in_progress: 0.12
+    planned: 0.10
+    blocked: 0.08
+    cancelled_replaced: 0.03
+    rework: 0.02
+  ncr_disposition:         # convo §4 Phase 5
+    rework: 0.45
+    use_as_is: 0.20
+    repair: 0.15
+    scrap: 0.10
+    eng_review_open: 0.10
+  part_family_fpy:         # convo §4 Phase 5 (first-pass yield by family)
+    AVI-HARNESS: 0.94
+    STR-BRACKET: 0.91
+    ENG-VALVE: 0.84
+    ENG-CHAMBER: 0.78
+    SEN-ASSY: 0.88
+
+rates:
+  mes_exceptions:          # convo §4 Phase 4
+    wo_closed_with_open_ncr: 0.01
+    operation_completed_late: 0.20
+    operation_missing_cert: 0.01
+    operation_skipped_no_waiver: 0.005
+    work_order_stale_72h: 0.05
+    cycle_time_2x: 0.08
+  material_problems:       # convo §4 Phase 3
+    missing_certificate: 0.03
+    receiving_inspection_hold: 0.05
+    supplier_name_duplicate: 0.10
+    lot_used_before_approval: 0.015
+    unit_mismatch: 0.02
+
+# Stable anchors used across generators (readable join keys).
+anchors:
+  blocked_vehicle: VEH-TR-003
+  valve_part_family: ENG-VALVE
+  valve_part_seq: 14                 # -> PART-ENG-VALVE-014
+  valve_revisions: [A, B, C]
+  weld_machine: WLD-07
+  noisy_test_stand: TS-03
+  aerometals_supplier_name: AeroMetals
+  bad_material_lot: ML-8821
+  hotfire_failed_run: TEST-HOTFIRE-2026-00041
+  hotfire_inconclusive_run: TEST-HOTFIRE-2026-00088
+  prefailure_template: PF-TPL-01
+  anchor_jira: MFG-1842
+
+scenarios:
+  SCN-001-VEHICLE-TR003-READINESS-BLOCKED:
+    vehicle: VEH-TR-003
+    open_ncrs: 4
+    inconclusive_pressure_tests: 1
+    flight_critical_serials_missing_signoff: 2
+    expected_answer: "TR-003 has four open NCRs, one unresolved pressure-test anomaly, and two flight-critical serialized items with missing final inspection signoff."
+  SCN-002-MATERIAL-LOT-ML8821-QUALITY-RISK:
+    material_lot: ML-8821
+    supplier_name: AeroMetals
+    serials_using_lot: 38
+    serials_failed_inspection: 7
+    serials_installed_on_tr003: 3
+    rework_scrap_cost_usd: 148000
+    defect_pattern: weld_porosity
+    expected_answer: "38 serialized items used the lot, 7 failed inspection, 3 are installed on TR-003, and estimated rework/scrap cost is $148K."
+  SCN-003-MACHINE-WLD07-CALIBRATION-DRIFT:
+    machine: WLD-07
+    calibration_overdue: true
+    drift_onset_date: 2026-05-20
+    defect: weld_depth
+    vibration_lead_days: 2
+    expected_answer: "Most new weld-depth NCRs trace to WLD-07 after calibration drift began. The model flagged rising vibration RMS two days before defect rate increased."
+  SCN-004-REV-C-YIELD-IMPROVEMENT:
+    part: PART-ENG-VALVE-014
+    rev_b_fpy: 0.78
+    rev_c_fpy: 0.91
+    completed_operations: 124
+    revision_operation_counts:
+      B: 60
+      C: 64
+    expected_answer: "Yes. First-pass yield rose from 78% on Rev B to 91% on Rev C across 124 completed operations."
+  SCN-005-HOTFIRE-ANOMALY-SIMILARITY:
+    failed_run: TEST-HOTFIRE-2026-00041
+    inconclusive_run: TEST-HOTFIRE-2026-00088
+    inconclusive_run_vehicle: VEH-TR-003
+    shared_template: PF-TPL-01
+    pattern_family: pre_failure
+    similarity_threshold: 0.92        # cosine(00041, 00088) >= this (structurally similar)
+    similarity_must_be_below: 1.0     # ... but NOT identical (different raw readings)
+    similarity_top1: true             # 00041 is the most similar prior run to 00088
+    expected_answer: "TEST-HOTFIRE-2026-00088 most resembles the prior failed run TEST-HOTFIRE-2026-00041 (shared pre-failure signature)."
+
+# g07 test/telemetry generation parameters (deterministic; not random).
+telemetry:
+  channels: [pressure, temperature, vibration_rms, flow_rate]
+  full_rate_runs: 30          # raw samples concentrated on these runs; the rest are windows-only
+  window_seconds: 5           # nominal seconds per feature window
+  windows_per_run: 15         # feature windows per (run, channel) -> 200*4*15 = 12000 windows
+  samples_per_full_run: 1250  # raw samples per (full-rate run, channel)
+  hotfire_test_type: HOTFIRE
+  SCN-006-NCR-AGING-OWNER-ROUTING:
+    aged_ncr_threshold_days: 21
+    expected_answer: "Aged open NCRs grouped by owner team with routing recommendations."
+  SCN-007-WORKORDER-STATUS-MISMATCH:
+    expected_answer: "Work orders closed with open NCRs, or stale 72h+, surfaced as status mismatches."
+  SCN-008-DAILY-FACTORY-HANDOFF:
+    expected_answer: "Completed operations, open blockers, quality holds, parts shortages, test anomalies, and recommended owner follow-ups with source links."
+
+# g10 AI/ML output generation parameters (deterministic synthetic ML OUTPUTS — not training).
+# Every quantity an ML row asserts comes from here. Predictions are tied to real causes
+# (drift, bad lot, open NCRs, hot-fire similarity), never random.
+ml:
+  # the six model types (convo §4 Phase 9). registry_size in volume_config = these padded by version.
+  models:
+    - {key: test_anomaly_detector, family: anomaly,   scored_entity: test_run,   metric: pr_auc}
+    - {key: defect_risk,           family: risk,       scored_entity: operation,  metric: pr_auc}
+    - {key: schedule_risk,         family: risk,       scored_entity: work_order, metric: pr_auc}
+    - {key: supplier_risk,         family: risk,       scored_entity: material_lot, metric: pr_auc}
+    - {key: readiness,             family: readiness,  scored_entity: vehicle,    metric: mae}
+    - {key: document_assistant,    family: rag,        scored_entity: query,      metric: groundedness}
+  # human-feedback label mix (convo §4 Phase 9). must sum to 1.0.
+  feedback_mix:
+    accepted: 0.65
+    rejected: 0.15
+    needs_review: 0.15
+    escalated: 0.05
+  # explainability: number of top drivers seeded per prediction's top_drivers_json.
+  top_drivers_count: 3
+  # champion eval bands per family (synthetic but plausible; champions clear, older versions trail).
+  champion_eval:
+    anomaly:    {pr_auc: 0.91, recall_at_p90: 0.82}
+    risk:       {pr_auc: 0.84}
+    readiness:  {mae: 0.06}
+    rag:        {groundedness: 0.97}
+  # SCN-005 ML output: the anomaly detector's match for the inconclusive hot-fire run.
+  scn005_match:
+    model_key: test_anomaly_detector
+    target_run: TEST-HOTFIRE-2026-00088      # the run being scored
+    expected_match_run: TEST-HOTFIRE-2026-00041  # its nearest prior failed run (g07 top-1)
+    decision_this_informs: "hot-fire disposition / launch-readiness review"
+    # similarity is COMPUTED by consuming g07 feature windows via run_feature_vector,
+    # NOT recomputed from raw samples. these bounds mirror SCN-005 telemetry config.
+    min_match_similarity: 0.92
+    must_be_below: 1.0

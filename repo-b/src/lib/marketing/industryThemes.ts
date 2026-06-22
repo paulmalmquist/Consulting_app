@@ -30,6 +30,7 @@ export const industryBackgrounds: Record<IndustryVertical['slug'], string> = {
   'consumer-credit': '/assets/bg-consumer.jpg',
   medical: '/assets/bg-medical.jpg',
   legal: '/assets/bg-legal.jpg',
+  trades: '/assets/bg-trades.jpg',
 };
 
 /** Homepage hero background. Same fallback rules apply. */

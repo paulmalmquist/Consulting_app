@@ -24,41 +24,98 @@ function ConfidenceDots({ value }: { value: Confidence }) {
 function ProofPanel({ row }: { row: Capability }) {
   return (
     <div
-      className="grid gap-5 border-t pt-5 md:grid-cols-2 md:gap-7"
+      className="space-y-4 border-t pt-5"
       style={{ borderColor: "var(--ros-border)" }}
     >
-      <div className="space-y-3">
-        <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
-          Related experience
-        </p>
-        <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
-          {row.relatedExperience}
-        </p>
-        <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
-          Winston surface / demo
-        </p>
-        <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
-          {row.winstonSurface ?? "—"}
-        </p>
+      <div className="grid gap-5 md:grid-cols-2 md:gap-7">
+        <div className="space-y-3">
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+            Related experience
+          </p>
+          <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+            {row.relatedExperience}
+          </p>
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+            Winston surface / demo
+          </p>
+          <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+            {row.winstonSurface ?? "—"}
+          </p>
+        </div>
+        <div className="space-y-3">
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+            Interview talking point
+          </p>
+          <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+            {row.interviewTalkingPoint}
+          </p>
+          {row.gapNextAction && (
+            <>
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                Gap / next action
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-accent-warm)" }}>
+                {row.gapNextAction}
+              </p>
+            </>
+          )}
+        </div>
       </div>
-      <div className="space-y-3">
-        <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
-          Interview talking point
-        </p>
-        <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
-          {row.interviewTalkingPoint}
-        </p>
-        {row.gapNextAction && (
-          <>
-            <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
-              Gap / next action
-            </p>
-            <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-accent-warm)" }}>
-              {row.gapNextAction}
-            </p>
-          </>
-        )}
-      </div>
+
+      {(row.whatWasBuilt || row.stackInvolved || row.proofExists || row.demoEnvironment || row.doNotClaim) && (
+        <div className="grid gap-5 md:grid-cols-2 md:gap-7 pt-4 border-t" style={{ borderColor: "var(--ros-border)" }}>
+          {row.whatWasBuilt && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                What was built
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+                {row.whatWasBuilt}
+              </p>
+            </div>
+          )}
+          {row.stackInvolved && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                Stack involved
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+                {row.stackInvolved}
+              </p>
+            </div>
+          )}
+          {row.proofExists && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                Proof exists
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+                {row.proofExists}
+              </p>
+            </div>
+          )}
+          {row.demoEnvironment && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                Demo environment
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+                {row.demoEnvironment}
+              </p>
+            </div>
+          )}
+          {row.doNotClaim && (
+            <div className="space-y-2 md:col-span-2">
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--ros-text-dim)" }}>
+                Do not claim
+              </p>
+              <p className="text-[13px] leading-[1.7]" style={{ color: "var(--ros-text-muted)" }}>
+                {row.doNotClaim}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

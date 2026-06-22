@@ -1,0 +1,17 @@
+[
+  {"name": "event_id",           "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "idempotency_key",    "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "event_type",         "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "schema_version",     "type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "occurred_at",        "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "published_at",       "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "correlation_id",     "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "run_id",             "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "business_id",        "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "env_id",             "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "source",             "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "payload",            "type": "JSON",      "mode": "NULLABLE"},
+  {"name": "ingested_at",        "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "dead_letter",        "type": "BOOLEAN",   "mode": "REQUIRED"},
+  {"name": "dead_letter_reason", "type": "STRING",    "mode": "NULLABLE"}
+]
