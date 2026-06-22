@@ -32,7 +32,10 @@ export default function TelemetryBottomNav({ envId, onMore }: { envId: string; o
       style={{ background: C.rail, borderTop: `1px solid ${C.border}` }}>
       {tabs.map((t) => {
         const active = tabActive(t.slug);
-        const shortLabel = t.slug === "stream" ? "Stream" : t.slug === "copilot" ? "Copilot" : t.label;
+        const shortLabel =
+          t.slug === "" ? "Summary" :
+          t.slug === "stream" ? "Stream" :
+          t.slug === "copilot" ? "Copilot" : t.label;
         return (
           <Link key={t.slug || "overview"} href={telemetryHref(envId, t.slug)}
             aria-current={active ? "page" : undefined} style={itemStyle(active)}>

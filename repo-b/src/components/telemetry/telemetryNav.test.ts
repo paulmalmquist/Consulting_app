@@ -1,15 +1,66 @@
 import {
   TELEMETRY_NAV,
+  TELEMETRY_NAV_GROUPS,
   isTelemetryItemActive,
   telemetryHref,
 } from "./telemetryNav";
 
-describe("telemetry metadata navigation", () => {
-  it("registers Metadata Explorer in the grouped drawer without expanding mobile primary tabs", () => {
+describe("telemetry navigation structure (6-section redesign)", () => {
+  it("exposes exactly the six redesign sections in order", () => {
+    expect(TELEMETRY_NAV_GROUPS).toEqual([
+      "Mission Summary",
+      "Operations",
+      "Models & Intelligence",
+      "Factory & Quality",
+      "Evidence & Lineage",
+      "Agent Operations",
+    ]);
+  });
+
+  it("assigns every nav item to one of the six declared groups", () => {
+    for (const item of TELEMETRY_NAV) {
+      expect(TELEMETRY_NAV_GROUPS).toContain(item.group);
+    }
+  });
+
+  it("keeps every existing surface routable (regression guard — no slug dropped)", () => {
+    const slugs = TELEMETRY_NAV.map((n) => n.slug).sort();
+    expect(slugs).toEqual(
+      [
+        "",
+        "calibration",
+        "control-tower",
+        "copilot",
+        "factory",
+        "factory-ml",
+        "governance",
+        "how-it-works",
+        "metadata",
+        "model-performance",
+        "monitoring",
+        "registry",
+        "replay",
+        "runs",
+        "spike-inspector",
+        "stargate",
+        "stream",
+      ].sort(),
+    );
+  });
+
+  it("applies the four redesign relabels without changing slugs", () => {
+    const labelOf = (slug: string) => TELEMETRY_NAV.find((n) => n.slug === slug)?.label;
+    expect(labelOf("")).toBe("Mission Summary");
+    expect(labelOf("governance")).toBe("Trust Center");
+    expect(labelOf("control-tower")).toBe("Agent Control Tower");
+    expect(labelOf("factory-ml")).toBe("Flight Readiness");
+  });
+
+  it("groups Metadata Explorer under Evidence & Lineage without expanding mobile primary tabs", () => {
     const item = TELEMETRY_NAV.find((entry) => entry.slug === "metadata");
     expect(item).toMatchObject({
       label: "Metadata Explorer",
-      group: "AI & Governance",
+      group: "Evidence & Lineage",
     });
     expect(item?.mobilePrimary).not.toBe(true);
     expect(TELEMETRY_NAV.filter((entry) => entry.mobilePrimary)).toHaveLength(4);
