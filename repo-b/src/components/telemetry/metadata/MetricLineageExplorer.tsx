@@ -1,0 +1,194 @@
+"use client";
+
+// Metric Lineage Explorer — the first data-backed redesign surface. Lists the governed metrics
+// from the live telemetry metadata catalog (/api/telemetry/metadata/graph) and opens the reusable
+// LineageDrawer to trace each one to its source. Data-backed and fail-closed: real catalog values
+// where present, explicit null states where not. Visual polish (RS language) is a later phase.
+
+import { useEffect, useState } from "react";
+
+import {
+  TELEMETRY_DEMO_BUSINESS_ID,
+  TELEMETRY_DEMO_ENV_ID,
+} from "@/lib/telemetry/api";
+import {
+  getMetadataGraph,
+  type TelemetryMetadataGraph,
+  type TelemetryMetadataNode,
+} from "@/lib/telemetry/metadata";
+import {
+  C,
+  DisclosureFooter,
+  EmptyState,
+  ErrorState,
+  Loading,
+  MetricCard,
+  PageHeading,
+  Panel,
+  StatGrid,
+  Tag,
+} from "../primitives";
+import LineageDrawer from "./LineageDrawer";
+
+function formatTs(value?: string | null) {
+  if (!value) return "as-of unknown";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? value : parsed.toLocaleString();
+}
+
+export default function MetricLineageExplorer({ envId }: { envId: string }) {
+  const [graph, setGraph] = useState<TelemetryMetadataGraph | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<TelemetryMetadataNode | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    getMetadataGraph(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID, envId)
+      .then((g) => {
+        if (active) setGraph(g);
+      })
+      .catch((reason) => {
+        if (active) setError(String(reason));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [envId]);
+
+  const heading = (
+    <PageHeading
+      eyebrow="Evidence & Lineage"
+      title="Metric Lineage Explorer"
+      blurb="Every governed metric, traced to its source. Click a metric to see its full upstream chain (gold to silver to bronze to source) with freshness and owner. Lineage is read live from the telemetry metadata catalog; a metric with no cataloged source shows 'No lineage yet' rather than implying provenance."
+    />
+  );
+
+  if (loading && !graph) return <>{heading}<Loading label="Loading metric catalog..." /></>;
+  if (error) return <>{heading}<ErrorState message={error} /></>;
+  if (!graph) return <>{heading}<ErrorState message="Metadata graph unavailable." /></>;
+
+  const metrics = graph.nodes
+    .filter((n) => n.kind === "metric")
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return (
+    <>
+      {heading}
+
+      {graph.status !== "ok" && (
+        <div
+          role="status"
+          style={{
+            border: `1px solid ${C.amber}`,
+            background: "rgba(243,177,74,0.10)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            margin: "0 0 16px",
+            color: C.amber,
+            fontFamily: C.mono,
+            fontSize: 11,
+            lineHeight: 1.5,
+          }}
+        >
+          Catalog status: {graph.status} — some enrichments are unavailable; affected nodes fail closed.
+          {graph.warnings?.length ? ` (${graph.warnings.map((w) => w.message).join("; ")})` : ""}
+        </div>
+      )}
+
+      <StatGrid cols={4}>
+        <MetricCard label="Governed metrics" value={String(graph.stats.metric_count)} accent={C.cyan} />
+        <MetricCard label="Gold tables" value={String(graph.stats.gold_count)} />
+        <MetricCard label="Lineage edges" value={String(graph.stats.edge_count)} />
+        <MetricCard
+          label="Unavailable nodes"
+          value={String(graph.stats.unavailable_count)}
+          accent={graph.stats.unavailable_count > 0 ? C.amber : undefined}
+        />
+      </StatGrid>
+
+      <Panel
+        title="Governed metrics"
+        right={<Tag color={C.cyan}>{metrics.length} metrics · {formatTs(graph.generated_at)}</Tag>}
+        style={{ marginTop: 16 }}
+      >
+        {metrics.length === 0 ? (
+          <EmptyState
+            label="No governed metrics in the catalog yet"
+            hint="Metric lineage appears once metric nodes are cataloged in metadata_catalog.json."
+          />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {metrics.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setSelected(m)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  textAlign: "left",
+                  width: "100%",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  background: C.panelHi,
+                  padding: "11px 13px",
+                  cursor: "pointer",
+                  color: C.text,
+                }}
+              >
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 12.5, color: C.text }}>{m.label}</span>
+                  {m.description && (
+                    <span
+                      style={{
+                        display: "block",
+                        fontFamily: C.mono,
+                        fontSize: 10,
+                        color: C.faint,
+                        marginTop: 3,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: 460,
+                      }}
+                    >
+                      {m.description}
+                    </span>
+                  )}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <Tag color={m.status === "fresh" ? C.green : m.status === "missing" ? C.red : C.amber}>
+                    {m.status ?? "unknown"}
+                  </Tag>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.cyan }}>Trace source →</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 12, lineHeight: 1.5 }}>
+          Source: telemetry metadata catalog + enrichment SQL over tel_* tables. Lineage is live; no values are
+          seeded. A metric with no upstream edge renders "No lineage yet".
+        </div>
+      </Panel>
+
+      <LineageDrawer
+        node={selected}
+        nodes={graph.nodes}
+        edges={graph.edges}
+        generatedAt={graph.generated_at}
+        onClose={() => setSelected(null)}
+      />
+
+      <DisclosureFooter />
+    </>
+  );
+}

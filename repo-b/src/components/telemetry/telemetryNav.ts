@@ -51,6 +51,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "factory-ml", label: "Flight Readiness", icon: "M2 14V7l3-2 3 2 3-5 3 2v10zM5 14v-4M8 14V8M11 14V6", group: "Factory & Quality" },
 
   // Section 5 — Evidence & Lineage (where did this number come from / why trust it)
+  { slug: "metric-lineage", label: "Metric Lineage", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Evidence & Lineage" },
   { slug: "metadata", label: "Metadata Explorer", icon: "M2 3h5v4H2zM9 3h5v4H9zM5 9h6v4H5zM4.5 7v2M11.5 7v2M7 11H5M11 11h-1", group: "Evidence & Lineage" },
   { slug: "governance", label: "Trust Center", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z", group: "Evidence & Lineage" },
   { slug: "how-it-works", label: "How This Works", icon: "M2 4l4-2 4 2 4-2v10l-4 2-4-2-4 2zM6 2v10M10 4v10", group: "Evidence & Lineage" },
