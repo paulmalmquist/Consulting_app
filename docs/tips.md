@@ -4066,3 +4066,36 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
   assume the prod backend is stale and either ship it or fail the page closed. Quick prod check:
   `curl -s -o /dev/null -w "%{http_code}" https://novendor.ai/api/telemetry/<path>` (200 vs 404 tells you
   whether the route is deployed; 401 just means the unauth proxy gate, not a routing answer).
+
+### Telemetry presentation polish (RS visual language) — durable lessons (2026-06-22)
+
+- **Polish the shared design system, not each page.** Every telemetry surface consumes
+  `repo-b/src/components/telemetry/primitives.tsx` (the `C` palette + `PageHeading`/`Panel`/`MetricCard`/
+  `Tag`/`EmptyState`/`ErrorState`). Brightening the `C` tokens and enlarging those shared components lifts
+  all ~18 pages at once, consistently, with one low-risk edit — far better than per-page restyling. Keep the
+  **token names stable** (only move the values) so nothing breaks. `C` is telemetry-scoped (nothing outside
+  `components/telemetry/` imports it — `historyrhymes/cockpit/primitives.tsx` only *references* it in a
+  comment), so the blast radius is just telemetry.
+- **Contrast: the killer is dim/faint used for *important facts*.** The old `faint #56616f` at 9–11px on
+  panel titles and key labels read as unreadable gray. Fixes that landed: panel titles use `dim` (not
+  `faint`); `dim`→`#9fb0c4`, `faint`→`#6f7e90` (raised luminance); accents moved to the RS set
+  (cyan `#67e8f9`, green `#6ee7a0`, amber `#f5b452`, red `#f4715f`); `PageHeading` title 26→30 with an accent
+  eyebrow bar; `MetricCard` value 26→30. Reserve true faint only for genuinely tertiary footnotes.
+- **Fail-closed states must look *designed*, not broken.** Replace dashed "sad box" empties and raw
+  "Could not load: …" dumps with a composed card: a status dot (amber for unavailable, red for error,
+  cyan for loading) + a clear label + a `null_reason`/hint line. An honest "Lineage index unavailable" or
+  "Projection unavailable" should read as a deliberate posture a reviewer trusts, not a crash.
+- **Lineage-card layout (the trust spine):** list each governed metric as a row with name + one-line
+  definition on the left, and on the right a status tag **plus a bordered "Trace source →" pill** (border +
+  tinted bg, not bare text) so the affordance is unmistakable. The drawer renders the upstream chain grouped
+  by medallion lane (source→bronze→silver→gold→metric). Verified live: 8 governed metrics / 22 gold tables /
+  133 lineage edges from `/api/telemetry/metadata/graph`.
+- **Mobile/contrast gotchas:** layout stays in literal Tailwind classes (the content scanner only sees
+  literal strings — never compose class names from props); color/typography stay on the inline `C` palette.
+  Telemetry grids already reflow at `sm`/`lg` via `StatGrid`/`SplitGrid`. When polishing, change inline
+  *style* (color/size/spacing) but never the Tailwind class strings, and keep panel titles ≤ one line on a
+  375px viewport. Verify both widths with a Playwright screenshot at 1600px and 390px.
+- **Verification without leaking secrets:** drive prod with a throwaway Playwright `.cjs` (deleted after run,
+  never committed); have it read the admin login from the memory index (`MEMORY.md` records it in backticks)
+  and print only the password *length*, never the value. Login form on `/login` uses
+  `input[autocomplete=username]` (type=text, not `type=email`) + `input[type=password]` + a "Sign in" submit.

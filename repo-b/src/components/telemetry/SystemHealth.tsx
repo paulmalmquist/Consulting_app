@@ -11,18 +11,12 @@ import SpikeInspector from "./SpikeInspector";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        margin: "22px 0 12px",
-      }}
-    >
-      <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: C.faint, whiteSpace: "nowrap" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 11, margin: "28px 0 14px" }}>
+      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa`, flexShrink: 0 }} />
+      <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: C.dim, whiteSpace: "nowrap" }}>
         {children}
       </span>
-      <span style={{ flex: 1, height: 1, background: C.border }} />
+      <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${C.borderHi}, transparent)` }} />
     </div>
   );
 }
