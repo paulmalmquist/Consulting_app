@@ -190,11 +190,14 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
                     </span>
                   )}
                 </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                   <Tag color={m.status === "fresh" ? C.green : m.status === "missing" ? C.red : C.amber}>
                     {m.status ?? "unknown"}
                   </Tag>
-                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.cyan }}>Trace source →</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.cyan, letterSpacing: "0.03em",
+                    border: `1px solid ${C.cyan}55`, background: `${C.cyan}14`, borderRadius: 6, padding: "5px 11px", whiteSpace: "nowrap" }}>
+                    Trace source →
+                  </span>
                 </span>
               </button>
             ))}
