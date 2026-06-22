@@ -83,6 +83,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | `automated-data-engineering-plan` | `plan` | `active` | `docs, backend, repo-b` | `no` | `docs/plans/automated-data-engineering/README.md` |
 | `history-rhymes-telemetry-cockpit-refactor` | `plan` | `active` | `repo-b, backend, docs` | `no` | `docs/plans/03-implementation-plans/active/history-rhymes-telemetry-cockpit-refactor.md` |
 | `consolidated-backlog` | `plan` | `active` | `cross-repo` | `yes` | `docs/plans/CONSOLIDATED_BACKLOG.md` |
+| `winston-plan-relay` | `skill` | `active` | `cross-repo` | `yes` | `skills/winston-plan-relay/SKILL.md` |
 
 ## Archived Prompt References
 
