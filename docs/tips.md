@@ -4042,3 +4042,27 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
 - **Demo tenant is `env_id=telemetry-demo`, `business_id=7e1eb000-0000-4000-a000-000000000001`** (frontend constants `TELEMETRY_DEMO_ENV_ID` / `TELEMETRY_DEMO_BUSINESS_ID`). Data is keyed to this tenant regardless of the URL's `[envId]` — pages read the constants, not the route param, for the seeded backfill (46 runs / 2000+ predictions).
 - **No composite/derived telemetry metric exists yet** — no Mission Readiness score, no month-over-month delta (no snapshot store), no debt→launch causal edges. Any of these must be (a) defined with a ratified formula and (b) backed by a registry before it can render; otherwise fail closed. A "Program Control Tower" has **no backend at all** (would need a `tel_ct_program` table + endpoints).
 - **Backend telemetry map:** routes `backend/app/routes/telemetry.py|telemetry_copilot.py|telemetry_control_tower.py|telemetry_analyzer.py`; services `backend/app/services/telemetry_serving.py|telemetry_metadata.py|telemetry_registry.py|telemetry_factory.py|telemetry_stream_etl.py|control_tower/*`; schemas `backend/app/schemas/telemetry*.py|control_tower.py`; fixtures `backend/app/data/telemetry/{replay_fixture,metadata_catalog}.json`.
+
+### Executive landing composition + prod backend-stale gotcha (2026-06-22)
+
+- **An executive landing page links to detail pages; it does not re-host their tables.** The Mission Summary
+  redesign first stacked a new readiness panel on top of the *entire* old Overview (KPI strip + full model
+  registry + verdict panel + runs table + serving inventory + fused-vector + the full Bottleneck Map). Result:
+  ~7 panels, duplicate KPIs (the readiness component cards repeated the metric strip verbatim), and a wall of
+  five identical "Projection unavailable" cards. The fix was **subtraction**: one readiness block (the
+  component cards ARE the KPIs — no duplicate strip), a one-line scoring posture, a single compact
+  Operational-Leverage line, and **launchpad cards into `/registry`, `/runs`, `/system-health`,
+  `/metric-lineage`, `/copilot`** instead of inline tables. Rule: a landing should read in ~1–1.5 screens and
+  answer "how are we doing / what changed / where do I go", with detail one click away on its owning page.
+- **Fail closed with a dignified null state, never a raw error string.** A page whose data fetch can 404 must
+  render a labeled state ("Lineage index unavailable" + `null_reason: metadata_graph_unreachable` + a Retry),
+  not the generic `ErrorState` "Could not load: Error: Not Found". A primary CTA must never point at a page
+  that dumps a raw error.
+- **The prod Railway backend is NOT auto-deployed, so it lags the merged code.** `/api/telemetry/summary`
+  returns 200 in prod but `/api/telemetry/metadata/graph` returns **404** even though the route exists in
+  `backend/app/routes/telemetry.py` — it was added after the last `railway up`. Any new backend route reads as
+  "Not Found" in prod until the backend is shipped (`scripts/deploy_backend.sh` from `main`, then
+  `curl /version` to confirm the live SHA). When a frontend surface depends on a freshly-added endpoint,
+  assume the prod backend is stale and either ship it or fail the page closed. Quick prod check:
+  `curl -s -o /dev/null -w "%{http_code}" https://novendor.ai/api/telemetry/<path>` (200 vs 404 tells you
+  whether the route is deployed; 401 just means the unauth proxy gate, not a routing answer).
