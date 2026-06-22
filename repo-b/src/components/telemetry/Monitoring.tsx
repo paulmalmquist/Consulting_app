@@ -11,7 +11,7 @@ import {
   StatGrid, SplitGrid,
 } from "./primitives";
 
-export default function Monitoring() {
+export default function Monitoring({ embedded = false }: { embedded?: boolean } = {}) {
   const [mon, setMon] = useState<MonitoringResponse | null>(null);
   const [summary, setSummary] = useState<TelemetrySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export default function Monitoring() {
     ]).then(([m, s]) => { setMon(m); setSummary(s); }).catch((e) => setError(String(e)));
   }, []);
 
-  const heading = <PageHeading eyebrow="Monitoring" title="Drift, anomaly rate, and serving health"
+  const heading = embedded ? null : <PageHeading eyebrow="Monitoring" title="Drift, anomaly rate, and serving health"
     blurb="Aggregated from the live prediction log and the drift series. The panel that says operated, not trained once. It shows a dash, not a fake zero, when a metric is not yet computed." />;
   if (error) return <>{heading}<ErrorState message={error} /></>;
   if (!mon || !summary) return <>{heading}<Loading label="Loading monitoring…" /></>;
@@ -65,7 +65,7 @@ export default function Monitoring() {
       <Panel style={{ marginTop: 16 }} pad={14}>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>{summary.note}</span>
       </Panel>
-      <DisclosureFooter />
+      {!embedded && <DisclosureFooter />}
     </>
   );
 }

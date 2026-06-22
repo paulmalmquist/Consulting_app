@@ -182,7 +182,7 @@ export const CAPABILITIES: CapabilityItem[] = [
   {
     capability: "Medallion ETL — bronze → silver → gold",
     impl: "built", verify: "prod_verified",
-    evidence: [{ label: "Monitoring", slug: "monitoring" }, { label: "Mission Control", slug: "stream" }],
+    evidence: [{ label: "System Health", slug: "system-health" }, { label: "Mission Control", slug: "stream" }],
     note: "tel_stream_readings_bronze → tel_stream_readings → tel_stream_minute_agg, with tel_etl_watermarks, tel_pipeline_status, tel_dq_assertions. Postgres demo substrate; BigQuery/Spark is the production crosswalk, not running here.",
   },
   {
@@ -305,7 +305,7 @@ export const MEDALLION: MedallionHop[] = [
   { stage: "source", label: "ISS session (CAPTURE replay)", table: "telemetry_stream_ingest.py", impl: "built", verify: "code_verified", detail: "Deterministic source adapter — the proof path; live ISS / ADS-B are optional alternates.", failureMode: "Adapter silent >30s → watchdog restarts; >60s → pipeline marked stale." },
   { stage: "bronze", label: "Raw landing", table: "tel_stream_readings_bronze", impl: "built", verify: "prod_verified", detail: "Append-only, 2s micro-batch, one batch_id per flush.", failureMode: "No frames → bronze empty → downstream shows data_source_not_configured, not zeros.", slug: "stream" },
   { stage: "silver", label: "Conformed", table: "tel_stream_readings", impl: "built", verify: "code_verified", detail: "Dedup on (env_id, channel_id, ts_source); conformed types.", failureMode: "Dedup key collision would surface as a DQ assertion, not silent overwrite." },
-  { stage: "gold", label: "Aggregated", table: "tel_stream_minute_agg", impl: "built", verify: "prod_verified", detail: "1-minute aggregates, restatable for late-arriving data.", failureMode: "Late data restates the affected minute; never mutates history silently.", slug: "monitoring" },
+  { stage: "gold", label: "Aggregated", table: "tel_stream_minute_agg", impl: "built", verify: "prod_verified", detail: "1-minute aggregates, restatable for late-arriving data.", failureMode: "Late data restates the affected minute; never mutates history silently.", slug: "system-health" },
   { stage: "serving", label: "API", table: "/api/telemetry/stream/{live,health}", impl: "built", verify: "code_verified", detail: "Ring-buffer tail + per-channel freshness, ingest lag p50/p95, rows/min, DQ count.", failureMode: "Stale watermark → /stream/health returns a specific reason." },
   { stage: "ui", label: "Mission Control", table: "MissionControlStream", impl: "built", verify: "prod_verified", detail: "~1s cadence; flips STALE on silence, no interpolation.", failureMode: "Worker disabled → fail-closed reason banner, not a flatline chart.", slug: "stream" },
 ];

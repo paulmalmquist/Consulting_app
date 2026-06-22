@@ -70,7 +70,7 @@ const lbl = {
   textTransform: "uppercase" as const,
 };
 
-export default function SpikeInspector({ envId }: { envId?: string }) {
+export default function SpikeInspector({ envId, embedded = false }: { envId?: string; embedded?: boolean }) {
   const [data, setData] = useState<FindingsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -91,7 +91,7 @@ export default function SpikeInspector({ envId }: { envId?: string }) {
     };
   }, [envId]);
 
-  const heading = (
+  const heading = embedded ? null : (
     <PageHeading
       eyebrow="Telemetry · Anomaly Ops"
       title="Spike Inspector"
@@ -152,7 +152,7 @@ export default function SpikeInspector({ envId }: { envId?: string }) {
       <SourcesUnavailable nullReasons={data.null_reasons} />
       <StagedQueue staged={staged} onClear={() => setStaged([])} />
 
-      <DisclosureFooter />
+      {!embedded && <DisclosureFooter />}
       <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6, marginTop: 12 }}>
         Findings are live from the telemetry analyzer over the seeded telemetry-demo serving reads. This
         surface evaluates and recommends only; it does not abort, roll back, or mutate any system. Staged

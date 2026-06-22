@@ -38,13 +38,12 @@ describe("telemetry navigation structure (6-section redesign)", () => {
         "metadata",
         "metric-lineage",
         "model-performance",
-        "monitoring",
         "registry",
         "replay",
         "runs",
-        "spike-inspector",
         "stargate",
         "stream",
+        "system-health",
       ].sort(),
     );
   });
