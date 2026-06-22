@@ -37,8 +37,9 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "replay", label: "Replay", icon: "M4 3l9 6-9 6z", group: "Operations" },
   { slug: "stargate", label: "Stargate Live", icon: "M8 1l6 3.5v7L8 15l-6-3.5v-7zM8 8l6-3.5M8 8L2 4.5M8 8v7", group: "Operations" },
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z", group: "Operations", mobilePrimary: true },
-  { slug: "monitoring", label: "Monitoring", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
-  { slug: "spike-inspector", label: "Spike Inspector", icon: "M1 11h3l2-7 3 11 2-6 1 2h3", group: "Operations" },
+  // System Health consolidates Monitoring + Spike Inspector. Their standalone routes still resolve
+  // (no page deleted) — they are embedded here — but the nav presents one operational entry.
+  { slug: "system-health", label: "System Health", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
 
   // Section 3 — Models & Intelligence (how we know / can we trust it)
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "Models & Intelligence" },
