@@ -65,6 +65,26 @@ function num(n: number | null | undefined, digits = 0): string {
   return n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+function formatTs(value?: string | null): string {
+  if (!value) return "as-of unknown";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? value : parsed.toLocaleString();
+}
+
+// One component-input card for the readiness panel. Shows a real headline value (or an explicit
+// "Not available here") and links to the surface that owns it. No composite score is computed.
+function ComponentCard({ name, value, href, hrefLabel }: {
+  name: string; value: string; href: string; hrefLabel: string;
+}) {
+  return (
+    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 9, padding: 14 }}>
+      <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{name}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 13, color: C.text, marginTop: 8, lineHeight: 1.4, minHeight: 34 }}>{value}</div>
+      <Link href={href} style={{ fontFamily: C.mono, fontSize: 11, color: C.cyan, textDecoration: "none" }}>{hrefLabel} →</Link>
+    </div>
+  );
+}
+
 export default function TelemetryOverview({ envId }: { envId: string }) {
   const [summary, setSummary] = useState<TelemetrySummary | null>(null);
   const [models, setModels] = useState<ModelRun[] | null>(null);
@@ -86,14 +106,14 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
   // The page heading and the context module are static; only the operational sections below
   // depend on the serving API, so the narrative on-ramp renders even while loading or erroring.
   const heading = (
-    <PageHeading eyebrow="Overview"
-      title="Turning engine-test telemetry into automated go/no-go"
-      blurb="Public NASA telemetry ingested in Databricks, trained and gated in MLflow, served behind FastAPI, every score persisted to a prediction log, monitored for drift. The headline is run-to-failure prognostics (C-MAPSS RUL today; N-CMAPSS and IMS planned); SMAP/MSL anomaly detection is a legacy baseline. Every value below is read from the serving API."
+    <PageHeading eyebrow="Mission Summary"
+      title="Mission health, model posture, and operating readiness"
+      blurb="Executive summary read live from the telemetry serving API. Every value below is real or fails closed — nothing is seeded. Trace any governed number to its source on the Metric Lineage page."
       right={
-        <Link href={`/lab/env/${envId}/telemetry/replay`}
+        <Link href={`/lab/env/${envId}/telemetry/metric-lineage`}
           style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,
             border: "none", borderRadius: 8, padding: "10px 18px", textDecoration: "none" }}>
-          Run the replay →
+          Trace lineage →
         </Link>
       } />
   );
@@ -123,10 +143,38 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
   return (
     <>
       {heading}
-      {contextSection}
+
+      {/* freshness / as-of — first-class, fail-closed */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 16px",
+        fontFamily: C.mono, fontSize: 11, color: C.dim }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: k.last_scored_at ? C.green : C.amber }} />
+        Data as of {formatTs(k.last_scored_at)} · live serving API · values real or fail closed
+      </div>
+
+      {/* mission readiness — fail closed (no composite number until the formula is ratified) */}
+      <Panel title="Mission readiness" right={<Tag color={C.amber}>not available</Tag>}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: C.sans, fontSize: 30, fontWeight: 700, color: C.amber, lineHeight: 1 }}>Not available</span>
+          <span style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, maxWidth: 580, lineHeight: 1.5 }}>
+            null_reason: composite_formula_not_ratified — Mission Readiness is a weighted composite; its formula,
+            weights, and one input (live stream) are not yet ratified or seeded. The real component inputs are below.
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" style={{ marginTop: 14 }}>
+          <ComponentCard name="Operations" value={`${num(k.predictions)} predictions · ${k.test_runs} runs`}
+            href={`/lab/env/${envId}/telemetry/monitoring`} hrefLabel="Monitoring" />
+          <ComponentCard name="Quality"
+            value={`F1 ${k.anomaly_f1 != null ? Number(k.anomaly_f1).toFixed(4) : "—"} · RMSE ${k.rul_rmse != null ? Number(k.rul_rmse).toFixed(2) : "—"}`}
+            href={`/lab/env/${envId}/telemetry/model-performance`} hrefLabel="Model performance" />
+          <ComponentCard name="Models" value={`${k.promoted_models} promoted / ${inv.model_runs} evaluated`}
+            href={`/lab/env/${envId}/telemetry/registry`} hrefLabel="Model registry" />
+          <ComponentCard name="AI" value="Not available here"
+            href={`/lab/env/${envId}/telemetry/governance`} hrefLabel="Trust Center" />
+        </div>
+      </Panel>
 
       {/* metric strip */}
-      <StatGrid cols={4}>
+      <StatGrid cols={4} style={{ marginTop: 16 }}>
         <MetricCard label="Promoted models" value={String(k.promoted_models)} sub={`of ${inv.model_runs} evaluated`} />
         <MetricCard label="Anomaly F1" value={k.anomaly_f1 != null ? Number(k.anomaly_f1).toFixed(4) : "—"}
           sub={challengerF1 != null ? `champion vs ${Number(challengerF1).toFixed(4)} challenger` : undefined} accent={C.cyan} />
@@ -135,6 +183,24 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
         <MetricCard label="Predictions" value={num(k.predictions)}
           sub={noGoPct != null ? `${noGoPct}% no-go · ${k.test_runs} runs` : undefined} accent={C.amber} />
       </StatGrid>
+
+      {/* operational leverage — technical debt -> launch impact (framework only; figures fail closed) */}
+      <Panel title="Operational leverage — technical debt → launch impact" right={<Tag color={C.amber}>framework</Tag>} style={{ marginTop: 16 }}>
+        <div style={{ fontFamily: C.mono, fontSize: 11, color: C.dim, lineHeight: 1.6 }}>
+          Causal chain: tech debt → engineering throughput → manufacturing &amp; test velocity → flight readiness → launch cadence.
+          The framework is shown; the figures stay fail-closed until a governed metric registry can supply each
+          modeled relationship with a basis + confidence. No projection is invented.
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" style={{ marginTop: 12 }}>
+          {["Deployment failures", "Telemetry freshness", "Hot-fire analysis cycle", "Readiness-review duration", "Launch-cadence capacity"].map((label) => (
+            <div key={label} style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</div>
+              <div style={{ fontFamily: C.mono, fontSize: 12, color: C.amber, marginTop: 6 }}>Projection unavailable</div>
+              <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>requires metric registry (modeled relationship + basis + confidence)</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
 
       {/* model registry + (replay preview + drift) */}
       <SplitGrid variant="main-side" style={{ marginTop: 16 }}>
@@ -234,6 +300,8 @@ export default function TelemetryOverview({ envId }: { envId: string }) {
           </div>
         </Panel>
       </SplitGrid>
+
+      {contextSection}
 
       <DisclosureFooter />
     </>
