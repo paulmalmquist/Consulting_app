@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { EnvironmentContractCard } from "../EnvironmentContractCard";
 
@@ -119,5 +119,83 @@ describe("EnvironmentContractCard", () => {
         /Could not load environment contract verification/,
       ),
     );
+  });
+
+  // ── Ticket 2: gated action buttons ─────────────────────────────────────────
+
+  test("promote to an eligibility-gated state is disabled when not eligible", async () => {
+    // verified -> next is staging (eligibility-gated); not eligible -> disabled
+    mockBosFetch.mockResolvedValue(
+      report({ promotion_state: "verified", eligible_for_promotion: false }),
+    );
+    render(<EnvironmentContractCard envId="env-1" />);
+
+    const btn = await screen.findByTestId("promote-button");
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent("Promote → staging");
+    expect(
+      screen.getByText(/requires a passing verification/i),
+    ).toBeInTheDocument();
+  });
+
+  test("promote to a non-eligibility-gated state is enabled even when not eligible", async () => {
+    // draft -> seeded is NOT eligibility-gated
+    mockBosFetch.mockResolvedValue(
+      report({ promotion_state: "draft", eligible_for_promotion: false }),
+    );
+    render(<EnvironmentContractCard envId="env-1" />);
+
+    const btn = await screen.findByTestId("promote-button");
+    expect(btn).not.toBeDisabled();
+    expect(btn).toHaveTextContent("Promote → seeded");
+  });
+
+  test("clicking promote POSTs to the promote endpoint then reloads", async () => {
+    mockBosFetch
+      .mockResolvedValueOnce(report({ promotion_state: "draft" })) // initial load
+      .mockResolvedValueOnce({}) // POST /promote
+      .mockResolvedValueOnce(report({ promotion_state: "seeded" })); // reload
+    render(<EnvironmentContractCard envId="env-1" />);
+
+    fireEvent.click(await screen.findByTestId("promote-button"));
+
+    await waitFor(() =>
+      expect(mockBosFetch).toHaveBeenCalledWith(
+        "/v2/environments/env-1/promote",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  test("a 409 from the gate surfaces as an action error, not a success", async () => {
+    mockBosFetch
+      .mockResolvedValueOnce(report({ promotion_state: "draft" }))
+      .mockRejectedValueOnce(new Error("invalid promotion transition"));
+    render(<EnvironmentContractCard envId="env-1" />);
+
+    fireEvent.click(await screen.findByTestId("promote-button"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("action-error")).toHaveTextContent(
+        /invalid promotion transition/,
+      ),
+    );
+  });
+
+  test("released has no further promotion and cannot be quarantined", async () => {
+    mockBosFetch.mockResolvedValue(
+      report({
+        promotion_state: "released",
+        eligible_for_promotion: true,
+        blocking_failures: [],
+      }),
+    );
+    render(<EnvironmentContractCard envId="env-1" />);
+
+    expect(await screen.findByTestId("promote-button")).toBeDisabled();
+    expect(screen.getByTestId("promote-button")).toHaveTextContent(
+      "No further promotion",
+    );
+    expect(screen.getByTestId("quarantine-button")).toBeDisabled();
   });
 });

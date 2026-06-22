@@ -209,22 +209,134 @@ def _create_rows(ctx: _RunCtx, cur) -> None:
 
 
 def _apply_template_metadata(ctx: _RunCtx, cur) -> None:
-    """No-op placeholder for Phase A.
+    """Bind the template's declared capabilities into app.environment_capabilities.
 
-    In a later phase this will copy template.capability_keys into
-    app.environment_capabilities and set department/module bindings. For now we
-    only record the template reference (done in _create_rows) so nav/home-route
-    resolution can read it.
+    Phase 3a: this binds exactly what the template advertises via
+    enabled_modules — nothing inferred, nothing beyond the template. Idempotent:
+    re-provisioning the same env re-asserts the same bindings (and re-enables any
+    that were disabled) without creating duplicates. A template with no
+    enabled_modules binds nothing (the env will have zero capabilities, and the
+    verifier will fail closed for any contract that requires some).
+
+    Phase 5 note (deferred by design until the runtime_mode/ai_behavior_contract
+    declaration field lands): an AI behavior contract is NOT bound here. There is
+    currently no explicit declaration channel — neither app.environment_templates
+    nor EnvironmentManifestV2 has an ai_behavior field, and
+    MANIFEST_JSON_ALLOWED_KEYS deliberately excludes structured concerns. Per the
+    Phase 3c binding policy, we do NOT infer an AI behavior contract from
+    enabled_modules or "AI enabled". Rows in app.environment_ai_behavior_contracts
+    are created explicitly (source='manual' via API/operator) until Phase 5 adds
+    the structured fields; then bind them here exactly like enabled_modules.
     """
     t0 = time.time()
+    modules = [m for m in (ctx.template.get("enabled_modules") or []) if m]
+    if not modules:
+        _record_stage(
+            ctx,
+            "apply_template_metadata",
+            "ok",
+            t0,
+            {
+                "bound": [],
+                "rows_created": 0,
+                "note": "template declares no enabled_modules; no capabilities bound",
+            },
+        )
+        return
+
+    bound: list[str] = []
+    for capability_key in modules:
+        cur.execute(
+            """
+            INSERT INTO app.environment_capabilities
+              (env_id, capability_key, source, enabled)
+            VALUES (%s::uuid, %s, 'template', true)
+            ON CONFLICT (env_id, capability_key) DO UPDATE
+              SET enabled = true,
+                  source = 'template',
+                  updated_at = now()
+            """,
+            (ctx.env_id, capability_key),
+        )
+        bound.append(capability_key)
+
+    # Phase 5 closure: explicit declaration channel for runtime_mode and the AI
+    # behavior contract. Precedence: manifest > template > NULL. NEVER inferred.
+    manifest = ctx.manifest
+    template = ctx.template
+    runtime_mode = (
+        getattr(manifest, "runtime_mode", None)
+        or template.get("runtime_mode")
+    )
+    behavior_key = (
+        getattr(manifest, "ai_behavior_contract_key", None)
+        or template.get("ai_behavior_contract_key")
+    )
+    behavior_version = (
+        getattr(manifest, "ai_behavior_contract_version", None)
+        or template.get("ai_behavior_contract_version")
+        or "ai_behavior_v1"
+    )
+
+    # Seed app.environment_contract directly so /verify after provisioning sees
+    # the declared runtime_mode without needing the lazy derive path. Idempotent
+    # (re-provision updates the runtime_mode in place; promotion_state untouched
+    # — the gate is the only writer of state transitions).
+    cur.execute(
+        """
+        INSERT INTO app.environment_contract
+          (env_id, template_key, template_version, canonical_runtime_path,
+           runtime_mode, deployment_target, seed_pack_version,
+           required_capabilities, required_smoke_tests, required_eval_suite,
+           authoritative_state_requirements, compatibility_version,
+           promotion_state)
+        VALUES
+          (%s::uuid, %s, %s, %s, %s, 'local', NULL, %s, '{}', NULL,
+           '{}'::jsonb, 'env_contract_v1', 'draft')
+        ON CONFLICT (env_id) DO UPDATE
+          SET runtime_mode = EXCLUDED.runtime_mode
+        """,
+        (
+            ctx.env_id,
+            template["template_key"],
+            template["version"],
+            template.get("default_home_route"),
+            runtime_mode,
+            modules,
+        ),
+    )
+
+    behavior_bound: dict[str, Any] | None = None
+    if behavior_key:
+        cur.execute(
+            """
+            INSERT INTO app.environment_ai_behavior_contracts
+              (env_id, contract_key, contract_version, source, enabled)
+            VALUES (%s::uuid, %s, %s, 'template', true)
+            ON CONFLICT (env_id, contract_key) DO UPDATE
+              SET enabled = true,
+                  contract_version = EXCLUDED.contract_version,
+                  source = 'template',
+                  updated_at = now()
+            """,
+            (ctx.env_id, behavior_key, behavior_version),
+        )
+        behavior_bound = {
+            "contract_key": behavior_key,
+            "contract_version": behavior_version,
+        }
+
     _record_stage(
         ctx,
         "apply_template_metadata",
-        "skipped",
+        "ok",
         t0,
         {
-            "note": "capability bindings deferred to a later phase; template_key pinned on env row",
-            "enabled_modules_hint": list(ctx.template.get("enabled_modules") or []),
+            "bound": bound,
+            "rows_created": len(bound),
+            "source": "template.enabled_modules",
+            "runtime_mode": runtime_mode,
+            "ai_behavior_contract_bound": behavior_bound,
         },
     )
 

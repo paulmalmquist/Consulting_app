@@ -16,6 +16,8 @@ from app.schemas.lab_v2 import (
     CreateEnvironmentV2Response,
     EnvironmentContractOut,
     EnvironmentManifestV2,
+    PromoteRequest,
+    QuarantineRequest,
     TemplateOut,
 )
 from app.services import (
@@ -146,3 +148,54 @@ def get_environment_contract(env_id: UUID):
         return environment_contract_v2.get_or_derive_contract(str(env_id))
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post(
+    "/environments/{env_id}/promote",
+    response_model=ContractVerificationReport,
+)
+def promote_environment(env_id: UUID, body: PromoteRequest):
+    """Transition an environment's promotion_state through the fail-closed gate.
+
+    The gate re-verifies fresh and refuses staging/released unless the env is
+    structurally healthy and verification passes. On refusal nothing is written
+    (no transition, no event row) and a 409 with the blocking reasons is returned.
+    Returns the verification report the decision was made on.
+    """
+    try:
+        return environment_contract_v2.promote_environment(
+            str(env_id),
+            target=body.target,
+            actor=body.actor,
+            reason=body.reason,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post(
+    "/environments/{env_id}/quarantine",
+    response_model=ContractVerificationReport,
+)
+def quarantine_environment(env_id: UUID, body: QuarantineRequest):
+    """Fail-closed operator action. Always records an audit event with the reason.
+    A released contract is terminal and cannot be quarantined (gate enforces)."""
+    try:
+        return environment_contract_v2.quarantine_environment(
+            str(env_id), actor=body.actor, reason=body.reason
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/environments/promotion-drift")
+def promotion_drift():
+    """Drift guard: 503 when any released/staging env no longer verifies.
+
+    Mirrors the /v2/environments/health 503 idiom so CI / monitoring fails closed
+    on a non-2xx. Read-only — does not mutate promotion_state or last_verification.
+    """
+    result = environment_contract_v2.check_promotion_drift()
+    if not result["ok"]:
+        return JSONResponse(status_code=503, content=result)
+    return result

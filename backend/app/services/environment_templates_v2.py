@@ -24,7 +24,14 @@ def _load_templates_fresh() -> list[dict[str, Any]]:
                    env_kind_default, industry_type, default_home_route, default_auth_mode,
                    enabled_modules, theme_tokens, login_copy,
                    default_seed_pack, available_seed_packs,
-                   is_active, is_latest, notes
+                   is_active, is_latest, notes,
+                   -- Phase 5 closure (migration 10032): structured declaration
+                   -- channel for runtime_mode + AI behavior contract. NULL is
+                   -- the documented default; the verifier / pipeline never
+                   -- infer when both manifest and template are null.
+                   runtime_mode,
+                   ai_behavior_contract_key,
+                   ai_behavior_contract_version
               FROM app.environment_templates
              WHERE is_active = true
              ORDER BY template_key, version DESC

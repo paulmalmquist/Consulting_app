@@ -23,8 +23,11 @@ unknown (the route maps LookupError -> HTTP 404).
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+from fastapi import HTTPException
 
 from app.db import get_cursor
 from app.observability.logger import emit_log
@@ -38,11 +41,30 @@ from app.services.environment_seed_packs_v2 import SEED_PACKS
 
 SERVICE = "environment_contract_v2"
 
-# Capability binding is a no-op in environment_pipeline_v2._apply_template_metadata
-# and there is no app.environment_capabilities table yet (verified absent in prod).
-# Until Phase 3 implements it, capability checks MUST report not_available/blocking —
-# never a silent pass. This is the single most dangerous failure mode.
-_CAPABILITY_BINDING_IMPLEMENTED = False
+# Promotion state machine (DB-enforced by the promotion-guard migration's
+# environment_contract_enforce_promotion trigger; mirrored here so the gate fails
+# closed with a clean 4xx before the DB ever raises). Keep in lockstep with the migration.
+_LEGAL_TRANSITIONS: dict[str, set[str]] = {
+    "draft": {"seeded", "verified", "quarantined", "failed"},
+    "seeded": {"verified", "quarantined", "failed"},
+    "verified": {"staging", "quarantined", "failed"},
+    "staging": {"verified", "released", "quarantined", "failed"},
+    "released": set(),  # terminal — immutable
+    "quarantined": {"verified"},
+    "failed": {"draft", "quarantined"},
+}
+
+# Promotion into these states requires the env to be structurally healthy AND a
+# fresh verification with eligible_for_promotion = True.
+_STATES_REQUIRING_ELIGIBILITY: set[str] = {"staging", "released"}
+_LIFECYCLE_OK_FOR_PROMOTION: set[str] = {"verified", "live"}
+
+# AI behavior contract (Phase 3c): a per-env row in
+# app.environment_ai_behavior_contracts declares which behavior contract applies.
+# Supported version is pinned to the AI runtime's CONTRACT_VERSION ("v1") so the
+# governance layer and runtime cannot silently diverge. An enabled row whose
+# version is not in this set is treated as malformed -> blocking fail, never pass.
+_SUPPORTED_AI_BEHAVIOR_VERSIONS: set[str] = {"ai_behavior_v1"}
 
 
 def _utcnow_iso() -> str:
@@ -100,6 +122,21 @@ def _contract_out(row: dict[str, Any]) -> EnvironmentContractOut:
     )
 
 
+def _resolve_template_runtime_mode(
+    template_key: str, template_version: int
+) -> str | None:
+    """Phase 5 closure: read runtime_mode from the template registry only.
+    Returns None if the template doesn't declare one or the template is missing.
+    NEVER infers from env_kind / enabled_modules / "AI enabled"."""
+    try:
+        template = environment_templates_v2.get_template(
+            template_key, template_version
+        )
+    except LookupError:
+        return None
+    return template.get("runtime_mode")
+
+
 def _derive_contract_fields(env_row: dict[str, Any]) -> dict[str, Any]:
     """Derive contract fields from clearly existing sources ONLY.
 
@@ -141,8 +178,12 @@ def _derive_contract_fields(env_row: dict[str, Any]) -> dict[str, Any]:
         "template_key": template_key,
         "template_version": int(template_version),
         "canonical_runtime_path": canonical_runtime_path,
-        # runtime_mode is NOT confidently derivable from existing sources -> null.
-        "runtime_mode": None,
+        # runtime_mode: Phase 5 closure — read from template.runtime_mode if the
+        # template declares it (migration 10032). Manifest overrides are written
+        # at provision time by environment_pipeline_v2._apply_template_metadata,
+        # so the contract row already carries them before this fallback fires.
+        # Still NULL if the template declares nothing — never inferred.
+        "runtime_mode": _resolve_template_runtime_mode(template_key, template_version),
         "deployment_target": "local",
         "seed_pack_version": seed_pack_version,
         "required_capabilities": required_capabilities,
@@ -279,36 +320,92 @@ def _seed_checks(
     return checks
 
 
-def _capability_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
-    # Hard fail-closed: binding is unimplemented and there is no capability table.
-    # Reporting pass here would be the worst failure mode in the whole system.
-    if not _CAPABILITY_BINDING_IMPLEMENTED:
+def _capability_checks(
+    cur, contract: EnvironmentContractOut
+) -> list[ContractCheck]:
+    """Resolve the contract's required_capabilities against the authoritative
+    app.environment_capabilities bindings. Fail-closed: a required capability with
+    no enabled binding row is blocking; the binding table not existing at all is
+    blocking (not_available), never a silent pass."""
+    checks: list[ContractCheck] = []
+
+    # binding_implemented = is the capability registry actually present? If the
+    # table is missing (pre-10030 env) this MUST stay not_available/blocking.
+    try:
+        cur.execute("SELECT to_regclass('app.environment_capabilities') AS t")
+        row = cur.fetchone()
+        table_present = bool(row and row.get("t"))
+    except Exception:
+        table_present = False
+
+    if not table_present:
         return [
             _check(
                 "capability.binding_implemented",
                 "not_available",
                 "blocking",
-                "capability binding not implemented "
-                "(environment_pipeline_v2._apply_template_metadata is a no-op; "
-                "no app.environment_capabilities table) — Phase 3",
+                "app.environment_capabilities not present (migration 10030 not "
+                "applied) — capability binding cannot be proven",
             ),
             _check(
                 "capability.required_resolvable",
                 "unknown",
                 "blocking",
                 f"cannot resolve {len(contract.required_capabilities)} required "
-                "capabilities while binding is not_available",
+                "capabilities while the binding table is not_available",
             ),
         ]
-    # Unreachable in Ticket 1; kept so the flip in Phase 3 is a one-line change.
-    return [
+
+    checks.append(
         _check(
             "capability.binding_implemented",
             "pass",
             "blocking",
-            "capability binding implemented",
+            "capability binding registry present (app.environment_capabilities)",
         )
-    ]
+    )
+
+    required = list(contract.required_capabilities)
+    if not required:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "pass",
+                "blocking",
+                "contract requires no capabilities",
+            )
+        )
+        return checks
+
+    cur.execute(
+        """SELECT capability_key
+             FROM app.environment_capabilities
+            WHERE env_id = %s::uuid AND enabled = true""",
+        (contract.env_id,),
+    )
+    bound = {r["capability_key"] for r in cur.fetchall()}
+    missing = sorted(set(required) - bound)
+
+    if missing:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "fail",
+                "blocking",
+                f"required capabilities not bound/enabled for this env: "
+                f"{missing} (data_not_ingested)",
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "capability.required_resolvable",
+                "pass",
+                "blocking",
+                f"all {len(required)} required capabilities bound and enabled",
+            )
+        )
+    return checks
 
 
 def _runtime_checks(
@@ -379,18 +476,95 @@ def _runtime_backend_check(cur, contract: EnvironmentContractOut) -> ContractChe
     )
 
 
-def _ai_runtime_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
-    checks: list[ContractCheck] = []
-    # No per-env AI behavior contract registry exists in code yet — report missing,
-    # do not invent a pass.
-    checks.append(
-        _check(
+def _behavior_contract_check(
+    cur, contract: EnvironmentContractOut
+) -> ContractCheck:
+    """Resolve ai_runtime.behavior_contract_present from
+    app.environment_ai_behavior_contracts. Fail-closed and explicit:
+
+      * table absent (migration 10031 not applied) -> not_available / blocking
+      * no row for this env                          -> missing / blocking
+      * row exists but enabled = false               -> fail / blocking
+      * row exists but contract_version unsupported  -> fail / blocking (malformed)
+      * a single enabled, supported row              -> pass
+
+    This is a presence/validity check only — it does NOT re-implement or re-validate
+    AI runtime behavior; contract_enforcer.py remains the runtime source of truth.
+    """
+    try:
+        cur.execute(
+            "SELECT to_regclass('app.environment_ai_behavior_contracts') AS t"
+        )
+        row = cur.fetchone()
+        table_present = bool(row and row.get("t"))
+    except Exception:
+        table_present = False
+
+    if not table_present:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "not_available",
+            "blocking",
+            "app.environment_ai_behavior_contracts not present (migration 10031 "
+            "not applied) — AI behavior contract cannot be proven",
+        )
+
+    cur.execute(
+        """SELECT contract_key, contract_version, enabled
+             FROM app.environment_ai_behavior_contracts
+            WHERE env_id = %s::uuid""",
+        (contract.env_id,),
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+
+    if not rows:
+        return _check(
             "ai_runtime.behavior_contract_present",
             "missing",
             "blocking",
-            "no per-env AI behavior contract registry (Phase 3)",
+            "no AI behavior contract declared for this environment "
+            "(out_of_scope_environment)",
         )
+
+    enabled_rows = [r for r in rows if r.get("enabled")]
+    if not enabled_rows:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "fail",
+            "blocking",
+            "AI behavior contract row(s) exist but all are disabled "
+            f"({sorted(r['contract_key'] for r in rows)})",
+        )
+
+    unsupported = [
+        r
+        for r in enabled_rows
+        if r.get("contract_version") not in _SUPPORTED_AI_BEHAVIOR_VERSIONS
+    ]
+    if unsupported:
+        return _check(
+            "ai_runtime.behavior_contract_present",
+            "fail",
+            "blocking",
+            "AI behavior contract version unsupported/malformed: "
+            f"{sorted(set(r.get('contract_version') for r in unsupported))} "
+            f"(supported: {sorted(_SUPPORTED_AI_BEHAVIOR_VERSIONS)})",
+        )
+
+    return _check(
+        "ai_runtime.behavior_contract_present",
+        "pass",
+        "blocking",
+        f"AI behavior contract present and enabled: "
+        f"{sorted(r['contract_key'] for r in enabled_rows)}",
     )
+
+
+def _ai_runtime_checks(
+    cur, contract: EnvironmentContractOut
+) -> list[ContractCheck]:
+    checks: list[ContractCheck] = []
+    checks.append(_behavior_contract_check(cur, contract))
     if contract.required_eval_suite:
         checks.append(
             _check(
@@ -456,8 +630,15 @@ def _eval_checks(contract: EnvironmentContractOut) -> list[ContractCheck]:
     return checks
 
 
-def verify_environment_contract(env_id: str) -> ContractVerificationReport:
+def verify_environment_contract(
+    env_id: str, *, materialize: bool = False
+) -> ContractVerificationReport:
     """Fail-closed structured verification of an environment's contract.
+
+    materialize=False (default): pure read — does not write last_verification.
+    materialize=True: additionally persists the latest report to
+    last_verification / last_verified_at. Promotion (Ticket 2) always forces a
+    fresh materialized verification; GET /verify defaults to a read.
 
     Raises LookupError if env_id is unknown / not a v2 contract env.
     """
@@ -467,10 +648,10 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
         env_row = _load_env_row(cur, env_id) or {}
         checks: list[ContractCheck] = []
         checks += _seed_checks(contract, env_row)
-        checks += _capability_checks(contract)
+        checks += _capability_checks(cur, contract)
         checks += _runtime_checks(contract, env_row)
         checks.append(_runtime_backend_check(cur, contract))
-        checks += _ai_runtime_checks(contract)
+        checks += _ai_runtime_checks(cur, contract)
         checks += _eval_checks(contract)
 
         blocking_failures = [
@@ -495,15 +676,17 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
             health_ok=eligible,
         )
 
-        # Persist the verification snapshot for operator visibility. This does NOT
-        # transition promotion_state and does NOT write environment_promotion_event
-        # (both are Ticket 2). It only records the latest report + timestamp.
-        cur.execute(
-            """UPDATE app.environment_contract
-                  SET last_verification = %s::jsonb, last_verified_at = now()
-                WHERE env_id = %s::uuid""",
-            (_serialize_json(report.model_dump()), env_id),
-        )
+        # Persist the verification snapshot for operator visibility only when
+        # materialize is requested. This does NOT transition promotion_state and
+        # does NOT write environment_promotion_event (those are the promotion path).
+        # It only records the latest report + timestamp.
+        if materialize:
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET last_verification = %s::jsonb, last_verified_at = now()
+                    WHERE env_id = %s::uuid""",
+                (_serialize_json(report.model_dump()), env_id),
+            )
 
     emit_log(
         level="info" if eligible else "warning",
@@ -521,3 +704,286 @@ def verify_environment_contract(env_id: str) -> ContractVerificationReport:
         },
     )
     return report
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Promotion gate + transitions (Dispatch 0004 — Ticket 2)
+#
+# Mirrors the re_trace_gate idiom: assert_environment_promotable returns a typed
+# result or raises HTTPException; the route must call the gate first and never
+# reach the transition write otherwise. The gate ALWAYS re-runs verification fresh
+# (materialize=True) — it must never promote on a stale/cached report.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class PromotableContract:
+    """Returned by the gate when a transition is permitted."""
+
+    env_id: str
+    from_state: str
+    to_state: str
+    lifecycle_state: str | None
+    report: ContractVerificationReport
+
+
+def _gate_409(code: str, message: str, **ctx: Any) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={"code": code, "message": message, **ctx},
+    )
+
+
+def assert_environment_promotable(
+    env_id: str, *, target: str, actor: str
+) -> PromotableContract:
+    """Fail-closed gate. Raises HTTPException (404/409) unless the transition to
+    `target` is legal AND, when target requires it, the env is structurally healthy
+    AND a FRESH verification says eligible_for_promotion.
+
+    The route must call this before any transition write; the transition write must
+    be unreachable when this raises.
+    """
+    if target not in _LEGAL_TRANSITIONS and target not in {
+        s for v in _LEGAL_TRANSITIONS.values() for s in v
+    }:
+        raise _gate_409(
+            "invalid_target_state",
+            f"unknown target promotion_state '{target}'",
+            target=target,
+        )
+
+    # Fresh verification — never trust a cached/stale report for a promotion.
+    report = verify_environment_contract(env_id, materialize=True)
+
+    with get_cursor() as cur:
+        contract = _load_contract_row(cur, env_id)
+        if contract is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "contract_not_found",
+                    "message": f"no environment contract for env_id {env_id}",
+                },
+            )
+        env_row = _load_env_row(cur, env_id) or {}
+
+    current = contract["promotion_state"]
+    lifecycle = env_row.get("lifecycle_state")
+
+    if current == "released":
+        raise _gate_409(
+            "released_is_terminal",
+            "released environment contracts are immutable",
+            env_id=env_id,
+            promotion_state=current,
+        )
+
+    allowed = _LEGAL_TRANSITIONS.get(current, set())
+    if target != current and target not in allowed:
+        raise _gate_409(
+            "invalid_transition",
+            f"illegal promotion transition {current} -> {target}",
+            env_id=env_id,
+            from_state=current,
+            to_state=target,
+            allowed=sorted(allowed),
+        )
+
+    if target in _STATES_REQUIRING_ELIGIBILITY:
+        if lifecycle not in _LIFECYCLE_OK_FOR_PROMOTION:
+            raise _gate_409(
+                "lifecycle_not_ready",
+                f"target '{target}' requires lifecycle_state in "
+                f"{sorted(_LIFECYCLE_OK_FOR_PROMOTION)}; env is "
+                f"'{lifecycle}'",
+                env_id=env_id,
+                lifecycle_state=lifecycle,
+                to_state=target,
+            )
+        if not report.eligible_for_promotion:
+            raise _gate_409(
+                "not_eligible",
+                f"target '{target}' requires a passing verification; "
+                f"{len(report.blocking_failures)} blocking check(s) failing",
+                env_id=env_id,
+                to_state=target,
+                blocking_failures=report.blocking_failures,
+            )
+
+    return PromotableContract(
+        env_id=env_id,
+        from_state=current,
+        to_state=target,
+        lifecycle_state=lifecycle,
+        report=report,
+    )
+
+
+def _record_event(
+    cur,
+    *,
+    env_id: str,
+    from_state: str,
+    to_state: str,
+    actor: str,
+    reason: str | None,
+    report: ContractVerificationReport | None,
+) -> None:
+    """Append-only audit row. Every transition (promote AND quarantine) writes
+    exactly one of these."""
+    cur.execute(
+        """
+        INSERT INTO app.environment_promotion_event
+          (env_id, from_state, to_state, actor, reason, verification)
+        VALUES (%s::uuid, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (
+            env_id,
+            from_state,
+            to_state,
+            actor,
+            reason,
+            _serialize_json(report.model_dump()) if report is not None else None,
+        ),
+    )
+
+
+def promote_environment(
+    env_id: str, *, target: str, actor: str, reason: str | None = None
+) -> ContractVerificationReport:
+    """Gate, then perform the single legal transition and write one event row.
+
+    Returns the fresh verification report the decision was made on. Raises
+    HTTPException (from the gate) when the transition is not permitted — in which
+    case NO transition and NO event row are written.
+    """
+    gate = assert_environment_promotable(env_id, target=target, actor=actor)
+
+    with get_cursor() as cur:
+        # released needs its provenance columns; the trigger only lets these +
+        # promotion_state change on a row entering/at released.
+        if target == "released":
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s,
+                          released_at = now(), released_by = %s
+                    WHERE env_id = %s::uuid""",
+                (target, actor, env_id),
+            )
+        elif target == "verified":
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s,
+                          verified_by = %s
+                    WHERE env_id = %s::uuid""",
+                (target, actor, env_id),
+            )
+        else:
+            cur.execute(
+                """UPDATE app.environment_contract
+                      SET promotion_state = %s
+                    WHERE env_id = %s::uuid""",
+                (target, env_id),
+            )
+        _record_event(
+            cur,
+            env_id=env_id,
+            from_state=gate.from_state,
+            to_state=target,
+            actor=actor,
+            reason=reason,
+            report=gate.report,
+        )
+
+    emit_log(
+        level="info",
+        service=SERVICE,
+        action="promote_environment",
+        message=f"environment promoted {gate.from_state} -> {target}",
+        context={"env_id": env_id, "from": gate.from_state, "to": target,
+                 "actor": actor},
+    )
+    return gate.report
+
+
+def quarantine_environment(
+    env_id: str, *, actor: str, reason: str
+) -> ContractVerificationReport:
+    """Operator fail-closed action. Always records an event row with the reason.
+
+    quarantine is reachable from every non-released state; a released contract is
+    terminal and cannot be quarantined (the gate enforces this fail-closed). reason
+    is required — a quarantine without a recorded reason is not auditable.
+    """
+    if not reason or not reason.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "reason_required",
+                    "message": "quarantine requires a non-empty reason"},
+        )
+    gate = assert_environment_promotable(
+        env_id, target="quarantined", actor=actor
+    )
+
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE app.environment_contract
+                  SET promotion_state = 'quarantined'
+                WHERE env_id = %s::uuid""",
+            (env_id,),
+        )
+        _record_event(
+            cur,
+            env_id=env_id,
+            from_state=gate.from_state,
+            to_state="quarantined",
+            actor=actor,
+            reason=reason,
+            report=gate.report,
+        )
+
+    emit_log(
+        level="warning",
+        service=SERVICE,
+        action="quarantine_environment",
+        message=f"environment quarantined ({gate.from_state} -> quarantined)",
+        context={"env_id": env_id, "from": gate.from_state, "actor": actor,
+                 "reason": reason},
+    )
+    return gate.report
+
+
+def check_promotion_drift() -> dict[str, Any]:
+    """Drift guard: any env in a promoted state (released/staging) that no longer
+    passes verification is drift. Mirrors the /v2/environments/health 503 idiom —
+    the route returns 503 when `drift` is non-empty.
+
+    Read-only: verifies with materialize=False so a drift probe never mutates
+    last_verification or promotion_state.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT env_id::text AS env_id, promotion_state
+                 FROM app.environment_contract
+                WHERE promotion_state IN ('released','staging')"""
+        )
+        promoted = [dict(r) for r in cur.fetchall()]
+
+    drift: list[dict[str, Any]] = []
+    for row in promoted:
+        report = verify_environment_contract(row["env_id"], materialize=False)
+        if not report.eligible_for_promotion:
+            drift.append(
+                {
+                    "env_id": row["env_id"],
+                    "promotion_state": row["promotion_state"],
+                    "blocking_failures": report.blocking_failures,
+                }
+            )
+
+    return {
+        "promoted_envs_checked": len(promoted),
+        "drift": drift,
+        "ok": not drift,
+    }

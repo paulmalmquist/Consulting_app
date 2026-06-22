@@ -201,3 +201,206 @@ def test_idempotent_reuses_existing_slug(fake_cursor):
     create_stage = next(s for s in resp.stages if s.name == "create_rows")
     assert create_stage.status == "skipped"
     assert any("already exists" in w for w in resp.warnings)
+
+
+# ── Phase 3a: capability binding (apply_template_metadata) ───────────────────
+
+
+def test_apply_template_metadata_binds_enabled_modules(fake_cursor):
+    """Binds exactly the template's enabled_modules (['crm','tasks']) into
+    app.environment_capabilities, source='template', idempotent via ON CONFLICT."""
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=dict(_TEMPLATE_ROW),
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="internal_ops_minimal",
+        env_id="00000000-0000-0000-0000-0000000000aa",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    cap_inserts = [
+        (q, p)
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_capabilities" in q
+    ]
+    assert len(cap_inserts) == 2  # crm + tasks, nothing inferred beyond template
+    for q, _ in cap_inserts:
+        assert "ON CONFLICT (env_id, capability_key) DO UPDATE" in q
+        assert "'template'" in q  # source pinned to template
+    bound_keys = {p[1] for _, p in cap_inserts}
+    assert bound_keys == {"crm", "tasks"}
+
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.status == "ok"
+    assert stage.artifacts["rows_created"] == 2
+    assert set(stage.artifacts["bound"]) == {"crm", "tasks"}
+
+
+def test_apply_template_metadata_binds_behavior_contract_when_declared(
+    fake_cursor,
+):
+    """Phase 5 closure: when the template (or manifest) declares
+    ai_behavior_contract_key, the pipeline binds one row into
+    app.environment_ai_behavior_contracts. NEVER inferred."""
+    tpl = dict(_TEMPLATE_ROW)
+    tpl["runtime_mode"] = "interactive"
+    tpl["ai_behavior_contract_key"] = "internal_ops_default"
+    tpl["ai_behavior_contract_version"] = "ai_behavior_v1"
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=tpl,
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="internal_ops_minimal",
+        env_id="00000000-0000-0000-0000-0000000000cc",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    behavior_inserts = [
+        (q, p)
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_ai_behavior_contracts" in q
+    ]
+    assert len(behavior_inserts) == 1
+    assert behavior_inserts[0][1] == (
+        ctx.env_id,
+        "internal_ops_default",
+        "ai_behavior_v1",
+    )
+
+    contract_inserts = [
+        p
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_contract" in q
+    ]
+    assert len(contract_inserts) == 1
+    # contract row params: env_id, template_key, version, home_route, runtime_mode, modules
+    assert contract_inserts[0][4] == "interactive"
+
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.artifacts["runtime_mode"] == "interactive"
+    assert stage.artifacts["ai_behavior_contract_bound"]["contract_key"] == (
+        "internal_ops_default"
+    )
+
+
+def test_apply_template_metadata_does_not_infer_behavior_contract(fake_cursor):
+    """No declaration on manifest or template -> NO behavior contract row,
+    runtime_mode stays NULL on the contract row. Inference is forbidden."""
+    # _TEMPLATE_ROW has no runtime_mode / ai_behavior_contract_key
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=dict(_TEMPLATE_ROW),
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="internal_ops_minimal",
+        env_id="00000000-0000-0000-0000-0000000000dd",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    behavior_inserts = [
+        q
+        for q, _ in fake_cursor.queries
+        if "INSERT INTO app.environment_ai_behavior_contracts" in q
+    ]
+    assert behavior_inserts == []
+
+    contract_inserts = [
+        p
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_contract" in q
+    ]
+    assert contract_inserts[0][4] is None  # runtime_mode
+
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.artifacts["runtime_mode"] is None
+    assert stage.artifacts["ai_behavior_contract_bound"] is None
+
+
+def test_apply_template_metadata_manifest_overrides_template(fake_cursor):
+    """Phase 5 precedence: manifest > template > NULL for both runtime_mode and
+    the AI behavior contract key. Manifest wins when both are set."""
+    tpl = dict(_TEMPLATE_ROW)
+    tpl["runtime_mode"] = "static"
+    tpl["ai_behavior_contract_key"] = "template_default"
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme",
+            template_key="internal_ops",
+            runtime_mode="agentic",
+            ai_behavior_contract_key="manifest_override",
+        ),
+        actor="tester",
+        template=tpl,
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="internal_ops_minimal",
+        env_id="00000000-0000-0000-0000-0000000000ee",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    contract_inserts = [
+        p
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_contract" in q
+    ]
+    assert contract_inserts[0][4] == "agentic"  # manifest wins
+
+    behavior_params = [
+        p
+        for q, p in fake_cursor.queries
+        if "INSERT INTO app.environment_ai_behavior_contracts" in q
+    ]
+    assert behavior_params[0][1] == "manifest_override"
+
+
+def test_apply_template_metadata_binds_nothing_when_no_modules(fake_cursor):
+    """A template with no enabled_modules binds nothing — and reports ok with
+    rows_created=0 (the env will then fail closed at the verifier if its contract
+    requires capabilities)."""
+    tpl = dict(_TEMPLATE_ROW)
+    tpl["enabled_modules"] = []
+    ctx = environment_pipeline_v2._RunCtx(
+        manifest=EnvironmentManifestV2(
+            client_name="Acme", template_key="internal_ops"
+        ),
+        actor="tester",
+        template=tpl,
+        slug="acme",
+        env_kind="internal",
+        seed_pack_name="empty",
+        env_id="00000000-0000-0000-0000-0000000000bb",
+    )
+
+    environment_pipeline_v2._apply_template_metadata(ctx, fake_cursor)
+
+    assert not [
+        q
+        for q, _ in fake_cursor.queries
+        if "INSERT INTO app.environment_capabilities" in q
+    ]
+    stage = next(
+        s for s in ctx.stages if s.name == "apply_template_metadata"
+    )
+    assert stage.status == "ok"
+    assert stage.artifacts["rows_created"] == 0

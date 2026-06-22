@@ -1,4 +1,5 @@
-"""Ticket 1 tests for the EnvironmentContract + fail-closed verifier.
+"""Ticket 1 tests for the EnvironmentContract + fail-closed verifier
+(Dispatch 0004 / migration (env_contract base)).
 
 Covers the service (derive + verify) and the API surface. The single most
 important assertion: capability binding is not_available/blocking, so a
@@ -6,6 +7,11 @@ structurally healthy env is still NOT eligible for promotion (no silent pass).
 
 No test asserts a write to app.environment_promotion_event — that table is dead
 in Ticket 1 by design.
+
+Phase 3a will rewrite some of these to be data-driven; Phase 5 will close the
+runtime_mode declaration field. Those rewrites are mock-faithfulness updates,
+not assertion-weakening (the rule that never bends: every non-pass branch stays
+blocking; no silent pass).
 """
 
 from __future__ import annotations
@@ -15,6 +21,37 @@ import uuid
 import pytest
 
 from app.services import environment_contract_v2 as svc
+from app.services import environment_templates_v2 as _tpl
+
+
+@pytest.fixture(autouse=True)
+def _prime_template_cache():
+    """Make environment_templates_v2.get_template a pure cache hit so it issues
+    NO query mid-verify. Without this the (warm vs cold) cache query shifts the
+    FakeCursor result sequence non-deterministically across test order."""
+    _tpl._CACHE["templates"] = [
+        {
+            "template_key": "repe",
+            "version": 1,
+            "display_name": "REPE",
+            "description": None,
+            "env_kind_default": "client",
+            "industry_type": "real_estate_pe",
+            "default_home_route": "/lab/env/{env_id}/re",
+            "default_auth_mode": "private",
+            "enabled_modules": ["repe"],
+            "theme_tokens": {},
+            "login_copy": {},
+            "default_seed_pack": "repe_starter",
+            "available_seed_packs": ["repe_starter"],
+            "is_active": True,
+            "is_latest": True,
+            "notes": None,
+        }
+    ]
+    _tpl._CACHE["fetched_at"] = float("inf")  # never expires during the test
+    yield
+    _tpl.invalidate_cache()
 
 
 def _env_row(**over):
@@ -33,19 +70,55 @@ def _env_row(**over):
     return base
 
 
-def _queue_verify_sequence(cur, env_row, *, template_active=True):
-    """Queue FakeCursor results for the full verify_environment_contract path:
+def _queue_verify_sequence(
+    cur,
+    env_row,
+    *,
+    template_active=True,
+    cap_table_present=True,
+    bound_caps=("repe",),
+    ai_table_present=True,
+    ai_rows=(
+        {
+            "contract_key": "default",
+            "contract_version": "ai_behavior_v1",
+            "enabled": True,
+        },
+    ),
+):
+    """Queue FakeCursor results for the verify path (post-Phase-3a + 3c):
 
     get_or_derive_contract: contract miss -> env row -> INSERT -> re-read contract
-    verify: env row -> template active probe -> UPDATE (no fetch).
+    verify block: env row
+                  -> _capability_checks: cap to_regclass probe
+                                         -> bound-caps SELECT (table present and
+                                            the contract requires capabilities)
+                  -> runtime backend template active probe
+                  -> _behavior_contract_check: ai to_regclass probe
+                                               -> ai rows SELECT (table present)
+                  -> UPDATE last_verification (no fetch, only when
+                     materialize=True; default GET /verify uses materialize=False).
     """
     cur.push_result([])  # _load_contract_row miss
-    cur.push_result([env_row])  # _load_env_row
+    cur.push_result([env_row])  # _load_env_row (derive)
     # INSERT consumes no result
     cur.push_result([])  # re-read _load_contract_row after insert (race fallback)
     cur.push_result([env_row])  # verify: _load_env_row
+    cur.push_result(
+        [{"t": "app.environment_capabilities"}]
+        if cap_table_present
+        else [{"t": None}]
+    )  # cap to_regclass
+    if cap_table_present:
+        cur.push_result([{"capability_key": c} for c in bound_caps])
     cur.push_result([{"1": 1}] if template_active else [])  # template active probe
-    # UPDATE last_verification consumes no result
+    cur.push_result(
+        [{"t": "app.environment_ai_behavior_contracts"}]
+        if ai_table_present
+        else [{"t": None}]
+    )  # ai to_regclass
+    if ai_table_present:
+        cur.push_result([dict(r) for r in ai_rows])  # ai behavior rows
 
 
 def test_derive_contract_when_no_row(fake_cursor):
@@ -63,7 +136,7 @@ def test_derive_contract_when_no_row(fake_cursor):
     assert contract.promotion_state == "draft"  # never derives anything past draft
     assert contract.canonical_runtime_path == "/lab/env/{env_id}/re"
     assert contract.seed_pack_version == 1
-    assert contract.runtime_mode is None  # not over-derived
+    assert contract.runtime_mode is None  # not over-derived (Phase 5 closes this)
     assert contract.required_eval_suite is None
 
 
@@ -82,23 +155,62 @@ def test_v2_env_without_template_is_not_contract_governed(fake_cursor):
         svc.get_or_derive_contract(env["env_id"])
 
 
-def test_capability_binding_blocks_promotion_even_when_healthy(fake_cursor):
-    """The critical no-silent-pass assertion: a structurally healthy env still
-    fails eligibility because capability binding is not_available/blocking."""
-    env = _env_row()  # seed applied + matching version + home route + active template
-    _queue_verify_sequence(fake_cursor, env, template_active=True)
+def test_capability_table_absent_is_not_available_blocking(fake_cursor):
+    """Fail-closed: if app.environment_capabilities is not present (migration
+    10006 not applied), binding cannot be proven — not_available/blocking, never
+    silent pass."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, cap_table_present=False
+    )
 
     report = svc.verify_environment_contract(env["env_id"])
 
     by_key = {c.key: c for c in report.checks}
     assert by_key["capability.binding_implemented"].status == "not_available"
     assert by_key["capability.binding_implemented"].severity == "blocking"
+    assert by_key["capability.required_resolvable"].status == "unknown"
     assert "capability.binding_implemented" in report.blocking_failures
     assert report.eligible_for_promotion is False
-    assert report.health_ok is False
-    # seed + runtime backend genuinely pass; only blocking unknowns hold it back
+
+
+def test_all_required_capabilities_bound_passes(fake_cursor):
+    """Phase 3a happy path: binding table present and every required capability
+    (derived from template.enabled_modules = ['repe']) is bound+enabled. AI
+    behavior contract and runtime_mode are still blocking, so eligibility stays
+    False — but capability checks themselves are NOT in blocking_failures."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, bound_caps=("repe",)
+    )
+
+    report = svc.verify_environment_contract(env["env_id"])
+
+    by_key = {c.key: c for c in report.checks}
+    assert by_key["capability.binding_implemented"].status == "pass"
+    assert by_key["capability.required_resolvable"].status == "pass"
+    assert "capability.binding_implemented" not in report.blocking_failures
+    assert "capability.required_resolvable" not in report.blocking_failures
     assert by_key["seed.pack_present"].status == "pass"
     assert by_key["runtime.backend_reachable"].status == "pass"
+
+
+def test_missing_required_capability_blocks_fail_closed(fake_cursor):
+    """Required 'repe' (from template) not among bound capabilities -> blocking
+    fail. Bound rows present but the required one absent."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor, env, template_active=True, bound_caps=("some_other_cap",)
+    )
+
+    report = svc.verify_environment_contract(env["env_id"])
+
+    by_key = {c.key: c for c in report.checks}
+    assert by_key["capability.binding_implemented"].status == "pass"
+    assert by_key["capability.required_resolvable"].status == "fail"
+    assert "repe" in by_key["capability.required_resolvable"].message
+    assert "capability.required_resolvable" in report.blocking_failures
+    assert report.eligible_for_promotion is False
 
 
 def test_eligible_property_matches_blocking_failures(fake_cursor):
@@ -120,7 +232,6 @@ def test_missing_seed_pack_is_blocking_fail(fake_cursor):
 
 
 def test_seed_version_mismatch_is_blocking_fail(fake_cursor):
-    # contract derives seed_pack_version from env row; force a mismatch vs registry
     env = _env_row(seed_pack_applied="repe_starter", seed_pack_version=999)
     _queue_verify_sequence(fake_cursor, env)
     report = svc.verify_environment_contract(env["env_id"])
@@ -158,13 +269,129 @@ def test_dangling_template_is_runtime_backend_fail(fake_cursor):
     assert "runtime.backend_reachable" in report.blocking_failures
 
 
-def test_ai_behavior_contract_absent_is_missing_blocking(fake_cursor):
+def test_ai_behavior_table_absent_is_not_available_blocking(fake_cursor):
+    """Migration 10007 not applied -> not_available/blocking, never silent pass."""
     env = _env_row()
-    _queue_verify_sequence(fake_cursor, env)
+    _queue_verify_sequence(fake_cursor, env, ai_table_present=False)
     report = svc.verify_environment_contract(env["env_id"])
-    by_key = {c.key: c for c in report.checks}
-    assert by_key["ai_runtime.behavior_contract_present"].status == "missing"
-    assert by_key["ai_runtime.behavior_contract_present"].severity == "blocking"
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "not_available"
+    assert c.severity == "blocking"
+    assert "ai_runtime.behavior_contract_present" in report.blocking_failures
+
+
+def test_ai_behavior_no_row_is_missing_blocking(fake_cursor):
+    """Table present but no row for this env -> missing/blocking."""
+    env = _env_row()
+    _queue_verify_sequence(fake_cursor, env, ai_rows=())
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "missing"
+    assert c.severity == "blocking"
+    assert report.eligible_for_promotion is False
+
+
+def test_ai_behavior_disabled_row_is_fail_blocking(fake_cursor):
+    """Row exists but disabled -> fail/blocking (distinct from missing)."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor,
+        env,
+        ai_rows=(
+            {
+                "contract_key": "default",
+                "contract_version": "ai_behavior_v1",
+                "enabled": False,
+            },
+        ),
+    )
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "fail"
+    assert c.severity == "blocking"
+    assert "disabled" in c.message
+
+
+def test_ai_behavior_unsupported_version_is_fail_blocking(fake_cursor):
+    """Enabled row with unsupported contract_version -> malformed -> fail/blocking,
+    never a silent pass."""
+    env = _env_row()
+    _queue_verify_sequence(
+        fake_cursor,
+        env,
+        ai_rows=(
+            {
+                "contract_key": "default",
+                "contract_version": "ai_behavior_v99",
+                "enabled": True,
+            },
+        ),
+    )
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "fail"
+    assert c.severity == "blocking"
+    assert "unsupported" in c.message or "malformed" in c.message
+
+
+def test_ai_behavior_valid_enabled_row_passes(fake_cursor):
+    """A single enabled, supported-version row -> pass."""
+    env = _env_row()
+    _queue_verify_sequence(fake_cursor, env)  # default ai_rows = valid v1 enabled
+    report = svc.verify_environment_contract(env["env_id"])
+    c = {x.key: x for x in report.checks}["ai_runtime.behavior_contract_present"]
+    assert c.status == "pass"
+    assert "ai_runtime.behavior_contract_present" not in report.blocking_failures
+
+
+def test_fully_provisioned_env_is_eligible_for_promotion(fake_cursor):
+    """Phase 5 closure proof: a STORED contract (HIT path) with runtime_mode set
+    + seed applied + capabilities bound + backend reachable + valid AI behavior
+    contract -> NO blocking failures -> eligible_for_promotion is True. This is
+    the end-to-end happy path that proves a pipeline-provisioned env (one whose
+    template declares runtime_mode + ai_behavior_contract_key) can reach
+    'released' through the gate."""
+    env = _env_row()
+    stored_contract = {
+        "env_id": env["env_id"],
+        "template_key": "repe",
+        "template_version": 1,
+        "canonical_runtime_path": "/lab/env/{env_id}/re",
+        "runtime_mode": "interactive",  # set by the Phase 5 pipeline at provision
+        "deployment_target": "local",
+        "seed_pack_version": 1,
+        "required_capabilities": ["repe"],
+        "required_smoke_tests": [],
+        "required_eval_suite": None,
+        "authoritative_state_requirements": {},
+        "compatibility_version": "env_contract_v1",
+        "promotion_state": "verified",
+    }
+    # get_or_derive_contract: contract HIT -> returns immediately (1 query)
+    fake_cursor.push_result([stored_contract])
+    # verify block:
+    fake_cursor.push_result([env])  # _load_env_row
+    fake_cursor.push_result([{"t": "app.environment_capabilities"}])  # cap probe
+    fake_cursor.push_result([{"capability_key": "repe"}])  # cap bound
+    fake_cursor.push_result([{"1": 1}])  # runtime backend template probe
+    fake_cursor.push_result(
+        [{"t": "app.environment_ai_behavior_contracts"}]
+    )  # ai probe
+    fake_cursor.push_result(
+        [
+            {
+                "contract_key": "default",
+                "contract_version": "ai_behavior_v1",
+                "enabled": True,
+            }
+        ]
+    )  # ai rows
+
+    report = svc.verify_environment_contract(env["env_id"])
+
+    assert report.blocking_failures == []
+    assert report.eligible_for_promotion is True
+    assert report.health_ok is True
 
 
 def test_eval_checks_are_warning_not_blocking(fake_cursor):
