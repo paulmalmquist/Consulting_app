@@ -176,7 +176,7 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
         )}
         <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 12, lineHeight: 1.5 }}>
           Source: telemetry metadata catalog + enrichment SQL over tel_* tables. Lineage is live; no values are
-          seeded. A metric with no upstream edge renders "No lineage yet".
+          seeded. A metric with no upstream edge renders the no-lineage-yet state instead of implying provenance.
         </div>
       </Panel>
 
