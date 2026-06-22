@@ -23,6 +23,7 @@ Only after the dispatch record exists should a coding session open any implement
 ## How to use this system
 
 ### At the start of a coding session
+0. Read [`CONSOLIDATED_BACKLOG.md`](CONSOLIDATED_BACKLOG.md) — the single source of truth for open work across all former in-flight sessions (priorities, blocked items, and what already shipped). It supersedes the per-environment `next-session.md` notes for *status*.
 1. Check `00-dispatch/open-questions.md` and `00-dispatch/decision-log.md` for anything that affects your work.
 2. Identify which environment you are working on.
 3. Open `docs/plans/<environment>/next-session.md` — it contains a copy-paste-ready prompt with context, files, and acceptance criteria.
