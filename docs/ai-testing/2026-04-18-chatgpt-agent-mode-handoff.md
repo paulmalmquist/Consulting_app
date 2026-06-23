@@ -10,7 +10,7 @@ You are testing Winston on the live site as a real end user after deployment. Yo
 - Site: `https://paulmalmquist.com`
 - Primary login URL: `https://paulmalmquist.com/login`
 - Email: `info@novendor.ai`
-- Password: `winston2026!`
+- Password: see `docs/reference/ENV_KEYS.md` (`NOVENDOR_ADMIN_PASSWORD`) — not stored in plaintext here
 
 ### Goal
 Verify four things:
@@ -30,7 +30,7 @@ Verify four things:
 
 ### Login and environment access instructions
 1. Open `https://paulmalmquist.com/login`.
-2. Sign in with `info@novendor.ai` and `winston2026!`.
+2. Sign in with `info@novendor.ai` (password in `docs/reference/ENV_KEYS.md`).
 3. Note where login lands you: `/app`, an environment home, or an environment selector.
 4. Confirm whether this account can access these branded entries:
    - `https://paulmalmquist.com/novendor/login`

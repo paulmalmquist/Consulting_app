@@ -10,7 +10,7 @@ You are testing Winston as a real user on the live site and must return a concis
 - Site: `https://paulmalmquist.com`
 - Primary login URL: `https://paulmalmquist.com/login`
 - Email: `info@novendor.ai`
-- Password: `winston2026!`
+- Password: see `docs/reference/ENV_KEYS.md` (`NOVENDOR_ADMIN_PASSWORD`) — not stored in plaintext here
 
 ### Goal
 Test Winston's front-end agent mode based on the most recent development work and conversation history themes from today. Focus on real user behavior, not implementation details.
