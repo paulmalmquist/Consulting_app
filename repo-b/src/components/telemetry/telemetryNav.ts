@@ -56,6 +56,9 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "metadata", label: "Metadata Explorer", icon: "M2 3h5v4H2zM9 3h5v4H9zM5 9h6v4H5zM4.5 7v2M11.5 7v2M7 11H5M11 11h-1", group: "Evidence & Lineage" },
   { slug: "governance", label: "Trust Center", icon: "M8 1l6 2v4c0 3.5-2.5 6-6 7-3.5-1-6-3.5-6-7V3z", group: "Evidence & Lineage" },
   { slug: "how-it-works", label: "How This Works", icon: "M2 4l4-2 4 2 4-2v10l-4 2-4-2-4 2zM6 2v10M10 4v10", group: "Evidence & Lineage" },
+  // Resume-claim proof surface: aggregates the evidence cards (model/pipeline/feature
+  // contract/known-anomaly/AI/deploy) that back each resume claim with real data, fail-closed.
+  { slug: "evidence", label: "Resume Evidence", icon: "M3 2h7l3 3v9H3zM6 7h5M6 10h5M6 13h3", group: "Evidence & Lineage" },
 
   // Section 6 — Agent Operations (approved execution)
   { slug: "control-tower", label: "Agent Control Tower", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6", group: "Agent Operations" },

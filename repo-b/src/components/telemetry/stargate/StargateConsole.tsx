@@ -30,6 +30,8 @@ function aggBadge(source?: string): { label: string; color: string } {
 export default function StargateConsole() {
   const stream = useStargateStream();
   const [selected, setSelected] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [startMsg, setStartMsg] = useState<string | null>(null);
   // The three.js canvas only mounts on desktop, and only after hydration —
   // useIsMobile defaults to desktop on the server, so an unguarded render
   // would mount the canvas for one frame on phones.
@@ -64,6 +66,30 @@ export default function StargateConsole() {
   );
   const latest = printerPoints.length ? printerPoints[printerPoints.length - 1] : null;
   const badge = aggBadge(stream.health?.aggregation_source);
+  // The Start control restarts the recorded-capture replay; it is capture-mode
+  // only (broker modes own their own producer). Default mode is capture, so the
+  // control also shows before the first health frame arrives.
+  const isCapture = (stream.health?.mode ?? "capture") === "capture";
+
+  async function startRecordedCapture() {
+    if (!stream.baseUrl || starting) return;
+    setStarting(true);
+    setStartMsg(null);
+    try {
+      const res = await fetch(`${stream.baseUrl}/stargate/replay/cycle`, { method: "POST" });
+      if (res.status === 409) {
+        setStartMsg("Start is capture-mode only");
+      } else if (!res.ok) {
+        setStartMsg(`Start failed (${res.status})`);
+      } else {
+        stream.reconnect(); // re-open SSE so the restarted replay paints immediately
+      }
+    } catch {
+      setStartMsg("Bridge unreachable");
+    } finally {
+      setStarting(false);
+    }
+  }
 
   // Fail closed: a deployment without a configured bridge URL shows an explicit
   // diagnostic instead of silently trying (and failing) to reach localhost.
@@ -91,7 +117,18 @@ export default function StargateConsole() {
         title="Printer telemetry stream"
         blurb="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic. Live state is ring-buffered in the bridge — no database in the hot path."
         right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {startMsg && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.red }}>{startMsg}</span>}
+            {isCapture && (
+              <button type="button" onClick={startRecordedCapture} disabled={starting}
+                title="Replays the recorded capture fixture through the live Kafka/SSE bridge. This is recorded capture, not a live printer."
+                style={{ fontFamily: C.mono, fontSize: 11, padding: "6px 12px", borderRadius: 7,
+                  cursor: starting ? "default" : "pointer", color: starting ? C.dim : C.text,
+                  background: "rgba(63,177,232,0.12)", border: `1px solid ${C.cyan}66`,
+                  opacity: starting ? 0.6 : 1 }}>
+                {starting ? "Starting…" : "▸ Start recorded capture"}
+              </button>
+            )}
             <Tag color={stream.connected ? C.green : C.red}>{stream.connected ? "stream live" : "reconnecting"}</Tag>
             <Tag color={badge.color}>{badge.label}</Tag>
           </div>

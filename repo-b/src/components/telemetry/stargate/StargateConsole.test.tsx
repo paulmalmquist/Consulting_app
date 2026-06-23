@@ -3,7 +3,7 @@
 // not silently try localhost. next/dynamic is mocked null in the vitest config,
 // so the 3D/recharts panels never mount and the early return is what renders.
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import StargateConsole from "./StargateConsole";
@@ -37,5 +37,36 @@ describe("StargateConsole without a configured bridge", () => {
       screen.getByText("Set NEXT_PUBLIC_STARGATE_BRIDGE_URL to the Railway bridge endpoint."),
     ).toBeInTheDocument();
     expect(MockEventSource.instances).toHaveLength(0);
+  });
+});
+
+describe("StargateConsole Start recorded capture control", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_STARGATE_BRIDGE_URL", "https://bridge.example");
+  });
+
+  it("renders the labeled control and restarts capture replay + reconnects SSE on click", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StargateConsole />);
+    // One EventSource on mount.
+    expect(MockEventSource.instances).toHaveLength(1);
+    // The control is explicitly labeled recorded capture (never "live printer").
+    const btn = screen.getByRole("button", { name: /start recorded capture/i });
+    fireEvent.click(btn);
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://bridge.example/stargate/replay/cycle", { method: "POST" }),
+    );
+    // reconnect() opens a fresh EventSource so the restarted replay paints.
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(2));
+  });
+
+  it("surfaces a capture-mode-only message on 409 and does not imply a live feed", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StargateConsole />);
+    fireEvent.click(screen.getByRole("button", { name: /start recorded capture/i }));
+    expect(await screen.findByText(/capture-mode only/i)).toBeInTheDocument();
   });
 });

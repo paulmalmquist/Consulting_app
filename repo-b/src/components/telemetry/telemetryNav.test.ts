@@ -31,6 +31,7 @@ describe("telemetry navigation structure (6-section redesign)", () => {
         "calibration",
         "control-tower",
         "copilot",
+        "evidence",
         "factory",
         "factory-ml",
         "governance",
