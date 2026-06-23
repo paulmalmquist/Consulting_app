@@ -276,11 +276,49 @@ async def lifespan(app: FastAPI):
             context={}, error=exc,
         )
 
+    # Stargate bridge: initialize in-process when enabled (the router is mounted
+    # below on the same flag). Without this the shared backend mounts /stargate/*
+    # but never sets app.state.stargate_bridge, so the stream 503s ("reconnecting"
+    # forever). Mirrors create_app's lifespan: preload the capture fixture and run
+    # the wall-clock replay so the dashboard is live. Capture mode only ships in
+    # this image; broker modes need the laptop tooling venv.
+    if STARGATE_BRIDGE_ENABLED:
+        try:
+            import asyncio as _asyncio
+            from app.services.stargate_bridge import (
+                BridgeState as _BridgeState,
+                initialize as _sg_initialize,
+                replay_capture_forever as _sg_replay,
+                resolve_autoplay as _sg_autoplay,
+                resolve_mode as _sg_mode,
+            )
+            _sg_state = _BridgeState(_sg_mode())
+            app.state.stargate_bridge = _sg_state
+            app.state.stargate_capture_lines = None
+            app.state.stargate_autoplay_task = None
+            _sg_lines = _sg_initialize(_sg_state)
+            if _sg_lines is not None:
+                app.state.stargate_capture_lines = _sg_lines
+                if _sg_autoplay():
+                    stargate_autoplay_task = _asyncio.create_task(_sg_replay(_sg_state, _sg_lines))
+                    app.state.stargate_autoplay_task = stargate_autoplay_task
+            emit_log(
+                level="info", service="backend", action="startup.stargate_bridge",
+                message=f"Stargate bridge ready (mode={_sg_state.mode})", context={},
+            )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.stargate_bridge_failed",
+                message="Stargate bridge init failed (non-fatal)", context={}, error=exc,
+            )
+
     yield
 
     # hr_stream_task (the synthetic loop) was replaced by _hr_runner_ctx in this
-    # PR; stargate_autoplay_task is still created in main's lifespan, so keep it.
-    for _task in (stream_task, stream_etl_task, stargate_autoplay_task):
+    # PR; the stargate replay task may have been replaced by /stargate/replay/cycle,
+    # so cancel whatever is current on app.state.
+    _sg_task = getattr(app.state, "stargate_autoplay_task", None)
+    for _task in (stream_task, stream_etl_task, _sg_task or stargate_autoplay_task):
         if _task is not None:
             _task.cancel()
             try:
