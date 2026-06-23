@@ -31,7 +31,9 @@ from app.services.stargate_bridge import (
     MAX_POINTS_PER_PRINTER,
     BridgeState,
     downsample_per_printer,
+    fixture_path,
     initialize,
+    load_fixture_lines,
     replay_capture_forever,
     resolve_autoplay,
     resolve_mode,
@@ -61,6 +63,48 @@ def snapshot(request: Request) -> dict:
 def dlq(request: Request) -> dict:
     state = _state(request)
     return {"count": len(state.rings["dlq"]), "items": state.rings["dlq"].tail(100)}
+
+
+@router.post("/stargate/replay/cycle")
+async def replay_cycle(request: Request) -> dict:
+    """(Re)start the recorded-capture replay loop. Capture mode only.
+
+    The bridge preloads the fixture at boot, but the wall-clock replay task can
+    be absent or finished, which leaves the dashboard at "Waiting for stream…".
+    This (re)starts ``replay_capture_forever`` so fresh frames flow again. It is
+    capture-mode only — broker modes (local/cloud) own their own producer, so we
+    fail closed with 409 rather than fabricate a live feed. This never implies a
+    live printer: the payload is labeled ``source: recorded_capture``.
+    """
+    import asyncio
+
+    state = _state(request)
+    if state.mode != "capture":
+        raise HTTPException(
+            status_code=409,
+            detail=f"replay/cycle is capture-mode only; bridge mode is '{state.mode}'",
+        )
+    app_state = request.app.state
+    lines = getattr(app_state, "stargate_capture_lines", None)
+    if not lines:
+        lines = load_fixture_lines(fixture_path())
+        app_state.stargate_capture_lines = lines
+    old = getattr(app_state, "stargate_autoplay_task", None)
+    if old is not None and not old.done():
+        old.cancel()
+        try:
+            await old
+        except BaseException:
+            pass
+    task = asyncio.create_task(replay_capture_forever(state, lines))
+    app_state.stargate_autoplay_task = task
+    return {
+        "ok": True,
+        "mode": state.mode,
+        "status": "replay_started",
+        "source": "recorded_capture",
+        "frames": len(lines),
+    }
 
 
 @router.get("/stargate/stream")
@@ -108,25 +152,33 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         state = BridgeState(resolve_mode())
         app.state.stargate_bridge = state
-        autoplay_task = None
+        app.state.stargate_capture_lines = None
+        app.state.stargate_autoplay_task = None
         lines = initialize(state)
-        if lines is not None and resolve_autoplay():
-            import asyncio
+        if lines is not None:
+            app.state.stargate_capture_lines = lines
+            if resolve_autoplay():
+                import asyncio
 
-            autoplay_task = asyncio.create_task(replay_capture_forever(state, lines))
+                app.state.stargate_autoplay_task = asyncio.create_task(
+                    replay_capture_forever(state, lines)
+                )
         try:
             yield
         finally:
-            if autoplay_task is not None:
-                autoplay_task.cancel()
+            # The replay/cycle endpoint may have replaced this task; cancel
+            # whatever is current on app.state.
+            task = getattr(app.state, "stargate_autoplay_task", None)
+            if task is not None:
+                task.cancel()
                 try:
-                    await autoplay_task
+                    await task
                 except BaseException:
                     pass
 
     app = FastAPI(title="stargate-bridge", lifespan=lifespan)
     app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"],
+        CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"],
     )
     app.include_router(router)
     return app

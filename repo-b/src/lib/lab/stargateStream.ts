@@ -6,7 +6,7 @@
 // arrays with a head pointer), and state carries only a version counter so a
 // render is one integer bump per frame, not an array copy per message.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type TelemetryPoint = {
   printer_id: string;
@@ -127,9 +127,13 @@ export function bridgeBaseUrl(): string | null {
 export type StargateStream = {
   connected: boolean;
   configured: boolean;
+  /** Resolved bridge origin (or null when unconfigured) — for control POSTs. */
+  baseUrl: string | null;
   version: number;
   health: BridgeHealth | null;
   dlqCount: number;
+  /** Force a fresh EventSource (used after restarting the capture replay). */
+  reconnect: () => void;
   telemetryRef: React.MutableRefObject<CircularBuffer<TelemetryPoint>>;
   aggRef: React.MutableRefObject<CircularBuffer<AggRow>>;
   anomaliesRef: React.MutableRefObject<CircularBuffer<AnomalyRow>>;
@@ -145,8 +149,10 @@ export function useStargateStream(baseUrl?: string): StargateStream {
   const [connected, setConnected] = useState(false);
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [dlqCount, setDlqCount] = useState(0);
+  const [nonce, setNonce] = useState(0);
 
   const resolvedBase = baseUrl || bridgeBaseUrl();
+  const reconnect = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
     if (!resolvedBase) return; // fail closed: no bridge URL → no EventSource
@@ -178,14 +184,16 @@ export function useStargateStream(baseUrl?: string): StargateStream {
     };
 
     return () => source.close();
-  }, [resolvedBase]);
+  }, [resolvedBase, nonce]);
 
   return {
     connected,
     configured: resolvedBase !== null,
+    baseUrl: resolvedBase,
     version,
     health,
     dlqCount,
+    reconnect,
     telemetryRef,
     aggRef,
     anomaliesRef,

@@ -123,12 +123,41 @@ class TestSeqRing:
         assert out[-1]["ts_us"] == 99
 
 
+class TestReplayCycle:
+    def test_replay_cycle_starts_recorded_capture(self, capture_app):
+        # Capture mode with autoplay off: the POST (re)starts the replay loop and
+        # is honest about being recorded capture, never a live printer.
+        with TestClient(capture_app) as client:
+            res = client.post("/stargate/replay/cycle")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["ok"] is True
+        assert body["mode"] == "capture"
+        assert body["source"] == "recorded_capture"
+        assert body["frames"] > 0
+
+    def test_replay_cycle_409_outside_capture_mode(self):
+        # Broker modes own their own producer; the control fails closed (409)
+        # rather than fabricating a live feed. Build state directly so no consumer
+        # thread / confluent-kafka import is needed.
+        from fastapi import FastAPI
+        from app.routes.stargate_bridge import router
+        app = FastAPI()
+        app.state.stargate_bridge = core.BridgeState("cloud")
+        app.include_router(router)
+        with TestClient(app) as client:
+            res = client.post("/stargate/replay/cycle")
+        assert res.status_code == 409
+        assert "capture-mode only" in res.json()["detail"]
+
+
 class TestRouterSurface:
-    def test_router_exposes_exactly_the_four_endpoints(self):
+    def test_router_exposes_exactly_the_five_endpoints(self):
         from app.routes.stargate_bridge import router
         paths = {r.path for r in router.routes}
         assert paths == {
-            "/stargate/health", "/stargate/snapshot", "/stargate/dlq", "/stargate/stream",
+            "/stargate/health", "/stargate/snapshot", "/stargate/dlq",
+            "/stargate/stream", "/stargate/replay/cycle",
         }
 
     def test_endpoints_503_when_state_not_initialized(self):
