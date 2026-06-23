@@ -254,3 +254,19 @@ evidence**. The Overview/Bottleneck Map gets attention; these pages defend the c
 ---
 
 *Companion artifact: `claim_coverage_matrix.md` — the per-claim demo-proof matrix with evidence-backed status.*
+
+---
+
+## Status — Phase 0 + Phase 1 shipped & verified (Story #707)
+
+- **Phase 0** docs merged (this file + `claim_coverage_matrix.md`).
+- **Phase 1** merged (PR #305 cards/route + PR #306 `main.py` bridge init) and **prod-verified on novendor.ai**:
+  the `/telemetry/evidence` page renders all six cards with real data or explicit null states; **Stargate is
+  live** (capture replay, `msgs_in_per_sec ~20`, anomaly bands, "stream live") and **Start recorded capture
+  returns 200**; `/api/version` returns the live backend SHA; 0 console errors on the evidence routes.
+- **Root cause fixed:** the shared backend mounted `/stargate/*` but never initialized the bridge → 503; now
+  initialized in `main.py`'s lifespan, deployed to authentic-sparkle (git_sha `01067ee2`).
+- **Bridge redeploy follow-up: RESOLVED** (no longer outstanding).
+- **Phases 2–6** (conformal lower-bound RUL, FD004 regime-conditioning, pre-test competence envelope,
+  event-windowed analog retrieval, secondary findings) remain open; each is its own intake'd unit. Databricks
+  access is available (`~/.databrickscfg`), so they are runnable with real data.

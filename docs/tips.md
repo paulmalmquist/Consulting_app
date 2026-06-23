@@ -4099,3 +4099,36 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
   never committed); have it read the admin login from the memory index (`MEMORY.md` records it in backticks)
   and print only the password *length*, never the value. Login form on `/login` uses
   `input[autocomplete=username]` (type=text, not `type=email`) + `input[type=password]` + a "Sign in" submit.
+
+## Telemetry evidence layer + Stargate bridge (Story #707)
+
+- **Evidence-card pattern.** A claim-proof card fetches one real endpoint, then branches:
+  `error → ErrorState`, `!data → Loading`, `data.null_reason → EmptyState/ErrorState`, else render. Never
+  fabricate a number — render only fields present in the response, and give each card its own fail-closed
+  sub-state so one missing source doesn't blank the whole card. Cards live in
+  `repo-b/src/components/telemetry/*EvidenceCard.tsx` and compose onto one page (`/telemetry/evidence`)
+  behind a single nav entry.
+- **Claim-proof matrix.** `claim_coverage_matrix.md` maps each resume claim to: current status (evidence-backed)
+  · `file:symbol` · what can be said live · what must NOT be overclaimed · required follow-up. Keep it current
+  as claims improve or fail. It is the guardrail the cards and demo talk-track must not exceed.
+- **Capture-replay labeling (non-negotiable).** The Stargate stream is *recorded capture replayed through the
+  real Kafka/SSE bridge*, not a live printer. Every control/label says "recorded capture" (e.g. the button is
+  "Start recorded capture"); the restart endpoint returns `source: recorded_capture`. Never imply live data.
+- **Judgment-artifact framing.** The strongest evidence is an honest negative result already in the repo: the
+  256-d autoencoder anomaly detector is degenerate (F1 = the all-positive baseline because the train threshold
+  sits below the test-error floor), so the champion is rolling-MAD and the AE vector is repurposed for
+  retrieval. Surface that as "built the obvious thing → measured → found the break → shipped the fix," not as a
+  working detector. Same for honest pointwise F1 (0.313) shown beside the inflated point-adjusted (0.645).
+- **Stargate bridge deploy gotcha (cost me a 503).** The shared backend mounts `/stargate/*` behind
+  `STARGATE_BRIDGE_ENABLED`, but `main.py`'s lifespan did NOT set `app.state.stargate_bridge` (only
+  `create_app`'s lifespan did) — so `/stargate/stream` returned 503 ("reconnecting" forever) in prod. The fix
+  is to mirror `create_app`'s init (preload fixture + `replay_capture_forever`) inside `main.py`'s lifespan,
+  gated on the same flag. In prod `NEXT_PUBLIC_STARGATE_BRIDGE_URL` points at the **main backend**
+  (authentic-sparkle), so the bridge ships with the main image — `railway up` from the **clean main worktree**
+  (`C:/Projects/Consulting_app-rs-demos`), then poll `/version` until the git_sha flips, then curl
+  `/stargate/health` (expect `msgs_in_per_sec > 0`) + `POST /stargate/replay/cycle` (expect 200).
+- **Production smoke gotchas.** (1) A live SSE page never reaches Playwright `networkidle` — use
+  `domcontentloaded` + `waitForSelector`, not `networkidle`, on `/telemetry/stargate`. (2) The login button
+  renders "SIGN IN" (CSS uppercase); a `text=Sign in` click can miss — submit with
+  `page.press("input[type=password]", "Enter")` instead. (3) The backend root `GET /version` is not under the
+  `/api/telemetry` catch-all, so the frontend reads it through a dedicated `/api/version` proxy route handler.
