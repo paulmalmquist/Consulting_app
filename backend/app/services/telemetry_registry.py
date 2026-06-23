@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from app.db import get_cursor
+from app.db import get_telemetry_cursor as get_cursor
 from app.services.reporting_common import resolve_tenant_id
 
 

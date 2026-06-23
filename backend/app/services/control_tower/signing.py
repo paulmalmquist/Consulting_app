@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from app.db import get_cursor
+from app.db import get_telemetry_cursor as get_cursor
 
 logger = logging.getLogger(__name__)
 

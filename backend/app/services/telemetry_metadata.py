@@ -420,7 +420,7 @@ class MetadataCatalogError(RuntimeError):
 @contextmanager
 def _get_cursor() -> Iterator[Any]:
     # Lazy import keeps the shared app.db.get_cursor test patch effective.
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
 
     with get_cursor() as cur:
         yield cur

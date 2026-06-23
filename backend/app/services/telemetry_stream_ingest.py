@@ -312,7 +312,7 @@ class StreamWorker:
 
     # — sync DB work (always via asyncio.to_thread) —
     def _flush_bronze(self, rows: list[Frame]) -> None:
-        from app.db import get_cursor
+        from app.db import get_telemetry_cursor as get_cursor
         batch_id = str(uuid.uuid4())
         with get_cursor() as cur:
             self._ensure_partitions(cur)
@@ -378,7 +378,7 @@ class StreamWorker:
                          action="adapter_restart_failed", message=str(exc), error=exc)
 
     def _set_status_sync(self, status: str, reason: str | None) -> None:
-        from app.db import get_cursor
+        from app.db import get_telemetry_cursor as get_cursor
         with get_cursor() as cur:
             cur.execute(
                 """INSERT INTO tel_pipeline_status (env_id, business_id, surface, status, as_of_ts, reason)

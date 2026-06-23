@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from app.db import get_cursor
+from app.db import get_telemetry_cursor as get_cursor
 from app.services.control_tower import runner, signing
 
 VALID_DECISIONS = ("approve", "reject", "request_more_evidence")

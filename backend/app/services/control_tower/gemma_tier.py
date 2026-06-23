@@ -30,7 +30,7 @@ import os
 from datetime import datetime, timezone
 from uuid import UUID
 
-from app.db import get_cursor
+from app.db import get_telemetry_cursor as get_cursor
 
 logger = logging.getLogger(__name__)
 

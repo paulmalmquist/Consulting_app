@@ -583,7 +583,7 @@ def draft_report(*, env_id: str, business_id, run_key: str | None = None,
     }
 
     try:
-        from app.db import get_cursor
+        from app.db import get_telemetry_cursor as get_cursor
         with get_cursor() as cur:
             cur.execute(
                 """INSERT INTO tel_copilot_reports
@@ -612,7 +612,7 @@ def draft_report(*, env_id: str, business_id, run_key: str | None = None,
 
 def get_report(*, env_id: str, business_id, report_id) -> dict:
     """Fetch a stored report by receipt id (for the preview/detail view)."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     with get_cursor() as cur:
         cur.execute(
             """SELECT id, run_id, run_key, receipt_id, verdict, anomaly_score, threshold,
@@ -630,7 +630,7 @@ def get_report(*, env_id: str, business_id, report_id) -> dict:
 def governance_summary(*, env_id: str, business_id) -> dict:
     """Aggregate the copilot audit log for the governance surface. All numbers are real (logged
     interactions); never hardcoded. Empty until interactions exist (the eval run seeds them)."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     with get_cursor() as cur:
         cur.execute(
             """SELECT count(*) AS n,
@@ -740,7 +740,7 @@ def security_posture(*, env_id: str, business_id) -> dict:
     `env_id`/`business_id` are accepted for signature parity with the other governance reads; the
     posture itself is tenant-independent (it describes the platform's controls, not one tenant's data).
     """
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     with get_cursor() as cur:
         # Real RLS coverage across logical tel_* tables (exclude partition children to keep the count
         # meaningful — the streaming bronze parent stands in for its daily partitions).
@@ -838,7 +838,7 @@ def record_disposition(*, env_id: str, business_id, report_id, arm: str, human_v
     any write, and reads the authoritative model_verdict + run_key from the report (the client cannot
     assert the model's verdict). Tenant scope is env_id+business_id+report_id — no auth identity."""
     import uuid as _uuid
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
 
     # validate before any DB write
     if arm not in _VALID_ARMS:
@@ -883,7 +883,7 @@ def usefulness_summary(*, env_id: str, business_id) -> dict:
     """Track B operator-usefulness measures, computed DIRECTLY from recorded dispositions + labeled
     truth, beside the deterministic anchors (refusal/unsupported-block/grounded/source — real now).
     Human-outcome metrics are None ('not measured') until real sessions exist — never a fabricated 0."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     arms: dict[str, dict] = {
         a: {"n": 0, "median_ttv_ms": None, "mean_confidence": None, "evidence_open_rate": None,
             "override_rate": None, "agreement_rate": None, "n_overrides": 0, "override_precision": None}

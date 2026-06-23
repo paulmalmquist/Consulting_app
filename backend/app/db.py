@@ -1,4 +1,5 @@
 import atexit
+import os
 
 import psycopg
 import psycopg.rows
@@ -9,6 +10,7 @@ from app.config import require_database_url, DB_PREPARE_THRESHOLD
 from app.db_conninfo import prefer_ipv4_hostaddr
 
 _pool: ConnectionPool | None = None
+_tel_pool: ConnectionPool | None = None
 
 
 def _get_pool() -> ConnectionPool:
@@ -52,3 +54,48 @@ def get_cursor():
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             yield cur
             conn.commit()
+
+
+def _get_tel_pool() -> ConnectionPool | None:
+    """Telemetry-only pool on TELEMETRY_DATABASE_URL (Databricks Lakebase managed Postgres).
+
+    The tel_* tables were migrated off Supabase to Lakebase. Telemetry code reaches them through
+    this dedicated pool; everything else stays on the main Supabase pool. Returns None when the env
+    var is unset, so callers transparently fall back to the main pool (local dev / tests unchanged).
+    No prefer_ipv4_hostaddr here: Lakebase needs the real hostname for TLS SNI / cert validation.
+    """
+    global _tel_pool
+    url = os.environ.get("TELEMETRY_DATABASE_URL")
+    if not url:
+        return None
+    if _tel_pool is None:
+        _tel_pool = ConnectionPool(
+            url,
+            min_size=1,
+            max_size=8,
+            open=False,
+            timeout=10,
+            kwargs={
+                "prepare_threshold": DB_PREPARE_THRESHOLD,
+                "row_factory": psycopg.rows.dict_row,
+                "connect_timeout": 10,
+            },
+        )
+        _tel_pool.open(wait=True, timeout=10)
+        atexit.register(_tel_pool.close)
+    return _tel_pool
+
+
+@contextmanager
+def get_telemetry_cursor():
+    """Cursor against the telemetry (Lakebase) pool; falls back to the main pool when
+    TELEMETRY_DATABASE_URL is unset. Drop-in for get_cursor() in tel_*-only call sites."""
+    pool = _get_tel_pool()
+    if pool is None:
+        with get_cursor() as cur:
+            yield cur
+    else:
+        with pool.connection() as conn:
+            with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                yield cur
+                conn.commit()

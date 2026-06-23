@@ -171,7 +171,7 @@ def record_anomaly_event(cur, *, env_id: str, business_id: UUID, run_id, channel
 def run_silver_merge(*, env_id: str, business_id: UUID) -> dict:
     """Bronze -> silver from the watermark: conform channel_key -> channel_id, dedupe via the UNIQUE
     key, flag late / out-of-range rows, advance the watermark. Single cursor scope = one commit."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     run_id = uuid.uuid4()
     with get_cursor() as cur:
         wm = _get_watermark(cur, env_id, "silver_merge")
@@ -260,7 +260,7 @@ def run_silver_merge(*, env_id: str, business_id: UUID) -> dict:
 def run_gold_rollup(*, env_id: str, business_id: UUID) -> dict:
     """Aggregate completed minutes (and the in-progress one) from the gold watermark forward.
     Out-of-range rows are excluded; anomaly_count is the count of overlapping model events."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     run_id = uuid.uuid4()
     with get_cursor() as cur:
         wm = _get_watermark(cur, env_id, "gold_rollup")
@@ -320,7 +320,7 @@ def run_gold_rollup(*, env_id: str, business_id: UUID) -> dict:
 def run_assertions(*, env_id: str, business_id: UUID) -> dict:
     """Freshness, row-count delta, and value-range checks -> tel_dq_assertions; failures flip the
     surface status (fail closed)."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     results: list[dict] = []
     with get_cursor() as cur:
         def record(name: str, table: str, passed: bool, observed: str, threshold: str) -> None:
@@ -381,7 +381,7 @@ def run_live_scoring(*, env_id: str, business_id: UUID) -> dict:
     """Pass each channel's trailing window through telemetry_serving.score_window (frozen rule,
     untouched constants). Values are normalized to fractional deviation first (declared adaptation —
     raw engineering units vs the normalized-unit threshold). NO_GO -> record_anomaly_event."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     run_id = uuid.uuid4()
     scored: list[dict] = []
     with get_cursor() as cur:
@@ -448,7 +448,7 @@ def stream_live(*, env_id: str, business_id: UUID, channels: list[str] | None = 
     """Live read: worker ring buffer first; silver tail fallback when the worker is absent/empty.
     Carries server_ts (latency overlay) + pipeline status + recent live anomaly events. Fail closed:
     stale/failed status rides the payload — the UI freezes charts, never interpolates."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     from app.services.telemetry_stream_ingest import get_stream_worker
 
     server_ts = datetime.now(timezone.utc)
@@ -559,7 +559,7 @@ def stream_health(*, env_id: str, business_id: UUID) -> dict:
     """Stream-health aggregates: per-channel freshness, ingest lag percentiles, rows/min, recent
     assertions, pipeline status, watermark ages. When empty, reports a SPECIFIC actionable reason
     (worker disabled / no frames / watermark stalled / channels unmapped), never a blanket null."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
     from app.services.telemetry_stream_ingest import get_stream_worker
     worker_present = get_stream_worker() is not None
     now = datetime.now(timezone.utc)
@@ -661,7 +661,7 @@ async def run_etl_loop(*, env_id: str, business_id: UUID, interval_seconds: int 
             emit_log(level="error", service="telemetry_stream", action="etl_cycle_failed",
                      message=str(exc), error=exc)
             try:
-                from app.db import get_cursor
+                from app.db import get_telemetry_cursor as get_cursor
                 with get_cursor() as cur:
                     set_pipeline_status(cur, env_id=env_id, business_id=business_id,
                                         surface="silver", status="failed", reason=str(exc)[:300])

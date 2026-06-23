@@ -47,7 +47,7 @@ def read_telemetry_pipeline(product_id: str, env_id: str, business_id: str,
                             surface: str = "stream_ingest") -> FreshnessReading | None:
     """Read tel_pipeline_status for a telemetry surface. Returns None when the
     table/row is absent (pre-migration / no such surface) — caller fails closed."""
-    from app.db import get_cursor
+    from app.db import get_telemetry_cursor as get_cursor
 
     with get_cursor() as cur:
         cur.execute(
