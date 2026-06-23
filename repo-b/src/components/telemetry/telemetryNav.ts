@@ -4,7 +4,7 @@
 // Icon strings are 16x16 SVG path data, ported from the Option B reference.
 //
 // Sections follow the "Telemetry Experience Redesign" narrative order (ADO #692):
-// Mission Summary (conclusions) -> Operations (live/historical) -> Models & Intelligence
+// Overview (launch-history context + live KPIs) -> Operations (live/historical) -> Models & Intelligence
 // (how we know) -> Factory & Quality (what's broken) -> Evidence & Lineage (where it came
 // from) -> Agent Operations (execution). Six sections keeps primary nav within the shared
 // "<=7 primary items" rule. New pages (Program Control Tower, Metric Lineage Explorer,
@@ -12,7 +12,7 @@
 // phases; this phase only regroups the existing surfaces and relabels four of them.
 
 export type TelemetryNavGroup =
-  | "Mission Summary"
+  | "Overview"
   | "Operations"
   | "Models & Intelligence"
   | "Factory & Quality"
@@ -29,8 +29,8 @@ export type TelemetryNavItem = {
 };
 
 export const TELEMETRY_NAV: TelemetryNavItem[] = [
-  // Section 1 — Mission Summary (executive conclusions)
-  { slug: "", label: "Mission Summary", icon: "M2 9h3v5H2zM7 4h3v10H7zM12 7h3v7h-3z", group: "Mission Summary", mobilePrimary: true },
+  // Section 1 — Overview (launch-history context charts + live serving KPIs)
+  { slug: "", label: "Overview", icon: "M2 9h3v5H2zM7 4h3v10H7zM12 7h3v7h-3z", group: "Overview", mobilePrimary: true },
 
   // Section 2 — Operations (live + historical telemetry)
   { slug: "stream", label: "Mission Control", icon: "M2 12c2-6 10-6 12 0M8 3v3M8 8l3 3", group: "Operations", mobilePrimary: true },
@@ -62,7 +62,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
 ];
 
 export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
-  "Mission Summary",
+  "Overview",
   "Operations",
   "Models & Intelligence",
   "Factory & Quality",
@@ -85,5 +85,5 @@ export function isTelemetryItemActive(pathname: string, envId: string, slug: str
 /** Label of the section owning the current pathname (for the mobile header). */
 export function telemetrySectionLabel(pathname: string, envId: string): string {
   const match = TELEMETRY_NAV.find((n) => n.slug && isTelemetryItemActive(pathname, envId, n.slug));
-  return match?.label ?? "Mission Summary";
+  return match?.label ?? "Overview";
 }

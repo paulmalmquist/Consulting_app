@@ -33,7 +33,7 @@ export default function TelemetryBottomNav({ envId, onMore }: { envId: string; o
       {tabs.map((t) => {
         const active = tabActive(t.slug);
         const shortLabel =
-          t.slug === "" ? "Summary" :
+          t.slug === "" ? "Overview" :
           t.slug === "stream" ? "Stream" :
           t.slug === "copilot" ? "Copilot" : t.label;
         return (

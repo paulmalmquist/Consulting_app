@@ -20,7 +20,7 @@ describe("TelemetrySidebar — 6-section rail", () => {
       expect(links.some((l) => l.getAttribute("href") === telemetryHref("env-1", item.slug))).toBe(true);
     }
     // The four redesign relabels are present as links.
-    for (const label of ["Mission Summary", "Agent Control Tower", "Trust Center", "Flight Readiness"]) {
+    for (const label of ["Overview", "Agent Control Tower", "Trust Center", "Flight Readiness"]) {
       expect(screen.getAllByRole("link", { name: new RegExp(`^${label}$`, "i") }).length).toBeGreaterThanOrEqual(1);
     }
   });
