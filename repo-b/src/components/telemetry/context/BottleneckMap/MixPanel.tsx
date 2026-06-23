@@ -37,9 +37,9 @@ export default function MixPanel({ hoveredYear, focused, dimmed, onHoverYear, on
 }) {
   return (
     <PanelShell title="Who flies: commercial vs government" accent={RS.green}
-      sub="share of orbital attempts · drag below to brush"
+      sub="Commercial share of orbital attempts climbed from ~0% to ~70% in 25 years · drag below to brush"
       focused={focused} dimmed={dimmed}>
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={460}>
         <ComposedChart data={YEAR_SERIES} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
           onMouseMove={(s) => onHoverYear(yearFromChartState(s))} onMouseLeave={() => onHoverYear(null)}>
           <CartesianGrid stroke={RS.line} strokeDasharray="2 6" vertical={false} />

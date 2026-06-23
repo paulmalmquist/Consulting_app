@@ -7,17 +7,17 @@ vi.mock("./context/BottleneckMap/BottleneckMap", () => ({ default: () => <div da
 import TelemetryOverview from "./TelemetryOverview";
 
 describe("TelemetryOverview — charts-led Overview", () => {
-  it("renders the Overview heading and the launch-history Bottleneck Map charts", () => {
-    render(<TelemetryOverview envId="env-1" />);
-    expect(screen.getByText("Why launch became a data problem")).toBeInTheDocument();
+  it("renders the dominant thesis header and the Bottleneck Map story module", () => {
+    render(<TelemetryOverview />);
+    expect(screen.getByRole("heading", { name: "Why launch became a data problem" })).toBeInTheDocument();
+    expect(screen.getByText(/Spaceflight moves by breaking what holds it back/i)).toBeInTheDocument();
     expect(screen.getByTestId("bottleneck-map")).toBeInTheDocument();
-    expect(screen.getByText(/Context · why launch became a data problem/i)).toBeInTheDocument();
   });
 
-  it("does not render the KPI strip or the executive Mission Summary scaffolding", () => {
-    render(<TelemetryOverview envId="env-1" />);
+  it("does not render the serving KPI strip, the Trace-lineage CTA, or Mission Summary scaffolding", () => {
+    render(<TelemetryOverview />);
     expect(screen.queryByText("Promoted models")).not.toBeInTheDocument();
-    expect(screen.queryByText("Anomaly F1")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Trace lineage/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Mission readiness")).not.toBeInTheDocument();
     expect(screen.queryByText("Continue the demo")).not.toBeInTheDocument();
   });

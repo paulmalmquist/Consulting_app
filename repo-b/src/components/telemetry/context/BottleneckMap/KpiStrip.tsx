@@ -28,14 +28,22 @@ export default function KpiStrip({ kpi, presenting, windowed, inflationAdjusted 
   inflationAdjusted: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5" style={{ marginTop: 14 }}>
-      <KpiTile label="Active window" value={kpi.window} color={RS.text}
-        sub={presenting ? "presenter mode" : windowed ? "brushed" : "full range"} />
-      <KpiTile label="Orbital attempts" value={kpi.attempts} color={RS.blue} sub="in window" />
-      <KpiTile label="Commercial share" value={kpi.share} color={RS.green}
-        sub={kpi.shareYear != null ? `as of ${kpi.shareYear}` : ""} />
-      <KpiTile label="Cost to LEO" value={kpi.cost} color={RS.amber}
-        sub={`${kpi.costLabel}${inflationAdjusted ? ", 2025 $" : ", nominal"}`} />
+    <div style={{ marginTop: 16 }}>
+      {/* Editorial "Big Numbers" band — supports the argument; not a dashboard. The two numbers that
+          carry the story (commercial share rising, cost falling) keep a subtle accent; the framing
+          two are muted. */}
+      <div style={{ fontFamily: RS_MONO, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: RS.faint, marginBottom: 9 }}>
+        Big Numbers
+      </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+        <KpiTile label="Timeline" value={kpi.window} color={RS.text}
+          sub={presenting ? "presenter mode" : windowed ? "brushed" : "full range"} />
+        <KpiTile label="Launch attempts" value={kpi.attempts} color={RS.text} sub="in window" />
+        <KpiTile label="Commercial share" value={kpi.share} color={RS.green}
+          sub={kpi.shareYear != null ? `as of ${kpi.shareYear}` : ""} />
+        <KpiTile label="Cost per kg to LEO" value={kpi.cost} color={RS.amber}
+          sub={`${kpi.costLabel}${inflationAdjusted ? ", 2025 $" : ", nominal"}`} />
+      </div>
     </div>
   );
 }

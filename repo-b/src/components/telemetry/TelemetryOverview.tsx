@@ -1,37 +1,33 @@
 "use client";
 
-// Overview — the launch-history landing. Leads straight into the Spaceflight Bottleneck Map: the
-// launch-attempts timeline, who-flies commercial-vs-government, the cost-to-LEO curve, the pinned
-// event record, and presenter mode. The Bottleneck Map is a static public-data context module (no
-// API). No KPI strip and no executive "readiness"/"projection" scaffolding here — just the charts.
+// Overview — the opening-argument page. A dominant thesis header states the idea once, then the
+// Spaceflight Bottleneck Map carries it as one large tabbed story module (Bottleneck Map / Cost to
+// LEO / Who Flies), with an editorial "Big Numbers" band and the Terran 1 event record. Static
+// public-data context module — no serving API, no KPI dashboard strip, no lineage CTA here.
 
-import Link from "next/link";
-import { C, PageHeading, DisclosureFooter } from "./primitives";
+import { C, DisclosureFooter } from "./primitives";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
 
-export default function TelemetryOverview({ envId }: { envId: string }) {
+export default function TelemetryOverview() {
   return (
     <>
-      <PageHeading eyebrow="Overview"
-        title="Why launch became a data problem"
-        blurb="Every era of spaceflight solved the previous bottleneck and exposed a new one — today it is decision velocity. The live telemetry platform that addresses it is in the tabs at left; the launch-history charts below frame why it matters."
-        right={
-          <Link href={`/lab/env/${envId}/telemetry/metric-lineage`}
-            style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: C.bg, background: C.cyan,
-              border: "none", borderRadius: 8, padding: "10px 18px", textDecoration: "none" }}>
-            Trace lineage →
-          </Link>
-        } />
-
-      {/* Spaceflight Bottleneck Map: launch timeline, commercial-vs-government, cost-to-LEO, event
-          record, and presenter mode. Static public-data context module. */}
-      <section aria-label="Spaceflight bottleneck — launch history">
-        <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.14em", color: C.dim,
-          textTransform: "uppercase", marginBottom: 12 }}>
-          Context · why launch became a data problem
+      {/* Thesis header — dominant; states the argument once. */}
+      <header style={{ marginBottom: 26, maxWidth: 880 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <span aria-hidden style={{ width: 18, height: 2, borderRadius: 2, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa` }} />
+          <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: C.cyan, textTransform: "uppercase" }}>Overview</span>
         </div>
-        <BottleneckMap />
-      </section>
+        <h1 style={{ fontFamily: C.sans, fontSize: 42, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.05, color: C.text, marginTop: 12 }}>
+          Why launch became a data problem
+        </h1>
+        <p style={{ fontFamily: C.sans, fontSize: 16, color: C.dim, lineHeight: 1.65, marginTop: 16 }}>
+          Spaceflight moves by breaking what holds it back. First, reaching orbit. Then lowering the cost. Then
+          flying again. Then building at scale. Now the hard part is speed of judgment: reading the telemetry,
+          trusting the model, tracing the source, and acting before delay becomes risk.
+        </p>
+      </header>
+
+      <BottleneckMap />
 
       <DisclosureFooter />
     </>

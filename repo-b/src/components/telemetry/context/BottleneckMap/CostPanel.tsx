@@ -62,9 +62,9 @@ export default function CostPanel({ inflationAdjusted, hoveredYear, focused, dim
 
   return (
     <PanelShell title="Cost to LEO" accent={RS.amber}
-      sub={`log scale · ${inflationAdjusted ? "2025 $ emphasized" : "nominal $ emphasized"}`}
+      sub={`Cost per kilogram to orbit fell ~94% since Apollo · log scale · ${inflationAdjusted ? "2025 $" : "nominal $"} emphasized`}
       focused={focused} dimmed={dimmed}>
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={460}>
         <ComposedChart data={YEAR_SERIES} margin={{ top: 16, right: 16, bottom: 4, left: 0 }}
           onMouseMove={(s) => onHoverYear(yearFromChartState(s))} onMouseLeave={() => onHoverYear(null)}>
           <CartesianGrid stroke={RS.line} strokeDasharray="2 6" vertical={false} />
