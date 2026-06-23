@@ -35,3 +35,10 @@ surfacing) · **PARTIAL** · **LIABILITY** (collapses under scrutiny) · **WEAK*
 | Row-level security / tenant isolation | **STRONG (be precise)** | schema RLS policies; security posture panel | "Tenant isolation via env_id scoping; security posture panel." | Be honest about app-layer scoping vs DB RLS where that distinction holds. | Keep posture panel honest. |
 | Agentic workflows (plan→approve→execute→receipt) | **PARTIAL** | `control_tower/runner.py:run_gonogo`; `signing.py:171` | "Plan → approve → execute → signed receipt over existing skills." | Keep scoped — no general-purpose planner; telemetry tools staged. | Show the receipt chain verifying. Agent Control Tower depth is a later item. |
 | Live streaming telemetry (Kafka/protobuf) | **REAL (recorded capture)** | `stargate_bridge.py:390`; route `:66 /stargate/stream`; `stargateStream.ts:139` | "Protobuf-over-Kafka bridge, windowed, anomalies routed to their own topic, SSE to the UI, ring-buffered (no DB hot path)." | **Recorded capture replayed** — not a live printer. Label every claim that way. | **Stargate Start control** (Phase 1.1) restarts the capture replay, clearly labeled. |
+
+---
+
+**Status (post-Phase-1):** The Phase-1 evidence cards + Stargate "Start recorded capture" control are merged
+and prod-verified on novendor.ai (Story #707). The live-streaming row's follow-up is **done** — Stargate
+serves live capture replay and the Start control returns 200. Rows tied to Phases 2–6 (conformal RUL intervals,
+regime-conditioned anomaly, competence-envelope drift, telemetry analog retrieval) update as those findings land.
