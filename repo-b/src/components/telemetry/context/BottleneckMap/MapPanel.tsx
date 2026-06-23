@@ -38,6 +38,7 @@ function MapTip({ active, payload }: TooltipProps<number, string>) {
       </div>
       <div style={{ color: RS.text, fontWeight: 600, fontSize: 13, marginTop: 4 }}>{d.name}</div>
       <div style={{ color: RS.dim, fontSize: 11, marginTop: 4 }}>Solved: {d.bottleneckSolved}</div>
+      <div style={{ color: RS.faint, fontSize: 10, marginTop: 4, fontFamily: RS_MONO, textTransform: "uppercase", letterSpacing: 0.5 }}>{d.outcome}</div>
       <div style={{ color: RS.faint, fontSize: 10, marginTop: 6, fontFamily: RS_MONO }}>Click to pin full record</div>
     </div>
   );
@@ -101,9 +102,9 @@ export default function MapPanel({
 
   return (
     <PanelShell title="Bottleneck Map" accent={RS.blue}
-      sub="bubbles: events · bars: world orbital attempts/yr"
+      sub="Each leap solved one bottleneck and exposed the next — now it is decision velocity · bubbles: events · bars: world orbital attempts/yr"
       focused={focused} dimmed={dimmed}>
-      <div className="h-[260px] lg:h-[350px]">
+      <div className="h-[460px] lg:h-[560px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={YEAR_SERIES} margin={{ top: 12, right: 28, bottom: 4, left: 8 }}
             onMouseMove={(s) => onHoverYear(yearFromChartState(s))} onMouseLeave={() => onHoverYear(null)}>
