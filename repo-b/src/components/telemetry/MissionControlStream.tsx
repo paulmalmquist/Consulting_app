@@ -11,7 +11,7 @@ import {
 
 import { getModelPerformance, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import {
-  deriveLag, STREAM_REASON_HINT, useStreamPoll,
+  deriveLag, startStream, STREAM_REASON_HINT, useStreamPoll,
   type StreamChannel, type StreamEvent, type StreamLive,
 } from "@/lib/telemetry/stream";
 import { SplitGrid } from "./primitives";
@@ -88,7 +88,24 @@ export default function MissionControlStream() {
   const { live, error, clientNowMs } = useStreamPoll(1000, hold);
   const [selected, setSelected] = useState<string[]>([]);
   const [champion, setChampion] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [startMsg, setStartMsg] = useState<string | null>(null);
   const lagHistory = useRef<number[]>([]);
+
+  const handleStart = async () => {
+    setStarting(true);
+    setStartMsg(null);
+    try {
+      const r = await startStream();
+      setStartMsg(r.status === "already_running"
+        ? `already running (${r.source})`
+        : `${r.status} (${r.source}) — frames flowing shortly`);
+    } catch (e) {
+      setStartMsg(`start failed: ${String(e)}`);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   useEffect(() => {
     getModelPerformance(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID)
@@ -152,6 +169,15 @@ export default function MissionControlStream() {
             padding: "4px 12px", borderRadius: 4, fontSize: 13 }}>
             {verdict.text}
           </span>
+          <button type="button" onClick={handleStart} disabled={starting}
+            title="Start (or restart) the live ingest worker on the backend"
+            style={{ fontFamily: RS_MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px",
+              borderRadius: 4, cursor: starting ? "default" : "pointer",
+              color: starting ? RS.faint : RS.bg,
+              background: starting ? "transparent" : RS.green,
+              border: `1px solid ${starting ? RS.line : RS.green}` }}>
+            {starting ? "Starting…" : "Start stream"}
+          </button>
           <button type="button" onClick={() => setHold((h) => !h)}
             style={{ fontFamily: RS_MONO, fontSize: 11, padding: "4px 10px", borderRadius: 4,
               cursor: "pointer", color: hold ? RS.bg : RS.dim,
@@ -160,6 +186,13 @@ export default function MissionControlStream() {
           </button>
         </div>
       </div>
+
+      {startMsg && (
+        <div style={{ padding: "0 4px 8px", fontFamily: RS_MONO, fontSize: 11,
+          color: startMsg.startsWith("start failed") ? RS.red : RS.green }}>
+          stream control: {startMsg}
+        </div>
+      )}
 
       {error && !live && (
         <RsPanel><div style={{ padding: 16, fontFamily: RS_MONO, fontSize: 12, color: RS.red }}>

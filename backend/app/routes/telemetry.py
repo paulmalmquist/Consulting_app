@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.mcp.auth import McpContext
@@ -261,6 +261,72 @@ def stream_health(env_id: str = Query(...), business_id: UUID = Query(...)):
         return stream_svc.stream_health(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.post("/stream/control")
+async def stream_control(request: Request):
+    """Start (or restart) the live telemetry ingest worker + ETL loop in this
+    process. Backs the Mission Control "Start stream" button: if the worker was
+    never started (flag off at boot) or died, this brings it online on demand so
+    fresh frames flow again — no redeploy needed. Idempotent: an already-running
+    healthy worker is left in place and reported. Capture mode is the safe default
+    (deterministic, no network), matching the demo proof path."""
+    import asyncio
+
+    from app.config import (
+        TELEMETRY_ETL_INTERVAL_SECONDS,
+        TELEMETRY_STREAM_BUSINESS_ID,
+        TELEMETRY_STREAM_ENV_ID,
+        TELEMETRY_STREAM_SOURCE,
+    )
+    from app.services.telemetry_stream_etl import run_etl_loop
+    from app.services.telemetry_stream_ingest import (
+        StreamWorker, get_stream_worker, set_stream_worker,
+    )
+
+    worker = get_stream_worker()
+    app_state = request.app.state
+    restarted = False
+
+    # Tear down a stale/stopping worker and its tasks before re-creating.
+    existing_task = getattr(app_state, "telemetry_stream_task", None)
+    if worker is not None and (worker._stopping or (existing_task is not None and existing_task.done())):
+        try:
+            await worker.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        for attr in ("telemetry_stream_task", "telemetry_stream_etl_task"):
+            t = getattr(app_state, attr, None)
+            if t is not None and not t.done():
+                t.cancel()
+                try:
+                    await t
+                except BaseException:  # noqa: BLE001
+                    pass
+        worker = None
+        restarted = True
+
+    if worker is None:
+        worker = StreamWorker(
+            env_id=TELEMETRY_STREAM_ENV_ID,
+            business_id=TELEMETRY_STREAM_BUSINESS_ID,
+            source=TELEMETRY_STREAM_SOURCE,
+        )
+        set_stream_worker(worker)
+        app_state.telemetry_stream_task = asyncio.create_task(worker.run())
+        app_state.telemetry_stream_etl_task = asyncio.create_task(run_etl_loop(
+            env_id=TELEMETRY_STREAM_ENV_ID,
+            business_id=UUID(TELEMETRY_STREAM_BUSINESS_ID),
+            interval_seconds=TELEMETRY_ETL_INTERVAL_SECONDS,
+        ))
+        emit_log(level="info", service="telemetry", action="stream_control_started",
+                 message=f"stream worker started via control (source={worker.source})")
+        return {"status": "restarted" if restarted else "started", "source": worker.source,
+                "env_id": TELEMETRY_STREAM_ENV_ID}
+
+    return {"status": "already_running", "source": worker.source,
+            "env_id": TELEMETRY_STREAM_ENV_ID,
+            "last_frame_at": worker.last_frame_at.isoformat() if worker.last_frame_at else None}
 
 
 @router.post("/stream/source")
