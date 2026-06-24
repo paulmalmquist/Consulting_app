@@ -9,7 +9,7 @@ import TelemetryOverview from "./TelemetryOverview";
 describe("TelemetryOverview — charts-led Overview", () => {
   it("renders the dominant thesis header and the Bottleneck Map story module", () => {
     render(<TelemetryOverview />);
-    expect(screen.getByRole("heading", { name: "Why launch became a data problem" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Why Launch Became A Data Problem" })).toBeInTheDocument();
     expect(screen.getByText(/Spaceflight moves by breaking what holds it back/i)).toBeInTheDocument();
     expect(screen.getByTestId("bottleneck-map")).toBeInTheDocument();
   });

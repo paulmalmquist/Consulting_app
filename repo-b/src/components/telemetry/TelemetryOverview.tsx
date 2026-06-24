@@ -8,6 +8,10 @@
 import { C, DisclosureFooter } from "./primitives";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
 
+// Brand fluorescent purple (--nv-purple-hot "wet reflect"); the marketing CSS var is
+// out of scope in the telemetry env, so the hex is inlined.
+const NV_PURPLE = "#B040FF";
+
 export default function TelemetryOverview() {
   return (
     <>
@@ -17,8 +21,9 @@ export default function TelemetryOverview() {
           <span aria-hidden style={{ width: 18, height: 2, borderRadius: 2, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa` }} />
           <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: C.cyan, textTransform: "uppercase" }}>Overview</span>
         </div>
-        <h1 style={{ fontFamily: C.sans, fontSize: 42, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.05, color: C.text, marginTop: 12 }}>
-          Why launch became a data problem
+        <h1 style={{ fontFamily: C.mono, fontSize: 48, fontWeight: 800, letterSpacing: "-0.01em", lineHeight: 1.08, color: C.text, marginTop: 12 }}>
+          Why <span style={{ color: NV_PURPLE, textShadow: `0 0 18px ${NV_PURPLE}99` }}>Launch</span> Became A{" "}
+          <span style={{ color: NV_PURPLE, textShadow: `0 0 18px ${NV_PURPLE}99` }}>Data</span> Problem
         </h1>
         <p style={{ fontFamily: C.sans, fontSize: 16, color: C.dim, lineHeight: 1.65, marginTop: 16 }}>
           Spaceflight moves by breaking what holds it back. First, reaching orbit. Then lowering the cost. Then
