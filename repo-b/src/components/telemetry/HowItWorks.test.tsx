@@ -27,9 +27,9 @@ describe("HowItWorks — telemetry system-architecture exhibit", () => {
     expect(screen.getByText("REAL · LIVE")).toBeInTheDocument();
     expect(screen.getByText("OPTIONAL · FAILS CLOSED")).toBeInTheDocument();
     expect(screen.getByText("PLANNED / NOT IMPLEMENTED")).toBeInTheDocument();
-    // tech legend names
-    expect(screen.getByText("Databricks")).toBeInTheDocument();
-    expect(screen.getByText("Confluent / Kafka")).toBeInTheDocument();
+    // tech legend names (also appear on grouped master nodes, so allow multiple matches)
+    expect(screen.getAllByText("Databricks").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Confluent / Kafka").length).toBeGreaterThan(0);
   });
 
   it("clicking a node opens the drawer with its plain-English story and a live deep-link", () => {
@@ -42,6 +42,15 @@ describe("HowItWorks — telemetry system-architecture exhibit", () => {
     expect(screen.getByText(/copied into the live database/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /see live surface/i });
     expect(link).toHaveAttribute("href", "/lab/env/telemetry-demo/telemetry/model-performance");
+  });
+
+  it("the master view collapses lane nodes into serving-system groups with a components list", () => {
+    render(<HowItWorks envId="telemetry-demo" />);
+    // Databricks rolls up several lane-A medallion tables/scripts into one grouped node.
+    const groupLabel = screen.getAllByText(/\d+ components/i)[0];
+    fireEvent.click(groupLabel);
+    // the drawer lists the underlying components and names a real rolled-up table/script
+    expect(screen.getByText(/Components \(\d+\)/i)).toBeInTheDocument();
   });
 
   it("switching tabs swaps the rendered view content", () => {

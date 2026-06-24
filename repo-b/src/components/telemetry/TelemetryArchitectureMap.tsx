@@ -45,9 +45,15 @@ function ink(hex: string): string {
 const NODE_FILL = "#0E141C";
 const STATUSES: ArchStatus[] = ["live", "synth", "evidence", "optional", "planned"];
 
+// Status precedence for a grouped node — the strongest truth class among its members wins.
+const STATUS_RANK: Record<ArchStatus, number> = { live: 5, synth: 4, evidence: 3, optional: 2, planned: 1 };
+
 // ── geometry: positioned node + the per-view computed scene ──
+interface GroupMember { id: string; label: string; note: string; plain: string; status: ArchStatus; slug?: string }
 interface PNode extends ArchNode {
   cx: number; cy: number; w: number; h: number; place: string;
+  /** When set, this node rolls up several real tables/scripts that share one serving system. */
+  members?: GroupMember[];
 }
 interface PEdge { a: PNode; b: PNode; label: string; kind: EdgeKind }
 interface Scene { w: number; h: number; nodes: PNode[]; edges: PEdge[];
@@ -57,33 +63,6 @@ interface Scene { w: number; h: number; nodes: PNode[]; edges: PEdge[];
 
 function nodeHeight(label: string): number {
   return Math.max(44, label.split("\n").length * 13 + 16);
-}
-
-// Master view: 10 pipeline columns × 8 lanes (A..H), all lanes expanded.
-function masterScene(view: ArchView): Scene {
-  const GUT = 210, HEAD = 120, COLW = 212, LANEH = 150, NW = 178;
-  const laneTop: number[] = [];
-  let y = HEAD;
-  for (let j = 0; j < 8; j++) { laneTop[j] = y; y += LANEH; }
-  const bottom = y;
-  const W = GUT + 10 * COLW + 30, H = bottom + 18;
-
-  const map = new Map<string, PNode>();
-  const nodes: PNode[] = view.nodes.map((t) => {
-    const h = nodeHeight(t.label);
-    const cx = GUT + (t.col - 1) * COLW + COLW / 2;
-    const cy = laneTop[t.row] + LANEH / 2 + t.yOffset;
-    const p: PNode = {
-      ...t, cx, cy, w: t.width ?? NW, h,
-      place: `Lane ${String.fromCharCode(65 + t.row)} · ${MASTER_COLUMNS[t.col - 1]}`,
-    };
-    map.set(t.id, p);
-    return p;
-  });
-  const edges = view.edges.map((e) => ({ a: map.get(e.from)!, b: map.get(e.to)!, label: e.label, kind: e.kind }))
-    .filter((e) => e.a && e.b);
-  const lanes = MASTER_LANES.map((l, j) => ({ key: l.key, name: l.name, color: l.color, top: laneTop[j], height: LANEH }));
-  return { w: W, h: H, nodes, edges, decor: { cols: true, bands: [] }, lanes };
 }
 
 // Detail views: a free grid positioned from the per-view layout, with optional band overlays.
@@ -106,8 +85,110 @@ function detailScene(view: ArchView): Scene {
   return { w: W, h: H, nodes, edges, decor: { bands }, lanes: [] };
 }
 
+// Master view, collapsed to serving systems: within each lane, every node that shares a serving
+// tech (Databricks, Supabase, Kafka, FastAPI…) folds into ONE grouped node placed at its members'
+// average pipeline stage; the underlying tables/scripts move into the node's `members` (shown in the
+// drawer). Tech-less nodes (sources, gates, UIs) stay standalone so each lane still reads
+// source → [services] → UI. Columns are rescaled to the occupied stage range so the map fills width.
+function masterGroupedScene(view: ArchView): Scene {
+  const GUT = 210, HEAD = 120, LANEH = 150, NW = 200;
+  const laneTop: number[] = [];
+  let y = HEAD;
+  for (let j = 0; j < 8; j++) { laneTop[j] = y; y += LANEH; }
+  const bottom = y;
+
+  // Build per-lane positioned nodes: group by tech, keep tech-less nodes individual.
+  interface Raw { col: number; row: number; node: PNode }
+  const raws: Raw[] = [];
+  for (let lane = 0; lane < 8; lane++) {
+    const laneNodes = view.nodes.filter((n) => n.row === lane);
+    const byTech = new Map<TechKey, ArchNode[]>();
+    const solo: ArchNode[] = [];
+    for (const n of laneNodes) {
+      if (n.tech) { const a = byTech.get(n.tech) ?? []; a.push(n); byTech.set(n.tech, a); }
+      else solo.push(n);
+    }
+    // grouped tech nodes
+    for (const [tech, members] of byTech) {
+      // average column → pipeline stage; status = strongest; warn = any.
+      const avgCol = members.reduce((s, m) => s + m.col, 0) / members.length;
+      const status = members.reduce<ArchStatus>((best, m) => STATUS_RANK[m.status] > STATUS_RANK[best] ? m.status : best, members[0].status);
+      const warn = members.some((m) => m.warn);
+      const slug = members.find((m) => m.slug !== undefined)?.slug;
+      const single = members.length === 1;
+      const label = single ? members[0].label : `${TECH[tech].name}\n${members.length} components`;
+      const grouped: PNode = {
+        id: `grp_${lane}_${tech}`, col: Math.round(avgCol), row: lane, shape: "cylinder",
+        status, label, warn, yOffset: 0, note: "", plain: single ? members[0].plain
+          : `${members.length} ${TECH[tech].name} components in this lane, collapsed into one serving system. Open to see each table, topic, or script.`,
+        tech, cx: 0, cy: 0, w: NW, h: 0, place: "",
+        members: single ? undefined : members.map((m) => ({ id: m.id, label: m.label, note: m.note, plain: m.plain, status: m.status, slug: m.slug })),
+        slug,
+      };
+      raws.push({ col: avgCol, row: lane, node: grouped });
+    }
+    // solo (tech-less) nodes — keep as themselves
+    for (const n of solo) {
+      raws.push({ col: n.col, row: lane, node: { ...n, cx: 0, cy: 0, w: n.width ?? NW, h: 0, place: "" } });
+    }
+  }
+
+  // Rescale the occupied column range to fill 10 stage-slots of width (no empty right gutter).
+  const cols = raws.map((r) => r.col);
+  const minC = Math.min(...cols), maxC = Math.max(...cols);
+  const SLOTS = 10, COLW = 212;
+  const span = maxC - minC || 1;
+  const xOf = (col: number) => GUT + ((col - minC) / span) * (SLOTS - 1) * COLW + COLW / 2;
+  const W = GUT + SLOTS * COLW + 30, H = bottom + 18;
+
+  // Resolve collisions: nodes in the same lane landing on near-identical x get nudged apart vertically.
+  const map = new Map<string, PNode>();
+  const perLane = new Map<number, Raw[]>();
+  for (const r of raws) { const a = perLane.get(r.row) ?? []; a.push(r); perLane.set(r.row, a); }
+  for (const [lane, list] of perLane) {
+    list.sort((a, b) => a.col - b.col);
+    // bucket by rounded x to detect overlap, then fan out within the lane band.
+    const buckets = new Map<number, Raw[]>();
+    for (const r of list) { const k = Math.round(xOf(r.col) / 60); const a = buckets.get(k) ?? []; a.push(r); buckets.set(k, a); }
+    for (const r of list) {
+      const k = Math.round(xOf(r.col) / 60);
+      const group = buckets.get(k)!;
+      const idx = group.indexOf(r);
+      const spread = (group.length - 1) * 34;
+      const h = nodeHeight(r.node.label);
+      r.node.cx = xOf(r.col);
+      r.node.cy = laneTop[lane] + LANEH / 2 + (idx * 34 - spread / 2);
+      r.node.h = h;
+      r.node.place = `Lane ${String.fromCharCode(65 + lane)} · ${r.node.members ? "grouped serving system" : MASTER_COLUMNS[Math.min(9, Math.max(0, r.node.col - 1))]}`;
+      map.set(r.node.id, r.node);
+    }
+  }
+  const nodes = [...map.values()];
+
+  // Remap edges onto group nodes; drop intra-group self-loops; dedupe.
+  const owner = new Map<string, string>(); // original node id → rendered node id
+  for (const r of raws) {
+    if (r.node.members) for (const m of r.node.members) owner.set(m.id, r.node.id);
+    else owner.set(r.node.id, r.node.id);
+  }
+  const seen = new Set<string>();
+  const edges: PEdge[] = [];
+  for (const e of view.edges) {
+    const aId = owner.get(e.from), bId = owner.get(e.to);
+    if (!aId || !bId || aId === bId) continue;
+    const key = `${aId}->${bId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const a = map.get(aId), b = map.get(bId);
+    if (a && b) edges.push({ a, b, label: "", kind: e.kind });
+  }
+
+  const lanes = MASTER_LANES.map((l, j) => ({ key: l.key, name: l.name, color: l.color, top: laneTop[j], height: LANEH }));
+  return { w: W, h: H, nodes, edges, decor: { cols: false, bands: [] }, lanes };
+}
+
 function buildScene(view: ArchView): Scene {
-  return view.isMaster ? masterScene(view) : detailScene(view);
+  return view.isMaster ? masterGroupedScene(view) : detailScene(view);
 }
 
 // Orthogonal elbow route between two node anchors (mirrors the source `route`).
@@ -209,6 +290,24 @@ function NodeDrawer({ node, envId, onClear }: { node: PNode; envId: string; onCl
       <div style={{ fontFamily: C.sans, fontSize: 15, fontWeight: 600, color: C.text, marginTop: 4, whiteSpace: "pre-line", lineHeight: 1.3 }}>{node.label}</div>
       <div style={{ marginTop: 9 }}><StatusChip status={node.status} /></div>
       <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.6, marginTop: 12 }}>{node.plain}</p>
+
+      {node.members && node.members.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={cellLabel}>Components ({node.members.length})</div>
+          <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+            {node.members.map((m) => (
+              <li key={m.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <span style={{ width: 7, height: 7, borderRadius: 999, background: statusColor(m.status), marginTop: 5, flexShrink: 0, boxShadow: `0 0 6px ${statusColor(m.status)}88` }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.text, whiteSpace: "pre-line", lineHeight: 1.35 }}>{m.label}</div>
+                  {m.plain && <div style={{ fontFamily: C.sans, fontSize: 11.5, color: C.dim, lineHeight: 1.45, marginTop: 2 }}>{m.plain}</div>}
+                  {m.note && <div style={{ fontFamily: C.sans, fontSize: 11, color: C.faint, lineHeight: 1.45, marginTop: 2 }}>{m.note}</div>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px", marginTop: 14 }}>
         <div>
@@ -422,14 +521,21 @@ export default function TelemetryArchitectureMap({ envId }: { envId: string }) {
                       <text x={40} y={l.top + 30} fill={C.dim} style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: "0.04em", textTransform: "uppercase" }}>{l.name}</text>
                     </g>
                   ))}
-                  {MASTER_COLUMNS.map((c, i) => {
-                    const x = 210 + i * 212 + 212 / 2;
-                    return (
-                      <text key={`col${i}`} x={x} y={120 - 40} textAnchor="middle" fill={C.cyan} style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.06em" }}>
-                        {String(i + 1).padStart(2, "0")}
+                  {/* Detailed column headers only in ungrouped mode; grouped mode shows a flow axis. */}
+                  {scene.decor.cols
+                    ? MASTER_COLUMNS.map((c, i) => {
+                        const x = 210 + i * 212 + 212 / 2;
+                        return (
+                          <text key={`col${i}`} x={x} y={120 - 40} textAnchor="middle" fill={C.cyan} style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.06em" }}>
+                            {String(i + 1).padStart(2, "0")}
+                          </text>
+                        );
+                      })
+                    : (
+                      <text x={scene.w / 2} y={120 - 44} textAnchor="middle" fill={C.faint} style={{ fontFamily: C.mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+                        source · ingest → serving systems → ui   (one node per serving system per lane)
                       </text>
-                    );
-                  })}
+                    )}
                 </g>
               )}
               {/* edges */}
