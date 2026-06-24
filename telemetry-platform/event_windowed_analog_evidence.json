@@ -1,0 +1,37 @@
+{
+  "as_of": "2026-06-24",
+  "dataset": "SMAP/MSL (NASA telemanom) \u2014 gold_smap_msl_windows, test split",
+  "method": "For each anomalous query window (len 48), retrieve top-5 precedents (excluding same-channel) two ways: (A) WHOLE-SERIES cosine on the channel's full-series statistical summary; (B) EVENT-WINDOWED DTW (Sakoe-Chiba band 8) on the z-normalized anomalous-window signal. Metric: anomalous-match rate (fraction of retrieved precedents that are themselves anomalous) + top-K overlap.",
+  "params": {
+    "window_len": 48,
+    "top_k": 5,
+    "dtw_band": 8,
+    "n_queries": 40,
+    "pool_size": 284,
+    "pool_anomalous": 104,
+    "pool_normal": 180
+  },
+  "metrics": {
+    "whole_series_cosine_anomalous_match_rate": 0.415,
+    "event_windowed_dtw_anomalous_match_rate": 0.45,
+    "event_windowing_lift_pct": 8.4,
+    "topk_overlap": 0.09
+  },
+  "example": {
+    "query_channel": "E-10",
+    "whole_series_cosine_top1": {
+      "channel": "E-11",
+      "is_anomaly": 0
+    },
+    "event_windowed_dtw_top1": {
+      "channel": "E-11",
+      "is_anomaly": 1
+    }
+  },
+  "finding": "Whole-series cosine retrieves precedents that are only 41.5% actual anomalies (dominated by steady-state character), while event-windowed DTW retrieves 45.0% actual-anomaly precedents (8% more). The two methods agree on only 9.0% of the top-5 \u2014 event-windowing surfaces the precedents a full-vector search misses.",
+  "limitations": [
+    "SMAP/MSL channels are independent anonymized spacecraft streams, not a coupled physical system; 'precedent' = another channel's labeled anomaly window of similar event shape, not a linked disposition.",
+    "Linked dispositions (was it real / root cause / action taken) are NOT in this public dataset; they would come from a real failure-review system. Shown as unavailable rather than fabricated.",
+    "Pure-numpy banded DTW on a capped candidate pool for tractability; the relative comparison (event-windowed vs whole-series) is the finding, not an absolute retrieval benchmark."
+  ]
+}

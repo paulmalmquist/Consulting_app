@@ -337,3 +337,27 @@ Drift, flipped from a post-deployment afterthought into an upstream gate, measur
 Remaining spins: **6** (event-windowed telemetry analog retrieval), **2** (subsystem + lead-lag attribution),
 **4** (feature-completeness gate), **7** (anomaly grouped-by-channel split). Each its own intake'd unit. The
 regime/distribution trio (1, 3, 5) is now complete.
+
+---
+
+## Status — Spin 6 (compute) shipped (event-windowed analog retrieval, Story #723)
+
+ML-only (telemetry-platform; the UI card is deferred — a parallel agent owns the telemetry frontend
+refactor). Measured on real SMAP/MSL `gold_smap_msl_windows` (test split, 509,555 ticks, 81 channels):
+- Two retrievals per anomalous query window: (A) whole-series cosine on the channel's full-series
+  statistical summary; (B) event-windowed DTW (banded) on the channel-normalized anomalous-window signal.
+- **The methods agree on only 9% of the top-5** — they surface largely different precedents.
+- Event-windowed DTW modestly improves anomaly-precedent retrieval: **45.0% vs 41.5% anomalous-match
+  rate (+8.4%)**, both above the 36.6% pool base rate.
+- **Honest:** this is the most *modest* of the spins. The dramatic "precedent-based reasoning" version
+  needs **linked dispositions** (was it real / root cause / action) which the public SMAP/MSL data does
+  not have — rendered as unavailable, not fabricated. A first cut with per-window z-norm erased event
+  magnitude and showed no lift; channel-level normalization (preserving how much the event stands out)
+  recovered the +8%. That fix is the methodological note.
+- reproducible: `compute_event_windowed_analog.py` → `event_windowed_analog_evidence.json`; pure-numpy
+  banded DTW in `analog_core.py` with `test_analog_core.py` (4 tests, numpy-only/CI-safe).
+- **Card deferred** until the frontend refactor (PR C/D) settles, to avoid colliding with the parallel
+  agent in `repo-b/src/components/telemetry/**`.
+
+Remaining tail spins (2 subsystem lead-lag, 4 completeness, 7 anomaly grouped-split) have weak data fit
+on the independent SMAP/MSL streams (would need simulation or yield null results) — deferred/optional.
