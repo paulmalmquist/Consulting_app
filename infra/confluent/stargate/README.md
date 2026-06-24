@@ -8,6 +8,24 @@ campaign). Distinct from the Winston event-backbone Phase 3B work in
 `CONFLUENT_*` env contract read by `backend/app/events/protobuf_codec.py`.
 Same cluster, two non-overlapping resource sets.
 
+## Cost lifecycle
+
+`provision.ps1` brings the lane up. To take it down for cost (and bring it back),
+use the lifecycle skill, which tiers the actions and reflects the broker cost
+state on the Telemetry Mission Control PIPELINE panel:
+
+```powershell
+# read-only inventory + cost unit
+pwsh skills/confluent-stargate-lifecycle/scripts/lifecycle.ps1 -Action status
+# stop serving costs without losing topics/schemas (delete connectors, park Flink at 0)
+pwsh skills/confluent-stargate-lifecycle/scripts/lifecycle.ps1 -Action stop-serving
+# export topics/schemas/connectors/Flink to this folder (gate for delete)
+pwsh skills/confluent-stargate-lifecycle/scripts/lifecycle.ps1 -Action export
+```
+
+Deleting the cluster destroys its topics; `stop-serving` does not. See
+[`skills/confluent-stargate-lifecycle/SKILL.md`](../../../skills/confluent-stargate-lifecycle/SKILL.md).
+
 ## One-time prerequisite (interactive, cannot be scripted)
 
 ```powershell

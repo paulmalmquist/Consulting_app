@@ -1,0 +1,6 @@
+{
+  "name": "sample_data_stock_trades",
+  "is_internal": false,
+  "replication_factor": 3,
+  "partition_count": 6
+}

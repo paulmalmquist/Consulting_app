@@ -1,0 +1,31 @@
+{
+  "cluster_id": "lkc-gqpvvyv",
+  "cluster_name": "cluster_0",
+  "cluster_type": "STANDARD",
+  "environment": "env-vwkk2z",
+  "topics": [
+    "history-rhymes.signals.v1",
+    "sample_data_stock_trades",
+    "stargate.printer.anomalies.v1",
+    "stargate.printer.dlq.v1",
+    "stargate.printer.telemetry.agg5s.v1",
+    "stargate.printer.telemetry.v1",
+    "winston.dead-letter.v1",
+    "winston.executions.v1"
+  ],
+  "subjects": [
+    "sample_data_stock_trades-value",
+    "stargate.printer.anomalies.v1-value",
+    "stargate.printer.telemetry.agg5s.v1-value",
+    "stargate.printer.telemetry.v1-value"
+  ],
+  "connectors": [
+    "sample_data"
+  ],
+  "flink_pools": [
+    "lfcp-22wznzq",
+    "lfcp-v7pqqvj"
+  ],
+  "exported_by": "username-paulmalmquist@gmail.com",
+  "note": "Recreate order: cluster -> topics -> schemas -> service accounts/keys/ACLs -> flink pools -> connectors -> replay."
+}
