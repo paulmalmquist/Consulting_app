@@ -1,9 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { useParams } from "next/navigation";
 import AuditDashboard from "@/components/automated-data-engineering/AuditDashboard";
 
-export default function AdeAuditPage({ params }: { params: Promise<{ envId: string }> }) {
-  const { envId } = use(params);
+export default function AdeAuditPage() {
+  const { envId } = useParams<{ envId: string }>();
   return <AuditDashboard envId={envId} />;
 }

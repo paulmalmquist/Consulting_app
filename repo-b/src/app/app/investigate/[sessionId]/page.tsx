@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
 import { useEnv } from "@/components/EnvProvider";
 import {
@@ -19,8 +20,8 @@ const STATUS_TONE: Record<string, string> = {
   completed: "107,174,127", error: "212,122,114",
 };
 
-export default function InvestigatePage({ params }: { params: Promise<{ sessionId: string }> }) {
-  const { sessionId } = use(params);
+export default function InvestigatePage() {
+  const { sessionId } = useParams<{ sessionId: string }>();
   const { selectedEnv, environments, loading } = useEnv();
   const env = selectedEnv?.env_id ?? environments[0]?.env_id ?? null;
   const biz = selectedEnv?.business_id ?? environments[0]?.business_id ?? undefined;
