@@ -1,0 +1,70 @@
+{
+  "as_of": "2026-06-23",
+  "dataset": "C-MAPSS FD004 (six operating conditions)",
+  "source_table": "novendor_1.telemetry.silver_cmapss (subset=FD004, split=train)",
+  "method": "PCA reconstruction-error detector on healthy rows (RUL >= 100); regimes from KMeans(6) on op_setting_1/2/3. GLOBAL = the single-operating-mode assumption: fit + threshold on the most common regime, applied to all. REGIME-CONDITIONED = per-regime standardization before a shared model. Threshold = 95th pctl of fit recon error. Grouped fit/eval split by unit.",
+  "healthy_definition": "train rows with rul_target >= 100 cycles (nominal, far from failure)",
+  "fp_metric": "false-positive rate = fraction of HEALTHY held-out rows flagged anomalous",
+  "n_healthy_rows": 36349,
+  "n_units": 249,
+  "n_eval_rows": 11273,
+  "n_regimes": 6,
+  "n_active_sensors": 21,
+  "metrics": {
+    "global_worst_regime_fp": 1.0,
+    "regime_conditioned_worst_regime_fp": 0.102,
+    "global_mean_fp": 0.8434,
+    "regime_conditioned_mean_fp": 0.0568,
+    "global_cross_regime_spread": 0.9397,
+    "regime_conditioned_cross_regime_spread": 0.0846,
+    "worst_regime_fp_reduction_pct": 89.8,
+    "mean_fp_reduction_pct": 93.3,
+    "recon_error_variance_explained_by_regime_global": 1.0,
+    "recon_error_variance_explained_by_regime_conditioned": 0.002
+  },
+  "per_regime": [
+    {
+      "regime": 0,
+      "n_eval_rows": 1671,
+      "global_fp": 1.0,
+      "regime_conditioned_fp": 0.0676
+    },
+    {
+      "regime": 1,
+      "n_eval_rows": 1661,
+      "global_fp": 1.0,
+      "regime_conditioned_fp": 0.047
+    },
+    {
+      "regime": 2,
+      "n_eval_rows": 1725,
+      "global_fp": 1.0,
+      "regime_conditioned_fp": 0.102
+    },
+    {
+      "regime": 3,
+      "n_eval_rows": 2821,
+      "global_fp": 0.0603,
+      "regime_conditioned_fp": 0.0259
+    },
+    {
+      "regime": 4,
+      "n_eval_rows": 1669,
+      "global_fp": 1.0,
+      "regime_conditioned_fp": 0.0809
+    },
+    {
+      "regime": 5,
+      "n_eval_rows": 1726,
+      "global_fp": 1.0,
+      "regime_conditioned_fp": 0.0174
+    }
+  ],
+  "finding": "On FD004's 6 operating regimes, a global detector that assumes a single operating mode (calibrated on the most common condition) false-alarms on the others: its reconstruction error is 100% explained by operating condition, and the worst regime flags 100.0% of HEALTHY points (mean 84% across regimes). The error tracks regime, not faults. Per-regime conditioning cuts the worst-regime false-positive rate to 10.2% (90% reduction), the mean to 5.7%, and drops regime-explained variance to 0%.",
+  "limitations": [
+    "C-MAPSS FD004 has no anomaly labels; the metric is false positives on HEALTHY (high-RUL) rows, not detection recall.",
+    "Not a strawman: the global baseline is the single-operating-mode assumption (the naive thing \u2014 train on the data you have, ignore conditions, exactly the FD001->FD004 generalization failure). A global model that explicitly accounts for all six conditions also avoids the false alarms; the point is that operating-condition awareness is required, and per-regime normalization is the standard, scalable way to get it.",
+    "PCA reconstruction stands in for the production detector; the regime-dominance result transfers to any reconstruction model that ignores operating condition.",
+    "Six regimes recovered by KMeans on the three operating-setting columns; FD004's conditions are well-separated so this is stable, but it is clustering, not ground-truth condition labels."
+  ]
+}

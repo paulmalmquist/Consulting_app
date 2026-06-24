@@ -54,3 +54,18 @@ gates. Surface: the RUL conformal card on `/telemetry/evidence` (computed eviden
 serving*). **Must NOT overclaim:** PICP ~0.86 is slightly under the 0.90 target — present as *measured*, not
 guaranteed; intervals are marginal on FD001 single-condition data, not conditional or transferable to hot-fire
 regimes. **Brier** remains absent for telemetry (probabilistic-work talk-track only).
+
+---
+
+**Status (Phase 3 — regime-conditioned anomaly, Story #718):** The **Autoencoder anomaly detection** row's
+follow-up (Spin 1, the degenerate-AE fix) is built and measured on real C-MAPSS **FD004** (six operating
+conditions). A global reconstruction-error detector that assumes a single operating mode flags **~100% of
+HEALTHY points in 5 of 6 regimes** as anomalous — its recon error is **100% explained by operating condition
+(η²=1.0)**, not faults. Per-regime standardization cuts the worst-regime false-positive rate **100% → 10.2%
+(90% reduction)**, the mean **84% → 6%**, and drops regime-explained variance to **0**. Surface: the regime
+anomaly card on `/telemetry/evidence` (computed artifact, FD004, *not live serving*). This is the judgment
+artifact behind the degenerate autoencoder: *built the obvious global detector → measured → found the error
+tracks regime → shipped regime-conditioned normalization.* **Must NOT overclaim:** FD004 has no anomaly labels
+(metric is false-positives on healthy rows, not detection recall); the global baseline is the single-mode
+assumption (a real naive baseline, not a strawman — a model that explicitly accounts for all six conditions
+also works; the point is operating-condition awareness is required).
