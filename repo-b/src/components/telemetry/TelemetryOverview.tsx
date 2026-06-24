@@ -7,6 +7,7 @@
 
 import { C, DisclosureFooter } from "./primitives";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
+import { computeBigNumbers } from "./context/BottleneckMap/data";
 
 // Brand fluorescent purple (--nv-purple-hot "wet reflect"); the marketing CSS var is
 // out of scope in the telemetry env, so the hex is inlined.
@@ -30,6 +31,22 @@ export default function TelemetryOverview() {
           flying again. Then building at scale. Now the hard part is speed of judgment: reading the telemetry,
           trusting the model, tracing the source, and acting before delay becomes risk.
         </p>
+
+        {/* Big Numbers — inline editorial stats under the thesis, not a card dashboard. */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "26px 48px", marginTop: 24 }}>
+          {computeBigNumbers().map((b) => (
+            <div key={b.label}>
+              <div style={{ fontFamily: C.mono, fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: C.faint, marginBottom: 5 }}>
+                {b.label}
+              </div>
+              <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 700, letterSpacing: "-0.01em",
+                color: b.accent === "share" ? C.green : b.accent === "cost" ? C.amber : C.text }}>
+                {b.value}
+              </div>
+              <div style={{ fontFamily: C.sans, fontSize: 11.5, color: C.dim, marginTop: 3 }}>{b.sub}</div>
+            </div>
+          ))}
+        </div>
       </header>
 
       <BottleneckMap />

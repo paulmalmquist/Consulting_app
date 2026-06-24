@@ -359,3 +359,29 @@ export const EVENTS_CHRONO: LaunchEvent[] = [...EVENTS].sort((a, b) => a.year - 
 export function fmtCost(v: number): string {
   return v >= 10000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toLocaleString()}`;
 }
+
+// Full-range "Big Numbers" — the four headline stats, derived once from YEAR_SERIES over the full
+// window (inflation-adjusted cost). Presented as inline editorial text under the Overview thesis,
+// not as a dashboard strip. Mirrors the windowed KPI logic that used to live in BottleneckMap.
+export type BigNumberAccent = "text" | "share" | "cost";
+export interface BigNumber { label: string; value: string; sub: string; accent: BigNumberAccent }
+
+export function computeBigNumbers(): BigNumber[] {
+  const attempts = YEAR_SERIES.reduce((s, d) => s + (d.attempts || 0), 0);
+  const lastReal = [...YEAR_SERIES].reverse().find((d) => d.commercialPct != null);
+  const costYrs = YEAR_SERIES.filter((d) => d.costMeta);
+  const first = costYrs[0];
+  const last = costYrs[costYrs.length - 1];
+  const cost = first?.costAdj != null && last?.costAdj != null
+    ? `${fmtCost(first.costAdj)} → ${fmtCost(last.costAdj)}` : "n/a";
+  const costLabel = first?.costMeta && last?.costMeta
+    ? `${first.costMeta.v} to ${last.costMeta.v}, 2025 $` : "";
+  return [
+    { label: "Timeline", value: `${FULL_WINDOW[0]} – ${FULL_WINDOW[1]}`, sub: "full range", accent: "text" },
+    { label: "Launch attempts", value: attempts.toLocaleString(), sub: "orbital, total", accent: "text" },
+    { label: "Commercial share",
+      value: lastReal?.commercialPct != null ? `${Math.round(lastReal.commercialPct)}%` : "n/a",
+      sub: lastReal ? `as of ${lastReal.year}` : "", accent: "share" },
+    { label: "Cost per kg to LEO", value: cost, sub: costLabel, accent: "cost" },
+  ];
+}

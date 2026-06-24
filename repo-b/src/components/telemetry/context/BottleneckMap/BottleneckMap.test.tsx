@@ -30,10 +30,10 @@ describe("static narrative data", () => {
 });
 
 describe("BottleneckMap rendering", () => {
-  it("renders the full-range KPI strip and the verbatim methodology footer", () => {
+  it("renders the verbatim methodology footer", () => {
+    // The Big Numbers band moved out of this module to the Overview thesis header; see
+    // TelemetryOverview.test for the inline stats.
     render(<BottleneckMap />);
-    expect(screen.getByText("1957 - 2026")).toBeInTheDocument();
-    expect(screen.getByText("full range")).toBeInTheDocument();
     expect(screen.getByText(/makes no\s+domain-expertise claims/)).toBeInTheDocument();
   });
 

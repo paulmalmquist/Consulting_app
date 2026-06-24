@@ -11,15 +11,14 @@ import styles from "./BottleneckMap.module.css";
 import CostPanel from "./CostPanel";
 import {
   COLOR_DIMENSIONS, EVENTS, EVENTS_CHRONO, FULL_WINDOW, SIZE_MODES, YEAR_SERIES,
-  eventDimension, eventDimensionKey, fmtCost,
+  eventDimension, eventDimensionKey,
 } from "./data";
 import EventRecord from "./EventRecord";
-import KpiStrip from "./KpiStrip";
 import MapPanel from "./MapPanel";
 import MixPanel from "./MixPanel";
 import PresenterBanner from "./PresenterBanner";
 import type {
-  ColorByKey, DecoratedEvent, FocusPanelKey, KpiSummary, LaunchEvent, SizeModeKey, TimeWindow,
+  ColorByKey, DecoratedEvent, FocusPanelKey, LaunchEvent, SizeModeKey, TimeWindow,
 } from "./types";
 
 // The three story tabs. Keys reuse FocusPanelKey so presenter-mode dimming math stays trivial.
@@ -83,39 +82,6 @@ export default function BottleneckMap() {
     return base ? decorate(base, colorBy, sizeMode) : null;
   }, [selectedId, presenting, presenterEvent, colorBy, sizeMode]);
 
-  // KPI strip, derived from the active window (full range while presenting).
-  const kpi = useMemo<KpiSummary>(() => {
-    const [y0, y1] = presenting ? FULL_WINDOW : timeWindow;
-    const yrs = YEAR_SERIES.filter((d) => d.year >= y0 && d.year <= y1);
-    const attempts = yrs.reduce((s, d) => s + (d.attempts || 0), 0);
-    const lastReal = [...yrs].reverse().find((d) => d.commercialPct != null);
-    const costYrs = yrs.filter((d) => d.costMeta);
-    const key: "costAdj" | "costNominal" = inflationAdjusted ? "costAdj" : "costNominal";
-    const events = EVENTS.filter((e) => e.year >= y0 && e.year <= y1 + 1).length;
-
-    let cost = "n/a";
-    let costLabel = "in window";
-    if (costYrs.length > 0) {
-      const first = costYrs[0];
-      const last = costYrs[costYrs.length - 1];
-      const firstVal = first[key];
-      const lastVal = last[key];
-      if (costYrs.length >= 2 && firstVal != null && lastVal != null) {
-        cost = `${fmtCost(firstVal)} -> ${fmtCost(lastVal)}`;
-        if (first.costMeta && last.costMeta) costLabel = `${first.costMeta.v} to ${last.costMeta.v}`;
-      } else if (firstVal != null) {
-        cost = fmtCost(firstVal);
-      }
-    }
-
-    return {
-      window: `${y0} - ${y1}`,
-      attempts: attempts.toLocaleString(),
-      share: lastReal?.commercialPct != null ? `${Math.round(lastReal.commercialPct)}%` : "n/a",
-      shareYear: lastReal ? lastReal.year : null,
-      cost, costLabel, events,
-    };
-  }, [timeWindow, inflationAdjusted, presenting]);
 
   // Presenter keyboard controls. Never captures keys when focus is inside a form field, and never
   // shadows browser shortcuts (Cmd/Ctrl+P print).
@@ -171,8 +137,6 @@ export default function BottleneckMap() {
           onPrev={() => setPresenterIdx((i) => Math.max((i ?? 0) - 1, 0))}
           onNext={() => setPresenterIdx((i) => Math.min((i ?? 0) + 1, EVENTS_CHRONO.length - 1))} />
       )}
-
-      <KpiStrip kpi={kpi} presenting={presenting} windowed={windowed} inflationAdjusted={inflationAdjusted} />
 
       {/* tabbed story module: tab bar (hidden while presenting) + per-tab controls */}
       {!presenting && (
