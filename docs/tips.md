@@ -4198,3 +4198,22 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
   also works — the point is that operating-condition awareness is required, and per-regime normalization is the
   scalable way to get it. Keep the testable math (regime z-score, per-regime FP, η²) in a numpy-only core
   module so the eval test runs in CI without Databricks.
+
+## Pre-test competence-envelope gate (Phase 4 / Spin 5, Story #719)
+
+- **Flip drift upstream.** Instead of "today vs training" calendar drift, ask BEFORE scoring: is this input
+  inside the model's trained operating envelope? Fit a transparent envelope (Mahalanobis distance to the FD001
+  training distribution over standardized sensors); band by in-envelope (≤ τ, τ = FD001 99th pctl → score),
+  near-boundary (τ..3τ → review), out-of-envelope (>3τ → abstain). Measured: FD001 held-out 98.9% in-envelope;
+  FD004 (six conditions) 90.5% out-of-envelope. The gate abstains on the shift instead of issuing a confident
+  score — caught before scoring, not after deployment.
+- **Mahalanobis on a single-condition training set explodes on shifted regimes.** FD001's covariance is tiny in
+  near-constant sensor directions, so FD004's different-condition values produce astronomically large d² (e.g.
+  1e8 vs τ=62). That's real and is exactly the "way outside the envelope" signal — display it (scientific
+  notation) rather than clipping. Ridge-regularize the covariance inverse (`cov + 1e-3·I`, pinv) for stability.
+- **Wording discipline.** Use "abstain", "review", "outside trained envelope", "within trained scope" — never
+  "safe" or "certified". The envelope gates INPUT distribution (operating regime), not label correctness:
+  in-envelope ≠ correct prediction. FD004 is a regime-shift STRESS TEST, not rocket hot-fire data.
+- **Reuse FD001→FD004 across spins.** The same split powers Spin 3 (regime-conditioned anomaly) and Spin 5
+  (competence envelope) — one stress test, two findings. Keep the testable math (mahalanobis, band, band_rates)
+  in a numpy-only core so the eval test runs in CI without Databricks.

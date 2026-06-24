@@ -1,0 +1,58 @@
+{
+  "as_of": "2026-06-24",
+  "training_reference": "C-MAPSS FD001 (single operating condition)",
+  "challenge_set": "C-MAPSS FD004 (six operating conditions) \u2014 a regime-shift stress test, NOT rocket hot-fire data",
+  "source_table": "novendor_1.telemetry.silver_cmapss (split=train)",
+  "method": "Mahalanobis distance to the FD001 training distribution over standardized sensors. in-envelope = d^2 <= tau (tau = 99th pctl of FD001 training distances); near-boundary = tau..3x tau (review); out-of-envelope = > 3x tau (abstain). Held-out FD001 units validate the in-envelope rate.",
+  "gate": "out-of-envelope -> ABSTAIN; near-boundary -> REVIEW; in-envelope -> SCORE. Never a confident GO outside the trained envelope.",
+  "n_fd001_fit": 14191,
+  "n_fd001_eval": 6440,
+  "n_fd004": 61249,
+  "n_active_sensors": 15,
+  "metrics": {
+    "tau_mahalanobis_sq": 61.6,
+    "k_out": 3.0,
+    "fd001_in_envelope_rate": 0.9891,
+    "fd001_near_boundary_rate": 0.0104,
+    "fd001_out_of_envelope_rate": 0.0005,
+    "fd004_in_envelope_rate": 0.0799,
+    "fd004_near_boundary_rate": 0.0147,
+    "fd004_out_of_envelope_rate": 0.9054
+  },
+  "examples": [
+    {
+      "subset": "FD001",
+      "unit": 85,
+      "cycle": 188,
+      "op_settings": [
+        -0.001,
+        0.0,
+        100.0
+      ],
+      "mahalanobis_sq": 18.2,
+      "tau": 61.6,
+      "band": "in_envelope",
+      "action": "SCORE"
+    },
+    {
+      "subset": "FD004",
+      "unit": 83,
+      "cycle": 184,
+      "op_settings": [
+        25.005,
+        0.62,
+        60.0
+      ],
+      "mahalanobis_sq": 362539616.9,
+      "tau": 61.6,
+      "band": "out_of_envelope",
+      "action": "ABSTAIN"
+    }
+  ],
+  "finding": "An FD001-trained model's competence envelope holds for its own held-out units (98.9% in-envelope), but 90.5% of FD004 falls OUT of that envelope (a further 1.5% near the boundary). The pre-test gate abstains/reviews on those shifted inputs instead of issuing a confident score \u2014 catching the regime shift before scoring, not after deployment.",
+  "limitations": [
+    "FD004 is a regime-shift STRESS TEST (different operating conditions), not rocket hot-fire data; it stands in for 'an input outside the model's trained operating envelope'.",
+    "Mahalanobis distance assumes an roughly elliptical training distribution; it is a transparent first-line envelope, not a calibrated probability of competence.",
+    "The envelope gates on INPUT distribution (operating regime), not on label correctness; in-envelope does not mean the prediction is right, only that it is within trained scope."
+  ]
+}
