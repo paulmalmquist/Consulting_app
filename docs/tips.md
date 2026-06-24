@@ -3038,6 +3038,32 @@ Hierarchy + board hygiene decisions:
 - ADO state discipline for coding agents: `Active` at start, `Resolved` when code/tests/evidence are ready, `Closed` only when the PR is merged and deploy/smoke is verified. A local-only pass never closes a work item. Every session also appends an ADO discussion comment (branch/commit/PR, files, tests, evidence, risks, next item) — a bare state change is not an audit trail.
 - If the Azure DevOps CLI is unavailable or unauthenticated during intake, stop before coding and emit an "ADO Unavailable Blocker" note with the exact command and error. Do not silently proceed; proceed only on an explicit, marked user exception.
 
+### RS MLOps team board is the control tower for RS/telemetry work (2026-06-24)
+
+- The `Novendor` project is already on the Agile process. Do not recreate it or change the shared `Novendor Team` board.
+- RS Analytics and telemetry work uses the dedicated `RS MLOps` team, scoped to `Novendor\RS-Analytics` with child areas included. The existing Epic/Feature/Story hierarchy remains authoritative; team boards are views over those same work items.
+- The source of truth is `scripts/azure-devops/rs-mlops-control-tower.json`; apply it with `setup-rs-mlops-control-tower.ps1`. Always run `-DryRun`, then `-Backup`, before `-Apply`, and finish with `-Verify`.
+- Board columns carry the detailed MLOps lifecycle while work-item states remain `New`, `Active`, `Resolved`, and `Closed`. `Verified` maps to `Resolved`; `Done` maps to `Closed`.
+- Azure Boards requires the outgoing/Closed column to be last. The live order therefore ends `Verified → Blocked → Done`; the originally proposed `Done → Blocked` order is not accepted by the API.
+- Azure DevOps plan names reject `/`, so the live Delivery Plan is `RS - Winston MLOps Delivery Plan`.
+- Swimlane placement is explicit. Azure Boards does not move cards to a swimlane based on tags.
+- Test Plans remain represented by linked `Test Case` work items until a dedicated ADO PAT and license are confirmed. Service hooks remain disabled until the `Agent Ready` polling flow is stable.
+
+## Confluent Cloud CLI Management (2026-06-24)
+
+CLI quirks (`confluent` CLI v4.60 on Windows). Owned by `skills/confluent-stargate-lifecycle/`.
+
+- **Exit 0 does not mean success.** `confluent flink compute-pool update --max-cfu 0` returns exit code 0 while *rejecting* the argument in stdout: `Error: Bad Request: Violations [MaxCfu is not one of 5, 10, 20, 30, 40, 50: 0]`. Never trust the exit code alone — scan output for rejection markers (`Bad Request`, `Violations`, `is not one of`). This silently produced a false "parked at 0 CFU" cost claim before it was caught.
+- **Flink pools cannot be parked at 0 CFU.** `--max-cfu` only accepts `{5, 10, 20, 30, 40, 50}`. There is no scale-to-zero for a compute pool. CFU-hours bill on *running statements*, not on the pool's `max_cfu` ceiling, so an idle pool (no running statements) costs nothing — to stop Flink billing, `confluent flink statement stop <name>`, don't lower the ceiling.
+- **`flink statement list` prepends a notice line to stdout** before the JSON: `No Flink endpoint is specified, defaulting to public endpoint: https://flink.us-east1.gcp.confluent.cloud`. Piping straight into `ConvertFrom-Json` fails with "Error parsing NaN value". Strip everything before the first `[`/`{` first.
+- **Flink commands need cloud + region.** `confluent flink statement list` errors with "no cloud provider and region selected" unless you pass `--cloud gcp --region us-east1` (the Stargate lane's region).
+- **Stopping serving ≠ deleting topics.** Deleting connectors + stopping Flink statements stops the *active* costs losslessly — topics, their data, and Schema Registry subjects survive. Topics are cluster-scoped and only disappear when you delete the Kafka cluster. Schema Registry is environment-scoped and *may* survive a cluster delete, but export before relying on it.
+- **`cluster_0` (lkc-gqpvvyv) is STANDARD, not Dedicated** — it bills a flat hourly base, not CKU-hours. CKU/CKU-hour billing is Dedicated-only. Read the real cluster type (`confluent kafka cluster describe`) before writing any cost message; don't hardcode "CKU".
+- **Connectors: delete, don't pause.** A paused managed connector keeps accruing task-hour charges. `confluent connect cluster delete <id>` to actually stop the cost.
+- **PowerShell empty-array trap (not Confluent-specific but bites here):** a function that does `return @()` can hand back `$null` because PS unwraps empty arrays through `return`. Wrap the *call site* in `@(...)` before reading `.Count`, and wrap `ConvertFrom-Json` results in `@()` since an empty `[]` deserializes to `$null`.
+- **CI cannot use the interactive `confluent login`.** A scheduled GitHub Action needs a service-account **API key** (`confluent api-key create --resource cloud --service-account sa-…`), passed as `CONFLUENT_CLOUD_API_KEY`/`_SECRET` env, then `confluent login --save`. A machine email/password works but exposes full-account creds in CI — prefer the scoped service account.
+- **Age a status row from its own `as_of_ts`; never trust a stored "fresh" as still-current.** A row re-stamped on a fixed cadence (e.g. a 15-min refresh job) must be aged client-side: if `now − as_of_ts` exceeds ~2× the cadence, render it STALE regardless of the stored status. This keeps the surface honest if the writer stops, with no extra signal. Pair it with a *fail-closed writer*: when the periodic check itself fails, write an explicit `stale`/`check_failed` state — do **not** re-write the last good state as if freshly verified (that would launder a stale value into a fresh-looking one).
+
 ### After a feature merges to main, do a docs-only "presentation hardening" pass before the next layer (2026-06-02)
 
 When a multi-phase feature crosses from active build to production-shipped (merged to `main`, deployed, smoke-verified), freeze the win as portfolio artifacts *before* starting the next phase — it's cheap insurance against the demo decaying into "depends on the author's memory." Two docs carry it: a **reviewer runbook** (`telemetry-platform/REVIEWER_DEMO.md` — login/auth flow, exact production routes, a timed click-through script, the **exact expected evidence values** so a reviewer can confirm groundedness, what NOT to claim, and known caveats) and a **2-minute portfolio proof** (`telemetry-platform/docs/portfolio-proof.md` — problem → architecture → proof points → applied-AI controls → routes → tests → "what this demonstrates", pasteable into a recruiter message). Keep it docs-only (no runtime changes); reference the screenshots already in the repo rather than regenerating; pin the real IDs/metrics so the artifact and the live system can't silently drift. Do this on a clean branch off `main` in an isolated `git worktree` so an unrelated dirty primary working tree is never disturbed. Caveats a portfolio reviewer needs stated up front: public-analog-data-only (no proprietary / no physical root cause / no safety disposition), manual deploys (Railway/Vercel don't auto-deploy on push — state deploy↔main parity), auth-gated UI, and any legacy branch-name mismatch already merged.
@@ -4100,66 +4126,28 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
   and print only the password *length*, never the value. Login form on `/login` uses
   `input[autocomplete=username]` (type=text, not `type=email`) + `input[type=password]` + a "Sign in" submit.
 
-## Telemetry evidence layer + Stargate bridge (Story #707)
+## Telemetry Databricks pipeline — running, inspecting, and judging the ML
 
-- **Evidence-card pattern.** A claim-proof card fetches one real endpoint, then branches:
-  `error → ErrorState`, `!data → Loading`, `data.null_reason → EmptyState/ErrorState`, else render. Never
-  fabricate a number — render only fields present in the response, and give each card its own fail-closed
-  sub-state so one missing source doesn't blank the whole card. Cards live in
-  `repo-b/src/components/telemetry/*EvidenceCard.tsx` and compose onto one page (`/telemetry/evidence`)
-  behind a single nav entry.
-- **Claim-proof matrix.** `claim_coverage_matrix.md` maps each resume claim to: current status (evidence-backed)
-  · `file:symbol` · what can be said live · what must NOT be overclaimed · required follow-up. Keep it current
-  as claims improve or fail. It is the guardrail the cards and demo talk-track must not exceed.
-- **Capture-replay labeling (non-negotiable).** The Stargate stream is *recorded capture replayed through the
-  real Kafka/SSE bridge*, not a live printer. Every control/label says "recorded capture" (e.g. the button is
-  "Start recorded capture"); the restart endpoint returns `source: recorded_capture`. Never imply live data.
-- **Judgment-artifact framing.** The strongest evidence is an honest negative result already in the repo: the
-  256-d autoencoder anomaly detector is degenerate (F1 = the all-positive baseline because the train threshold
-  sits below the test-error floor), so the champion is rolling-MAD and the AE vector is repurposed for
-  retrieval. Surface that as "built the obvious thing → measured → found the break → shipped the fix," not as a
-  working detector. Same for honest pointwise F1 (0.313) shown beside the inflated point-adjusted (0.645).
-- **Stargate bridge deploy gotcha (cost me a 503).** The shared backend mounts `/stargate/*` behind
-  `STARGATE_BRIDGE_ENABLED`, but `main.py`'s lifespan did NOT set `app.state.stargate_bridge` (only
-  `create_app`'s lifespan did) — so `/stargate/stream` returned 503 ("reconnecting" forever) in prod. The fix
-  is to mirror `create_app`'s init (preload fixture + `replay_capture_forever`) inside `main.py`'s lifespan,
-  gated on the same flag. In prod `NEXT_PUBLIC_STARGATE_BRIDGE_URL` points at the **main backend**
-  (authentic-sparkle), so the bridge ships with the main image — `railway up` from the **clean main worktree**
-  (`C:/Projects/Consulting_app-rs-demos`), then poll `/version` until the git_sha flips, then curl
-  `/stargate/health` (expect `msgs_in_per_sec > 0`) + `POST /stargate/replay/cycle` (expect 200).
-- **Production smoke gotchas.** (1) A live SSE page never reaches Playwright `networkidle` — use
-  `domcontentloaded` + `waitForSelector`, not `networkidle`, on `/telemetry/stargate`. (2) The login button
-  renders "SIGN IN" (CSS uppercase); a `text=Sign in` click can miss — submit with
-  `page.press("input[type=password]", "Enter")` instead. (3) The backend root `GET /version` is not under the
-  `/api/telemetry` catch-all, so the frontend reads it through a dedicated `/api/version` proxy route handler.
+Lessons from running the full `novendor_1.telemetry` pipeline (probe → anomaly → RUL → promote → score →
+fused → NCR corpus/clustering/forecast) on serverless and reviewing it for ML quality.
 
-## Conformal lower-bound RUL (Phase 2, Story #716)
+**Running notebooks remotely (no new client):**
+- Auth: set `DATABRICKS_PAT` or drop the gitignored repo-root `claude_token.txt`; `telemetry-platform/databricks/_bootstrap.py:get_client()` reads it. Host `dbc-2504bec5-b5ab`, catalog `novendor_1.telemetry`, warehouse `0e56420fb707d861`, MLflow exp `3740651530987773`.
+- Use `_jobs.py` (`upload_notebook` + `run_notebook_and_wait`, serverless, polls every 15 s) — see the `08_*`…`16_*` drivers. A reusable runner that also cancels-on-timeout and appends to a `run_manifest.json` is `telemetry-platform/runs/*/runner.py`.
+- The PowerShell tool does NOT persist env vars between calls — persist the PAT via the `claude_token.txt` fallback (gitignored by `*token*.txt`), or inline `$env:DATABRICKS_PAT=…` per invocation.
+- Read-only inspector pattern: `DatabricksClient.execute_sql` + `search_mlflow_runs` + UC REST. The UC alias field is `version` (e.g. `GET /api/2.1/unity-catalog/models/{full}/aliases/champion` → `.version`), **not** `version_num`; the registered-models *list* endpoint returns empty `aliases`.
+- **Workspace drifts from repo source.** Deployed notebooks differed from `notebooks/*.py` for 6/8 here, and the live champion had been built by stale code (only point-adjusted metrics). Always back up workspace source (`/api/2.0/workspace/export`) before re-uploading, and treat the repo as the only source of truth.
 
-- **Split conformal in ~30 lines, no heavy deps.** Pure numpy in `telemetry-platform/conformal_core.py`:
-  nonconformity quantile = `ceil((n+1)(1-alpha))/n` empirical quantile (finite-sample valid); two-sided
-  `[pred±qhat]`; one-sided lower = `pred - quantile(over-prediction residuals)`. Keep the math in a
-  Databricks-free module so the eval test runs without credentials.
-- **Calibration exchangeability is the whole game.** C-MAPSS test units truncate at a *varied* point in life, so
-  their last-cycle RUL spans a wide range. Calibrating on held-out TRAIN units' *last* cycles (all near-failure,
-  small RUL) breaks exchangeability and badly under-covers — **measured PICP 0.44 vs a 0.90 target**. Calibrate
-  on a random *operational* cycle per held-out unit (matching the score-at-an-arbitrary-point distribution) and
-  PICP recovers to **~0.86**. Report measured PICP honestly; near-nominal-but-under is a real result, not
-  something to hide.
-- **Lower-bound safety gating.** For a go/no-go, clear a unit on the calibrated **lower bound** of remaining
-  life, never the point estimate. The demo moment is the disagreement count: N units look GO on the point
-  estimate but the lower bound demands REVIEW/NO-GO.
-- **Databricks pull without a PAT.** `auth_gate.py` only checks `DATABRICKS_PAT`/`claude_token.txt`, but the CLI
-  and SDK authenticate via the OAuth profile in `~/.databrickscfg`. Use
-  `WorkspaceClient(profile='PaulMain').statement_execution.execute_statement(warehouse_id=…, disposition=INLINE,
-  format=JSON_ARRAY)`, page chunks via `get_statement_result_chunk_n`, start the serverless warehouse on demand.
-  Early-cycle rolling / rate-of-change gold features are NaN until their window fills — impute with train-median
-  (medians from fit rows only, no leakage).
-- **Evidence-artifact pattern for ML results.** Persist computed metrics as a committed JSON (in
-  `telemetry-platform/` plus a copy under `repo-b/src/lib/telemetry/`), import it into a card, and label it
-  "computed evidence artifact · not live serving" with `as_of` + the calibration-split description. Real numbers,
-  reproducible, never claimed as live.
+**threadpoolctl "Exception ignored on calling ctypes callback … 'NoneType' has no attribute 'split'":**
+- Root cause on DBR Python 3.12: bundled `libgomp` reports `version: null` and **threadpoolctl 2.2.0** doesn't guard against it. **Non-fatal** introspection noise — fit/predict return finite, correct results; the warning is intermittent and off the result path. Fix only if the noise bothers you: notebook-scoped `%pip install "threadpoolctl>=3.1.0"` (3.x guards `version=None`); never change the global cluster image. Prove non-fatality before any package change.
 
-## Relativity / aerospace telemetry surfaces — the three-question rule (Story #717)
+**Judging the ML (notebook success ≠ done):**
+- **Point-adjusted F1 inflates ~2×.** SMAP/MSL MAD reported 0.639 point-adjusted vs 0.309 honest point-wise. Lead with honest/affiliation metrics (the pipeline logs both + a fail-closed gate).
+- **Watch for the always-positive baseline.** Fused PCA-256 and the autoencoder both hit f1=0.757 with fn=0 — that's exactly the all-positive baseline (2·p·1/(1+p)). A 99th-pctl-of-*train* threshold under the min *test* reconstruction error → constant classifier. Always compute the trivial baseline.
+- **RMSE can hide the dangerous failure mode.** RUL GBM wins RMSE (20.3 vs 21.7) but loses PHM (1423 vs 1036) and predicts LATE 58% of the time (optimistic on near-failure units). For asymmetric-cost targets, make the gate PHM-/late-rate-aware, not RMSE-only; check error-by-regime.
+- **Negative control = cheapest leakage test.** Shuffle training labels, refit; RMSE should collapse to naive (here 41.65 ≈ naive 41.71 → no leakage). Add naive baselines (train-mean/median) — a model that can't beat them isn't skillful (RUL beats them ~2×; the NCR drift forecast only ties / loses on MAPE).
+- **Clustering: measure family purity, don't tune to the answer.** MiniLM→UMAP→HDBSCAN recovered 3/6 synthetic families cleanly, split 2, scattered 1, and missed the engineered *declining* trend (slopes didn't cross −0.35). Add a "needs human review" bucket + family-level trend rather than lowering thresholds.
+- **Curated replay feeds overstate recall.** `gold_replay_feed_scored` showed fn=0 (100% recall) because it's a curated D-4 fixture; the honest test recall is 0.30. And the `anomaly_score` display column is uncalibrated (10⁰–10¹³) — gate on the binary `model_pred`, clamp the score for UI.
 
 When building any Relativity / aerospace telemetry feature, every technical surface should answer three
 questions, or it reads as an isolated demo rather than part of one argument:
@@ -4217,3 +4205,17 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 - **Reuse FD001→FD004 across spins.** The same split powers Spin 3 (regime-conditioned anomaly) and Spin 5
   (competence envelope) — one stress test, two findings. Keep the testable math (mahalanobis, band, band_rates)
   in a numpy-only core so the eval test runs in CI without Databricks.
+**RUL gate hardening (PR-1) — don't let RMSE alone promote a dangerous model:**
+- **"Late" is the unsafe direction for RUL.** Late = predicted RUL *higher* than actual (model says more safe life remains than is true). Log `rul_late_prediction_rate` and slice it by RUL regime — on C-MAPSS FD001 the models were ~58% late overall but **73–93% late in the near-failure regime**, exactly where it's dangerous. Aggregate RMSE hid this completely.
+- **Gate on more than RMSE.** The hardened `promote_models.py` RUL gate is fail-closed over 5 checks: beats strongest-naive RMSE by a margin (≤0.75×), PHM improves over naive (PHM is asymmetric — *lower is better*, late penalized harder), `late_prediction_rate ≤ 0.55`, and the label-shuffle leakage control passes. Select the **safest** passer (lowest PHM), not the lowest RMSE.
+- **A gate that nothing passes is a valid, honest result.** Both FD001 models cleared 4/5 but missed the late-rate ceiling, so the gate held closed and promoted nothing — the existing champion stayed (the gate never demotes or silently overwrites). Set thresholds conservatively and do *not* tune them to force a promotion in either direction.
+- **Log baselines + leakage control as repeatable diagnostics in the training notebook**, on *every* candidate run, so the promotion notebook can read them from MLflow (it gates on logged metrics, not hand-passed numbers). The label-shuffle control must never train/influence the champion — it's diagnostic only.
+- **Model card must state approved/not-approved use + the known unsafe failure mode.** For RUL: *Approved — telemetry demo / maintenance-risk investigation; Not approved — autonomous launch, flight-safety, or maintenance authorization.* Point predictions ≠ calibrated risk; say so explicitly until intervals/coverage exist.
+
+**Telemetry stream lineage / Lakebase DDL ownership (Ticket 1, 10034):**
+- **`tel_*` serving tables live on Databricks Lakebase, not Supabase.** They were migrated off Supabase to Lakebase (managed Postgres) via `TELEMETRY_DATABASE_URL`. Supabase no longer has them — `to_regclass('public.tel_stream_kafka_rows')` returns `null` on the Supabase `DATABASE_URL`. Never apply `tel_*` migrations against Supabase; you'll get "relation does not exist."
+- **The runtime `telemetry_app` role is DML-scoped and is NOT the table owner**, so `apply.js` DDL (`ALTER TABLE` / `DROP CONSTRAINT` / `CREATE TABLE`) fails with `SQLSTATE 42501 must be owner of table ...`. The Lakebase `tel_*` tables are owned by the human Databricks identity `paulmalmquist@gmail.com`. **DDL migrations to `tel_*` must be run as that owner** — Databricks SQL editor authenticated as the human, or an owner connection string — not the Railway `authentic-sparkle` `TELEMETRY_DATABASE_URL` (that's `telemetry_app`). This is the same family of limit as "Lakebase telemetry_app can't CREATE partitions."
+- **Where the creds actually live:** `TELEMETRY_DATABASE_URL` is on **Railway `authentic-sparkle`** (read via `railway variables --service authentic-sparkle --kv`), not on any Vercel project. Backend `DATABASE_URL` (Supabase) is on the **`consulting-app`** Vercel project (serves novendor.ai), and several values export as empty strings from `vercel env pull` (sensitive/encrypted) — pull is unreliable for secrets; Railway `--kv` is the dependable source for the telemetry URL.
+- **Architecture line to hold:** Databricks/Delta is the durable RAW telemetry lake; Lakebase/Postgres is the serving/provenance slice (latest rows, anomaly/triage summaries, receipts, and *pointers* into the lake). Do **not** copy full raw Kafka telemetry into Postgres — persist a deterministic sample (`kafka_offset % sample_rate = 0`) plus anomalies, agg5s, triage, DLQ, and offset receipts in full.
+- **Fail closed on missing lineage.** No concrete Databricks Delta table is mapped to the Stargate *printer* stream (`novendor_1.telemetry.*` is the separate NASA C-MAPSS/SMAP/IMS ML lane). So Databricks pointer columns default `databricks_lineage_status='not_available'` with `databricks_null_reason='databricks_table_mapping_not_configured'`. Never fabricate a Delta pointer or a Kafka offset.
+- **10033 already shipped the Kafka-provenance core** (`tel_stream_kafka_rows` + `tel_stream_consumer_offsets` + the replay-safe `UNIQUE (env_id, business_id, kafka_topic, kafka_partition, kafka_offset)`). Lake pointers + triage came as **additive `10034`** (next free number after committed `10033`) — extend committed migrations, never rewrite them. `apply.js`'s SQL splitter respects `DO $$ ... $$` dollar-quoting, so multi-statement `DO` blocks (drop+re-add CHECK, RLS policy, verification) stay intact under `--files N`.
