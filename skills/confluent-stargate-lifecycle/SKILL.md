@@ -127,6 +127,30 @@ STALE banner trips only on the stream's own `pipeline.status`, not the `broker` 
 `broker · warm` never freezes the charts. Healthy serving writes `fresh` (green); otherwise
 write the real `warm`/`gone` token and let `reason` carry the cost story.
 
+## Scheduled refresh (keeps the broker row honest)
+
+A manual `status`/`stop-serving` run stamps the broker row once, then it freezes. The
+`.github/workflows/confluent-broker-refresh.yml` job re-checks the real Confluent state
+every ~15 min and re-stamps the row from observed facts only, via
+`scripts/refresh_broker_row.py`. Three honesty guarantees:
+
+1. **Observed-fact states only** — `fresh` (≥1 connector or running statement), `warm`
+   (idle), `gone` (cluster + pools removed). An ambiguous probe is never guessed.
+2. **`checked_at` = the row's `as_of_ts`** (stamped `now()` on write); the `reason` ends
+   with `· checked HH:MMZ`. The panel ages the row against `as_of_ts` and renders
+   `STALE (Nm ago)` in red once it exceeds 2× the cadence (30 min) — so if the job stops,
+   the row visibly ages instead of implying its last status is current.
+3. **Failed check ≠ fresh** — any probe failure writes `status='stale'` +
+   `reason='check_failed: …'`; it never overwrites the row with a fresh-looking state. If
+   the DB itself is unreachable the job exits non-zero and writes nothing (the panel's age
+   logic still catches the lapse).
+
+CI auth is a Confluent **service account API key** (CI cannot use the interactive login).
+Provision it with `scripts/provision_ci_service_account.ps1` (dry-run by default), then set
+GitHub secrets `CONFLUENT_CLOUD_API_KEY`, `CONFLUENT_CLOUD_API_SECRET`, and
+`TELEMETRY_DATABASE_URL`. Until those exist the workflow only runs on manual dispatch and
+fails closed to `stale` — which is correct, not a bug.
+
 ## Tiers
 
 Run everything through `scripts/lifecycle.ps1`. Each tier is idempotent and

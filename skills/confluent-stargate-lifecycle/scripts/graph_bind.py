@@ -24,7 +24,9 @@ from pathlib import Path
 ENV_ID = "telemetry-demo"
 BUSINESS_ID = "7e1eb000-0000-4000-a000-000000000001"
 SURFACE = "broker"
-VALID = {"fresh", "hot", "warm", "cold", "gone"}
+# 'stale' = the scheduled check failed; the last observed state could not be re-verified.
+# It is NEVER written to claim freshness — only to mark that verification lapsed.
+VALID = {"fresh", "hot", "warm", "cold", "gone", "stale"}
 
 
 def resolve_url() -> str:
@@ -55,12 +57,12 @@ def resolve_url() -> str:
     return url
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--status", required=True, choices=sorted(VALID))
-    ap.add_argument("--reason", required=True)
-    args = ap.parse_args()
-
+def write_row(status: str, reason: str) -> None:
+    """Upsert the broker row. as_of_ts = now() is the machine 'checked_at' the panel
+    ages against. Exits non-zero (fail closed) if psycopg2 is missing, the URL can't
+    be resolved, or the DB write fails — callers must NOT swallow that."""
+    if status not in VALID:
+        sys.exit(f"FAIL: invalid status '{status}' (valid: {sorted(VALID)})")
     try:
         import psycopg2  # type: ignore
     except ImportError:
@@ -77,13 +79,20 @@ def main() -> int:
         conn = psycopg2.connect(url)
         try:
             with conn.cursor() as cur:
-                cur.execute(sql, (ENV_ID, BUSINESS_ID, SURFACE, args.status, args.reason))
+                cur.execute(sql, (ENV_ID, BUSINESS_ID, SURFACE, status, reason))
             conn.commit()
         finally:
             conn.close()
     except Exception as exc:  # fail closed, surface the real error
         sys.exit(f"FAIL: graph write failed: {exc}")
 
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--status", required=True, choices=sorted(VALID))
+    ap.add_argument("--reason", required=True)
+    args = ap.parse_args()
+    write_row(args.status, args.reason)
     print(f"graph: broker = {args.status} · {args.reason}")
     return 0
 
