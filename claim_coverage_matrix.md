@@ -90,3 +90,13 @@ event-windowing modestly lifts anomaly-precedent retrieval to **45.0% vs 41.5% (
 overclaim:** this is the most modest finding; **linked dispositions are unavailable** in public data (shown
 as unavailable, not fabricated); it is a relative method comparison, not an absolute retrieval benchmark.
 ML-only so far — the UI card is **deferred** (parallel agent owns the telemetry frontend refactor).
+
+---
+
+**Status (Spin 2 compute — sensor lead-lag attribution, Story #726):** The **Channel divergence /
+attribution** row gets a coupled-system finding on real C-MAPSS FD001. Channel-level attribution is
+redundant (median **14/15** sensors deviate at failure, 93% co-move); onset timing + cross-correlation
+identify sensors **9/14/11** as the consistent leads (~80 cycles lead time), downstream sensors lag **~11
+cycles**. **Must NOT overclaim:** C-MAPSS is simulated; onset is a threshold-crossing, not a calibrated
+change-point; lead-lag narrows root-cause search, it does not assign physical cause. ML-only; UI card
+deferred (parallel agent owns the telemetry frontend).

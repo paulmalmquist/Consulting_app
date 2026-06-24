@@ -361,3 +361,25 @@ refactor). Measured on real SMAP/MSL `gold_smap_msl_windows` (test split, 509,55
 
 Remaining tail spins (2 subsystem lead-lag, 4 completeness, 7 anomaly grouped-split) have weak data fit
 on the independent SMAP/MSL streams (would need simulation or yield null results) — deferred/optional.
+
+---
+
+## Status — Spin 2 (compute) shipped (sensor lead-lag attribution, Story #726)
+
+ML-only (telemetry-platform; UI card deferred — parallel agent owns the telemetry frontend). On real
+C-MAPSS **FD001** (15 active sensors on one coupled engine, 100 units; better fit than the independent
+SMAP/MSL streams):
+- **Channel-level attribution is redundant:** at failure a median of **14 of 15 sensors deviate (93%
+  co-move)** — they all measure the same degrading engine.
+- **Onset timing finds the root signal:** sensors **9, 14, 11** consistently lead (onset in 86–100% of
+  units, ~76–87 cycles of lead time); cross-correlation shows downstream sensors **lag the lead by a
+  median of 11 cycles**. The lead sensors are the root signal; the rest are downstream responders —
+  exactly how a failure-review board narrows root cause.
+- reproducible: `compute_lead_lag_attribution.py` → `lead_lag_attribution_evidence.json`; pure-numpy
+  `lead_lag_core.py` with `test_lead_lag_core.py` (5 tests, numpy-only/CI-safe).
+- honest: C-MAPSS is simulated; onset is a threshold-crossing, not a calibrated change-point; lead-lag
+  narrows root-cause search, it does not assign physical cause.
+- card deferred to avoid colliding with the parallel frontend refactor.
+
+Remaining tail: Spin 4 (completeness — needs multi-rate data, would be simulated) and Spin 7-anomaly
+(grouped split — likely null on a fixed-K per-channel rule). Both weak/optional.
