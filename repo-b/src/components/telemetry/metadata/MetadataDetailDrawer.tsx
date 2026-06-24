@@ -1,8 +1,7 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
-
 import { C, Tag } from "../primitives";
+import { DrawerWrapper, DrawerHeader } from "../drawerPrimitives";
 import type {
   TelemetryMetadataEdge,
   TelemetryMetadataNode,
@@ -243,96 +242,36 @@ export default function MetadataDetailDrawer({
     : [];
 
   return (
-    <Dialog.Root open={Boolean(node)} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.52)",
-            zIndex: 70,
-          }}
-        />
-        <Dialog.Content
-          className="fixed bottom-0 left-0 right-0 z-[80] max-h-[86vh] rounded-t-xl lg:bottom-auto lg:left-auto lg:right-0 lg:top-0 lg:h-screen lg:max-h-none lg:w-[440px] lg:rounded-none lg:rounded-l-xl"
-          style={{
-            background: C.rail,
-            border: `1px solid ${C.borderHi}`,
-            color: C.text,
-            overflowY: "auto",
-            padding: 20,
-            boxShadow: "-18px 0 50px rgba(0,0,0,0.38)",
-          }}
-        >
-          {node && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                <div style={{ minWidth: 0 }}>
-                  <Dialog.Title
-                    style={{
-                      fontFamily: C.sans,
-                      fontSize: 20,
-                      fontWeight: 700,
-                      overflowWrap: "anywhere",
-                    }}
-                  >
-                    {node.label}
-                  </Dialog.Title>
-                  <Dialog.Description
-                    style={{
-                      color: C.dim,
-                      fontFamily: C.mono,
-                      fontSize: 10,
-                      lineHeight: 1.5,
-                      marginTop: 7,
-                    }}
-                  >
-                    {node.description ?? "Reviewed telemetry catalog object."}
-                  </Dialog.Description>
-                </div>
-                <Dialog.Close asChild>
-                  <button
-                    type="button"
-                    aria-label="Close metadata details"
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 7,
-                      border: `1px solid ${C.borderHi}`,
-                      background: C.panel,
-                      color: C.dim,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    x
-                  </button>
-                </Dialog.Close>
-              </div>
+    <DrawerWrapper open={Boolean(node)} onClose={onClose}>
+      {node && (
+        <>
+          <DrawerHeader
+            title={node.label}
+            description={node.description ?? "Reviewed telemetry catalog object."}
+            closeLabel="Close metadata details"
+          />
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
-                <Tag color={C.cyan}>{node.kind}</Tag>
-                <Tag color={C.amber}>{node.layer ?? "runtime"}</Tag>
-                <Tag color={node.status === "fresh" ? C.green : node.status === "missing" ? C.red : C.amber}>
-                  {node.status ?? "unknown"}
-                </Tag>
-                <Tag color={node.confidence === "inferred" ? C.amber : C.cyan}>
-                  {node.confidence}
-                </Tag>
-              </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
+            <Tag color={C.cyan}>{node.kind}</Tag>
+            <Tag color={C.amber}>{node.layer ?? "runtime"}</Tag>
+            <Tag color={node.status === "fresh" ? C.green : node.status === "missing" ? C.red : C.amber}>
+              {node.status ?? "unknown"}
+            </Tag>
+            <Tag color={node.confidence === "inferred" ? C.amber : C.cyan}>
+              {node.confidence}
+            </Tag>
+          </div>
 
-              <section style={{ marginTop: 18 }}>
-                {detailFields(node).map((field) => (
-                  <DetailRow key={field.label} label={field.label} value={field.value} />
-                ))}
-              </section>
+          <section style={{ marginTop: 18 }}>
+            {detailFields(node).map((field) => (
+              <DetailRow key={field.label} label={field.label} value={field.value} />
+            ))}
+          </section>
 
-              <RelationshipList title="Upstream feeds" rows={upstream} />
-              <RelationshipList title="Downstream consumers" rows={downstream} />
-            </>
-          )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          <RelationshipList title="Upstream feeds" rows={upstream} />
+          <RelationshipList title="Downstream consumers" rows={downstream} />
+        </>
+      )}
+    </DrawerWrapper>
   );
 }
