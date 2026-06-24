@@ -1,0 +1,105 @@
+{
+  "as_of": "2026-06-23",
+  "dataset": "C-MAPSS FD001",
+  "model": "GradientBoostingRegressor(n_estimators=300, max_depth=3, lr=0.05, subsample=0.8)",
+  "target": "RUL (cycles) at last observed cycle, capped at 125; truth = official RUL_FD001",
+  "method": "split conformal (absolute-residual two-sided + one-sided over-prediction lower bound)",
+  "calibration_split": "unit-grouped: 30 of 100 train units held out for calibration; scores on each calibration unit's last cycle (matches the last-cycle-per-unit test protocol). No unit in both fit and calibration.",
+  "coverage_target": 0.9,
+  "n_calibration_units": 30,
+  "n_test_units": 100,
+  "metrics": {
+    "picp_two_sided": 0.86,
+    "lower_bound_coverage_one_sided": 0.85,
+    "pinaw": 0.4477,
+    "mean_interval_width_cycles": 56.0,
+    "two_sided_half_width_qhat": 33.8,
+    "one_sided_lower_margin": 22.2,
+    "point_rmse": 20.96
+  },
+  "gate": {
+    "thresholds_cycles": {
+      "NO_GO_at_or_below": 30,
+      "REVIEW_at_or_below": 50
+    },
+    "point_distribution": {
+      "GO": 76,
+      "REVIEW": 7,
+      "NO_GO": 17
+    },
+    "lower_bound_distribution": {
+      "GO": 61,
+      "REVIEW": 14,
+      "NO_GO": 25
+    },
+    "disagreement_units": 22,
+    "point_go_but_lower_bound_flags": 15
+  },
+  "examples": [
+    {
+      "unit": 3,
+      "point": 55.4,
+      "lower": 33.2,
+      "upper": 89.2,
+      "y_true": 69,
+      "point_gate": "GO",
+      "lower_bound_gate": "REVIEW",
+      "covered": true
+    },
+    {
+      "unit": 11,
+      "point": 70.3,
+      "lower": 48.1,
+      "upper": 104.1,
+      "y_true": 97,
+      "point_gate": "GO",
+      "lower_bound_gate": "REVIEW",
+      "covered": true
+    },
+    {
+      "unit": 17,
+      "point": 67.2,
+      "lower": 44.9,
+      "upper": 101.0,
+      "y_true": 50,
+      "point_gate": "GO",
+      "lower_bound_gate": "REVIEW",
+      "covered": true
+    },
+    {
+      "unit": 18,
+      "point": 51.0,
+      "lower": 28.8,
+      "upper": 84.8,
+      "y_true": 28,
+      "point_gate": "GO",
+      "lower_bound_gate": "NO_GO",
+      "covered": true
+    },
+    {
+      "unit": 37,
+      "point": 68.6,
+      "lower": 46.4,
+      "upper": 102.4,
+      "y_true": 21,
+      "point_gate": "GO",
+      "lower_bound_gate": "REVIEW",
+      "covered": false
+    },
+    {
+      "unit": 41,
+      "point": 55.1,
+      "lower": 32.9,
+      "upper": 88.9,
+      "y_true": 18,
+      "point_gate": "GO",
+      "lower_bound_gate": "REVIEW",
+      "covered": false
+    }
+  ],
+  "limitations": [
+    "FD001 is single-operating-condition simulated turbofan data; coverage transfers as a pattern, not a guarantee, to multi-condition or hot-fire regimes.",
+    "Split conformal assumes exchangeability of calibration and test last-cycle rows; the unit-grouped split respects this but n_calibration_units is modest.",
+    "Intervals are marginal (one global width), not conditional on remaining-life regime."
+  ]
+}
