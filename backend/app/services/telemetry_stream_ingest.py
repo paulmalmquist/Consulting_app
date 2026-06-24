@@ -334,20 +334,38 @@ class StreamWorker:
                      message="frames flowing again; pipeline status fresh")
 
     def _ensure_partitions(self, cur) -> None:
+        """Best-effort daily partition creation. The bronze table has a `_default`
+        partition, so rows always land even when these per-day partitions are
+        missing. The ingest role (telemetry_app on Lakebase) lacks CREATE on
+        schema public, so the DDL can raise InsufficientPrivilege — that must NOT
+        abort the surrounding INSERT transaction. Each attempt runs in its own
+        SAVEPOINT and any failure is swallowed; the day is marked ensured either
+        way so we don't retry (and re-log) on every 2 s flush."""
+        import psycopg
         from datetime import date
         for day in (date.today(), date.today() + timedelta(days=1)):
             key = day.isoformat()
             if key in self._ensured_partitions:
                 continue
             pname = f"tel_stream_readings_bronze_{day.strftime('%Y_%m_%d')}"
-            cur.execute(
-                f"""DO $$ BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '{pname}') THEN
-                        EXECUTE format(
-                          'CREATE TABLE %I PARTITION OF tel_stream_readings_bronze FOR VALUES FROM (%L) TO (%L)',
-                          '{pname}', '{day.isoformat()}', '{(day + timedelta(days=1)).isoformat()}');
-                    END IF;
-                END $$;""")
+            cur.execute("SAVEPOINT ensure_part")
+            try:
+                cur.execute(
+                    f"""DO $$ BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '{pname}') THEN
+                            EXECUTE format(
+                              'CREATE TABLE %I PARTITION OF tel_stream_readings_bronze FOR VALUES FROM (%L) TO (%L)',
+                              '{pname}', '{day.isoformat()}', '{(day + timedelta(days=1)).isoformat()}');
+                        END IF;
+                    END $$;""")
+                cur.execute("RELEASE SAVEPOINT ensure_part")
+            except psycopg.errors.InsufficientPrivilege:
+                # No DDL rights — fine, the _default partition catches the rows.
+                cur.execute("ROLLBACK TO SAVEPOINT ensure_part")
+                emit_log(level="info", service="telemetry_stream", action="partition_ddl_skipped",
+                         message=f"no CREATE privilege for {pname}; rows fall to _default partition")
+            except psycopg.Error:
+                cur.execute("ROLLBACK TO SAVEPOINT ensure_part")
             self._ensured_partitions.add(key)
 
     async def _watchdog(self) -> None:
