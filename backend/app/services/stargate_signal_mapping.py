@@ -24,6 +24,8 @@ the affine maps below translate them into physical printer units:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 # Anomaly predicate constants. Mirrored in infra/confluent/flink/02_anomaly_route.sql.
 TEMP_THRESHOLD_C = 1400.0
 VIBRATION_THRESHOLD_G = 0.08
@@ -50,6 +52,41 @@ def arm_vibration_g(raw_vibration_rms: float) -> float:
 
 def deposition_rate_kg_hr(raw_flow_rate: float) -> float:
     return DEPOSITION_SLOPE * raw_flow_rate
+
+
+# ── derived process-context features ────────────────────────────────────────────────
+# Pure stdlib (no numpy): the producer, the capture fixture, AND the bridge's hot path
+# all compute these from the same definitions, so toolpath_speed / acceleration /
+# temp_slope can never drift between where they're recorded and where they're scored.
+
+def toolpath_speed_mm_s(
+    x0: float, y0: float, z0: float,
+    x1: float, y1: float, z1: float,
+    dt_s: float,
+) -> float:
+    """Toolhead speed (mm/s) between two positions over dt_s. 0 when dt is non-positive
+    (the first sample of a stream has no predecessor)."""
+    if dt_s <= 0.0:
+        return 0.0
+    dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2) ** 0.5
+    return dist / dt_s
+
+
+def acceleration_mm_s2(speed_prev_mm_s: float, speed_curr_mm_s: float, dt_s: float) -> float:
+    """Toolhead acceleration (mm/s^2) from two consecutive speeds over dt_s."""
+    if dt_s <= 0.0:
+        return 0.0
+    return (speed_curr_mm_s - speed_prev_mm_s) / dt_s
+
+
+def temp_slope_c_per_s(temps: Sequence[float], dt_s: float) -> float:
+    """Melt-pool temperature slope (degC/s) across a short window — endpoint slope, cheap
+    and deterministic. A falling melt pool (the deposition failure mode) reads negative.
+    0 when the window is too short or dt is non-positive."""
+    n = len(temps)
+    if n < 2 or dt_s <= 0.0:
+        return 0.0
+    return (temps[-1] - temps[0]) / ((n - 1) * dt_s)
 
 
 def is_anomalous(temp_c: float, vibration_g: float) -> bool:

@@ -71,7 +71,7 @@ class TestCaptureContent:
 
     def test_malformed_lines_land_in_dlq_with_reason(self, capture_app):
         snap = _snapshot(capture_app)
-        assert snap["dlq_count"] == 3  # the fixture plants exactly three bad lines
+        assert snap["dlq_count"] == 5  # the fixture plants five bad lines, all v4-04 flavored
         reasons = {item["reason"] for item in snap["dlq"]}
         assert any("unparseable" in reason for reason in reasons)
 
@@ -100,7 +100,7 @@ class TestSse:
         assert frames[1]["type"] == "delta"
         # autoplay is off -> no new items between frames, and that is honest
         assert frames[1]["telemetry"] == []
-        assert frames[1]["dlq_count"] == 3
+        assert frames[1]["dlq_count"] == 5
 
 
 class TestSeqRing:

@@ -1,0 +1,46 @@
+// Stargate telemetry v3 — the process-context evolution beat.
+//
+// Extends v2 with the richer process context an additive-manufacturing operator
+// reasons about: toolpath speed/acceleration, commanded power, sensor quality, a
+// capture id, and the melt-pool temperature slope. All fields use NEW tags (12-17)
+// on the SAME subject (stargate.printer.telemetry.v1-value); BACKWARD compatibility
+// means every v1/v2 reader skips them unchanged. Never reuse or renumber tags.
+//
+// As with v2, no Python bindings are generated for v3: two descriptors with the same
+// message name cannot coexist in one process, so the evolution test builds the v3 wire
+// bytes by hand. The capture-mode fixture (JSON) carries these fields directly, so the
+// capture/CI/Railway path needs no protobuf regen. Regenerate proto_gen ONLY for the
+// live Confluent (cloud-mode) round-trip, in the stargate tooling venv:
+//
+//   python -m grpc_tools.protoc -I infra/confluent/proto \
+//     --python_out=scripts/streaming/stargate/proto_gen stargate_telemetry_v3.proto
+//
+// toolpath_speed_mm_s / acceleration_mm_s2 / temp_slope_c_per_s are DERIVED — they are
+// pure functions of existing fields (x/y/z over time; melt_pool_temp_c over a window) and
+// are recomputable downstream via app.services.stargate_signal_mapping. They are carried
+// on the wire for completeness and so the operator-facing drawer can show them without a
+// second pass.
+
+syntax = "proto3";
+
+package stargate.v1;
+
+message StargateTelemetry {
+  string printer_id = 1;
+  int64 ts_us = 2;
+  uint32 layer = 3;
+  string print_job_id = 4;
+  double x = 5;
+  double y = 6;
+  double z = 7;
+  double melt_pool_temp_c = 8;
+  double deposition_rate_kg_hr = 9;
+  double arm_vibration_g = 10;
+  optional double laser_power_w = 11;       // v2: melt-pool energy input
+  double toolpath_speed_mm_s = 12;          // v3: derived from x/y/z over time
+  double acceleration_mm_s2 = 13;           // v3: derived from consecutive speeds
+  double commanded_power_w = 14;            // v3: commanded melt-pool power (input)
+  double sensor_quality = 15;               // v3: 0..1 sensor confidence (input)
+  string capture_id = 16;                   // v3: replay/capture session identity
+  double temp_slope_c_per_s = 17;           // v3: derived melt-pool temperature slope
+}

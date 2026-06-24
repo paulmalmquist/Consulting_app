@@ -259,3 +259,35 @@ Live: API `https://authentic-sparkle-production-7f37.up.railway.app`; demo
 - **Rollback (Phase 0):** delete `telemetry-platform/`, `docs/plans/telemetry-platform/`, this dispatch
   record, and revert the two doc edits to `ARCHITECTURE.md` and `fail-closed-rules.md`. No schema, no
   deps, no runtime code to unwind.
+
+---
+
+## Phase 7 — Stargate "Rules vs baseline" lane + inspectable provenance
+
+Full plan: `~/.claude/plans/the-clean-next-move-majestic-ladybug.md`. Goal: make the Stargate Live page
+tell the whole story (stream → validate → enrich → score → route → inspect → prove lineage), honestly.
+Decisions: full arc (durable sink included); one real Confluent round-trip required for sign-off; ML lane
+labeled "baseline scorer (rolling-MAD residual) · not LSTM"; redline copy says "cold melt pool (<1400°C) +
+high arm vibration (>0.08g)", never "high temp."
+
+### T1 — process-context fields, proto v3, deterministic fixture (LANDED)
+
+| Item | Result |
+|---|---|
+| Shared derived helpers | `stargate_signal_mapping.py` gains pure (numpy-free) `toolpath_speed_mm_s`, `acceleration_mm_s2`, `temp_slope_c_per_s` — one definition for producer + fixture + bridge |
+| Proto evolution | `infra/confluent/proto/stargate_telemetry_v3.proto` adds tags 12–17 (toolpath_speed, acceleration, commanded_power, sensor_quality, capture_id, temp_slope); pb2 NOT regenerated (broker-only; deferred to the cloud sign-off pass) — v1 reader skips them, proven by hand-built wire bytes |
+| Fixture | `capture_fixture.py`: four printer personalities — v4-01 nominal control (0 anomalies), v4-02 coupled drift (38), v4-03 abrupt cold-pool+vibration redline (135), v4-04 pre_failure + 5 DLQ beats flavored as v4-04. New fields + constant `capture_id="cap-stargate-20260611"`. Regenerated `replay_capture.jsonl` (2405 lines), byte-stable across two runs |
+| Feed/power stable in v4-02 | commanded_power + deposition held steady while temp falls / vib rises — that contrast is the baseline-leads-the-rule story |
+| Tests | `test_stargate_codec.py` +10 (helper truth tables, v3 wire-skip, fixture round-trip, four-personality, DLQ-tied-to-v4-04, build_lines determinism); predicate-lock `TestFlinkSqlLock` stays green. Bridge `dlq_count` 3→5 updated. **36 passed, 1 skipped** (`test_stargate_codec.py` + `test_stargate_bridge.py`) |
+| Predicate | unchanged — `melt_pool_temp_c < 1400.0 AND arm_vibration_g > 0.08`; all new logic additive |
+
+> **Deferred on purpose, not forgotten:** `proto_gen/stargate_telemetry_pb2.py` regeneration AND Confluent
+> Schema Registry registration of the v3 subject (`stargate.printer.telemetry.v1-value`, BACKWARD-compatible)
+> are intentionally NOT done in T1. They are broker-only (cloud mode) and the parked Confluent cluster is
+> not un-parked for T1. Capture mode (CI/Railway/demo) uses the JSON fixture, which carries the v3 fields
+> directly, so nothing in T1–T4 needs them. Both are explicit steps of the **real Confluent round-trip
+> sign-off pass** (un-park → register v3 schema → regenerate pb2 → `producer --mode cloud` → verify
+> provenance → re-park).
+
+Next: T3 (pure baseline scorer + 5/15/60s windows + enriched SSE), T4 (UI lane + drawer + provenance
+route + deep-link), T2 (durable sink), then the live Confluent round-trip.
