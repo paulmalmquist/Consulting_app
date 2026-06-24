@@ -87,6 +87,17 @@ export const getStreamHealth = () =>
     params: { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID },
   });
 
+export interface StreamControlResult {
+  status: "started" | "restarted" | "already_running";
+  source: string;
+  env_id: string;
+  last_frame_at?: string | null;
+}
+
+/** Start (or restart) the live ingest worker on the backend so frames flow again. */
+export const startStream = () =>
+  apiFetch<StreamControlResult>("/api/telemetry/stream/control", { method: "POST" });
+
 /** Pure derivation for the latency overlay (unit-testable). */
 export function deriveLag(live: StreamLive, clientNowMs: number): {
   ingestLagS: number | null; clientLagS: number | null;

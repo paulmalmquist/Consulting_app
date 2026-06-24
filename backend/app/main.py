@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import (
     ALLOWED_ORIGINS,
     STARGATE_BRIDGE_ENABLED,
+    TELEMETRY_STREAM_ENABLED,
 )
 from app.auth.middleware import AuthMiddleware
 from app.middleware import RequestLoggingMiddleware
@@ -310,6 +311,50 @@ async def lifespan(app: FastAPI):
             emit_log(
                 level="warn", service="backend", action="startup.stargate_bridge_failed",
                 message="Stargate bridge init failed (non-fatal)", context={}, error=exc,
+            )
+
+    # RS Demo live telemetry stream: start the ingest worker + ETL loop when
+    # enabled. Without this the StreamWorker is never created, no fresh bronze
+    # frames land, and Mission Control renders a frozen silver tail (the demo
+    # "stream isn't moving" symptom). Gated on TELEMETRY_STREAM_ENABLED; default
+    # off keeps the shared backend inert. The shutdown loop below cancels both
+    # tasks. Non-fatal: a failed start logs and leaves the DB-tail fallback.
+    if db_connected and TELEMETRY_STREAM_ENABLED:
+        try:
+            import asyncio as _tel_asyncio
+            from uuid import UUID as _UUID
+
+            from app.config import (
+                TELEMETRY_ETL_INTERVAL_SECONDS,
+                TELEMETRY_STREAM_BUSINESS_ID,
+                TELEMETRY_STREAM_ENV_ID,
+                TELEMETRY_STREAM_SOURCE,
+            )
+            from app.services.telemetry_stream_etl import run_etl_loop
+            from app.services.telemetry_stream_ingest import StreamWorker, set_stream_worker
+
+            _tel_business_id = _UUID(TELEMETRY_STREAM_BUSINESS_ID)
+            _tel_worker = StreamWorker(
+                env_id=TELEMETRY_STREAM_ENV_ID,
+                business_id=TELEMETRY_STREAM_BUSINESS_ID,
+                source=TELEMETRY_STREAM_SOURCE,
+            )
+            set_stream_worker(_tel_worker)
+            stream_task = _tel_asyncio.create_task(_tel_worker.run())
+            stream_etl_task = _tel_asyncio.create_task(run_etl_loop(
+                env_id=TELEMETRY_STREAM_ENV_ID,
+                business_id=_tel_business_id,
+                interval_seconds=TELEMETRY_ETL_INTERVAL_SECONDS,
+            ))
+            emit_log(
+                level="info", service="backend", action="startup.telemetry_stream",
+                message=f"Telemetry stream worker started (source={TELEMETRY_STREAM_SOURCE})",
+                context={"env_id": TELEMETRY_STREAM_ENV_ID},
+            )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.telemetry_stream_failed",
+                message="Telemetry stream worker failed to start (non-fatal)", context={}, error=exc,
             )
 
     yield
