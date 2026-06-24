@@ -2,6 +2,28 @@
 
 **Last updated:** 2026-06-24
 
+> **Shipped (2026-06-24) — Replay Forensics UI v2 (Story #725, PR open to main):** Upgraded
+> `/lab/env/[envId]/telemetry/replay` (`repo-b/src/components/telemetry/ReplayConsole.tsx`) from a
+> verdict poster into an inspectable forensics surface. New: a **source-truth banner** (public NASA
+> SMAP/MSL stand-in, hot-fire-*style*, "not proprietary rocket hot-fire data"); a **run-packet strip**;
+> **dual chart overlays** — red model-fired region vs amber NASA-labeled window — with a legend and an
+> honest caption; an inspectable **"Why this verdict"** card; and a **5-tab "Replay forensics" drawer**
+> (`ReplayForensicsDrawer.tsx`: Signal / Model / Evidence / Operator action / Lineage) on the Radix
+> `drawerPrimitives` + `SectionTabButton`. All diagnostics math is in a pure, unit-tested adapter
+> `repo-b/src/lib/telemetry/replayDiagnostics.ts` (no frontend metric constants). **Honesty surfaced,
+> not hidden:** the champion first fires at **t=728, ~4,504 ticks BEFORE** the NASA label window
+> **[5232–8472]** (141 pre-label false alarms — shown as such, never as lead time); the per-tick
+> `score` is degenerate (~1e12) and is **never** a threshold; threshold / margin / physical-unit /
+> sample-rate / held-out-F1 / stage-boundaries / top-channels all render explicit **"Not available —
+> <reason>"**. Real held-out metrics + the conformal false-alarm budget are pulled **fail-closed** from
+> `/api/telemetry/model-performance` + `/monitoring` (Model tab). Frontend-only, no migration. **Gates:**
+> typecheck + lint clean; **19 new Vitest** (`replayDiagnostics.test.ts` 13, `ReplayForensicsDrawer.test.tsx`
+> 6); full telemetry suite **143 pass**. Adversarial review (honesty / correctness / design / data-contract
+> + verify): **6 fixed, 9 dismissed**. Delivered on branch `feat/telemetry-replay-forensics` (off main,
+> commit cherry-picked clean) → PR to `main`; ADO Story #725 (Feature #513 / Epic #497) Resolved.
+> **Next backend ticket (recommended):** expose model validation + scoring diagnostics from
+> MLflow/Databricks into the replay API so the Model tab shows first-class numbers, not a pointer.
+
 > **Shipped (2026-06-24) — Telemetry frontend production-readiness refactor (Story #722):** Seven PRs
 > merged + live: **#320** shared UI primitives (`primitives.tsx` atoms + `chartPrimitives.tsx` +
 > `evidenceCard.tsx` + `drawerPrimitives.tsx` + 14 tests) + the in-repo
