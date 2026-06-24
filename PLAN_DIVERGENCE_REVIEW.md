@@ -270,3 +270,24 @@ evidence**. The Overview/Bottleneck Map gets attention; these pages defend the c
 - **Phases 2–6** (conformal lower-bound RUL, FD004 regime-conditioning, pre-test competence envelope,
   event-windowed analog retrieval, secondary findings) remain open; each is its own intake'd unit. Databricks
   access is available (`~/.databrickscfg`), so they are runnable with real data.
+
+---
+
+## Status — Phase 2 shipped (Spin 3, Story #716)
+
+Conformal lower-bound RUL go/no-go is built and **measured from real FD001 data** (split conformal,
+unit-grouped calibration):
+- measured **PICP 0.86** (two-sided) at a 0.90 target; lower-bound coverage 0.85; PINAW 0.448 (mean width 56
+  cycles); point RMSE 20.96.
+- operator gate on the calibrated **lower bound**: **15/100 units GO on the point estimate but flagged** by the
+  lower bound; **22 units disagree** between the two gates.
+- honest framing: PICP is slightly under nominal (n=30 calibration units; marginal intervals; FD001
+  single-condition). A first calibration on near-failure last cycles under-covered (PICP 0.44) — the measured
+  fix was to calibrate on operational-cycle rows matching the test-time RUL distribution. That break-then-fix is
+  itself the judgment artifact.
+- reproducible: `telemetry-platform/compute_rul_conformal.py` (real Databricks pull) → `rul_conformal_evidence.json`;
+  pure math in `conformal_core.py` with `test_conformal_core.py` (4 tests, numpy-only/CI-safe).
+- surface: `RulConformalCard` on `/telemetry/evidence` (computed artifact, not live serving).
+
+Phases 3–6 (FD004 regime-conditioning, pre-test competence envelope, event-windowed analog retrieval, secondary
+findings) remain open, each its own intake'd unit.

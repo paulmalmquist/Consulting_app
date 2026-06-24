@@ -42,3 +42,15 @@ surfacing) · **PARTIAL** · **LIABILITY** (collapses under scrutiny) · **WEAK*
 and prod-verified on novendor.ai (Story #707). The live-streaming row's follow-up is **done** — Stargate
 serves live capture replay and the Start control returns 200. Rows tied to Phases 2–6 (conformal RUL intervals,
 regime-conditioned anomaly, competence-envelope drift, telemetry analog retrieval) update as those findings land.
+
+---
+
+**Status (Phase 2 — conformal RUL, Story #716):** RUL is no longer point-prediction only. Split-conformal
+intervals are computed from real C-MAPSS FD001 data (unit-grouped calibration): **measured PICP 0.86**
+(two-sided) at a 0.90 target — near-nominal, slightly under — lower-bound coverage 0.85, mean width 56 cycles,
+point RMSE 20.96. The operator gate can clear on the calibrated **lower bound**: **15 of 100 units look GO on
+the point estimate but the conformal lower bound flags them** (REVIEW/NO-GO); 22 units disagree between the two
+gates. Surface: the RUL conformal card on `/telemetry/evidence` (computed evidence artifact, FD001, *not live
+serving*). **Must NOT overclaim:** PICP ~0.86 is slightly under the 0.90 target — present as *measured*, not
+guaranteed; intervals are marginal on FD001 single-condition data, not conditional or transferable to hot-fire
+regimes. **Brier** remains absent for telemetry (probabilistic-work talk-track only).

@@ -4132,3 +4132,29 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
   renders "SIGN IN" (CSS uppercase); a `text=Sign in` click can miss — submit with
   `page.press("input[type=password]", "Enter")` instead. (3) The backend root `GET /version` is not under the
   `/api/telemetry` catch-all, so the frontend reads it through a dedicated `/api/version` proxy route handler.
+
+## Conformal lower-bound RUL (Phase 2, Story #716)
+
+- **Split conformal in ~30 lines, no heavy deps.** Pure numpy in `telemetry-platform/conformal_core.py`:
+  nonconformity quantile = `ceil((n+1)(1-alpha))/n` empirical quantile (finite-sample valid); two-sided
+  `[pred±qhat]`; one-sided lower = `pred - quantile(over-prediction residuals)`. Keep the math in a
+  Databricks-free module so the eval test runs without credentials.
+- **Calibration exchangeability is the whole game.** C-MAPSS test units truncate at a *varied* point in life, so
+  their last-cycle RUL spans a wide range. Calibrating on held-out TRAIN units' *last* cycles (all near-failure,
+  small RUL) breaks exchangeability and badly under-covers — **measured PICP 0.44 vs a 0.90 target**. Calibrate
+  on a random *operational* cycle per held-out unit (matching the score-at-an-arbitrary-point distribution) and
+  PICP recovers to **~0.86**. Report measured PICP honestly; near-nominal-but-under is a real result, not
+  something to hide.
+- **Lower-bound safety gating.** For a go/no-go, clear a unit on the calibrated **lower bound** of remaining
+  life, never the point estimate. The demo moment is the disagreement count: N units look GO on the point
+  estimate but the lower bound demands REVIEW/NO-GO.
+- **Databricks pull without a PAT.** `auth_gate.py` only checks `DATABRICKS_PAT`/`claude_token.txt`, but the CLI
+  and SDK authenticate via the OAuth profile in `~/.databrickscfg`. Use
+  `WorkspaceClient(profile='PaulMain').statement_execution.execute_statement(warehouse_id=…, disposition=INLINE,
+  format=JSON_ARRAY)`, page chunks via `get_statement_result_chunk_n`, start the serverless warehouse on demand.
+  Early-cycle rolling / rate-of-change gold features are NaN until their window fills — impute with train-median
+  (medians from fit rows only, no leakage).
+- **Evidence-artifact pattern for ML results.** Persist computed metrics as a committed JSON (in
+  `telemetry-platform/` plus a copy under `repo-b/src/lib/telemetry/`), import it into a card, and label it
+  "computed evidence artifact · not live serving" with `as_of` + the calibration-split description. Real numbers,
+  reproducible, never claimed as live.

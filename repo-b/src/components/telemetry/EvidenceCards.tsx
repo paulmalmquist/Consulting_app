@@ -9,6 +9,7 @@
 
 import { C } from "./primitives";
 import ModelEvidenceCard from "./ModelEvidenceCard";
+import RulConformalCard from "./RulConformalCard";
 import PipelineEvidenceCard from "./PipelineEvidenceCard";
 import FeatureContractCard from "./FeatureContractCard";
 import KnownAnomalyCard from "./KnownAnomalyCard";
@@ -47,6 +48,8 @@ export default function EvidenceCards() {
     <div>
       <Lead />
       <ModelEvidenceCard />
+      <Divider />
+      <RulConformalCard />
       <Divider />
       <PipelineEvidenceCard />
       <Divider />
