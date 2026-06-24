@@ -1,6 +1,26 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-24
+
+> **Shipped (2026-06-24) — Telemetry frontend production-readiness refactor (Story #722):** Seven PRs
+> merged + live: **#320** shared UI primitives (`primitives.tsx` atoms + `chartPrimitives.tsx` +
+> `evidenceCard.tsx` + `drawerPrimitives.tsx` + 14 tests) + the in-repo
+> `repo-b/src/components/telemetry/TELEMETRY_FRONTEND_REFACTOR_INVENTORY.md`; **#322** thesis-first
+> `TelemetryOverview`/`EvidenceCards` + `ModelEvidenceCard` dedup; **#323** color-coded nav rail
+> (section accents, glowing active pill, gradient logo); **#324/#325** both metadata drawers onto the
+> shared `DrawerWrapper`/`DrawerHeader`/`FieldRow`; **#326** RS palette unified into `C` (one-file
+> recolor). All behavior-preserving; claim/null_reason strings byte-identical (card tests are the net).
+>
+> **Remaining refactor work (NEEDS THE DEFERRED SCREENSHOT-GATED VERIFY PASS — see the inventory doc):**
+> the console god-splits + primitive normalization (GovernanceDashboard, Copilot, ControlTower,
+> SpikeInspector, ReplayConsole, RulCalibration, ModelPerformance, etc. — these are *near*-duplicates,
+> so adopting primitives normalizes pixels = a visual change, not a free dedup); `TelemetryMetadataExplorer`
+> controller/visualization split; folding `RsPanel`/`RsChip`/`RsKpi` fully into the `C` primitives +
+> `BottleneckMap`; chart-frame adoption. Do these behind a local-run + reviewer-login screenshot pass
+> (Overview, Evidence, Stargate, Replay, Model Performance, System Health, Trust/Lineage, RS surfaces),
+> each annotated cleaner-layout / same-data / same-fail-closed / no-overclaim. The merged primitives +
+> inventory make each piece mechanical. Lessons in `docs/tips.md` (telemetry refactor section).
+
 
 > **Shipped (2026-06-19):** Telemetry demo→real data audit + Spike Inspector conversion. Full
 > data-source classification in [`data-source-matrix.md`](./data-source-matrix.md); the Spike Inspector
