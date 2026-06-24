@@ -4158,3 +4158,20 @@ Inventory of the real data behind the telemetry env (full per-surface contracts 
   `telemetry-platform/` plus a copy under `repo-b/src/lib/telemetry/`), import it into a card, and label it
   "computed evidence artifact · not live serving" with `as_of` + the calibration-split description. Real numbers,
   reproducible, never claimed as live.
+
+## Relativity / aerospace telemetry surfaces — the three-question rule (Story #717)
+
+When building any Relativity / aerospace telemetry feature, every technical surface should answer three
+questions, or it reads as an isolated demo rather than part of one argument:
+
+1. **How is the data collected?** (the stream / sensor / test-stand / record source, and its provenance)
+2. **How is trust established?** (lineage to source, calibration / coverage, governed metrics, fail-closed nulls)
+3. **How does the result change a test/build/launch action?** (the operator decision it informs — abort/review,
+   go/no-go, manufacturing feedback, readiness margin).
+
+The thesis the demo must consistently support: modern launch operations are increasingly constrained not by
+hardware or cost alone but by the ability to collect, process, trust, and act on telemetry/model/lineage/operational
+data fast enough to improve test, build, and launch outcomes. Frame the Kafka/streaming surface as the live proof
+of that thesis (recorded capture replayed through real streaming infra + anomaly routing + provenance + a
+human-facing review state), never as an isolated technical demo. Do not present specific historical launch-program
+claims as fact unless sourced; keep era framing general (access → cost → reuse → manufacturing scale → data velocity).

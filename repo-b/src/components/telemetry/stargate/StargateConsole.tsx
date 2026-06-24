@@ -115,7 +115,7 @@ export default function StargateConsole() {
       <PageHeading
         eyebrow="Stargate Live"
         title="Printer telemetry stream"
-        blurb="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic. Live state is ring-buffered in the bridge — no database in the hot path."
+        blurb="The live proof of the thesis: historical launch progress created more data than judgment could keep up with. The modern answer is governed streaming + model evidence + lineage + operator-facing actions. This is recorded test-stand capture replayed through real streaming infrastructure — protobuf over Kafka, windowed in flight, anomalies routed to their own topic, ring-buffered in the bridge with no database in the hot path. Recorded capture, not a live printer."
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
             {startMsg && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.red }}>{startMsg}</span>}
