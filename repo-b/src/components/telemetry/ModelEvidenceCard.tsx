@@ -8,6 +8,7 @@ import {
 } from "@/lib/telemetry/api";
 import {
   C, Tag, Panel, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter,
+  MetricRow, Stat,
 } from "./primitives";
 
 // Format a registry metric, only ever from a present numeric value. Absent → "—" (never a fake 0).
@@ -26,25 +27,6 @@ function psiBand(psi: number | null): { label: string; color: string } {
   if (psi < 0.1) return { label: "stable", color: C.green };
   if (psi <= 0.25) return { label: "watch", color: C.amber };
   return { label: "drift", color: C.red };
-}
-
-function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
-      padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-      <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>{label}</span>
-      <span style={{ fontFamily: C.mono, fontSize: 12, color: tone || C.text, textAlign: "right" }}>{value}</span>
-    </div>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <span style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: tone || C.text }}>{value}</span>
-    </div>
-  );
 }
 
 // Metrics block for one model, branching on kind. Anomaly shows the honest point-wise F1 AND, when
@@ -80,8 +62,8 @@ function ModelCard({ m, psi }: { m: ModelRun; psi: number | null }) {
       title={`${m.model_kind === "rul" ? "Remaining useful life" : "Anomaly detection"} — ${m.model_name}`}
       right={<Tag color={m.promotion_state === "promoted" || m.model_alias === "champion" ? C.green : C.faint}>{m.promotion_state}</Tag>}
     >
-      <Row label="Model version" value={`v${m.model_version}${m.model_alias ? ` (${m.model_alias})` : ""}`} />
-      <Row label="MLflow run" value={m.mlflow_run_id || "—"} />
+      <MetricRow label="Model version" value={`v${m.model_version}${m.model_alias ? ` (${m.model_alias})` : ""}`} />
+      <MetricRow label="MLflow run" value={m.mlflow_run_id || "—"} />
 
       <div style={{ marginTop: 16, marginBottom: 4 }}>
         <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Metrics</span>
@@ -95,13 +77,13 @@ function ModelCard({ m, psi }: { m: ModelRun; psi: number | null }) {
       </div>
       {gateEntries.length > 0 ? (
         gateEntries.map(([k, v]) => (
-          <Row key={k} label={k} value={typeof v === "object" ? JSON.stringify(v) : String(v)} />
+          <MetricRow key={k} label={k} value={typeof v === "object" ? JSON.stringify(v) : String(v)} />
         ))
       ) : (
-        <Row label="gate" value="—" />
+        <MetricRow label="gate" value="—" />
       )}
 
-      <Row label="Drift status (PSI)" value={psi != null ? `${psi.toFixed(2)} · ${band.label}` : band.label} tone={band.color} />
+      <MetricRow label="Drift status (PSI)" value={psi != null ? `${psi.toFixed(2)} · ${band.label}` : band.label} tone={band.color} />
 
       <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, lineHeight: 1.6, display: "block",
         borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 12 }}>
