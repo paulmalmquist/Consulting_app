@@ -314,3 +314,26 @@ Regime-conditioned anomaly detection on C-MAPSS **FD004**, measured from real Da
 Remaining spins: **5** (pre-test competence envelope — FD001→FD004 shift, the natural next), **6** (event-windowed
 telemetry analog retrieval), **2** (subsystem + lead-lag attribution), **4** (feature-completeness gate),
 **7** (anomaly grouped-by-channel split). Each its own intake'd unit.
+
+---
+
+## Status — Phase 4 / Spin 5 shipped (pre-test competence envelope, Story #719)
+
+Drift, flipped from a post-deployment afterthought into an upstream gate, measured on real C-MAPSS data
+(`silver_cmapss`, reusing the Phase 3 FD001→FD004 framing):
+- Competence envelope = Mahalanobis distance to the FD001 training distribution; in-envelope = d² ≤ τ
+  (τ = FD001 99th-pctl), near-boundary = τ..3τ (review), out = >3τ (abstain).
+- **FD001 held-out: 98.9% in-envelope** (the envelope holds for the trained operating condition).
+- **FD004 stress test: 90.5% out-of-envelope** (+1.5% near) — the FD001-trained model is outside its
+  competence for most of FD004's six conditions; the gate **abstains** instead of scoring confidently.
+- Examples: FD001 unit (settings ~[0,0,100], d²=18 < τ=62 → SCORE) vs FD004 unit (settings [25,0.6,60], d² far
+  beyond τ → ABSTAIN).
+- reproducible: `compute_competence_envelope.py` → `competence_envelope_evidence.json`; pure math in
+  `envelope_core.py` with `test_envelope_core.py` (3 tests, numpy-only/CI-safe).
+- surface: `CompetenceEnvelopeCard` on `/telemetry/evidence`.
+- honest framing: FD004 is a regime-shift stress test (not hot-fire); the envelope gates input distribution,
+  not correctness; "abstain/review/within trained scope" wording, never "safe/certified".
+
+Remaining spins: **6** (event-windowed telemetry analog retrieval), **2** (subsystem + lead-lag attribution),
+**4** (feature-completeness gate), **7** (anomaly grouped-by-channel split). Each its own intake'd unit. The
+regime/distribution trio (1, 3, 5) is now complete.

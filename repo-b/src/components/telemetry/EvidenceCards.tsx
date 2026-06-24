@@ -12,6 +12,7 @@ import DataCollectionCard from "./DataCollectionCard";
 import ModelEvidenceCard from "./ModelEvidenceCard";
 import RulConformalCard from "./RulConformalCard";
 import RegimeAnomalyCard from "./RegimeAnomalyCard";
+import CompetenceEnvelopeCard from "./CompetenceEnvelopeCard";
 import PipelineEvidenceCard from "./PipelineEvidenceCard";
 import FeatureContractCard from "./FeatureContractCard";
 import KnownAnomalyCard from "./KnownAnomalyCard";
@@ -56,6 +57,8 @@ export default function EvidenceCards() {
       <RulConformalCard />
       <Divider />
       <RegimeAnomalyCard />
+      <Divider />
+      <CompetenceEnvelopeCard />
       <Divider />
       <PipelineEvidenceCard />
       <Divider />

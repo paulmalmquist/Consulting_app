@@ -69,3 +69,14 @@ tracks regime → shipped regime-conditioned normalization.* **Must NOT overclai
 (metric is false-positives on healthy rows, not detection recall); the global baseline is the single-mode
 assumption (a real naive baseline, not a strawman — a model that explicitly accounts for all six conditions
 also works; the point is operating-condition awareness is required).
+
+---
+
+**Status (Phase 4 / Spin 5 — pre-test competence envelope, Story #719):** The **Drift monitoring** row gains an
+upstream gate. A competence envelope fit on FD001 (single operating condition) via Mahalanobis distance holds
+for its own held-out units (**98.9% in-envelope**) but flags **90.5% of FD004** (regime-shift stress test) as
+**out-of-envelope** (+1.5% near-boundary). The gate **abstains/reviews** on out-of-envelope inputs instead of a
+confident score. Surface: the Competence Envelope card on `/telemetry/evidence` (computed artifact, *not live
+serving*) with in/out examples and the score/review/abstain action. **Must NOT overclaim:** FD004 is a
+regime-shift stress test, **not rocket hot-fire**; the envelope gates the INPUT distribution (operating regime),
+not label correctness — in-envelope means "within trained scope," never "safe" or "certified."
