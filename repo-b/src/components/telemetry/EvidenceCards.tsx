@@ -8,6 +8,7 @@
 // explicit unavailable state; the Stargate capture is labeled recorded.
 
 import { C } from "./primitives";
+import DataCollectionCard from "./DataCollectionCard";
 import ModelEvidenceCard from "./ModelEvidenceCard";
 import RulConformalCard from "./RulConformalCard";
 import PipelineEvidenceCard from "./PipelineEvidenceCard";
@@ -47,6 +48,8 @@ export default function EvidenceCards() {
   return (
     <div>
       <Lead />
+      <DataCollectionCard />
+      <Divider />
       <ModelEvidenceCard />
       <Divider />
       <RulConformalCard />
