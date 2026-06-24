@@ -337,3 +337,49 @@ Drift, flipped from a post-deployment afterthought into an upstream gate, measur
 Remaining spins: **6** (event-windowed telemetry analog retrieval), **2** (subsystem + lead-lag attribution),
 **4** (feature-completeness gate), **7** (anomaly grouped-by-channel split). Each its own intake'd unit. The
 regime/distribution trio (1, 3, 5) is now complete.
+
+---
+
+## Status — Spin 6 (compute) shipped (event-windowed analog retrieval, Story #723)
+
+ML-only (telemetry-platform; the UI card is deferred — a parallel agent owns the telemetry frontend
+refactor). Measured on real SMAP/MSL `gold_smap_msl_windows` (test split, 509,555 ticks, 81 channels):
+- Two retrievals per anomalous query window: (A) whole-series cosine on the channel's full-series
+  statistical summary; (B) event-windowed DTW (banded) on the channel-normalized anomalous-window signal.
+- **The methods agree on only 9% of the top-5** — they surface largely different precedents.
+- Event-windowed DTW modestly improves anomaly-precedent retrieval: **45.0% vs 41.5% anomalous-match
+  rate (+8.4%)**, both above the 36.6% pool base rate.
+- **Honest:** this is the most *modest* of the spins. The dramatic "precedent-based reasoning" version
+  needs **linked dispositions** (was it real / root cause / action) which the public SMAP/MSL data does
+  not have — rendered as unavailable, not fabricated. A first cut with per-window z-norm erased event
+  magnitude and showed no lift; channel-level normalization (preserving how much the event stands out)
+  recovered the +8%. That fix is the methodological note.
+- reproducible: `compute_event_windowed_analog.py` → `event_windowed_analog_evidence.json`; pure-numpy
+  banded DTW in `analog_core.py` with `test_analog_core.py` (4 tests, numpy-only/CI-safe).
+- **Card deferred** until the frontend refactor (PR C/D) settles, to avoid colliding with the parallel
+  agent in `repo-b/src/components/telemetry/**`.
+
+Remaining tail spins (2 subsystem lead-lag, 4 completeness, 7 anomaly grouped-split) have weak data fit
+on the independent SMAP/MSL streams (would need simulation or yield null results) — deferred/optional.
+
+---
+
+## Status — Spin 2 (compute) shipped (sensor lead-lag attribution, Story #726)
+
+ML-only (telemetry-platform; UI card deferred — parallel agent owns the telemetry frontend). On real
+C-MAPSS **FD001** (15 active sensors on one coupled engine, 100 units; better fit than the independent
+SMAP/MSL streams):
+- **Channel-level attribution is redundant:** at failure a median of **14 of 15 sensors deviate (93%
+  co-move)** — they all measure the same degrading engine.
+- **Onset timing finds the root signal:** sensors **9, 14, 11** consistently lead (onset in 86–100% of
+  units, ~76–87 cycles of lead time); cross-correlation shows downstream sensors **lag the lead by a
+  median of 11 cycles**. The lead sensors are the root signal; the rest are downstream responders —
+  exactly how a failure-review board narrows root cause.
+- reproducible: `compute_lead_lag_attribution.py` → `lead_lag_attribution_evidence.json`; pure-numpy
+  `lead_lag_core.py` with `test_lead_lag_core.py` (5 tests, numpy-only/CI-safe).
+- honest: C-MAPSS is simulated; onset is a threshold-crossing, not a calibrated change-point; lead-lag
+  narrows root-cause search, it does not assign physical cause.
+- card deferred to avoid colliding with the parallel frontend refactor.
+
+Remaining tail: Spin 4 (completeness — needs multi-rate data, would be simulated) and Spin 7-anomaly
+(grouped split — likely null on a fixed-K per-channel rule). Both weak/optional.

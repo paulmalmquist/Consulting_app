@@ -27,9 +27,11 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
 
   const Brand = (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${C.cyan}55`,
-        background: "rgba(63,177,232,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="13" height="13" viewBox="0 0 14 14">
+      <div style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #B040FF66",
+        background: "linear-gradient(135deg, rgba(176,64,255,0.22), rgba(63,177,232,0.20))",
+        boxShadow: "0 0 14px rgba(176,64,255,0.25)",
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <svg width="15" height="15" viewBox="0 0 14 14">
           <path d="M1 10l3-4 2.5 2L9 4l4 6" stroke={C.cyan} strokeWidth="1.4" fill="none" strokeLinejoin="round" />
         </svg>
       </div>
