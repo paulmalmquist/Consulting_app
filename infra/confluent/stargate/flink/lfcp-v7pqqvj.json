@@ -1,0 +1,12 @@
+{
+  "is_current": false,
+  "id": "lfcp-v7pqqvj",
+  "name": "GCP.us-east1.env-vwkk2z.cd0d",
+  "environment": "env-vwkk2z",
+  "currrent_cfu": 0,
+  "max_cfu": 10,
+  "default_pool": false,
+  "cloud": "GCP",
+  "region": "us-east1",
+  "status": "PROVISIONED"
+}

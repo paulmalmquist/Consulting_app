@@ -34,6 +34,21 @@ function sourceChip(live: StreamLive | null): { label: string; color: string } {
   }
 }
 
+// Age a PIPELINE surface row from its own as_of_ts so the panel stays honest even
+// if whatever writes the row stops. A surface re-stamped on a fixed cadence (e.g. the
+// broker row, refreshed every ~15 min by a scheduled job) must visibly age rather than
+// imply its last status is still current. Threshold = 2× the 15-min cadence.
+const SURFACE_STALE_AFTER_MS = 30 * 60 * 1000;
+function surfaceAge(asOfTs: string | null, nowMs: number): { label: string; stale: boolean } {
+  if (!asOfTs) return { label: "", stale: false };
+  const t = Date.parse(asOfTs);
+  if (Number.isNaN(t)) return { label: "", stale: false };
+  const ageMs = Math.max(0, nowMs - t);
+  const mins = Math.floor(ageMs / 60000);
+  const label = mins < 1 ? "just now" : mins < 60 ? `${mins}m ago` : `${Math.floor(mins / 60)}h ago`;
+  return { label, stale: ageMs > SURFACE_STALE_AFTER_MS };
+}
+
 function activeVerdict(events: StreamEvent[], nowS: number): { text: string; color: string } {
   const active = events.some((e) => e.end_t >= nowS - 60);
   return active ? { text: "NO-GO HOLD", color: RS.red } : { text: "GO", color: RS.green };
@@ -300,15 +315,23 @@ export default function MissionControlStream() {
 
             <RsPanel title="PIPELINE">
               <div style={{ padding: 12, fontFamily: RS_MONO, fontSize: 11 }}>
-                {Object.entries(live.pipeline.surfaces).map(([surface, s]) => (
-                  <div key={surface} style={{ display: "flex", justifyContent: "space-between",
-                    padding: "3px 0", color: RS.dim }}>
-                    <span>{surface}</span>
-                    <span style={{ color: s.status === "fresh" ? RS.green : RS.red }}>
-                      {s.status}{s.reason ? ` · ${s.reason}` : ""}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(live.pipeline.surfaces).map(([surface, s]) => {
+                  const age = surfaceAge(s.as_of_ts, Date.now());
+                  // A stale-dated row reads red regardless of its stored status — the
+                  // refresh lapsed, so the last status can't be trusted as current.
+                  const isFresh = s.status === "fresh" && !age.stale;
+                  return (
+                    <div key={surface} style={{ display: "flex", justifyContent: "space-between",
+                      padding: "3px 0", color: RS.dim }}>
+                      <span>{surface}</span>
+                      <span style={{ color: isFresh ? RS.green : RS.red }}>
+                        {age.stale ? `STALE (${age.label})` : s.status}
+                        {s.reason ? ` · ${s.reason}` : ""}
+                        {!age.stale && age.label ? ` · ${age.label}` : ""}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </RsPanel>
           </div>

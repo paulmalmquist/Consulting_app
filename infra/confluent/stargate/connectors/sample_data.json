@@ -1,0 +1,64 @@
+{
+  "connector": {
+    "id": "lcc-xqoppz1",
+    "name": "sample_data",
+    "status": "RUNNING",
+    "type": "source"
+  },
+  "tasks": [
+    {
+      "task": 0,
+      "state": "RUNNING"
+    }
+  ],
+  "configs": [
+    {
+      "config": "connector.class",
+      "value": "DatagenSource"
+    },
+    {
+      "config": "kafka.auth.mode",
+      "value": "SERVICE_ACCOUNT"
+    },
+    {
+      "config": "kafka.endpoint",
+      "value": "SASL_SSL://pkc-619z3.us-east1.gcp.confluent.cloud:9092"
+    },
+    {
+      "config": "kafka.region",
+      "value": "us-east1"
+    },
+    {
+      "config": "name",
+      "value": "sample_data"
+    },
+    {
+      "config": "output.data.format",
+      "value": "JSON_SR"
+    },
+    {
+      "config": "quickstart",
+      "value": "STOCK_TRADES"
+    },
+    {
+      "config": "tasks.max",
+      "value": "1"
+    },
+    {
+      "config": "cloud.environment",
+      "value": "prod"
+    },
+    {
+      "config": "cloud.provider",
+      "value": "gcp"
+    },
+    {
+      "config": "kafka.service.account.id",
+      "value": "sa-2r1j60y"
+    },
+    {
+      "config": "kafka.topic",
+      "value": "sample_data_stock_trades"
+    }
+  ]
+}
