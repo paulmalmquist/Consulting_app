@@ -198,17 +198,8 @@ function TechTag({ tech }: { tech: TechKey }) {
   );
 }
 
-function NodeDrawer({ node, envId, onClear }: { node: PNode | null; envId: string; onClear: () => void }) {
-  if (!node) {
-    return (
-      <Panel title="Node detail">
-        <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.55 }}>
-          Click a node in the map for the plain-English story — what it is, which system runs it, its
-          status, and (where it exists) a link to the live surface.
-        </p>
-      </Panel>
-    );
-  }
+// Rendered only inside the floating overlay, which already guards on a selected node.
+function NodeDrawer({ node, envId, onClear }: { node: PNode; envId: string; onClear: () => void }) {
   return (
     <Panel title="Node detail" right={
       <button type="button" onClick={onClear} aria-label="Clear selection"
@@ -399,9 +390,10 @@ export default function TelemetryArchitectureMap({ envId }: { envId: string }) {
 
       <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.04em", color: C.faint, marginBottom: 10 }}>{view.title}</div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-        {/* map */}
-        <div style={{ position: "relative", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", minHeight: 460, height: "62vh" }}>
+      {/* Full-width map; the node detail is a floating overlay that appears only on click
+          (matches the source diagram — top-right card over the canvas, not a permanent column). */}
+      <div>
+        <div style={{ position: "relative", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", minHeight: 460, height: "68vh" }}>
           <svg ref={svgRef} width="100%" height="100%"
             style={{ display: "block", cursor: drag.current.active ? "grabbing" : "grab", touchAction: "none" }}
             onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
@@ -483,10 +475,25 @@ export default function TelemetryArchitectureMap({ envId }: { envId: string }) {
           <div style={{ position: "absolute", right: 12, bottom: 12, fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>
             {scene.nodes.length} nodes · {scene.edges.length} edges · drag to pan · scroll to zoom
           </div>
-        </div>
 
-        {/* drawer */}
-        <NodeDrawer node={selected} envId={envId} onClear={() => setSelectedId(null)} />
+          {/* hint when nothing is selected — keeps the empty canvas reading intentionally */}
+          {!selected && (
+            <div style={{ position: "absolute", top: 12, right: 12, fontFamily: C.mono, fontSize: 10.5,
+              letterSpacing: "0.04em", color: C.faint, background: C.panel + "cc", border: `1px solid ${C.border}`,
+              borderRadius: 7, padding: "6px 10px", pointerEvents: "none" }}>
+              click a node for its plain-English story
+            </div>
+          )}
+
+          {/* floating node-detail overlay — rendered only when a node is selected */}
+          {selected && (
+            <div style={{ position: "absolute", top: 12, right: 12, width: 320, maxWidth: "calc(100% - 24px)",
+              maxHeight: "calc(100% - 24px)", overflowY: "auto", zIndex: 5,
+              boxShadow: `0 0 0 1px ${C.borderHi}, 0 18px 48px rgba(0,0,0,0.6)`, borderRadius: 10 }}>
+              <NodeDrawer node={selected} envId={envId} onClear={() => setSelectedId(null)} />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ marginTop: 16 }}>
