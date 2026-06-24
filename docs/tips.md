@@ -4175,3 +4175,26 @@ data fast enough to improve test, build, and launch outcomes. Frame the Kafka/st
 of that thesis (recorded capture replayed through real streaming infra + anomaly routing + provenance + a
 human-facing review state), never as an isolated technical demo. Do not present specific historical launch-program
 claims as fact unless sourced; keep era framing general (access → cost → reuse → manufacturing scale → data velocity).
+
+## Regime-conditioned anomaly detection (Phase 3, Story #718)
+
+- **The multi-condition reconstruction trap.** On C-MAPSS FD004 (six operating conditions set by
+  op_setting_1/2/3), a global reconstruction-error detector calibrated on the data you have (one dominant
+  condition) flags ~100% of HEALTHY points in the other conditions as anomalous — measured recon-error variance
+  is 100% explained by operating regime (η²=1.0), not faults. Per-regime standardization (subtract per-regime
+  mean, divide per-regime std, computed on fit rows only) cuts the worst-regime false-positive rate from 100%
+  to ~10% (90% reduction). This is the classic FD001→FD004 generalization failure and why operating-condition
+  normalization is standard preprocessing for multi-condition C-MAPSS.
+- **The op-settings live in `silver_cmapss`, not gold.** `06_gold.py` drops op_setting_1/2/3 (keeps only 7
+  rolling sensor features); `silver_cmapss` preserves the 3 settings + all 21 sensors. Pull regime experiments
+  from silver, filter `subset='FD004' AND split='train' AND rul_target >= 100` for the healthy population.
+- **No labels → measure false positives on healthy rows.** FD004 has no anomaly labels, so the honest metric is
+  the false-positive rate on high-RUL (nominal) rows, grouped fit/eval split by unit. Report it as FP, never as
+  detection recall. Use η² (between-regime variance / total variance of recon error) to show the error tracks
+  regime — it's the unfakeable number.
+- **Avoid the strawman trap.** A too-smart "global" baseline (global StandardScaler + PCA) absorbs the six-mode
+  structure and shows NO gap (η²≈0). The real naive baseline is the single-operating-mode assumption (fit +
+  threshold on one condition, apply everywhere). State explicitly that a model accounting for all conditions
+  also works — the point is that operating-condition awareness is required, and per-regime normalization is the
+  scalable way to get it. Keep the testable math (regime z-score, per-regime FP, η²) in a numpy-only core
+  module so the eval test runs in CI without Databricks.

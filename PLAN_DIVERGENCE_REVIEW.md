@@ -291,3 +291,26 @@ unit-grouped calibration):
 
 Phases 3–6 (FD004 regime-conditioning, pre-test competence envelope, event-windowed analog retrieval, secondary
 findings) remain open, each its own intake'd unit.
+
+---
+
+## Status — Phase 3 shipped (Spin 1 + Derived A, Story #718)
+
+Regime-conditioned anomaly detection on C-MAPSS **FD004**, measured from real Databricks data
+(`silver_cmapss`, which preserves the operating-setting columns the gold table drops):
+- A global detector under the **single-operating-mode assumption** (calibrated on the dominant condition)
+  flags **~100% of HEALTHY points in 5 of 6 operating regimes** — recon error is **100% explained by regime
+  (η²=1.0)**, not faults.
+- **Per-regime standardization** cuts the worst-regime false-positive rate **100% → 10.2% (90% reduction)**,
+  the mean **84% → 6%**, and drops regime-explained variance to **0**.
+- This is the **judgment artifact behind the degenerate autoencoder** (Derived A): built the obvious global
+  reconstruction-error detector, measured it, found the error tracks operating regime, shipped the fix.
+- reproducible: `telemetry-platform/compute_regime_anomaly.py` (real FD004 pull) → `regime_anomaly_evidence.json`;
+  pure math in `regime_core.py` with `test_regime_core.py` (3 tests, numpy-only/CI-safe).
+- surface: `RegimeAnomalyCard` on `/telemetry/evidence` (computed artifact, not live serving).
+- honest framing: the global baseline is the single-mode assumption (the real FD001→FD004 generalization
+  failure), not a strawman; FD004 has no anomaly labels so the metric is false-positives on healthy rows.
+
+Remaining spins: **5** (pre-test competence envelope — FD001→FD004 shift, the natural next), **6** (event-windowed
+telemetry analog retrieval), **2** (subsystem + lead-lag attribution), **4** (feature-completeness gate),
+**7** (anomaly grouped-by-channel split). Each its own intake'd unit.
