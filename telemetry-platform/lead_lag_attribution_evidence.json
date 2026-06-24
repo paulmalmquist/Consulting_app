@@ -1,0 +1,108 @@
+{
+  "as_of": "2026-06-24",
+  "dataset": "C-MAPSS FD001 (single condition; 21 sensors on one coupled engine over its life)",
+  "source_table": "novendor_1.telemetry.silver_cmapss (subset=FD001, split=train)",
+  "method": "Per unit: per-sensor onset = first cycle the smoothed sensor stays > 4.0-sigma from its first-25-cycle baseline; lead-time = failure_cycle - onset. count_deviating at the last cycle = channel-level redundancy. Lead sensors = onset frequency >= 0.6 ranked by median lead-time; cross-correlation lag of downstream sensors vs the top lead sensor (positive = downstream follows the lead).",
+  "n_units": 100,
+  "n_active_sensors": 15,
+  "metrics": {
+    "median_sensors_deviating_at_failure": 14.0,
+    "channel_attribution_redundancy_pct": 93.3,
+    "lead_sensors": [
+      "sensor_9",
+      "sensor_14",
+      "sensor_11"
+    ],
+    "median_downstream_lag_cycles": 11.0
+  },
+  "sensor_ranking": [
+    {
+      "sensor": "sensor_9",
+      "onset_frequency": 0.86,
+      "median_lead_cycles": 86.5
+    },
+    {
+      "sensor": "sensor_14",
+      "onset_frequency": 0.88,
+      "median_lead_cycles": 81.0
+    },
+    {
+      "sensor": "sensor_11",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 76.5
+    },
+    {
+      "sensor": "sensor_4",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 74.0
+    },
+    {
+      "sensor": "sensor_12",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 72.5
+    },
+    {
+      "sensor": "sensor_13",
+      "onset_frequency": 0.97,
+      "median_lead_cycles": 70.0
+    },
+    {
+      "sensor": "sensor_7",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 68.0
+    },
+    {
+      "sensor": "sensor_8",
+      "onset_frequency": 0.93,
+      "median_lead_cycles": 64.0
+    },
+    {
+      "sensor": "sensor_15",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 61.5
+    },
+    {
+      "sensor": "sensor_20",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 59.5
+    },
+    {
+      "sensor": "sensor_21",
+      "onset_frequency": 1.0,
+      "median_lead_cycles": 57.5
+    },
+    {
+      "sensor": "sensor_17",
+      "onset_frequency": 0.99,
+      "median_lead_cycles": 54.0
+    },
+    {
+      "sensor": "sensor_2",
+      "onset_frequency": 0.98,
+      "median_lead_cycles": 52.0
+    },
+    {
+      "sensor": "sensor_3",
+      "onset_frequency": 0.99,
+      "median_lead_cycles": 46.0
+    },
+    {
+      "sensor": "sensor_6",
+      "onset_frequency": 0.04,
+      "median_lead_cycles": 123.5
+    }
+  ],
+  "example": {
+    "unit": 1,
+    "sensors_deviating_at_failure": 14,
+    "active_sensors": 15,
+    "lead_sensor": "sensor_9",
+    "lead_sensor_lead_cycles": 86
+  },
+  "finding": "On the coupled FD001 engine, channel-level attribution is redundant: at failure a median of 14 of 15 sensors are deviating (93% co-move). Onset timing identifies the sensors that move FIRST \u2014 sensor_9, sensor_14, sensor_11 consistently lead (onset in >=60% of units, median 86 cycles of lead time); downstream sensors lag the lead by a median of 11 cycles. The lead sensors are the root signal; the rest are downstream responders.",
+  "limitations": [
+    "C-MAPSS is simulated turbofan degradation; the lead-lag structure is a pattern, not ground-truth subsystem wiring.",
+    "Onset is a threshold-crossing on the raw sensor, not a calibrated change-point test; it is a transparent first-line attribution.",
+    "Lead-lag identifies which sensors move first, not the physical cause; it narrows root-cause search, it does not assign blame."
+  ]
+}
