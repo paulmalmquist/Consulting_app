@@ -2,6 +2,31 @@
 
 **Last updated:** 2026-06-25
 
+> **Shipped (2026-06-25) — Residual-vs-threshold chart on Replay (research-gap Ticket 6a, PR #375 → main, prod-verified):**
+> Frontend-only (no migration, no backend deploy — reads the threshold Ticket 2 already deployed). The
+> Replay page gained a **"Model residual vs serving threshold"** chart that plots residual `|value−rmean|`
+> against the frozen serving redline with model-fired ticks marked — making the Ticket-2 divergence
+> *visible*: on D-4 every fired tick sits **below** the redline, so the serving global-scale fallback can't
+> reproduce the champion's firing. The "Why this verdict" card's stale `score/threshold/margin: Not
+> available` row is replaced with the real serving threshold (0.1355) + `0 of 412 fired ticks above it`.
+> New pure `residualSeries()` adapter helper + 3 tests; full telemetry suite 232; visual gate 1280×900 dark.
+>
+> **Research-gap remediation — accurate status (the plan doc `telemetry-research-gap-remediation.md` is
+> STALE; verified against `main` 2026-06-25):** Ticket 1 (security posture + RLS test) and Ticket 3 (MCP
+> tools) are MERGED (#245, #283) despite the doc marking them pending. Of the rest, **only Ticket 6 was
+> migration-free with no product decision**, and 6a (above) shipped it for the Replay surface.
+> - **Ticket 6b (prediction-receipt viewer) is BLOCKED on the Replay surface by the same divergence:** the
+>   replay verdict comes from `model_pred` (the fixture), and `/score` returns GO for every D-4 window
+>   (residuals below the global threshold), so **no `NO_GO` `tel_predictions` receipt exists for the replay
+>   run** — `get_triggering_prediction` fails closed there. The fetch fns (`get_triggering_prediction`/
+>   `get_prediction`/`get_predictions_by_window`) already exist and are wired as copilot MCP tools, just not
+>   as REST routes. Real receipts live in the seeded predictions on **Control Tower / Monitoring** — so 6b
+>   belongs there (drill into a listed real prediction), which needs a thin route + a deploy + a small
+>   placement decision. Not a clean Replay-surface push.
+> - **Tickets 4, 5, 7, 8, 9 each need a new DB migration and/or a product decision** (entity-ontology table
+>   design; TRR-vs-draft-report scope overlap; real-vs-simulated agent write; risk-tier taxonomy + incident
+>   table). Left for an explicit decision rather than autonomous marching.
+>
 > **Shipped (2026-06-25) — Replay Model Diagnostics API (Story #734, PR #369 squash-merged → main):**
 > Made good on the #725 follow-up. `GET /api/telemetry/replay` now returns additive, DB-free
 > `scoringDiagnostics` + `lineage`; the Replay Forensics drawer (Model/Evidence/Operator/Lineage) shows
