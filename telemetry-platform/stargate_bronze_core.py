@@ -204,7 +204,9 @@ def bronze_select_exprs(run_id: str) -> list[str]:
         "offset AS kafka_offset",
         "timestamp AS kafka_timestamp",
         "CAST(key AS STRING) AS kafka_key",
-        "CAST(value AS STRING) AS raw_value",
+        # base64 of the raw bytes: lossless and ascii-safe (the Stargate stream is binary/Avro, so a
+        # plain CAST(value AS STRING) would be lossy). raw_value_bytes keeps the true size.
+        "base64(value) AS raw_value",
         "length(value) AS raw_value_bytes",
         "to_date(timestamp) AS ingest_date",
         "current_timestamp() AS ingested_at",
