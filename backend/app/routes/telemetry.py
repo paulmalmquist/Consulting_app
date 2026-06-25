@@ -12,11 +12,14 @@ Paths follow the repo /api/{domain} convention. Final paths:
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.mcp.auth import McpContext
@@ -171,6 +174,50 @@ def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
         return svc.summary(env_id=env_id, business_id=business_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+@router.get("/stargate/provenance")
+def stargate_provenance(
+    env_id: str = Query(...),
+    business_id: UUID = Query(...),
+    topic: str = Query(...),
+    partition: int = Query(...),
+    offset: int = Query(...),
+):
+    """Durable Kafka-provenance lookup for the Stargate anomaly inspection drawer.
+
+    The live drawer always has the SSE-carried (capture-mode synthetic) provenance; this route is the
+    DURABLE, survives-reload proof read from tel_stream_kafka_rows. The sink that writes that table is
+    T2 / cloud-only and default OFF, so this fails closed with TWO distinct, honest reasons the UI
+    renders differently:
+      - durable_sink_not_enabled : STARGATE_DURABLE_SINK_ENABLED is off (no rows are being written)
+      - provenance_not_found     : sink on, but no row matches these Kafka coordinates
+    """
+    enabled = os.environ.get("STARGATE_DURABLE_SINK_ENABLED", "").strip().lower() in (
+        "1", "true", "yes", "on")
+    if not enabled:
+        return {"row": None, "null_reason": "durable_sink_not_enabled"}
+    try:
+        from app.db import get_telemetry_cursor
+        with get_telemetry_cursor() as cur:
+            cur.execute("SELECT set_config('app.env_id', %s, true)", (env_id,))
+            cur.execute(
+                """SELECT record_kind, kafka_topic, kafka_partition, kafka_offset, kafka_timestamp,
+                          consumer_group, schema_id, schema_subject, schema_version, schema_type,
+                          schema_null_reason, printer_id, print_job_id, decoded_payload,
+                          normalized_payload, ingested_at
+                   FROM tel_stream_kafka_rows
+                   WHERE env_id = %s AND business_id = %s AND kafka_topic = %s
+                     AND kafka_partition = %s AND kafka_offset = %s
+                   LIMIT 1""",
+                (env_id, str(business_id), topic, partition, offset),
+            )
+            row = cur.fetchone()
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+    if row is None:
+        return JSONResponse(status_code=404, content={"row": None, "null_reason": "provenance_not_found"})
+    return {"row": jsonable_encoder(row), "null_reason": None}
 
 
 @router.get("/metadata/graph", response_model=TelemetryMetadataGraph)

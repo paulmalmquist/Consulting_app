@@ -303,5 +303,17 @@ high arm vibration (>0.08g)", never "high temp."
 | Bridge purity | subprocess test imports the bridge + scores with no `DATABASE_URL`/`TELEMETRY_DATABASE_URL` set |
 | Tests | `test_stargate_codec.py` +scorer/feature/provenance classes; `test_stargate_bridge.py` +`TestRulesVsBaseline` (scored frame, enriched anomalies, fail-closed, v4-02 lead regression) +`TestBridgeImportPurity`. **49 passed, 1 skipped** (stargate suites); `test_telemetry_serving`/`test_telemetry_stream_etl` 30 passed (no regression) |
 
-Next: T4 (UI Rules-vs-baseline lane + inspection drawer + provenance route + deep-link), T2 (durable sink),
-then the live Confluent round-trip.
+### T4 — UI Rules-vs-baseline lane + inspection drawer + provenance route (LANDED)
+
+| Item | Result |
+|---|---|
+| Provenance route | `GET /api/telemetry/stargate/provenance` is REAL (the drawer button calls it, not a mock). Default-off sink → `{null_reason:"durable_sink_not_enabled"}` (200); sink on but no row → `{null_reason:"provenance_not_found"}` (404). Reads `tel_stream_kafka_rows` (exists since 10033) with the RLS `app.env_id` GUC. Durable WRITE stays T2 |
+| Types + hook | `stargateStream.ts` gains `ProvenanceMeta`/`BaselineScorer`/`RuleState`/`WindowStat`/`FeatureWindow`/`ScoredRow`, optional enrichment on `AnomalyRow`, `scored` on the frame, and `scored` state on the hook |
+| Rules-vs-baseline lane | `RulesVsBaselineLane.tsx` — per-printer rule state beside the baseline verdict; tagged "baseline scorer (rolling-MAD residual) · not LSTM"; `model_not_configured` → "Not available — model_not_configured" (never a number); "baseline ahead of rule" when baseline ≥ REVIEW while the rule is clear |
+| Honest copy (edit) | the baseline-leads note uses the exact agreed wording: "the baseline scorer flagged an early melt-pool temperature residual while vibration was still below the rule threshold; the hard two-condition rule routed the anomaly later when cold melt-pool and high arm vibration co-occurred." All predicate copy is cold melt pool (<1400°C) + high arm vibration (>0.08g) — no "high temp" |
+| Inspection drawer | `AnomalyInspectionDrawer.tsx` (radix dialog, cloned from `MetadataDetailDrawer`): Raw event · Feature window (5/15/60s) · Rule · Baseline scorer (fail-closed) · Routing · Provenance. Synthetic banner ("Recorded capture — synthetic coordinates"); "Open durable serving row" renders `durable_sink_not_enabled` vs `provenance_not_found` as visibly different copy; copy buttons for event id / topic-partition-offset / raw payload; "View surrounding 60 seconds" highlights the event window on the chart |
+| Deep link | `?inspect=<topic>:<partition>:<offset>` reopens the drawer when the event is in the live buffer, else a fail-closed "not in the current window" note; selecting/closing mirrors to the URL via `router.replace` |
+| Chart highlight | `TempVibrationChart` gains an optional `highlight` ReferenceArea (±30s) driven by the drawer |
+| Tests | backend `test_stargate_provenance_route.py` (3: both distinct reasons + row found). Frontend vitest **22 passed** across 5 stargate files: `RulesVsBaselineLane` (labels, fail-closed, baseline-ahead wording, no "high temp"), `AnomalyInspectionDrawer` (synthetic banner, fail-closed score, durable-sink vs not-found distinct copy, copy buttons, view-60s callback), `StargateConsole.deeplink` (reopen + missing-window). `tsc --noEmit` clean on touched files; eslint clean |
+
+Next: T2 (durable sink writing `tel_stream_kafka_rows`), then the live Confluent round-trip sign-off pass.
