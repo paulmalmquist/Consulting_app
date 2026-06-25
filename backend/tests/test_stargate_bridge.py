@@ -83,6 +83,124 @@ class TestCaptureContent:
         assert health["msgs_in_total"] > 0
 
 
+class TestRulesVsBaseline:
+    """T3: the bridge enriches each ingest at the one chokepoint with the hard rule, the rolling-MAD
+    baseline scorer, 5s/15s/60s feature windows, routing, and (capture-mode synthetic) Kafka provenance.
+    All driven by the checked-in fixture — still no broker, no DB."""
+
+    def test_snapshot_carries_per_printer_scored_state(self, capture_app):
+        snap = _snapshot(capture_app)
+        assert snap["scored"], "scored state must ride the snapshot"
+        printers = {s["printer_id"] for s in snap["scored"]}
+        assert "stargate-v4-01" in printers
+        for s in snap["scored"]:
+            sc = s["scorer"]
+            assert sc["name"] == "baseline scorer (rolling-MAD residual)"
+            assert "LSTM" not in sc["name"]
+            assert s["rule"]["predicate"].startswith("cold melt pool")
+            assert set(s["feature_window"]) == {"w5s", "w15s", "w60s"}
+
+    def test_anomaly_rows_are_enriched_with_provenance_and_score(self, capture_app):
+        snap = _snapshot(capture_app)
+        assert snap["anomalies"]
+        a = snap["anomalies"][0]
+        # the original contract still holds
+        assert a["melt_pool_temp_c"] < 1400.0 and a["arm_vibration_g"] > 0.08
+        # ... plus the T3 enrichment
+        assert a["rule"]["fired"] is True
+        assert a["scorer"]["name"] == "baseline scorer (rolling-MAD residual)"
+        assert a["routing"]["routed_to"] == "anomalies"
+        prov = a["provenance"]
+        assert prov["provenance_source"] == "recorded_capture"
+        # The anomaly carries the ANOMALIES-topic coordinate (its own, never the telemetry coordinate).
+        assert prov["kafka_topic"] == "stargate.printer.anomalies.v1"
+        assert 0 <= prov["kafka_partition"] < 6
+        assert isinstance(prov["kafka_offset"], int)
+        assert prov["synthetic"] is True
+        assert prov["schema_null_reason"] == "capture_mode_synthetic_schema_id"
+        assert prov["capture_id"] == "cap-stargate-20260611"
+
+    def test_scorer_fails_closed_on_a_short_window(self):
+        # A fresh printer with too few points must report model_not_configured, never a fabricated score.
+        state = core.BridgeState("capture")
+        rec = {"printer_id": "p-new", "ts_us": 1_700_000_000_000_000, "layer": 0,
+               "print_job_id": "JOB", "x": 0.0, "y": 0.0, "z": 0.0,
+               "melt_pool_temp_c": 1500.0, "deposition_rate_kg_hr": 24.0, "arm_vibration_g": 0.02}
+        state.ingest_telemetry(rec, emulate_flink=False)
+        sc = state._scored["p-new"]["scorer"]
+        assert sc["model_not_configured"] is True
+        assert sc["null_reason"] == "insufficient_window"
+        assert sc["score"] is None
+
+    def test_v4_02_baseline_review_precedes_the_hard_rule(self, capture_app):
+        """The showcase, locked as a regression: on v4-02 the rolling-MAD baseline flags REVIEW (on an
+        early melt-pool excursion while vibration is still nominal, so the two-condition rule stays
+        silent) BEFORE the first hard-rule anomaly. Replays the fixture through the real ingest path."""
+        import json
+
+        fixture = (Path(__file__).resolve().parents[1] / "app" / "data" / "stargate"
+                   / "replay_capture.jsonl")
+        rows = []
+        for line in fixture.read_text(encoding="utf-8").splitlines():
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and obj.get("kind") == "telemetry" \
+                    and obj["data"]["printer_id"] == "stargate-v4-02":
+                rows.append(obj)
+        rows.sort(key=lambda o: o["offset_ms"])
+        assert rows, "fixture missing v4-02 telemetry"
+
+        state = core.BridgeState("capture")
+        first_review_ms = None
+        first_anomaly_ms = None
+        for o in rows:
+            rec = dict(o["data"])
+            rec["ts_us"] = o["offset_ms"] * 1000
+            state.ingest_telemetry(rec, emulate_flink=True, now_ms=o["offset_ms"])
+            sc = state._scored["stargate-v4-02"]["scorer"]
+            if first_review_ms is None and sc["verdict"] in ("REVIEW", "NO_GO"):
+                first_review_ms = o["offset_ms"]
+            anoms = state.rings["anomalies"].tail(500)
+            if first_anomaly_ms is None and anoms:
+                first_anomaly_ms = anoms[0]["ts_us"] // 1000
+
+        assert first_review_ms is not None, "baseline never reached REVIEW on v4-02"
+        assert first_anomaly_ms is not None, "v4-02 must still produce a hard-rule anomaly"
+        assert first_review_ms < first_anomaly_ms, (
+            f"baseline REVIEW ({first_review_ms}ms) must precede the hard rule ({first_anomaly_ms}ms)")
+
+
+class TestBridgeImportPurity:
+    def test_bridge_scores_with_no_database_url(self):
+        """Import purity guard: the bridge + scorer must run with NO DATABASE_URL (the laptop tooling
+        venv has none — a config/db import would kill `uvicorn bridge:app`). Run in a clean subprocess."""
+        import os
+        import subprocess
+        import sys
+
+        backend = Path(__file__).resolve().parents[1]
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("DATABASE_URL", "TELEMETRY_DATABASE_URL")}
+        env["PYTHONPATH"] = str(backend)
+        code = (
+            "import app.services.stargate_bridge as b\n"
+            "s = b.BridgeState('capture')\n"
+            "for i in range(20):\n"
+            "    s.ingest_telemetry({'printer_id':'p','ts_us':i*100000,'layer':0,'print_job_id':'j',"
+            "'melt_pool_temp_c':1500.0-i,'arm_vibration_g':0.02,'deposition_rate_kg_hr':24.0},"
+            "emulate_flink=True, now_ms=i*100)\n"
+            "snap = s.snapshot()\n"
+            "assert snap['scored'], 'scored missing'\n"
+            "print('PURE_OK')\n"
+        )
+        result = subprocess.run([sys.executable, "-c", code], env=env,
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert "PURE_OK" in result.stdout
+
+
 class TestSse:
     def test_stream_emits_snapshot_then_delta(self, capture_app):
         with TestClient(capture_app) as client:

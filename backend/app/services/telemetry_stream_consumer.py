@@ -29,10 +29,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
+import app.services.stargate_signal_mapping as sm
 from app.observability.logger import emit_log
 
 # record_kind values (must match the 10034 CHECK constraint).
@@ -291,6 +294,167 @@ def record_offset(
         "last_processed_offset": offset, "next_committed_offset": offset + 1,
         "lag": lag, "status": status, "null_reason": null_reason,
     })
+
+
+# ── capture-mode bridge sink API (cursor + kwargs; what the gated bridge hook + tests use) ──────────────
+# The block above is the BROKER consumer (real Confluent, live pass). The block below is the durable sink
+# the in-process bridge calls in CAPTURE mode: kwargs-shaped, sets the RLS GUC (get_telemetry_cursor does
+# not), carries normalized_payload (score/features/routing), and synthesizes labeled provenance when there
+# is no broker. Both write the same idempotent row.
+
+CONSUMER_GROUP = "stargate-bridge-sink"
+DEFAULT_SAMPLE_N = 20
+# Capture mode has no Schema Registry; schema_id is NOT NULL on the table, so synthetic rows write this
+# sentinel WITH schema_null_reason set — honestly flagged as carrying no real SR id.
+SYNTHETIC_SCHEMA_ID = 0
+DATABRICKS_NULL_REASON = "databricks_table_mapping_not_configured"
+
+
+def sample_n() -> int:
+    try:
+        return max(1, int(os.environ.get("STARGATE_SINK_SAMPLE_N", str(DEFAULT_SAMPLE_N))))
+    except ValueError:
+        return DEFAULT_SAMPLE_N
+
+
+def set_env_guc(cur: Any, env_id: str) -> None:
+    """Set the RLS GUC so INSERT/SELECT pass the tenant policy (get_telemetry_cursor does not set it;
+    harmless under the BYPASSRLS telemetry_app role, necessary under enforced RLS locally)."""
+    cur.execute("SELECT set_config('app.env_id', %s, true)", (env_id,))
+
+
+def make_provenance(mode: str, record: dict, partition_count: int = 6) -> dict:
+    """Kafka-provenance dict for a durable row. Broker modes (cloud/local) with real coordinates on the
+    record preserve topic/partition/offset/schema metadata verbatim. Capture mode (or any record without
+    real coordinates) synthesizes DETERMINISTIC, LABELED coordinates: partition mirrors how Kafka would
+    hash the printer-id key, offset is the caller's monotonic counter, schema_id stays None (the writer
+    substitutes the sentinel) with schema_null_reason set."""
+    from app.services.stargate_bridge import StargateTopics
+
+    printer_id = record.get("printer_id", "?")
+    topic = record.get("kafka_topic") or StargateTopics.TELEMETRY
+    has_real_coords = record.get("kafka_partition") is not None and record.get("kafka_offset") is not None
+    if mode in ("cloud", "local") and has_real_coords:
+        return {
+            "provenance_source": "confluent_cloud" if mode == "cloud" else "local_redpanda",
+            "kafka_topic": topic,
+            "kafka_partition": int(record["kafka_partition"]),
+            "kafka_offset": int(record["kafka_offset"]),
+            "schema_id": record.get("schema_id"),
+            "schema_subject": record.get("schema_subject"),
+            "schema_version": record.get("schema_version"),
+            "schema_type": record.get("schema_type"),
+            "schema_null_reason": None,
+            "capture_id": record.get("capture_id"),
+            "synthetic": False,
+        }
+    return {
+        "provenance_source": "recorded_capture",
+        "kafka_topic": topic,
+        "kafka_partition": sm.synthetic_partition(printer_id, partition_count),
+        "kafka_offset": int(record.get("kafka_offset", 0)),
+        "schema_id": None,
+        "schema_subject": None,
+        "schema_version": None,
+        "schema_type": None,
+        "schema_null_reason": sm.CAPTURE_SCHEMA_NULL_REASON,
+        "capture_id": record.get("capture_id"),
+        "synthetic": True,
+    }
+
+
+_INSERT_KAFKA_ROW_KW = """
+INSERT INTO tel_stream_kafka_rows (
+    env_id, business_id, record_kind,
+    kafka_topic, kafka_partition, kafka_offset, kafka_key, consumer_group,
+    schema_id, schema_subject, schema_version, schema_type, schema_null_reason,
+    source_system, printer_id, print_job_id,
+    decoded_payload, normalized_payload,
+    databricks_lineage_status, databricks_null_reason
+) VALUES (
+    %(env_id)s, %(business_id)s, %(record_kind)s,
+    %(kafka_topic)s, %(kafka_partition)s, %(kafka_offset)s, %(kafka_key)s, %(consumer_group)s,
+    %(schema_id)s, %(schema_subject)s, %(schema_version)s, %(schema_type)s, %(schema_null_reason)s,
+    %(source_system)s, %(printer_id)s, %(print_job_id)s,
+    %(decoded_payload)s::jsonb, %(normalized_payload)s::jsonb,
+    'not_available', %(databricks_null_reason)s
+)
+ON CONFLICT (env_id, business_id, kafka_topic, kafka_partition, kafka_offset) DO NOTHING
+"""
+
+
+def persist_kafka_row(
+    cur: Any, *, env_id: str, business_id: UUID | str, record_kind: str, provenance: dict,
+    decoded_payload: dict, normalized_payload: dict | None = None,
+    printer_id: str | None = None, print_job_id: str | None = None,
+    consumer_group: str = CONSUMER_GROUP,
+) -> None:
+    """Insert one durable row, replay-safe. Re-running over the same Kafka coordinate upserts to zero new
+    rows via the 10033 UNIQUE (env_id, business_id, kafka_topic, kafka_partition, kafka_offset)."""
+    set_env_guc(cur, env_id)
+    schema_id = provenance.get("schema_id")
+    cur.execute(_INSERT_KAFKA_ROW_KW, {
+        "env_id": env_id, "business_id": str(business_id), "record_kind": record_kind,
+        "kafka_topic": provenance["kafka_topic"], "kafka_partition": provenance["kafka_partition"],
+        "kafka_offset": provenance["kafka_offset"], "kafka_key": printer_id,
+        "consumer_group": consumer_group,
+        "schema_id": schema_id if schema_id is not None else SYNTHETIC_SCHEMA_ID,
+        "schema_subject": provenance.get("schema_subject"),
+        "schema_version": provenance.get("schema_version"),
+        "schema_type": provenance.get("schema_type"),
+        "schema_null_reason": provenance.get("schema_null_reason"),
+        "source_system": provenance.get("provenance_source", "recorded_capture"),
+        "printer_id": printer_id, "print_job_id": print_job_id,
+        "decoded_payload": json.dumps(decoded_payload, default=str),
+        "normalized_payload": json.dumps(normalized_payload, default=str) if normalized_payload is not None else None,
+        "databricks_null_reason": DATABRICKS_NULL_REASON,
+    })
+
+
+def commit_stream_offset(
+    cur: Any, *, env_id: str, business_id: UUID | str, topic: str, partition: int,
+    last_offset: int, consumer_group: str = CONSUMER_GROUP,
+) -> None:
+    """Durable offset receipt (kwargs form). last_processed_offset is the last offset durably written;
+    the Kafka commit point is last_offset + 1."""
+    set_env_guc(cur, env_id)
+    record_offset(cur, env_id=env_id, business_id=str(business_id), consumer_group=consumer_group,
+                  topic=topic, partition=partition, offset=last_offset, lag=None, status="ok")
+
+
+def get_kafka_row_by_coords(cur: Any, *, env_id: str, business_id: UUID | str,
+                            topic: str, partition: int, offset: int) -> dict | None:
+    """Durable provenance lookup by Kafka coordinate — backs the drawer's 'Open durable serving row'."""
+    set_env_guc(cur, env_id)
+    cur.execute(
+        """SELECT record_kind, kafka_topic, kafka_partition, kafka_offset, kafka_timestamp,
+                  consumer_group, schema_id, schema_subject, schema_version, schema_type,
+                  schema_null_reason, source_system, printer_id, print_job_id,
+                  decoded_payload, normalized_payload, databricks_lineage_status,
+                  databricks_null_reason, ingested_at
+           FROM tel_stream_kafka_rows
+           WHERE env_id = %s AND business_id = %s AND kafka_topic = %s
+             AND kafka_partition = %s AND kafka_offset = %s
+           LIMIT 1""",
+        (env_id, str(business_id), topic, partition, offset),
+    )
+    return cur.fetchone()
+
+
+def tail_kafka_rows(cur: Any, *, env_id: str, business_id: UUID | str,
+                    record_kind: str = "anomaly", limit: int = 50) -> list[dict]:
+    """Most-recent durable rows for a kind — the survives-reload anomaly feed for the drawer/ticker."""
+    set_env_guc(cur, env_id)
+    cur.execute(
+        """SELECT record_kind, kafka_topic, kafka_partition, kafka_offset, printer_id, print_job_id,
+                  schema_null_reason, source_system, decoded_payload, normalized_payload, ingested_at
+           FROM tel_stream_kafka_rows
+           WHERE env_id = %s AND business_id = %s AND record_kind = %s
+           ORDER BY ingested_at DESC
+           LIMIT %s""",
+        (env_id, str(business_id), record_kind, int(limit)),
+    )
+    return cur.fetchall()
 
 
 # ── worker ────────────────────────────────────────────────────────────────────────────────────────────

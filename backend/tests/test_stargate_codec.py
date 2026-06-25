@@ -81,6 +81,90 @@ class TestDerivedFeatures:
         assert sm.temp_slope_c_per_s([1500.0, 1490.0], 0.0) == 0.0
 
 
+class TestBaselineScorer:
+    """The bridge's pure rolling-MAD baseline scorer — a re-expression of the frozen champion so the
+    import-pure bridge can score live. It is a BASELINE (rolling-MAD residual), never an LSTM."""
+
+    def test_verdict_bands(self):
+        assert sm.baseline_verdict(None) == "GO"
+        assert sm.baseline_verdict(0.5) == "GO"
+        assert sm.baseline_verdict(0.999) == "GO"
+        assert sm.baseline_verdict(1.0) == "REVIEW"
+        assert sm.baseline_verdict(2.0) == "REVIEW"
+        assert sm.baseline_verdict(2.0001) == "NO_GO"
+
+    def test_short_window_fails_closed(self):
+        result = sm.score_baseline([1500.0] * (sm.BASELINE_MIN_WINDOW - 1))
+        assert result["model_not_configured"] is True
+        assert result["null_reason"] == "insufficient_window"
+        assert result["score"] is None and result["verdict"] is None
+
+    def test_flat_window_scores_go(self):
+        result = sm.score_baseline([1500.0] * 60)
+        assert result["model_not_configured"] is False
+        assert result["verdict"] == "GO"
+        assert result["score"] == pytest.approx(0.0, abs=1e-6)
+
+    def test_constants_and_bands_lock_to_serving_champion(self):
+        # The bridge scorer MUST stay equal to the DB-coupled champion in telemetry_serving — they are
+        # two spellings of one rule. This is the same lock pattern as the Flink/python predicate lock.
+        from app.services import telemetry_serving as ts
+        assert sm.BASELINE_MAD_K == ts.MAD_K
+        assert sm.BASELINE_GLOBAL_TRAIN_SCALE == ts.GLOBAL_TRAIN_SCALE
+        for score in (None, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 10.0):
+            assert sm.baseline_verdict(score) == ts._verdict_for(score)
+
+    def test_normalization_matches_live_etl_path(self):
+        # score_baseline must produce the SAME score as the live ETL: normalize_window -> rolling_mean
+        # -> peak residual / (MAD_K * GLOBAL_TRAIN_SCALE). Lock the math, not just the constants.
+        from app.services import telemetry_serving as ts
+        from app.services import telemetry_stream_etl as etl
+
+        values = [1500.0] * 40 + [1203.0] + [1500.0] * 19   # an excursion the rolling-MAD catches
+        norm = etl.normalize_window(values)
+        rmeans = etl.rolling_mean(norm)
+        peak = max(abs(n - m) for n, m in zip(norm, rmeans))
+        expected = round(peak / (ts.MAD_K * ts.GLOBAL_TRAIN_SCALE), 6)
+        got = sm.score_baseline(values)
+        assert got["score"] == pytest.approx(expected)
+        assert got["verdict"] == ts._verdict_for(expected)
+
+
+class TestMultiWindowFeatures:
+    def _pts(self, base_us, temps, vibs):
+        return [{"ts_us": base_us + i * 100_000, "melt_pool_temp_c": t, "arm_vibration_g": v}
+                for i, (t, v) in enumerate(zip(temps, vibs))]
+
+    def test_windows_compute_avg_max_and_slopes(self):
+        agg = sm.MultiWindowAggregator()
+        base = 1_700_000_000_000_000
+        # 60 points at 100ms = 6s span -> 5s window holds the tail, 60s window holds all.
+        temps = [1500.0 - i for i in range(60)]      # falling melt pool -> negative temp slope
+        vibs = [0.02 + 0.001 * i for i in range(60)]  # rising vibration -> positive vib slope
+        pts = self._pts(base, temps, vibs)
+        feats = agg.features(pts, now_us=base + 59 * 100_000)
+        assert set(feats) == {"w5s", "w15s", "w60s"}
+        assert feats["w60s"]["n"] == 60
+        assert feats["w60s"]["temp_slope_c_per_s"] < 0
+        assert feats["w60s"]["vib_slope_g_per_s"] > 0
+        assert feats["w5s"]["n"] < feats["w60s"]["n"]   # 5s window is a strict subset
+        assert feats["w60s"]["max_vib_g"] == pytest.approx(max(vibs), abs=1e-5)
+
+    def test_empty_window_is_null_not_fabricated(self):
+        agg = sm.MultiWindowAggregator()
+        feats = agg.features([], now_us=1_700_000_000_000_000)
+        assert feats["w5s"] == {"n": 0, "avg_temp_c": None, "max_vib_g": None,
+                                "temp_slope_c_per_s": None, "vib_slope_g_per_s": None}
+
+
+class TestProvenanceSynthesis:
+    def test_synthetic_partition_is_stable_and_in_range(self):
+        # Deterministic (NOT Python's salted hash) so two cold starts and the durable sink agree.
+        p = sm.synthetic_partition("stargate-v4-02")
+        assert 0 <= p < sm.STARGATE_PARTITION_COUNT
+        assert sm.synthetic_partition("stargate-v4-02") == p
+
+
 class TestTumblingAggregator:
     def test_windows_close_in_order_with_avg_and_max(self):
         agg = sm.TumblingAggregator(window_ms=5000)

@@ -289,5 +289,76 @@ high arm vibration (>0.08g)", never "high temp."
 > sign-off pass** (un-park → register v3 schema → regenerate pb2 → `producer --mode cloud` → verify
 > provenance → re-park).
 
-Next: T3 (pure baseline scorer + 5/15/60s windows + enriched SSE), T4 (UI lane + drawer + provenance
-route + deep-link), T2 (durable sink), then the live Confluent round-trip.
+### T3 — baseline scorer + feature windows + enriched SSE (LANDED)
+
+| Item | Result |
+|---|---|
+| Pure scorer | `stargate_signal_mapping.score_baseline` re-expresses the frozen champion (rolling-MAD residual over fractional-deviation-normalized values) pure-stdlib so the import-pure bridge can score live. `baseline_verdict` = GO `<1.0` / REVIEW `≤2.0` / NO_GO `>2.0` |
+| Constants/math lock | tests assert `BASELINE_MAD_K`/`BASELINE_GLOBAL_TRAIN_SCALE`/bands == `telemetry_serving.MAD_K`/`GLOBAL_TRAIN_SCALE`/`_verdict_for`, AND that `score_baseline` reproduces the live ETL path (`telemetry_stream_etl.normalize_window` + `rolling_mean`). Two spellings of one rule, locked |
+| Feature windows | `MultiWindowAggregator` (rolling 5s/15s/60s avg_temp, max_vib, temp/vib slope, n) beside the existing 5s `TumblingAggregator` (which still owns the chart/agg rows) |
+| Enriched ingest | the one chokepoint `BridgeState.ingest_telemetry` now attaches `rule` / `scorer` / `feature_window` / `routing` / `provenance` to anomaly rows, and maintains a per-printer `scored` snapshot surfaced on every SSE frame (so the lane shows a baseline REVIEW even before any anomaly routes) |
+| Provenance | capture-mode coordinates are deterministically SYNTHESIZED and labeled: `provenance_source="recorded_capture"`, `kafka_partition = synthetic_partition(printer_id) % 6`, monotonic per-partition `kafka_offset`, `schema_null_reason="capture_mode_synthetic_schema_id"`, `synthetic=true`. Real broker coords arrive via the new optional `kafka_meta` arg (wired in the cloud pass) |
+| Fail closed | a window shorter than `BASELINE_MIN_WINDOW` (10) yields `model_not_configured` + `null_reason:"insufficient_window"` and a null score — never a fabricated number |
+| v4-02 tuned (edit #5) | the gentle `pre_failure` ramp peaked at baseline score 0.254 — the SMAP-calibrated threshold is too coarse for melt-pool's small fractional deviations, so the baseline never led. Per the user's edit #5, tuned **only v4-02's seeded values**: a new authored `coupled_drift` segment (early melt-pool temperature excursion with vibration still nominal → rule silent → baseline REVIEW, then a sustained cold-pool + vibration redline → rule fires). **Verified: baseline REVIEW at 35513ms (score 1.48) leads the first hard-rule anomaly at 48613ms; 114 anomalies still routed.** Predicate and scorer thresholds untouched |
+| Bridge purity | subprocess test imports the bridge + scores with no `DATABASE_URL`/`TELEMETRY_DATABASE_URL` set |
+| Tests | `test_stargate_codec.py` +scorer/feature/provenance classes; `test_stargate_bridge.py` +`TestRulesVsBaseline` (scored frame, enriched anomalies, fail-closed, v4-02 lead regression) +`TestBridgeImportPurity`. **49 passed, 1 skipped** (stargate suites); `test_telemetry_serving`/`test_telemetry_stream_etl` 30 passed (no regression) |
+
+### T4 — UI Rules-vs-baseline lane + inspection drawer + provenance route (LANDED)
+
+| Item | Result |
+|---|---|
+| Provenance route | `GET /api/telemetry/stargate/provenance` is REAL (the drawer button calls it, not a mock). Default-off sink → `{null_reason:"durable_sink_not_enabled"}` (200); sink on but no row → `{null_reason:"provenance_not_found"}` (404). Reads `tel_stream_kafka_rows` (exists since 10033) with the RLS `app.env_id` GUC. Durable WRITE stays T2 |
+| Types + hook | `stargateStream.ts` gains `ProvenanceMeta`/`BaselineScorer`/`RuleState`/`WindowStat`/`FeatureWindow`/`ScoredRow`, optional enrichment on `AnomalyRow`, `scored` on the frame, and `scored` state on the hook |
+| Rules-vs-baseline lane | `RulesVsBaselineLane.tsx` — per-printer rule state beside the baseline verdict; tagged "baseline scorer (rolling-MAD residual) · not LSTM"; `model_not_configured` → "Not available — model_not_configured" (never a number); "baseline ahead of rule" when baseline ≥ REVIEW while the rule is clear |
+| Honest copy (edit) | the baseline-leads note uses the exact agreed wording: "the baseline scorer flagged an early melt-pool temperature residual while vibration was still below the rule threshold; the hard two-condition rule routed the anomaly later when cold melt-pool and high arm vibration co-occurred." All predicate copy is cold melt pool (<1400°C) + high arm vibration (>0.08g) — no "high temp" |
+| Inspection drawer | `AnomalyInspectionDrawer.tsx` (radix dialog, cloned from `MetadataDetailDrawer`): Raw event · Feature window (5/15/60s) · Rule · Baseline scorer (fail-closed) · Routing · Provenance. Synthetic banner ("Recorded capture — synthetic coordinates"); "Open durable serving row" renders `durable_sink_not_enabled` vs `provenance_not_found` as visibly different copy; copy buttons for event id / topic-partition-offset / raw payload; "View surrounding 60 seconds" highlights the event window on the chart |
+| Deep link | `?inspect=<topic>:<partition>:<offset>` reopens the drawer when the event is in the live buffer, else a fail-closed "not in the current window" note; selecting/closing mirrors to the URL via `router.replace` |
+| Chart highlight | `TempVibrationChart` gains an optional `highlight` ReferenceArea (±30s) driven by the drawer |
+| Tests | backend `test_stargate_provenance_route.py` (3: both distinct reasons + row found). Frontend vitest **22 passed** across 5 stargate files: `RulesVsBaselineLane` (labels, fail-closed, baseline-ahead wording, no "high temp"), `AnomalyInspectionDrawer` (synthetic banner, fail-closed score, durable-sink vs not-found distinct copy, copy buttons, view-60s callback), `StargateConsole.deeplink` (reopen + missing-window). `tsc --noEmit` clean on touched files; eslint clean |
+
+### T2 — durable sink + provenance hydration (LANDED, default-off)
+
+A full BROKER consumer (`TelemetryStreamConsumer`, `build_row`, `persist_row`, triage handling) already
+existed concurrently for the live Confluent path. T2 ADDED the capture-mode pieces the spec named that were
+missing — no rewrite of the broker consumer, no new tables, no schema changes (10033 + 10034 already exist;
+`record_kind` admits `telemetry_sample|anomaly|agg5s|dlq`).
+
+| Item | Result |
+|---|---|
+| Sink API (`telemetry_stream_consumer.py`) | added `make_provenance(mode, record, partition_count=6)` (broker preserves real topic/partition/offset/schema; capture synthesizes deterministic + labeled), `persist_kafka_row(cur, ...)` (`INSERT ... ON CONFLICT (env_id,business_id,kafka_topic,kafka_partition,kafka_offset) DO NOTHING`; score/features/routing → `normalized_payload`, decoded event → `decoded_payload`), `commit_stream_offset`, `get_kafka_row_by_coords`, `tail_kafka_rows`. All cursor-based; all set the `app.env_id` RLS GUC (the telemetry cursor does not) |
+| Synthetic schema_id | `schema_id` is NOT NULL on the table, so capture rows write the `SYNTHETIC_SCHEMA_ID` sentinel WITH `schema_null_reason='capture_mode_synthetic_schema_id'` — honestly flagged. Databricks pointer fails closed (`not_available` / `databricks_table_mapping_not_configured`) |
+| Bridge hook | gated `STARGATE_DURABLE_SINK_ENABLED` (default off); **lazy `app.db` import only inside the gated branch** (purity preserved); **best-effort** — any DB failure is swallowed, the SSE hot path never breaks. Persists raw telemetry sampled (`offset % STARGATE_SINK_SAMPLE_N`), anomalies / agg5s / DLQ in full |
+| Per-topic coordinates | each kind lives on its own topic (telemetry / anomalies / agg5s / dlq) with its own synthetic offset counter, so they never collide on the durable UNIQUE. The anomaly now carries the **anomalies-topic** coordinate in BOTH the SSE frame and the durable row, so the drawer's deep-link `topic:partition:offset` matches the durable row |
+| Routes | `/api/telemetry/stargate/provenance` refactored to read via `get_kafka_row_by_coords` (single read path); added `/api/telemetry/stargate/anomalies/tail` (survives-reload anomaly feed). Both keep `durable_sink_not_enabled` vs `provenance_not_found` fail-closed |
+| Tests | `test_stargate_durable_sink.py` (make_provenance capture+broker, raw sampling, ON CONFLICT + GUC, synthetic sentinel, commit/read SQL, bridge hook: flag-off no-DB, flag-on persists anomaly on the anomalies topic, DB-failure-doesn't-break-SSE, raw-sampled-but-anomaly-full). Full telemetry+stargate suite **214 passed / 2 skipped** (incl. existing broker-consumer tests + determinism, no regression) |
+
+### Sign-off — live Confluent round-trip (PASS)
+
+Ran against the real cluster `lkc-gqpvvyv` (Confluent Cloud, SASL_SSL, bootstrap
+`pkc-619z3.us-east1.gcp.confluent.cloud:9092`, SR `psrc-z27ovke…`):
+
+| Step | Result |
+|---|---|
+| Register proto v3 | `confluent schema-registry schema create` on `stargate.printer.telemetry.v1-value` (type protobuf) → **schema ID 100006**, accepted under the subject's BACKWARD compatibility |
+| Produce | **40/40** messages delivered to `stargate.printer.telemetry.v1`; real broker partition/offset captured per delivery |
+| Consume | **40/40** read back off the broker (wire round-trip OK) |
+| Durable persist | 6 rows written via `persist_kafka_row` + `make_provenance("cloud", …)` carrying the REAL coordinates |
+| Verify | **6/6** durable rows in `tel_stream_kafka_rows` have `kafka_partition/kafka_offset` == the broker coordinate (partition 5, offsets 50515–50520) with `source_system=confluent_cloud`, `synthetic=false`; each resolves via `get_kafka_row_by_coords` (the drawer's read path) |
+
+**Teardown (kill all):** all 7 Confluent API keys created during the pass were deleted; `stop-serving`
+re-confirmed 0 connectors + 0 running Flink statements (topics + schemas retained) and stamped the Mission
+Control broker row `warm`. The cluster was already alive+warm before the session and is left in that exact
+state — the cluster was NOT deleted (it also hosts non-Stargate topics: `history-rhymes.signals.v1`,
+`winston.executions.v1`, `sample_data`; deletion would be high-blast-radius and only saves the small STANDARD
+flat hourly base that predates this work). Note: the SR python client needs the
+`confluent-kafka[schemaregistry,protobuf]` extras (authlib/cachetools/httpx) installed in the tooling venv.
+
+**Follow-up (open):** the `scripts/streaming/stargate/proto_gen/stargate_telemetry_pb2.py` Python bindings
+are still **v1** (10 fields). Proto **v3 is registered in the SR** (subject `stargate.printer.telemetry.v1-value`,
+schema ID 100006) and the v3 fields are carried by the capture-mode JSON fixture, so nothing in the
+capture/CI/Railway/demo path depends on the bindings. But **full on-the-wire v3 field production in cloud mode
+needs the bindings regenerated** — `pip install grpcio-tools` then
+`python -m grpc_tools.protoc -I infra/confluent/proto --python_out=scripts/streaming/stargate/proto_gen stargate_telemetry_v3.proto`
+(output as `stargate_telemetry_pb2.py`). Do not claim full on-wire v3 field production until that regen lands.
+
+**Phase 7 COMPLETE** — T1–T4 landed and committed; the live Confluent sign-off passes.

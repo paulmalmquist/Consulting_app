@@ -30,6 +30,63 @@ export type AggRow = {
   n: number;
 };
 
+// ── T3 enrichment (the Rules-vs-baseline lane + inspection drawer) ──────────────────────
+// All optional so an older bridge / frame degrades gracefully (the UI fails closed, never throws).
+
+export type ProvenanceMeta = {
+  provenance_source: "recorded_capture" | "confluent_cloud" | "local_redpanda";
+  kafka_topic: string;
+  kafka_partition: number;
+  kafka_offset: number;
+  schema_id: number | null;
+  schema_null_reason: string | null;
+  capture_id: string | null;
+  synthetic: boolean;
+};
+
+// The BASELINE scorer (rolling-MAD residual) — never an LSTM. model_not_configured + null_reason
+// when the window is too short to score; the UI shows "Not available — model_not_configured".
+export type BaselineScorer = {
+  name: string;
+  version: string;
+  score: number | null;
+  verdict: "GO" | "REVIEW" | "NO_GO" | null;
+  threshold: number;
+  model_not_configured: boolean;
+  null_reason: string | null;
+};
+
+export type RuleState = {
+  fired: boolean;
+  predicate: string;
+  temp_c: number;
+  vib_g: number;
+};
+
+export type WindowStat = {
+  n: number;
+  avg_temp_c: number | null;
+  max_vib_g: number | null;
+  temp_slope_c_per_s: number | null;
+  vib_slope_g_per_s: number | null;
+};
+
+export type FeatureWindow = {
+  w5s?: WindowStat;
+  w15s?: WindowStat;
+  w60s?: WindowStat;
+};
+
+// Current per-printer Rules-vs-baseline state (drives the live lane, including the case where the
+// baseline flags REVIEW before any anomaly is routed).
+export type ScoredRow = {
+  printer_id: string;
+  ts_us: number;
+  rule: RuleState;
+  scorer: BaselineScorer;
+  feature_window: FeatureWindow;
+};
+
 export type AnomalyRow = {
   printer_id: string;
   ts_us: number;
@@ -37,6 +94,12 @@ export type AnomalyRow = {
   print_job_id: string;
   melt_pool_temp_c: number;
   arm_vibration_g: number;
+  // enrichment (present on T3+ bridges)
+  rule?: RuleState;
+  scorer?: BaselineScorer;
+  feature_window?: FeatureWindow;
+  routing?: { routed_to: string; reason: string };
+  provenance?: ProvenanceMeta;
 };
 
 export type DlqRow = {
@@ -65,6 +128,7 @@ type Frame = {
   anomalies?: AnomalyRow[];
   dlq?: DlqRow[];
   dlq_count?: number;
+  scored?: ScoredRow[];
   health?: BridgeHealth;
   mode?: string;
 };
@@ -132,6 +196,8 @@ export type StargateStream = {
   version: number;
   health: BridgeHealth | null;
   dlqCount: number;
+  /** Current Rules-vs-baseline state per printer (small; held in state, not a ring). */
+  scored: ScoredRow[];
   /** Force a fresh EventSource (used after restarting the capture replay). */
   reconnect: () => void;
   telemetryRef: React.MutableRefObject<CircularBuffer<TelemetryPoint>>;
@@ -149,6 +215,7 @@ export function useStargateStream(baseUrl?: string): StargateStream {
   const [connected, setConnected] = useState(false);
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [dlqCount, setDlqCount] = useState(0);
+  const [scored, setScored] = useState<ScoredRow[]>([]);
   const [nonce, setNonce] = useState(0);
 
   const resolvedBase = baseUrl || bridgeBaseUrl();
@@ -178,6 +245,7 @@ export function useStargateStream(baseUrl?: string): StargateStream {
       if (frame.agg?.length) aggRef.current.pushAll(frame.agg);
       if (frame.anomalies?.length) anomaliesRef.current.pushAll(frame.anomalies);
       if (frame.dlq?.length) dlqRef.current.pushAll(frame.dlq);
+      if (frame.scored) setScored(frame.scored); // current state, sent in full each frame
       if (frame.health) setHealth(frame.health);
       if (typeof frame.dlq_count === "number") setDlqCount(frame.dlq_count);
       setVersion((v) => v + 1); // one integer bump per frame (~10 Hz), not per message
@@ -193,6 +261,7 @@ export function useStargateStream(baseUrl?: string): StargateStream {
     version,
     health,
     dlqCount,
+    scored,
     reconnect,
     telemetryRef,
     aggRef,

@@ -35,10 +35,13 @@ export default function TempVibrationChart({
   points,
   agg,
   anomalies,
+  highlight,
 }: {
   points: TelemetryPoint[];
   agg: AggRow[];
   anomalies: AnomalyRow[];
+  // Optional "surrounding 60 seconds" window (ms) highlighted from the inspection drawer.
+  highlight?: { start: number; end: number } | null;
 }) {
   if (!points.length) {
     return <div style={{ fontFamily: C.mono, fontSize: 12, color: C.dim, padding: 12 }}>Waiting for stream…</div>;
@@ -99,6 +102,10 @@ export default function TempVibrationChart({
           <ReferenceArea key={ts} yAxisId="temp" x1={ts - 400} x2={ts + 400}
             fill={C.red} fillOpacity={0.16} stroke="none" />
         ))}
+        {highlight && (
+          <ReferenceArea yAxisId="temp" x1={highlight.start} x2={highlight.end}
+            fill={C.cyan} fillOpacity={0.1} stroke={C.cyan} strokeOpacity={0.5} strokeDasharray="4 3" />
+        )}
         <ReferenceLine yAxisId="temp" y={TEMP_THRESHOLD_C} stroke={C.red} strokeDasharray="5 4"
           label={{ value: "1400degC floor", position: "insideBottomLeft", fill: C.red, fontSize: 10, fontFamily: C.mono }} />
         <ReferenceLine yAxisId="vib" y={VIBRATION_THRESHOLD_G} stroke={C.amber} strokeDasharray="5 4"
