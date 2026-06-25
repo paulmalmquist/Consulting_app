@@ -2,7 +2,7 @@
 
 **ADO:** Story #478 under Feature #477 / Epic #476
 **Risk:** High
-**Status:** Implemented locally; superseded for active work by Story #735 eval/publish gate
+**Status:** Deployed to production; authenticated visual verification blocked by empty reviewer credentials
 **Last updated:** 2026-06-25
 
 ## Outcome
@@ -56,15 +56,16 @@ The Next.js same-origin proxy forwards authenticated platform-session scope head
 
 ## Verification status
 
-- Backend Agent Builder/MCP/AI dispatch/Control Tower regressions: 87 passed.
-- Frontend telemetry, proxy, schema-order, and Control Tower regressions: 172 passed.
-- Frontend typecheck: passed.
-- Frontend lint: passed with existing repository warnings.
-- Migrations 10035 and 10036 targeted dry-run: 65 statements parsed; no statements executed.
-- Full frontend suite remains red from three pre-existing REPE fund-page tests stuck on
-  `Loading fund...`; the initial baseline had five failures in the same file. The operator approved
-  proceeding with that recorded exception.
-- Full backend suite exceeded ten minutes; the focused owning-surface suite is green.
+- PR #372 and integration hotfix PR #374 merged to `main`.
+- GitHub main CI run `28192467071`: passed.
+- Vercel production deployment `dpl_6ncptiPffmvGK84wbK5nUqzTRghS`: Ready and aliased to
+  `novendor.ai`.
+- Railway production deployment `08bbf248-f39c-4fa4-8669-bffe6d51a014`: healthy.
+- Migrations 10035 and 10036 applied to the linked Supabase project.
+- Production telemetry dry-run `afe01788-530b-4f79-8e1d-ca1331996523`: succeeded with five steps,
+  twelve events, and five receipts.
+- Authenticated desktop/mobile visual smoke is blocked because the production
+  `TELEMETRY_REVIEWER_USERNAME` and `TELEMETRY_REVIEWER_PASSWORD` values currently export empty.
 
 ## Deferred
 
@@ -74,7 +75,7 @@ The Next.js same-origin proxy forwards authenticated platform-session scope head
 - Production-only visual/smoke evidence and production publication.
 - Vector retrieval and Databricks analytics export.
 - Write-capable MCP nodes.
-- Applying migration 10035 or deploying any service.
+- Authenticated visual smoke after reviewer credential repair.
 
 ## Next ticket
 
