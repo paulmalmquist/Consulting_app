@@ -1,0 +1,73 @@
+name: Confluent Broker Row Refresh
+
+# Keeps the Telemetry Mission Control PIPELINE 'broker' row honest: re-checks the
+# real Confluent cost state every ~15 min and stamps it from observed facts only.
+# A failed check writes 'stale' (never a fresh-looking state). The UI ages the row
+# from its as_of_ts, so even if this job stops the panel does not pretend freshness.
+#
+# Auth: a Confluent service-account API key (NOT an interactive login). Until the
+# secrets below exist this workflow only runs on manual dispatch and will fail at
+# the login step — that is expected and safe (it writes 'stale', not 'fresh').
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: confluent-broker-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh broker cost-state row
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+      CONFLUENT_ENV_ID: ${{ vars.CONFLUENT_ENV_ID || 'env-vwkk2z' }}
+      CONFLUENT_CLUSTER_ID: ${{ vars.CONFLUENT_CLUSTER_ID || 'lkc-gqpvvyv' }}
+      CONFLUENT_FLINK_CLOUD: gcp
+      CONFLUENT_FLINK_REGION: us-east1
+      TELEMETRY_DATABASE_URL: ${{ secrets.TELEMETRY_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install psycopg2-binary
+
+      - name: Install confluent CLI
+        run: |
+          curl -sL --http1.1 https://cnfl.io/cli | sh -s -- -b /usr/local/bin
+          confluent version
+
+      - name: Confluent login (service account key)
+        # Non-fatal: if the key secrets are absent/invalid the login fails, but the
+        # refresh script must still run so it can fail CLOSED (write a 'stale' row with
+        # the reason) rather than the job aborting here and writing nothing.
+        continue-on-error: true
+        run: |
+          if [ -z "$CONFLUENT_CLOUD_API_KEY" ] || [ -z "$CONFLUENT_CLOUD_API_SECRET" ]; then
+            echo "Confluent API key secrets not set — skipping login; refresh will fail closed to 'stale'."
+            exit 0
+          fi
+          confluent login --save
+        env:
+          CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+
+      - name: Refresh broker row
+        # The script itself fails closed: a failed Confluent probe → 'stale' + reason.
+        # It exits non-zero only if it cannot reach the DB at all (no TELEMETRY_DATABASE_URL),
+        # which surfaces here as a clear, expected failure.
+        run: python skills/confluent-stargate-lifecycle/scripts/refresh_broker_row.py
