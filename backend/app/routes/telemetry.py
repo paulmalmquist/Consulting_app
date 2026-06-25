@@ -412,3 +412,63 @@ def mcp_check(req: McpCheckRequest):
         }
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
+
+
+# ── Stream lineage / provenance (Ticket 4) ──────────────────────────────────────────────────────────
+# Read-only contract over the 10034 serving slice (tel_stream_kafka_rows / _triage_events). Proves
+# Kafka detection -> AI triage -> Databricks lake (where mapped) -> Postgres serving row. Fail-closed:
+# missing layers return an explicit status + null_reason; no fabricated offsets/triage/Delta pointers.
+
+@router.get("/stream/kafka/rows")
+def stream_kafka_rows(env_id: str = Query(...), business_id: UUID = Query(...),
+                      kind: str | None = Query(default=None),
+                      limit: int = Query(default=50, ge=1, le=200)):
+    """Recent rows from tel_stream_kafka_rows (newest first). Optional record_kind filter; bounded limit."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.list_kafka_rows(env_id=env_id, business_id=business_id, kind=kind, limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/provenance/{row_id}")
+def stream_kafka_provenance(row_id: UUID, env_id: str = Query(...), business_id: UUID = Query(...)):
+    """A single kafka row plus its provenance layers. Fail-closed if the row is absent."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.get_provenance(env_id=env_id, business_id=business_id, row_id=row_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/triage/latest")
+def stream_kafka_triage_latest(env_id: str = Query(...), business_id: UUID = Query(...),
+                               limit: int = Query(default=50, ge=1, le=200)):
+    """Latest triage records from tel_stream_triage_events (newest first)."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.latest_triage(env_id=env_id, business_id=business_id, limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/triage/{anomaly_id}")
+def stream_kafka_triage_by_anomaly(anomaly_id: str, env_id: str = Query(...),
+                                   business_id: UUID = Query(...)):
+    """Triage for one anomaly. Returns status=not_available + null_reason=triage_not_emitted when none."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.triage_for_anomaly(env_id=env_id, business_id=business_id, anomaly_id=anomaly_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/lineage/anomaly/{anomaly_id}")
+def stream_lineage_anomaly(anomaly_id: str, env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Combined lineage for one anomaly: kafka_detection -> agent_triage -> databricks_lake ->
+    postgres_serving. Each layer fails closed with an explicit status + null_reason."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.anomaly_lineage(env_id=env_id, business_id=business_id, anomaly_id=anomaly_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
