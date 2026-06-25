@@ -45,6 +45,7 @@ Bridge endpoints: `/stargate/stream` (SSE), `/snapshot`, `/dlq`, `/health` on :8
 | `bridge.py` | Thin laptop wrapper — `uvicorn bridge:app` calls the backend's `create_app()`. Core (ring buffers, SSE, modes) lives in `backend/app/services/stargate_bridge.py` + `backend/app/routes/stargate_bridge.py`. |
 | `capture_fixture.py` | Regenerates `backend/app/data/stargate/replay_capture.jsonl` deterministically (includes the planted DLQ lines). |
 | `proto_gen/` | Generated bindings for `infra/confluent/proto/stargate_telemetry.proto`. |
+| `verify_lineage.py` | Read-only PASS/WARN/FAIL probe of the FastAPI lineage routes (`/api/telemetry/stream/*`). No secrets. `python verify_lineage.py --base https://novendor.ai`. See `docs/runbooks/telemetry-confluent-databricks-lineage.md`. |
 
 Tests live in `backend/tests/test_stargate_*.py`; capture-mode tests run with
 no broker and no Kafka client installed.
