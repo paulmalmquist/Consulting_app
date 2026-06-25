@@ -6,5 +6,5 @@ export default async function AdeWorkflowsRedirect({
   params: Promise<{ envId: string }>;
 }) {
   const { envId } = await params;
-  redirect(`/lab/env/${envId}/telemetry/data-engineering`);
+  redirect(`/lab/env/${envId}/telemetry/data-engineering/workflows`);
 }

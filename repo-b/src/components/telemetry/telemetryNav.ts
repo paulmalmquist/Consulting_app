@@ -72,6 +72,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "data-engineering/grain", label: "Data Map & Grain", icon: "M2 3h12v3H2zM2 8h12v3H2zM2 13h7v1H2z", group: "Data Engineering" },
   { slug: "data-engineering/relationships", label: "Relationships & Lineage", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Data Engineering" },
   { slug: "data-engineering/pipelines", label: "Pipelines & Quality", icon: "M2 8h3l2-4 2 8 2-4h3", group: "Data Engineering" },
+  { slug: "data-engineering/workflows", label: "Workflow Registry", icon: "M3 3h3v3H3zM10 3h3v3h-3zM3 10h3v3H3zM10 10h3v3h-3zM6 4.5h4M11.5 6v4M6 11.5h4M4.5 6v4", group: "Data Engineering" },
   { slug: "data-engineering/workbench", label: "Agent Workbench", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "Data Engineering" },
   { slug: "data-engineering/autopsy", label: "Run Autopsy", icon: "M3 2h8l2 2v10H3zM5 6h6M5 9h6M5 12h4", group: "Data Engineering" },
   { slug: "data-engineering/sources", label: "Source & Platform Map", icon: "M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z", group: "Data Engineering" },
