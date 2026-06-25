@@ -37,3 +37,28 @@ class GetAnomalyEventsInWindowInput(BaseModel):
     run_key: str = Field(description="Test run key")
     t_start: int = Field(description="Window start tick (inclusive)")
     t_end: int = Field(description="Window end tick (inclusive)")
+
+
+class PreviewScoreWindowInput(BaseModel):
+    """Score a supplied telemetry window without inserting a prediction receipt."""
+    model_config = {"extra": "forbid"}
+    env_id: str = Field(description="Environment id (tenant scope)")
+    business_id: UUID = Field(description="Business id (tenant scope)")
+    run_key: str = Field(description="Existing test run key")
+    channel_name: str = Field(description="Telemetry channel name")
+    window: list[dict] = Field(min_length=1, description="Ordered readings with t and value")
+
+
+class PreviewScoreWindowOutput(BaseModel):
+    """Fail-closed score preview contract used by Agent Builder dry-runs."""
+    verdict: str
+    anomaly_score: float | None = None
+    threshold: float | None = None
+    model_name: str | None = None
+    model_version: str | None = None
+    model_alias: str | None = None
+    mlflow_run_id: str | None = None
+    attribution: list[dict] = Field(default_factory=list)
+    confidence: float = 0.0
+    missing_data: list[str] = Field(default_factory=list)
+    null_reason: str | None = None

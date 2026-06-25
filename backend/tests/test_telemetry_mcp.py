@@ -52,6 +52,36 @@ def test_input_schema_accepts_valid_payload():
     assert inp.fire_tick == 728
 
 
+def test_preview_score_window_is_read_only(fake_cursor):
+    fake_cursor.push_result([{"tenant_id": str(uuid4())}])
+    fake_cursor.push_result([{
+        "model_name": "tel_anomaly_detector",
+        "model_version": "v1",
+        "model_alias": "champion",
+        "mlflow_run_id": "mlflow-1",
+        "metrics": {},
+        "gate": {},
+    }])
+    fake_cursor.push_result([{"id": str(uuid4())}])
+    tool = registry.get("telemetry.preview_score_window")
+    assert tool is not None
+    ctx = McpContext(actor="agent_builder", token_valid=True, resolved_scope={"business_id": BIZ})
+    with patch("app.services.audit.record_event"), patch("app.services.governance.record_decision"):
+        result = tool.handler(
+            ctx,
+            tool.input_model.model_validate({
+                "env_id": "telemetry-demo",
+                "business_id": BIZ,
+                "run_key": "run-1",
+                "channel_name": "D-4",
+                "window": [{"t": 0, "value": 1.0}, {"t": 1, "value": 1.001}],
+            }),
+        )
+    assert result["verdict"] == "GO"
+    assert "receipt_id" not in result
+    assert not any("INSERT INTO tel_predictions" in sql for sql, _ in fake_cursor.queries)
+
+
 # ── Allowed read call: runs through execute_tool and writes an audit receipt ────
 def test_allowed_read_call_executes_and_audits(fake_cursor):
     # get_triggering_prediction: resolve_tenant_id -> _run_id_for_key (empty -> missing_run, no DB shape needed)

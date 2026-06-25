@@ -30,6 +30,7 @@ import {
   warmGemma,
 } from "@/lib/telemetry/controlTower-api";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import AgentBuilder, { type ControlTowerTab } from "./AgentBuilder";
 
 // Truth label: every panel says where its data comes from. Never imply live execution over a fixture.
 function TruthLabel({ kind }: { kind: "fixture" | "staged" | "live" | "cold" | "unavailable" }) {
@@ -59,7 +60,7 @@ function sampleWindow(kind: "nominal" | "anomaly"): { t: number; value: number }
   return w;
 }
 
-export default function ControlTower() {
+function RunConsole() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [gemma, setGemma] = useState<GemmaState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -408,6 +409,67 @@ export default function ControlTower() {
       </Panel>
 
       <DisclosureFooter />
+    </div>
+  );
+}
+
+type TopLevelTab = "run-console" | ControlTowerTab;
+
+const CONTROL_TOWER_TABS: Array<{ id: TopLevelTab; label: string }> = [
+  { id: "run-console", label: "Run Console" },
+  { id: "builder", label: "Agent Builder" },
+  { id: "registry", label: "Agent Registry" },
+  { id: "history", label: "Run History" },
+  { id: "tools", label: "Tool Registry" },
+  { id: "evals", label: "Evals" },
+];
+
+export default function ControlTower() {
+  const [tab, setTab] = useState<TopLevelTab>("run-console");
+  return (
+    <div style={{ background: C.bg, minHeight: "100%" }}>
+      <div
+        role="tablist"
+        aria-label="Agent Control Tower modes"
+        style={{
+          display: "flex",
+          gap: 4,
+          padding: "12px 24px 0",
+          borderBottom: `1px solid ${C.border}`,
+          overflowX: "auto",
+        }}
+      >
+        {CONTROL_TOWER_TABS.map((item) => {
+          const active = item.id === tab;
+          return (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={active}
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              style={{
+                border: 0,
+                borderBottom: `2px solid ${active ? C.cyan : "transparent"}`,
+                background: "transparent",
+                color: active ? C.text : C.dim,
+                padding: "9px 12px",
+                fontFamily: C.mono,
+                fontSize: 11,
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+      {tab === "run-console" ? (
+        <RunConsole />
+      ) : (
+        <AgentBuilder tab={tab} onOpenBuilder={() => setTab("builder")} />
+      )}
     </div>
   );
 }
