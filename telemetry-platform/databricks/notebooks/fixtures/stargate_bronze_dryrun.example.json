@@ -1,0 +1,12 @@
+{
+  "_comment": "Credential-free dry-run input for stargate_bronze_loader.py. end_offsets = latest Kafka high-water mark per topic/partition; checkpoint = next offset already landed in bronze (omit a partition to make it cold). Synthetic values only; no secrets.",
+  "end_offsets": {
+    "stargate.printer.anomalies.v1": { "0": 12450, "1": 9800 },
+    "stargate.printer.anomaly.triage.v1": { "0": 3120 },
+    "stargate.printer.telemetry.v1": { "0": 980000, "1": 975000 }
+  },
+  "checkpoint": {
+    "stargate.printer.anomalies.v1": { "0": 12000, "1": 9800 },
+    "stargate.printer.anomaly.triage.v1": { "0": 3000 }
+  }
+}
