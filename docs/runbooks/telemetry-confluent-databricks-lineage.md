@@ -141,3 +141,43 @@ destroy topics/schemas; deleting the cluster does.
 - The Streaming Agent bills per OpenAI call — do not leave its statement running against a high-rate feed.
 - The consumer is default-off; the lineage routes/drawer fail closed (honest) until it is intentionally
   enabled and rows land.
+
+## Rehearsal findings (2026-06-25, Ticket 8)
+
+A live end-to-end rehearsal was run. **What worked:** backend deployed from main (lineage routes live in
+prod); `verify_lineage.py` against `https://novendor.ai` returns **6 PASS / 1 WARN / 0 FAIL** (the WARN is
+the empty triage table — honest); the telemetry→anomaly Flink statement ran live (`RUNNING`). **Two
+structural blockers** were found and must be resolved before real triage rows land end to end:
+
+1. **GRANT gap (fixed in prod, needs to be made durable).** `tel_stream_triage_events` (added in `10034`)
+   was created by the owner but **never granted to the runtime `telemetry_app` role**, so the triage
+   routes 500'd with `permission denied for table tel_stream_triage_events`. Grants are applied
+   **out-of-band** (not in the migration files — `10033`'s tables were granted manually too). Fix applied
+   live as owner:
+   ```sql
+   GRANT SELECT, INSERT, UPDATE, DELETE ON tel_stream_triage_events TO telemetry_app;
+   ```
+   Run this (as the Lakebase owner — see the [[project_lakebase_owner_ddl_via_databricks_cli]] memory)
+   whenever a new tel_* table is added. **TODO:** fold tel_* grants into a repeatable Lakebase role-setup
+   script so fresh applies don't miss them.
+
+2. **The durable consumer cannot run on the Railway backend image.** It needs `confluent-kafka` (not in
+   the backend image — only the laptop tooling venv) **and** `CONFLUENT_*` creds (not set on
+   `authentic-sparkle`). With the flag on but no client/creds it correctly **fails closed** (writes a
+   `not_available` offset receipt, idles). So to land rows, run the consumer from the **laptop tooling
+   venv** (which has `confluent-kafka` + `scripts/streaming/stargate/.env` creds), not from prod.
+
+3. **Triage agent — Confluent↔OpenAI 400.** The `CREATE MODEL` + `ML_PREDICT` pipeline validates and
+   invokes OpenAI, but the call returns `ModelRuntime received bad response code 400`. This Confluent
+   Flink version wants `OPENAI.MODEL_VERSION` / `OPENAI.SYSTEM_PROMPT` / `OPENAI.INPUT_FORMAT` /
+   `OPENAI.OUTPUT_CONTENT_TYPE` (not the lowercase `openai.*` + `task`/`provider` options the artifact
+   SQL uses), and the response/output format must be configured. The reproducibility artifacts
+   (`infra/confluent/stargate/agents/`), the schema, the consumer, the routes, and the drawer all handle
+   triage correctly **when it is emitted** (unit-tested + the fail-closed `triage_not_emitted` path is
+   verified in prod) — the gap is purely the live Confluent Flink-AI option syntax. A follow-up should
+   align the `CREATE MODEL` options to this CLI version and configure the OpenAI output/response format.
+
+**Cleanup performed:** all `t8-*` Flink statements + the model + the OpenAI connection + the temporary
+triage topic were deleted; both Flink pools confirmed back at **0 CFU**; the prod consumer flag set back
+to `0`; no connectors left. The Stargate cluster (`lkc-gqpvvyv`, STANDARD) was left UP (pre-existing,
+bills while it exists — park/delete via the lifecycle skill when the demo window closes).
