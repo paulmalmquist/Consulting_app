@@ -1,0 +1,12 @@
+{
+  "is_current": false,
+  "id": "lfcp-22wznzq",
+  "name": "stargate-demo-pool",
+  "environment": "env-vwkk2z",
+  "currrent_cfu": 0,
+  "max_cfu": 5,
+  "default_pool": false,
+  "cloud": "GCP",
+  "region": "us-east1",
+  "status": "PROVISIONED"
+}

@@ -7,7 +7,8 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { C, EmptyState, MetricCard, PageHeading, Panel, RowCard, SplitGrid, Tag } from "../primitives";
+import { C, EmptyState, MetricCard, Panel, RowCard, SplitGrid, Tag } from "../primitives";
+import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import DlqPanel from "./DlqPanel";
 import TempVibrationChart from "./TempVibrationChart";
 import { useStargateStream } from "@/lib/lab/stargateStream";
@@ -97,10 +98,11 @@ export default function StargateConsole() {
   if (!stream.configured) {
     return (
       <div>
-        <PageHeading
+        <TelemetryPageHeader
+          variant="compact"
           eyebrow="Stargate Live"
           title="Printer telemetry stream"
-          blurb="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic."
+          description="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic."
         />
         <EmptyState
           label="Stargate bridge URL is not configured for this deployment."
@@ -112,12 +114,13 @@ export default function StargateConsole() {
 
   return (
     <div>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="compact"
         eyebrow="Stargate Live"
         title="Printer telemetry stream"
-        blurb="The live proof of the thesis: historical launch progress created more data than judgment could keep up with. The modern answer is governed streaming + model evidence + lineage + operator-facing actions. This is recorded test-stand capture replayed through real streaming infrastructure — protobuf over Kafka, windowed in flight, anomalies routed to their own topic, ring-buffered in the bridge with no database in the hot path. Recorded capture, not a live printer."
-        right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        description="The live proof of the thesis: historical launch progress created more data than judgment could keep up with. The modern answer is governed streaming + model evidence + lineage + operator-facing actions. This is recorded test-stand capture replayed through real streaming infrastructure — protobuf over Kafka, windowed in flight, anomalies routed to their own topic, ring-buffered in the bridge with no database in the hot path. Recorded capture, not a live printer."
+        actions={
+          <>
             {startMsg && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.red }}>{startMsg}</span>}
             {isCapture && (
               <button type="button" onClick={startRecordedCapture} disabled={starting}
@@ -131,7 +134,7 @@ export default function StargateConsole() {
             )}
             <Tag color={stream.connected ? C.green : C.red}>{stream.connected ? "stream live" : "reconnecting"}</Tag>
             <Tag color={badge.color}>{badge.label}</Tag>
-          </div>
+          </>
         }
       />
 

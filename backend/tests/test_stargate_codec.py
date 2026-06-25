@@ -8,6 +8,8 @@ run in the stargate tooling venv, where the checkpoint evidence is captured.
 
 from __future__ import annotations
 
+import collections
+import json
 import sys
 from pathlib import Path
 
@@ -51,6 +53,32 @@ class TestSignalMaps:
 
     def test_vibration_floor_never_goes_negative(self):
         assert sm.arm_vibration_g(0.0) == pytest.approx(sm.VIBRATION_FLOOR_G)
+
+
+class TestDerivedFeatures:
+    """The shared toolpath_speed / acceleration / temp_slope helpers — one definition
+    used by the producer, the capture fixture, and the bridge so they never drift."""
+
+    def test_toolpath_speed_is_distance_over_dt(self):
+        # (0,0,0) -> (3,4,0) is 5 mm; over 0.1 s that is 50 mm/s.
+        assert sm.toolpath_speed_mm_s(0.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.1) == pytest.approx(50.0)
+
+    def test_toolpath_speed_zero_when_dt_non_positive(self):
+        assert sm.toolpath_speed_mm_s(0.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0) == 0.0
+        assert sm.toolpath_speed_mm_s(0.0, 0.0, 0.0, 3.0, 4.0, 0.0, -1.0) == 0.0
+
+    def test_acceleration_is_delta_speed_over_dt(self):
+        assert sm.acceleration_mm_s2(10.0, 14.0, 0.1) == pytest.approx(40.0)
+        assert sm.acceleration_mm_s2(10.0, 14.0, 0.0) == 0.0
+
+    def test_temp_slope_reads_negative_for_a_falling_melt_pool(self):
+        # 1500 -> 1460 across a 3-sample (0.2 s) window: -40 / 0.2 = -200 degC/s.
+        assert sm.temp_slope_c_per_s([1500.0, 1480.0, 1460.0], 0.1) == pytest.approx(-200.0)
+
+    def test_temp_slope_zero_when_window_too_short(self):
+        assert sm.temp_slope_c_per_s([1500.0], 0.1) == 0.0
+        assert sm.temp_slope_c_per_s([], 0.1) == 0.0
+        assert sm.temp_slope_c_per_s([1500.0, 1490.0], 0.0) == 0.0
 
 
 class TestTumblingAggregator:
@@ -119,6 +147,107 @@ class TestSchemaEvolution:
         assert decoded.melt_pool_temp_c == pytest.approx(1502.0)
         # the unknown field is preserved, not lost — round-tripping keeps it
         assert b"\x59" in decoded.SerializeToString()
+
+    def test_v1_reader_skips_v3_process_context_fields(self):
+        """v3 (stargate_telemetry_v3.proto) adds the process-context fields on new tags
+        12-17. A reader compiled from the v1 descriptor must skip them and keep working —
+        wire bytes are built by hand for the same reason as the v2 case above."""
+        pytest.importorskip("google.protobuf")
+        import struct
+
+        from proto_gen.stargate_telemetry_pb2 import StargateTelemetry
+
+        v1 = StargateTelemetry(printer_id="stargate-v4-03", ts_us=7, melt_pool_temp_c=1364.0)
+        # field 12 toolpath_speed_mm_s (double, wire type 1): tag = (12<<3)|1 = 0x61
+        speed = bytes([0x61]) + struct.pack("<d", 48.0)
+        # field 16 capture_id (string, wire type 2): tag = (16<<3)|2 = 130 -> varint 0x82 0x01,
+        # then length 5, then the utf-8 bytes. Tags >= 16 take a two-byte varint.
+        cap = bytes([0x82, 0x01, 0x05]) + b"cap-x"
+        v3_wire = v1.SerializeToString() + speed + cap
+
+        decoded = StargateTelemetry()
+        decoded.ParseFromString(v3_wire)
+        assert decoded.printer_id == "stargate-v4-03"
+        assert decoded.melt_pool_temp_c == pytest.approx(1364.0)
+        # both unknown v3 fields survive a round-trip, not silently dropped
+        round_trip = decoded.SerializeToString()
+        assert b"\x61" in round_trip and b"cap-x" in round_trip
+
+
+class TestCaptureFixture:
+    """The checked-in capture fixture is the capture-mode (CI/Railway/demo) input. It must
+    carry the v3 process-context fields as JSON (no protobuf in this path) and encode the
+    four printer personalities the Rules-vs-baseline story depends on."""
+
+    FIXTURE = (
+        Path(__file__).resolve().parents[1] / "app" / "data" / "stargate" / "replay_capture.jsonl"
+    )
+    NEW_KEYS = {
+        "toolpath_speed_mm_s", "acceleration_mm_s2", "commanded_power_w",
+        "sensor_quality", "capture_id", "temp_slope_c_per_s",
+    }
+
+    def _lines(self) -> list[str]:
+        return self.FIXTURE.read_text(encoding="utf-8").splitlines()
+
+    def _telemetry_rows(self) -> list[dict]:
+        rows: list[dict] = []
+        for line in self._lines():
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and obj.get("kind") == "telemetry":
+                rows.append(obj["data"])
+        return rows
+
+    def test_every_telemetry_row_carries_v3_fields_and_constant_capture_id(self):
+        rows = self._telemetry_rows()
+        assert rows, "fixture contains no telemetry rows"
+        for d in rows:
+            assert self.NEW_KEYS.issubset(d), f"row missing v3 fields: {d.get('printer_id')}"
+        assert {d["capture_id"] for d in rows} == {"cap-stargate-20260611"}
+
+    def test_four_printer_personalities(self):
+        rows = self._telemetry_rows()
+        by_printer: dict[str, list[dict]] = collections.defaultdict(list)
+        for d in rows:
+            by_printer[d["printer_id"]].append(d)
+        anom = {
+            pid: sum(1 for d in rows_p if sm.is_anomalous(d["melt_pool_temp_c"], d["arm_vibration_g"]))
+            for pid, rows_p in by_printer.items()
+        }
+        assert anom.get("stargate-v4-01", 0) == 0, "v4-01 is the nominal control; it must never fire"
+        assert anom.get("stargate-v4-02", 0) > 0, "v4-02 coupled-drift must produce anomalies"
+        assert anom.get("stargate-v4-03", 0) > 0, "v4-03 redline must produce anomalies"
+        assert anom.get("stargate-v4-04", 0) > 0, "v4-04 also runs a pre_failure segment"
+
+    def test_dlq_beats_are_present_and_tied_to_v4_04(self):
+        # Lines that do not parse as telemetry are the DLQ beats; the fixture authors five,
+        # all flavored as stargate-v4-04 so the dead-letter feed visibly ties to that printer.
+        non_telemetry = 0
+        for line in self._lines():
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                non_telemetry += 1
+                continue
+            if not isinstance(obj, dict) or obj.get("kind") != "telemetry":
+                non_telemetry += 1
+        assert non_telemetry == 5
+        assert "stargate-v4-04" in self.FIXTURE.read_text(encoding="utf-8")
+
+
+class TestFixtureDeterminism:
+    """Regenerating the fixture must be byte-stable — the demo and the determinism check in
+    the bridge tests both rely on it. numpy/rs_factory_seed are only present in the stargate
+    tooling venv, so this skips cleanly in bare backend CI."""
+
+    def test_build_lines_is_byte_stable(self):
+        pytest.importorskip("numpy")
+        import capture_fixture
+
+        assert capture_fixture.build_lines() == capture_fixture.build_lines()
 
 
 class TestRegistryFramedJson:

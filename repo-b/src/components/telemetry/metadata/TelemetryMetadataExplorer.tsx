@@ -27,6 +27,7 @@ import {
   type TelemetryMetadataNode,
 } from "@/lib/telemetry/metadata";
 import { C, EmptyState, Panel, Tag } from "../primitives";
+import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import MetadataDetailDrawer from "./MetadataDetailDrawer";
 import MetadataGraphNode, {
   type MetadataFlowNode,
@@ -339,43 +340,13 @@ export default function TelemetryMetadataExplorer({ envId }: { envId: string }) 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <header
-        style={{
-          border: `1px solid ${C.border}`,
-          background: C.panel,
-          borderRadius: 11,
-          padding: 18,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <div
-              style={{
-                color: C.cyan,
-                fontFamily: C.mono,
-                fontSize: 10,
-                letterSpacing: "0.13em",
-                textTransform: "uppercase",
-              }}
-            >
-              RS Telemetry / Control Plane
-            </div>
-            <h1
-              style={{
-                color: C.text,
-                fontFamily: C.sans,
-                fontSize: 27,
-                fontWeight: 750,
-                marginTop: 6,
-              }}
-            >
-              Telemetry Metadata Explorer
-            </h1>
-            <p style={{ color: C.dim, fontSize: 14, lineHeight: 1.5, marginTop: 7 }}>
-              Schemas, feeds, lineage, and consumers for the RS Telemetry environment
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+      <TelemetryPageHeader
+        variant="evidence"
+        eyebrow="RS Telemetry / Control Plane"
+        title="Telemetry Metadata Explorer"
+        description="Schemas, feeds, lineage, and consumers for the RS Telemetry environment"
+        actions={
+          <>
             <StatusPill graph={graph} />
             <Tag color={freshnessSummary(graph) === "fresh" ? C.green : C.amber}>
               {freshnessSummary(graph)}
@@ -398,52 +369,62 @@ export default function TelemetryMetadataExplorer({ envId }: { envId: string }) 
             >
               {loading ? "Refreshing..." : "Refresh"}
             </button>
+          </>
+        }
+        metadata={
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {[
+              ["Route environment", envId],
+              ["Serving data scope", graph.env_id ?? TELEMETRY_DEMO_ENV_ID],
+              ["Generated", formatTimestamp(graph.generated_at)],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                style={{
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 7,
+                  background: C.panelHi,
+                  padding: "10px 11px",
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    color: C.faint,
+                    fontFamily: C.mono,
+                    fontSize: 8,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {label}
+                </div>
+                <div
+                  style={{
+                    color: C.text,
+                    fontFamily: C.mono,
+                    fontSize: 11,
+                    marginTop: 5,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {value}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        }
+      />
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" style={{ marginTop: 16 }}>
-          {[
-            ["Route environment", envId],
-            ["Serving data scope", graph.env_id ?? TELEMETRY_DEMO_ENV_ID],
-            ["Generated", formatTimestamp(graph.generated_at)],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              style={{
-                border: `1px solid ${C.border}`,
-                borderRadius: 7,
-                background: C.panelHi,
-                padding: "10px 11px",
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  color: C.faint,
-                  fontFamily: C.mono,
-                  fontSize: 8,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {label}
-              </div>
-              <div
-                style={{
-                  color: C.text,
-                  fontFamily: C.mono,
-                  fontSize: 11,
-                  marginTop: 5,
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(4,minmax(130px,0.55fr))_auto]" style={{ marginTop: 16, alignItems: "end" }}>
+      <div
+        style={{
+          border: `1px solid ${C.border}`,
+          background: C.panel,
+          borderRadius: 11,
+          padding: 18,
+        }}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(4,minmax(130px,0.55fr))_auto]" style={{ alignItems: "end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <span
               style={{
@@ -495,7 +476,7 @@ export default function TelemetryMetadataExplorer({ envId }: { envId: string }) 
             Clear
           </button>
         </div>
-      </header>
+      </div>
 
       {graph.warnings.length > 0 && (
         <Panel

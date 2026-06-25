@@ -19,6 +19,31 @@ remediation UI polish)** — it improves the live surface without touching real 
 Defer **PR 4A (local opt-in live-token validation runbook)** until proof against real
 tokens is actually needed; it is ops evidence, not product experience. Do not add BYO keys.
 
+## Milestone: Composed telemetry presentation — Phase 1 COMPLETE (2026-06-24, PR #337)
+
+The standalone telemetry mount was reframed into a composed **Data Engineering** section in the
+telemetry sidebar (`/lab/env/[envId]/telemetry/data-engineering/*`), with two modes — Agent
+Workbench and Run Autopsy. Data-semantics pages (grain, relationships & lineage, pipelines &
+quality) reuse the telemetry metadata catalog; agent/governance pages read the portable `/api/ade/*`
+endpoints with telemetry primitives. Old `/automated-data-engineering/*` routes 307-redirect in. The
+ADE core package is unchanged and still portable (ADR 0002 follow-up note). This was IA + framing
+only — no new backend.
+
+**Deferred to Phase 2 (presentation; not shown as if they exist today):**
+
+- **Join-safety classification UI** — safe / bridge-required / blocked verdicts + recommended bridge
+  paths, derived from edge confidence + grain mismatch. (Depends on the Analytical engine items below.)
+- **Guided scenario walkthrough** — e.g. "can vibration + chamber temperature explain failed Stargate
+  prints?" rendered as found-sources → grain → unsafe-direct-join → bridge → feature proposal → gates →
+  receipt. Deterministic, clearly labeled illustrative.
+- **Aerospace-scoped default skill view** in Agent Workbench (profile / infer-grain / validate-join /
+  generate-contract / propose-feature), with the full registry behind an advanced toggle.
+- **Workflow templates** surfaced in the section (ingest source, add governed metric, create feature
+  table, investigate stale metric) instead of a bare "Not available."
+- **Dedicated pipeline-run + DQ-assertion frontend feed** (today Pipelines & Quality derives stage
+  health from catalog node `status` only).
+- **Palette unification** between the ADE `C` tokens and the telemetry `C` tokens.
+
 ## Shipped
 
 - **PR 2 — Connector Lifecycle State Machine (read-only).** ADO Story #581. The static

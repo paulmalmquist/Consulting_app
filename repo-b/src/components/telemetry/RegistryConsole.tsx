@@ -12,6 +12,7 @@ import {
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 const PSI_WARN = 0.15;
 
@@ -184,17 +185,22 @@ export default function RegistryConsole() {
   return (
     <div style={{ minHeight: "100vh", width: "100%", padding: 12, background: RS.bg,
       fontFamily: RS_SANS, color: RS.text }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "0 4px 12px" }}>
-        <div>
-          <div style={{ color: RS.faint, fontSize: 11, letterSpacing: "0.18em" }}>TELEMETRY LAB</div>
-          <div style={{ fontSize: 13, letterSpacing: "0.14em" }}>MODEL REGISTRY · PROMOTION CONTROL</div>
-        </div>
-        <RsChip color={RS.cyan}>registry: unity_catalog · novendor_1.telemetry</RsChip>
-        <RsChip color={RS.teal}>aliases: champion / challenger</RsChip>
-        <div style={{ marginLeft: "auto", fontFamily: RS_MONO, fontSize: 11, color: RS.faint }}>
-          promotion = alias update · fail closed · display-only console
-        </div>
-      </div>
+      <TelemetryPageHeader
+        variant="standard"
+        eyebrow="TELEMETRY LAB"
+        title="MODEL REGISTRY · PROMOTION CONTROL"
+        actions={
+          <>
+            <RsChip color={RS.cyan}>registry: unity_catalog · novendor_1.telemetry</RsChip>
+            <RsChip color={RS.teal}>aliases: champion / challenger</RsChip>
+          </>
+        }
+        metadata={
+          <div style={{ fontFamily: RS_MONO, fontSize: 11, color: RS.faint }}>
+            promotion = alias update · fail closed · display-only console
+          </div>
+        }
+      />
 
       {error && (
         <RsPanel><div style={{ padding: 16, fontFamily: RS_MONO, fontSize: 12, color: RS.red }}>

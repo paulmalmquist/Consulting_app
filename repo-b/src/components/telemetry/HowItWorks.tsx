@@ -1,6 +1,7 @@
 "use client";
 
-import { C, PageHeading, DisclosureFooter } from "./primitives";
+import { C, DisclosureFooter } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import TelemetryArchitectureMap, { KnownLimitationsPanel } from "./TelemetryArchitectureMap";
 
 // "How This Works" — the telemetry system-architecture exhibit. A faithful React port of the
@@ -14,10 +15,11 @@ import TelemetryArchitectureMap, { KnownLimitationsPanel } from "./TelemetryArch
 export default function HowItWorks({ envId }: { envId: string }) {
   return (
     <div>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="evidence"
         eyebrow="System Architecture"
         title="Winston Telemetry Platform"
-        blurb="Data · ML · Streaming · Serving · Governance — a truth-bounded map of the whole platform. Click a lane to read it; click a node for the plain-English story: what it is, which system runs it, whether it is real-and-live, real-over-synthetic, committed evidence, optional, or planned — and a link to the live surface where one exists."
+        description="Data · ML · Streaming · Serving · Governance — a truth-bounded map of the whole platform. Click a lane to read it; click a node for the plain-English story: what it is, which system runs it, whether it is real-and-live, real-over-synthetic, committed evidence, optional, or planned — and a link to the live surface where one exists."
       />
 
       <TelemetryArchitectureMap envId={envId} />

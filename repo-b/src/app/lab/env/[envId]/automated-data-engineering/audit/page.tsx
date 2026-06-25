@@ -1,9 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import AuditDashboard from "@/components/automated-data-engineering/AuditDashboard";
-
-export default function AdeAuditPage() {
-  const { envId } = useParams<{ envId: string }>();
-  return <AuditDashboard envId={envId} />;
+export default async function AdeAuditRedirect({
+  params,
+}: {
+  params: Promise<{ envId: string }>;
+}) {
+  const { envId } = await params;
+  redirect(`/lab/env/${envId}/telemetry/data-engineering/autopsy`);
 }

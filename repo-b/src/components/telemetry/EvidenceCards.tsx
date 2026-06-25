@@ -7,7 +7,8 @@
 // PLAN_DIVERGENCE_REVIEW.md. Nothing here is seeded: every value is fetched or an
 // explicit unavailable state; the Stargate capture is labeled recorded.
 
-import { C, TelemetryThesisHeading } from "./primitives";
+import { C } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import DataCollectionCard from "./DataCollectionCard";
 import ModelEvidenceCard from "./ModelEvidenceCard";
 import RulConformalCard from "./RulConformalCard";
@@ -21,10 +22,11 @@ import DeploymentReceiptCard from "./DeploymentReceiptCard";
 
 function Lead() {
   return (
-    <TelemetryThesisHeading
+    <TelemetryPageHeader
+      variant="evidence"
       eyebrow="Resume-Claim Evidence"
       title="Every claim, mapped to a live proof"
-      blurb="Each card binds to a real endpoint and fails closed when a source is missing — no seeded numbers. Honest by construction: the autoencoder is shown as the judgment artifact it is (the rolling-MAD detector is the champion), RUL is point-prediction until conformal intervals land, and the live stream is labeled recorded capture, not a live printer."
+      description="Each card binds to a real endpoint and fails closed when a source is missing — no seeded numbers. Honest by construction: the autoencoder is shown as the judgment artifact it is (the rolling-MAD detector is the champion), RUL is point-prediction until conformal intervals land, and the live stream is labeled recorded capture, not a live printer."
     />
   );
 }

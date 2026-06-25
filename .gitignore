@@ -220,3 +220,15 @@ rs_factory_seed/output/
 /aws_creds.json
 scripts/streaming/stargate/.env
 scripts/streaming/stargate/.venv/
+
+# Local credential JSON class — never commit API keys / creds / secrets dumped to disk.
+# Known-bad name plus the general class (no legit tracked files match these — checked).
+confluent_api.json
+confluent_kafka_api.json
+*_api.json
+*_creds.json
+*_credentials.json
+*credentials.json
+*_secret.json
+*_secrets.json
+secrets.json

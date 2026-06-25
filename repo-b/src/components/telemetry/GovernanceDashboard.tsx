@@ -7,9 +7,10 @@ import {
   type SecurityPosture, type PostureControl, type McpToolsResponse,
 } from "@/lib/telemetry/copilot-api";
 import {
-  C, Tag, Panel, MetricCard, Loading, ErrorState, PageHeading, DisclosureFooter,
+  C, Tag, Panel, MetricCard, Loading, ErrorState, DisclosureFooter,
   StatGrid, SplitGrid, ScrollTable, ResponsiveSwap, RowCard,
 } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 const pct = (x: number | null | undefined) => (x == null ? null : `${Math.round(x * 100)}%`);
 const ms = (x: number | null | undefined) => (x == null ? null : `${x}ms`);
@@ -51,9 +52,9 @@ export default function GovernanceDashboard() {
   }, []);
 
   const head = (
-    <PageHeading eyebrow="Evidence &amp; Lineage · Trust Center"
+    <TelemetryPageHeader variant="evidence" eyebrow="Evidence &amp; Lineage · Trust Center"
       title="Trust Center — why you can trust the AI layer"
-      blurb="AI governance, security posture, model governance, and audit receipts in one place. Every number is aggregated from real logged copilot interactions and a real eval run — nothing is hardcoded. Where a metric is not available, it says so." />
+      description="AI governance, security posture, model governance, and audit receipts in one place. Every number is aggregated from real logged copilot interactions and a real eval run — nothing is hardcoded. Where a metric is not available, it says so." />
   );
   if (err) return <>{head}<ErrorState message={err} /></>;
   if (!g) return <>{head}<Loading label="Loading governance metrics…" /></>;

@@ -66,6 +66,56 @@ describe("MissionControlStream — actionable fail-closed states (hardening)", (
     expect(box.textContent).toContain("worker in this process: running");
   });
 
+  // A channel is required for the PIPELINE panel (and its broker row) to render at all.
+  const oneChannel = [{
+    channel_name: "USLAB000058", unit: "mmHg", redline_low: 700, redline_high: 790,
+    readings: [{ t: "2026-06-10T17:59:59+00:00", v: 752.1 }],
+    latest: { t: "2026-06-10T17:59:59+00:00", v: 752.1 },
+  }];
+
+  it("broker row recently checked renders its status + a fresh age, not STALE", async () => {
+    const now = Date.parse("2026-06-10T18:00:00+00:00");
+    useStreamPoll.mockReturnValue({
+      live: live({
+        source: "capture",
+        channels: oneChannel,
+        pipeline: { status: "fresh", as_of_ts: "2026-06-10T18:00:00+00:00", reason: null,
+          surfaces: {
+            broker: { status: "warm", as_of_ts: "2026-06-10T17:55:00+00:00",  // 5m ago
+              reason: "idle · 0 connectors · 0 running flink stmts · checked 17:55Z" },
+          } },
+      }),
+      error: null, clientNowMs: now,
+    });
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    render(<MissionControlStream />);
+    expect(await screen.findByText(/idle · 0 connectors/)).toBeInTheDocument();
+    expect(screen.getByText(/5m ago/)).toBeInTheDocument();
+    expect(screen.queryByText(/STALE \(/)).toBeNull();   // 5m < 30m threshold → not stale
+    vi.restoreAllMocks();
+  });
+
+  it("broker row past the staleness threshold renders STALE with its age, even though stored status was warm", async () => {
+    const now = Date.parse("2026-06-10T18:00:00+00:00");
+    useStreamPoll.mockReturnValue({
+      live: live({
+        source: "capture",
+        channels: oneChannel,
+        pipeline: { status: "fresh", as_of_ts: "2026-06-10T18:00:00+00:00", reason: null,
+          surfaces: {
+            broker: { status: "warm", as_of_ts: "2026-06-10T17:10:00+00:00",  // 50m ago > 30m
+              reason: "idle · 0 connectors · checked 17:10Z" },
+          } },
+      }),
+      error: null, clientNowMs: now,
+    });
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    render(<MissionControlStream />);
+    // The refresh lapsed: the row must visibly age rather than imply 'warm' is current.
+    expect(await screen.findByText(/STALE \(50m ago\)/)).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
   it("a live CAPTURE feed with channels renders strips, never the unavailable box", async () => {
     useStreamPoll.mockReturnValue({
       live: live({

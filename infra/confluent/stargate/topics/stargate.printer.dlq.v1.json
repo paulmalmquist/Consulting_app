@@ -1,0 +1,6 @@
+{
+  "name": "stargate.printer.dlq.v1",
+  "is_internal": false,
+  "replication_factor": 3,
+  "partition_count": 1
+}

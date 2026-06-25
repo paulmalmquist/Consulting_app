@@ -5,8 +5,8 @@ import {
   telemetryHref,
 } from "./telemetryNav";
 
-describe("telemetry navigation structure (6-section redesign)", () => {
-  it("exposes exactly the six redesign sections in order", () => {
+describe("telemetry navigation structure (6-section redesign + Data Engineering)", () => {
+  it("exposes the redesign sections in order, with Data Engineering last", () => {
     expect(TELEMETRY_NAV_GROUPS).toEqual([
       "Overview",
       "Operations",
@@ -14,10 +14,11 @@ describe("telemetry navigation structure (6-section redesign)", () => {
       "Factory & Quality",
       "Evidence & Lineage",
       "Agent Operations",
+      "Data Engineering",
     ]);
   });
 
-  it("assigns every nav item to one of the six declared groups", () => {
+  it("assigns every nav item to one of the declared groups", () => {
     for (const item of TELEMETRY_NAV) {
       expect(TELEMETRY_NAV_GROUPS).toContain(item.group);
     }
@@ -31,6 +32,13 @@ describe("telemetry navigation structure (6-section redesign)", () => {
         "calibration",
         "control-tower",
         "copilot",
+        "data-engineering",
+        "data-engineering/autopsy",
+        "data-engineering/grain",
+        "data-engineering/pipelines",
+        "data-engineering/relationships",
+        "data-engineering/sources",
+        "data-engineering/workbench",
         "evidence",
         "factory",
         "factory-ml",
@@ -76,6 +84,32 @@ describe("telemetry navigation structure (6-section redesign)", () => {
         "/lab/env/env-1/telemetry/metadata",
         "env-1",
         "metadata",
+      ),
+    ).toBe(true);
+  });
+
+  it("registers the seven Data Engineering items under their group", () => {
+    const slugs = TELEMETRY_NAV.filter((n) => n.group === "Data Engineering").map((n) => n.slug);
+    expect(slugs).toEqual([
+      "data-engineering",
+      "data-engineering/grain",
+      "data-engineering/relationships",
+      "data-engineering/pipelines",
+      "data-engineering/workbench",
+      "data-engineering/autopsy",
+      "data-engineering/sources",
+    ]);
+  });
+
+  it("builds and recognizes a nested data-engineering route", () => {
+    expect(telemetryHref("env-1", "data-engineering/grain")).toBe(
+      "/lab/env/env-1/telemetry/data-engineering/grain",
+    );
+    expect(
+      isTelemetryItemActive(
+        "/lab/env/env-1/telemetry/data-engineering/grain",
+        "env-1",
+        "data-engineering/grain",
       ),
     ).toBe(true);
   });
