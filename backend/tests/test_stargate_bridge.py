@@ -112,7 +112,8 @@ class TestRulesVsBaseline:
         assert a["routing"]["routed_to"] == "anomalies"
         prov = a["provenance"]
         assert prov["provenance_source"] == "recorded_capture"
-        assert prov["kafka_topic"] == "stargate.printer.telemetry.v1"
+        # The anomaly carries the ANOMALIES-topic coordinate (its own, never the telemetry coordinate).
+        assert prov["kafka_topic"] == "stargate.printer.anomalies.v1"
         assert 0 <= prov["kafka_partition"] < 6
         assert isinstance(prov["kafka_offset"], int)
         assert prov["synthetic"] is True

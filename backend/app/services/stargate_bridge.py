@@ -83,6 +83,20 @@ SCORE_WINDOW_POINTS = 60           # trailing temps fed to the champion (matches
 RESCORE_EVERY = 5                  # rescore at most every Nth point per printer (rule fire forces it)
 
 
+def _durable_enabled() -> bool:
+    """The durable sink is default OFF. When off, the bridge never imports app.db (purity preserved)."""
+    return os.environ.get("STARGATE_DURABLE_SINK_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _sample_n() -> int:
+    """Raw telemetry is deterministically sampled (offset % N) for the durable sink; anomalies / agg5s /
+    DLQ persist in full."""
+    try:
+        return max(1, int(os.environ.get("STARGATE_SINK_SAMPLE_N", "20")))
+    except ValueError:
+        return 20
+
+
 class SeqRing:
     """Fixed-length ring with a monotonic sequence number, so each SSE
     connection can cursor through items without re-sending or deduping."""
@@ -133,8 +147,17 @@ class BridgeState:
         # the per-partition synthetic Kafka offset counter for capture-mode provenance.
         self._recent: dict[str, deque] = {}
         self._scored: dict[str, dict] = {}
-        self._offsets: dict[int, int] = defaultdict(int)
+        # Per-(topic, partition) synthetic Kafka offset counter for capture-mode provenance. Each record
+        # kind lives on its own topic (telemetry / anomalies / agg5s / dlq), so their coordinates never
+        # collide on the durable UNIQUE (env, business, topic, partition, offset).
+        self._offsets: dict[tuple[str, int], int] = defaultdict(int)
         self._since_score: dict[str, int] = defaultdict(int)
+
+    def _next_offset(self, topic: str, partition: int) -> int:
+        key = (topic, partition)
+        offset = self._offsets[key]
+        self._offsets[key] += 1
+        return offset
 
     # -- ingest -------------------------------------------------------------
 
@@ -143,17 +166,16 @@ class BridgeState:
         printer_id = record.get("printer_id", "?")
         ts_us = int(record.get("ts_us", 0))
 
-        # Kafka coordinates. Real ones arrive via kafka_meta (broker modes, wired in the cloud pass);
-        # in capture/replay they are deterministically synthesized and labeled synthetic.
+        # Telemetry-topic coordinate. Real ones arrive via kafka_meta (broker modes, wired in the cloud
+        # pass); in capture/replay they are deterministically synthesized and labeled synthetic.
         if kafka_meta is not None:
-            partition = int(kafka_meta["partition"])
-            offset = int(kafka_meta["offset"])
+            tel_partition = int(kafka_meta["partition"])
+            tel_offset = int(kafka_meta["offset"])
             schema_id = kafka_meta.get("schema_id")
             synthetic = False
         else:
-            partition = sm.synthetic_partition(printer_id)
-            offset = self._offsets[partition]
-            self._offsets[partition] += 1
+            tel_partition = sm.synthetic_partition(printer_id)
+            tel_offset = self._next_offset(StargateTopics.TELEMETRY, tel_partition)
             schema_id = None
             synthetic = True
 
@@ -171,8 +193,23 @@ class BridgeState:
             self._since_score[printer_id] = 0
             self._scored[printer_id] = self._build_scored(printer_id, record, ts_us, rule_fired, list(dq))
 
+        durable = _durable_enabled()
+        # Durable: raw telemetry, deterministically sampled (anomalies / agg5s / dlq persist in full below).
+        if durable and tel_offset % _sample_n() == 0:
+            tel_prov = self._provenance(record, printer_id, tel_partition, tel_offset, schema_id, synthetic,
+                                        StargateTopics.TELEMETRY)
+            self._sink("telemetry_sample", record, tel_prov,
+                       printer_id=printer_id, print_job_id=record.get("print_job_id"))
+
         if rule_fired:
             snap = self._scored[printer_id]
+            routing = {"routed_to": "anomalies", "reason": "cold_melt_pool_and_high_vibration"}
+            # The anomaly belongs to the anomalies topic (Flink routes it there), so it gets its OWN
+            # coordinate — never the telemetry coordinate (which would collide on the durable UNIQUE).
+            an_partition = sm.synthetic_partition(printer_id)
+            an_offset = self._next_offset(StargateTopics.ANOMALIES, an_partition)
+            an_prov = self._provenance(record, printer_id, an_partition, an_offset, None, True,
+                                       StargateTopics.ANOMALIES)
             self.rings["anomalies"].append({
                 "printer_id": printer_id,
                 "ts_us": ts_us,
@@ -183,9 +220,14 @@ class BridgeState:
                 "rule": snap["rule"],
                 "scorer": snap["scorer"],
                 "feature_window": snap["feature_window"],
-                "routing": {"routed_to": "anomalies", "reason": "cold_melt_pool_and_high_vibration"},
-                "provenance": self._provenance(record, printer_id, partition, offset, schema_id, synthetic),
+                "routing": routing,
+                "provenance": an_prov,
             })
+            if durable:
+                self._sink("anomaly", record, an_prov, printer_id=printer_id,
+                           print_job_id=record.get("print_job_id"), normalized={
+                               "rule": snap["rule"], "scorer": snap["scorer"],
+                               "feature_window": snap["feature_window"], "routing": routing})
         if emulate_flink:
             self.aggregator.add(
                 record["printer_id"], record["ts_us"],
@@ -194,6 +236,8 @@ class BridgeState:
             flush_at = now_ms if now_ms is not None else int(time.time() * 1000)
             for row in self.aggregator.flush_closed(flush_at):
                 self.rings["agg"].append(row)
+                if durable:
+                    self._sink_agg(row)
 
     def _build_scored(self, printer_id: str, record: dict, ts_us: int, rule_fired: bool,
                       recent: list[dict]) -> dict:
@@ -214,12 +258,13 @@ class BridgeState:
         }
 
     def _provenance(self, record: dict, printer_id: str, partition: int, offset: int,
-                    schema_id: int | None, synthetic: bool) -> dict:
+                    schema_id: int | None, synthetic: bool,
+                    topic: str = StargateTopics.TELEMETRY) -> dict:
         source = {"capture": "recorded_capture", "cloud": "confluent_cloud",
                   "local": "local_redpanda"}.get(self.mode, "recorded_capture")
         return {
             "provenance_source": source,
-            "kafka_topic": StargateTopics.TELEMETRY,
+            "kafka_topic": topic,
             "kafka_partition": partition,
             "kafka_offset": offset,
             "schema_id": schema_id,
@@ -228,14 +273,50 @@ class BridgeState:
             "synthetic": synthetic,
         }
 
+    # -- durable sink (gated, lazy, best-effort — never breaks the SSE hot path) ----------
+
+    def _sink(self, record_kind: str, decoded: dict, provenance: dict, *,
+              normalized: dict | None = None, printer_id: str | None = None,
+              print_job_id: str | None = None) -> None:
+        """Persist one durable row when STARGATE_DURABLE_SINK_ENABLED. Lazy-imports app.db ONLY here, so
+        the bridge stays import-pure when the sink is off. Any DB failure is swallowed: the live stream
+        must never break because a durable write failed."""
+        try:
+            from app.db import get_telemetry_cursor   # lazy: reached only when the sink is enabled
+            from app.services import telemetry_stream_consumer as sink
+
+            env_id = os.environ.get("STARGATE_SINK_ENV_ID", "telemetry-demo")
+            business_id = os.environ.get("STARGATE_SINK_BUSINESS_ID",
+                                         "7e1eb000-0000-4000-a000-000000000001")
+            with get_telemetry_cursor() as cur:
+                sink.persist_kafka_row(
+                    cur, env_id=env_id, business_id=business_id, record_kind=record_kind,
+                    provenance=provenance, decoded_payload=decoded, normalized_payload=normalized,
+                    printer_id=printer_id, print_job_id=print_job_id)
+        except Exception:
+            pass  # best-effort; the SSE hot path is never blocked by a durable-sink failure
+
+    def _sink_agg(self, row: dict) -> None:
+        printer_id = row.get("printer_id")
+        partition = sm.synthetic_partition(printer_id or "?")
+        offset = self._next_offset(StargateTopics.AGG_5S, partition)
+        prov = self._provenance(row, printer_id or "?", partition, offset, None, True, StargateTopics.AGG_5S)
+        self._sink("agg5s", row, prov, printer_id=printer_id)
+
     def ingest_dlq(self, topic: str, reason: str, raw: bytes) -> None:
-        self.rings["dlq"].append({
+        entry = {
             "ts_ms": int(time.time() * 1000),
             "topic": topic,
             "reason": reason,
             "raw_preview": base64.b64encode(raw[:64]).decode("ascii"),
             "raw_bytes": len(raw),
-        })
+        }
+        self.rings["dlq"].append(entry)
+        if _durable_enabled():
+            partition = 0
+            offset = self._next_offset(StargateTopics.DEAD_LETTER, partition)
+            prov = self._provenance(entry, "?", partition, offset, None, True, StargateTopics.DEAD_LETTER)
+            self._sink("dlq", entry, prov)
 
     def _mark_in(self) -> None:
         self.msgs_in += 1

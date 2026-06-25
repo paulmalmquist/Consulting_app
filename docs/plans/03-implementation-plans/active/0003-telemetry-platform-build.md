@@ -316,4 +316,22 @@ high arm vibration (>0.08g)", never "high temp."
 | Chart highlight | `TempVibrationChart` gains an optional `highlight` ReferenceArea (±30s) driven by the drawer |
 | Tests | backend `test_stargate_provenance_route.py` (3: both distinct reasons + row found). Frontend vitest **22 passed** across 5 stargate files: `RulesVsBaselineLane` (labels, fail-closed, baseline-ahead wording, no "high temp"), `AnomalyInspectionDrawer` (synthetic banner, fail-closed score, durable-sink vs not-found distinct copy, copy buttons, view-60s callback), `StargateConsole.deeplink` (reopen + missing-window). `tsc --noEmit` clean on touched files; eslint clean |
 
-Next: T2 (durable sink writing `tel_stream_kafka_rows`), then the live Confluent round-trip sign-off pass.
+### T2 — durable sink + provenance hydration (LANDED, default-off)
+
+A full BROKER consumer (`TelemetryStreamConsumer`, `build_row`, `persist_row`, triage handling) already
+existed concurrently for the live Confluent path. T2 ADDED the capture-mode pieces the spec named that were
+missing — no rewrite of the broker consumer, no new tables, no schema changes (10033 + 10034 already exist;
+`record_kind` admits `telemetry_sample|anomaly|agg5s|dlq`).
+
+| Item | Result |
+|---|---|
+| Sink API (`telemetry_stream_consumer.py`) | added `make_provenance(mode, record, partition_count=6)` (broker preserves real topic/partition/offset/schema; capture synthesizes deterministic + labeled), `persist_kafka_row(cur, ...)` (`INSERT ... ON CONFLICT (env_id,business_id,kafka_topic,kafka_partition,kafka_offset) DO NOTHING`; score/features/routing → `normalized_payload`, decoded event → `decoded_payload`), `commit_stream_offset`, `get_kafka_row_by_coords`, `tail_kafka_rows`. All cursor-based; all set the `app.env_id` RLS GUC (the telemetry cursor does not) |
+| Synthetic schema_id | `schema_id` is NOT NULL on the table, so capture rows write the `SYNTHETIC_SCHEMA_ID` sentinel WITH `schema_null_reason='capture_mode_synthetic_schema_id'` — honestly flagged. Databricks pointer fails closed (`not_available` / `databricks_table_mapping_not_configured`) |
+| Bridge hook | gated `STARGATE_DURABLE_SINK_ENABLED` (default off); **lazy `app.db` import only inside the gated branch** (purity preserved); **best-effort** — any DB failure is swallowed, the SSE hot path never breaks. Persists raw telemetry sampled (`offset % STARGATE_SINK_SAMPLE_N`), anomalies / agg5s / DLQ in full |
+| Per-topic coordinates | each kind lives on its own topic (telemetry / anomalies / agg5s / dlq) with its own synthetic offset counter, so they never collide on the durable UNIQUE. The anomaly now carries the **anomalies-topic** coordinate in BOTH the SSE frame and the durable row, so the drawer's deep-link `topic:partition:offset` matches the durable row |
+| Routes | `/api/telemetry/stargate/provenance` refactored to read via `get_kafka_row_by_coords` (single read path); added `/api/telemetry/stargate/anomalies/tail` (survives-reload anomaly feed). Both keep `durable_sink_not_enabled` vs `provenance_not_found` fail-closed |
+| Tests | `test_stargate_durable_sink.py` (make_provenance capture+broker, raw sampling, ON CONFLICT + GUC, synthetic sentinel, commit/read SQL, bridge hook: flag-off no-DB, flag-on persists anomaly on the anomalies topic, DB-failure-doesn't-break-SSE, raw-sampled-but-anomaly-full). Full telemetry+stargate suite **214 passed / 2 skipped** (incl. existing broker-consumer tests + determinism, no regression) |
+
+**Not done yet — sign-off blocked on the live Confluent pass:** un-park cluster → register proto v3 →
+`producer --mode cloud` → bridge in cloud mode with the durable sink on (real broker coordinates) → verify a
+`tel_stream_kafka_rows` row's provenance equals the broker coordinates and open it from the drawer → re-park.
