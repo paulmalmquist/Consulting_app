@@ -53,6 +53,10 @@ class StargateTopics:
     AGG_5S = "stargate.printer.telemetry.agg5s.v1"
     ANOMALIES = "stargate.printer.anomalies.v1"
     DEAD_LETTER = "stargate.printer.dlq.v1"
+    # AI-triage output (Confluent Streaming Agent explains upstream anomalies; it
+    # is not the detector). Consumed by the durable serving-slice consumer, not
+    # the in-memory SSE bridge below.
+    TRIAGE = "stargate.printer.anomaly.triage.v1"
 
 
 def telemetry_message_class():
