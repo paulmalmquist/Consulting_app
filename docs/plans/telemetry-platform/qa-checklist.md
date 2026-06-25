@@ -30,3 +30,9 @@ Will cover, per `docs/plans/_templates/qa-checklist-template.md`:
 - [x] Desktop, drawer/trace, and mobile screenshots are stored under
   `docs/evidence/telemetry-metadata-explorer/`.
 - [ ] Repeat endpoint and browser smoke after deployment.
+
+## Page header system (dispatch 0009)
+- [ ] Every nav page + the two standalone operational routes use the `TelemetryPageHeader` family; Overview is the only `hero`.
+- [ ] Each page has exactly one `<h1>`; titles wrap cleanly and metadata/actions stack without overflow at 390 / 1024 / desktop.
+- [ ] Live verdicts/lag/controls/chips/timestamps and fail-closed copy still render (now in header slots); dark-mode title + body text meet WCAG AA.
+- [ ] `npx playwright test tests/telemetry-page-headers.spec.ts` green; header-system screenshots captured (Overview, Mission Control, Model Performance, Metadata Explorer, Resume Evidence).

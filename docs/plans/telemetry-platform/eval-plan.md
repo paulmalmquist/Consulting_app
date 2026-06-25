@@ -63,3 +63,7 @@ curl -s "http://localhost:8000/monitoring?env_id=<env>" | jq '{psi, anomaly_rate
 
 - [ ] `/score` returns score + go/no-go + model_version + run_id + persistence receipt + attribution.
 - [ ] `/monitoring` returns a PSI value.
+
+## Page header system (dispatch 0009)
+- [ ] `tests/telemetry-page-headers.spec.ts`: one `<h1>` + correct eyebrow/title per variant (hero/compact/standard/evidence) across representative pages, under chromium + webkit projects.
+- [ ] No header migration changed any metric, claim, null_reason, or fail-closed string (asserted by the existing per-component vitest suites, which stay green).

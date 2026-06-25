@@ -4266,3 +4266,29 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 - **Adding a telemetry sidebar group is data-only** in `telemetryNav.ts` (add to `TelemetryNavGroup` union + `TELEMETRY_NAV_GROUPS` + `TELEMETRY_NAV`); the sidebar auto-renders. BUT `TelemetrySidebar.tsx` has a `GROUP_ACCENT: Record<TelemetryNavGroup, string>` — a new group breaks tsc until you add its accent. Nested slugs like `data-engineering/grain` work directly through `telemetryHref`/`isTelemetryItemActive` (the parent overview item also highlights on child routes — acceptable).
 - **Old-route compatibility = server `redirect()`** from `next/navigation` in each old page.tsx (Next 14, env params via `await params`). The wrapping layout still renders, so also strip its shell wrap (`AdeLayout` → `return <>{children}</>`) since the redirect short-circuits anyway.
 - **vitest unhandled-rejection guard fails "fail-closed" tests** that mock a fetch with `mockRejectedValue` (already-rejected promise rejects before the component's `.catch` attaches; the rejection fires post-teardown via the timer and is attributed to the test). Fix: mirror the repo pattern — `mockResolvedValue(null)` and make the component treat a null/falsy fetch result as the fail-closed state too (real `apiFetch` can both throw AND the test can resolve-null). One branch, both paths covered, no rejection.
+
+## Telemetry page header system (dispatch 0009, 2026-06-24)
+
+- **One header family across a 20-route env.** `TelemetryPageHeader` with four role-based variants
+  (`hero` opening page only · `evidence` evidence/lineage · `standard` analytical · `compact` operational)
+  makes every route scan as one typographic system. Migrate page-by-page (one ticket per role group),
+  each with tsc + the page's vitest + a screenshot, so a bad swap is caught before merge.
+- **Reuse the env's already-loaded fonts.** Cormorant (`--font-editorial`) + Inter Tight (`--font-display`)
+  + JetBrains Mono were already wired via next/font in `app/layout.tsx` and exposed as CSS vars on `<html>`
+  — the header references the vars; no new font infra. Editorial serif for hero/evidence titles, Inter
+  Tight for standard/compact, mono for eyebrows/ids/metrics; colors stay on the `C` palette.
+- **The header carries no data.** It exposes `metadata`/`actions`/`metrics` slots; callers move their
+  EXISTING live chips/lag/verdict/controls/source-strips into those slots verbatim (preserve onClick,
+  disabled, live state, and every string). Fail-closed states and copy never change in a header migration.
+- **Migrating a header ≠ touching the body.** For RS consoles (Registry, Factory/NCR, Mission Control)
+  swap only the top strip to the header; keep the RS body, charts, drawers, and honesty copy. For a page
+  whose error/empty branch returns BEFORE the header (e.g. MetadataExplorer), the header won't show in
+  that state — that's fine; cover it with the component's unit test, not a data-dependent screenshot.
+- **Parallel subagents per file work well for a mechanical, well-specified swap** with strict
+  "byte-identical strings, run tsc+test+lint" rules — but always re-run a CENTRAL tsc+lint+vitest after,
+  because a `next lint` run issued mid-edit by one agent will report a transient parse error in a file
+  another agent is still writing (it resolves once both finish).
+- **Local screenshot harness for env pages:** dev server with `PLAYWRIGHT_BYPASS_AUTH=1` (admin session →
+  env access) + `BOS_API_ORIGIN=<railway backend>` so `/api/telemetry/*` proxies to real data; junction
+  `node_modules` into the worktree; Playwright at 1440×900, env `telemetry-demo`. The playwright.config
+  webServer already sets `PLAYWRIGHT_BYPASS_AUTH=1` for `tests/*.spec.ts`.

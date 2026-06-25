@@ -1,7 +1,7 @@
 # Dispatch Record 0009 — Telemetry Page Header System Migration
 
 **Created:** 2026-06-24
-**Status:** IN PROGRESS — Ticket 1 (foundation + Overview hero) DONE + merged. Tickets 2–4 open.
+**Status:** COMPLETE — all 4 tickets merged (#335 foundation+hero, #338 operations→compact, #339 models/factory→standard, evidence/lineage→evidence). `TelemetryPageHeader` leads every telemetry route; Overview is the only hero. `tests/telemetry-page-headers.spec.ts` + docs added. Optional follow-up: header-system multi-viewport screenshot set under `telemetry-platform/docs/screenshots/header-system/`.
 **Environment:** Telemetry Platform (`repo-b/src/app/lab/env/[envId]/telemetry/`, `repo-b/src/components/telemetry/`)
 **Owner:** lab-environment-winston (frontend support + QA verification)
 **ADO:** Epic #497 → Feature #721 "Telemetry Frontend Production-Readiness Refactor". Four focused User
