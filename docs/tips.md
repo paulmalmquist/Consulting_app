@@ -4326,3 +4326,33 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
   generated Claude wrapper is missing.
 - Never store credential values in instructions, reports, transcripts, tips, or
   automatic memory.
+
+## Overview pages as thesis pages (telemetry Overview redesign)
+
+- **An Overview page is the thesis, not a gallery.** The job is to make the rest of the product feel
+  necessary in one coherent surface — stop saying "here are some interesting visuals," start saying
+  "this is why the rest of this exists." Lead with one argument, one hero visualization, one strong
+  explanatory card, and a clear path onward; cut anything that doesn't serve that line.
+- **Reduce chart fragmentation: one integrated hero beats three widgets.** Three sibling tabs
+  (Bottleneck Map / Cost to LEO / Who Flies) read as disconnected dashboards. Collapsing them — keep the
+  primary chart, demote one series to a headline number, fold the third into the hero as a contextual
+  layer — turns "three things to explain" into "one thing to absorb."
+- **Integrate a contextual layer as a subordinate underlay, not a co-equal series.** Render it FIRST in
+  a recharts ComposedChart (DOM order = paint order, so it sits behind bars/scatter), give it its own
+  hidden axis, and keep it quiet (low fill/stroke opacity). Label it honestly ("contextual underlay") so
+  it reads as backdrop, never as the primary signal. Map its domain so the wave stays low in the frame.
+- **A Play/guided-story control beats a generic "Present" button.** A ▶ Play affordance implies a
+  walkthrough; reuse the existing presenter step-state instead of building new behavior. If full
+  step-through isn't feasible, still replace the control visually and leave the behavior staged honestly
+  — never fake hidden pseudo-functionality.
+- **Make explanatory burden explicit with a rail, not inference.** A compact "constraint solved → new
+  burden created" strip tied to the chart does the thesis work the bubbles alone can't. Keep it
+  qualitative — never fabricate volume numbers to make a point land.
+- **Preserve evidence/claim integrity during a visual redesign.** A composition pass must not touch
+  shipped ML/evidence values, artifacts, caveats, or fail-closed behavior. Keep edits to
+  page-composition/narrative/visualization; render Big Numbers locally rather than editing a *shared*
+  header component (blast radius); and keep source honesty loud — if an ETL isn't wired, say
+  "source ETL not connected — curated/static anchors," don't imply a live feed.
+- **In a contended frontend zone, ship the conflict-free way.** Confirm the target files are settled
+  (no in-flight PRs touching them) before editing, work in an isolated worktree off origin/main with a
+  junctioned node_modules, stay strictly within the assigned files, and land fast.
