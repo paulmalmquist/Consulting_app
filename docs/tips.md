@@ -4292,3 +4292,29 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
   env access) + `BOS_API_ORIGIN=<railway backend>` so `/api/telemetry/*` proxies to real data; junction
   `node_modules` into the worktree; Playwright at 1440×900, env `telemetry-demo`. The playwright.config
   webServer already sets `PLAYWRIGHT_BYPASS_AUTH=1` for `tests/*.spec.ts`.
+## Finalizing an evidence program into a proof package (divergence wrap)
+
+- **Distinguish live vs compute-only findings explicitly.** A finding is "LIVE + verified" only if a card
+  on a prod page reads its committed artifact AND it was prod-smoked with a screenshot. "Compute shipped"
+  = reproducible artifact + eval test landed, but no UI yet. Never blur the two in the matrix or demo — a
+  reviewer trusts the distinction more than a uniform "done".
+- **Refusing a fabricated spin is a feature, not a gap.** When the data shape doesn't support an idea
+  (e.g. a feature-completeness gate with no multi-rate/late-arriving data), DECLINE it and say so out loud.
+  "We didn't fabricate Spin 4" earns more credibility than another overbuilt chart. Record the rejection in
+  the plan + matrix as a first-class outcome.
+- **Turn negative results into presentation-ready proof.** The strongest demo beats are "built the obvious
+  thing → measured → found the break → shipped the fix": the degenerate autoencoder (fixed via regime
+  conditioning), the conformal calibration that under-covered at 0.44 until the calibration set was fixed,
+  point-adjusted vs honest F1. Package each as a judgment artifact with the before/after number.
+- **Card handoff notes for a parallel frontend agent.** When ML compute lands but the frontend is being
+  refactored by someone else: copy the artifact `telemetry-platform/*_evidence.json` →
+  `repo-b/src/lib/telemetry/*.json`, render onto the evidence-card contract (`sourceStatus: "computed"`,
+  label "not live serving"), mirror an existing card (RulConformal/RegimeAnomaly), and **preserve the
+  values + caveat strings byte-identical — no recomputation in the frontend.** Put the notes in a repo-root
+  manifest, not in their component dir (avoid touching contested files).
+- **Three demo lengths.** Author a 5/10/20-minute walkthrough with what-to-click / what-to-say /
+  what-NOT-to-claim / gotcha-answers. The "what not to claim" + "gotcha answers" sections are what keep a
+  live demo honest under a sharp interviewer; write them before the demo, not during.
+- **Keep the package tight.** Once the strong findings are live and the story is clear, STOP expanding ML.
+  A robustness sweep is intellectually good but strategically weaker than a story that's impossible to
+  miss; queue it behind "demo script is tight", not ahead of it.

@@ -383,3 +383,30 @@ SMAP/MSL streams):
 
 Remaining tail: Spin 4 (completeness — needs multi-rate data, would be simulated) and Spin 7-anomaly
 (grouped split — likely null on a fixed-K per-channel rule). Both weak/optional.
+
+---
+
+## FINAL STATUS — divergence program complete (wrap)
+
+All seven original spins + derived A/B are addressed. The six-beat story:
+1. **Uncertainty changes the call** (Spin 3) · 2. **Regime mismatch breaks naive detection** (Spin 1) ·
+3. **Out-of-envelope inputs abstain** (Spin 5) · 4. **Lead-lag separates root cause from coupling** (Spin 2) ·
+5. **Analog retrieval is real but modest** (Spin 6) · 6. **Unsupported ideas are rejected, not fabricated** (Spin 4).
+
+| Spin | Final status | Headline |
+|---|---|---|
+| 1 regime-conditioned anomaly | **LIVE + verified** | worst-regime FP 100%→10.2% (90% reduction); η² 1.0→0 — fixes the degenerate AE |
+| 2 sensor lead-lag attribution | **compute shipped · UI card deferred** | 14/15 sensors deviate at failure (93% redundant); leads 9/14/11; ~11-cycle downstream lag |
+| 3 conformal lower-bound RUL | **LIVE + verified** | PICP 0.86 @ 0.90; 15/100 units flip on the lower bound |
+| 4 feature-completeness gate | **declined — not feasible without fabricated data** | no multi-rate/late-arriving signal in public data; rejected, not faked |
+| 5 pre-test competence envelope | **LIVE + verified** | FD001 98.9% in-envelope; FD004 90.5% out → abstain |
+| 6 event-windowed analog retrieval | **compute shipped · UI card deferred** | modest +8% lift, 9% precedent overlap — real, not magic |
+| 7 grouped walk-forward | **done (RUL) / null-by-construction (anomaly)** | RUL grouped-by-unit + leakage control passes |
+| A degenerate autoencoder | **surfaced + fixed by Spin 1** | built→measured→broke→fixed judgment artifact |
+| B honest vs point-adjusted F1 | **already in the system** | gate uses affiliation/event metrics, not inflated F1 |
+
+Three findings (1/3/5) are **live + prod-verified** on `/telemetry/evidence`; two (2/6) are **compute
+shipped** with reproducible artifacts and eval tests, UI cards deferred behind a concurrent frontend
+refactor (handoff notes in `DIVERGENCE_RECEIPTS_MANIFEST.md`). Spin 4 is **declined for lack of supporting
+data** — the tell that the rest is real. Demo walkthroughs: `DIVERGENCE_FINDINGS_DEMO_SCRIPT.md`.
+**No further ML expansion** — the package is intentionally tight.

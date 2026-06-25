@@ -100,3 +100,17 @@ identify sensors **9/14/11** as the consistent leads (~80 cycles lead time), dow
 cycles**. **Must NOT overclaim:** C-MAPSS is simulated; onset is a threshold-crossing, not a calibrated
 change-point; lead-lag narrows root-cause search, it does not assign physical cause. ML-only; UI card
 deferred (parallel agent owns the telemetry frontend).
+
+---
+
+## FINAL STATE (divergence wrap)
+
+- **LIVE + verified** on `/telemetry/evidence`: Spin 1 (regime anomaly), Spin 3 (conformal RUL), Spin 5
+  (competence envelope). Cards read committed artifacts; no seeded-as-live values.
+- **Compute shipped · UI card deferred** (handoff in `DIVERGENCE_RECEIPTS_MANIFEST.md`): Spin 2 (lead-lag
+  attribution) and Spin 6 (event-windowed analog retrieval). Reproducible artifacts + eval tests; cards
+  wired onto the new evidence-card contract after the concurrent frontend refactor lands.
+- **Spin 4 (feature-completeness): NOT FEASIBLE without a fabricated scenario** — declined, not faked.
+- **Spin 6 stays MODEST** (+8% lift), never oversold; linked dispositions are unavailable, shown as such.
+- Nothing in this matrix is weakened: every claim is live-verified, compute-reproducible, or honestly
+  declined. The degenerate autoencoder remains a **liability/judgment artifact**, not a working detector.
