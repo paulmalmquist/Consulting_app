@@ -1,242 +1,89 @@
 ---
-id: feature-dev
-kind: skill
-status: active
-source_of_truth: true
-topic: feature-delivery
-owners:
-  - backend
-  - repo-b
-  - repo-c
-  - scripts
-  - orchestration
-intent_tags:
-  - build
-  - bugfix
-triggers:
-  - implement
-  - fix
-  - build
-  - add
-  - wire up
-entrypoint: true
-handoff_to:
-  - builder-winston
-when_to_use: "Use when the user wants code written or behavior changed in a Winston repo surface."
-when_not_to_use: "Do not use for deploy-only, sync-only, research-only, or QA-only requests after CLAUDE.md has already selected a narrower workflow."
-surface_paths:
-  - backend/
-  - repo-b/
-  - repo-c/
-  - scripts/
-  - orchestration/
 name: feature-dev
-description: "Full-cycle feature delivery for the Winston monorepo. Use this skill whenever the user describes a new feature, endpoint, component, page, bug fix, or data model change, including add, build, implement, create, fix, or wire up requests."
+description: Implement scoped Winston features, bug fixes, refactors, tests, and documentation changes across backend, repo-b, telemetry-platform, Excel, orchestration, scripts, and docs. Use when the user asks to build, implement, fix, add, change, create, or refactor repository behavior. Classify ADO risk first and finish through full delivery unless the user narrows the endpoint.
 ---
 
-# Feature Dev — Winston Monorepo
+# Feature Development
 
-Selection and owning-surface routing live in `CLAUDE.md`. This skill starts after the primary repo surface has already been chosen.
+Read `CLAUDE.md`, then use `winston-session-start` before mutation.
 
-## BANNED PATTERNS — violations mean the task is INCOMPLETE
+## Orient
 
-```
-- Writing a code block without executing it when you have shell access
-- Saying "the tests should pass" without running them
-- Describing a deployment without running the deploy command
-- Using "would", "could", or "should" in completion statements
-- Showing terminal commands without executing them
-- Saying "done" without a smoke test HTTP status code
-```
+1. Resolve the repository root and use a dedicated worktree from fresh
+   `origin/main`.
+2. Identify the primary write owner, affected surfaces, acceptance criteria,
+   explicit non-goals, and ADO risk.
+3. Confirm the R2 Session Brief when required.
+4. Read adjacent implementation and the relevant architecture/plan files.
+5. Run focused baseline checks. Record unrelated pre-existing failures; do not
+   fix them or stop automatically when the scoped path can still be verified.
 
-Replace "this would work" with "I ran this and the output was..."
+Scope is defined by one coherent ticket, not by one directory. Cross-surface
+changes are valid when the same acceptance criteria require them.
 
----
+## Implement
 
-## Workflow States — MANDATORY, follow in order
+- Make the smallest durable change that satisfies the acceptance criteria.
+- Preserve unrelated user changes.
+- Follow adjacent patterns and current runtime ownership.
+- Keep one primary writer. Supporting agents are read-only unless assigned
+  explicit, non-overlapping files.
+- Do not add silent fallbacks, fabricated data, invented metrics, or false
+  success states.
+- Do not read or print secret values unless the scoped operation requires the
+  credential; never place values in logs or docs.
 
-You CANNOT reach COMPLETE without passing through every state.
-A response without terminal output from the TESTING state is INCOMPLETE.
+## Verify
 
-## Database Rules — mandatory for any schema-affecting task
-
-Read [`ARCHITECTURE.md`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/ARCHITECTURE.md) before editing [`repo-b/db/schema/`](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/repo-b/db/schema).
-
-1. Every `CREATE TABLE` must be paired with `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and a tenant-isolation policy.
-2. Every new user-facing table must include `env_id TEXT NOT NULL` and `business_id UUID NOT NULL` unless `ARCHITECTURE.md` exempts it.
-3. Before creating a table, confirm an equivalent table does not already exist.
-4. Migration names must follow `NNN_module_description.sql`.
-5. Only approved prefixes from `ARCHITECTURE.md` may be used.
-6. New indexes require a specific query-path justification.
-7. Add `COMMENT ON TABLE` for every new table.
-
-### STATE: orienting
-- **ADO precondition**: confirm an approved Session Brief exists for this work
-  (ADO work item ID + acceptance criteria). If none exists, STOP — route back to
-  `.skills/azure-devops-intake/SKILL.md`. Do not start coding without a brief.
-- Move the ADO work item to **`Active`**:
-  `& $az boards work-item update --id <id> --state "Active" --org https://dev.azure.com/paulmalmquist1984`
-- Read CLAUDE.md: `cat CLAUDE.md`
-- If schema may change, read ARCHITECTURE.md: `cat ARCHITECTURE.md`
-- Identify which runtime owns this feature (repo-b, backend, repo-c)
-- Confirm: "I will modify files ONLY in `<service>/`"
-- Run baseline tests to confirm they pass BEFORE you write anything:
-  - backend change → `make test-backend 2>&1 | tail -5`
-  - frontend change → `make test-frontend 2>&1 | tail -5`
-- If baseline is red: STOP. Report. Do not proceed.
-- Valid transition → **implementing**
-
-### STATE: implementing
-- Write minimal code changes to actual files
-- Follow existing patterns in adjacent files — don't invent new ones
-- REQUIRES: code written to actual files (not just displayed)
-- Valid transition → **testing**
-
-### STATE: testing
-- Run `make test-{service}` — paste the FULL last 30 lines of output
-- If tests fail → read error → fix → return to **implementing**
-- REQUIRES: `make test-backend` exit code 0 OR `make test-frontend` exit code 0
-- REQUIRES: actual terminal output pasted, not described
-- Valid transition → **deploying**
-
-### STATE: deploying
-- `git add <specific files>` — never `git add -A`
-- `git commit -m "<type>(<scope>): <description>"`
-- `git push`
-- Frontend → Vercel auto-deploys. Poll: `gh run list --limit 3`
-- Backend → `cd backend && railway up --service authentic-sparkle --detach`
-  Poll: `railway deployment list --service authentic-sparkle | head -5`
-- Schema changed → `make db:migrate && make db:verify`
-- REQUIRES: deploy command executed with output captured
-- Valid transition → **verifying**
-
-### STATE: verifying
-- Curl the deployed endpoint — paste the actual response:
-
-```bash
-export RAIL="https://authentic-sparkle-production-7f37.up.railway.app"
-export VERC="https://www.paulmalmquist.com"
-export BIZ="a1b2c3d4-0001-0001-0001-000000000001"
-export ENV="a1b2c3d4-0001-0001-0003-000000000001"
-
-# Next route handler:
-curl -s "$VERC/api/re/v2/<your-route>?env_id=$ENV" | python3 -m json.tool
-
-# BOS backend:
-curl -s "$RAIL/api/<your-route>?env_id=$ENV&business_id=$BIZ" | python3 -m json.tool
-```
-
-- Open browser → navigate to paulmalmquist.com → trigger the feature as a real user
-- Take a screenshot confirming the UI reflects the change
-- REQUIRES: HTTP 200 from deployed endpoint
-- REQUIRES: screenshot of live site
-- Valid transition → **complete**
-
----
-
-## ADO state-transition discipline — no fake completion status
-
-- `Active` — set in the **orienting** state when implementation starts.
-- `Resolved` — set when code, tests, and evidence are ready for review.
-- `Closed` — set **only** when the PR is merged AND the required deploy/smoke
-  criteria below are actually verified. If merge or deploy did not happen,
-  leave the work item at `Resolved`. Never close on local success alone.
+Use focused commands first, then the relevant broader gate:
 
 ```powershell
-$az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-& $az boards work-item update --id <id> --state "Resolved" --org https://dev.azure.com/paulmalmquist1984
+# Frontend
+npm --prefix repo-b run typecheck
+npm --prefix repo-b run lint
+npm --prefix repo-b run test:unit
+
+# Backend
+python -m pytest <focused-test-paths>
+
+# Instructions
+npm run generate:instructions
+npm run validate:instructions
+npm run test:instructions
 ```
 
-## ADO audit comment — required every session
+For schema work:
 
-Append a discussion comment to the work item — a state change alone is not
-enough. Include branch/commit/PR, files changed, tests run, evidence, risks,
-and the next recommended work item:
+- Read `ARCHITECTURE.md`.
+- Identify the actual owning database; telemetry `tel_*` serving tables do not
+  use the same path as ordinary Supabase tables.
+- Verify the required owner and migration procedure before applying anything.
+- Use `apply-pending-migrations` only after review.
 
-```powershell
-& $az boards work-item update --id <id> --discussion "<audit comment text>" --org https://dev.azure.com/paulmalmquist1984
-```
+## Deliver
 
-Attach links: any PR, branch, commit, screenshot, Playwright trace, deployment
-URL, or test artifact that exists must be linked from the work item so ADO is
-the real system of record.
+Invoke `winston-full-delivery` unless the user explicitly requested a local-only
+or plan-only endpoint.
 
----
+- Commit and push from the isolated worktree.
+- Open the PR and monitor CI.
+- Merge before production deployment.
+- Frontend deploys through the merged `main` Vercel build.
+- Backend deploys only from a clean `main` checkout.
+- Run scoped production smoke verification.
+- Update ADO only when the task was gated or explicitly tracked.
 
-## Completion Criteria — ALL must be true before declaring done
+## Completion report
 
-```
-[ ] Code written to correct service directory
-[ ] `make test-{service}` passes — output included
-[ ] Deploy command executed — output included
-[ ] Smoke test returns expected HTTP status — output included
-[ ] Browser screenshot confirms feature visible on paulmalmquist.com
-[ ] ADO work item state moved (Resolved, or Closed only if merged + deploy/smoke verified)
-[ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
-[ ] PR/branch/artifact links attached to the ADO work item
-```
+Report:
 
-Produce this block at the end of every response:
+- scope and outcome
+- files changed
+- tests and exact results
+- commit, branch, PR, CI, merge
+- applicable deployment and smoke evidence
+- ADO state/comment when gated
+- risks, deferred items, and next safe command
 
-```
-## Execution Evidence
-- **Command run:** `<exact command>`
-- **Exit code:** <0 or error code>
-- **Output (last 30 lines):** <paste actual output>
-- **Tests passing:** <YES/NO with count>
-- **Smoke test:** <PASS/FAIL — endpoint + HTTP status code>
-- **Browser verification:** <screenshot or description of what was visible>
-```
-
----
-
-## Surface routing — decide this first
-
-| Feature type | Service | Test command | Deploy |
-|---|---|---|---|
-| UI page/component | `repo-b/src/` | `make test-frontend` | `git push` → Vercel |
-| RE v2 data endpoint | `repo-b/src/app/api/re/v2/*` | `make test-frontend` | `git push` → Vercel |
-| Business OS API | `backend/app/routes/` + `backend/app/services/` | `make test-backend` | `railway up` |
-| Demo Lab | `repo-c/app/` | `make test-demo` | see tips.md |
-| Schema change | `repo-b/db/schema/*.sql` | `make db:verify` | `make db:migrate` |
-
-**API pattern check:**
-- `bosFetch()` → BOS FastAPI backend (port 8000, Pattern A)
-- Direct fetch `/api/re/v2/*` → Next route handler, NO FastAPI (Pattern B)
-- `apiFetch()` → Demo Lab (port 8001, Pattern C)
-
-**Critical IDs** (most RE flows need both):
-- Business: `a1b2c3d4-0001-0001-0001-000000000001`
-- Env: `a1b2c3d4-0001-0001-0003-000000000001`
-- Empty data = missing context, not a UI bug.
-
----
-
-## Test patterns
-
-**Backend (FakeCursor — no real DB needed):**
-```python
-def test_<feature>(client, fake_cursor):
-    fake_cursor.return_value = [{"id": "abc", "name": "test"}]
-    resp = client.get("/api/<path>?env_id=x&business_id=y")
-    assert resp.status_code == 200
-    assert resp.json()[0]["name"] == "test"
-```
-
-**Next route handler (Vitest + mocked getPool):**
-```typescript
-vi.mock('@/lib/server/db', () => ({ getPool: vi.fn() }))
-// Reference: repo-b/src/app/api/repe/funds/[fundId]/route.test.ts
-```
-
-**`"use client"` components** require `import React from "react"` — Vitest/jsdom does NOT auto-inject it.
-
----
-
-## Anti-loop rules
-
-- Never "keep going" after reaching **complete**
-- Never refactor to "make it cleaner" — only what the task requires
-- Never fix unrelated warnings or failures
-- If baseline tests are red: STOP and report. Do not implement.
-- Work on one deliverable at a time. After each: STOP. Verify. Proceed.
+Never label partial delivery complete. Update `next-session.md` only when work
+remains and `docs/tips.md` only for a durable repeated lesson.

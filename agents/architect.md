@@ -50,5 +50,5 @@ Focus areas:
 - `backend/app/mcp/` MCP registry, tool contracts, permissions, and audit
 - AI gateway, prompt, RAG, and assistant behavior surfaces spanning `backend/` and `repo-b/`
 - `repo-b/` Next.js frontend and SQL-first schema
-- `repo-c/` Demo Lab backend
+- canonical Demo Lab compatibility APIs in `backend/`
 - `excel-addin/`, `orchestration/`, `scripts/`, `docs/`, `supabase/`

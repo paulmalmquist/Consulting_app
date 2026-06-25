@@ -92,8 +92,10 @@ if ($deletedCount -gt 20) {
 # ---------------------------------------------------------------------------
 # Gate 3: Skip markers added on this branch
 # ---------------------------------------------------------------------------
-$skipPatterns = @('pytest.mark.skip', '@skip', 'it\.skip', 'test\.skip', 'xit\(', 'xdescribe\(', 'TODO.*skip')
-$diffText = git diff $BaseBranch 2>$null
+$skipPatterns = @('pytest.mark.skip', '@skip', 'it\.skip', 'test\.skip', '\bxit\(', '\bxdescribe\(', 'TODO.*skip')
+# Exclude this gate's own regex definitions so changing the checker cannot
+# trigger its self-reference false positive.
+$diffText = git diff $BaseBranch -- . ':(exclude)scripts/winston/merge_gate.ps1' 2>$null
 $newSkips = @()
 foreach ($pattern in $skipPatterns) {
     $hits = $diffText | Select-String -Pattern "^\+.*$pattern" -AllMatches

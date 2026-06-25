@@ -1,44 +1,94 @@
 [
   {
-    "name": "architecture question on backend file",
-    "message": "Review backend/app/routes/nv_ai_copilot.py and explain how it fits the repo architecture.",
-    "expectedPrimaryId": "architect-winston",
+    "name": "continue from selected plan",
+    "message": "Continue from where you left off using the selected telemetry plan.",
+    "mentionedPath": "docs/plans/telemetry-platform/next-session.md",
+    "expectedPrimaryId": "winston-session-start",
+    "expectedAdoRisk": "R0",
+    "expectedDelivery": "none",
     "needsClarification": false
   },
   {
-    "name": "implementation request in repo-b",
-    "message": "Implement a loading-state fix in repo-b/src/app/lab/env/[envId]/page.tsx.",
+    "name": "architecture explanation on backend file",
+    "message": "Explain and trace how this backend route fits the repository architecture.",
+    "mentionedPath": "backend/app/routes/nv_ai_copilot.py",
+    "expectedPrimaryId": "architect-winston",
+    "expectedAdoRisk": "R0",
+    "expectedDelivery": "none",
+    "needsClarification": false
+  },
+  {
+    "name": "focused frontend implementation",
+    "message": "Implement a loading-state fix in this component.",
+    "mentionedPath": "repo-b/src/app/lab/env/[envId]/page.tsx",
     "expectedPrimaryId": "feature-dev",
+    "expectedAdoRisk": "R1",
+    "expectedDelivery": "full",
     "needsClarification": false
   },
   {
-    "name": "slash research request",
-    "message": "/research compare assistant routing approaches for Winston.",
-    "expectedPrimaryId": "architect-winston",
-    "needsClarification": false
-  },
-  {
-    "name": "deploy request",
-    "message": "Push this and monitor Railway and Vercel until the deploy finishes.",
-    "expectedPrimaryId": "deploy-winston",
-    "needsClarification": false
-  },
-  {
-    "name": "qa request",
-    "message": "Run QA on the REPE regression path and tell me what broke.",
-    "expectedPrimaryId": "qa-winston",
-    "needsClarification": false
-  },
-  {
-    "name": "data request",
-    "message": "Add a migration in repo-b/db/schema and coordinate the backfill.",
+    "name": "schema migration is governed",
+    "message": "Add a migration and coordinate the backfill.",
+    "mentionedPath": "repo-b/db/schema/10040_example.sql",
     "expectedPrimaryId": "data-winston",
+    "expectedAdoRisk": "R2",
+    "expectedDelivery": "full",
+    "needsClarification": false
+  },
+  {
+    "name": "confluent cost shutdown",
+    "message": "Stop Confluent serving costs but keep the topics and schemas.",
+    "expectedPrimaryId": "confluent-stargate-lifecycle",
+    "expectedAdoRisk": "R2",
+    "expectedDelivery": "full",
+    "needsClarification": false
+  },
+  {
+    "name": "telemetry data interrogation",
+    "message": "Summarize tel_predictions and pivot the verdict distribution by model.",
+    "expectedPrimaryId": "telemetry-data-interrogation",
+    "expectedAdoRisk": "R0",
+    "expectedDelivery": "none",
+    "needsClarification": false
+  },
+  {
+    "name": "production delivery",
+    "message": "Push this, merge it, deploy to production, and verify Railway and Vercel.",
+    "expectedPrimaryId": "deploy-winston",
+    "expectedAdoRisk": "R2",
+    "expectedDelivery": "full",
+    "needsClarification": false
+  },
+  {
+    "name": "multi-agent implementation remains one build owner",
+    "message": "Run a parallel implementation refactor across the frontend and backend.",
+    "expectedPrimaryId": "feature-dev",
+    "expectedAdoRisk": "R2",
+    "expectedDelivery": "full",
+    "needsClarification": false
+  },
+  {
+    "name": "read-only telemetry audit",
+    "message": "Audit the telemetry implementation and explain the actual data flow. Read only.",
+    "expectedPrimaryId": "architect-winston",
+    "expectedAdoRisk": "R0",
+    "expectedDelivery": "none",
+    "needsClarification": false
+  },
+  {
+    "name": "explicit ADO intake",
+    "message": "Create the Azure DevOps work item and Session Brief for this governance change.",
+    "expectedPrimaryId": "azure-devops-intake",
+    "expectedAdoRisk": "R2",
+    "expectedDelivery": "none",
     "needsClarification": false
   },
   {
     "name": "ambiguous cross repo request",
     "message": "Help me improve how the frontend and backend fit together.",
     "expectedPrimaryId": "claude-router",
+    "expectedAdoRisk": "R1",
+    "expectedDelivery": "none",
     "needsClarification": true
   }
 ]

@@ -35,5 +35,5 @@ Rules:
 
 Usual checks:
 - `python3.11 -m pytest ...` for Python test runs
-- repo-local build or lint commands for `repo-b/`, `backend/`, `repo-c/`, and `excel-addin/`
+- repo-local build or lint commands for `repo-b/`, `backend/`, `telemetry-platform/`, and `excel-addin/`
 - API and schema smoke checks for changed surfaces

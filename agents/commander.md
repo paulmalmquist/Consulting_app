@@ -65,7 +65,7 @@ Handoff boundaries:
 - `agents/architect.md` for broad planning or architecture analysis
 - `agents/frontend.md` for shared `repo-b/` UI, app shell, and non-lab route-handler work
 - `agents/bos-domain.md` for non-AI, non-MCP Business OS backend work
-- `agents/lab-environment.md` for `repo-c/`, lab flows, industry environments, and Excel touchpoints
+- `agents/lab-environment.md` for canonical backend lab APIs, lab flows, telemetry packages, industry environments, and Excel touchpoints
 - `agents/ai-copilot.md` for prompt, RAG, assistant behavior, and model-routing work
 - `agents/mcp.md` for MCP registry, tool schemas, permissions, and audit policy
 - `agents/data.md` for SQL-first persistence and data-contract work
