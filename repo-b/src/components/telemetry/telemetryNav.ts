@@ -17,7 +17,8 @@ export type TelemetryNavGroup =
   | "Models & Intelligence"
   | "Factory & Quality"
   | "Evidence & Lineage"
-  | "Agent Operations";
+  | "Agent Operations"
+  | "Data Engineering";
 
 export type TelemetryNavItem = {
   slug: string;
@@ -62,6 +63,19 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
 
   // Section 6 — Agent Operations (approved execution)
   { slug: "control-tower", label: "Agent Control Tower", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6", group: "Agent Operations" },
+
+  // Section 7 — Data Engineering (the governed fabric between operational data and trusted AI).
+  // Composed surface: data-semantics pages reuse the telemetry metadata catalog; the agent/governance
+  // pages read the portable ADE endpoints (/api/ade/*). Replaces the old standalone
+  // /automated-data-engineering domain route (which now redirects here).
+  { slug: "data-engineering", label: "Data Engineering", icon: "M3 3h4v4H3zM9 9h4v4H9zM7 5h2M5 7v2M11 7V5M9 11H7", group: "Data Engineering" },
+  { slug: "data-engineering/grain", label: "Data Map & Grain", icon: "M2 3h12v3H2zM2 8h12v3H2zM2 13h7v1H2z", group: "Data Engineering" },
+  { slug: "data-engineering/relationships", label: "Relationships & Lineage", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Data Engineering" },
+  { slug: "data-engineering/pipelines", label: "Pipelines & Quality", icon: "M2 8h3l2-4 2 8 2-4h3", group: "Data Engineering" },
+  { slug: "data-engineering/workflows", label: "Workflow Registry", icon: "M3 3h3v3H3zM10 3h3v3h-3zM3 10h3v3H3zM10 10h3v3h-3zM6 4.5h4M11.5 6v4M6 11.5h4M4.5 6v4", group: "Data Engineering" },
+  { slug: "data-engineering/workbench", label: "Agent Workbench", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "Data Engineering" },
+  { slug: "data-engineering/autopsy", label: "Run Autopsy", icon: "M3 2h8l2 2v10H3zM5 6h6M5 9h6M5 12h4", group: "Data Engineering" },
+  { slug: "data-engineering/sources", label: "Source & Platform Map", icon: "M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z", group: "Data Engineering" },
 ];
 
 export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
@@ -71,6 +85,7 @@ export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
   "Factory & Quality",
   "Evidence & Lineage",
   "Agent Operations",
+  "Data Engineering",
 ];
 
 export function telemetryHref(envId: string, slug: string): string {

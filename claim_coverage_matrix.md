@@ -80,3 +80,23 @@ confident score. Surface: the Competence Envelope card on `/telemetry/evidence` 
 serving*) with in/out examples and the score/review/abstain action. **Must NOT overclaim:** FD004 is a
 regime-shift stress test, **not rocket hot-fire**; the envelope gates the INPUT distribution (operating regime),
 not label correctness — in-envelope means "within trained scope," never "safe" or "certified."
+
+---
+
+**Status (Spin 6 compute — event-windowed analog retrieval, Story #723):** The **Analog retrieval** row gets
+a telemetry-native compute (the existing composite retrieval lives in the markets env). Measured on real
+SMAP/MSL: whole-series cosine and event-windowed DTW agree on only **9%** of top-5 precedents, and
+event-windowing modestly lifts anomaly-precedent retrieval to **45.0% vs 41.5% (+8.4%)**. **Must NOT
+overclaim:** this is the most modest finding; **linked dispositions are unavailable** in public data (shown
+as unavailable, not fabricated); it is a relative method comparison, not an absolute retrieval benchmark.
+ML-only so far — the UI card is **deferred** (parallel agent owns the telemetry frontend refactor).
+
+---
+
+**Status (Spin 2 compute — sensor lead-lag attribution, Story #726):** The **Channel divergence /
+attribution** row gets a coupled-system finding on real C-MAPSS FD001. Channel-level attribution is
+redundant (median **14/15** sensors deviate at failure, 93% co-move); onset timing + cross-correlation
+identify sensors **9/14/11** as the consistent leads (~80 cycles lead time), downstream sensors lag **~11
+cycles**. **Must NOT overclaim:** C-MAPSS is simulated; onset is a threshold-crossing, not a calibrated
+change-point; lead-lag narrows root-cause search, it does not assign physical cause. ML-only; UI card
+deferred (parallel agent owns the telemetry frontend).

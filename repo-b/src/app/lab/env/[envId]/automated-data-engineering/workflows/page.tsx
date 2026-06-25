@@ -1,9 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import WorkflowCatalog from "@/components/automated-data-engineering/WorkflowCatalog";
-
-export default function AdeWorkflowsPage() {
-  const { envId } = useParams<{ envId: string }>();
-  return <WorkflowCatalog envId={envId} />;
+export default async function AdeWorkflowsRedirect({
+  params,
+}: {
+  params: Promise<{ envId: string }>;
+}) {
+  const { envId } = await params;
+  redirect(`/lab/env/${envId}/telemetry/data-engineering/workflows`);
 }

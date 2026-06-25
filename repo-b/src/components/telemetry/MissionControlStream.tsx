@@ -16,6 +16,7 @@ import {
 } from "@/lib/telemetry/stream";
 import { SplitGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 const WINDOW_S = 120;
 const MAX_STRIPS = 4;
@@ -166,41 +167,46 @@ export default function MissionControlStream() {
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "0 4px 12px" }}>
-        <div>
-          <div style={{ color: RS.faint, fontSize: 11, letterSpacing: "0.18em" }}>TELEMETRY LAB</div>
-          <div style={{ fontSize: 13, letterSpacing: "0.14em" }}>MISSION CONTROL · LIVE STREAM</div>
-        </div>
-        <RsChip color={RS.cyan}>run: iss_live:stream</RsChip>
-        <RsChip color={chip.color}>{chip.label}</RsChip>
-        {champion && <RsChip color={RS.violet}>model: {champion}</RsChip>}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ color: RS.dim, fontFamily: RS_MONO, fontSize: 11 }}>
-            ingest lag {lag.ingestLagS != null ? `${lag.ingestLagS.toFixed(1)}s` : "—"}
-            {" · "}client lag {lag.clientLagS != null ? `${lag.clientLagS.toFixed(1)}s` : "—"}
-          </span>
-          <span style={{ color: verdict.color, border: `1px solid ${verdict.color}`,
-            background: `${verdict.color}18`, fontFamily: RS_MONO, fontWeight: 700,
-            padding: "4px 12px", borderRadius: 4, fontSize: 13 }}>
-            {verdict.text}
-          </span>
-          <button type="button" onClick={handleStart} disabled={starting}
-            title="Start (or restart) the live ingest worker on the backend"
-            style={{ fontFamily: RS_MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px",
-              borderRadius: 4, cursor: starting ? "default" : "pointer",
-              color: starting ? RS.faint : RS.bg,
-              background: starting ? "transparent" : RS.green,
-              border: `1px solid ${starting ? RS.line : RS.green}` }}>
-            {starting ? "Starting…" : "Start stream"}
-          </button>
-          <button type="button" onClick={() => setHold((h) => !h)}
-            style={{ fontFamily: RS_MONO, fontSize: 11, padding: "4px 10px", borderRadius: 4,
-              cursor: "pointer", color: hold ? RS.bg : RS.dim,
-              background: hold ? RS.amber : "transparent", border: `1px solid ${RS.line}` }}>
-            {hold ? "Resume" : "Hold"}
-          </button>
-        </div>
-      </div>
+      <TelemetryPageHeader
+        variant="compact"
+        eyebrow="TELEMETRY LAB"
+        title="MISSION CONTROL · LIVE STREAM"
+        metadata={
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <RsChip color={RS.cyan}>run: iss_live:stream</RsChip>
+            <RsChip color={chip.color}>{chip.label}</RsChip>
+            {champion && <RsChip color={RS.violet}>model: {champion}</RsChip>}
+          </div>
+        }
+        actions={
+          <>
+            <span style={{ color: RS.dim, fontFamily: RS_MONO, fontSize: 11 }}>
+              ingest lag {lag.ingestLagS != null ? `${lag.ingestLagS.toFixed(1)}s` : "—"}
+              {" · "}client lag {lag.clientLagS != null ? `${lag.clientLagS.toFixed(1)}s` : "—"}
+            </span>
+            <span style={{ color: verdict.color, border: `1px solid ${verdict.color}`,
+              background: `${verdict.color}18`, fontFamily: RS_MONO, fontWeight: 700,
+              padding: "4px 12px", borderRadius: 4, fontSize: 13 }}>
+              {verdict.text}
+            </span>
+            <button type="button" onClick={handleStart} disabled={starting}
+              title="Start (or restart) the live ingest worker on the backend"
+              style={{ fontFamily: RS_MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px",
+                borderRadius: 4, cursor: starting ? "default" : "pointer",
+                color: starting ? RS.faint : RS.bg,
+                background: starting ? "transparent" : RS.green,
+                border: `1px solid ${starting ? RS.line : RS.green}` }}>
+              {starting ? "Starting…" : "Start stream"}
+            </button>
+            <button type="button" onClick={() => setHold((h) => !h)}
+              style={{ fontFamily: RS_MONO, fontSize: 11, padding: "4px 10px", borderRadius: 4,
+                cursor: "pointer", color: hold ? RS.bg : RS.dim,
+                background: hold ? RS.amber : "transparent", border: `1px solid ${RS.line}` }}>
+              {hold ? "Resume" : "Hold"}
+            </button>
+          </>
+        }
+      />
 
       {startMsg && (
         <div style={{ padding: "0 4px 8px", fontFamily: RS_MONO, fontSize: 11,

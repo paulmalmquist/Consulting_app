@@ -5,6 +5,7 @@
 // every number traces to a seed table through the medallion.
 
 import { C, Panel, Tag } from "../primitives";
+import type { DrillObject } from "./factoryDrill";
 import type { ReadinessExport } from "@/lib/lab/factoryMlData";
 
 function statusColor(status: string): string {
@@ -42,14 +43,21 @@ function Gauge({ score, color }: { score: number; color: string }) {
   );
 }
 
-export default function ReadinessGauge({ data }: { data: ReadinessExport }) {
+export default function ReadinessGauge({ data, onDrill }: {
+  data: ReadinessExport;
+  onDrill: (d: DrillObject) => void;
+}) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
       {data.vehicles.map((v) => {
         const color = statusColor(v.status);
         const anchor = v.vehicle_id === data.anchor_vehicle;
         return (
-          <Panel key={v.vehicle_id} pad={14}
+          <button key={v.vehicle_id} type="button"
+            onClick={() => onDrill({ kind: "vehicle", vehicle: v, isAnchor: anchor })}
+            aria-label={`Inspect ${v.vehicle_id} readiness`}
+            style={{ all: "unset", cursor: "pointer", display: "block" }}>
+          <Panel pad={14}
             style={anchor ? { borderColor: C.red + "66", boxShadow: `0 0 16px ${C.red}22` } : undefined}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontFamily: C.mono, fontSize: 13, color: C.text }}>{v.vehicle_id}</span>
@@ -75,6 +83,7 @@ export default function ReadinessGauge({ data }: { data: ReadinessExport }) {
               target launch {v.target_launch_date}
             </div>
           </Panel>
+          </button>
         );
       })}
     </div>

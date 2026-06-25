@@ -1,7 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import SkillRegistryTable from "@/components/automated-data-engineering/SkillRegistryTable";
-
-export default function AdeSkillsPage() {
-  return <SkillRegistryTable />;
+export default async function AdeSkillsRedirect({
+  params,
+}: {
+  params: Promise<{ envId: string }>;
+}) {
+  const { envId } = await params;
+  redirect(`/lab/env/${envId}/telemetry/data-engineering/workbench`);
 }

@@ -61,3 +61,24 @@ The second mount is the test: if adding ADE to another environment takes more th
 mount wiring (regex entry + link), the core leaked environment assumptions and this ADR
 gets a follow-up. Also check at PR 1 review that grep for "telemetry" and "RS" inside the
 core package returns nothing.
+
+## Follow-up (2026-06-24) — composed telemetry mount
+
+The standalone `/lab/env/[envId]/automated-data-engineering` mount read as its own
+environment (its own left rail) and presented a generic tool/connector/receipt inventory
+rather than data engineering. The telemetry environment now presents ADE through a
+**composed** mount instead: a `Data Engineering` group in the telemetry sidebar
+(`/lab/env/[envId]/telemetry/data-engineering/*`) whose data-semantics pages (grain,
+relationships, lineage, pipelines/quality) reuse the telemetry **metadata catalog**, and
+whose agent/governance pages (Agent Workbench, Run Autopsy, Source & Platform Map) read the
+portable ADE endpoints (`/api/ade/*`). The old standalone routes now 307-redirect into the
+new section.
+
+This **does not change** the ADR decision: the ADE core package
+(`repo-b/src/components/automated-data-engineering/`, its lib, and the backend route) is
+**unchanged and still portable** — the composition lives entirely in the telemetry package
+(`repo-b/src/components/telemetry/data-engineering/`), which is allowed to import the ADE
+lib. The grep-for-"telemetry"-in-core test still holds. The standalone domain route remains
+the portability contract for future environment mounts (a non-redirecting mount re-adds its
+own route/link); only telemetry, which has a richer metadata layer to compose with,
+redirects today.

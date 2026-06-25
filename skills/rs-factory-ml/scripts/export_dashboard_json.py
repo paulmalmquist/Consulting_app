@@ -109,6 +109,12 @@ def export_training(client: RsFactoryClient) -> dict:
         drivers.setdefault(row["model"], []).append(
             {"feature": row["feature"], "impact": float(row["impact"])})
         methods[row["model"]] = row["method"]
+    # TODO(drill-evidence): emit a per-feature manifest (units, source table,
+    # aggregation window) and per-version promotion gates so the Factory ML
+    # evidence drawer can show data-backed feature defs / champion rationale
+    # instead of the name-inferred catalog in
+    # repo-b/src/lib/lab/factoryFeatureCatalog.ts. Until then those drawers are
+    # explicitly marked "inferred / derived".
     write("feature_importance.json", {
         "run_id": info["run_id"],
         "drivers": drivers,

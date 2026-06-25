@@ -1,6 +1,48 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-24
+
+> **Shipped (2026-06-24) — Replay Forensics UI v2 (Story #725, PR open to main):** Upgraded
+> `/lab/env/[envId]/telemetry/replay` (`repo-b/src/components/telemetry/ReplayConsole.tsx`) from a
+> verdict poster into an inspectable forensics surface. New: a **source-truth banner** (public NASA
+> SMAP/MSL stand-in, hot-fire-*style*, "not proprietary rocket hot-fire data"); a **run-packet strip**;
+> **dual chart overlays** — red model-fired region vs amber NASA-labeled window — with a legend and an
+> honest caption; an inspectable **"Why this verdict"** card; and a **5-tab "Replay forensics" drawer**
+> (`ReplayForensicsDrawer.tsx`: Signal / Model / Evidence / Operator action / Lineage) on the Radix
+> `drawerPrimitives` + `SectionTabButton`. All diagnostics math is in a pure, unit-tested adapter
+> `repo-b/src/lib/telemetry/replayDiagnostics.ts` (no frontend metric constants). **Honesty surfaced,
+> not hidden:** the champion first fires at **t=728, ~4,504 ticks BEFORE** the NASA label window
+> **[5232–8472]** (141 pre-label false alarms — shown as such, never as lead time); the per-tick
+> `score` is degenerate (~1e12) and is **never** a threshold; threshold / margin / physical-unit /
+> sample-rate / held-out-F1 / stage-boundaries / top-channels all render explicit **"Not available —
+> <reason>"**. Real held-out metrics + the conformal false-alarm budget are pulled **fail-closed** from
+> `/api/telemetry/model-performance` + `/monitoring` (Model tab). Frontend-only, no migration. **Gates:**
+> typecheck + lint clean; **19 new Vitest** (`replayDiagnostics.test.ts` 13, `ReplayForensicsDrawer.test.tsx`
+> 6); full telemetry suite **143 pass**. Adversarial review (honesty / correctness / design / data-contract
+> + verify): **6 fixed, 9 dismissed**. Delivered on branch `feat/telemetry-replay-forensics` (off main,
+> commit cherry-picked clean) → PR to `main`; ADO Story #725 (Feature #513 / Epic #497) Resolved.
+> **Next backend ticket (recommended):** expose model validation + scoring diagnostics from
+> MLflow/Databricks into the replay API so the Model tab shows first-class numbers, not a pointer.
+
+> **Shipped (2026-06-24) — Telemetry frontend production-readiness refactor (Story #722):** Seven PRs
+> merged + live: **#320** shared UI primitives (`primitives.tsx` atoms + `chartPrimitives.tsx` +
+> `evidenceCard.tsx` + `drawerPrimitives.tsx` + 14 tests) + the in-repo
+> `repo-b/src/components/telemetry/TELEMETRY_FRONTEND_REFACTOR_INVENTORY.md`; **#322** thesis-first
+> `TelemetryOverview`/`EvidenceCards` + `ModelEvidenceCard` dedup; **#323** color-coded nav rail
+> (section accents, glowing active pill, gradient logo); **#324/#325** both metadata drawers onto the
+> shared `DrawerWrapper`/`DrawerHeader`/`FieldRow`; **#326** RS palette unified into `C` (one-file
+> recolor). All behavior-preserving; claim/null_reason strings byte-identical (card tests are the net).
+>
+> **Remaining refactor work (NEEDS THE DEFERRED SCREENSHOT-GATED VERIFY PASS — see the inventory doc):**
+> the console god-splits + primitive normalization (GovernanceDashboard, Copilot, ControlTower,
+> SpikeInspector, ReplayConsole, RulCalibration, ModelPerformance, etc. — these are *near*-duplicates,
+> so adopting primitives normalizes pixels = a visual change, not a free dedup); `TelemetryMetadataExplorer`
+> controller/visualization split; folding `RsPanel`/`RsChip`/`RsKpi` fully into the `C` primitives +
+> `BottleneckMap`; chart-frame adoption. Do these behind a local-run + reviewer-login screenshot pass
+> (Overview, Evidence, Stargate, Replay, Model Performance, System Health, Trust/Lineage, RS surfaces),
+> each annotated cleaner-layout / same-data / same-fail-closed / no-overclaim. The merged primitives +
+> inventory make each piece mechanical. Lessons in `docs/tips.md` (telemetry refactor section).
+
 
 > **Shipped (2026-06-19):** Telemetry demo→real data audit + Spike Inspector conversion. Full
 > data-source classification in [`data-source-matrix.md`](./data-source-matrix.md); the Spike Inspector
@@ -74,3 +116,11 @@ seed-pack behavior, and template key. Do not add a standalone RS Factory environ
 
 The prior telemetry-only optional items remain tracked in `backlog.md` and
 `release-readiness.md`; they are not part of the RS Factory generator work.
+
+> **Shipped (2026-06-24) — Telemetry Page Header System (dispatch 0009, all 4 tickets):** PRs #335 (foundation
+> + Overview hero), #338 (operations → compact), #339 (models/factory → standard), + evidence/lineage →
+> evidence. `TelemetryPageHeader` (hero/evidence/standard/compact) now leads every telemetry route; Overview
+> is the only hero (editorial Cormorant). Added `tests/telemetry-page-headers.spec.ts` + doc updates
+> (component-contracts, design-adaptation, qa-checklist, eval-plan, tips). All behavior-preserving; live
+> data/chips/fail-closed in header slots. Remaining optional polish: header-system multi-viewport screenshot
+> set under `telemetry-platform/docs/screenshots/header-system/`; deeper console component-splits (maintainability only).

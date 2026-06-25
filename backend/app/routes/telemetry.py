@@ -263,6 +263,163 @@ def metadata_graph(
         raise _to_http(exc)
 
 
+# ---------------------------------------------------------------------------
+# Data Engineering — one real read-only action that leaves an audit receipt
+# (Phase 2D). "Profile metadata graph" reads the committed catalog + enrichment
+# (no writes to telemetry data) and records ONE audit event. Run Autopsy reads
+# these back via /data-engineering/receipts. This lives in the telemetry router,
+# NOT in ADE core: it never touches automated_data_engineering.py or the ADE
+# package. The only persistence is the audit event itself — nothing fabricated.
+# ---------------------------------------------------------------------------
+
+# Audit action namespace for telemetry Data Engineering receipts. The ADE /runs
+# endpoint filters action == "mcp.tool_call", so these never collide with it.
+_DE_ACTION_PREFIX = "ade.de."
+_DE_PROFILE_ACTION = "ade.de.profile_metadata"
+_DE_PROFILE_TOOL = "ade.profile_metadata_graph"
+
+
+def _resolve_actor(request: Request) -> str:
+    """Honest actor from the authenticated request; clear fallback if absent."""
+    auth = getattr(request.state, "auth", None)
+    actor = getattr(auth, "actor", None) if auth else None
+    return actor or "telemetry-demo"
+
+
+class ProfileMetadataResponse(BaseModel):
+    receipt_id: str
+    actor: str
+    action: str
+    tool_name: str
+    permission_mode: str
+    status: str
+    input_summary: dict
+    result_summary: dict
+    created_at: str
+    null_reason: str | None = None
+
+
+@router.post("/data-engineering/profile-metadata", response_model=ProfileMetadataResponse)
+def de_profile_metadata(
+    request: Request,
+    env_id: str = Query(..., min_length=1),
+    business_id: UUID = Query(...),
+):
+    """Read-only: profile the telemetry metadata graph and write ONE real audit receipt.
+
+    Counts nodes/edges, how many declare a grain, and the status breakdown. Writes no telemetry
+    data — the sole side effect is the audit event, which Run Autopsy then surfaces.
+    """
+    from app.services import audit as audit_svc
+    from app.services import telemetry_metadata as metadata_svc
+
+    started = datetime.now(timezone.utc)
+    actor = _resolve_actor(request)
+    success = True
+    error_message: str | None = None
+    result_summary: dict = {}
+    try:
+        graph = metadata_svc.get_metadata_graph(env_id=env_id, business_id=business_id)
+        nodes = graph.get("nodes", []) or []
+        edges = graph.get("edges", []) or []
+        with_grain = 0
+        status_counts: dict[str, int] = {}
+        for node in nodes:
+            meta = node.get("metadata") if isinstance(node, dict) else None
+            grain = meta.get("grain") if isinstance(meta, dict) else None
+            if isinstance(grain, str) and grain.strip():
+                with_grain += 1
+            status = (node.get("status") if isinstance(node, dict) else None) or "unknown"
+            status_counts[status] = status_counts.get(status, 0) + 1
+        result_summary = {
+            "nodes": len(nodes),
+            "edges": len(edges),
+            "with_grain": with_grain,
+            "status_counts": status_counts,
+            "graph_status": graph.get("status"),
+        }
+    except Exception as exc:  # noqa: BLE001 — record the failed attempt honestly, don't fabricate
+        success = False
+        error_message = str(exc)[:500]
+
+    latency_ms = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
+    receipt_id = audit_svc.record_event(
+        actor=actor,
+        action=_DE_PROFILE_ACTION,
+        tool_name=_DE_PROFILE_TOOL,
+        success=success,
+        latency_ms=latency_ms,
+        business_id=business_id,
+        input_data={"env_id": env_id},
+        output_data=result_summary,
+        error_message=error_message,
+    )
+    return ProfileMetadataResponse(
+        receipt_id=str(receipt_id),
+        actor=actor,
+        action=_DE_PROFILE_ACTION,
+        tool_name=_DE_PROFILE_TOOL,
+        permission_mode="read",
+        status="success" if success else "failed",
+        input_summary={"env_id": env_id},
+        result_summary=result_summary,
+        created_at=started.isoformat(),
+        null_reason=error_message,
+    )
+
+
+class DeReceiptRow(BaseModel):
+    tool_name: str
+    action: str
+    status: str
+    permission_mode: str
+    actor: str | None = None
+    latency_ms: int | None = None
+    created_at: str | None = None
+    input_summary: dict
+    result_summary: dict
+    null_reason: str | None = None
+
+
+class DeReceiptsResponse(BaseModel):
+    runs: list[DeReceiptRow]
+    null_reason: str | None = None
+
+
+@router.get("/data-engineering/receipts", response_model=DeReceiptsResponse)
+def de_receipts(env_id: str = Query(..., min_length=1), business_id: UUID = Query(...)):
+    """Read the real audit receipts produced by telemetry Data Engineering actions (ade.de.*)."""
+    from app.services import audit as audit_svc
+
+    try:
+        events = audit_svc.list_events(business_id=business_id, limit=100)
+    except Exception:  # noqa: BLE001 — fail closed, never fabricate
+        return DeReceiptsResponse(runs=[], null_reason="audit_read_unavailable")
+
+    runs: list[DeReceiptRow] = []
+    for e in events:
+        action = e.get("action") or ""
+        if not action.startswith(_DE_ACTION_PREFIX):
+            continue
+        created = e.get("created_at")
+        created_iso = created.isoformat() if hasattr(created, "isoformat") else (created or None)
+        runs.append(
+            DeReceiptRow(
+                tool_name=e.get("tool_name") or "—",
+                action=action,
+                status="success" if e.get("success") else "failed",
+                permission_mode="read",
+                actor=e.get("actor"),
+                latency_ms=e.get("latency_ms"),
+                created_at=created_iso,
+                input_summary=e.get("input_redacted") or {},
+                result_summary=e.get("output_redacted") or {},
+                null_reason=e.get("error_message"),
+            )
+        )
+    return DeReceiptsResponse(runs=runs, null_reason=None)
+
+
 @router.get("/fused-vector-info")
 def fused_vector_info(env_id: str = Query(...), business_id: UUID = Query(...)):
     """256-d fused state-vector summary (dim, channels, features, alignment caveat). No raw vectors."""
@@ -472,5 +629,65 @@ def mcp_check(req: McpCheckRequest):
             "policy": res.get("policy"),
             "output_present": bool(res.get("output")),
         }
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+# ── Stream lineage / provenance (Ticket 4) ──────────────────────────────────────────────────────────
+# Read-only contract over the 10034 serving slice (tel_stream_kafka_rows / _triage_events). Proves
+# Kafka detection -> AI triage -> Databricks lake (where mapped) -> Postgres serving row. Fail-closed:
+# missing layers return an explicit status + null_reason; no fabricated offsets/triage/Delta pointers.
+
+@router.get("/stream/kafka/rows")
+def stream_kafka_rows(env_id: str = Query(...), business_id: UUID = Query(...),
+                      kind: str | None = Query(default=None),
+                      limit: int = Query(default=50, ge=1, le=200)):
+    """Recent rows from tel_stream_kafka_rows (newest first). Optional record_kind filter; bounded limit."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.list_kafka_rows(env_id=env_id, business_id=business_id, kind=kind, limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/provenance/{row_id}")
+def stream_kafka_provenance(row_id: UUID, env_id: str = Query(...), business_id: UUID = Query(...)):
+    """A single kafka row plus its provenance layers. Fail-closed if the row is absent."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.get_provenance(env_id=env_id, business_id=business_id, row_id=row_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/triage/latest")
+def stream_kafka_triage_latest(env_id: str = Query(...), business_id: UUID = Query(...),
+                               limit: int = Query(default=50, ge=1, le=200)):
+    """Latest triage records from tel_stream_triage_events (newest first)."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.latest_triage(env_id=env_id, business_id=business_id, limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/kafka/triage/{anomaly_id}")
+def stream_kafka_triage_by_anomaly(anomaly_id: str, env_id: str = Query(...),
+                                   business_id: UUID = Query(...)):
+    """Triage for one anomaly. Returns status=not_available + null_reason=triage_not_emitted when none."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.triage_for_anomaly(env_id=env_id, business_id=business_id, anomaly_id=anomaly_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/stream/lineage/anomaly/{anomaly_id}")
+def stream_lineage_anomaly(anomaly_id: str, env_id: str = Query(...), business_id: UUID = Query(...)):
+    """Combined lineage for one anomaly: kafka_detection -> agent_triage -> databricks_lake ->
+    postgres_serving. Each layer fails closed with an explicit status + null_reason."""
+    from app.services import telemetry_stream_lineage as lineage
+    try:
+        return lineage.anomaly_lineage(env_id=env_id, business_id=business_id, anomaly_id=anomaly_id)
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)

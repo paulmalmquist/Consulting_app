@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import (
     ALLOWED_ORIGINS,
     STARGATE_BRIDGE_ENABLED,
+    TELEMETRY_KAFKA_CONSUMER_ENABLED,
     TELEMETRY_STREAM_ENABLED,
 )
 from app.auth.middleware import AuthMiddleware
@@ -157,6 +158,7 @@ async def lifespan(app: FastAPI):
     stream_task = None
     stream_etl_task = None
     stargate_autoplay_task = None
+    tel_kafka_consumer_task = None
 
     emit_log(
         level="info", service="backend", action="startup.begin",
@@ -357,13 +359,50 @@ async def lifespan(app: FastAPI):
                 message="Telemetry stream worker failed to start (non-fatal)", context={}, error=exc,
             )
 
+    # Telemetry durable Kafka serving-slice consumer: persists Stargate + triage
+    # topics into the 10034 provenance tables for the lineage drawer. Independent
+    # of the in-memory SSE bridge and the StreamWorker above. Default off
+    # (TELEMETRY_KAFKA_CONSUMER_ENABLED) keeps the shared backend inert; a failed
+    # start is non-fatal, and the consumer itself fails closed when no broker
+    # client/creds are present (writes a not_available offset receipt, then idles).
+    if db_connected and TELEMETRY_KAFKA_CONSUMER_ENABLED:
+        try:
+            import asyncio as _telk_asyncio
+
+            from app.config import (
+                TELEMETRY_KAFKA_CONSUMER_GROUP,
+                TELEMETRY_KAFKA_RAW_SAMPLE_RATE,
+                TELEMETRY_STREAM_BUSINESS_ID,
+                TELEMETRY_STREAM_ENV_ID,
+            )
+            from app.services.telemetry_stream_consumer import TelemetryStreamConsumer
+
+            _tel_kafka_consumer = TelemetryStreamConsumer(
+                env_id=TELEMETRY_STREAM_ENV_ID,
+                business_id=TELEMETRY_STREAM_BUSINESS_ID,
+                consumer_group=TELEMETRY_KAFKA_CONSUMER_GROUP,
+                sample_rate=TELEMETRY_KAFKA_RAW_SAMPLE_RATE,
+            )
+            tel_kafka_consumer_task = _telk_asyncio.create_task(_tel_kafka_consumer.run())
+            emit_log(
+                level="info", service="backend", action="startup.telemetry_kafka_consumer",
+                message="Telemetry durable Kafka consumer started",
+                context={"group": TELEMETRY_KAFKA_CONSUMER_GROUP},
+            )
+        except Exception as exc:
+            emit_log(
+                level="warn", service="backend", action="startup.telemetry_kafka_consumer_failed",
+                message="Telemetry Kafka consumer failed to start (non-fatal)", context={}, error=exc,
+            )
+
     yield
 
     # hr_stream_task (the synthetic loop) was replaced by _hr_runner_ctx in this
     # PR; the stargate replay task may have been replaced by /stargate/replay/cycle,
     # so cancel whatever is current on app.state.
     _sg_task = getattr(app.state, "stargate_autoplay_task", None)
-    for _task in (stream_task, stream_etl_task, _sg_task or stargate_autoplay_task):
+    for _task in (stream_task, stream_etl_task, tel_kafka_consumer_task,
+                  _sg_task or stargate_autoplay_task):
         if _task is not None:
             _task.cancel()
             try:

@@ -9,7 +9,6 @@ import {
   Loading,
   MetricCard,
   Panel,
-  PageHeading,
   SplitGrid,
   StatGrid,
   Tag,
@@ -30,6 +29,7 @@ import {
   verifyReceipt,
   warmGemma,
 } from "@/lib/telemetry/controlTower-api";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 // Truth label: every panel says where its data comes from. Never imply live execution over a fixture.
 function TruthLabel({ kind }: { kind: "fixture" | "staged" | "live" | "cold" | "unavailable" }) {
@@ -190,11 +190,12 @@ export default function ControlTower() {
 
   return (
     <div style={{ padding: 24, background: C.bg, minHeight: "100%", color: C.text }}>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="compact"
         eyebrow="Telemetry · Go/No-Go"
         title="Agent Control Tower"
-        blurb="Test-telemetry go/no-go with a sensitivity-aware model router, an enforced human approval gate, and a tamper-evident signed decision receipt. Sensitive / ITAR-demo-tagged triage routes only to the in-boundary Gemma private tier (or fails closed) — an ITAR-aware routing posture, not a compliance claim."
-        right={<TruthLabel kind="staged" />}
+        description="Test-telemetry go/no-go with a sensitivity-aware model router, an enforced human approval gate, and a tamper-evident signed decision receipt. Sensitive / ITAR-demo-tagged triage routes only to the in-boundary Gemma private tier (or fails closed) — an ITAR-aware routing posture, not a compliance claim."
+        actions={<TruthLabel kind="staged" />}
       />
 
       {error && <div style={{ marginBottom: 16 }}><ErrorState message={error} /></div>}

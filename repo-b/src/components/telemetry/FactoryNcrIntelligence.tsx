@@ -14,6 +14,7 @@ import {
 
 import { SplitGrid, StatGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsPanel, RsChip, RsKpi } from "./rsTokens";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import {
   getNcr, TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID,
   type NcrResponse, type NcrCluster, type NcrBacklogRow,
@@ -166,24 +167,28 @@ export default function FactoryNcrIntelligence() {
     <div style={{ minHeight: "100vh", width: "100%", padding: 12, background: RS.bg,
       fontFamily: RS_SANS, color: RS.text }}>
       {/* header */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12,
-        padding: "0 4px 12px" }}>
-        <div>
-          <div style={{ color: RS.faint, fontSize: 11, letterSpacing: "0.18em" }}>TELEMETRY LAB</div>
-          <div style={{ fontSize: 13, letterSpacing: "0.14em" }}>FACTORY · NCR INTELLIGENCE</div>
-        </div>
-        <RsChip color={RS.cyan}>pipeline: embed → UMAP → HDBSCAN → c-TF-IDF</RsChip>
-        {prov && (
-          <RsChip color={isDatabricks ? RS.green : RS.amber}>
-            {isDatabricks
-              ? `DATABRICKS · mlflow ${(prov.cluster_mlflow_run_id ?? "").slice(0, 8)}`
-              : "LOCAL FALLBACK — not a Databricks run"}
-          </RsChip>
-        )}
-        <div style={{ marginLeft: "auto", color: RS.faint, fontFamily: RS_MONO, fontSize: 11 }}>
-          window: 16-week corpus · batch pipeline mirror (not live)
-        </div>
-      </div>
+      <TelemetryPageHeader
+        variant="standard"
+        eyebrow="TELEMETRY LAB"
+        title="FACTORY · NCR INTELLIGENCE"
+        actions={
+          <>
+            <RsChip color={RS.cyan}>pipeline: embed → UMAP → HDBSCAN → c-TF-IDF</RsChip>
+            {prov && (
+              <RsChip color={isDatabricks ? RS.green : RS.amber}>
+                {isDatabricks
+                  ? `DATABRICKS · mlflow ${(prov.cluster_mlflow_run_id ?? "").slice(0, 8)}`
+                  : "LOCAL FALLBACK — not a Databricks run"}
+              </RsChip>
+            )}
+          </>
+        }
+        metadata={
+          <div style={{ color: RS.faint, fontFamily: RS_MONO, fontSize: 11 }}>
+            window: 16-week corpus · batch pipeline mirror (not live)
+          </div>
+        }
+      />
 
       {/* KPI tiles — all real derivations; absent values say so */}
       <StatGrid cols={4} style={{ paddingBottom: 12 }}>

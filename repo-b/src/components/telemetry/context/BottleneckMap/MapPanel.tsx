@@ -4,7 +4,7 @@
 // orbital launch attempts per year. Bubble opacity transitions give presenter mode its motion.
 import React from "react";
 import {
-  Bar, CartesianGrid, Cell, ComposedChart, ReferenceLine, ResponsiveContainer, Scatter, Tooltip,
+  Area, Bar, CartesianGrid, Cell, ComposedChart, ReferenceLine, ResponsiveContainer, Scatter, Tooltip,
   XAxis, YAxis,
 } from "recharts";
 import type { ScatterProps, TooltipProps } from "recharts";
@@ -25,6 +25,16 @@ interface BubblePointProps {
   cy?: number;
   payload?: DecoratedEvent;
 }
+
+// The thesis, made explicit: each era solved a hardware constraint and created a new data burden the
+// modern platform has to carry. Qualitative framing only — no fabricated telemetry-volume numbers.
+const DATA_BURDEN_RAIL: { era: string; burden: string; color: string }[] = [
+  { era: "Orbit proof", burden: "tracking & mission logs", color: RS.blue },
+  { era: "Operations", burden: "vehicle telemetry", color: RS.blue },
+  { era: "Commercial scale", burden: "cadence, provider & ops data", color: RS.green },
+  { era: "Reuse", burden: "post-flight inspection & component history", color: RS.amber },
+  { era: "Production", burden: "sensor streams, NCRs, model evidence, lineage, operator decisions", color: RS.violet },
+];
 
 function MapTip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload || payload.length === 0) return null;
@@ -101,8 +111,8 @@ export default function MapPanel({
   };
 
   return (
-    <PanelShell title="Bottleneck Map" accent={RS.blue}
-      sub="Each leap solved one bottleneck and exposed the next — now it is decision velocity · bubbles: events · bars: world orbital attempts/yr"
+    <PanelShell title="Bottleneck Map: Hardware Limits → Data Limits" accent={RS.blue}
+      sub="Each era solved one constraint and created a larger burden of telemetry, testing, manufacturing evidence, and operational interpretation · bubbles: milestones · bars: world orbital attempts/yr · green wave: commercial share of attempts (context)"
       focused={focused} dimmed={dimmed}>
       <div className="h-[460px] lg:h-[560px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -121,7 +131,16 @@ export default function MapPanel({
               ticks={[0, 165, 330]}
               tick={{ fill: RS.crosshair, fontSize: 9, fontFamily: RS_MONO }}
               width={34} stroke={RS.line} tickLine={false} />
+            {/* Hidden axis for the commercial-share underlay: 0-100% mapped low so the wave reads as a
+                subordinate context band behind the bars and bubbles, never the primary series. */}
+            <YAxis yAxisId="share" hide type="number" domain={[0, 260]} />
             <Tooltip content={<MapTip />} cursor={false} />
+            {/* Commercial-share contextual underlay (rendered first = painted behind everything). The
+                rising wave is the story backdrop: cadence and commercialization climbed together, and the
+                data/interpretation burden climbed with them. Honest label in the sub + footnote. */}
+            <Area yAxisId="share" dataKey="commercialPct" stroke={RS.green} strokeWidth={1}
+              strokeOpacity={0.35} fill={RS.green} fillOpacity={0.07} connectNulls
+              isAnimationActive={false} />
             <Bar yAxisId="cadence" dataKey="attempts" barSize={5} radius={[2, 2, 0, 0]} isAnimationActive={false}>
               {YEAR_SERIES.map((d) => (
                 <Cell key={d.year}
@@ -141,8 +160,30 @@ export default function MapPanel({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 8px",
+      {/* Data-burden rail: makes the hardware→data thesis explicit. Each era solved a constraint and
+          created a new evidence burden the modern data platform has to carry. Qualitative framing — no
+          fabricated telemetry-volume numbers. */}
+      <div style={{ padding: "2px 16px 6px" }}>
+        <div style={{ fontFamily: RS_MONO, fontSize: 8.5, letterSpacing: 0.8, color: RS.faint,
+          textTransform: "uppercase", marginBottom: 6 }}>
+          Bottleneck solved → new data burden created
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {DATA_BURDEN_RAIL.map((s, i) => (
+            <div key={s.era} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ border: `1px solid ${RS.line}`, borderLeft: `2px solid ${s.color}`,
+                borderRadius: 5, padding: "4px 8px", background: `${s.color}0c` }}>
+                <div style={{ fontFamily: RS_MONO, fontSize: 9, color: s.color, letterSpacing: 0.3 }}>{s.era}</div>
+                <div style={{ fontFamily: RS_MONO, fontSize: 8.5, color: RS.dim, marginTop: 1 }}>{s.burden}</div>
+              </div>
+              {i < DATA_BURDEN_RAIL.length - 1 && <span style={{ color: RS.faint, fontSize: 10 }}>→</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 16px 8px",
         fontFamily: RS_MONO, fontSize: 9, color: RS.faint }}>
+        <span style={{ color: RS.green }}>green wave = commercial share of attempts (contextual underlay, 0–70%)</span>
         <span>border: solid = flown · dashed = partial · dotted = planned · size = {sizeModeLabel.toLowerCase()}</span>
       </div>
     </PanelShell>

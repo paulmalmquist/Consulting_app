@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getReplayFeed, type ReplayFeed, type ReplayTick } from "@/lib/telemetry/api";
 import { computeReplayDiagnostics } from "@/lib/telemetry/replayDiagnostics";
 import {
-  C, Panel, Loading, ErrorState, PageHeading, DisclosureFooter, SplitGrid,
+  C, Panel, Loading, ErrorState, DisclosureFooter, SplitGrid,
   Stat, StatGrid, MetricRow, StatusDot, Tag,
 } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import ReplayForensicsDrawer from "./ReplayForensicsDrawer";
 
 const W = 900, H = 280, PAD = 28;
@@ -58,8 +59,8 @@ export default function ReplayConsole() {
   const diag = useMemo(() => (feed ? computeReplayDiagnostics(feed) : null), [feed]);
 
   const heading = (
-    <PageHeading eyebrow="Replay test feed · NASA SMAP/MSL analog" title="Hot-fire-style replay → automated go/no-go"
-      blurb="Replays a recorded run from the public SMAP/MSL anomaly baseline in accelerated time, framed as a hot-fire-style operational flow. The promoted anomaly model scores each tick; when it detects off-nominal behavior the verdict flips on its own. Nothing here is hand-authored; the flag is the model's output. Open the forensics drawer to inspect the signal, model evidence, verdict policy, operator action, and lineage." />
+    <TelemetryPageHeader variant="compact" eyebrow="Replay test feed · NASA SMAP/MSL analog" title="Hot-fire-style replay → automated go/no-go"
+      description="Replays a recorded run from the public SMAP/MSL anomaly baseline in accelerated time, framed as a hot-fire-style operational flow. The promoted anomaly model scores each tick; when it detects off-nominal behavior the verdict flips on its own. Nothing here is hand-authored; the flag is the model's output. Open the forensics drawer to inspect the signal, model evidence, verdict policy, operator action, and lineage." />
   );
   if (error) return <>{heading}<ErrorState message={error} /></>;
   if (!feed) return <>{heading}<Loading label="Loading replay feed…" /></>;

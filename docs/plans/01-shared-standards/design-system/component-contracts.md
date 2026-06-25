@@ -59,3 +59,19 @@ Every component type has a behavioral contract. If a component in any environmen
 - Must distinguish between: no permission (403), not found (404), server error (500), and network error
 - Must give the user a recovery path (retry, go back, contact support)
 - Never display a raw stack trace or API error message to end users
+
+## Page headers (telemetry header family)
+
+The telemetry environment uses one header family (`repo-b/src/components/telemetry/TelemetryPageHeader.tsx`)
+so every route shares a typographic system. Other environments may adopt the same contract.
+
+- Exactly one `<h1>` per page; an uppercase mono eyebrow precedes it with an accent bar.
+- Four variants by page role: `hero` (the environment's opening page only), `evidence` (evidence/lineage
+  surfaces), `standard` (analytical consoles), `compact` (operational consoles). Only one `hero` per env.
+- Title may be segmented for controlled emphasis; gradient/brand emphasis is limited to a meaningful
+  phrase, never the whole title.
+- The header neither fetches nor invents data — source/freshness/ids/timestamps/status and actions are
+  passed in by the caller and rendered in the `metadata`/`actions` slots; fail-closed states stay intact.
+- Titles must wrap cleanly and metadata rows stack without overflow at 390px / 1024px / desktop; title
+  and body text meet WCAG AA in dark mode.
+- Nested section headings keep using the standard heading primitive (`PageHeading`), not a second `<h1>`.

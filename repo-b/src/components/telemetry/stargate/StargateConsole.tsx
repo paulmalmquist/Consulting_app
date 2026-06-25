@@ -8,11 +8,13 @@
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { C, EmptyState, MetricCard, PageHeading, Panel, RowCard, SplitGrid, Tag } from "../primitives";
+import { C, EmptyState, MetricCard, Panel, RowCard, SplitGrid, Tag } from "../primitives";
+import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import AnomalyInspectionDrawer from "./AnomalyInspectionDrawer";
 import DlqPanel from "./DlqPanel";
 import RulesVsBaselineLane from "./RulesVsBaselineLane";
 import TempVibrationChart from "./TempVibrationChart";
+import StreamLineageDrawer from "./StreamLineageDrawer";
 import { useStargateStream } from "@/lib/lab/stargateStream";
 import type { AnomalyRow } from "@/lib/lab/stargateStream";
 import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
@@ -23,6 +25,14 @@ function eventIdOf(a: AnomalyRow): string | null {
   return a.provenance
     ? `${a.provenance.kafka_topic}:${a.provenance.kafka_partition}:${a.provenance.kafka_offset}`
     : null;
+}
+
+// The agent stamps a deterministic anomaly id from the detection event (see
+// infra/confluent/stargate/agents/anomaly_triage_agent.sql): anom_{printer_id}_{ts_us}. The same id
+// links a live SSE anomaly to its PERSISTED lineage in the 10034 serving slice. When the durable
+// consumer is off / nothing has landed yet, the drawer fails closed honestly.
+function anomalyLineageId(printerId: string, tsUs: number): string {
+  return `anom_${printerId}_${tsUs}`;
 }
 
 const PrinterHead3D = dynamic(() => import("./PrinterHead3D"), {
@@ -45,6 +55,7 @@ export default function StargateConsole() {
   const router = useRouter();
   const pathname = usePathname();
   const [selected, setSelected] = useState<string | null>(null);
+  const [lineageAnomalyId, setLineageAnomalyId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startMsg, setStartMsg] = useState<string | null>(null);
   const [inspected, setInspected] = useState<AnomalyRow | null>(null);
@@ -140,10 +151,11 @@ export default function StargateConsole() {
   if (!stream.configured) {
     return (
       <div>
-        <PageHeading
+        <TelemetryPageHeader
+          variant="compact"
           eyebrow="Stargate Live"
           title="Printer telemetry stream"
-          blurb="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic."
+          description="Protobuf telemetry over Kafka, windowed in flight, anomalies routed to their own topic."
         />
         <EmptyState
           label="Stargate bridge URL is not configured for this deployment."
@@ -155,12 +167,13 @@ export default function StargateConsole() {
 
   return (
     <div>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="compact"
         eyebrow="Stargate Live"
         title="Printer telemetry stream"
-        blurb="The live proof of the thesis: historical launch progress created more data than judgment could keep up with. The modern answer is governed streaming + model evidence + lineage + operator-facing actions. This is recorded test-stand capture replayed through real streaming infrastructure — protobuf over Kafka, windowed in flight, anomalies routed to their own topic, ring-buffered in the bridge with no database in the hot path. The baseline lane is a rolling-MAD scorer (the promoted anomaly champion), not an LSTM. Recorded capture, not a live printer."
-        right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        description="The live proof of the thesis: historical launch progress created more data than judgment could keep up with. The modern answer is governed streaming + model evidence + lineage + operator-facing actions. This is recorded test-stand capture replayed through real streaming infrastructure — protobuf over Kafka, windowed in flight, anomalies routed to their own topic, ring-buffered in the bridge with no database in the hot path. The baseline lane is a rolling-MAD scorer (the promoted anomaly champion), not an LSTM. Recorded capture, not a live printer."
+        actions={
+          <>
             {startMsg && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.red }}>{startMsg}</span>}
             {isCapture && (
               <button type="button" onClick={startRecordedCapture} disabled={starting}
@@ -174,7 +187,7 @@ export default function StargateConsole() {
             )}
             <Tag color={stream.connected ? C.green : C.red}>{stream.connected ? "stream live" : "reconnecting"}</Tag>
             <Tag color={badge.color}>{badge.label}</Tag>
-          </div>
+          </>
         }
       />
 
@@ -257,17 +270,30 @@ export default function StargateConsole() {
           ) : (
             <div style={{ maxHeight: 220, overflowY: "auto" }}>
               {[...printerAnomalies].reverse().slice(0, 50).map((a, i) => (
-                <button key={`${a.ts_us}-${i}`} type="button" onClick={() => inspect(a)}
-                  title="Inspect this anomaly back to its source event and provenance"
-                  style={{ display: "flex", gap: 12, padding: "8px 14px", width: "100%", textAlign: "left",
-                    background: "transparent", cursor: "pointer",
-                    borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }}>
-                  <span style={{ color: C.faint }}>{new Date(a.ts_us / 1000).toLocaleTimeString([], { hour12: false })}</span>
-                  <span style={{ color: C.red }}>{a.melt_pool_temp_c.toFixed(0)}°C</span>
-                  <span style={{ color: C.amber }}>{a.arm_vibration_g.toFixed(3)}g</span>
-                  <span style={{ color: C.dim }}>layer {a.layer}</span>
-                  <span style={{ color: C.faint, overflow: "hidden", textOverflow: "ellipsis" }}>{a.print_job_id}</span>
-                </button>
+                // Row click inspects the anomaly (raw event / scorer / provenance, deep-linkable); the
+                // dedicated "lineage →" button opens the Kafka→triage→Databricks→serving lineage drawer.
+                // Two sibling buttons (never nested) so both interactions stay valid + keyboard-reachable.
+                <div key={`${a.ts_us}-${i}`} style={{ display: "flex", gap: 12, alignItems: "center",
+                  padding: "8px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }}>
+                  <button type="button" onClick={() => inspect(a)}
+                    title="Inspect this anomaly back to its source event and provenance"
+                    style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, textAlign: "left",
+                      background: "transparent", border: "none", cursor: "pointer",
+                      fontFamily: C.mono, fontSize: 11, color: "inherit" }}>
+                    <span style={{ color: C.faint }}>{new Date(a.ts_us / 1000).toLocaleTimeString([], { hour12: false })}</span>
+                    <span style={{ color: C.red }}>{a.melt_pool_temp_c.toFixed(0)}°C</span>
+                    <span style={{ color: C.amber }}>{a.arm_vibration_g.toFixed(3)}g</span>
+                    <span style={{ color: C.dim }}>layer {a.layer}</span>
+                    <span style={{ color: C.faint, overflow: "hidden", textOverflow: "ellipsis" }}>{a.print_job_id}</span>
+                  </button>
+                  <button type="button"
+                    onClick={() => setLineageAnomalyId(anomalyLineageId(a.printer_id, a.ts_us))}
+                    title="Show lineage — Kafka → triage → Databricks → serving"
+                    style={{ color: C.cyan, background: "transparent", border: "none", cursor: "pointer",
+                      fontFamily: C.mono, fontSize: 11, whiteSpace: "nowrap" }}>
+                    lineage →
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -281,6 +307,13 @@ export default function StargateConsole() {
         businessId={TELEMETRY_DEMO_BUSINESS_ID}
         onClose={closeInspect}
         onViewWindow={viewWindow}
+      />
+      <StreamLineageDrawer
+        anomalyId={lineageAnomalyId}
+        servingEnvId={TELEMETRY_DEMO_ENV_ID}
+        businessId={TELEMETRY_DEMO_BUSINESS_ID}
+        routeEnvId={TELEMETRY_DEMO_ENV_ID}
+        onClose={() => setLineageAnomalyId(null)}
       />
     </div>
   );

@@ -48,12 +48,17 @@ export default function EventRecord({ event, presenting, focusPanel }: {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <RecordCell heading="Bottleneck solved" color={RS.green}>{event.bottleneckSolved}</RecordCell>
-        <RecordCell heading="New bottleneck created" color={RS.amber}>{event.bottleneckCreated}</RecordCell>
-        <RecordCell heading="Data product implied" color={RS.blue}>{event.dataProduct}</RecordCell>
-        <RecordCell heading="What this rhymes with" color={event.color}
-          style={{ background: `${event.color}10`, border: `1px solid ${event.color}30` }}>
-          <span style={{ fontStyle: "italic", color: RS.text }}>{event.rhyme}</span>
+        <RecordCell heading="What changed · bottleneck solved" color={RS.green}>{event.bottleneckSolved}</RecordCell>
+        <RecordCell heading="What got harder · operational question" color={RS.amber}>{event.bottleneckCreated}</RecordCell>
+        <RecordCell heading="New data that had to be trusted" color={RS.blue}>{event.dataProduct}</RecordCell>
+        <RecordCell heading="What this demo shows next" color={RS.violet}
+          style={{ background: `${RS.violet}10`, border: `1px solid ${RS.violet}30` }}>
+          <span style={{ color: RS.text }}>
+            Can build, test & quality evidence connect fast enough to improve the next decision?
+            {" "}<span style={{ fontFamily: RS_MONO, fontSize: 11, color: RS.dim }}>
+              Stargate Live → Resume Evidence → Replay → Trust &amp; Lineage
+            </span>
+          </span>
         </RecordCell>
       </div>
     </div>

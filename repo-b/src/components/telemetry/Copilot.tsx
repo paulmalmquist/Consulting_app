@@ -7,6 +7,7 @@ import {
   type DraftReportResponse, type DispositionResult,
 } from "@/lib/telemetry/copilot-api";
 import { C, Tag, Panel, Loading } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 export interface ReportContext { runKey: string; fireTick: number; channel?: string }
 
@@ -414,16 +415,19 @@ export function CopilotWorkbench({ envId }: { envId: string }) {
 
   return (
     <>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.14em", color: C.cyan, textTransform: "uppercase" }}>Test Intelligence</div>
-        <h1 style={{ fontFamily: C.sans, fontSize: 24, fontWeight: 700, color: C.text, margin: "6px 0 0" }}>Test Intelligence Copilot</h1>
-        <p style={{ fontFamily: C.sans, fontSize: 13.5, color: C.dim, lineHeight: 1.55, marginTop: 8, maxWidth: 760 }}>
-          Grounded AI analysis over telemetry runs, model outputs, prediction receipts, and monitoring
-          evidence. Not an open-ended chatbot — a fixed set of supported questions, answered only from
-          recorded platform evidence, with refusals enforced before the model is called. Public NASA
-          aerospace analog data. Answers are draft analysis for human review.
-        </p>
-      </div>
+      <TelemetryPageHeader
+        variant="standard"
+        eyebrow="Test Intelligence"
+        title="Test Intelligence Copilot"
+        description={
+          <>
+            Grounded AI analysis over telemetry runs, model outputs, prediction receipts, and monitoring
+            evidence. Not an open-ended chatbot — a fixed set of supported questions, answered only from
+            recorded platform evidence, with refusals enforced before the model is called. Public NASA
+            aerospace analog data. Answers are draft analysis for human review.
+          </>
+        }
+      />
 
       <Panel title="Ask about this run" right={<Tag color={C.cyan}>run smap_msl:D-4:test</Tag>}>
         <div style={{ display: "flex", gap: 8 }}>

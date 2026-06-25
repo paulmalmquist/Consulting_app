@@ -45,6 +45,8 @@ graph_bind.write_row = _fake_write
 r.graph_bind.write_row = _fake_write
 
 
+_real_probe_state = r.probe_state  # save before tests 1–6 monkeypatch it
+
 def run_with_probe(probe):
     written.clear()
     r.probe_state = probe
@@ -84,6 +86,68 @@ check("observed teardown -> 'gone'", status == "gone")
 
 # 6. 'stale' is an accepted status for the DB writer (won't be rejected).
 check("graph_bind accepts 'stale' as a valid status", "stale" in graph_bind.VALID)
+
+# 7. REAL probe_state classification over the REST probe (the false-'gone' regression):
+#    auth/network failure (403/401/timeout) must NOT be read as 'gone' — it's ambiguous → stale.
+#    Only a genuine 404 on the CLUSTER yields 'gone'.
+os.environ["CONFLUENT_CLOUD_API_KEY"] = "k"
+os.environ["CONFLUENT_CLOUD_API_SECRET"] = "s"
+os.environ.pop("CONFLUENT_FLINK_API_KEY", None)  # force "flink not checked" path
+
+_orig_get = r._get
+
+def _set_get(fn):
+    r._get = fn  # probe_state calls module-level _get
+
+def _reset_get():
+    r._get = _orig_get
+
+# 7a. cluster describe returns 403 (auth) → CheckError → caller writes 'stale', NOT 'gone'.
+def _get_403(url, key, secret):
+    raise r.CheckError(f"GET {url} -> HTTP 403 forbidden")
+_set_get(_get_403)
+try:
+    st, _ = _real_probe_state()
+    outcome = ("returned", st)
+except r.CheckError:
+    outcome = ("raised", "CheckError")
+finally:
+    _reset_get()
+check("auth (403) failure is NOT classified 'gone'", outcome != ("returned", "gone"))
+check("auth (403) failure raises CheckError (caller -> stale)", outcome == ("raised", "CheckError"))
+
+# 7b. cluster describe 404 → 'gone'.
+def _get_cluster_404(url, key, secret):
+    if "/cmk/v2/clusters/" in url:
+        raise r.NotFoundError(f"GET {url} -> 404 not found")
+    return []
+_set_get(_get_cluster_404)
+try:
+    st, _ = _real_probe_state()
+    outcome2 = st
+except r.CheckError:
+    outcome2 = "raised-checkerror"
+finally:
+    _reset_get()
+check("genuine cluster 404 -> 'gone'", outcome2 == "gone")
+
+# 7c. cluster OK + 0 connectors + no flink key → 'warm' with a 'flink not checked' note.
+def _get_idle(url, key, secret):
+    if "/cmk/v2/clusters/" in url:
+        return {"id": "lkc-x", "status": {"phase": "PROVISIONED"}}
+    if "/connectors" in url:
+        return []
+    raise r.CheckError("unexpected url")
+_set_get(_get_idle)
+try:
+    st, rs = _real_probe_state()
+    outcome3 = (st, "flink not checked" in rs)
+except r.CheckError:
+    outcome3 = ("raised", False)
+finally:
+    _reset_get()
+check("cluster up + 0 connectors + no flink key -> 'warm'", outcome3[0] == "warm")
+check("warm reason notes flink was not checked", outcome3[1] is True)
 
 print("")
 if fails:

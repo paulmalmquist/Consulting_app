@@ -1,26 +1,7 @@
-Error: unknown shorthand flag: 'o' in -o
-Usage:
-  confluent schema-registry schema describe [id] [flags]
-
-Examples:
-Describe the schema with ID "1337".
-
-  $ confluent schema-registry schema describe 1337
-
-Describe the schema with subject "payments" and version "latest".
-
-  $ confluent schema-registry schema describe --subject payments --version latest
-
-Flags:
-      --subject string                    Subject of the schema.
-      --version string                    Version of the schema. Can be a specific version or "latest".
-      --show-references                   Display the entire schema graph, including references.
-      --context string                    CLI context name.
-      --environment string                Environment ID.
-      --schema-registry-endpoint string   The URL of the Schema Registry cluster.
-
-Global Flags:
-  -h, --help            Show help for this command.
-      --unsafe-trace    Equivalent to -vvvv, but also log HTTP requests and responses which might contain plaintext secrets.
-  -v, --verbose count   Increase verbosity (-v for warn, -vv for info, -vvv for debug, -vvvv for trace).
-
+{
+  "subject": "stargate.printer.telemetry.v1-value",
+  "version": "latest",
+  "id": 100003,
+  "schemaType": "PROTOBUF",
+  "schema": "syntax = \"proto3\";\npackage stargate.v1;\n\nmessage StargateTelemetry {\n  string printer_id = 1;\n  int64 ts_us = 2;\n  uint32 layer = 3;\n  string print_job_id = 4;\n  double x = 5;\n  double y = 6;\n  double z = 7;\n  double melt_pool_temp_c = 8;\n  double deposition_rate_kg_hr = 9;\n  double arm_vibration_g = 10;\n  optional double laser_power_w = 11;\n}\n"
+}

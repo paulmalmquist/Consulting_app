@@ -35,7 +35,7 @@ export function Tag({ color, children }: { color: string; children: ReactNode })
 }
 
 export function Panel({ title, right, children, pad = 18, style }: {
-  title?: string; right?: ReactNode; children: ReactNode; pad?: number; style?: CSSProperties;
+  title?: ReactNode; right?: ReactNode; children: ReactNode; pad?: number; style?: CSSProperties;
 }) {
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, ...style }}>
@@ -229,5 +229,206 @@ export function DisclosureFooter() {
       from those public datasets (real champion outputs, real labeled windows, real PSI); live /score
       receipts continue from current time.
     </p>
+  );
+}
+
+// ===========================================================================
+// Shared telemetry UI atoms (production-readiness refactor). These fold the
+// repeated inline-C-token patterns that were copy-pasted across consoles and
+// evidence cards. The dark look stays on the C palette (intentional env theme
+// adapter); inline style is reserved for runtime/chart geometry only. Existing
+// exports above are unchanged — these are purely additive.
+//
+// Aliases: prefer the Telemetry*-prefixed name at call sites where it reads as
+// part of one system; never introduce a second IMPLEMENTATION of an existing
+// primitive — alias it.
+// ---------------------------------------------------------------------------
+
+export const TelemetryPanel = Panel;
+export const TelemetryPageHeading = PageHeading;
+export const TelemetryNullState = EmptyState;
+
+// The glowing status dot reused by every console/sidebar/empty/error state.
+export function StatusDot({ color, size = 8, glow = true }: { color: string; size?: number; glow?: boolean }) {
+  return (
+    <span aria-hidden style={{ width: size, height: size, borderRadius: 999, background: color,
+      boxShadow: glow ? `0 0 8px ${color}99` : undefined, flexShrink: 0, display: "inline-block" }} />
+  );
+}
+
+// Mono label/value row (the most-duplicated card/console line). border-bottom
+// optional so it composes into lists.
+export function MetricRow({ label, value, tone, divider = true }: {
+  label: ReactNode; value: ReactNode; tone?: string; divider?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
+      padding: "7px 0", borderBottom: divider ? `1px solid ${C.border}` : undefined }}>
+      <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>{label}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 12, color: tone || C.text, textAlign: "right" }}>{value}</span>
+    </div>
+  );
+}
+
+// Stacked label-over-value stat (used in metric blocks / strips).
+export function Stat({ label, value, tone }: { label: ReactNode; value: ReactNode; tone?: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: tone || C.text }}>{value}</span>
+    </div>
+  );
+}
+
+// Mono inline code for ids / null_reason / formulas / version strings.
+export function InlineCode({ children, color = C.dim }: { children: ReactNode; color?: string }) {
+  return <span style={{ fontFamily: C.mono, fontSize: 11, color }}>{children}</span>;
+}
+export const TelemetryInlineCode = InlineCode;
+
+type ButtonVariant = "primary" | "secondary" | "ghost";
+const BTN_BASE: CSSProperties = { fontFamily: C.mono, fontSize: 13, borderRadius: 8, padding: "10px 16px", cursor: "pointer" };
+function btnStyle(variant: ButtonVariant, disabled?: boolean): CSSProperties {
+  const base: CSSProperties = { ...BTN_BASE, opacity: disabled ? 0.6 : 1, cursor: disabled ? "default" : "pointer" };
+  if (variant === "primary") return { ...base, fontWeight: 600, color: C.bg, background: C.cyan, border: "none" };
+  if (variant === "secondary") return { ...base, color: C.dim, background: "transparent", border: `1px solid ${C.border}` };
+  return { ...base, color: C.dim, background: "transparent", border: "none" };
+}
+
+// Semantic action button with three console variants. Wraps a real <button>.
+export function TelemetryActionButton({
+  variant = "primary", disabled, onClick, children, type = "button", fullWidth, style, ...rest
+}: {
+  variant?: ButtonVariant; disabled?: boolean; onClick?: () => void; children: ReactNode;
+  type?: "button" | "submit"; fullWidth?: boolean; style?: CSSProperties;
+  "aria-label"?: string; "aria-pressed"?: boolean;
+}) {
+  return (
+    <button type={type} onClick={onClick} disabled={disabled}
+      style={{ ...btnStyle(variant, disabled), width: fullWidth ? "100%" : undefined, ...style }} {...rest}>
+      {children}
+    </button>
+  );
+}
+
+// Styled <select> matching the console panel chrome.
+export function SelectField({ value, onChange, children, ariaLabel, style }: {
+  value: string; onChange: (v: string) => void; children: ReactNode; ariaLabel?: string; style?: CSSProperties;
+}) {
+  return (
+    <select value={value} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}
+      style={{ fontFamily: C.mono, fontSize: 12, color: C.text, background: C.panelHi,
+        border: `1px solid ${C.borderHi}`, borderRadius: 7, padding: "8px 10px", minHeight: 38, ...style }}>
+      {children}
+    </select>
+  );
+}
+
+// Section divider: accent dot + uppercase label + optional right slot.
+export function TelemetrySection({ label, right, children, accent = C.cyan }: {
+  label?: string; right?: ReactNode; children: ReactNode; accent?: string;
+}) {
+  return (
+    <section style={{ marginTop: 8 }}>
+      {label && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <StatusDot color={accent} size={6} />
+            <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.14em", color: C.dim, textTransform: "uppercase" }}>{label}</span>
+          </span>
+          {right}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+type BannerTone = "info" | "warn" | "error";
+const BANNER_COLOR: Record<BannerTone, string> = { info: C.cyan, warn: C.amber, error: C.red };
+
+// Inline status/info banner (source/freshness/"stage unavailable"). Carries an
+// aria-live region so changing status is announced.
+export function TelemetryStatusBanner({ tone = "info", children, live }: {
+  tone?: BannerTone; children: ReactNode; live?: boolean;
+}) {
+  const color = BANNER_COLOR[tone];
+  return (
+    <div role={tone === "error" ? "alert" : "status"} aria-live={live ? "polite" : undefined}
+      style={{ border: `1px solid ${color}33`, background: `${color}0d`, borderRadius: 8,
+        padding: "9px 12px", display: "flex", alignItems: "center", gap: 9,
+        fontFamily: C.mono, fontSize: 11, color: C.dim, lineHeight: 1.5 }}>
+      <StatusDot color={color} size={7} />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+// Provenance footer panel — the recurring "Provenance. …" disclosure.
+export function TelemetryProvenancePanel({ label = "Provenance", children, style }: {
+  label?: string; children: ReactNode; style?: CSSProperties;
+}) {
+  return (
+    <Panel pad={14} style={style}>
+      <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>
+        <span style={{ color: C.dim, fontWeight: 600 }}>{label}. </span>
+        {children}
+      </span>
+    </Panel>
+  );
+}
+
+// Verdict chip — GO/REVIEW/NO_GO via the shared verdictColor(); NO_GO renders as
+// "NO-GO" to match existing copy. Thin wrapper over Tag (no new color logic).
+export function VerdictChip({ verdict }: { verdict?: string | null }) {
+  const display = verdict === "NO_GO" || verdict === "NO-GO" ? "NO-GO" : (verdict ?? "—");
+  return <Tag color={verdictColor(verdict)}>{display}</Tag>;
+}
+
+// Tab button with active fill — the section-tab pattern across map/factory/bottleneck.
+export function SectionTabButton({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active}
+      style={{ fontFamily: C.mono, fontSize: 12, letterSpacing: "0.04em", cursor: "pointer",
+        color: active ? C.text : C.dim, background: active ? C.panelHi : "transparent",
+        border: `1px solid ${active ? C.borderHi : C.border}`, borderRadius: 7, padding: "7px 13px" }}>
+      {children}
+    </button>
+  );
+}
+
+// Editorial thesis hero (the larger Overview/Evidence header). Distinct from
+// PageHeading (the standard console heading) by scale; title accepts a node so
+// brand-accented spans survive. Big Numbers / supporting content go in children.
+export function TelemetryThesisHeading({ eyebrow, title, blurb, size = 34, children }: {
+  eyebrow: string; title: ReactNode; blurb?: ReactNode; size?: number; children?: ReactNode;
+}) {
+  return (
+    <header style={{ marginBottom: 26, maxWidth: 880 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <span aria-hidden style={{ width: 18, height: 2, borderRadius: 2, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa` }} />
+        <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: C.cyan, textTransform: "uppercase" }}>{eyebrow}</span>
+      </div>
+      <h1 style={{ fontFamily: size >= 44 ? C.mono : C.sans, fontSize: size, fontWeight: 800,
+        letterSpacing: "-0.015em", lineHeight: 1.08, color: C.text, marginTop: 12 }}>{title}</h1>
+      {blurb && <p style={{ fontFamily: C.sans, fontSize: 15, color: C.dim, lineHeight: 1.65, marginTop: 14 }}>{blurb}</p>}
+      {children}
+    </header>
+  );
+}
+
+// Thesis-first page wrapper: heading first, content, then the public-data
+// disclosure footer (the consistent page rhythm).
+export function TelemetryPageShell({ heading, children, disclosure = true }: {
+  heading: ReactNode; children: ReactNode; disclosure?: boolean;
+}) {
+  return (
+    <>
+      {heading}
+      {children}
+      {disclosure && <DisclosureFooter />}
+    </>
   );
 }
