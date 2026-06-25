@@ -1,5 +1,25 @@
 # Next session handoff
 
+## Update (2026-06-25) — Phase 2A–2D complete + backend deployed
+
+Phase 2 is shipped and prod-verified (see `roadmap.md` → "Phase 2A–2D COMPLETE"). New telemetry-side
+files to know:
+- `repo-b/src/lib/telemetry/relationshipSafety.ts` — join-safety classifier (safe/bridge/unsafe/unverifiable).
+- `repo-b/src/lib/telemetry/deCapabilities.ts` — aerospace DE capability map + registry matcher.
+- `repo-b/src/lib/telemetry/workflowTemplates.ts` — read-only templates + executability.
+- `repo-b/src/lib/telemetry/dataEngineeringReceipts.ts` — client for the real receipt action.
+- Backend: `POST/GET /api/telemetry/data-engineering/{profile-metadata,receipts}` in
+  `backend/app/routes/telemetry.py` (action namespace `ade.de.*`, written via `app.services.audit`).
+
+**Backend deploy reminder:** 2D added backend endpoints. The Railway backend is NOT GitHub-connected —
+after merging a backend change, run `scripts/deploy_backend.sh` from a tree == origin/main, then
+`curl /api/version` to confirm the SHA. Frontend (Vercel) auto-deploys; backend does not.
+
+What remains for Data Engineering: the dedicated pipeline/DQ feed, palette unification, and — the big
+one — real governed MCP skills for the unbacked capabilities (profile_source, infer_grain,
+validate_relationship, etc.). Until those exist, 2B shows them declared-only and 2C templates blocked,
+which is correct. That backend work is the "Analytical engine" section of `roadmap.md`.
+
 ## Update (2026-06-24, PR #337) — composed telemetry presentation, Phase 1
 
 The telemetry mount is no longer the standalone `/automated-data-engineering` domain route. It is now a
