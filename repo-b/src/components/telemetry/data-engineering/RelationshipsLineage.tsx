@@ -8,35 +8,38 @@ import {
 } from "@/lib/telemetry/api";
 import {
   getMetadataGraph,
-  type MetadataConfidence,
   type TelemetryMetadataGraph,
   type TelemetryMetadataNode,
 } from "@/lib/telemetry/metadata";
 import {
+  classifyRelationship,
+  tallyVerdicts,
+  VERDICT_LABEL,
+  type SafetyResult,
+} from "@/lib/telemetry/relationshipSafety";
+import {
   C,
   EmptyState,
   Loading,
+  MetricCard,
   PageHeading,
   Panel,
+  SelectField,
   StatGrid,
-  MetricCard,
   StatusDot,
   Tag,
   TelemetrySection,
   TelemetryStatusBanner,
 } from "../primitives";
 import LineageDrawer from "../metadata/LineageDrawer";
+import RelationshipSafetyDrawer, { verdictColor } from "./RelationshipSafetyDrawer";
+import RelationshipScenario from "./RelationshipScenario";
 
-// Relationships & Lineage — the declared, typed edges between catalog objects (with confidence) plus
-// the full upstream trace for any node via the shared LineageDrawer. Phase 1 shows what relationships
-// EXIST and how confident the catalog is in each; it does NOT yet render a safe/unsafe/bridge join
-// VERDICT — that classification is declared next-phase work and labeled as such, not faked.
-
-function confidenceColor(c: MetadataConfidence): string {
-  if (c === "explicit") return C.green;
-  if (c === "inferred") return C.amber;
-  return C.faint; // unknown
-}
+// Relationships & Lineage (Phase 2A): every cataloged edge now carries a join-safety verdict
+// (safe / bridge-required / unsafe / unverifiable) computed by the pure classifier in
+// lib/telemetry/relationshipSafety.ts. A "safe" verdict requires positive evidence (declared FK or
+// matching declared grain); otherwise it fails closed to "unverifiable" — never a fake green. Click a
+// row for the grain/keys/confidence/bridge drawer. Lineage trace + the grounded Stargate scenario follow.
 
 function humanize(value: string) {
   return value.replace(/_/g, " ");
@@ -46,11 +49,13 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
   const [graph, setGraph] = useState<TelemetryMetadataGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [traceId, setTraceId] = useState<string | null>(null);
+  const [safetyEdgeId, setSafetyEdgeId] = useState<string | null>(null);
+  const [verdictFilter, setVerdictFilter] = useState("");
 
   useEffect(() => {
     let live = true;
     getMetadataGraph(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID, envId)
-      .then((g) => { if (live) setGraph(g); })
+      .then((g) => { if (!live) return; if (g) setGraph(g); else setError("metadata_graph_unreachable"); })
       .catch((e) => { if (live) setError(e instanceof Error ? e.message : String(e)); });
     return () => { live = false; };
   }, [envId]);
@@ -60,13 +65,22 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
     [graph],
   );
 
-  const byConfidence = useMemo(() => {
-    const counts: Record<MetadataConfidence, number> = { explicit: 0, inferred: 0, unknown: 0 };
-    for (const e of graph?.edges ?? []) counts[e.confidence] += 1;
-    return counts;
-  }, [graph]);
+  // Classify every edge once.
+  const classified = useMemo(
+    () => (graph?.edges ?? []).map((edge) => ({
+      edge,
+      result: classifyRelationship(edge, nodeMap.get(edge.source), nodeMap.get(edge.target)),
+    })),
+    [graph, nodeMap],
+  );
 
-  // Traceable focus nodes: metrics + gold tables (where "where did this come from?" matters most).
+  const tally = useMemo(() => tallyVerdicts(classified.map((c) => c.result)), [classified]);
+
+  const visible = useMemo(
+    () => (verdictFilter ? classified.filter((c) => c.result.verdict === verdictFilter) : classified),
+    [classified, verdictFilter],
+  );
+
   const traceable = useMemo(
     () => (graph?.nodes ?? [])
       .filter((n) => n.kind === "metric" || n.layer === "gold")
@@ -78,9 +92,16 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
     <PageHeading
       eyebrow="Relationships · Lineage"
       title="Relationships & Lineage"
-      blurb="Which objects connect to which, how, and with what confidence — plus the full upstream trace behind any metric or gold table. A relationship the catalog can't vouch for is marked inferred or unknown, not presented as fact."
+      blurb="Which objects connect, how, and whether a join across them is safe. Every relationship gets a verdict from the catalog's own evidence — declared keys, declared grain, freshness, confidence. When the evidence isn't there, the verdict fails closed to unverifiable; it is never upgraded to safe on a guess."
     />
   );
+
+  const selectedSafety: { result: SafetyResult; source: TelemetryMetadataNode | null; target: TelemetryMetadataNode | null } | null = useMemo(() => {
+    if (!safetyEdgeId) return null;
+    const hit = classified.find((c) => c.edge.id === safetyEdgeId);
+    if (!hit) return null;
+    return { result: hit.result, source: nodeMap.get(hit.edge.source) ?? null, target: nodeMap.get(hit.edge.target) ?? null };
+  }, [safetyEdgeId, classified, nodeMap]);
 
   const traceNode: TelemetryMetadataNode | null = traceId ? nodeMap.get(traceId) ?? null : null;
 
@@ -94,39 +115,57 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
       {heading}
 
       <TelemetryStatusBanner tone="info">
-        Join-safety classification (safe · bridge-required · blocked) and recommended bridge paths are
-        next-phase work. Today this surface shows declared relationships and the catalog&rsquo;s confidence
-        in each — not a safety verdict.
+        Verdicts are inferred from catalog metadata only (keys, grain, status, confidence) — edges carry no
+        stored join keys. Safe requires a declared FK or matching declared grain; absent that, the verdict is
+        unverifiable, not safe.
       </TelemetryStatusBanner>
 
       <StatGrid cols={4} style={{ marginTop: 16 }}>
-        <MetricCard label="Relationships" value={graph.edges.length} sub="typed edges" />
-        <MetricCard label="Explicit" value={byConfidence.explicit} sub="cataloged & confirmed" accent={C.green} />
-        <MetricCard label="Inferred" value={byConfidence.inferred} sub="derived, lower confidence" accent={byConfidence.inferred ? C.amber : undefined} />
-        <MetricCard label="Unknown" value={byConfidence.unknown} sub="confidence not established" accent={byConfidence.unknown ? C.amber : undefined} />
+        <MetricCard label="Safe" value={tally.safe} sub="declared key / matching grain" accent={tally.safe ? C.green : undefined} />
+        <MetricCard label="Bridge required" value={tally.bridge_required} sub="grain changes / transform" accent={tally.bridge_required ? C.amber : undefined} />
+        <MetricCard label="Unsafe" value={tally.unsafe} sub="endpoint data unavailable" accent={tally.unsafe ? C.red : undefined} />
+        <MetricCard label="Unverifiable" value={tally.unverifiable} sub="insufficient metadata (fail-closed)" />
       </StatGrid>
 
-      <TelemetrySection label="Declared relationships">
-        {graph.edges.length === 0 ? (
-          <EmptyState label="No relationships cataloged" hint="The metadata catalog returned no edges for this scope." />
+      <TelemetrySection
+        label="Relationship safety"
+        right={
+          <SelectField value={verdictFilter} onChange={setVerdictFilter} ariaLabel="Filter by verdict">
+            <option value="">All verdicts</option>
+            <option value="safe">Safe</option>
+            <option value="bridge_required">Bridge required</option>
+            <option value="unsafe">Unsafe</option>
+            <option value="unverifiable">Unverifiable</option>
+          </SelectField>
+        }
+      >
+        {visible.length === 0 ? (
+          <EmptyState label="No relationships match" hint="Clear the verdict filter, or the catalog returned no edges for this scope." />
         ) : (
           <Panel pad={0}>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {graph.edges.map((edge) => {
+              {visible.map(({ edge, result }) => {
                 const src = nodeMap.get(edge.source);
                 const tgt = nodeMap.get(edge.target);
                 return (
-                  <div key={edge.id} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "11px 16px", borderBottom: `1px solid ${C.border}` }}>
+                  <button
+                    key={edge.id}
+                    type="button"
+                    onClick={() => setSafetyEdgeId(edge.id)}
+                    style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "11px 16px", borderBottom: `1px solid ${C.border}` }}
+                  >
+                    <Tag color={verdictColor(result.verdict)}>{VERDICT_LABEL[result.verdict]}</Tag>
                     <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{src?.label ?? edge.source}</span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 10, color: C.faint, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       <svg width="14" height="9" viewBox="0 0 14 9" aria-hidden><path d="M1 4.5h11M9 1.5l3 3-3 3" stroke={C.faint} strokeWidth="1.1" fill="none" strokeLinecap="round" /></svg>
                       {humanize(edge.relationship)}
                     </span>
                     <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text }}>{tgt?.label ?? edge.target}</span>
-                    <span style={{ marginLeft: "auto" }}>
-                      <Tag color={confidenceColor(edge.confidence)}>{edge.confidence}</Tag>
+                    <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Tag color={result.confidence === "explicit" ? C.cyan : C.amber}>{result.confidence}</Tag>
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>details →</span>
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -134,6 +173,10 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
         )}
       </TelemetrySection>
 
+      {/* Guided scenario — grounded, runs the same classifier. */}
+      <RelationshipScenario graph={graph} />
+
+      {/* Lineage trace */}
       <TelemetrySection label="Trace lineage">
         <Panel>
           <p style={{ fontFamily: C.sans, fontSize: 13, color: C.dim, lineHeight: 1.55, marginBottom: 12 }}>
@@ -159,6 +202,14 @@ export default function RelationshipsLineage({ envId }: { envId: string }) {
           )}
         </Panel>
       </TelemetrySection>
+
+      <RelationshipSafetyDrawer
+        open={Boolean(selectedSafety)}
+        result={selectedSafety?.result ?? null}
+        source={selectedSafety?.source ?? null}
+        target={selectedSafety?.target ?? null}
+        onClose={() => setSafetyEdgeId(null)}
+      />
 
       <LineageDrawer
         node={traceNode}
