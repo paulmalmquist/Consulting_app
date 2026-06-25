@@ -226,6 +226,19 @@ TELEMETRY_ETL_INTERVAL_SECONDS: int = int(os.getenv("TELEMETRY_ETL_INTERVAL_SECO
 # /stargate/* router and starts the bridge in STARGATE_MODE (capture in prod).
 STARGATE_BRIDGE_ENABLED: bool = os.getenv("STARGATE_BRIDGE_ENABLED", "0").lower() in ("1", "true")
 
+# ── Telemetry: durable Kafka serving-slice consumer (lineage provenance) ─────
+# Subscribes to the Stargate topics + the anomaly-triage topic and persists a
+# serving/provenance slice into the 10034 tables (tel_stream_kafka_rows /
+# _triage_events / _consumer_offsets). Default off keeps the shared backend
+# inert and is independent of the in-memory SSE bridge above. Raw telemetry is
+# deterministically sampled (kafka_offset % RAW_SAMPLE_RATE == 0); anomalies,
+# agg5s, triage, and dlq persist in full. Broker/SR creds reuse CONFLUENT_*.
+TELEMETRY_KAFKA_CONSUMER_ENABLED: bool = os.getenv(
+    "TELEMETRY_KAFKA_CONSUMER_ENABLED", "0").lower() in ("1", "true")
+TELEMETRY_KAFKA_CONSUMER_GROUP: str = os.getenv(
+    "TELEMETRY_KAFKA_CONSUMER_GROUP", "stargate-bridge-sink")
+TELEMETRY_KAFKA_RAW_SAMPLE_RATE: int = int(os.getenv("TELEMETRY_KAFKA_RAW_SAMPLE_RATE", "50"))
+
 _db_validated = False
 
 
