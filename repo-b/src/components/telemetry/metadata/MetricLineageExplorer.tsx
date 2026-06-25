@@ -22,11 +22,11 @@ import {
   EmptyState,
   Loading,
   MetricCard,
-  PageHeading,
   Panel,
   StatGrid,
   Tag,
 } from "../primitives";
+import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import LineageDrawer from "./LineageDrawer";
 
 function formatTs(value?: string | null) {
@@ -62,10 +62,11 @@ export default function MetricLineageExplorer({ envId }: { envId: string }) {
   }, [envId, reload]);
 
   const heading = (
-    <PageHeading
+    <TelemetryPageHeader
+      variant="evidence"
       eyebrow="Evidence & Lineage"
       title="Metric Lineage Explorer"
-      blurb="Every governed metric, traced to its source. Click a metric to see its full upstream chain (gold to silver to bronze to source) with freshness and owner. Lineage is read live from the telemetry metadata catalog; a metric with no cataloged source shows 'No lineage yet' rather than implying provenance."
+      description="Every governed metric, traced to its source. Click a metric to see its full upstream chain (gold to silver to bronze to source) with freshness and owner. Lineage is read live from the telemetry metadata catalog; a metric with no cataloged source shows 'No lineage yet' rather than implying provenance."
     />
   );
 

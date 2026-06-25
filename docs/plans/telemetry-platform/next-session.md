@@ -94,3 +94,11 @@ seed-pack behavior, and template key. Do not add a standalone RS Factory environ
 
 The prior telemetry-only optional items remain tracked in `backlog.md` and
 `release-readiness.md`; they are not part of the RS Factory generator work.
+
+> **Shipped (2026-06-24) — Telemetry Page Header System (dispatch 0009, all 4 tickets):** PRs #335 (foundation
+> + Overview hero), #338 (operations → compact), #339 (models/factory → standard), + evidence/lineage →
+> evidence. `TelemetryPageHeader` (hero/evidence/standard/compact) now leads every telemetry route; Overview
+> is the only hero (editorial Cormorant). Added `tests/telemetry-page-headers.spec.ts` + doc updates
+> (component-contracts, design-adaptation, qa-checklist, eval-plan, tips). All behavior-preserving; live
+> data/chips/fail-closed in header slots. Remaining optional polish: header-system multi-viewport screenshot
+> set under `telemetry-platform/docs/screenshots/header-system/`; deeper console component-splits (maintainability only).
