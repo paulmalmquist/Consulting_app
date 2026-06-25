@@ -7,11 +7,13 @@
 import { useState } from "react";
 import { C, EmptyState, Loading, Panel, Tag } from "../primitives";
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
+import FactoryEvidenceDrawer from "./FactoryEvidenceDrawer";
 import FeatureImportancePanel from "./FeatureImportancePanel";
 import LayerHeatmap from "./LayerHeatmap";
 import NcrPanel from "./NcrPanel";
 import ReadinessGauge from "./ReadinessGauge";
 import RegistryPanel from "./RegistryPanel";
+import type { DrillObject } from "./factoryDrill";
 import { useFactoryMlData } from "@/lib/lab/factoryMlData";
 
 const SECTIONS = [
@@ -25,6 +27,7 @@ const SECTIONS = [
 export default function FactoryMlConsole() {
   const { data, loading, missing } = useFactoryMlData();
   const [section, setSection] = useState<(typeof SECTIONS)[number]["id"]>("readiness");
+  const [drill, setDrill] = useState<DrillObject | null>(null);
 
   if (loading) return <Loading label="Loading medallion exports…" />;
 
@@ -60,19 +63,19 @@ export default function FactoryMlConsole() {
           </div>
 
           {section === "readiness" && (data.readiness
-            ? <ReadinessGauge data={data.readiness} />
+            ? <ReadinessGauge data={data.readiness} onDrill={setDrill} />
             : <EmptyState label="readiness.json missing" hint="Re-run the export stage." />)}
           {section === "heatmap" && (data.heatmap
             ? <LayerHeatmap data={data.heatmap} />
             : <EmptyState label="layer_heatmap.json missing" hint="Re-run the export stage." />)}
           {section === "model" && (data.importance
-            ? <FeatureImportancePanel data={data.importance} />
+            ? <FeatureImportancePanel data={data.importance} onDrill={setDrill} />
             : <EmptyState label="feature_importance.json missing" hint="Run the training stage first." />)}
           {section === "registry" && (data.registry
-            ? <RegistryPanel data={data.registry} />
+            ? <RegistryPanel data={data.registry} onDrill={setDrill} />
             : <EmptyState label="model_registry.json missing" hint="Re-run the export stage." />)}
           {section === "ncr" && (data.ncr
-            ? <NcrPanel data={data.ncr} />
+            ? <NcrPanel data={data.ncr} onDrill={setDrill} />
             : <EmptyState label="ncr_clusters.json missing" hint="Re-run the export stage." />)}
 
           {data.metadata && (
@@ -87,6 +90,8 @@ export default function FactoryMlConsole() {
               </div>
             </Panel>
           )}
+
+          <FactoryEvidenceDrawer drill={drill} onClose={() => setDrill(null)} />
         </>
       )}
     </div>

@@ -7,9 +7,13 @@
 import { useState } from "react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { C, Panel, SplitGrid, Tag } from "../primitives";
+import type { DrillObject } from "./factoryDrill";
 import type { NcrExport } from "@/lib/lab/factoryMlData";
 
-export default function NcrPanel({ data }: { data: NcrExport }) {
+export default function NcrPanel({ data, onDrill }: {
+  data: NcrExport;
+  onDrill: (d: DrillObject) => void;
+}) {
   const clusters = [...data.clusters].sort((a, b) => b.n - a.n);
   const [selected, setSelected] = useState(clusters[0]?.defect_code ?? "");
   const active = clusters.find((c) => c.defect_code === selected) ?? clusters[0];
@@ -30,7 +34,15 @@ export default function NcrPanel({ data }: { data: NcrExport }) {
       </Panel>
 
       {active && (
-        <Panel title={active.defect_code} pad={14}
+        <Panel pad={14}
+          title={
+            <button type="button"
+              onClick={() => onDrill({ kind: "ncr_category", cluster: active })}
+              aria-label={`Inspect defect category ${active.defect_code}`}
+              style={{ all: "unset", cursor: "pointer", color: C.cyan, textDecoration: "underline", textUnderlineOffset: 2 }}>
+              {active.defect_code}
+            </button>
+          }
           right={
             <div style={{ display: "flex", gap: 6 }}>
               <Tag color={active.open_n ? C.red : C.green}>{active.open_n} open</Tag>
@@ -50,9 +62,14 @@ export default function NcrPanel({ data }: { data: NcrExport }) {
           </ResponsiveContainer>
           <div style={{ marginTop: 10 }}>
             {active.exemplars.map((e) => (
-              <div key={e.ncr_id} style={{ display: "flex", gap: 10, alignItems: "baseline",
-                padding: "7px 0", borderBottom: `1px solid ${C.border}`,
-                fontFamily: C.mono, fontSize: 10.5 }}>
+              <button key={e.ncr_id} type="button"
+                onClick={() => onDrill({ kind: "ncr", ncrId: e.ncr_id, partId: e.part_id, disposition: e.disposition, status: e.status, openedDate: e.opened_date, defectCode: active.defect_code })}
+                aria-label={`Inspect NCR ${e.ncr_id}`}
+                style={{ all: "unset", cursor: "pointer", display: "flex", gap: 10, alignItems: "baseline",
+                  padding: "7px 4px", borderBottom: `1px solid ${C.border}`,
+                  fontFamily: C.mono, fontSize: 10.5, width: "100%", boxSizing: "border-box" }}
+                onMouseEnter={(ev) => { ev.currentTarget.style.background = "rgba(63,177,232,0.06)"; }}
+                onMouseLeave={(ev) => { ev.currentTarget.style.background = "transparent"; }}>
                 <span style={{ color: C.text }}>{e.ncr_id}</span>
                 <span style={{ color: C.faint }}>{e.opened_date}</span>
                 <Tag color={e.status === "open" ? C.red : e.status === "in_review" ? C.amber : C.green}>
@@ -61,7 +78,7 @@ export default function NcrPanel({ data }: { data: NcrExport }) {
                 <span style={{ color: C.dim }}>{e.disposition}</span>
                 <span style={{ color: C.faint, overflow: "hidden", textOverflow: "ellipsis",
                   whiteSpace: "nowrap" }}>{e.part_id}</span>
-              </div>
+              </button>
             ))}
           </div>
         </Panel>
