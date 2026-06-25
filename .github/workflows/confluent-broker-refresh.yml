@@ -55,20 +55,18 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/confluent" version
 
-      - name: Confluent login (service account key)
-        # Non-fatal: if the key secrets are absent/invalid the login fails, but the
-        # refresh script must still run so it can fail CLOSED (write a 'stale' row with
-        # the reason) rather than the job aborting here and writing nothing.
+      - name: Confluent context (env-var auth, no interactive login)
+        # The Confluent CLI authenticates to Cloud via CONFLUENT_CLOUD_API_KEY/_SECRET env
+        # (already exported at job level) — `confluent login` is NOT a valid API-key auth mode
+        # and produced "no credentials found". We only need to pin the active environment.
+        # Non-fatal: if it fails, the refresh script still runs and fails CLOSED to 'stale'.
         continue-on-error: true
         run: |
           if [ -z "$CONFLUENT_CLOUD_API_KEY" ] || [ -z "$CONFLUENT_CLOUD_API_SECRET" ]; then
-            echo "Confluent API key secrets not set — skipping login; refresh will fail closed to 'stale'."
+            echo "Confluent API key secrets not set — refresh will fail closed to 'stale'."
             exit 0
           fi
-          confluent login --save
-        env:
-          CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-          CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+          confluent environment use "$CONFLUENT_ENV_ID" || true
 
       - name: Refresh broker row
         # The script itself fails closed: a failed Confluent probe → 'stale' + reason.

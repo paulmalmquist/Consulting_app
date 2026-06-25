@@ -42,10 +42,18 @@ FLINK_REGION = os.environ.get("CONFLUENT_FLINK_REGION", "us-east1")
 FLINK_POOLS = ["lfcp-22wznzq", "lfcp-v7pqqvj"]
 RUNNING_STATES = {"RUNNING", "PENDING", "DEGRADED"}
 REJECT_MARKERS = ("Bad Request", "Violations", "is not one of", "Error:", "Unauthorized", "Forbidden")
+# A genuine "this resource does not exist" — the ONLY signal that justifies 'gone'.
+# Anything else (auth, network, "no credentials found") is ambiguous → 'stale', never 'gone'.
+NOT_FOUND_MARKERS = ("not found", "does not exist", "resource was not found", "404")
 
 
 class CheckError(Exception):
     """A probe failed in a way that means we cannot trust the observed state."""
+
+
+class NotFoundError(CheckError):
+    """The resource genuinely does not exist (404) — distinct from an auth/network failure.
+    Only this justifies declaring the lane 'gone'."""
 
 
 def _utc_hhmm() -> str:
@@ -60,7 +68,10 @@ def _run(args: list[str]) -> str:
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode != 0 or any(m in out for m in REJECT_MARKERS):
-        raise CheckError(f"`confluent {' '.join(args)}` failed: {out.strip()[:300]}")
+        msg = f"`confluent {' '.join(args)}` failed: {out.strip()[:300]}"
+        if any(m in out.lower() for m in NOT_FOUND_MARKERS):
+            raise NotFoundError(msg)
+        raise CheckError(msg)
     return proc.stdout
 
 
@@ -80,26 +91,25 @@ def _json(args: list[str]):
 def probe_state() -> tuple[str, str]:
     """Return (status, reason) from observed Confluent facts. Raises CheckError if
     the state cannot be observed (caller turns that into a 'stale' row)."""
-    # Cluster existence
+    # Cluster existence. CRITICAL: only a genuine 404 (NotFoundError) means "gone".
+    # An auth/network failure (CheckError, e.g. "no credentials found") is ambiguous and
+    # must propagate → caller writes 'stale', NEVER a false 'gone'.
+    cluster_missing = False
     try:
         _json(["kafka", "cluster", "describe", CLUSTER_ID, "--environment", ENV_ID, "-o", "json"])
-        cluster_up = True
-    except CheckError:
-        cluster_up = False
+    except NotFoundError:
+        cluster_missing = True
+    # (other CheckError propagates out of probe_state → 'stale')
 
-    if not cluster_up:
-        # Confirm pools are also gone before declaring the lane fully torn down.
-        pools_present = False
+    if cluster_missing:
+        # Confirm pools are also genuinely gone (404) before declaring the lane torn down.
         for p in FLINK_POOLS:
             try:
                 _json(["flink", "compute-pool", "describe", p, "--environment", ENV_ID, "-o", "json"])
-                pools_present = True
-                break
-            except CheckError:
-                continue
-        if pools_present:
-            # Ambiguous: cluster unreachable but a pool answered — don't guess.
-            raise CheckError("cluster not found but a Flink pool still responds — ambiguous, not claiming a state")
+                # A pool still answers → ambiguous, don't claim a state.
+                raise CheckError("cluster 404 but a Flink pool still responds — ambiguous, not claiming a state")
+            except NotFoundError:
+                continue  # this pool is also gone — consistent with teardown
         return "gone", f"cluster + flink pools deleted · recreate from export · checked {_utc_hhmm()}"
 
     # Connectors

@@ -45,6 +45,8 @@ graph_bind.write_row = _fake_write
 r.graph_bind.write_row = _fake_write
 
 
+_real_probe_state = r.probe_state  # save before tests 1–6 monkeypatch it
+
 def run_with_probe(probe):
     written.clear()
     r.probe_state = probe
@@ -84,6 +86,49 @@ check("observed teardown -> 'gone'", status == "gone")
 
 # 6. 'stale' is an accepted status for the DB writer (won't be rejected).
 check("graph_bind accepts 'stale' as a valid status", "stale" in graph_bind.VALID)
+
+# 7. REAL probe_state classification (the false-'gone' regression):
+#    an AUTH failure ("no credentials found") must NOT be read as 'gone' — it's ambiguous → stale.
+#    Only a genuine 404 on cluster AND pools yields 'gone'.
+import subprocess as _sp
+
+class _FakeProc:
+    def __init__(self, rc, out):
+        self.returncode = rc
+        self.stdout = out
+        self.stderr = ""
+
+_orig_run = _sp.run
+
+def _set_cli(rc, out):
+    # refresh_broker_row._run calls subprocess.run via the `subprocess` module object.
+    _sp.run = lambda *a, **k: _FakeProc(rc, out)
+
+def _reset_cli():
+    _sp.run = _orig_run
+
+# 7a. "no credentials found" on every call → ambiguous → CheckError → caller writes 'stale', NOT 'gone'.
+_set_cli(1, "Error: no credentials found")
+try:
+    st, _ = _real_probe_state()
+    outcome = ("returned", st)
+except r.CheckError:
+    outcome = ("raised", "CheckError")
+finally:
+    _reset_cli()
+check("auth failure is NOT classified 'gone'", outcome != ("returned", "gone"))
+check("auth failure raises CheckError (caller -> stale)", outcome == ("raised", "CheckError"))
+
+# 7b. genuine 404 on cluster AND both pools → 'gone'.
+_set_cli(1, "Error: resource was not found (404)")
+try:
+    st, _ = _real_probe_state()
+    outcome2 = st
+except r.CheckError:
+    outcome2 = "raised-checkerror"
+finally:
+    _reset_cli()
+check("genuine 404 on cluster + pools -> 'gone'", outcome2 == "gone")
 
 print("")
 if fails:
