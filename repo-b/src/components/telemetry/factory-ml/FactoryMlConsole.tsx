@@ -5,7 +5,8 @@
 // provenance footer pinning every number to a seed build sha and run id.
 
 import { useState } from "react";
-import { C, EmptyState, Loading, PageHeading, Panel, Tag } from "../primitives";
+import { C, EmptyState, Loading, Panel, Tag } from "../primitives";
+import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import FeatureImportancePanel from "./FeatureImportancePanel";
 import LayerHeatmap from "./LayerHeatmap";
 import NcrPanel from "./NcrPanel";
@@ -31,11 +32,12 @@ export default function FactoryMlConsole() {
 
   return (
     <div>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="standard"
         eyebrow="Factory ML"
         title="Flight-readiness analytics"
-        blurb="Databricks medallion over the deterministic factory seed: bronze landings reconciled to the build manifest, window features along the layer axis, a gold feature store joined to QMS outcomes, and XGBoost models tracked in MLflow. Served as committed exports — every number is reviewable."
-        right={data.metadata && (
+        description="Databricks medallion over the deterministic factory seed: bronze landings reconciled to the build manifest, window features along the layer axis, a gold feature store joined to QMS outcomes, and XGBoost models tracked in MLflow. Served as committed exports — every number is reviewable."
+        actions={data.metadata && (
           <Tag color={C.cyan}>build {data.metadata.seed_build_sha.slice(0, 10)}</Tag>
         )}
       />

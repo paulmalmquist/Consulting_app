@@ -1,6 +1,7 @@
 "use client";
 
-import { C, Tag, Panel, MetricCard, StatGrid, SplitGrid, PageHeading, DisclosureFooter } from "./primitives";
+import { C, Tag, Panel, MetricCard, StatGrid, SplitGrid, DisclosureFooter } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import {
   CALIBRATION_EVIDENCE as E,
   CALIBRATION_TRAJECTORY as TRAJ,
@@ -86,11 +87,12 @@ export default function RulCalibration() {
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="standard"
         eyebrow="Telemetry · Calibration"
         title="RUL Calibration"
-        blurb="CNN-LSTM FD001 champion with split-conformal uncertainty intervals. For one engine trajectory: how predicted RUL evolves toward failure, how wide the calibrated 80% and 90% intervals are, and where a late prediction would have been dangerous."
-        right={
+        description="CNN-LSTM FD001 champion with split-conformal uncertainty intervals. For one engine trajectory: how predicted RUL evolves toward failure, how wide the calibrated 80% and 90% intervals are, and where a late prediction would have been dangerous."
+        actions={
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Tag color={C.green}>Champion: CNN-LSTM</Tag>
             <Tag color={C.green}>Gate: Passed</Tag>
