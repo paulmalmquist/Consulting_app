@@ -21,6 +21,7 @@ const GROUP_ACCENT: Record<TelemetryNavGroup, string> = {
   "Factory & Quality": C.amber,
   "Evidence & Lineage": C.green,
   "Agent Operations": "#f472b6",
+  "Data Engineering": "#a855f7",
 };
 
 // Grouped navigation rail. Rendered in the desktop rail and inside the mobile
