@@ -1,11 +1,56 @@
 # Telemetry Confluent → Databricks → Postgres Lineage Walkthrough
 
-**Status:** Active — Ticket 1 **blocked on owner-role apply** (schema written + dry-run validated)
+**Status:** Active — Tickets 1–3 + schema-export cleanup **COMPLETE (merged)**; next is Ticket 4
+(FastAPI lineage routes). See the Status timeline below.
 **Started:** 2026-06-24
 **Risk:** Medium (Ticket 1: additive schema; later tickets higher with consumer/Confluent access)
 **Linked build plan:** [Telemetry Platform Build](0003-telemetry-platform-build.md)
 **Related:** [Telemetry Metadata Explorer](telemetry-metadata-explorer.md) (visual lineage UI),
 [Event Streaming / BigQuery / GKE](0004-event-streaming-bigquery-gke.md) (raw-history sink)
+
+## Status timeline (merged)
+
+**Ticket 1 — COMPLETE / schema created.**
+- Additive migration `10034` for Databricks/Lakebase provenance pointers (lake pointer columns, extended
+  `record_kind`, `tel_stream_triage_events` projection, offset receipts).
+- `10033` already existed, so `10034` **extended** the committed tables rather than recreating them.
+- Lakebase **owner-role apply caveat**: `tel_*` are owned by the human Databricks identity, not
+  `telemetry_app` (which 42501s on DDL); apply via a short-lived Databricks-CLI credential (see
+  `tips.md` / the [[project_lakebase_owner_ddl_via_databricks_cli]] memory). Applied + verified on prod
+  Lakebase.
+- Supabase **no longer owns** the `tel_*` telemetry serving tables (they live on Lakebase).
+
+**Ticket 2 — COMPLETE.** PR #336, squash `7e68e9c5`.
+- Backend durable Kafka serving-slice consumer (`backend/app/services/telemetry_stream_consumer.py`).
+- **Default-off** via `TELEMETRY_KAFKA_CONSUMER_ENABLED`.
+- **At-least-once:** persist before committing the Kafka offset; replay-safe via the `10034` UNIQUE.
+- **Deterministic raw sampling** (`kafka_offset % TELEMETRY_KAFKA_RAW_SAMPLE_RATE`); anomalies/agg5s/
+  triage/dlq in full.
+- **Triage projection upsert** to `tel_stream_triage_events` supported.
+
+**Ticket 3 — COMPLETE.** PR #343, squash `3285d3d9`.
+- Confluent Streaming Agent reproducibility artifacts under `infra/confluent/stargate/agents/`.
+- Agent: `Paul_Streaming_Agent`. Model: `stargate-anomaly-triage-gpt4o`.
+- Output topic: `stargate.printer.anomaly.triage.v1`. The agent **explains** anomalies the upstream Flink
+  rule detected; it is not the detector.
+
+**Cleanup — COMPLETE.** PR #349, squash `136e767c`.
+- Fixed corrupted Schema Registry exports under `infra/confluent/stargate/schemas/` (held a CLI error
+  dump). Regenerated all 4 from live SR.
+- Fixed the lifecycle exporter's `schema describe … -o json 2>&1 > file` stderr-redirection bug so future
+  exports don't re-corrupt.
+
+**Next: Ticket 4 — FastAPI lineage/provenance routes.** Endpoints:
+- `GET /api/telemetry/stream/kafka/rows`
+- `GET /api/telemetry/stream/kafka/provenance/{row_id}`
+- `GET /api/telemetry/stream/kafka/triage/latest`
+- `GET /api/telemetry/stream/kafka/triage/{anomaly_id}`
+- `GET /api/telemetry/stream/lineage/anomaly/{anomaly_id}`
+
+Ticket 4 guardrails: read via `get_telemetry_cursor`; **fail closed** with `*_unavailable` null reasons
+per missing layer; **no fake Databricks linkage** (`databricks_lineage_status='not_available'` until a
+real mapping exists); **no frontend changes yet**; **no Confluent runtime changes**; do not touch the
+unrelated Stargate scoring-lane work.
 
 ## Objective
 
@@ -136,8 +181,10 @@ no `databricks_*` columns, `tel_stream_triage_events` does not exist, and the `r
 legacy `('telemetry','anomaly','agg5s')` — exactly what `10034` extends. Confirmed `tel_stream_*` tables
 are absent on Supabase (`to_regclass` → null), so Supabase is the wrong target.
 
-**Ticket 1 status:** **blocked** — schema complete and dry-run validated; live apply + post-apply
-verification pending owner-role access. Do **not** start Ticket 2 until `10034` is applied and verified.
+**Ticket 1 status (at time of this note):** **blocked** — schema complete and dry-run validated; live
+apply + post-apply verification pending owner-role access. **→ Since RESOLVED:** applied + verified on
+prod Lakebase via a short-lived Databricks-CLI credential; Ticket 1 is COMPLETE (see the Status timeline
+at the top).
 
 **Risks/unknowns:** owner credential is the interactive Databricks human login (not in Railway/Vercel/
 Supabase). No Stargate→Delta mapping yet (pointers stay `not_available`).
