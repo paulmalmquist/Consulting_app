@@ -1,7 +1,26 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-25
 
+> **Shipped (2026-06-25) — Replay Model Diagnostics API (Story #734, PR #369 squash-merged → main):**
+> Made good on the #725 follow-up. `GET /api/telemetry/replay` now returns additive, DB-free
+> `scoringDiagnostics` + `lineage`; the Replay Forensics drawer (Model/Evidence/Operator/Lineage) shows
+> real provenance instead of only fail-closed placeholders. **scoringDiagnostics** exposes the frozen
+> serving threshold `DETECTOR_THRESHOLD = MAD_K*GLOBAL_TRAIN_SCALE = 0.135467` (the same value `/score`
+> applies). **The honest finding that reshaped the feature:** that threshold does NOT reproduce the
+> champion's D-4 firing — **0 of 412 fired ticks** exceed it (max fired residual 0.070); the champion
+> fired on a tighter **per-channel** scale the serving constants don't carry. So the surface states the
+> **divergence** (`model_pred` stays authoritative) instead of deriving a per-tick verdict that would
+> contradict the model — a per-tick "GO" next to a fired model is a contradiction, not honesty.
+> **lineage** echoes the reproducibility chain; the Lineage tab renders live Databricks/MLflow links via
+> `factoryEvidenceLinks`. Held-out metrics still come from `/api/telemetry/model-performance`.
+> Backward-compatible (existing keys + `feed[]` unchanged). **Gates:** backend 12/12, frontend adapter +
+> drawer 25/25, full telemetry suite 208, typecheck + lint clean; visual gate at 1280×800 dark (local
+> render of the merge commit via a stdlib mock backend that proxies non-replay calls to prod). Branch
+> `feat/replay-model-diagnostics` off main; backend deployed via `scripts/deploy_backend.sh`. ADO Story
+> #734 (Feature #513 / Epic #497). Lessons in `docs/tips.md` (replay diagnostics sources, MLflow/Databricks
+> linking, the divergence trap, mock-backend visual gate).
+>
 > **Shipped (2026-06-24) — Replay Forensics UI v2 (Story #725, PR open to main):** Upgraded
 > `/lab/env/[envId]/telemetry/replay` (`repo-b/src/components/telemetry/ReplayConsole.tsx`) from a
 > verdict poster into an inspectable forensics surface. New: a **source-truth banner** (public NASA
