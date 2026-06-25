@@ -2,7 +2,7 @@
 
 **ADO:** Story #479 under Feature #477 / Epic #476  
 **Risk:** Medium  
-**Status:** Implemented locally; PR, deployment, and production registry smoke pending  
+**Status:** Deployed and production-verified
 **Last updated:** 2026-06-25
 
 ## Outcome
@@ -46,7 +46,16 @@ registered read-only contract, dry-runs block with an explicit reason and retain
 - Focused frontend lint: passed.
 - A combined local backend command exposed pre-existing global MCP registry test pollution; the
   same tests pass when run in isolated processes, matching CI job behavior.
-- Merge through CI, deploy, and verify the ten new tenant-scoped templates in production.
+- PR #377 merged at `0dc39d2028e7b6fcef7730747c48e175c05c8b4f`.
+- Post-merge main CI run `28193904873`: passed.
+- Railway deployment `f4958ac4-3d72-4767-96b5-f8502dd61d80`: successful and healthy.
+- Vercel production deployment `dpl_FMMpJ8DqBn9bNon7Ebg8rNv4qgKN`: Ready and aliased to
+  `novendor.ai`.
+- Production registry reads remained idempotent at sixteen templates.
+- Exactly ten `governed-*` templates exist, all unique, draft, and version 1.
+- All ten production validation calls passed with zero issues.
+- Ticket Intake production dry-run `19277ca8-9168-4b23-897b-70d969b041c4` blocked at the capability
+  gate, skipped output, and persisted four receipts plus one simulated approval.
 
 ## Known production QA dependency
 
