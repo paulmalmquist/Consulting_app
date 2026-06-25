@@ -35,7 +35,7 @@ export function Tag({ color, children }: { color: string; children: ReactNode })
 }
 
 export function Panel({ title, right, children, pad = 18, style }: {
-  title?: string; right?: ReactNode; children: ReactNode; pad?: number; style?: CSSProperties;
+  title?: ReactNode; right?: ReactNode; children: ReactNode; pad?: number; style?: CSSProperties;
 }) {
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, ...style }}>
