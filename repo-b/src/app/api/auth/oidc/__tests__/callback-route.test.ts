@@ -44,7 +44,7 @@ describe("oidcPkce helpers", () => {
   it("rejects tampered payloads", () => {
     const envelope = buildEnvelope();
     const token = signEnvelope(envelope);
-    const tampered = token.replace(/.$/, "x");
+    const tampered = `${token.slice(0, -1)}${token.endsWith("x") ? "y" : "x"}`;
     expect(verifyEnvelope(tampered)).toBeNull();
   });
 

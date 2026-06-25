@@ -58,16 +58,27 @@ def _champion(cur, env_id: str, business_id: UUID, model_kind: str) -> dict | No
     return cur.fetchone()
 
 
-def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: str,
-                 window: list[dict]) -> dict:
-    """Score a window of readings with the promoted anomaly champion, persist a receipt, return the
-    verdict. Fails closed (verdict NOT_AVAILABLE + null_reason) when prerequisites are missing."""
+def _score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: str,
+                  window: list[dict], persist: bool) -> dict:
+    """Shared champion score path. ``persist=False`` is the read-only Agent Builder preview."""
+    if not window:
+        return {
+            "verdict": "NOT_AVAILABLE",
+            "null_reason": "empty_window",
+            "confidence": 0.0,
+            "missing_data": ["window"],
+        }
     with get_cursor() as cur:
         resolve_tenant_id(cur, business_id)   # validates the business exists (fail closed otherwise)
 
         champ = _champion(cur, env_id, business_id, "anomaly")
         if champ is None:
-            return {"verdict": "NOT_AVAILABLE", "null_reason": "model_not_promoted"}
+            return {
+                "verdict": "NOT_AVAILABLE",
+                "null_reason": "model_not_promoted",
+                "confidence": 0.0,
+                "missing_data": ["promoted anomaly model"],
+            }
 
         cur.execute(
             "SELECT id FROM tel_test_runs WHERE env_id = %s AND business_id = %s AND run_key = %s",
@@ -75,8 +86,14 @@ def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: 
         )
         run_row = cur.fetchone()
         if run_row is None:
-            return {"verdict": "NOT_AVAILABLE", "null_reason": "missing_run",
-                    "model_name": champ["model_name"], "model_version": champ["model_version"]}
+            return {
+                "verdict": "NOT_AVAILABLE",
+                "null_reason": "missing_run",
+                "model_name": champ["model_name"],
+                "model_version": champ["model_version"],
+                "confidence": 0.0,
+                "missing_data": ["test run"],
+            }
         run_id = run_row["id"]
 
         # Champion rule. Use caller-supplied rolling mean if present, else compute over the window.
@@ -98,21 +115,7 @@ def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: 
 
         attribution = [{"channel_name": channel_name, "contribution": round(peak_resid, 6)}]
 
-        cur.execute(
-            """INSERT INTO tel_predictions
-                 (env_id, business_id, run_id, channel_name, window_start_t, window_end_t,
-                  anomaly_score, threshold, verdict, model_name, model_version, mlflow_run_id,
-                  attribution, is_backfilled)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,false)
-               RETURNING id""",
-            (env_id, str(business_id), run_id, channel_name,
-             window[0]["t"], window[-1]["t"], anomaly_score, threshold, verdict,
-             champ["model_name"], champ["model_version"], champ["mlflow_run_id"],
-             _json(attribution)),
-        )
-        receipt_id = cur.fetchone()["id"]
-
-        return {
+        result = {
             "verdict": verdict,
             "anomaly_score": anomaly_score,
             "threshold": threshold,
@@ -121,8 +124,54 @@ def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: 
             "model_alias": champ["model_alias"],
             "mlflow_run_id": champ["mlflow_run_id"],
             "attribution": attribution,
-            "receipt_id": receipt_id,
+            "confidence": round(
+                min(0.99, max(0.5, abs((anomaly_score or 0) - 1.0) / 3.0 + 0.5)),
+                3,
+            ),
+            "missing_data": [],
+            "null_reason": None,
         }
+        if persist:
+            cur.execute(
+                """INSERT INTO tel_predictions
+                     (env_id, business_id, run_id, channel_name, window_start_t, window_end_t,
+                      anomaly_score, threshold, verdict, model_name, model_version, mlflow_run_id,
+                      attribution, is_backfilled)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,false)
+                   RETURNING id""",
+                (env_id, str(business_id), run_id, channel_name,
+                 window[0]["t"], window[-1]["t"], anomaly_score, threshold, verdict,
+                 champ["model_name"], champ["model_version"], champ["mlflow_run_id"],
+                 _json(attribution)),
+            )
+            result["receipt_id"] = cur.fetchone()["id"]
+        return result
+
+
+def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: str,
+                 window: list[dict]) -> dict:
+    """Score a window and persist the existing tel_predictions receipt."""
+    return _score_window(
+        env_id=env_id,
+        business_id=business_id,
+        run_key=run_key,
+        channel_name=channel_name,
+        window=window,
+        persist=True,
+    )
+
+
+def preview_score_window(*, env_id: str, business_id: UUID, run_key: str,
+                         channel_name: str, window: list[dict]) -> dict:
+    """Read-only score preview. Never inserts into tel_predictions."""
+    return _score_window(
+        env_id=env_id,
+        business_id=business_id,
+        run_key=run_key,
+        channel_name=channel_name,
+        window=window,
+        persist=False,
+    )
 
 
 def list_runs(*, env_id: str, business_id: UUID) -> list[dict]:

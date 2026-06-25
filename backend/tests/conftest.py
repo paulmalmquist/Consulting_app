@@ -217,6 +217,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.control_tower.approval.get_cursor",
     "app.services.control_tower.signing.get_cursor",
     "app.services.control_tower.gemma_tier.get_cursor",
+    "app.services.agent_builder.get_cursor",
     # telemetry_stream_etl / telemetry_stream_ingest import get_cursor lazily inside functions,
     # so the app.db.get_cursor patch above covers them (module-level targets would fail to patch).
 ]
