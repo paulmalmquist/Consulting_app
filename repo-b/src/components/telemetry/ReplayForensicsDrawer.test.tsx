@@ -52,6 +52,22 @@ const feed: ReplayFeed = {
 
 const fireTick = feed.feed[2];
 
+// Same feed enriched with the backend scoringDiagnostics — the real D-4 case where the serving
+// global-fallback threshold does NOT reproduce the champion's firing (every fired tick is below it).
+const scoredFeed: ReplayFeed = {
+  ...feed,
+  scoringDiagnostics: {
+    mad_k: 4, global_train_scale: 0.0339, threshold_residual_units: 0.135467,
+    threshold_source: "serving global-scale fallback",
+    residual_definition: "residual = abs(value - rmean)",
+    fired_ticks: 2, fired_ticks_above_threshold: 0, max_fired_residual: 0.07,
+    threshold_reproduces_firing: false,
+    per_channel_caveat:
+      "The serving global-scale fallback threshold does NOT reproduce the champion's D-4 firing — 0 of 2 fired ticks exceed it. model_pred is authoritative.",
+    fixture_score_degenerate: true, note: "test",
+  },
+};
+
 describe("ReplayForensicsDrawer", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -78,9 +94,12 @@ describe("ReplayForensicsDrawer", () => {
     expect(screen.getAllByText(/NASA-labeled window/i).length).toBeGreaterThan(0);
   });
 
-  it("Lineage tab fails closed on the workspace link and the unavailable fields", () => {
+  it("Lineage tab renders live Databricks/MLflow links and keeps genuinely-absent fields fail-closed", () => {
     render(<ReplayForensicsDrawer open onClose={() => {}} feed={feed} cursorTick={fireTick} fired initialTab="lineage" />);
-    expect(screen.getByText(/Link unavailable/i)).toBeInTheDocument();
+    // Workspace links are live by DEFAULT (committed workspace) — a real MLflow run hyperlink, not a dead link.
+    const runLink = screen.getByRole("link", { name: /Open MLflow Run/i });
+    expect(runLink.getAttribute("href")).toContain("4a48cb6af8714609b9581d66e904544c");
+    // Genuinely-absent-from-the-public-benchmark fields stay fail-closed.
     expect(screen.getByText(/no test-stage, phase, segment, or regime boundary/i)).toBeInTheDocument();
     expect(screen.getByText(/single channel \(D-4\)/i)).toBeInTheDocument();
   });
@@ -105,5 +124,24 @@ describe("ReplayForensicsDrawer", () => {
     render(<ReplayForensicsDrawer open onClose={() => {}} feed={empty} cursorTick={null} fired={false} />);
     expect(screen.getByText(/data_not_ingested/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Evidence" })).not.toBeInTheDocument();
+  });
+
+  it("Model tab shows the REAL serving threshold + firing divergence when scoringDiagnostics is present, NaRow when absent", () => {
+    const { unmount } = render(<ReplayForensicsDrawer open onClose={() => {}} feed={scoredFeed} cursorTick={fireTick} fired initialTab="model" />);
+    expect(screen.getByText(/serving threshold \(residual units\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/fired ticks above threshold/i)).toBeInTheDocument();
+    // the honest divergence caveat renders (the threshold does NOT reproduce D-4 firing)
+    expect(screen.getByText(/does NOT reproduce the champion's D-4 firing/i)).toBeInTheDocument();
+    // the fail-closed NaRow reason must NOT appear when the real threshold is available
+    expect(screen.queryByText(/the firing flag comes from the champion model's MAD rule/i)).not.toBeInTheDocument();
+    unmount();
+    render(<ReplayForensicsDrawer open onClose={() => {}} feed={feed} cursorTick={fireTick} fired initialTab="model" />);
+    expect(screen.getByText(/the firing flag comes from the champion model's MAD rule/i)).toBeInTheDocument();
+  });
+
+  it("Evidence tab surfaces the serving-threshold-vs-firing divergence when scoringDiagnostics is present", () => {
+    render(<ReplayForensicsDrawer open onClose={() => {}} feed={scoredFeed} cursorTick={fireTick} fired initialTab="evidence" />);
+    expect(screen.getByText(/Serving threshold vs champion firing/i)).toBeInTheDocument();
+    expect(screen.getByText(/does NOT reproduce the champion's D-4 firing/i)).toBeInTheDocument();
   });
 });
