@@ -6,7 +6,18 @@ import {
   computeReplayDiagnostics,
   inspectTick,
   NA_REASONS,
+  residualSeries,
 } from "./replayDiagnostics";
+
+// Minimal scoringDiagnostics body (threshold overridden per-test) for the residual-chart tests.
+const SCORING_BASE = {
+  mad_k: 4, global_train_scale: 0.0339, threshold_residual_units: 0.135467,
+  threshold_source: "serving global-scale fallback",
+  residual_definition: "residual = abs(value - rmean)",
+  fired_ticks: 3, fired_ticks_above_threshold: 0, max_fired_residual: 1.9,
+  threshold_reproduces_firing: false, per_channel_caveat: null,
+  fixture_score_degenerate: true, note: "test",
+} as const;
 
 // A small synthetic feed that reproduces the shape of the real fixture's load-bearing facts:
 // the model fires BEFORE the NASA-labeled window (pre-label false alarms), the labeled window comes
@@ -234,5 +245,35 @@ describe("computeReplayDiagnostics — scoring diagnostics (Ticket 2)", () => {
     // the removed per-tick verdict fields must not reappear on the shape
     expect((insp as Record<string, unknown>).verdict).toBeUndefined();
     expect((insp as Record<string, unknown>).realScore).toBeUndefined();
+  });
+});
+
+describe("residualSeries (Ticket 6 — residual vs threshold chart model)", () => {
+  it("maps every tick to abs(value-rmean) with a fired flag; no redline when threshold is absent", () => {
+    const s = residualSeries(feed); // `feed` carries no scoringDiagnostics
+    expect(s.threshold).toBeNull();
+    expect(s.points).toHaveLength(8);
+    expect(s.firedCount).toBe(3);
+    const fireTick = s.points.find((p) => p.t === 10)!; // |1.0-(-0.9)| = 1.9, fired
+    expect(fireTick.residual).toBeCloseTo(1.9, 6);
+    expect(fireTick.fired).toBe(true);
+    expect(s.allFiredBelowThreshold).toBe(false); // no threshold => never a divergence claim
+    expect(s.yMax).toBeGreaterThan(1.9); // ceiling sits above the largest residual
+  });
+
+  it("flags the divergence when every fired tick sits below the serving threshold (the D-4 case)", () => {
+    const divergent: ReplayFeed = { ...feed, scoringDiagnostics: { ...SCORING_BASE, threshold_residual_units: 5.0 } };
+    const s = residualSeries(divergent);
+    expect(s.threshold).toBe(5.0);
+    expect(s.firedAboveThreshold).toBe(0); // all fired residuals (1.9, 1.7, 0.8) < 5.0
+    expect(s.allFiredBelowThreshold).toBe(true); // the visible divergence
+    expect(s.yMax).toBeCloseTo(5.0 * 1.12, 6); // redline drives the ceiling
+  });
+
+  it("does NOT flag divergence when fired residuals exceed the threshold", () => {
+    const reproduces: ReplayFeed = { ...feed, scoringDiagnostics: { ...SCORING_BASE, threshold_residual_units: 0.135467 } };
+    const s = residualSeries(reproduces);
+    expect(s.firedAboveThreshold).toBe(3); // 1.9, 1.7, 0.8 all > 0.135467
+    expect(s.allFiredBelowThreshold).toBe(false);
   });
 });
