@@ -46,14 +46,14 @@ describe("BottleneckMap rendering", () => {
 
   it("enters presenter mode from the button, steps with the on-screen controls, exits on Escape", () => {
     render(<BottleneckMap />);
-    fireEvent.click(screen.getByRole("button", { name: "Enter presenter mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play guided walkthrough" }));
     expect(screen.getByText(/1 \/ 16/)).toBeInTheDocument();
     expect(screen.getByText(EVENTS_CHRONO[0].caption)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
     expect(screen.getByText(/2 \/ 16/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByText(/2 \/ 16/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enter presenter mode" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play guided walkthrough" })).toBeInTheDocument();
   });
 
   it("enters presenter mode on P but not while focus is in a form field", () => {
