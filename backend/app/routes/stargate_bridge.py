@@ -133,6 +133,10 @@ async def stream(request: Request, frames: int = 0):
                     if name == "telemetry" else fresh
                 )
             frame["dlq_count"] = len(state.rings["dlq"])
+            # Current Rules-vs-baseline state per printer — small, sent in full every frame (it is
+            # current state, not a cursored event stream), so the lane shows a baseline REVIEW even
+            # before any anomaly is routed.
+            frame["scored"] = state.scored_view()
             frame["health"] = state.health()
             yield f"data: {json.dumps(frame, separators=(',', ':'))}\n\n"
             emitted += 1

@@ -24,11 +24,16 @@ the affine maps below translate them into physical printer units:
 
 from __future__ import annotations
 
+import statistics
 from collections.abc import Sequence
 
 # Anomaly predicate constants. Mirrored in infra/confluent/flink/02_anomaly_route.sql.
 TEMP_THRESHOLD_C = 1400.0
 VIBRATION_THRESHOLD_G = 0.08
+
+# Human-readable predicate for operator/drawer copy. The redline is a COLD melt pool
+# (temp below 1400C) together with a shaking arm (vibration above 0.08g) — never "high temp".
+PREDICATE_TEXT = "cold melt pool (melt_pool_temp_c < 1400°C) AND high arm vibration (arm_vibration_g > 0.08g)"
 
 # Affine map parameters keyed by waveform channel.
 MELT_POOL_NOMINAL_C = 1500.0
@@ -92,6 +97,132 @@ def temp_slope_c_per_s(temps: Sequence[float], dt_s: float) -> float:
 def is_anomalous(temp_c: float, vibration_g: float) -> bool:
     """A structural-flaw signature: cold melt pool AND a shaking arm, together."""
     return temp_c < TEMP_THRESHOLD_C and vibration_g > VIBRATION_THRESHOLD_G
+
+
+# ── baseline anomaly scorer (frozen rolling-MAD champion, re-expressed pure-stdlib) ──────
+# The promoted anomaly champion (tel_anomaly_detector@champion) is a rolling-MAD dynamic
+# threshold. backend/app/services/telemetry_serving.py re-implements it for /score, but that
+# module imports app.db, which the bridge must NOT (import purity — the laptop venv has no
+# DATABASE_URL). So the SAME math is re-expressed here, pure-stdlib, for the live bridge lane.
+# These constants and the verdict bands MUST equal telemetry_serving.MAD_K /
+# GLOBAL_TRAIN_SCALE / _verdict_for, and the normalization MUST match
+# telemetry_stream_etl.normalize_window / rolling_mean — test_stargate_codec locks all three.
+# This is a BASELINE scorer (rolling-MAD), NOT an LSTM. Label it honestly everywhere.
+BASELINE_MAD_K = 4.0
+BASELINE_GLOBAL_TRAIN_SCALE = 0.033866801182436346
+BASELINE_ROLLING_POINTS = 50          # matches the champion's value_rmean50 window
+BASELINE_MIN_WINDOW = 10              # below this -> fail closed (insufficient_window)
+BASELINE_SCORER_NAME = "baseline scorer (rolling-MAD residual)"
+BASELINE_SCORER_VERSION = "mad-k4.0-gscale0.0339"   # constants fingerprint, surfaced honestly
+
+
+def baseline_verdict(score: float | None) -> str:
+    """GO / REVIEW / NO_GO band on the score — mirrors telemetry_serving._verdict_for exactly."""
+    if score is None:
+        return "GO"
+    if score < 1.0:
+        return "GO"
+    if score <= 2.0:
+        return "REVIEW"
+    return "NO_GO"
+
+
+def _normalize_fractional(values: Sequence[float]) -> list[float]:
+    """v / median(|window|) — matches telemetry_stream_etl.normalize_window. Raw engineering units
+    (melt pool ~1500C) vs the normalized-unit champion threshold: normalize before scoring."""
+    base = statistics.median(abs(v) for v in values) if values else 0.0
+    base = max(base, 1e-9)
+    return [v / base for v in values]
+
+
+def _rolling_mean(values: Sequence[float], window: int = BASELINE_ROLLING_POINTS) -> list[float]:
+    """Trailing mean over `window` points incl. current (min_periods=1) — the rmean50 frame.
+    Mirrors telemetry_stream_etl.rolling_mean."""
+    out: list[float] = []
+    acc = 0.0
+    buf: list[float] = []
+    for v in values:
+        buf.append(v)
+        acc += v
+        if len(buf) > window:
+            acc -= buf.pop(0)
+        out.append(acc / len(buf))
+    return out
+
+
+def score_baseline(values: Sequence[float]) -> dict:
+    """Score a trailing window of one channel's raw values with the frozen rolling-MAD champion.
+    Returns the display contract used by the SSE frame and the drawer. FAIL CLOSED: a window shorter
+    than BASELINE_MIN_WINDOW yields model_not_configured + null_reason 'insufficient_window' and a null
+    score — never a fabricated number."""
+    threshold = round(BASELINE_MAD_K * BASELINE_GLOBAL_TRAIN_SCALE, 6)
+    if len(values) < BASELINE_MIN_WINDOW:
+        return {
+            "name": BASELINE_SCORER_NAME, "version": BASELINE_SCORER_VERSION,
+            "score": None, "verdict": None, "threshold": threshold,
+            "model_not_configured": True, "null_reason": "insufficient_window",
+        }
+    norm = _normalize_fractional([float(v) for v in values])
+    rmeans = _rolling_mean(norm)
+    peak_resid = max(abs(n - m) for n, m in zip(norm, rmeans))
+    raw_threshold = BASELINE_MAD_K * BASELINE_GLOBAL_TRAIN_SCALE
+    score = round(peak_resid / raw_threshold, 6) if raw_threshold else None
+    return {
+        "name": BASELINE_SCORER_NAME, "version": BASELINE_SCORER_VERSION,
+        "score": score, "verdict": baseline_verdict(score), "threshold": threshold,
+        "model_not_configured": False, "null_reason": None,
+    }
+
+
+# ── Kafka provenance helpers (capture-mode synthesis; shared by bridge + durable sink) ───
+STARGATE_PARTITION_COUNT = 6   # matches stargate.printer.telemetry.v1
+CAPTURE_SCHEMA_NULL_REASON = "capture_mode_synthetic_schema_id"
+
+
+def synthetic_partition(printer_id: str, partition_count: int = STARGATE_PARTITION_COUNT) -> int:
+    """Deterministic partition for a printer key — a stable (non-salted) hash so two cold starts and
+    the durable sink agree. Kafka keys Stargate telemetry on printer_id, so this is faithful in shape
+    to how the real broker would place the record; in capture mode it is labeled synthetic."""
+    h = 0
+    for ch in printer_id:
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return h % max(1, partition_count)
+
+
+# ── multi-window rolling features (5s / 15s / 60s) ───────────────────────────────────────
+def _window_stats(points: list[dict]) -> dict:
+    """avg temp, max vib, temp/vib slope, n over a set of telemetry points (one window)."""
+    n = len(points)
+    if n == 0:
+        return {"n": 0, "avg_temp_c": None, "max_vib_g": None,
+                "temp_slope_c_per_s": None, "vib_slope_g_per_s": None}
+    temps = [float(p["melt_pool_temp_c"]) for p in points]
+    vibs = [float(p["arm_vibration_g"]) for p in points]
+    span_us = points[-1]["ts_us"] - points[0]["ts_us"]
+    dt_s = (span_us / 1_000_000) / (n - 1) if n > 1 else 0.0
+    return {
+        "n": n,
+        "avg_temp_c": round(sum(temps) / n, 3),
+        "max_vib_g": round(max(vibs), 5),
+        "temp_slope_c_per_s": round(temp_slope_c_per_s(temps, dt_s), 4),
+        "vib_slope_g_per_s": round(temp_slope_c_per_s(vibs, dt_s), 6),
+    }
+
+
+class MultiWindowAggregator:
+    """Rolling 5s / 15s / 60s features (avg temp, max vib, temp/vib slope, n) over a printer's recent
+    telemetry. Pure: computed on demand from the points the bridge already holds, so it carries no
+    incremental state and never drifts from the chart. Sits beside TumblingAggregator (which owns the
+    5s TUMBLING agg rows for the chart / agg topic); this owns the scorer + drawer feature windows."""
+
+    WINDOWS = (("w5s", 5), ("w15s", 15), ("w60s", 60))
+
+    def features(self, points: list[dict], now_us: int) -> dict:
+        pts = sorted(points, key=lambda p: p["ts_us"])
+        return {
+            label: _window_stats([p for p in pts if p["ts_us"] >= now_us - span * 1_000_000])
+            for label, span in self.WINDOWS
+        }
 
 
 class TumblingAggregator:

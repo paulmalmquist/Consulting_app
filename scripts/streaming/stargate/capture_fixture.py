@@ -48,10 +48,10 @@ CAPTURE_ID = "cap-stargate-20260611"   # this fixture's identity (the drawer's j
 # One personality per printer (see the module docstring). v4-03 uses the locally
 # authored "redline"; the rest use shared rs_factory_seed patterns.
 SEGMENTS_BY_PRINTER = {
-    0: ["normal", "normal"],         # v4-01 nominal control
-    1: ["normal", "pre_failure"],    # v4-02 coupled drift — baseline leads the rule
-    2: ["normal", "redline"],        # v4-03 abrupt cold-pool + vibration redline
-    3: ["normal", "pre_failure"],    # v4-04 carries the DLQ beats
+    0: ["normal", "normal"],          # v4-01 nominal control
+    1: ["normal", "coupled_drift"],   # v4-02 baseline leads the rule (see _coupled_drift_raw)
+    2: ["normal", "redline"],         # v4-03 abrupt cold-pool + vibration redline
+    3: ["normal", "pre_failure"],     # v4-04 carries the DLQ beats
 }
 
 # (line_index, raw_line) — the DLQ beats, flavored as stargate-v4-04 so the dead-letter
@@ -84,9 +84,35 @@ def _redline_raw(channel: str, n: int, rng: np.random.Generator) -> np.ndarray:
     return level + noise                        # flow stays nominal
 
 
+def _coupled_drift_raw(channel: str, n: int, rng: np.random.Generator) -> np.ndarray:
+    """v4-02 — the baseline-leads-the-rule case. An early melt-pool TEMPERATURE excursion (raw temp up,
+    so the melt pool dips well below 1400C) while arm vibration stays NOMINAL, so the two-condition rule
+    (cold pool AND shaking arm) stays silent — but the rolling-MAD baseline flags the temperature
+    excursion as REVIEW. Later a SUSTAINED cold-pool + vibration redline finally trips the hard rule.
+    Feed/power are held stable elsewhere, so the early signal is a melt-pool instability the rule misses.
+    Authored here as demo data; it crosses neither the predicate nor the scorer thresholds, it only
+    exercises them."""
+    level, sigma, _amp = waveforms.CHANNELS[channel]
+    t = np.linspace(0.0, 1.0, n)
+    noise = rng.normal(0.0, sigma, n)
+    if channel == "temperature":
+        # early excursion: raw +135 over t in [0.18,0.26) -> melt pool ~1203C (cold), vibration nominal
+        excursion = np.where((t >= 0.18) & (t < 0.26), 135.0, 0.0)
+        # sustained redline: raw +62 at t>0.62 -> melt pool ~1364C (cold)
+        redline = np.where(t > 0.62, 62.0, 0.0)
+        return level + excursion + redline + noise
+    if channel == "vibration_rms":
+        # nominal through the early temp excursion; rises only with the sustained redline at t>0.62
+        redline = np.where(t > 0.62, 1.9, 0.0)
+        return level + redline + noise
+    return level + noise                          # flow stays nominal
+
+
 def _generate_raw(pattern: str, channel: str, n: int, rng: np.random.Generator) -> np.ndarray:
     if pattern == "redline":
         return _redline_raw(channel, n, rng)
+    if pattern == "coupled_drift":
+        return _coupled_drift_raw(channel, n, rng)
     return waveforms.generate(pattern, channel, n, rng)
 
 

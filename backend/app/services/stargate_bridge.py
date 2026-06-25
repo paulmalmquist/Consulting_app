@@ -40,7 +40,7 @@ import json
 import os
 import threading
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from pathlib import Path
 
 import anyio
@@ -53,6 +53,10 @@ class StargateTopics:
     AGG_5S = "stargate.printer.telemetry.agg5s.v1"
     ANOMALIES = "stargate.printer.anomalies.v1"
     DEAD_LETTER = "stargate.printer.dlq.v1"
+    # AI-triage output (Confluent Streaming Agent explains upstream anomalies; it
+    # is not the detector). Consumed by the durable serving-slice consumer, not
+    # the in-memory SSE bridge below.
+    TRIAGE = "stargate.printer.anomaly.triage.v1"
 
 
 def telemetry_message_class():
@@ -70,6 +74,13 @@ SNAPSHOT_TELEMETRY_TAIL = 600
 CAPTURE_BASE_MS = 1_700_000_000_000
 
 RING_SIZES = {"telemetry": 2000, "agg": 240, "anomalies": 200, "dlq": 100}
+
+# Live "Rules vs baseline" lane: per-printer recent history feeds the rolling-MAD baseline scorer
+# and the 5s/15s/60s feature windows. RESCORE_EVERY bounds the recompute cost so a cloud-rate stream
+# does not score on every point (it always rescores when the hard rule fires, so anomalies are exact).
+RECENT_MAXLEN = 700                # ~60s+ of one printer's points at replay cadence
+SCORE_WINDOW_POINTS = 60           # trailing temps fed to the champion (matches the live ETL)
+RESCORE_EVERY = 5                  # rescore at most every Nth point per printer (rule fire forces it)
 
 
 class SeqRing:
@@ -110,25 +121,70 @@ class BridgeState:
         self.mode = mode
         self.rings = {name: SeqRing(size) for name, size in RING_SIZES.items()}
         self.aggregator = sm.TumblingAggregator()
+        self.aggregator_mw = sm.MultiWindowAggregator()
         self.started_at = time.time()
         self.msgs_in = 0
         self.last_message_ts = 0.0
         self._rate_window: list[float] = []
         self.consumer_alive = False
+        # Rules-vs-baseline lane state. _recent holds each printer's trailing points (for the scorer +
+        # feature windows); _scored is the latest scored snapshot per printer (drives the live lane,
+        # including the case where the baseline flags REVIEW BEFORE the hard rule fires); _offsets is
+        # the per-partition synthetic Kafka offset counter for capture-mode provenance.
+        self._recent: dict[str, deque] = {}
+        self._scored: dict[str, dict] = {}
+        self._offsets: dict[int, int] = defaultdict(int)
+        self._since_score: dict[str, int] = defaultdict(int)
 
     # -- ingest -------------------------------------------------------------
 
-    def ingest_telemetry(self, record: dict, *, emulate_flink: bool, now_ms: int | None = None) -> None:
+    def ingest_telemetry(self, record: dict, *, emulate_flink: bool, now_ms: int | None = None,
+                         kafka_meta: dict | None = None) -> None:
+        printer_id = record.get("printer_id", "?")
+        ts_us = int(record.get("ts_us", 0))
+
+        # Kafka coordinates. Real ones arrive via kafka_meta (broker modes, wired in the cloud pass);
+        # in capture/replay they are deterministically synthesized and labeled synthetic.
+        if kafka_meta is not None:
+            partition = int(kafka_meta["partition"])
+            offset = int(kafka_meta["offset"])
+            schema_id = kafka_meta.get("schema_id")
+            synthetic = False
+        else:
+            partition = sm.synthetic_partition(printer_id)
+            offset = self._offsets[partition]
+            self._offsets[partition] += 1
+            schema_id = None
+            synthetic = True
+
         self.rings["telemetry"].append(record)
         self._mark_in()
-        if sm.is_anomalous(record["melt_pool_temp_c"], record["arm_vibration_g"]):
+
+        dq = self._recent.setdefault(printer_id, deque(maxlen=RECENT_MAXLEN))
+        dq.append(record)
+
+        rule_fired = sm.is_anomalous(record["melt_pool_temp_c"], record["arm_vibration_g"])
+        # Rescore on a cadence so a cloud-rate stream doesn't recompute per point — but always rescore
+        # when the rule fires (so every anomaly carries an exact score) or before the first scored frame.
+        self._since_score[printer_id] += 1
+        if rule_fired or printer_id not in self._scored or self._since_score[printer_id] >= RESCORE_EVERY:
+            self._since_score[printer_id] = 0
+            self._scored[printer_id] = self._build_scored(printer_id, record, ts_us, rule_fired, list(dq))
+
+        if rule_fired:
+            snap = self._scored[printer_id]
             self.rings["anomalies"].append({
-                "printer_id": record["printer_id"],
-                "ts_us": record["ts_us"],
+                "printer_id": printer_id,
+                "ts_us": ts_us,
                 "layer": record["layer"],
                 "print_job_id": record["print_job_id"],
                 "melt_pool_temp_c": record["melt_pool_temp_c"],
                 "arm_vibration_g": record["arm_vibration_g"],
+                "rule": snap["rule"],
+                "scorer": snap["scorer"],
+                "feature_window": snap["feature_window"],
+                "routing": {"routed_to": "anomalies", "reason": "cold_melt_pool_and_high_vibration"},
+                "provenance": self._provenance(record, printer_id, partition, offset, schema_id, synthetic),
             })
         if emulate_flink:
             self.aggregator.add(
@@ -138,6 +194,39 @@ class BridgeState:
             flush_at = now_ms if now_ms is not None else int(time.time() * 1000)
             for row in self.aggregator.flush_closed(flush_at):
                 self.rings["agg"].append(row)
+
+    def _build_scored(self, printer_id: str, record: dict, ts_us: int, rule_fired: bool,
+                      recent: list[dict]) -> dict:
+        """The per-printer Rules-vs-baseline snapshot: the hard-rule result beside the baseline scorer,
+        plus the 5s/15s/60s feature windows. The scorer is the rolling-MAD baseline — never an LSTM."""
+        temps = [float(r["melt_pool_temp_c"]) for r in recent[-SCORE_WINDOW_POINTS:]]
+        return {
+            "printer_id": printer_id,
+            "ts_us": ts_us,
+            "rule": {
+                "fired": rule_fired,
+                "predicate": sm.PREDICATE_TEXT,
+                "temp_c": record["melt_pool_temp_c"],
+                "vib_g": record["arm_vibration_g"],
+            },
+            "scorer": sm.score_baseline(temps),
+            "feature_window": self.aggregator_mw.features(recent, ts_us) if ts_us else {},
+        }
+
+    def _provenance(self, record: dict, printer_id: str, partition: int, offset: int,
+                    schema_id: int | None, synthetic: bool) -> dict:
+        source = {"capture": "recorded_capture", "cloud": "confluent_cloud",
+                  "local": "local_redpanda"}.get(self.mode, "recorded_capture")
+        return {
+            "provenance_source": source,
+            "kafka_topic": StargateTopics.TELEMETRY,
+            "kafka_partition": partition,
+            "kafka_offset": offset,
+            "schema_id": schema_id,
+            "schema_null_reason": sm.CAPTURE_SCHEMA_NULL_REASON if synthetic else None,
+            "capture_id": record.get("capture_id"),
+            "synthetic": synthetic,
+        }
 
     def ingest_dlq(self, topic: str, reason: str, raw: bytes) -> None:
         self.rings["dlq"].append({
@@ -191,8 +280,14 @@ class BridgeState:
             "anomalies": self.rings["anomalies"].tail(RING_SIZES["anomalies"]),
             "dlq": self.rings["dlq"].tail(RING_SIZES["dlq"]),
             "dlq_count": len(self.rings["dlq"]),
+            "scored": self.scored_view(),
             "health": self.health(),
         }
+
+    def scored_view(self) -> list[dict]:
+        """Current Rules-vs-baseline state, one entry per printer. Tiny (<= printer count), so it rides
+        every SSE frame in full — it is current state, not a cursored stream of events."""
+        return [self._scored[pid] for pid in sorted(self._scored)]
 
 
 # -- capture mode -------------------------------------------------------------

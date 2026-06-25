@@ -289,5 +289,19 @@ high arm vibration (>0.08g)", never "high temp."
 > sign-off pass** (un-park → register v3 schema → regenerate pb2 → `producer --mode cloud` → verify
 > provenance → re-park).
 
-Next: T3 (pure baseline scorer + 5/15/60s windows + enriched SSE), T4 (UI lane + drawer + provenance
-route + deep-link), T2 (durable sink), then the live Confluent round-trip.
+### T3 — baseline scorer + feature windows + enriched SSE (LANDED)
+
+| Item | Result |
+|---|---|
+| Pure scorer | `stargate_signal_mapping.score_baseline` re-expresses the frozen champion (rolling-MAD residual over fractional-deviation-normalized values) pure-stdlib so the import-pure bridge can score live. `baseline_verdict` = GO `<1.0` / REVIEW `≤2.0` / NO_GO `>2.0` |
+| Constants/math lock | tests assert `BASELINE_MAD_K`/`BASELINE_GLOBAL_TRAIN_SCALE`/bands == `telemetry_serving.MAD_K`/`GLOBAL_TRAIN_SCALE`/`_verdict_for`, AND that `score_baseline` reproduces the live ETL path (`telemetry_stream_etl.normalize_window` + `rolling_mean`). Two spellings of one rule, locked |
+| Feature windows | `MultiWindowAggregator` (rolling 5s/15s/60s avg_temp, max_vib, temp/vib slope, n) beside the existing 5s `TumblingAggregator` (which still owns the chart/agg rows) |
+| Enriched ingest | the one chokepoint `BridgeState.ingest_telemetry` now attaches `rule` / `scorer` / `feature_window` / `routing` / `provenance` to anomaly rows, and maintains a per-printer `scored` snapshot surfaced on every SSE frame (so the lane shows a baseline REVIEW even before any anomaly routes) |
+| Provenance | capture-mode coordinates are deterministically SYNTHESIZED and labeled: `provenance_source="recorded_capture"`, `kafka_partition = synthetic_partition(printer_id) % 6`, monotonic per-partition `kafka_offset`, `schema_null_reason="capture_mode_synthetic_schema_id"`, `synthetic=true`. Real broker coords arrive via the new optional `kafka_meta` arg (wired in the cloud pass) |
+| Fail closed | a window shorter than `BASELINE_MIN_WINDOW` (10) yields `model_not_configured` + `null_reason:"insufficient_window"` and a null score — never a fabricated number |
+| v4-02 tuned (edit #5) | the gentle `pre_failure` ramp peaked at baseline score 0.254 — the SMAP-calibrated threshold is too coarse for melt-pool's small fractional deviations, so the baseline never led. Per the user's edit #5, tuned **only v4-02's seeded values**: a new authored `coupled_drift` segment (early melt-pool temperature excursion with vibration still nominal → rule silent → baseline REVIEW, then a sustained cold-pool + vibration redline → rule fires). **Verified: baseline REVIEW at 35513ms (score 1.48) leads the first hard-rule anomaly at 48613ms; 114 anomalies still routed.** Predicate and scorer thresholds untouched |
+| Bridge purity | subprocess test imports the bridge + scores with no `DATABASE_URL`/`TELEMETRY_DATABASE_URL` set |
+| Tests | `test_stargate_codec.py` +scorer/feature/provenance classes; `test_stargate_bridge.py` +`TestRulesVsBaseline` (scored frame, enriched anomalies, fail-closed, v4-02 lead regression) +`TestBridgeImportPurity`. **49 passed, 1 skipped** (stargate suites); `test_telemetry_serving`/`test_telemetry_stream_etl` 30 passed (no regression) |
+
+Next: T4 (UI Rules-vs-baseline lane + inspection drawer + provenance route + deep-link), T2 (durable sink),
+then the live Confluent round-trip.
