@@ -1,9 +1,13 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import AdeOverview from "@/components/automated-data-engineering/AdeOverview";
-
-export default function AdeOverviewPage() {
-  const { envId } = useParams<{ envId: string }>();
-  return <AdeOverview envId={envId} />;
+// The standalone ADE mount is superseded by the composed telemetry Data Engineering section.
+// The portable ADE package (components/lib/backend) is unchanged and still mountable elsewhere;
+// only this telemetry mount redirects. See ADR 0002 follow-up.
+export default async function AdeOverviewRedirect({
+  params,
+}: {
+  params: Promise<{ envId: string }>;
+}) {
+  const { envId } = await params;
+  redirect(`/lab/env/${envId}/telemetry/data-engineering`);
 }
