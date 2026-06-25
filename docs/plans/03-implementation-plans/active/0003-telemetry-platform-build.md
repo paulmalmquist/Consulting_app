@@ -353,4 +353,12 @@ state — the cluster was NOT deleted (it also hosts non-Stargate topics: `histo
 flat hourly base that predates this work). Note: the SR python client needs the
 `confluent-kafka[schemaregistry,protobuf]` extras (authlib/cachetools/httpx) installed in the tooling venv.
 
+**Follow-up (open):** the `scripts/streaming/stargate/proto_gen/stargate_telemetry_pb2.py` Python bindings
+are still **v1** (10 fields). Proto **v3 is registered in the SR** (subject `stargate.printer.telemetry.v1-value`,
+schema ID 100006) and the v3 fields are carried by the capture-mode JSON fixture, so nothing in the
+capture/CI/Railway/demo path depends on the bindings. But **full on-the-wire v3 field production in cloud mode
+needs the bindings regenerated** — `pip install grpcio-tools` then
+`python -m grpc_tools.protoc -I infra/confluent/proto --python_out=scripts/streaming/stargate/proto_gen stargate_telemetry_v3.proto`
+(output as `stargate_telemetry_pb2.py`). Do not claim full on-wire v3 field production until that regen lands.
+
 **Phase 7 COMPLETE** — T1–T4 landed and committed; the live Confluent sign-off passes.
