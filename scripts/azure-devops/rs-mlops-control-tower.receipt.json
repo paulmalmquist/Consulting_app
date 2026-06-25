@@ -1,0 +1,65 @@
+{
+  "appliedAtUtc": "2026-06-24T00:55:16.7540853Z",
+  "manifest": "C:\\Projects\\Consulting_app\\scripts\\azure-devops\\rs-mlops-control-tower.json",
+  "backup": "C:\\Projects\\Consulting_app\\scripts\\azure-devops\\backups\\pre-apply-20260623-205310.json",
+  "team": {
+    "id": "017cbec3-afc4-4af0-8c30-e4a0be322848",
+    "name": "RS MLOps"
+  },
+  "board": {
+    "id": "d8032de2-14e1-45df-a9f1-339d909a8f51",
+    "name": "Stories"
+  },
+  "queries": {
+    "Agent Ready": "775f6899-4d9c-4ae7-86d8-853964cb9649",
+    "Agent Running": "8be7758e-8a06-4da3-a00c-118e071a0c60",
+    "Demo Critical Not Verified": "751b0efe-5e71-4824-a37b-05cc5d40d9a7",
+    "ML Experiments in Eval Gate": "71becf23-2793-4078-ac87-f85ddc06e3bb",
+    "No Fake Data Violations": "4e3bf4db-239e-4a9c-bfd6-c987fc312752",
+    "Human Approval Required": "3e721d86-4b67-4210-9999-d7606643d288",
+    "PR Open": "8892d89c-7c5e-4f69-b79b-f202547d7092",
+    "Evidence Missing": "5c45e699-0fef-441d-8ae9-519d451d76e7"
+  },
+  "dashboards": {
+    "MLOps Control Tower": "7e62c972-dab6-4bdf-83cd-404943c53909",
+    "Model Quality": "ad849e85-806d-4380-8318-37875a2e94c2",
+    "Data Reliability": "8c7539ef-c09e-4d83-84eb-f2fe28994740",
+    "Agent Delivery": "3b5f1796-6a3f-420f-9929-348ef9c17947"
+  },
+  "dashboardWidgets": {
+    "MLOps Control Tower": {
+      "MLOps Control Tower contract": "f5d22b0d-d8a6-4630-9ab5-056f1f7c3fb4",
+      "Demo Critical Not Verified": "ad8c7443-57f8-4b5a-b747-b09470ca195f",
+      "Agent Ready": "5ab8919f-cf1f-4603-b885-f6df2aa9d982",
+      "Human Approval Required": "aba7903c-ca3d-4359-ba60-3ad2bd090e6d",
+      "Evidence Missing": "14d9539b-02a4-47f0-beae-9e196ea11752"
+    },
+    "Model Quality": {
+      "Model Quality contract": "a620da4f-c650-4588-af66-952904ade117",
+      "ML Experiments in Eval Gate": "81338113-c7ae-4842-8337-e07f46baf3a0",
+      "Evidence Missing": "b1ca93fa-8c53-41a9-b539-b2fa65b9b64c"
+    },
+    "Data Reliability": {
+      "Data Reliability contract": "56a36084-7c90-4bff-aba0-e764c5510fc5",
+      "No Fake Data Violations": "b9457da6-72ab-424a-aa36-cca947b8b9f5",
+      "Evidence Missing": "9cc8a87e-4064-41c8-bf36-7f1f34b92b45"
+    },
+    "Agent Delivery": {
+      "Agent Delivery contract": "ab9f68b9-5a91-4def-ba70-64244425a414",
+      "Agent Ready": "3650bc51-921d-4e5b-83a8-de11567b6415",
+      "Agent Running": "b0d23d38-4470-4ec2-89ec-cba585761aee",
+      "PR Open": "d4f9b0cb-3a8f-4a49-8f0d-79b1ae31b028",
+      "Evidence Missing": "3dea5874-5807-460d-becd-914df0daa7b1"
+    }
+  },
+  "deliveryPlan": {
+    "id": "6b08d75a-8195-4df1-bc6a-f9909995d4ca",
+    "name": "RS - Winston MLOps Delivery Plan"
+  },
+  "deferred": {
+    "testPlans": "Requires a dedicated Azure DevOps PAT and confirmed Test Plans license.",
+    "serviceHook": "Enable only after the Agent Ready polling workflow is stable.",
+    "githubEnvironments": "Configure protected deployment approvals in GitHub, not Azure Pipelines."
+  },
+  "verificationErrors": null
+}

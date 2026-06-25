@@ -83,11 +83,18 @@ def run_cli(
     command: list[str],
     stdin_text: str,
     timeout_s: int = 600,
+    cwd: Optional[str] = None,
 ) -> AdapterResult:
     """Run `command`, feeding `stdin_text` to the process stdin. Captures both
     streams. Never raises on a non-zero exit — the relay decides what a
     non-zero exit means. Raises AdapterUnavailable only if the executable
-    vanishes between detection and launch."""
+    vanishes between detection and launch.
+
+    `cwd` sets the subprocess working directory. The build/review loop must run
+    the agent IN its worktree — `claude -p` and `codex exec` both operate on
+    their CWD, and a coding agent launched from the wrong directory will reason
+    about the task but edit nothing. Defaults to None (inherit) to preserve
+    relay.py's existing behavior."""
     start = time.monotonic()
     try:
         proc = subprocess.run(
@@ -100,6 +107,7 @@ def run_cli(
             encoding="utf-8",
             errors="replace",
             timeout=timeout_s,
+            cwd=cwd,
         )
     except FileNotFoundError as exc:
         raise AdapterUnavailable(agent, " ".join(command), str(exc)) from exc
