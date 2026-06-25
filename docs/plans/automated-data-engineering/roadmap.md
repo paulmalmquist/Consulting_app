@@ -29,20 +29,37 @@ endpoints with telemetry primitives. Old `/automated-data-engineering/*` routes 
 ADE core package is unchanged and still portable (ADR 0002 follow-up note). This was IA + framing
 only — no new backend.
 
-**Deferred to Phase 2 (presentation; not shown as if they exist today):**
+## Milestone: Phase 2A–2D COMPLETE (2026-06-25)
 
-- **Join-safety classification UI** — safe / bridge-required / blocked verdicts + recommended bridge
-  paths, derived from edge confidence + grain mismatch. (Depends on the Analytical engine items below.)
-- **Guided scenario walkthrough** — e.g. "can vibration + chamber temperature explain failed Stargate
-  prints?" rendered as found-sources → grain → unsafe-direct-join → bridge → feature proposal → gates →
-  receipt. Deterministic, clearly labeled illustrative.
-- **Aerospace-scoped default skill view** in Agent Workbench (profile / infer-grain / validate-join /
-  generate-contract / propose-feature), with the full registry behind an advanced toggle.
-- **Workflow templates** surfaced in the section (ingest source, add governed metric, create feature
-  table, investigate stale metric) instead of a bare "Not available."
-- **Dedicated pipeline-run + DQ-assertion frontend feed** (today Pipelines & Quality derives stage
-  health from catalog node `status` only).
+The Phase 2 presentation backlog is shipped and prod-verified on novendor.ai. All on the telemetry
+side — ADE core untouched, portability guard clean throughout.
+
+- **2A — Relationship safety** (PR #345, d96fb72e). `lib/telemetry/relationshipSafety.ts`: safe /
+  bridge-required / unsafe / unverifiable verdicts from catalog grain + keys + status + confidence.
+  Safe requires positive evidence (declared FK or matching grain), else fails closed to unverifiable —
+  no fake green. RelationshipSafetyDrawer + the **grounded** "vibration + temperature → failed Stargate
+  prints?" scenario (real nodes, same classifier).
+- **2B — Aerospace Agent Workbench** (PR #362, a2487408). `lib/telemetry/deCapabilities.ts`: nine DE
+  capabilities grouped Observe / Propose / Execute / Advanced. Only dry-run SQL is backed today
+  (`sql.validate_query`); the rest are declared-only (`no_registered_skill_for_capability`), never
+  implied runnable. Wrong-domain false-matches blocked.
+- **2C — Workflow templates** (PR #364, 78f94f81). `lib/telemetry/workflowTemplates.ts`: six read-only
+  templates with purpose / inputs / steps / tests / executability. Executability derived from registry
+  backing; never "executable" (no run path); no fake runs or receipts.
+- **2D — One real read-only receipt** (PR #366, 4dbf4d5e). Telemetry endpoints
+  `POST /api/telemetry/data-engineering/profile-metadata` (writes a real `app.audit_events` row) +
+  `GET .../receipts`; Run Autopsy runs the action and shows the real receipt. Not in ADE `/runs`
+  (which hard-filters `mcp.tool_call`) — a telemetry-side `ade.de.*` audit stream instead. Backend
+  deployed to Railway (prod backend == main); verified end-to-end (receipt written + read back).
+
+### Still deferred (not shipped)
+
+- **Dedicated pipeline-run + DQ-assertion frontend feed** — Pipelines & Quality still derives stage
+  health from catalog node `status` only.
 - **Palette unification** between the ADE `C` tokens and the telemetry `C` tokens.
+- **Backend validators for the unbacked DE capabilities** (profile_source, infer_grain,
+  validate_relationship as governed MCP skills, etc.) — the Analytical engine items below. Until those
+  exist, 2B correctly shows them declared-only and 2C templates as blocked.
 
 ## Shipped
 
