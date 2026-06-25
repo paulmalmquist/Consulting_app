@@ -47,9 +47,13 @@ jobs:
         run: pip install psycopg2-binary
 
       - name: Install confluent CLI
+        # Install to a user-writable dir — the runner's /usr/local/bin is not chmod-able
+        # without sudo ("Operation not permitted").
         run: |
-          curl -sL --http1.1 https://cnfl.io/cli | sh -s -- -b /usr/local/bin
-          confluent version
+          mkdir -p "$HOME/.local/bin"
+          curl -sL --http1.1 https://cnfl.io/cli | sh -s -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/confluent" version
 
       - name: Confluent login (service account key)
         # Non-fatal: if the key secrets are absent/invalid the login fails, but the
