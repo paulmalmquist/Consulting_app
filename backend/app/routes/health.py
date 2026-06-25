@@ -60,6 +60,11 @@ def health_ready():
     return JSONResponse(status_code=503, content=payload)
 
 
+@router.get("/healthz")
+def healthz():
+    return {"status": "ok", "version": _DEPLOYED_GIT_SHA}
+
+
 @router.get("/version")
 def version():
     """Return the git SHA the running container was built from.

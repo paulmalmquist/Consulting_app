@@ -17,6 +17,8 @@ from app.mcp.schemas.telemetry_tools import (
     GetAnomalyEventsInWindowInput,
     GetModelRunDetailInput,
     GetTriggeringPredictionInput,
+    PreviewScoreWindowInput,
+    PreviewScoreWindowOutput,
 )
 from app.services import audit as audit_svc
 from app.services import telemetry_serving as svc
@@ -26,6 +28,7 @@ TELEMETRY_TOOL_NAMES = frozenset({
     "telemetry.get_triggering_prediction",
     "telemetry.get_model_run_detail",
     "telemetry.get_anomaly_events_in_window",
+    "telemetry.preview_score_window",
 })
 
 SCOPE_DENIED_REASON = "tool_not_in_telemetry_scope"
@@ -48,6 +51,16 @@ def _get_anomaly_events_in_window(ctx: McpContext, inp: GetAnomalyEventsInWindow
     return svc.get_anomaly_events_in_window(
         env_id=inp.env_id, business_id=inp.business_id,
         run_key=inp.run_key, t_start=inp.t_start, t_end=inp.t_end)
+
+
+def _preview_score_window(ctx: McpContext, inp: PreviewScoreWindowInput) -> dict:
+    return svc.preview_score_window(
+        env_id=inp.env_id,
+        business_id=inp.business_id,
+        run_key=inp.run_key,
+        channel_name=inp.channel_name,
+        window=inp.window,
+    )
 
 
 def register_telemetry_tools() -> None:
@@ -78,6 +91,16 @@ def register_telemetry_tools() -> None:
         input_model=GetAnomalyEventsInWindowInput,
         handler=_get_anomaly_events_in_window,
         tags=frozenset({"telemetry", "read-only", "anomaly"}),
+    ))
+    registry.register(ToolDef(
+        name="telemetry.preview_score_window",
+        description="Score a telemetry window with the promoted champion without writing tel_predictions.",
+        module="telemetry",
+        permission="read",
+        input_model=PreviewScoreWindowInput,
+        output_model=PreviewScoreWindowOutput,
+        handler=_preview_score_window,
+        tags=frozenset({"telemetry", "read-only", "scoring", "agent-builder"}),
     ))
 
 
