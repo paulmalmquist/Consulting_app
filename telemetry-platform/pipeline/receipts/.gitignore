@@ -1,0 +1,2 @@
+# Transient per-run receipt (overwritten each run). The checked-in example_dry_run.json is kept.
+promote_receipt_latest.json

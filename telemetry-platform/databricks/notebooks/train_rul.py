@@ -5,6 +5,11 @@
 # MAGIC units (predict RUL at each unit's last observed cycle, compare to the official RUL truth).
 # MAGIC Reports RMSE + the NASA PHM asymmetric score. No look-ahead: features are the no-look-ahead
 # MAGIC rolling features built in the lakehouse; the model never sees test units during training.
+# MAGIC
+# MAGIC **PR-1 hardening:** logs naive baselines, late-prediction diagnostics (the dangerous mode for RUL),
+# MAGIC PHM-aware metrics, and a label-shuffle leakage control — so `promote_models.py` can gate on more
+# MAGIC than RMSE. A model is only called "skillful" when it beats the strongest naive baseline; a model is
+# MAGIC only safe to promote when it ALSO keeps late predictions low and clears the leakage control.
 
 # COMMAND ----------
 import json
@@ -20,7 +25,7 @@ EXPERIMENT_ID = "3740651530987773"
 TEL = "novendor_1.telemetry"
 mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
 
-RMSE_GATE = 25.0          # cycles; declared before training
+RMSE_GATE = 25.0          # cycles; declared before training (absolute ceiling, kept for reference)
 RUL_CAP = 125             # standard C-MAPSS piecewise-linear RUL ceiling
 
 # COMMAND ----------
@@ -50,53 +55,181 @@ print("train rows", len(train), "test units evaluated", len(test_last))
 
 Xtr, ytr = train[FEAT_COLS].to_numpy(), train["y"].to_numpy()
 Xte, yte = test_last[FEAT_COLS].to_numpy(), test_last["y_true"].to_numpy()
+units = test_last["unit"].to_numpy()
 
 # COMMAND ----------
 def rmse(a, b):
-    return float(np.sqrt(np.mean((np.asarray(a) - np.asarray(b)) ** 2)))
+    return float(np.sqrt(np.mean((np.asarray(a, float) - np.asarray(b, float)) ** 2)))
+
+def mae(a, b):
+    return float(np.mean(np.abs(np.asarray(a, float) - np.asarray(b, float))))
 
 def phm_score(y_true, y_pred):
-    # NASA PHM'08 asymmetric score: late predictions (pred > true => d>0) penalized more (a=10) than
-    # early (a=13). Lower is better.
-    d = np.asarray(y_pred) - np.asarray(y_true)
+    # NASA PHM'08 asymmetric score. LOWER IS BETTER. Late predictions (pred > true => d>0) penalized
+    # more (a=10) than early (a=13), because over-stating remaining life is the dangerous direction.
+    d = np.asarray(y_pred, float) - np.asarray(y_true, float)
     s = np.where(d < 0, np.exp(-d / 13.0) - 1.0, np.exp(d / 10.0) - 1.0)
     return float(np.sum(s))
 
-# ---- Baseline: linear regression on last-cycle features ----
-lin = LinearRegression().fit(Xtr, ytr)
-pred_lin = np.clip(lin.predict(Xte), 0, RUL_CAP)
-m_lin = {"rmse": rmse(yte, pred_lin), "phm": phm_score(yte, pred_lin)}
-print("linear baseline", m_lin)
-with mlflow.start_run(run_name="rul_linear_baseline") as run:
-    mlflow.log_param("model", "linear_regression")
-    mlflow.log_param("rul_cap", RUL_CAP)
-    mlflow.log_metric("rmse", m_lin["rmse"]); mlflow.log_metric("phm", m_lin["phm"])
-    mlflow.sklearn.log_model(lin, artifact_path="model",
-                             signature=infer_signature(Xte[:5], pred_lin[:5]), input_example=Xte[:5])
-    lin_run_id = run.info.run_id
+def late_diagnostics(y_true, y_pred):
+    """RUL 'late' = predicted RUL HIGHER than actual (model thinks more safe life remains than truth).
+    That is the dangerous failure mode. Returns a dict of late/early metrics."""
+    err = np.asarray(y_pred, float) - np.asarray(y_true, float)   # >0 late (optimistic), <0 early
+    late = err > 0
+    early = err < 0
+    late_err = err[late]
+    return {
+        "rul_late_prediction_rate": float(late.mean()),
+        "rul_early_prediction_rate": float(early.mean()),
+        "rul_mean_late_error": float(late_err.mean()) if late_err.size else 0.0,
+        "rul_p95_late_error": float(np.percentile(late_err, 95)) if late_err.size else 0.0,
+        "rul_late_error_count": int(late.sum()),
+    }
 
-# ---- Stronger: gradient-boosted regression ----
-gbm = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
-                                subsample=0.8, random_state=0).fit(Xtr, ytr)
-pred_gbm = np.clip(gbm.predict(Xte), 0, RUL_CAP)
-m_gbm = {"rmse": rmse(yte, pred_gbm), "phm": phm_score(yte, pred_gbm)}
-print("gbm", m_gbm)
-with mlflow.start_run(run_name="rul_gbm") as run:
-    mlflow.log_param("model", "gradient_boosting")
-    mlflow.log_param("n_estimators", 300); mlflow.log_param("max_depth", 3)
-    mlflow.log_param("learning_rate", 0.05); mlflow.log_param("rul_cap", RUL_CAP)
-    mlflow.log_metric("rmse", m_gbm["rmse"]); mlflow.log_metric("phm", m_gbm["phm"])
-    mlflow.sklearn.log_model(gbm, artifact_path="model",
-                             signature=infer_signature(Xte[:5], pred_gbm[:5]), input_example=Xte[:5])
-    gbm_run_id = run.info.run_id
+def regime_late_rates(y_true, y_pred):
+    """Late-prediction rate sliced by RUL regime (single-regime FD001 -> slice by remaining life)."""
+    err = np.asarray(y_pred, float) - np.asarray(y_true, float)
+    out = {}
+    for name, lo, hi in [("low_RUL_<50", 0, 50), ("mid_RUL_50_100", 50, 100), ("high_RUL_>=100", 100, RUL_CAP + 1)]:
+        m = (y_true >= lo) & (y_true < hi)
+        out[name] = {"n": int(m.sum()), "late_rate": round(float((err[m] > 0).mean()), 3) if m.any() else None}
+    return out
+
+# COMMAND ----------
+# ── Naive baselines (RUL has no last-observed-RUL at the held-out last cycle, so the meaningful naive
+# ── predictors are constant remaining-life guesses). We report the MEDIAN baseline the plan requires AND
+# ── the MEAN baseline, then use the STRONGEST (lowest-RMSE) naive as the bar a model must beat. A simple
+# ── per-unit "linear degradation" naive is NOT well-defined here (no per-unit total-life at last cycle),
+# ── so it is intentionally omitted rather than faked.
+train_mean = float(ytr.mean())
+train_median = float(np.median(ytr))
+naive_preds = {
+    "median": np.full_like(yte, train_median),
+    "mean": np.full_like(yte, train_mean),
+}
+naive_scores = {k: {"rmse": rmse(yte, p), "mae": mae(yte, p), "phm": phm_score(yte, p)}
+                for k, p in naive_preds.items()}
+# Strongest naive = lowest RMSE (hardest bar). This is what the promotion gate compares against.
+best_naive_key = min(naive_scores, key=lambda k: naive_scores[k]["rmse"])
+naive = naive_scores[best_naive_key]
+print("naive baselines", json.dumps(naive_scores), "| strongest naive:", best_naive_key)
+
+# ── NEGATIVE CONTROL (diagnostic only; never trains/influences the champion): shuffle TRAIN labels,
+# ── refit GBM. With no target leakage, performance must collapse toward naive/random.
+rng = np.random.RandomState(0)
+ytr_shuf = ytr.copy(); rng.shuffle(ytr_shuf)
+gbm_shuf = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
+                                     subsample=0.8, random_state=0).fit(Xtr, ytr_shuf)
+pred_shuf = np.clip(gbm_shuf.predict(Xte), 0, RUL_CAP)
+shuffle_rmse = rmse(yte, pred_shuf)
+shuffle_vs_naive_delta = abs(shuffle_rmse - naive["rmse"])
+# Passes when shuffled-label RMSE collapses to within ~20% of the (best) naive RMSE.
+leakage_control_passed = bool(shuffle_rmse >= 0.80 * naive["rmse"])
+print(f"leakage control: shuffle_rmse={shuffle_rmse:.3f} naive_rmse={naive['rmse']:.3f} "
+      f"delta={shuffle_vs_naive_delta:.3f} passed={leakage_control_passed}")
+
+# ── Shared diagnostics logged on EVERY model run (so the gate can read them regardless of the winner).
+SHARED = {
+    "rul_naive_rmse": round(naive["rmse"], 4),
+    "rul_naive_mae": round(naive["mae"], 4),
+    "rul_naive_phm_score": round(naive["phm"], 4),
+    "rul_naive_median_rmse": round(naive_scores["median"]["rmse"], 4),
+    "rul_naive_median_phm_score": round(naive_scores["median"]["phm"], 4),
+    "rul_naive_mean_rmse": round(naive_scores["mean"]["rmse"], 4),
+    "rul_naive_mean_phm_score": round(naive_scores["mean"]["phm"], 4),
+    "rul_label_shuffle_rmse": round(shuffle_rmse, 4),
+    "rul_label_shuffle_vs_naive_delta": round(shuffle_vs_naive_delta, 4),
+    "rul_leakage_control_passed": 1.0 if leakage_control_passed else 0.0,
+}
+
+UNSAFE_USE = "autonomous launch, flight-safety, or maintenance authorization"
+APPROVED_USE = "telemetry demo / maintenance-risk investigation support"
+
+
+def model_card(model_label, m, late, regimes):
+    return {
+        "model_name": "tel_rul_regressor",
+        "candidate": model_label,
+        "target_definition": f"Remaining Useful Life (cycles) at a unit's last observed cycle, "
+                             f"capped at {RUL_CAP}; truth = official RUL_FD001.",
+        "baseline_comparison": {
+            "naive_strongest": best_naive_key,
+            "naive_rmse": round(naive["rmse"], 3), "naive_phm": round(naive["phm"], 3),
+            "model_rmse": round(m["rmse"], 3), "model_phm": round(m["phm"], 3),
+            "rmse_ratio_model_over_naive": round(m["rmse"] / naive["rmse"], 3),
+            "beats_naive_rmse": bool(m["rmse"] < naive["rmse"]),
+        },
+        "phm_score": round(m["phm"], 3),
+        "phm_note": "NASA PHM'08 asymmetric score; LOWER is better; late predictions penalized harder.",
+        "late_prediction_rate": round(late["rul_late_prediction_rate"], 3),
+        "late_error_risk": {"mean_late_error": round(late["rul_mean_late_error"], 2),
+                            "p95_late_error": round(late["rul_p95_late_error"], 2),
+                            "late_count": late["rul_late_error_count"],
+                            "by_regime": regimes},
+        "label_shuffle_leakage_control": {"shuffle_rmse": round(shuffle_rmse, 3),
+                                          "naive_rmse": round(naive["rmse"], 3),
+                                          "passed": leakage_control_passed},
+        "known_unsafe_failure_mode": "Over-predicting remaining life (late) on near-failure units: implies "
+                                     "more safe life remains than is true. Captured by PHM + late_prediction_rate.",
+        "approved_use": f"Approved use: {APPROVED_USE}.",
+        "not_approved_use": f"Not approved use: {UNSAFE_USE}.",
+        "calibration": "Point predictions only — NO prediction interval / coverage guarantee. Do not "
+                       "present as a calibrated probability of failure.",
+        "promotion_state": "model_not_promoted",  # fail-closed; promote_models.py decides against the gate
+    }
+
+
+def fit_log(model_label, run_name, estimator):
+    estimator.fit(Xtr, ytr)
+    pred = np.clip(estimator.predict(Xte), 0, RUL_CAP)
+    m = {"rmse": rmse(yte, pred), "mae": mae(yte, pred), "phm": phm_score(yte, pred)}
+    late = late_diagnostics(yte, pred)
+    regimes = regime_late_rates(yte, pred)
+    phm_improvement = naive["phm"] - m["phm"]                       # >0 means better than naive
+    card = model_card(model_label, m, late, regimes)
+    with mlflow.start_run(run_name=run_name) as run:
+        mlflow.log_param("model", model_label)
+        mlflow.log_param("rul_cap", RUL_CAP)
+        if isinstance(estimator, GradientBoostingRegressor):
+            mlflow.log_param("n_estimators", 300); mlflow.log_param("max_depth", 3)
+            mlflow.log_param("learning_rate", 0.05)
+        # Core
+        mlflow.log_metric("rmse", m["rmse"]); mlflow.log_metric("mae", m["mae"]); mlflow.log_metric("phm", m["phm"])
+        # PHM-aware
+        mlflow.log_metric("rul_phm_score", m["phm"])
+        mlflow.log_metric("rul_phm_improvement", phm_improvement)   # naive_phm - model_phm (>0 = better)
+        # Naive comparison + shared diagnostics
+        for k, v in SHARED.items():
+            mlflow.log_metric(k, v)
+        mlflow.log_metric("rul_model_vs_naive_rmse_ratio", m["rmse"] / naive["rmse"])
+        # Late-prediction diagnostics (the dangerous mode)
+        for k, v in late.items():
+            mlflow.log_metric(k, v)
+        # Model card artifact
+        mlflow.log_dict(card, "rul_model_card.json")
+        rid = run.info.run_id
+    print(f"{run_name}: rmse={m['rmse']:.3f} phm={m['phm']:.1f} late_rate={late['rul_late_prediction_rate']:.3f} "
+          f"vs_naive_rmse={m['rmse']/naive['rmse']:.3f}")
+    return rid, m, late, card
+
+# COMMAND ----------
+lin_run_id, m_lin, late_lin, card_lin = fit_log("linear_regression", "rul_linear_baseline", LinearRegression())
+gbm_run_id, m_gbm, late_gbm, card_gbm = fit_log(
+    "gradient_boosting", "rul_gbm",
+    GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05, subsample=0.8, random_state=0))
 
 # COMMAND ----------
 result = {
-    "linear": {"run_id": lin_run_id, **m_lin},
-    "gbm": {"run_id": gbm_run_id, **m_gbm},
+    "linear": {"run_id": lin_run_id, **m_lin, "late_prediction_rate": round(late_lin["rul_late_prediction_rate"], 3)},
+    "gbm": {"run_id": gbm_run_id, **m_gbm, "late_prediction_rate": round(late_gbm["rul_late_prediction_rate"], 3)},
+    "naive_baselines": naive_scores,
+    "strongest_naive": best_naive_key,
+    "leakage_control": {"shuffle_rmse": round(shuffle_rmse, 3), "naive_rmse": round(naive["rmse"], 3),
+                        "passed": leakage_control_passed},
     "rmse_gate": RMSE_GATE,
     "rul_cap": RUL_CAP,
     "test_units": int(len(test_last)),
     "experiment_id": EXPERIMENT_ID,
+    "model_cards": {"linear": card_lin, "gbm": card_gbm},
 }
 dbutils.notebook.exit(json.dumps(result))

@@ -1,0 +1,44 @@
+{
+  "protocol": "FD001, last cycle per unit, truth capped at 125, asymmetric PHM (lower=better)",
+  "n_train_rows": 20631,
+  "n_test_units": 100,
+  "train_mean_y": 86.83,
+  "train_median_y": 103.0,
+  "test_truth_stats": {
+    "min": 7.0,
+    "max": 125.0,
+    "mean": 74.45,
+    "std": 40.07
+  },
+  "results_sorted_by_rmse": {
+    "gbm CHAMPION (run d773eab9)": {
+      "rmse": 20.322,
+      "mae": null,
+      "phm": 1423.3
+    },
+    "linear (run d4035973)": {
+      "rmse": 21.702,
+      "mae": null,
+      "phm": 1036.1
+    },
+    "predict_train_mean": {
+      "rmse": 41.942,
+      "mae": 34.83,
+      "phm": 33354.5
+    },
+    "predict_train_median": {
+      "rmse": 49.203,
+      "mae": 38.01,
+      "phm": 166491.3
+    },
+    "predict_125_max_life": {
+      "rmse": 64.507,
+      "mae": 50.55,
+      "phm": 1502460.8
+    }
+  },
+  "verdict_rmse": "trained models beat naive on RMSE",
+  "best_naive_phm": 33354.5,
+  "gbm_phm_vs_best_naive": "better than best naive",
+  "linear_phm_vs_best_naive": "better than best naive"
+}

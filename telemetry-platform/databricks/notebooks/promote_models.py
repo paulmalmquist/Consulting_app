@@ -20,12 +20,42 @@ mlflow.set_registry_uri("databricks-uc")   # Unity Catalog model registry
 # fail-closed. Legacy point-adjusted F1 is kept for REFERENCE only (it inflates).
 F1_GATE = 0.30  # reference only — NOT the gate
 HONEST_GATE = {"f1_pointwise": 0.10, "event_recall": 0.50, "alarm_precision": 0.20, "affiliation_f1": 0.25}
-RMSE_GATE = 25.0
+RMSE_GATE = 25.0  # absolute cycles ceiling, kept
+
+# RUL gate (PR-1): RMSE alone must NOT be able to promote a dangerous model. Conservative, declared
+# thresholds — NOT tuned to force any model through. A RUL model is promotable only if it beats the
+# strongest naive by a margin AND keeps the dangerous (late) mode in check AND clears the leakage control.
+RUL_GATE = {
+    "rmse_abs_max": RMSE_GATE,            # absolute ceiling (cycles)
+    "max_rmse_ratio_vs_naive": 0.75,      # must beat strongest naive RMSE by >=25%
+    "require_phm_better_than_naive": True,  # PHM must improve over naive (lower is better)
+    "max_late_prediction_rate": 0.55,     # over-predicting remaining life is the unsafe mode
+    "require_leakage_control_passed": True,
+}
 
 
 def passes_honest_gate(m: dict) -> bool:
     """Fail-closed: every declared honest threshold must be met (missing metric -> 0 -> fail)."""
     return all(float(m.get(k, 0.0)) >= thr for k, thr in HONEST_GATE.items())
+
+
+def rul_gate_eval(m: dict) -> dict:
+    """Fail-closed RUL gate. Reads metrics logged by train_rul.py. Missing metric -> fails that check."""
+    rmse = float(m.get("rmse", 1e9))
+    ratio = float(m.get("rul_model_vs_naive_rmse_ratio", 1e9))
+    phm_improve = float(m.get("rul_phm_improvement", -1e9))   # naive_phm - model_phm (>0 = better)
+    late_rate = float(m.get("rul_late_prediction_rate", 1.0))
+    leak_ok = float(m.get("rul_leakage_control_passed", 0.0)) >= 1.0
+    checks = {
+        "rmse_under_abs_ceiling": rmse <= RUL_GATE["rmse_abs_max"],
+        "beats_naive_rmse_by_margin": ratio <= RUL_GATE["max_rmse_ratio_vs_naive"],
+        "phm_better_than_naive": (phm_improve > 0.0) if RUL_GATE["require_phm_better_than_naive"] else True,
+        "late_rate_under_ceiling": late_rate <= RUL_GATE["max_late_prediction_rate"],
+        "leakage_control_passed": leak_ok if RUL_GATE["require_leakage_control_passed"] else True,
+    }
+    return {"passed": all(checks.values()), "checks": checks,
+            "rmse": rmse, "phm": float(m.get("phm", 0.0)), "late_rate": late_rate,
+            "rmse_ratio_vs_naive": ratio, "phm_improvement": phm_improve}
 
 # COMMAND ----------
 def latest_run(run_name: str):
@@ -58,18 +88,25 @@ else:
 anom_aff_f1 = float(metrics[anom_winner].get("affiliation_f1", 0.0))
 anom_f1 = float(metrics[anom_winner].get("f1", 0.0))  # legacy point-adjusted — reference only
 
-# ---- Gate: RUL. Promote the lower-RMSE model IF it clears the RMSE gate. ----
-rul_candidates = {
-    "rul_linear_baseline": metrics["rul_linear_baseline"]["rmse"],
-    "rul_gbm": metrics["rul_gbm"]["rmse"],
-}
-rul_winner = min(rul_candidates, key=rul_candidates.get)
-rul_rmse = rul_candidates[rul_winner]
-rul_decision = "promoted" if rul_rmse <= RMSE_GATE else "model_not_promoted"
+# ---- Gate: RUL (PR-1). PHM-/late-rate-aware + beats-naive + leakage-control, fail-closed. Among models
+# ---- that CLEAR the gate, promote the SAFEST (lowest PHM — i.e. least dangerous late behavior), then
+# ---- lowest late-rate, then lowest RMSE. RMSE alone can no longer promote a model. ----
+rul_names = ["rul_linear_baseline", "rul_gbm"]
+rul_eval = {n: rul_gate_eval(metrics[n]) for n in rul_names}
+rul_eligible = [n for n in rul_names if rul_eval[n]["passed"]]
+if rul_eligible:
+    rul_winner = min(rul_eligible, key=lambda n: (rul_eval[n]["phm"], rul_eval[n]["late_rate"], rul_eval[n]["rmse"]))
+    rul_decision = "promoted"
+else:
+    # Fail-closed: nothing clears the safety gate. Name the safest-by-PHM candidate for the record only.
+    rul_winner = min(rul_names, key=lambda n: (rul_eval[n]["phm"], rul_eval[n]["rmse"]))
+    rul_decision = "model_not_promoted"
+rul_rmse = rul_eval[rul_winner]["rmse"]
 
 print(f"anomaly winner={anom_winner} affiliation_f1={anom_aff_f1:.4f} (legacy f1={anom_f1:.4f} ref-only) "
       f"honest_gate={HONEST_GATE} -> {anom_decision}")
-print(f"rul winner={rul_winner} rmse={rul_rmse:.4f} gate<={RMSE_GATE} -> {rul_decision}")
+print(f"rul winner={rul_winner} rmse={rul_rmse:.4f} phm={rul_eval[rul_winner]['phm']:.1f} "
+      f"late_rate={rul_eval[rul_winner]['late_rate']:.3f} gate={rul_eval[rul_winner]['checks']} -> {rul_decision}")
 
 # COMMAND ----------
 # Register promoted models to the Unity Catalog registry with an alias 'champion'.
@@ -102,27 +139,39 @@ if rul_decision == "promoted":
     try:
         registry_status["rul"] = register(
             "tel_rul_regressor", run_ids[rul_winner],
-            {"rmse": rul_rmse, "phm": metrics[rul_winner].get("phm")})
+            {"rmse": rul_rmse, "phm": metrics[rul_winner].get("phm"),
+             "late_prediction_rate": metrics[rul_winner].get("rul_late_prediction_rate"),
+             "rmse_ratio_vs_naive": metrics[rul_winner].get("rul_model_vs_naive_rmse_ratio"),
+             "leakage_control_passed": metrics[rul_winner].get("rul_leakage_control_passed"),
+             "gate": "phm_late_naive_leakage", "selected_for": "lowest_phm_among_gate_passers"})
     except Exception as e:
         registry_status["rul"] = {"error": str(e)[:200], "note": "metrics logged; registry write failed"}
 else:
-    registry_status["rul"] = {"decision": "model_not_promoted", "rmse": rul_rmse}
+    registry_status["rul"] = {"decision": "model_not_promoted", "rmse": rul_rmse,
+                              "failed_checks": {n: [k for k, ok in rul_eval[n]["checks"].items() if not ok]
+                                                for n in rul_names}}
 
 # COMMAND ----------
 result = {
     "run_ids": run_ids,
     "metrics": metrics,
-    "gates": {"honest_gate": HONEST_GATE, "rmse_gate": RMSE_GATE, "f1_gate_reference_only": F1_GATE},
+    "gates": {"honest_gate": HONEST_GATE, "rmse_gate": RMSE_GATE, "f1_gate_reference_only": F1_GATE,
+              "rul_gate": RUL_GATE},
     "anomaly": {"winner": anom_winner, "decision": anom_decision,
                 "affiliation_f1": anom_aff_f1, "f1_point_adjusted_reference": anom_f1,
                 "honest_gate_pass": anom_pass,
                 "baseline_affiliation_f1": float(metrics["anomaly_baseline_mad"].get("affiliation_f1", 0.0)),
                 "pca_affiliation_f1": float(metrics["anomaly_pca_recon"].get("affiliation_f1", 0.0))},
     "rul": {"winner": rul_winner, "rmse": rul_rmse, "decision": rul_decision,
+            "gate_eval": rul_eval,
             "linear_rmse": metrics["rul_linear_baseline"]["rmse"],
             "gbm_rmse": metrics["rul_gbm"]["rmse"],
             "linear_phm": metrics["rul_linear_baseline"]["phm"],
-            "gbm_phm": metrics["rul_gbm"]["phm"]},
+            "gbm_phm": metrics["rul_gbm"]["phm"],
+            "linear_late_rate": metrics["rul_linear_baseline"].get("rul_late_prediction_rate"),
+            "gbm_late_rate": metrics["rul_gbm"].get("rul_late_prediction_rate"),
+            "naive_rmse": metrics[rul_winner].get("rul_naive_rmse"),
+            "leakage_control_passed": metrics[rul_winner].get("rul_leakage_control_passed")},
     "registry": registry_status,
 }
 dbutils.notebook.exit(json.dumps(result))
