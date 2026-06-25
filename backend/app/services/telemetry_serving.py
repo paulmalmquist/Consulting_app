@@ -24,6 +24,10 @@ from app.services.reporting_common import resolve_tenant_id
 # Champion hyperparameters (frozen from the Phase 2 promoted model).
 MAD_K = 4.0
 GLOBAL_TRAIN_SCALE = 0.033866801182436346   # median abs residual across all SMAP/MSL train channels
+# Frozen champion detector threshold in residual units (MAD rule: resid > k*scale; D-4 uses the global
+# scale fallback). This is the SAME threshold /score applies — exposed for the replay forensics surface
+# so the per-tick honest score/margin can be shown instead of the degenerate fixture score.
+DETECTOR_THRESHOLD = MAD_K * GLOBAL_TRAIN_SCALE   # 0.13546720472974538
 
 # Deterministic replay fixture: precomputed REAL champion outputs exported from
 # novendor_1.telemetry.gold_replay_feed_scored (Phase 2). Loaded once, cached in-process.
@@ -329,15 +333,72 @@ def monitoring(*, env_id: str, business_id: UUID) -> dict:
     }
 
 
+def _scoring_diagnostics(feed: list | None) -> dict:
+    """Honest, DB-free scoring provenance for the replay forensics surface. Exposes the frozen serving
+    threshold (the global-scale fallback /score applies) AND, computed from the committed fixture, whether
+    that threshold actually reproduces the champion's firing. For D-4 it does NOT: every fired tick sits
+    below the global threshold, so the champion must fire on a tighter per-channel scale the serving
+    constants do not carry. We surface that divergence honestly rather than invent a per-tick verdict that
+    would contradict model_pred. feed[].score stays degenerate (~1e12) and display-only."""
+    feed = feed or []
+    fired_resid = [abs(p["value"] - p["rmean"]) for p in feed if p.get("model_pred") == 1]
+    fired_above = sum(1 for r in fired_resid if r > DETECTOR_THRESHOLD)
+    diverges = len(fired_resid) > 0 and fired_above == 0
+    max_fired = max(fired_resid) if fired_resid else None
+    return {
+        "mad_k": MAD_K,
+        "global_train_scale": GLOBAL_TRAIN_SCALE,
+        "threshold_residual_units": DETECTOR_THRESHOLD,
+        "threshold_source": "serving global-scale fallback (the frozen MAD threshold /score applies)",
+        "residual_definition": "residual = abs(value - rmean) — the quantity the MAD rule thresholds",
+        "fired_ticks": len(fired_resid),
+        "fired_ticks_above_threshold": fired_above,
+        "max_fired_residual": max_fired,
+        "threshold_reproduces_firing": fired_above > 0,
+        "per_channel_caveat": (
+            "The serving global-scale fallback threshold does NOT reproduce the champion's D-4 firing — "
+            f"0 of {len(fired_resid)} fired ticks exceed it (max fired residual {max_fired:.4f}). The "
+            "champion fired on a tighter per-channel D-4 scale the serving constants do not carry; "
+            "model_pred is authoritative, and a per-tick GO/REVIEW/NO_GO cannot be derived from this "
+            "threshold for D-4."
+        ) if diverges else None,
+        "fixture_score_degenerate": True,
+        "note": "feed[].score is degenerate (~1e12), display-only. Residual = abs(value - rmean).",
+    }
+
+
+def _replay_lineage(prov: dict) -> dict:
+    """Reproducibility chain for the replay verdict (DB-free; ids from the committed fixture provenance
+    + the known Unity Catalog coordinates). The run id here is the fixture's RECORDED champion run; the
+    live model registry may hold a different run id (the frontend surfaces both, never reconciles)."""
+    return {
+        "databricks_catalog": "novendor_1.telemetry",
+        "source_table": prov.get("source_table"),
+        "champion_model": prov.get("champion_model"),
+        "champion_mlflow_run_id_fixture": prov.get("champion_mlflow_run_id"),
+        "scoring_notebook": "telemetry-platform/databricks/11_score_replay_feed.py -> gold_replay_feed_scored",
+        "backend_route": "GET /api/telemetry/replay",
+    }
+
+
 def replay_feed() -> dict:
     """Return the deterministic replay fixture (precomputed real champion outputs). No DB, no
-    Databricks — fast and identical every call. Fails closed if the fixture is missing."""
+    Databricks — fast and identical every call. Fails closed if the fixture is missing.
+
+    ADDITIVE diagnostics (backward-compatible): `scoringDiagnostics` (the frozen detector threshold +
+    the honest score/margin definitions; pure constants, no DB) and `lineage` (the reproducibility chain
+    from the fixture provenance). Existing top-level keys and feed[] rows are unchanged; the degenerate
+    feed[].score is kept verbatim and never reinterpreted."""
     global _replay_cache
     if _replay_cache is None:
         if not _REPLAY_FIXTURE_PATH.exists():
             return {"feed": [], "null_reason": "data_not_ingested",
-                    "note": "replay fixture not present"}
-        _replay_cache = json.loads(_REPLAY_FIXTURE_PATH.read_text(encoding="utf-8"))
+                    "note": "replay fixture not present",
+                    "scoringDiagnostics": _scoring_diagnostics(None)}
+        fixture = json.loads(_REPLAY_FIXTURE_PATH.read_text(encoding="utf-8"))
+        fixture["scoringDiagnostics"] = _scoring_diagnostics(fixture.get("feed") or [])
+        fixture["lineage"] = _replay_lineage(fixture.get("provenance") or {})
+        _replay_cache = fixture
     return _replay_cache
 
 

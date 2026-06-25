@@ -29,6 +29,7 @@ import {
   NA_REASONS,
   type ReplayDiagnostics,
 } from "@/lib/telemetry/replayDiagnostics";
+import { mlflowRunLink, mlflowExperimentLink, deltaTableLink, type ExternalEvidenceLink } from "@/lib/lab/factoryEvidenceLinks";
 import { DrawerWrapper, DrawerHeader, FieldRow } from "./drawerPrimitives";
 import { C, Tag, StatusDot, MetricRow, ErrorState, Loading, SectionTabButton } from "./primitives";
 import { CopilotExplanationPanel } from "./Copilot";
@@ -60,6 +61,29 @@ function fmt(v: number | null | undefined, digits = 4): string {
   if (v == null || Number.isNaN(v)) return "—";
   if (Number.isInteger(v)) return String(v);
   return Number(v.toFixed(digits)).toString();
+}
+
+// External evidence link (Databricks/MLflow). Renders a real hyperlink when the workspace + identifier
+// resolve (live by default), else the builder's fail-closed reason via NaRow — never a dead link.
+function LinkRow({ label, link }: { label: string; link: ExternalEvidenceLink }) {
+  if (!link.href) {
+    return (
+      <NaRow
+        label={label}
+        reason={`Link unavailable — ${link.unavailableReason ?? "missing identifier"}${link.copyText ? ` (copy: ${link.copyText})` : ""}`}
+      />
+    );
+  }
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(96px,0.8fr) minmax(0,1.5fr)", gap: 12,
+      padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ color: C.faint, fontFamily: C.mono, fontSize: 9, letterSpacing: "0.09em", textTransform: "uppercase" }}>{label}</div>
+      <a href={link.href} target="_blank" rel="noopener noreferrer"
+        style={{ fontFamily: C.mono, fontSize: 11, color: C.cyan, textDecoration: "underline", overflowWrap: "anywhere" }}>
+        {link.label} ↗
+      </a>
+    </div>
+  );
 }
 
 // Section sub-heading inside a tab.
@@ -261,6 +285,9 @@ function ModelPanel({ diag }: { diag: ReplayDiagnostics }) {
           <FieldRow label="version" value={st.champ.model_version} />
           <FieldRow label="promotion state" value={st.champ.promotion_state} />
           <FieldRow label="experiment id" value={st.champ.experiment_id ?? undefined} />
+          {st.champ.mlflow_run_id && st.champ.mlflow_run_id !== diag.championMlflowRunId && (
+            <NaRow label="run id mismatch" reason={`Heads-up — the fixture's recorded champion run (${diag.championMlflowRunId.slice(0, 10)}…) differs from the live registry run (${st.champ.mlflow_run_id.slice(0, 10)}…). Both are real; the fixture was scored by its recorded run. Surfaced, never silently reconciled.`} />
+          )}
           {metrics.length > 0 ? (
             <>
               <Sub>Registered metrics (model registry · tel_model_runs — not this replay)</Sub>
@@ -296,9 +323,28 @@ function ModelPanel({ diag }: { diag: ReplayDiagnostics }) {
         )
       )}
 
-      <Sub>Not available from this payload</Sub>
-      <NaRow label="threshold (score units)" reason={NA_REASONS.detectorThreshold} />
-      <NaRow label="margin to threshold" reason={NA_REASONS.marginToThreshold} />
+      <Sub>Detector threshold &amp; firing divergence (serving MAD rule · /api/telemetry/replay)</Sub>
+      {diag.scoringAvailable ? (
+        <>
+          <FieldRow label="serving threshold (residual units)" value={`${fmt(diag.threshold, 6)}  ·  k=${fmt(diag.madK, 1)} MAD on |value−rmean| (global-scale fallback)`} />
+          <FieldRow label="fired ticks above threshold" value={diag.firedTicksScored != null ? `${diag.firedAboveThreshold} of ${diag.firedTicksScored}` : undefined} />
+          <FieldRow label="max fired residual" value={diag.maxFiredResidual != null ? `${fmt(diag.maxFiredResidual, 6)} (${diag.thresholdReproducesFiring ? "above" : "below"} the serving threshold)` : undefined} />
+          {diag.perChannelCaveat ? (
+            <p style={{ fontFamily: C.mono, fontSize: 10, color: C.amber, marginTop: 6, lineHeight: 1.5 }}>
+              {diag.perChannelCaveat}
+            </p>
+          ) : (
+            <p style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 6, lineHeight: 1.5 }}>
+              Serving global-scale fallback threshold (the value /score applies); on this channel it reproduces the champion&apos;s firing.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <NaRow label="threshold (score units)" reason={NA_REASONS.detectorThreshold} />
+          <NaRow label="margin to threshold" reason={NA_REASONS.marginToThreshold} />
+        </>
+      )}
     </div>
   );
 }
@@ -353,6 +399,24 @@ function EvidencePanel({ feed, diag }: { feed: ReplayFeed; diag: ReplayDiagnosti
       <FieldRow label="labeled ticks" value={diag.labelAnomalyTicks} />
       <FieldRow label="residual at fire" value={fmt(diag.residualAtFire, 6)} />
       <FieldRow label="sampling fraction" value={diag.samplingFraction != null ? `${(diag.samplingFraction * 100).toFixed(2)}%` : undefined} />
+
+      {diag.scoringAvailable && (
+        <>
+          <Sub>Serving threshold vs champion firing (real — from /api/telemetry/replay)</Sub>
+          <FieldRow label="serving threshold (residual units)" value={fmt(diag.threshold, 6)} />
+          <FieldRow label="fired ticks above threshold" value={diag.firedTicksScored != null ? `${diag.firedAboveThreshold} of ${diag.firedTicksScored}` : undefined} />
+          <FieldRow label="max fired residual" value={fmt(diag.maxFiredResidual, 6)} />
+          {diag.perChannelCaveat ? (
+            <p style={{ fontFamily: C.mono, fontSize: 10, color: C.amber, marginTop: 6, lineHeight: 1.5 }}>
+              {diag.perChannelCaveat}
+            </p>
+          ) : (
+            <p style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 6, lineHeight: 1.5 }}>
+              The serving global-scale fallback threshold reproduces the champion&apos;s firing on this channel.
+            </p>
+          )}
+        </>
+      )}
 
       <Sub>Not available from this payload</Sub>
       <NaRow label="held-out P / R / F1" reason={NA_REASONS.heldOutMetrics} />
@@ -422,13 +486,22 @@ function OperatorPanel({ diag, fired }: { diag: ReplayDiagnostics; fired: boolea
         </p>
       )}
 
-      <Sub>Not available from this payload</Sub>
-      <NaRow label="per-tick GO/REVIEW/NO_GO" reason={NA_REASONS.perTickVerdict} />
+      <Sub>Per-tick severity bands</Sub>
+      {diag.scoringAvailable && diag.perChannelCaveat ? (
+        <div style={{ border: `1px solid ${C.amber}33`, background: `${C.amber}0d`, borderRadius: 7, padding: "8px 10px", display: "flex", gap: 8 }}>
+          <span style={{ marginTop: 3 }}><StatusDot color={C.amber} size={6} /></span>
+          <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.amber, lineHeight: 1.5 }}>
+            No per-tick GO/REVIEW/NO_GO ladder is derivable — {diag.perChannelCaveat} The operational verdict flips on the model&apos;s binary model_pred.
+          </span>
+        </div>
+      ) : (
+        <NaRow label="per-tick GO/REVIEW/NO_GO" reason={NA_REASONS.perTickVerdict} />
+      )}
     </div>
   );
 }
 
-function LineagePanel({ diag }: { diag: ReplayDiagnostics }) {
+function LineagePanel({ diag, feed }: { diag: ReplayDiagnostics; feed: ReplayFeed }) {
   const chain = [
     { label: "Source table", value: diag.sourceTable, copy: true },
     { label: "Champion model", value: diag.championModel, copy: true },
@@ -447,8 +520,12 @@ function LineagePanel({ diag }: { diag: ReplayDiagnostics }) {
           ? <CopyRow key={c.label} label={c.label} value={c.value} />
           : <FieldRow key={c.label} label={c.label} value={c.value} />
       ))}
-      <Sub>Workspace links</Sub>
-      <NaRow label="Databricks / MLflow link" reason="Link unavailable — no client-side workspace URL is configured (ML_DEMO_DATABRICKS_WORKSPACE_URL is backend-only). Copy the run id and table above to open them in the workspace manually." />
+      <Sub>Workspace links (live by default)</Sub>
+      <LinkRow label="MLflow run" link={mlflowRunLink(diag.championMlflowRunId)} />
+      <LinkRow label="MLflow experiment" link={mlflowExperimentLink()} />
+      <LinkRow label="Delta scoring table" link={deltaTableLink(diag.sourceTable)} />
+      {feed.lineage?.databricks_catalog && <FieldRow label="catalog" value={feed.lineage.databricks_catalog} />}
+      {feed.lineage?.scoring_notebook && <FieldRow label="scoring notebook" value={feed.lineage.scoring_notebook} />}
       <Sub>Not available from this payload</Sub>
       <NaRow label="stage / phase boundaries" reason={NA_REASONS.stageBoundaries} />
       <NaRow label="top contributing channels" reason={NA_REASONS.topContributingChannels} />
@@ -487,7 +564,7 @@ export default function ReplayForensicsDrawer({ open, onClose, feed, cursorTick,
             {tab === "model" && <ModelPanel diag={diag} />}
             {tab === "evidence" && <EvidencePanel feed={feed} diag={diag} />}
             {tab === "operator" && <OperatorPanel diag={diag} fired={fired} />}
-            {tab === "lineage" && <LineagePanel diag={diag} />}
+            {tab === "lineage" && <LineagePanel diag={diag} feed={feed} />}
           </div>
         </>
       )}

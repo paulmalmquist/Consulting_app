@@ -1224,8 +1224,8 @@ curl -s "https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway
 
 # Or query Supabase directly (use pooler URL — direct host is IPv6 only and unreachable from most local setups)
 python3 -c "
-import psycopg, json
-conn = psycopg.connect('postgresql://postgres.ozboonlsplroialdwuxj:ripsalesforce8084@aws-1-us-east-1.pooler.supabase.com:6543/postgres')
+import os, psycopg, json
+conn = psycopg.connect(os.environ['DATABASE_URL'])
 cur = conn.cursor(row_factory=psycopg.rows.dict_row)
 cur.execute('SELECT route_lane, route_model, message_preview, tool_call_count, workflow_override, cost_total, elapsed_ms, created_at FROM ai_gateway_logs ORDER BY created_at DESC LIMIT 20')
 for r in cur.fetchall(): print(json.dumps(dict(r), default=str))
@@ -1721,13 +1721,12 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 
 ## Instruction Routing Contract (March 2026)
 
-- `CLAUDE.md` is now the single global markdown router for repo-local prompt behavior. Do not add repo-wide dispatch tables to downstream `agents/*.md`, `skills/*.md`, or prompt docs.
-- Routed markdown docs now require the shared YAML front matter contract: `id`, `kind`, `status`, `source_of_truth`, `topic`, `owners`, `intent_tags`, `triggers`, `entrypoint`, `handoff_to`, `when_to_use`, `when_not_to_use`.
-- Keep skill-loader fields like `name` and `description` when a skill already uses them; add routing metadata on top instead of replacing them.
-- Every routed doc must be listed in `docs/instruction-index.md`. If a new routed markdown file is added and it is not in the index, the validator should fail.
-- Run `npm run validate:instructions` after changing routed markdown metadata or the registry.
-- Run `npm run test:instructions` after changing routing rules, triggers, or the example fixture set.
-- Use `status: archived` plus `entrypoint: false` for legacy prompt docs that must remain in the repo for history but should no longer act like alternate execution entrypoints.
+- Superseded 2026-06-25: `config/instruction-routing.json` is the machine-readable routing source of truth. `CLAUDE.md` is the compact startup contract, not the complete route inventory.
+- Claude Code discovers project skills under `.claude/skills/<name>/SKILL.md`. Generated wrappers delegate to canonical bodies under `skills/` or `.skills/`; edit the canonical body, then run `npm run generate:instructions`.
+- `docs/instruction-index.md` is generated from the registry. Do not hand-edit its table.
+- Root `agents/*.md` files are OpenClaw role contracts, not Claude Code subagent definitions.
+- The validator must fail on missing route sources, missing Claude wrappers, duplicate IDs/commands, or unknown handoffs.
+- Run `npm run generate:instructions`, `npm run validate:instructions`, and `npm run test:instructions` after routing, skill, or lifecycle changes.
 
 ## Prompt-to-Skill Normalization (March 2026)
 
@@ -3034,9 +3033,9 @@ Hierarchy + board hygiene decisions:
 - Test scenarios belong as `Test Case` items linked to their Story (via parent relation), or as Tasks under a test Story — not as peer User Stories.
 - Sprint 1 of a new ADO operating rhythm should be foundation work (board cleanup, CI confidence, app shell, auth, multi-tenant isolation, capability manifest), 5–8 Stories max. Defer not-yet-started feature work (Morning Book, REPE, IE) to later sprints even if it was drafted first.
 - Only create child Tasks for the current sprint's Stories. Do not pre-task the whole backlog.
-- ADO-first is now the default way of working. Every non-trivial coding request routes through `.skills/azure-devops-intake/SKILL.md` (classify → locate → propose → create → Session Brief → handoff to `feature-dev`) before any code is written. The only bypass is an explicit throwaway experiment or a harmless copyedit/typo/one-line non-behavioral tweak — and the bypass never applies to instruction/governance files (`CLAUDE.md`, `skills/`, `.skills/`, `docs/plans/`, AI behavior/deploy/security docs). Full standard: `docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`.
+- Superseded 2026-06-25: ADO is risk-based. R0 read-only work needs no item; R1 focused reversible changes reuse an item when useful but do not require new intake; R2 schema/security/MCP/infra/production/deploy/governance/multi-session work requires an approved Story/Bug and Session Brief.
 - ADO state discipline for coding agents: `Active` at start, `Resolved` when code/tests/evidence are ready, `Closed` only when the PR is merged and deploy/smoke is verified. A local-only pass never closes a work item. Every session also appends an ADO discussion comment (branch/commit/PR, files, tests, evidence, risks, next item) — a bare state change is not an audit trail.
-- If the Azure DevOps CLI is unavailable or unauthenticated during intake, stop before coding and emit an "ADO Unavailable Blocker" note with the exact command and error. Do not silently proceed; proceed only on an explicit, marked user exception.
+- If ADO is unavailable, block R2 mutation and report the exact error. R0 analysis and safe R1 local work may continue.
 
 ### RS MLOps team board is the control tower for RS/telemetry work (2026-06-24)
 
@@ -3061,7 +3060,10 @@ CLI quirks (`confluent` CLI v4.60 on Windows). Owned by `skills/confluent-starga
 - **`cluster_0` (lkc-gqpvvyv) is STANDARD, not Dedicated** — it bills a flat hourly base, not CKU-hours. CKU/CKU-hour billing is Dedicated-only. Read the real cluster type (`confluent kafka cluster describe`) before writing any cost message; don't hardcode "CKU".
 - **Connectors: delete, don't pause.** A paused managed connector keeps accruing task-hour charges. `confluent connect cluster delete <id>` to actually stop the cost.
 - **PowerShell empty-array trap (not Confluent-specific but bites here):** a function that does `return @()` can hand back `$null` because PS unwraps empty arrays through `return`. Wrap the *call site* in `@(...)` before reading `.Count`, and wrap `ConvertFrom-Json` results in `@()` since an empty `[]` deserializes to `$null`.
-- **CI cannot use the interactive `confluent login`.** A scheduled GitHub Action needs a service-account **API key** (`confluent api-key create --resource cloud --service-account sa-…`), passed as `CONFLUENT_CLOUD_API_KEY`/`_SECRET` env, then `confluent login --save`. A machine email/password works but exposes full-account creds in CI — prefer the scoped service account.
+- **A Confluent service-account API key CANNOT drive the `confluent` CLI's control-plane commands in CI.** `kafka cluster describe`, `connect cluster list`, `flink statement list` require a full `confluent login` (username/password); with only `CONFLUENT_CLOUD_API_KEY`/`_SECRET` env they fail with "you must log in to Confluent Cloud with a username and password" (and `confluent login` with API-key env yields "no credentials found" — it's not a valid login mode). Two real options for headless CI: (a) machine email/password (`CONFLUENT_CLOUD_EMAIL`/`_PASSWORD` → `confluent login`), which exposes full-account creds; or (b) **skip the CLI and call the Confluent Cloud REST API directly** with HTTP-basic API-key auth — what the broker-refresh job does. REST endpoints: cluster `GET https://api.confluent.cloud/cmk/v2/clusters/<lkc>?environment=<env>`; connectors `GET …/connect/v1/environments/<env>/clusters/<lkc>/connectors`. The service account needs a read role first (`confluent iam rbac role-binding create --principal User:sa-… --role Operator --environment <env>`) or cluster reads return **403 forbidden** even with a valid key. Flink statements live on a *regional* host (`https://flink.<region>.<cloud>.confluent.cloud/sql/v1/organizations/<org>/environments/<env>/statements`) and need a separate **Flink-scoped** key (the Cloud key gets 401 there) — make that check best-effort.
+- **GH runner: the confluent CLI installer can't write `/usr/local/bin`** ("install: cannot change permissions … Operation not permitted") — install to `$HOME/.local/bin` and add it to `$GITHUB_PATH`. (Moot if you go the REST route and skip the CLI entirely.)
+- **Age a status row from its own `as_of_ts`; never trust a stored "fresh" as still-current.** A row re-stamped on a fixed cadence (e.g. a 15-min refresh job) must be aged client-side: if `now − as_of_ts` exceeds ~2× the cadence, render it STALE regardless of the stored status. This keeps the surface honest if the writer stops, with no extra signal. Pair it with a *fail-closed writer*: when the periodic check itself fails, write an explicit `stale`/`check_failed` state — do **not** re-write the last good state as if freshly verified.
+- **Fail-closed probe: distinguish 404 from auth/network failure before declaring a resource "gone".** A first cut classified *any* `cluster describe` error as "cluster missing → gone", so a CI auth failure wrote a false `broker=gone` while the cluster was UP. Only a genuine 404 may map to "deleted"; 401/403/timeout are *ambiguous* → write `stale`, never a confident absence. Lock it with a test that feeds a 403 and asserts the result is not `gone`.
 - **Age a status row from its own `as_of_ts`; never trust a stored "fresh" as still-current.** A row re-stamped on a fixed cadence (e.g. a 15-min refresh job) must be aged client-side: if `now − as_of_ts` exceeds ~2× the cadence, render it STALE regardless of the stored status. This keeps the surface honest if the writer stops, with no extra signal. Pair it with a *fail-closed writer*: when the periodic check itself fails, write an explicit `stale`/`check_failed` state — do **not** re-write the last good state as if freshly verified (that would launder a stale value into a fresh-looking one).
 
 ### After a feature merges to main, do a docs-only "presentation hardening" pass before the next layer (2026-06-02)
@@ -3909,10 +3911,10 @@ runs it with `-SkipCI`. Two traps that cost real time:
   from the Bash tool (or a Bash heredoc with escaped `$`) mangles the command/encoding and produces a
   bogus "parse error" / `ERRORS: 1`. The script is valid UTF-8-with-BOM and parses clean; confirm with
   `[System.Management.Automation.Language.Parser]::ParseFile(path,[ref]$null,[ref]$errs)` in PowerShell.
-- **The gate flags its own pattern-definition strings.** The PR that adds or edits the gate trips its own
-  skip-marker check (its skip-pattern array reads as added skip markers) and its secrets scan (its
-  secret-pattern array reads as secret-shaped lines). That is a false positive limited to the gate's own
-  diff — bootstrap *that one* PR with `--no-verify`; unrelated PRs that don't touch the gate run clean.
+- **Exclude the gate from its own skip-marker diff.** Pattern definitions can look like new test
+  annotations. The checker now diffs the branch while excluding
+  `scripts/winston/merge_gate.ps1`; keep that exclusion when adding patterns. Test-skip matching also
+  uses word boundaries so Python process exits are not mistaken for JavaScript disabled-test shorthand.
 - **It lives only when present in the worktree.** It is referenced by `<toplevel>/scripts/winston/...`,
   so a branch/worktree cut from a base that lacks the file makes the hook fail file-not-found. Keeping it
   tracked on `main` is what lets the hook run from any worktree.
@@ -4221,6 +4223,18 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 - **Pin regression fixtures from real runs.** Hard-code the actual logged metrics (e.g. GBM late-rate 0.58) into gate/decision tests so a future formula/threshold change that would silently re-promote a known-bad model breaks CI loudly. Write a per-run JSON **receipt** (plan + rejected-with-reasons + before/after alias) as CI/debug/demo evidence; gitignore the transient one, check in a small example.
 - **Reconcile a shared metric against code you can't import (a Spark notebook) by transcription.** Extracting duplicated metric math into the package, you can't `import` a Databricks notebook (Spark refs at module top blow up). Pin a *verbatim transcription* of the notebook's algorithm inside the test and assert the canonical matches it — plus hand-computed ground truth, plus the one duplicate you *can* import (the local `.py` evaluator). Three-way agreement is the safety net. Then make the importable copy (`eval_honest_metrics.py`) **delegate** to the canonical (output shape preserved: rounds to 6 dp + count keys), so only the notebook keeps a sanctioned copy — guarded by the transcription test. Canonical anomaly metrics are channel-keyed numpy (no pandas) so they stay CI-testable.
 
+## Telemetry frontend production-readiness refactor (Story #722, 2026-06-24)
+
+- **The telemetry `C` palette is the env theme adapter — extend it, don't replace it.** `repo-b/src/components/telemetry/primitives.tsx` is intentionally inline-style-token based so the console stays dark regardless of the global theme. The refactor routes pages/components THROUGH primitives; it does NOT migrate telemetry to Tailwind theming or the global `--nv-*` CSS vars, and it keeps telemetry's 9/11/13px density.
+- **Primitive naming: prefix `Telemetry*` only on collision; alias, never duplicate.** Generic atoms stay unprefixed (`Panel`, `Tag`, `MetricCard`, `PageHeading`, `StatGrid`, `EmptyState`, `MetricRow`, `StatusDot`). Reuse-before-rename-before-create: PR A aliased `TelemetryPanel = Panel`, `TelemetryPageHeading = PageHeading`, `TelemetryNullState = EmptyState` rather than re-implementing them.
+- **Inline-style boundary.** Inline `style={}` is for runtime/data-derived values and chart/SVG geometry only (e.g. `MetadataGraphNode.LAYER_COLORS`, `ReplayConsole.pathFor`, xyflow/d3 positions). Typography/spacing/borders/dots/chips/buttons/panels go through a primitive. `next lint` (next/core-web-vitals) does NOT enforce a no-inline-styles rule — the IDE warns but CI is fine; and jsx-a11y only flags *literal* invalid roles, so dynamic `role`/`aria-live`/`aria-pressed` pass CI (the IDE over-reports them).
+- **Evidence-card contract** (`evidenceCard.tsx` `TelemetryEvidenceCard`/`EvidenceContract`): title · thesisRole · sourceStatus · asOf · coreMetrics · method · claimBoundary · null_reason · detail · provenance. Fail-closed precedence is error > loading > null_reason > body — the body never shows partial data. But DON'T force every existing card into the compact wrapper: the Evidence page's per-claim *section* layout (each card with its own PageHeading) is the intended story; collapsing it is a redesign, not a dedup.
+- **Replay/chart component separation.** `TelemetryChartFrame` owns the chrome (title/legend/caption/empty-state); the chart body keeps its geometry inline. Recharts `isAnimationActive=false` must survive the frame. Status/verdict text gets `aria-live`; the replay loop needs reduced-motion handling.
+- **Drawer dedup.** Both metadata drawers now share `DrawerWrapper`/`DrawerHeader`/`FieldRow` (Radix Dialog contract preserved: right/bottom, close-on-Escape, focus trap). `LineageDrawer`'s `FieldRow` is the simple String(value) form; `MetadataDetailDrawer` keeps its richer local `DetailRow`/`displayValue` (arrays/objects/booleans) — don't force the simple one on it.
+- **Fail-closed UI is load-bearing copy.** Every `null_reason` string (`model_not_promoted`, `no_upstream_edges_in_catalog`, `metadata_graph_unreachable`, "Unavailable reason", governance N=0 reason) and every honesty label ("recorded capture", "not live serving", honest-F1 dual labels, GO/REVIEW/NO_GO) is a constant a refactor may MOVE but never edit or strengthen. The card `.test.tsx` files assert these exact strings — they ARE the behavior-preservation safety net; run `vitest run src/components/telemetry` before merging.
+- **One token system per file.** `rsTokens` (RS demo palette) had accent hexes byte-identical to `C`, so unifying was a one-file recolor (point `RS` at `C`, keep only the RS-specific teal/violet/blue chart hexes) — zero layout change. Cheaper and safer than swapping `RsPanel`→`Panel` (different radius/size) across files.
+- **Production-refactor gotchas.** (1) A *near*-duplicate (6px vs 8px dot glow, 9.5px vs 9px label) is NOT an exact-swap dedup — folding it normalizes pixels, which is a visual change to screenshot-gate, not a free behavior-preserving win. (2) This repo is edited by multiple concurrent agents in one checkout — work in a `git worktree` off `origin/main` + junction `node_modules`; see the concurrent-agent memory. (3) When a squash-merged commit lingers on a follow-up branch, `git rebase origin/main` drops it so the next PR diff stays clean.
+
 **Telemetry stream lineage / Lakebase DDL ownership (Ticket 1, 10034):**
 - **`tel_*` serving tables live on Databricks Lakebase, not Supabase.** They were migrated off Supabase to Lakebase (managed Postgres) via `TELEMETRY_DATABASE_URL`. Supabase no longer has them — `to_regclass('public.tel_stream_kafka_rows')` returns `null` on the Supabase `DATABASE_URL`. Never apply `tel_*` migrations against Supabase; you'll get "relation does not exist."
 - **The runtime `telemetry_app` role is DML-scoped and is NOT the table owner**, so `apply.js` DDL (`ALTER TABLE` / `DROP CONSTRAINT` / `CREATE TABLE`) fails with `SQLSTATE 42501 must be owner of table ...`. The Lakebase `tel_*` tables are owned by the human Databricks identity `paulmalmquist@gmail.com`. **DDL migrations to `tel_*` must be run as that owner** — Databricks SQL editor authenticated as the human, or an owner connection string — not the Railway `authentic-sparkle` `TELEMETRY_DATABASE_URL` (that's `telemetry_app`). This is the same family of limit as "Lakebase telemetry_app can't CREATE partitions."
@@ -4243,6 +4257,7 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 - **Compute-where rule that kept the env "no frontend metric constants" clean:** all diagnostics math lives in a pure adapter `repo-b/src/lib/telemetry/replayDiagnostics.ts` (`computeReplayDiagnostics(feed)` / `inspectTick(feed,t)` + an `NA_REASONS` map of the exact "Not available — <reason>" strings shared by component and test). The React components only render it; the adapter is unit-tested against a synthetic `ReplayFeed`.
 - **Reusable telemetry drawer + tab + copy primitives (alias, don't re-implement):** `repo-b/src/components/telemetry/drawerPrimitives.tsx` exports `DrawerWrapper`/`DrawerHeader`/`FieldRow` (Radix `@radix-ui/react-dialog`; right 460px on lg / bottom sheet on mobile; Escape+overlay-click close; focus trap; `FieldRow` renders "Not available" for empty values). Tabs = `SectionTabButton` from `primitives.tsx` driven by local `useState` (no shared `<Tabs>`; only `@radix-ui/react-dialog` is installed, no Radix Tabs). A telemetry-native copy control is trivial (`navigator.clipboard` with a `typeof navigator` guard — jsdom-safe); `historyrhymes/mlUi.tsx` has a `CopyButton` but it's off-palette (neutral/sky Tailwind), so a local C-token copy chip reads better in the dark telemetry theme.
 - **Radix Dialog renders fine under Vitest/jsdom** — `render(<Drawer open .../>)` then `screen.getByText(...)` queries the portal in `document.body`; assert `queryByText(...).not.toBeInTheDocument()` for the closed state. Render only the active tab's panel so non-active tabs (and their fetches) stay unmounted/lazy. Test commands: `npm run typecheck` (`tsc -p tsconfig.typecheck.json`), `npm run lint` (`next lint`; the telemetry inline-`C`-style "CSS inline styles should not be used" notes are warnings, exit 0), `npx vitest run <file>` / `npm run test:unit`. Stabilize a `const ticks = feed?.feed ?? []` in a `useMemo([feed])` or `react-hooks/exhaustive-deps` warns for every memo that depends on it.
+
 - **Factory ML "click anything → evidence" drawer (2026-06-24):** the Factory ML page (`repo-b/src/components/telemetry/factory-ml/`) is now drillable across Model Quality / Registry / NCR / Readiness. One `FactoryEvidenceDrawer` lives in `FactoryMlConsole` (`useState<DrillObject|null>`); each tab takes `onDrill` and emits a discriminated-union `DrillObject` (`factoryDrill.ts`, kinds: model_metric/feature/model_version/mlflow_run/ncr/ncr_category/vehicle). Reuse note: there IS a shared `telemetry/drawerPrimitives.tsx` (`DrawerWrapper`/`FieldRow`) — but `metadata/LineageDrawer.tsx` and this drawer both copy the raw Radix shell instead; if you touch either, consider consolidating onto drawerPrimitives. Every drawer carries an "Operational use" decision-relevance line (readiness hold/release · NCR triage · extra inspection · promotion review · informational only) — that one line answers the executive "what changes because of this?".
 - **factory-ml data is committed static JSON, not an API** (`repo-b/public/labs/factory-ml/*.json`, generated by `skills/rs-factory-ml/scripts/export_dashboard_json.py` against a live Databricks warehouse). So drill metadata that isn't already in the JSON must come from committed frontend catalogs (`factoryFeatureCatalog.ts` name-inferred defs, `factoryMetricGlossary.ts` honest weak bands, `factoryPromotionRationale.ts` derived from registry fields) — NEVER hand-edit per-row data into the JSON, and mark inferred/derived content as such. Data-backed units/gates are a documented export-script TODO.
 - **Databricks/MLflow deep links, live-by-default pattern** (`factoryEvidenceLinks.ts`): resolve workspace = `NEXT_PUBLIC_DATABRICKS_WORKSPACE_URL || <committed default>`. The committed default is the owner's own workspace `https://dbc-2504bec5-b5ab.cloud.databricks.com` org `7474657239253594` (confirmed in `skills/rs-factory-ml/config/databricks.json` + `telemetry-platform/runs/*/run_manifest.json`). MLflow run URL format that actually works: `<ws>/?o=<org>#mlflow/experiments/<expId>/runs/<runId>` (rs_factory expId `3740651530987773`). A builder returns href=null + unavailableReason + copyText ONLY when the workspace is empty OR the specific identifier (runId/modelName/tableName) is missing — never fabricate a link or imply a target exists. A bare seed model_key (no dots) is not a UC path → disabled-with-reason, not a guessed link.
@@ -4277,16 +4292,127 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 
 **Follow-up: proto_gen bindings lag the registered SR schema (Phase 7).** After registering proto v3 on the Confluent SR, the in-repo `scripts/streaming/stargate/proto_gen/stargate_telemetry_pb2.py` bindings can still be v1 — the capture-mode JSON fixture carries the v3 fields, so capture/CI/Railway/demo are unaffected, and the cloud round-trip can still prove real-coordinate provenance with v1-payload messages. But do NOT claim full on-the-wire v3 FIELD production in cloud mode until the bindings are regenerated: `pip install grpcio-tools` then `python -m grpc_tools.protoc -I infra/confluent/proto --python_out=scripts/streaming/stargate/proto_gen stargate_telemetry_v3.proto` (emit as `stargate_telemetry_pb2.py`, the name producer.py imports). "Schema registered in SR" and "producer serializes the new fields" are two different milestones.
 
-**Agent Builder storage/proxy boundary (2026-06-25):** mutable workflow configuration, immutable
-versions, runs, events, and receipts belong in primary Postgres through `app.db.get_cursor`, even when
-the workflow reads telemetry data. Do not put Agent Builder truth in `get_telemetry_cursor`/Lakebase or
-reuse the ADE catalog. Its Next.js proxy must use `buildPlatformSessionHeaders`; a generic telemetry
-proxy that forwards only request IDs will not provide the backend `business_id`/`env_id` tenant context.
+**Composing a feature over existing surfaces instead of rebuilding (Data Engineering section, PR #337):**
+- **Look for the data layer before you build one.** The "Automated Data Engineering" reframe LOOKED like a big new build (grain, lineage, relationships, pipelines) but ~70% already existed: the telemetry **metadata catalog** (`backend/app/data/telemetry/metadata_catalog.json`, enriched live from Postgres) already carries per-node `layer`/`grain`/`primary_key`/`foreign_keys`/`owner`/`freshness`/`status` and typed edges with `confidence`, surfaced by `repo-b/src/lib/telemetry/metadata.ts` + `metadata/{MetadataDetailDrawer,LineageDrawer,MetricLineageExplorer}.tsx`. The right move was re-presentation, not reimplementation. Always sweep for an existing catalog/lineage/metadata layer first.
+- **Compose without breaking a portability ADR.** ADE is platform-core per ADR 0002 ("grep telemetry in the core package returns nothing"). The composed section lives entirely in the telemetry package (`repo-b/src/components/telemetry/data-engineering/`), which is allowed to IMPORT `@/lib/automated-data-engineering/api` and even the ADE components — importing into telemetry adds no telemetry ref to the core, so the grep test still passes. Verify with `rg -n "telemetry|RS_" repo-b/src/{components,lib}/automated-data-engineering` (only a benign `WorkflowDomain` enum value `"telemetry"` matches today).
+- **Telemetry route pages are SERVER components** (`async` + `await params`), NOT the client `useParams` pattern — `await params` on Next-14's plain `params` object just returns it (see `telemetry/metadata/page.tsx`). The client `use(params)` crash (React #438) only bit `"use client"` pages; server pages were always fine. New nested sections: add page.tsx server wrappers + components.
+- **Adding a telemetry sidebar group is data-only** in `telemetryNav.ts` (add to `TelemetryNavGroup` union + `TELEMETRY_NAV_GROUPS` + `TELEMETRY_NAV`); the sidebar auto-renders. BUT `TelemetrySidebar.tsx` has a `GROUP_ACCENT: Record<TelemetryNavGroup, string>` — a new group breaks tsc until you add its accent. Nested slugs like `data-engineering/grain` work directly through `telemetryHref`/`isTelemetryItemActive` (the parent overview item also highlights on child routes — acceptable).
+- **Old-route compatibility = server `redirect()`** from `next/navigation` in each old page.tsx (Next 14, env params via `await params`). The wrapping layout still renders, so also strip its shell wrap (`AdeLayout` → `return <>{children}</>`) since the redirect short-circuits anyway.
+- **vitest unhandled-rejection guard fails "fail-closed" tests** that mock a fetch with `mockRejectedValue` (already-rejected promise rejects before the component's `.catch` attaches; the rejection fires post-teardown via the timer and is attributed to the test). Fix: mirror the repo pattern — `mockResolvedValue(null)` and make the component treat a null/falsy fetch result as the fail-closed state too (real `apiFetch` can both throw AND the test can resolve-null). One branch, both paths covered, no rejection.
 
-**Agent Builder eval/publish boundary (2026-06-25):** publish readiness must be version-pinned. Store
-the eval suite/run against `workflow_version_id`, and stage only when the latest eval run for the
-current immutable version passes every required deterministic class. A newly saved draft must reset
-the workflow status to `draft`; readiness from an older version is not transferable. Promoted failures
-should require a *later* matching successful dry-run, otherwise an older success can incorrectly clear
-the regression. Keep visual/production smoke as explicit N/A evidence and reject production publish
-until those gates and production execution actually exist.
+## Telemetry page header system (dispatch 0009, 2026-06-24)
+
+- **One header family across a 20-route env.** `TelemetryPageHeader` with four role-based variants
+  (`hero` opening page only · `evidence` evidence/lineage · `standard` analytical · `compact` operational)
+  makes every route scan as one typographic system. Migrate page-by-page (one ticket per role group),
+  each with tsc + the page's vitest + a screenshot, so a bad swap is caught before merge.
+- **Reuse the env's already-loaded fonts.** Cormorant (`--font-editorial`) + Inter Tight (`--font-display`)
+  + JetBrains Mono were already wired via next/font in `app/layout.tsx` and exposed as CSS vars on `<html>`
+  — the header references the vars; no new font infra. Editorial serif for hero/evidence titles, Inter
+  Tight for standard/compact, mono for eyebrows/ids/metrics; colors stay on the `C` palette.
+- **The header carries no data.** It exposes `metadata`/`actions`/`metrics` slots; callers move their
+  EXISTING live chips/lag/verdict/controls/source-strips into those slots verbatim (preserve onClick,
+  disabled, live state, and every string). Fail-closed states and copy never change in a header migration.
+- **Migrating a header ≠ touching the body.** For RS consoles (Registry, Factory/NCR, Mission Control)
+  swap only the top strip to the header; keep the RS body, charts, drawers, and honesty copy. For a page
+  whose error/empty branch returns BEFORE the header (e.g. MetadataExplorer), the header won't show in
+  that state — that's fine; cover it with the component's unit test, not a data-dependent screenshot.
+- **Parallel subagents per file work well for a mechanical, well-specified swap** with strict
+  "byte-identical strings, run tsc+test+lint" rules — but always re-run a CENTRAL tsc+lint+vitest after,
+  because a `next lint` run issued mid-edit by one agent will report a transient parse error in a file
+  another agent is still writing (it resolves once both finish).
+- **Local screenshot harness for env pages:** dev server with `PLAYWRIGHT_BYPASS_AUTH=1` (admin session →
+  env access) + `BOS_API_ORIGIN=<railway backend>` so `/api/telemetry/*` proxies to real data; junction
+  `node_modules` into the worktree; Playwright at 1440×900, env `telemetry-demo`. The playwright.config
+  webServer already sets `PLAYWRIGHT_BYPASS_AUTH=1` for `tests/*.spec.ts`.
+
+**Schema Registry exports — validate after export; don't blind-redirect stderr:**
+- **`confluent schema-registry schema describe` has NO `-o`/`--output json` flag** (unlike `kafka cluster/topic describe` and `flink compute-pool describe`, which do). Passing `-o json` errors; a blind `… -o json 2>&1 > file.json` writes the CLI error dump INTO the file. This silently corrupted all 4 `infra/confluent/stargate/schemas/*-value.json` at birth — they looked exported but contained `Error: unknown shorthand flag: 'o'`.
+- **`describe` prints a human `Schema ID:/Type:/Schema:` block, not JSON.** To make a `.json` artifact: capture stdout only (no `2>&1`), parse out id/type, and emit `{subject, version, id, schemaType, schema}`. **JSON**-type subjects embed the parsed schema object; **PROTOBUF/AVRO** subjects embed the raw schema text as a string (the protobuf telemetry subject's body is a `.proto`, not JSON — don't `JSON.parse` it).
+- **Always validate exported schema JSON before committing:** `json.load` each file AND grep for `Error:`, `Usage:`, `failed`, `Unauthorized`, `Forbidden`. (Note `confluent` alone is a false-positive grep: real Avro schemas contain `io.confluent.connect.*` annotation keys.)
+- **Never hand-write a schema export when live Schema Registry is reachable** — query it (`confluent schema-registry schema list` / `describe --subject … --version latest`) so the artifact matches the registered subject/id exactly.
+
+## Claude session and routing lessons (2026-06-25)
+
+- Claude project skills must be discoverable under `.claude/skills/`. Keep the
+  procedural source in one canonical `skills/` or `.skills/` body and generate a
+  thin wrapper; otherwise direct skill invocation fails as "Unknown skill."
+- The shared checkout is unsafe when multiple agents run. Create a dedicated
+  worktree from fresh `origin/main` before mutation, and never branch-switch,
+  reset, clean, stage, or commit the shared checkout.
+- A continuation starts with a state delta: git HEAD/diff, worktrees, selected
+  plan, active PR, ADO item, tests, and deploy state. Conversation history is
+  supporting context, not the current source of truth.
+- The current runtime map is `backend/`, `repo-b/`, `telemetry-platform/`,
+  `excel-addin/`, `orchestration/`, `scripts/`, and persistence assets.
+  `repo-c/` is retired; lab compatibility APIs live in `backend/`.
+- ADO is risk-based: R0 read-only, R1 focused reversible, R2 governed.
+- Full delivery means tests → commit/push → PR/CI → merge → applicable
+  main-branch deploy → smoke verification. Frontend deploys from merged main;
+  backend deploys only from a clean main checkout.
+- `docs/tips.md` stores durable repeated lessons. Temporary branch, PR, and task
+  state belongs in ADO, the active plan, `next-session.md`, or local memory.
+- Instruction validation must be Windows-safe and fail when an active target or
+  generated Claude wrapper is missing.
+- Never store credential values in instructions, reports, transcripts, tips, or
+  automatic memory.
+
+## Overview pages as thesis pages (telemetry Overview redesign)
+
+- **An Overview page is the thesis, not a gallery.** The job is to make the rest of the product feel
+  necessary in one coherent surface — stop saying "here are some interesting visuals," start saying
+  "this is why the rest of this exists." Lead with one argument, one hero visualization, one strong
+  explanatory card, and a clear path onward; cut anything that doesn't serve that line.
+- **Reduce chart fragmentation: one integrated hero beats three widgets.** Three sibling tabs
+  (Bottleneck Map / Cost to LEO / Who Flies) read as disconnected dashboards. Collapsing them — keep the
+  primary chart, demote one series to a headline number, fold the third into the hero as a contextual
+  layer — turns "three things to explain" into "one thing to absorb."
+- **Integrate a contextual layer as a subordinate underlay, not a co-equal series.** Render it FIRST in
+  a recharts ComposedChart (DOM order = paint order, so it sits behind bars/scatter), give it its own
+  hidden axis, and keep it quiet (low fill/stroke opacity). Label it honestly ("contextual underlay") so
+  it reads as backdrop, never as the primary signal. Map its domain so the wave stays low in the frame.
+- **A Play/guided-story control beats a generic "Present" button.** A ▶ Play affordance implies a
+  walkthrough; reuse the existing presenter step-state instead of building new behavior. If full
+  step-through isn't feasible, still replace the control visually and leave the behavior staged honestly
+  — never fake hidden pseudo-functionality.
+- **Make explanatory burden explicit with a rail, not inference.** A compact "constraint solved → new
+  burden created" strip tied to the chart does the thesis work the bubbles alone can't. Keep it
+  qualitative — never fabricate volume numbers to make a point land.
+- **Preserve evidence/claim integrity during a visual redesign.** A composition pass must not touch
+  shipped ML/evidence values, artifacts, caveats, or fail-closed behavior. Keep edits to
+  page-composition/narrative/visualization; render Big Numbers locally rather than editing a *shared*
+  header component (blast radius); and keep source honesty loud — if an ETL isn't wired, say
+  "source ETL not connected — curated/static anchors," don't imply a live feed.
+- **In a contended frontend zone, ship the conflict-free way.** Confirm the target files are settled
+  (no in-flight PRs touching them) before editing, work in an isolated worktree off origin/main with a
+  junctioned node_modules, stay strictly within the assigned files, and land fast.
+
+**Telemetry Data Engineering Phase 2A–2D (relationship safety, workbench, workflows, real receipt):**
+- **Infer verdicts from existing metadata; require positive evidence for the "good" verdict.** Metadata edges carry NO join keys, so `relationshipSafety.ts` derives safe/bridge/unsafe/unverifiable from node `grain` + `primary_key`/`foreign_keys` + `status` + edge `relationship`/`confidence`. The rule that keeps fake greens off the screen: "safe" ONLY with a declared FK to the target's `object_name` OR identical declared grain (explicit + both fresh); everything else fails closed to "unverifiable" with a null_reason. Transform edges are always bridge-required (grain changes by design); consumption/quality edges aren't joins. Unit-test "no safe without metadata" explicitly.
+- **A grounded scenario beats an illustrative one — and stays honest for free.** The "vibration+temperature → failed Stargate prints" walkthrough resolves REAL node ids (`stream_stargate_telemetry`, `metric_stargate_signature`, committed predicate `melt_pool_temp_c < 1400.0 AND arm_vibration_g > 0.08`) and runs the SAME classifier on the real edges; missing nodes → fail closed. Verify ids against the MINIFIED `metadata_catalog.json` with `rg -o '"id":"[a-z_]*stargate[a-z_]*"'` (no space after the colon).
+- **Match curated capabilities to the live registry with SPECIFIC tokens; check the real registry before writing copy.** Curl `/api/ade/skill-registry` and grep first: only `sql.validate_query` truly backs dry-run SQL; `receipt`/`pr`/`contract` substring hits are wrong-domain (accounting receipts, approvals, a sql-with-contract runner). Loose substring matchers fabricate backing. The honest outcome (8 of 9 capabilities declared-only) IS the product story.
+- **Executability must never claim more than the runtime offers.** `workflowTemplates.ts` returns at most `read_only_template` (never `executable` — no run path is wired); unbacked skill-step → `blocked`; registry unreadable → `unavailable`. Test that NO template is ever "executable" even when every step is mocked as backed.
+- **To surface a NEW receipt without editing ADE core, write your own audit stream.** `/api/ade/runs` hard-filters `action == "mcp.tool_call"` — adding an action there means editing off-limits ADE core. Instead a telemetry-router endpoint writes a real `app.audit_events` row via `app.services.audit.record_event(action="ade.de.…")` (reusable service, not ADE core), and a sibling GET reads `list_events` filtered to `ade.de.*`. Both demos share business_id `7e1eb000-0000-4000-a000-000000000001`, so the action-prefix split keeps the two receipt streams separate.
+- **A read-only action can legitimately leave one write — its own receipt.** Record a FAILED attempt honestly (`success=false`+`error_message`), don't hide it. `apiFetch` applies `params` as a query string on POST too, so `apiFetch(path,{method:"POST",params})` sends `?env_id=…&business_id=…` with no body.
+- **Backend-touching slices need an explicit Railway deploy to verify in prod.** Vercel auto-deploys the frontend from main; the Railway backend does NOT. After merge, set a worktree to origin/main, run `scripts/deploy_backend.sh` (ships CWD tree, stamps SHA into `/api/version`), poll `/api/version` for the SHA, then curl the new endpoint. A frontend PR calling a not-yet-deployed backend endpoint 404s until you deploy.
+- **Backend route tests run in CI's Backend Lint job and need no live DB** — mirror `test_telemetry_findings.py`: the `client` TestClient fixture + `monkeypatch.setattr` on lazily-imported service modules (`app.services.audit`, `app.services.telemetry_metadata`). Patch `record_event`/`list_events`/`get_metadata_graph`; assert the route's own shaping + fail-closed branches.
+
+## Replay model diagnostics — sources, MLflow/Databricks linking, null-reason contracts (ADO #734, 2026-06-25)
+
+Shipped `scoringDiagnostics` + `lineage` on `GET /api/telemetry/replay` (PR #369). The drawer's Model/Evidence/Operator/Lineage tabs now show real provenance instead of only fail-closed placeholders. Durable lessons:
+
+- **The replay endpoint is DB-free — it reads the committed `backend/app/data/telemetry/replay_fixture.json` (cached in `_replay_cache`).** Any new replay diagnostic must be computable from that fixture + backend constants, or fetched on the frontend from a *different* endpoint. Never add a DB read to the public `/replay` path. To force a fresh fixture load in tests: `svc._replay_cache = None`.
+- **The real detector threshold is a backend constant, not a payload field:** `DETECTOR_THRESHOLD = MAD_K * GLOBAL_TRAIN_SCALE = 4.0 * 0.033866801182436346 = 0.13546720472974538` (residual units). Expose it from the backend so the frontend never hard-codes a metric (telemetry env rule). A test pins `threshold == live /score threshold` so the surface can never invent a second threshold.
+- **`feed[].score` is degenerate (~1e12 at fire ticks) — NEVER a threshold axis.** Severity must be derived from `residual = abs(value - rmean)`, the quantity the MAD rule actually thresholds.
+- **THE TRAP that drove a full rework:** the intake assumed `score_t = residual / threshold` reproduces `model_pred`. It does NOT for D-4 — **0 of 412 fired ticks** exceed the global-fallback threshold (max fired residual 0.070 << 0.135). The champion fired on a tighter **per-channel** scale the serving constants do not carry. A per-tick "honest score → GO" rendered next to a fired model is a contradiction, not honesty. **When a recomputed statistic diverges from the model's own output, surface the divergence as the diagnostic and let the model's flag stay authoritative — don't invent a verdict.** Verify the assumption against the real fixture (`for p in feed if p['model_pred']==1: count residual>threshold`) BEFORE building the per-tick UI.
+- **Held-out metrics come from a different endpoint.** Replay is in-sample (single channel D-4, strided) → any P/R/F1 from it is replay-feed *agreement*, not validation. Real promoted-model metrics are served by `/api/telemetry/model-performance`; the Model tab fetches that lazily and the caveat travels with the numbers.
+- **MLflow/Databricks deep-links: reuse `@/lib/lab/factoryEvidenceLinks` (`mlflowRunLink`, `mlflowExperimentLink`, `deltaTableLink`).** Each returns `{label, kind, href, copyText, unavailableReason}`; `resolveWorkspace()` falls back to the committed default workspace `https://dbc-2504bec5-b5ab.cloud.databricks.com`, so links are **live by default even in jsdom tests** (no env needed). A `LinkRow` renders a real `<a target="_blank">` when `href` is set, else a fail-closed `NaRow` with `unavailableReason`. Note the two conflicting MLflow run ids (fixture `4a48cb6a…` vs real Databricks `b93e13f7…`) — surface both, never reconcile.
+- **Null-reason contract:** every absent field renders `Not available — <specific reason for THIS payload>` from the shared `NA_REASONS` map in `replayDiagnostics.ts` (component + tests import the same strings so copy and assertions never drift). The reason names the missing source, not a generic "no data."
+- **Visual gate without booting the whole backend:** the backend validates `DATABASE_URL` at import, so a local backend needs the full secret set. Instead run a ~50-line stdlib mock (`http.server`) that serves `/api/telemetry/replay` with the exact new shape (real fixture + the same constants the backend emits) and **proxies every other `/api/telemetry/*` to the live prod backend** so model-performance/copilot stay real. Point the worktree dev server's `BOS_API_ORIGIN` at it (`PLAYWRIGHT_BYPASS_AUTH=1`, a dummy `NEXT_PUBLIC_SUPABASE_*`). Restart the mock after editing the shape — it loads the fixture once at startup.
+- **Test commands that worked (from the worktree `repo-b/`):** `npm run typecheck`; `npx vitest run src/lib/telemetry/replayDiagnostics.test.ts src/components/telemetry/ReplayForensicsDrawer.test.tsx` (adapter + drawer); `npx vitest run src/components/telemetry src/lib/telemetry` (full suite, 208). Backend (from `backend/`): `python -m pytest tests/test_telemetry_serving.py -q`.
+
+**Telemetry lineage live rehearsal (Ticket 8) — what bit us:**
+- **New tel_* tables need an out-of-band GRANT to `telemetry_app`.** Migrations don't manage grants in this repo; `10033`'s tables were granted manually, so `10034`'s `tel_stream_triage_events` had NONE and the triage routes 500'd `permission denied`. Symptom: a route reads one table fine (kafka_rows) but 500s on a sibling. Fix as Lakebase owner: `GRANT SELECT,INSERT,UPDATE,DELETE ON <table> TO telemetry_app;` (via the Databricks-CLI owner credential). Add tel_* grants to a repeatable role-setup script.
+- **The durable Kafka consumer can't run on the Railway backend image.** It needs `confluent-kafka` (ships only in the laptop tooling venv, not the backend image) AND `CONFLUENT_*` creds (not on `authentic-sparkle`). With the flag on but no client/creds it fails closed (not_available offset receipt + idle) — correct, but it means "enable the prod consumer" never lands rows. Run the consumer from the laptop tooling venv instead.
+- **Confluent Flink AI `CREATE MODEL` option names are version-specific.** This CLI (v4.60) wants `OPENAI.MODEL_VERSION` / `OPENAI.SYSTEM_PROMPT` / `OPENAI.INPUT_FORMAT` / `OPENAI.OUTPUT_CONTENT_TYPE` — not lowercase `openai.*` + `task`/`provider`. `ML_PREDICT` takes the model as a **backtick identifier**, not a string (`ML_PREDICT(\`model-name\`, input)`), and use `LATERAL TABLE(ML_PREDICT(...))` (not `CROSS JOIN LATERAL`). Even with valid SQL, the OpenAI call 400'd until output/response format is configured — budget iterations (each spins Flink CFU + an OpenAI call). Check `confluent flink statement describe <name>` for the real error; the `list` view truncates.
+- **Always verify Flink teardown drained to 0 CFU.** Deleting statements doesn't instantly drop the pool's CFU — wait ~30-60s and re-check `confluent flink compute-pool list`. Delete the model with `DROP MODEL` (a statement), the connection with `flink connection delete`, and any Flink-owned topic you created. The STANDARD Kafka cluster bills while it exists — park/delete via the lifecycle skill, don't leave it for the demo to discover.

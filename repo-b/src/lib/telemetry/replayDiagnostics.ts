@@ -110,6 +110,21 @@ export interface ReplayDiagnostics {
   scoreAtFire: number | null;
   scoreIsDegenerate: boolean;
 
+  // Scoring provenance from the backend scoringDiagnostics block (DB-free). The threshold is the frozen
+  // serving global-fallback (MAD_K * GLOBAL_TRAIN_SCALE — the SAME value /score applies). The divergence
+  // fields are the HONEST headline: for D-4 the threshold does NOT reproduce the champion's firing (every
+  // fired tick is below it), so model_pred is authoritative and no per-tick verdict is derivable. All
+  // null / false when the payload carries no scoringDiagnostics — the drawer keeps its fail-closed rows.
+  scoringAvailable: boolean;
+  threshold: number | null; // residual units (MAD_K * GLOBAL_TRAIN_SCALE) — serving global-scale fallback
+  madK: number | null;
+  thresholdSource: string | null;
+  firedTicksScored: number | null; // model_pred==1 ticks the backend scored against the threshold
+  firedAboveThreshold: number | null; // how many of those exceed the threshold (0 for D-4 => divergence)
+  maxFiredResidual: number | null; // largest residual among fired ticks (below the threshold for D-4)
+  thresholdReproducesFiring: boolean | null; // false => the model fired below the serving threshold
+  perChannelCaveat: string | null; // the divergence explanation; null when the threshold does reproduce firing
+
   // Cross-checks: do the recomputed values match the payload's top-level summary scalars?
   crosscheck: { firstFire: boolean; fired: boolean; labeled: boolean };
 }
@@ -127,6 +142,13 @@ function directionOf(tick: ReplayTick): "above" | "below" | "at" {
   if (d > 0) return "above";
   if (d < 0) return "below";
   return "at";
+}
+
+// The frozen detector threshold from the backend scoringDiagnostics block (residual units), or null
+// when the payload predates Ticket 2. Never hard-coded in the frontend — the backend owns the constant.
+function thresholdOf(feed: ReplayFeed): number | null {
+  const t = feed.scoringDiagnostics?.threshold_residual_units;
+  return typeof t === "number" && t > 0 ? t : null;
 }
 
 // Inspect a single tick by its t-index. Returns null when t is not present in the (downsampled) feed.
@@ -195,6 +217,15 @@ export function computeReplayDiagnostics(feed: ReplayFeed): ReplayDiagnostics {
       residualAtFire: null,
       scoreAtFire: null,
       scoreIsDegenerate: true,
+      scoringAvailable: false,
+      threshold: null,
+      madK: null,
+      thresholdSource: null,
+      firedTicksScored: null,
+      firedAboveThreshold: null,
+      maxFiredResidual: null,
+      thresholdReproducesFiring: null,
+      perChannelCaveat: null,
       crosscheck: { firstFire: false, fired: false, labeled: false },
     };
   }
@@ -248,6 +279,14 @@ export function computeReplayDiagnostics(feed: ReplayFeed): ReplayDiagnostics {
   const samplingFraction =
     base.totalTicksSource > 0 ? base.fixtureTicks / base.totalTicksSource : null;
 
+  // Scoring provenance: the frozen serving threshold (from the backend, DB-free) AND the honest divergence
+  // the backend computed from the fixture. For D-4 the threshold does NOT reproduce the champion's firing
+  // (every fired tick is below it), so we surface the divergence instead of deriving a per-tick verdict
+  // that would contradict model_pred. All null/false when the payload carries no scoringDiagnostics.
+  const sd = feed.scoringDiagnostics ?? null;
+  const threshold = thresholdOf(feed);
+  const residAtFire = fireTick ? residualOf(fireTick) : null;
+
   return {
     available: true,
     nullReason: null,
@@ -262,11 +301,20 @@ export function computeReplayDiagnostics(feed: ReplayFeed): ReplayDiagnostics {
     preLabelFalseAlarms,
     latencyFraming,
     confusion: { tp, fp, fn, tn, precision, recall, f1, caveat: AGREEMENT_CAVEAT },
-    residualAtFire: fireTick ? residualOf(fireTick) : null,
+    residualAtFire: residAtFire,
     scoreAtFire: fireTick ? fireTick.score : null,
     // The fixture score is |value-rmean|/median(resid); on this near-constant channel it is degenerate
     // (~1e12 at fire ticks). Always flagged so the UI never treats it as a calibrated/comparable axis.
     scoreIsDegenerate: true,
+    scoringAvailable: threshold != null,
+    threshold,
+    madK: sd?.mad_k ?? null,
+    thresholdSource: sd?.threshold_source ?? null,
+    firedTicksScored: sd?.fired_ticks ?? null,
+    firedAboveThreshold: sd?.fired_ticks_above_threshold ?? null,
+    maxFiredResidual: sd?.max_fired_residual ?? null,
+    thresholdReproducesFiring: sd?.threshold_reproduces_firing ?? null,
+    perChannelCaveat: sd?.per_channel_caveat ?? null,
     crosscheck: {
       firstFire: feed.first_model_fire_t == null || feed.first_model_fire_t === firstFireRecomputed,
       fired: feed.model_fired_ticks == null || feed.model_fired_ticks === firedTicks.length,

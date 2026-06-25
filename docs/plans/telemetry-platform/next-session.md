@@ -1,68 +1,67 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-25
 
-> **Implemented locally (2026-06-25) — Agent Builder eval lifecycle + staged gate:** Story #735 adds
-> migration `10036_agent_builder_evals.sql`, persisted suites/cases/runs/results/failure memory,
-> deterministic graph/tool/permission/fail-closed/cost/regression/replay checks, failed-run promotion,
-> and a staged-only publish gate. Production publish/run remains fail-closed. Focused verification:
-> 79 backend regressions, 15 frontend regressions, typecheck/lint/ruff green; targeted 10035+10036
-> dry-run parsed 65 statements. No database URL is configured locally, so migration application and
-> authenticated browser evidence remain pending. Active plan:
-> `docs/plans/03-implementation-plans/active/0010-agent-builder-eval-publish-gate.md`.
+> **Shipped (2026-06-25) — Replay Model Diagnostics API (Story #734, PR #369 squash-merged → main):**
+> Made good on the #725 follow-up. `GET /api/telemetry/replay` now returns additive, DB-free
+> `scoringDiagnostics` + `lineage`; the Replay Forensics drawer (Model/Evidence/Operator/Lineage) shows
+> real provenance instead of only fail-closed placeholders. **scoringDiagnostics** exposes the frozen
+> serving threshold `DETECTOR_THRESHOLD = MAD_K*GLOBAL_TRAIN_SCALE = 0.135467` (the same value `/score`
+> applies). **The honest finding that reshaped the feature:** that threshold does NOT reproduce the
+> champion's D-4 firing — **0 of 412 fired ticks** exceed it (max fired residual 0.070); the champion
+> fired on a tighter **per-channel** scale the serving constants don't carry. So the surface states the
+> **divergence** (`model_pred` stays authoritative) instead of deriving a per-tick verdict that would
+> contradict the model — a per-tick "GO" next to a fired model is a contradiction, not honesty.
+> **lineage** echoes the reproducibility chain; the Lineage tab renders live Databricks/MLflow links via
+> `factoryEvidenceLinks`. Held-out metrics still come from `/api/telemetry/model-performance`.
+> Backward-compatible (existing keys + `feed[]` unchanged). **Gates:** backend 12/12, frontend adapter +
+> drawer 25/25, full telemetry suite 208, typecheck + lint clean; visual gate at 1280×800 dark (local
+> render of the merge commit via a stdlib mock backend that proxies non-replay calls to prod). Branch
+> `feat/replay-model-diagnostics` off main; backend deployed via `scripts/deploy_backend.sh`. ADO Story
+> #734 (Feature #513 / Epic #497). Lessons in `docs/tips.md` (replay diagnostics sources, MLflow/Databricks
+> linking, the divergence trap, mock-backend visual gate).
 >
-> **Implemented locally (2026-06-25) — Agent Builder read-only MVP:** Story #478 now has the governed
-> `agent-graph/v1` builder, immutable draft versions, read-only MCP registry binding, live bounded
-> prompt nodes, synchronous dry-runs, ordered events/receipts, six draft templates, and the six-mode
-> Control Tower UI. Migration `10035_agent_builder_mvp.sql` is additive and dry-run parsed but was not
-> applied. Focused backend regressions: 87 pass; telemetry/frontend regressions: 172 pass;
-> typecheck/lint pass. Full frontend remains red only in the unrelated REPE fund-page loading suite
-> (three failures in the final run; five in the initial baseline) under the operator-approved
-> exception. The full backend suite exceeded ten minutes. Next: apply/verify 10035 in an authorized DB,
-> run authenticated desktop/mobile smoke, then
-> apply and verify the Agent Builder schema and run authenticated smoke. Plan:
-> `docs/plans/03-implementation-plans/active/0009-agent-builder-read-only-mvp.md`.
-
-> **Shipped (2026-06-24) — Replay Forensics UI v2 (frontend-only, NOT yet committed/PR'd):** Upgraded
+> **Shipped (2026-06-24) — Replay Forensics UI v2 (Story #725, PR open to main):** Upgraded
 > `/lab/env/[envId]/telemetry/replay` (`repo-b/src/components/telemetry/ReplayConsole.tsx`) from a
 > verdict poster into an inspectable forensics surface. New: a **source-truth banner** (public NASA
 > SMAP/MSL stand-in, hot-fire-*style*, "not proprietary rocket hot-fire data"); a **run-packet strip**;
 > **dual chart overlays** — red model-fired region vs amber NASA-labeled window — with a legend and an
 > honest caption; an inspectable **"Why this verdict"** card; and a **5-tab "Replay forensics" drawer**
-> (`ReplayForensicsDrawer.tsx`: Signal / Model / Evidence / Operator action / Lineage) built on the
-> Radix `drawerPrimitives` + `SectionTabButton`. All diagnostics math lives in a pure, unit-tested
-> adapter `repo-b/src/lib/telemetry/replayDiagnostics.ts` (no frontend metric constants).
-> **Honesty surfaced, not hidden:** the champion first fires at **t=728, ~4,504 ticks BEFORE** the NASA
-> label window **[5232–8472]** (141 pre-label false alarms — shown as such, never as lead time); the
-> per-tick `score` is numerically degenerate (~1e12) and is **never** drawn as a threshold; and
-> threshold / margin / physical-unit / sample-rate / held-out-F1 / stage-boundaries / top-channels all
-> render an explicit **"Not available — <reason>"**. Real held-out metrics + the conformal false-alarm
-> budget are pulled **fail-closed** from `/api/telemetry/model-performance` + `/monitoring` (Model tab).
-> No DB migration, no backend change. **Gates:** typecheck + lint clean; **19 new Vitest** tests
-> (`replayDiagnostics.test.ts` 13, `ReplayForensicsDrawer.test.tsx` 6); full telemetry suite **143
-> pass**. A 4-dimension adversarial review (honesty / correctness / design-regression / data-contract)
-> with a verify pass fixed **6 confirmed** findings and dismissed **9** (incl. 3 false "lint-break"
-> claims). **Held for owner decision** before commit/PR: (a) ADO intake/Session-Brief, (b) branch off
-> `main` vs the in-flight `fix/telemetry-stream-partition-ddl`. **Working-tree note:** the concurrent
-> Factory ML evidence-drawer workstream (below) also edits `primitives.tsx`; keep replay-forensics
-> commits scoped to the 5 replay files. **Next backend ticket (recommended):** expose model validation
-> + scoring diagnostics from MLflow/Databricks into the replay API so the Model tab shows first-class
-> numbers, not a pointer. Reusable lessons captured in `docs/tips.md`.
+> (`ReplayForensicsDrawer.tsx`: Signal / Model / Evidence / Operator action / Lineage) on the Radix
+> `drawerPrimitives` + `SectionTabButton`. All diagnostics math is in a pure, unit-tested adapter
+> `repo-b/src/lib/telemetry/replayDiagnostics.ts` (no frontend metric constants). **Honesty surfaced,
+> not hidden:** the champion first fires at **t=728, ~4,504 ticks BEFORE** the NASA label window
+> **[5232–8472]** (141 pre-label false alarms — shown as such, never as lead time); the per-tick
+> `score` is degenerate (~1e12) and is **never** a threshold; threshold / margin / physical-unit /
+> sample-rate / held-out-F1 / stage-boundaries / top-channels all render explicit **"Not available —
+> <reason>"**. Real held-out metrics + the conformal false-alarm budget are pulled **fail-closed** from
+> `/api/telemetry/model-performance` + `/monitoring` (Model tab). Frontend-only, no migration. **Gates:**
+> typecheck + lint clean; **19 new Vitest** (`replayDiagnostics.test.ts` 13, `ReplayForensicsDrawer.test.tsx`
+> 6); full telemetry suite **143 pass**. Adversarial review (honesty / correctness / design / data-contract
+> + verify): **6 fixed, 9 dismissed**. Delivered on branch `feat/telemetry-replay-forensics` (off main,
+> commit cherry-picked clean) → PR to `main`; ADO Story #725 (Feature #513 / Epic #497) Resolved.
+> **Next backend ticket (recommended):** expose model validation + scoring diagnostics from
+> MLflow/Databricks into the replay API so the Model tab shows first-class numbers, not a pointer.
 
-> **Shipped (2026-06-24):** Factory ML drillable evidence surface. The Model Quality, Registry, NCR
-> Intelligence, and Readiness tabs are now click-into-evidence: every metric card, SHAP feature,
-> registry version/champion badge, live MLflow run, NCR category/exemplar, and vehicle opens a shared
-> `FactoryEvidenceDrawer` (Radix shell copied from `metadata/LineageDrawer.tsx`). The SHAP "top drivers"
-> chart was rewritten from recharts to a custom left-justified clickable label gutter + bar area.
-> New libs (all unit-tested): `factoryEvidenceLinks.ts` (live-by-default Databricks/MLflow deep links
-> to the dbc-2504bec5-b5ab workspace, disabled-with-reason only when an identifier is missing),
-> `factoryFeatureCatalog.ts` (name-inferred feature defs, units-unknown marked),
-> `factoryMetricGlossary.ts` (honest weak-metric bands — AUC≈0.51 → near-random, R²<0, Brier poor),
-> `factoryPromotionRationale.ts` (derived why-champion/why-not from registry JSON). Drawers carry an
-> "Operational use" decision-relevance line + a reviewer-questions block. tsc/lint/tests green; 29 new
-> tests. **Deferred:** data-backed feature units / per-version promotion gates need the next Databricks
-> regen (TODO left in `skills/rs-factory-ml/scripts/export_dashboard_json.py`); Layer Heatmap drill not
-> added this pass.
+> **Shipped (2026-06-24) — Telemetry frontend production-readiness refactor (Story #722):** Seven PRs
+> merged + live: **#320** shared UI primitives (`primitives.tsx` atoms + `chartPrimitives.tsx` +
+> `evidenceCard.tsx` + `drawerPrimitives.tsx` + 14 tests) + the in-repo
+> `repo-b/src/components/telemetry/TELEMETRY_FRONTEND_REFACTOR_INVENTORY.md`; **#322** thesis-first
+> `TelemetryOverview`/`EvidenceCards` + `ModelEvidenceCard` dedup; **#323** color-coded nav rail
+> (section accents, glowing active pill, gradient logo); **#324/#325** both metadata drawers onto the
+> shared `DrawerWrapper`/`DrawerHeader`/`FieldRow`; **#326** RS palette unified into `C` (one-file
+> recolor). All behavior-preserving; claim/null_reason strings byte-identical (card tests are the net).
+>
+> **Remaining refactor work (NEEDS THE DEFERRED SCREENSHOT-GATED VERIFY PASS — see the inventory doc):**
+> the console god-splits + primitive normalization (GovernanceDashboard, Copilot, ControlTower,
+> SpikeInspector, ReplayConsole, RulCalibration, ModelPerformance, etc. — these are *near*-duplicates,
+> so adopting primitives normalizes pixels = a visual change, not a free dedup); `TelemetryMetadataExplorer`
+> controller/visualization split; folding `RsPanel`/`RsChip`/`RsKpi` fully into the `C` primitives +
+> `BottleneckMap`; chart-frame adoption. Do these behind a local-run + reviewer-login screenshot pass
+> (Overview, Evidence, Stargate, Replay, Model Performance, System Health, Trust/Lineage, RS surfaces),
+> each annotated cleaner-layout / same-data / same-fail-closed / no-overclaim. The merged primitives +
+> inventory make each piece mechanical. Lessons in `docs/tips.md` (telemetry refactor section).
+
 
 > **Shipped (2026-06-19):** Telemetry demo→real data audit + Spike Inspector conversion. Full
 > data-source classification in [`data-source-matrix.md`](./data-source-matrix.md); the Spike Inspector
@@ -136,3 +135,11 @@ seed-pack behavior, and template key. Do not add a standalone RS Factory environ
 
 The prior telemetry-only optional items remain tracked in `backlog.md` and
 `release-readiness.md`; they are not part of the RS Factory generator work.
+
+> **Shipped (2026-06-24) — Telemetry Page Header System (dispatch 0009, all 4 tickets):** PRs #335 (foundation
+> + Overview hero), #338 (operations → compact), #339 (models/factory → standard), + evidence/lineage →
+> evidence. `TelemetryPageHeader` (hero/evidence/standard/compact) now leads every telemetry route; Overview
+> is the only hero (editorial Cormorant). Added `tests/telemetry-page-headers.spec.ts` + doc updates
+> (component-contracts, design-adaptation, qa-checklist, eval-plan, tips). All behavior-preserving; live
+> data/chips/fail-closed in header slots. Remaining optional polish: header-system multi-viewport screenshot
+> set under `telemetry-platform/docs/screenshots/header-system/`; deeper console component-splits (maintainability only).
