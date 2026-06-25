@@ -11,8 +11,18 @@ import { C, EmptyState, MetricCard, Panel, RowCard, SplitGrid, Tag } from "../pr
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import DlqPanel from "./DlqPanel";
 import TempVibrationChart from "./TempVibrationChart";
+import StreamLineageDrawer from "./StreamLineageDrawer";
 import { useStargateStream } from "@/lib/lab/stargateStream";
+import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
+
+// The agent stamps a deterministic anomaly id from the detection event (see
+// infra/confluent/stargate/agents/anomaly_triage_agent.sql): anom_{printer_id}_{ts_us}. The same id
+// links a live SSE anomaly to its PERSISTED lineage in the 10034 serving slice. When the durable
+// consumer is off / nothing has landed yet, the drawer fails closed honestly.
+function anomalyLineageId(printerId: string, tsUs: number): string {
+  return `anom_${printerId}_${tsUs}`;
+}
 
 const PrinterHead3D = dynamic(() => import("./PrinterHead3D"), {
   ssr: false,
@@ -31,6 +41,7 @@ function aggBadge(source?: string): { label: string; color: string } {
 export default function StargateConsole() {
   const stream = useStargateStream();
   const [selected, setSelected] = useState<string | null>(null);
+  const [lineageAnomalyId, setLineageAnomalyId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startMsg, setStartMsg] = useState<string | null>(null);
   // The three.js canvas only mounts on desktop, and only after hydration —
@@ -204,20 +215,33 @@ export default function StargateConsole() {
           ) : (
             <div style={{ maxHeight: 220, overflowY: "auto" }}>
               {[...printerAnomalies].reverse().slice(0, 50).map((a, i) => (
-                <div key={`${a.ts_us}-${i}`} style={{ display: "flex", gap: 12, padding: "8px 14px",
-                  borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }}>
+                <button key={`${a.ts_us}-${i}`} type="button"
+                  onClick={() => setLineageAnomalyId(anomalyLineageId(a.printer_id, a.ts_us))}
+                  title="Show lineage — Kafka → triage → Databricks → serving"
+                  style={{ display: "flex", gap: 12, padding: "8px 14px", width: "100%", textAlign: "left",
+                    background: "transparent", border: "none", cursor: "pointer",
+                    borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }}>
                   <span style={{ color: C.faint }}>{new Date(a.ts_us / 1000).toLocaleTimeString([], { hour12: false })}</span>
                   <span style={{ color: C.red }}>{a.melt_pool_temp_c.toFixed(0)}°C</span>
                   <span style={{ color: C.amber }}>{a.arm_vibration_g.toFixed(3)}g</span>
                   <span style={{ color: C.dim }}>layer {a.layer}</span>
                   <span style={{ color: C.faint, overflow: "hidden", textOverflow: "ellipsis" }}>{a.print_job_id}</span>
-                </div>
+                  <span style={{ color: C.cyan, marginLeft: "auto" }}>lineage →</span>
+                </button>
               ))}
             </div>
           )}
         </Panel>
         <DlqPanel rows={dlq} count={stream.dlqCount} />
       </SplitGrid>
+
+      <StreamLineageDrawer
+        anomalyId={lineageAnomalyId}
+        servingEnvId={TELEMETRY_DEMO_ENV_ID}
+        businessId={TELEMETRY_DEMO_BUSINESS_ID}
+        routeEnvId={TELEMETRY_DEMO_ENV_ID}
+        onClose={() => setLineageAnomalyId(null)}
+      />
     </div>
   );
 }
