@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "stargate.printer.anomaly.triage.v1-value",
+  "description": "AI triage output for a Stargate printer anomaly. Emitted by the Confluent Streaming Agent (stargate-anomaly-triage-gpt4o), consumed durably by backend/app/services/telemetry_stream_consumer.py and projected into tel_stream_triage_events. The agent EXPLAINS anomalies the upstream Flink rule detected; it is not the detector. Field names are the contract — keep equal to the consumer and agents/anomaly_triage_system_prompt.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["triage_id", "anomaly_id", "status", "requires_human_review"],
+  "properties": {
+    "triage_id": {
+      "type": "string",
+      "description": "Stable id for this triage record (PK of tel_stream_triage_events). Deterministic per anomaly so re-runs upsert. Stamped by the pipeline, not the model."
+    },
+    "anomaly_id": {
+      "type": ["string", "null"],
+      "description": "Correlates back to the upstream detection event. Stamped by the pipeline."
+    },
+    "printer_id": { "type": ["string", "null"] },
+    "print_job_id": { "type": ["string", "null"] },
+    "run_id": { "type": ["string", "null"], "description": "Print/test run id, not a Databricks run id." },
+    "severity": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", "critical", null],
+      "description": "Model's severity. Null when status=not_available."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "not_available"],
+      "description": "Fail-closed: 'ok' when triaged, else 'not_available' with null_reason set."
+    },
+    "incident_summary": { "type": ["string", "null"] },
+    "likely_cause": { "type": ["string", "null"] },
+    "leading_indicators": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Signals that drove the triage call. Possibly empty."
+    },
+    "recommended_action": { "type": ["string", "null"] },
+    "confidence": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", null]
+    },
+    "requires_human_review": {
+      "type": "boolean",
+      "default": true,
+      "description": "Fails closed to true; false only when severity=low AND confidence=high."
+    },
+    "null_reason": {
+      "type": ["string", "null"],
+      "description": "Machine-readable reason when status=not_available (e.g. insufficient_signal)."
+    },
+    "source_topic": {
+      "type": ["string", "null"],
+      "description": "Provenance: the anomaly topic this triage explains (stargate.printer.anomalies.v1)."
+    },
+    "source_partition": { "type": ["integer", "null"] },
+    "source_offset": { "type": ["integer", "null"] },
+    "schema_subject": { "type": ["string", "null"] },
+    "schema_version": { "type": ["integer", "null"] }
+  }
+}
