@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getRuns, type TestRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter, ResponsiveSwap, RowCard } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ResponsiveSwap, RowCard } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 export default function RunsExplorer() {
   const [runs, setRuns] = useState<TestRun[] | null>(null);
@@ -12,8 +13,8 @@ export default function RunsExplorer() {
     getRuns(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID).then(setRuns).catch((e) => setError(String(e)));
   }, []);
 
-  const heading = <PageHeading eyebrow="Test Run Explorer" title="Ingested test runs"
-    blurb="Every run ingested into the lakehouse and exposed to the serving layer: SMAP/MSL anomaly channels (go/no-go) and C-MAPSS RUL units, with dataset, unit/channel, and row counts." />;
+  const heading = <TelemetryPageHeader variant="compact" eyebrow="Test Run Explorer" title="Ingested test runs"
+    description="Every run ingested into the lakehouse and exposed to the serving layer: SMAP/MSL anomaly channels (go/no-go) and C-MAPSS RUL units, with dataset, unit/channel, and row counts." />;
   if (error) return <>{heading}<ErrorState message={error} /></>;
   if (!runs) return <>{heading}<Loading label="Loading test runs…" /></>;
 
