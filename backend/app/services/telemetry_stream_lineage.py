@@ -43,6 +43,8 @@ _ROW_COLS = """
     schema_id, schema_subject, schema_version,
     printer_id, print_job_id, run_id, anomaly_id, triage_id,
     decoded_payload, normalized_payload,
+    databricks_catalog, databricks_schema, databricks_table, databricks_path,
+    delta_version, delta_commit_timestamp,
     databricks_lineage_status, databricks_null_reason, ingested_at
 """
 
@@ -51,6 +53,7 @@ _TRIAGE_COLS = """
     severity, status, incident_summary, likely_cause, leading_indicators,
     recommended_action, confidence, requires_human_review, null_reason,
     kafka_row_id, kafka_topic, kafka_partition, kafka_offset,
+    databricks_catalog, databricks_schema, databricks_table, delta_version,
     databricks_lineage_status, databricks_null_reason, created_at
 """
 
@@ -248,7 +251,9 @@ def _databricks_layer(row: dict | None) -> dict:
         "catalog": row.get("databricks_catalog"),
         "schema": row.get("databricks_schema"),
         "table": row.get("databricks_table"),
+        "path": row.get("databricks_path"),
         "delta_version": row.get("delta_version"),
+        "delta_commit_timestamp": row.get("delta_commit_timestamp"),
         "null_reason": None,
     }
 
