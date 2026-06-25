@@ -1,5 +1,20 @@
 # Next session handoff
 
+## Update (2026-06-24, PR #337) — composed telemetry presentation, Phase 1
+
+The telemetry mount is no longer the standalone `/automated-data-engineering` domain route. It is now a
+composed **Data Engineering** section in the telemetry sidebar
+(`/lab/env/[envId]/telemetry/data-engineering/*`, components in
+`repo-b/src/components/telemetry/data-engineering/`) with two modes (Agent Workbench, Run Autopsy).
+Data-semantics pages reuse the telemetry metadata catalog; agent/governance pages read `/api/ade/*`.
+The old routes 307-redirect in. **The ADE core package was not touched** (ADR 0002 still holds; see the
+follow-up note in `docs/adr/automated-data-engineering/0002-surface-portability.md`).
+
+Phase 2 presentation backlog is in `roadmap.md` → "Composed telemetry presentation" (join-safety UI,
+guided scenario, aerospace skill view, workflow templates, pipeline/DQ feed, palette unification). The
+deeper analytical work those depend on (grain detection, join risk, data contracts) is the existing
+"Analytical engine" section.
+
 ## What PR 1 shipped
 
 - This docs folder and the ADRs in `docs/adr/automated-data-engineering/`
