@@ -1,80 +1,295 @@
 ---
+id: azure-devops-intake
+kind: skill
+status: active
+source_of_truth: true
+topic: work-intake
+owners:
+  - cross-repo
+  - orchestration
+intent_tags:
+  - intake
+  - planning
+  - work-item
+  - azure-devops
+triggers:
+  - build
+  - implement
+  - fix
+  - add
+  - refactor
+  - change
+  - new feature
+  - bug
+entrypoint: true
+handoff_to:
+  - feature-dev
+when_to_use: "Use as the mandatory first stop for any non-trivial coding request — features, bugs, refactors, design changes, AI behavior changes, data/schema changes, deploy tasks, research spikes, and any change to an instruction/governance file. Classify the request, find or propose the Azure DevOps work-item hierarchy, produce a Session Brief, then hand off to feature-dev."
+when_not_to_use: "Do not use when the request is an explicit throwaway experiment, a harmless copyedit/typo/formatting fix, or a one-line non-behavioral tweak that does NOT touch an instruction or governance file. Do not re-run if the current session already has an approved Session Brief."
+surface_paths:
+  - backend/
+  - repo-b/
+  - repo-c/
+  - excel-addin/
+  - orchestration/
+  - scripts/
+  - docs/
+  - supabase/
 name: azure-devops-intake
-description: Create or hydrate the Azure DevOps Epic > Feature > User Story/Bug > Task hierarchy and produce a Session Brief for Winston R2 work. Use for schema, security, MCP contracts, cloud infrastructure/cost, production data, deploy/release, agent governance, multi-session work, or explicit ticket/ADO requests. Do not require it for read-only R0 work or routine R1 changes.
+description: "Mandatory first stop for any non-trivial coding request. Classifies the request, finds or proposes the Azure DevOps Epic > Feature > User Story/Bug > Task hierarchy, produces a Session Brief, and only then hands off to feature-dev. Use for every feature, bug, refactor, design change, AI behavior change, data/schema change, deploy task, research spike, or documentation task — anything that is not an explicit throwaway experiment."
 ---
 
-# Azure DevOps Intake
+# Azure DevOps Intake — Winston / Novendor
 
-ADO is a risk gate, not universal ceremony.
+Azure DevOps is the front door. No non-trivial work is coded without a work item.
 
-Org: `paulmalmquist1984`
-Project: `Novendor`
+This skill owns the **"what and why"**: classify the request, map it to the
+`Epic → Feature → User Story/Bug → Task` hierarchy on the Novendor board, and
+produce a Session Brief. It then hands off to [`feature-dev`](../feature-dev/SKILL.md),
+which owns the **scoped implementation**, and to tests/evidence, which decide done.
 
-Read the targeted "Azure DevOps Board Management" section in `docs/tips.md`
-for current Windows CLI behavior.
+ADO context — org `paulmalmquist1984`, project `Novendor`. CLI quirks are
+documented once in [`docs/tips.md`](../../docs/tips.md) under "Azure DevOps
+Board Management" — read that section, do not re-derive it. The full
+way-of-working charter is [`docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`](../../docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md).
 
-## Classify first
+RS Analytics and telemetry work uses the dedicated **RS MLOps** team board,
+scoped to `Novendor\RS-Analytics`. Keep the work items in the existing project
+hierarchy; the team is a view and workflow boundary, not a second backlog.
+The declarative configuration lives in
+[`scripts/azure-devops/rs-mlops-control-tower.json`](../../scripts/azure-devops/rs-mlops-control-tower.json).
 
-- **R0 — read-only:** explanation, audit, planning, inventory, architecture,
-  or validation. No work item required.
-- **R1 — focused reversible change:** scoped UI/code/test/docs work. Reuse an
-  existing item when present; create a new item only when requested or when
-  tracking materially helps.
-- **R2 — governed change:** schema/migration, security/auth, MCP contracts,
-  cloud infrastructure or cost, production data, deploy/release, instruction
-  governance, or multi-session/cross-surface work. Approved Story/Bug and
-  Session Brief required before mutation.
+## BANNED PATTERNS — violations mean intake FAILED
 
-An existing approved Story/Bug satisfies intake; do not create duplicates.
+```
+- Coding before an approved Session Brief exists
+- Treating a broad Epic-level request as coding scope (split it into Features/Stories first)
+- Creating a duplicate Epic or Feature when a suitable one already exists
+- Leaving a Story without a parent Feature, or a Feature without a parent Epic
+- Creating work items before the user approves the proposal
+- Silently mutating the board (every create/relink is shown and reasoned)
+- Proceeding to code when the ADO CLI is unavailable or unauthenticated
+```
 
-## Intake sequence
+## Trivial bypass test — what skips ADO
 
-1. **Locate**
-   - Search by domain, title, and affected surface.
-   - Inspect candidate parent relations.
-   - Reuse suitable Epics and Features.
-2. **Propose**
-   - Show any proposed create/reparent/update actions.
-   - Wait for approval before board mutation unless the user already approved
-     an implementation plan that explicitly includes those actions.
-3. **Create or hydrate**
-   - Maintain `Epic → Feature → User Story/Bug → Task`.
-   - Verify every parent relation after writing it.
-4. **Session Brief**
-   - Work item ID, title, parent Feature/Epic, URL
-   - requested work and affected surfaces
-   - acceptance criteria and explicit non-goals
-   - risk and dependencies
-   - test and delivery plan
-   - required evidence
-5. **Handoff**
-   - Route implementation to `feature-dev`.
+A request skips intake **only** if it is one of:
 
-## CLI baseline
+- A harmless copyedit, typo fix, or pure formatting change.
+- A one-line, non-behavioral tweak.
+- Something the user **explicitly** called a "throwaway experiment."
+
+The bypass does **NOT** apply — intake is mandatory regardless of size — when
+the change touches an instruction or governance file:
+
+- `CLAUDE.md`
+- `skills/` or `.skills/`
+- `docs/plans/`
+- AI runtime behavior docs
+- deployment docs
+- security / compliance docs
+- any instruction file that changes how agents behave
+
+If in doubt, do intake.
+
+## Mandatory states — follow in order, cannot skip
+
+### STATE: classify
+
+Classify the request along three axes and emit the result.
+
+- **Type** (one or more): Feature · Bug · Refactor · Design/UI · AI runtime ·
+  Data/schema · DevOps/deployment · Research/spike · Documentation ·
+  Board cleanup · Security/compliance.
+- **Domain** (one or more): Platform Core · Auth/Security ·
+  Multi-tenant Environment Provisioning · AI Runtime/MCP · Demo Lab · REPE ·
+  Legal Ops · History Rhymes / Altered Mind · Investment Engine ·
+  Documents/Extraction · Reporting/Semantic Metrics · Compliance/Audit ·
+  CRM/Consulting Ops · Excel Add-in · Orchestration/Codex Automation ·
+  Marketing Site · CI-CD/Deployment · Design System.
+- **Risk**: Low / Medium / High.
+- **Affected repo surfaces**: `backend/` `repo-b/` `repo-c/` `excel-addin/`
+  `orchestration/` `scripts/` `docs/` `supabase/`.
+
+Valid transition → **locate**
+
+### STATE: locate
+
+Find whether a matching work item already exists. Never assume.
 
 ```powershell
 $az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-$org = "https://dev.azure.com/paulmalmquist1984"
+& $az devops configure --defaults organization=https://dev.azure.com/paulmalmquist1984 project=Novendor
 
-& $az devops configure --defaults organization=$org project=Novendor
-& $az boards query --wiql "<query>" --org $org --project Novendor
-& $az boards work-item show --id <id> --expand Relations --org $org
+# Search by type/domain keyword
+& $az boards query --wiql "SELECT [System.Id],[System.WorkItemType],[System.Title] FROM WorkItems WHERE [System.TeamProject]='Novendor'" --org https://dev.azure.com/paulmalmquist1984
+
+# Inspect a candidate's hierarchy
+& $az boards work-item show --id <id> --expand Relations --org https://dev.azure.com/paulmalmquist1984
 ```
 
-When `--org` is passed to `work-item create`, also pass `--project Novendor`.
-Capture relation output or re-read the item and assert `System.Parent`.
+**ADO Unavailable Blocker** — if the CLI is missing, unauthenticated, or returns
+an error: STOP. Do not proceed to coding. Emit:
 
-## ADO unavailable
+```
+## ADO Unavailable Blocker
+Command: <exact command run>
+Error:   <exact error output>
+Options:
+  1. Fix ADO access (re-auth / install CLI), then re-run intake.
+  2. Explicitly approve a temporary, marked exception to proceed without ADO.
+```
 
-ADO failure blocks R2 mutation. Report the exact command/error and preserve the
-approved local plan. R0 work and R1 local work may continue when they do not
-create production or governance risk.
+Wait for the user to choose.
+
+Valid transition → **propose**
+
+### STATE: propose
+
+If a Story already covers the request, hydrate the Session Brief from it and
+skip to **session-brief**.
+
+If no Story exists, propose the full chain in the Relay Intake Report below.
+Reuse existing Epics/Features — only propose new ones when none fit.
+**Stop and wait for explicit user approval before creating anything.**
+
+```
+# Relay Intake Report
+
+## Request
+[Original request, summarized.]
+
+## Classification
+Type:    [...]
+Domain:  [...]
+Risk:    Low / Medium / High
+Surfaces: [...]
+
+## Existing Work Item Check
+[What `az boards query` found — matching Epic/Feature/Story IDs, or "none".]
+
+## ADO Mapping (proposed)
+Epic:     #<id> <title>           (existing | NEW)
+Feature:  #<id> <title>           (existing | NEW)
+Story/Bug: #<id> <title>          (existing | NEW)
+Tasks:    [concrete implementation steps]   (NEW)
+
+## Proposed Board Action
+- create / update / reparent / no-op  (one line each, with reason)
+
+## Go / No-Go
+Awaiting approval to create the items above.
+```
+
+Valid transition → **create** (after approval)
+
+### STATE: create
+
+Post-approval only. Create items and **verify every link took**.
+
+```powershell
+# Create (note: --project is required whenever --org is passed)
+$id = (& $az boards work-item create --type "User Story" --title "..." `
+  --area "Novendor\<Area>" --iteration "Novendor\Sprint <N>" `
+  --project Novendor --org https://dev.azure.com/paulmalmquist1984 | ConvertFrom-Json).id
+
+# Link child to parent, then ASSERT the parent field is set
+$r = & $az boards work-item relation add --id $id --relation-type parent `
+  --target-id <parentId> --org https://dev.azure.com/paulmalmquist1984 | ConvertFrom-Json
+if ($r.fields.'System.Parent' -ne <parentId>) { Write-Host "FAILED — link did not take" }
+```
+
+Every Story has a parent Feature; every Feature has a parent Epic; every Task
+sits under a Story or Bug. See `docs/tips.md` for iteration-path format,
+identity, and stderr quirks.
+
+Valid transition → **session-brief**
+
+### STATE: session-brief
+
+Emit the implementation contract. This is what `feature-dev` consumes.
+
+```
+# Session Brief
+
+## ADO Work Item
+ID:            #<id>
+Type:          User Story | Bug
+Title:         <title>
+Parent Feature: #<id> <title>
+Parent Epic:    #<id> <title>
+ADO URL:       https://dev.azure.com/paulmalmquist1984/Novendor/_workitems/edit/<id>
+
+## Requested Work
+[Plain-English restatement.]
+
+## Repo Context
+Affected surfaces: [backend/ | repo-b/ | repo-c/ | excel-addin/ | orchestration/ | scripts/ | docs/ | supabase/]
+
+## Acceptance Criteria
+### Screen   — [visible/UI behavior, if applicable]
+### API      — [endpoint behavior, if applicable]
+### DB/Data  — [schema/data/provenance, if applicable]
+### AI       — [runtime/tool/fail-closed behavior, if applicable]
+### Evals/tests — [required tests]
+### Regression guard — [what must not break]
+
+## Risk Level
+Low / Medium / High
+
+## Test Plan
+[Specific commands and expected proof.]
+
+## Evidence Required
+[Screenshots, logs, test output, API response, DB query, Playwright trace.]
+
+## Out of Scope
+[Explicit boundaries.]
+```
+
+Valid transition → **handoff**
+
+### STATE: handoff
+
+Route to [`feature-dev`](../feature-dev/SKILL.md) to implement exactly one
+scoped Story or Bug. `feature-dev` owns the orienting → implementing → testing
+→ deploying → verifying states, the ADO state transitions, the audit comment,
+and the Final Report.
+
+## Definition of Ready — a Story may enter coding only if
+
+```
+[ ] It has a parent Feature, and the Feature has a parent Epic
+[ ] Acceptance criteria exist (>= 2 concrete bullets)
+[ ] Area Path is set
+[ ] Iteration is set if planned for the current sprint
+[ ] Risk is understood
+[ ] Required tests/evidence are listed
+[ ] Dependencies are known
+[ ] Scope fits one focused coding session
+```
+
+If any item is missing, fix the board first — do not start coding.
+
+## Definition of Done — handled downstream by feature-dev, stated here for the gate
+
+```
+[ ] Code complete; acceptance criteria met
+[ ] Tests added/updated and actually run (or failure-to-run documented)
+[ ] UI change has screenshot/visual receipt; API change has response/log receipt;
+    DB change has migration + verification receipt; AI change has event-stream receipt
+[ ] ADO work item state moved (Resolved, or Closed only if merged + deploy/smoke verified)
+[ ] ADO audit comment added (branch/commit/PR, files, tests, evidence, risks, next item)
+[ ] PR/branch/artifact links attached to the work item
+[ ] Active plan/docs updated; reusable lesson added to tips.md if discovered
+[ ] No fake data, invented status, or silent fallback
+```
 
 ## Boundaries
 
-- One Story or Bug should remain small enough for one focused delivery.
-- Do not create speculative duplicate hierarchy.
-- Do not close an item until required merge and verification are complete.
-- Do not place secret values in descriptions or comments.
-- RS telemetry work uses the existing `Novendor\RS-Analytics` hierarchy and RS
-  MLOps team view; it is not a separate backlog.
+- One Story or Bug per coding session unless the user explicitly says otherwise.
+- No deploy, secret, or production changes unless the Story scopes them.
+- No opportunistic refactors or unrelated cleanup hidden inside a small Story.
+- Fail closed when capability, data, auth, schema, or AI context is missing.
+- Do not move a work item to `Closed` unless merge + deploy/smoke are verified.
+- Never bypass intake for instruction/governance files (see the bypass test).

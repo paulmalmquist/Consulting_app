@@ -1,0 +1,379 @@
+{
+  "workspace": "https://dbc-2504bec5-b5ab.cloud.databricks.com",
+  "warehouse_id": "0e56420fb707d861",
+  "experiment_id": "3740651530987773",
+  "schema": "novendor_1.telemetry",
+  "tables": {
+    "bronze_cmapss": "265256",
+    "bronze_cmapss_rul": "707",
+    "bronze_ims": "5",
+    "bronze_smap_msl_labels": "82",
+    "bronze_smap_msl_telemetry": "705876",
+    "gold_cmapss_features": "265256",
+    "gold_fused_feature_manifest": "256",
+    "gold_fused_state_vectors": "256",
+    "gold_replay_feed": "8473",
+    "gold_replay_feed_scored": "8473",
+    "gold_smap_msl_windows": "705876",
+    "ncr_backlog_weekly": "20",
+    "ncr_clusters": "7",
+    "ncr_points": "128",
+    "ncr_records": "128",
+    "silver_cmapss": "265256",
+    "silver_cmapss_rul": "707",
+    "silver_ims": "5",
+    "silver_smap_msl": "705876",
+    "silver_smap_msl_labels": "82"
+  },
+  "table_count": 20,
+  "prereq": {
+    "gold_smap_msl_windows": true,
+    "gold_cmapss_features": true,
+    "silver_cmapss_rul": true,
+    "silver_smap_msl_labels": true,
+    "gold_replay_feed": true
+  },
+  "prereq_all_present": true,
+  "workspace_notebooks": [
+    "fused_state_vector",
+    "ncr_backlog_forecast",
+    "ncr_clustering",
+    "ncr_corpus",
+    "promote_models",
+    "score_replay_feed",
+    "telemetry_probe",
+    "train_anomaly",
+    "train_rul"
+  ],
+  "mlflow_runs_before": [
+    {
+      "run_id": "f8fcc38357914edeb7f58f37b244d83f",
+      "run_name": "ncr_backlog_forecast",
+      "status": "FINISHED",
+      "start_time": 1781062393695,
+      "metrics": {
+        "backtest_folds": 8.0,
+        "mae": 1.234375,
+        "mae_naive": 1.25,
+        "mape_naive_pct": 9.056776556776558,
+        "mape_pct": 9.14606227106227,
+        "skill_vs_naive": 0.012499999999999956
+      }
+    },
+    {
+      "run_id": "4a3c8afd13af40f8bec489a70e0e81b4",
+      "run_name": "ncr_clustering",
+      "status": "FINISHED",
+      "start_time": 1781062332149,
+      "metrics": {
+        "n_clusters": 7.0,
+        "n_docs": 128.0,
+        "noise_count": 7.0,
+        "noise_frac": 0.0546875
+      }
+    },
+    {
+      "run_id": "c9874b9f48e645a5bfd046a6a684d93b",
+      "run_name": "ncr_backlog_forecast",
+      "status": "FINISHED",
+      "start_time": 1781061818410,
+      "metrics": {
+        "backtest_folds": 8.0,
+        "mae": 2.296875,
+        "mae_naive": 2.25,
+        "mape_naive_pct": 20.172535797535797,
+        "mape_pct": 20.783990315240313,
+        "skill_vs_naive": -0.02083333333333326
+      }
+    },
+    {
+      "run_id": "8924a181e0064bb9b68c66d1242f3f1b",
+      "run_name": "ncr_backlog_forecast",
+      "status": "FINISHED",
+      "start_time": 1781061800338,
+      "metrics": {
+        "backtest_folds": 8.0,
+        "mae": 2.296875,
+        "mae_naive": 2.25,
+        "mape_naive_pct": 20.172535797535797,
+        "mape_pct": 20.783990315240313,
+        "skill_vs_naive": -0.02083333333333326
+      }
+    },
+    {
+      "run_id": "bbe8c7bcb2374863be153f3226d53496",
+      "run_name": "ncr_clustering",
+      "status": "FINISHED",
+      "start_time": 1781061730617,
+      "metrics": {
+        "n_clusters": 7.0,
+        "n_docs": 124.0,
+        "noise_count": 0.0,
+        "noise_frac": 0.0
+      }
+    },
+    {
+      "run_id": "7605628d88ea4f37bb4bc2c74fb2e795",
+      "run_name": "fused_autoencoder_256",
+      "status": "FINISHED",
+      "start_time": 1780358396827,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "test_recon_mse": 1277.0497643735348,
+        "threshold": 464.36681003094407,
+        "tp": 78.0,
+        "train_recon_mse": 201.80916962968038
+      }
+    },
+    {
+      "run_id": "f55f5b3e9588478187103069a482d744",
+      "run_name": "fused_pca_256",
+      "status": "FINISHED",
+      "start_time": 1780358390146,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "threshold": 129.2564783512101,
+        "tp": 78.0
+      }
+    },
+    {
+      "run_id": "f184f2b48dea49f291965d68ffbcc7fb",
+      "run_name": "fused_autoencoder_256",
+      "status": "FINISHED",
+      "start_time": 1780358073729,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "test_recon_mse": 1269.253098148874,
+        "threshold": 447.1670666058185,
+        "tp": 78.0,
+        "train_recon_mse": 195.70138718111167
+      }
+    },
+    {
+      "run_id": "3ba0449c2d43447981a1a6811b5c4325",
+      "run_name": "fused_pca_256",
+      "status": "FINISHED",
+      "start_time": 1780358066919,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "threshold": 123.35724940468312,
+        "tp": 78.0
+      }
+    },
+    {
+      "run_id": "9964c001020247ad9d5b81d1fc24cbf3",
+      "run_name": "fused_autoencoder_256",
+      "status": "FINISHED",
+      "start_time": 1780357852966,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "test_recon_mse": 1.3403002058007242e+31,
+        "threshold": 494.5499180271548,
+        "tp": 78.0,
+        "train_recon_mse": 198.46090757848557
+      }
+    },
+    {
+      "run_id": "229085b431ee426ba8aa89b3f45fd80e",
+      "run_name": "fused_pca_256",
+      "status": "FINISHED",
+      "start_time": 1780357844468,
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "threshold": 129.58911597439158,
+        "tp": 78.0
+      }
+    },
+    {
+      "run_id": "c970fdcc57d24f518cb8d3bc1a9fa3fc",
+      "run_name": "rul_gbm",
+      "status": "FINISHED",
+      "start_time": 1780341717671,
+      "metrics": {
+        "phm": 1423.3269302516078,
+        "rmse": 20.321851416076
+      }
+    },
+    {
+      "run_id": "b3c8ddc1df974875b9ddbb4f3621e0d5",
+      "run_name": "rul_linear_baseline",
+      "status": "FINISHED",
+      "start_time": 1780341659643,
+      "metrics": {
+        "phm": 1036.1390874014483,
+        "rmse": 21.702448390120548
+      }
+    },
+    {
+      "run_id": "8e99b41142c14948b37aadade59e5aad",
+      "run_name": "anomaly_pca_recon",
+      "status": "FINISHED",
+      "start_time": 1780341600399,
+      "metrics": {
+        "f1": 0.4196150866948698,
+        "fn": 46132.0,
+        "fp": 2571.0,
+        "precision": 0.8725776874659266,
+        "recall": 0.2762245442279331,
+        "tp": 17606.0
+      }
+    },
+    {
+      "run_id": "4a48cb6af8714609b9581d66e904544c",
+      "run_name": "anomaly_baseline_mad",
+      "status": "FINISHED",
+      "start_time": 1780341592443,
+      "metrics": {
+        "f1": 0.6386571043323628,
+        "fn": 14715.0,
+        "fp": 40758.0,
+        "precision": 0.5460286697630902,
+        "recall": 0.7691330132730867,
+        "tp": 49023.0
+      }
+    },
+    {
+      "run_id": "de8795054a9d4fb09a74c08f1a88f817",
+      "run_name": "rul_gbm",
+      "status": "FINISHED",
+      "start_time": 1780341453908,
+      "metrics": {
+        "phm": 1423.3269302516078,
+        "rmse": 20.321851416076
+      }
+    },
+    {
+      "run_id": "e0a709d516c04ce28eaff21b38a451d4",
+      "run_name": "rul_linear_baseline",
+      "status": "FINISHED",
+      "start_time": 1780341397499,
+      "metrics": {
+        "phm": 1036.1390874014483,
+        "rmse": 21.702448390120548
+      }
+    },
+    {
+      "run_id": "4d81a82297ab4a32998f04bf81b5bd9f",
+      "run_name": "anomaly_pca_recon",
+      "status": "FINISHED",
+      "start_time": 1780341317533,
+      "metrics": {
+        "f1": 0.4196150866948698,
+        "fn": 46132.0,
+        "fp": 2571.0,
+        "precision": 0.8725776874659266,
+        "recall": 0.2762245442279331,
+        "tp": 17606.0
+      }
+    },
+    {
+      "run_id": "290c392400bc4869ac1ec98d903d0dbb",
+      "run_name": "anomaly_baseline_mad",
+      "status": "FINISHED",
+      "start_time": 1780341309413,
+      "metrics": {
+        "f1": 0.6386571043323628,
+        "fn": 14715.0,
+        "fp": 40758.0,
+        "precision": 0.5460286697630902,
+        "recall": 0.7691330132730867,
+        "tp": 49023.0
+      }
+    },
+    {
+      "run_id": "6f668d4351824dcbac96eb3813e8b1d7",
+      "run_name": "rul_gbm",
+      "status": "FINISHED",
+      "start_time": 1780341108118,
+      "metrics": {
+        "phm": 1423.3269302516078,
+        "rmse": 20.321851416076
+      }
+    },
+    {
+      "run_id": "9c95b0c0cd124921b7f8fcc61b45024f",
+      "run_name": "rul_linear_baseline",
+      "status": "FINISHED",
+      "start_time": 1780341058446,
+      "metrics": {
+        "phm": 1036.1390874014483,
+        "rmse": 21.702448390120548
+      }
+    },
+    {
+      "run_id": "42cb388e56df44ba80711e1a5d1e0f4c",
+      "run_name": "anomaly_pca_recon",
+      "status": "FINISHED",
+      "start_time": 1780340945099,
+      "metrics": {
+        "f1": 0.4196150866948698,
+        "fn": 46132.0,
+        "fp": 2571.0,
+        "precision": 0.8725776874659266,
+        "recall": 0.2762245442279331,
+        "tp": 17606.0
+      }
+    },
+    {
+      "run_id": "3047d3c7ea6b4f97a893c7754565650e",
+      "run_name": "anomaly_baseline_mad",
+      "status": "FINISHED",
+      "start_time": 1780340942353,
+      "metrics": {
+        "f1": 0.6386571043323628,
+        "fn": 14715.0,
+        "fp": 40758.0,
+        "precision": 0.5460286697630902,
+        "recall": 0.7691330132730867,
+        "tp": 49023.0
+      }
+    }
+  ],
+  "mlflow_runs_before_count": 23,
+  "models_before": [
+    {
+      "name": "novendor_1.telemetry.tel_anomaly_detector",
+      "aliases": [],
+      "versions": [
+        {
+          "version": 1,
+          "run_id": "4a48cb6af8714609b9581d66e904544c"
+        }
+      ]
+    },
+    {
+      "name": "novendor_1.telemetry.tel_rul_regressor",
+      "aliases": [],
+      "versions": [
+        {
+          "version": 1,
+          "run_id": "c970fdcc57d24f518cb8d3bc1a9fa3fc"
+        }
+      ]
+    }
+  ]
+}

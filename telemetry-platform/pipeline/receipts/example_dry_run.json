@@ -1,0 +1,137 @@
+{
+  "mode": "DRY-RUN",
+  "tracking_uri": null,
+  "experiment": null,
+  "plan": {
+    "families": [
+      {
+        "family": "anomaly",
+        "model": "novendor_1.telemetry.tel_anomaly_detector",
+        "winner": "anomaly_baseline_mad",
+        "decision": "promoted",
+        "winner_run_id": "b93e13f753a047aa8818878dba859e5b",
+        "current_champion": {
+          "version": 3,
+          "run_id": "b93e13f753a047aa8818878dba859e5b"
+        },
+        "alias_would_change": false,
+        "rejected": [
+          {
+            "candidate": "anomaly_pca_recon",
+            "reason": "honest gate fail",
+            "affiliation_f1": 0.36307228474268977
+          }
+        ]
+      },
+      {
+        "family": "rul",
+        "model": "novendor_1.telemetry.tel_rul_regressor",
+        "winner": "rul_linear_baseline",
+        "decision": "model_not_promoted",
+        "winner_run_id": "cb5550556d374da89f30ea4faf5517ac",
+        "current_champion": {
+          "version": 2,
+          "run_id": "d773eab980634302ab063fa2ec0aaf54"
+        },
+        "alias_would_change": false,
+        "rejected": [
+          {
+            "candidate": "rul_linear_baseline",
+            "reason": "failed: late_rate_under_ceiling",
+            "gate": {
+              "rmse_under_abs_ceiling": true,
+              "beats_naive_rmse_by_margin": true,
+              "phm_better_than_naive": true,
+              "late_rate_under_ceiling": false,
+              "leakage_control_passed": true
+            }
+          },
+          {
+            "candidate": "rul_gbm",
+            "reason": "failed: late_rate_under_ceiling",
+            "gate": {
+              "rmse_under_abs_ceiling": true,
+              "beats_naive_rmse_by_margin": true,
+              "phm_better_than_naive": true,
+              "late_rate_under_ceiling": false,
+              "leakage_control_passed": true
+            }
+          }
+        ]
+      }
+    ],
+    "decision": {
+      "anomaly": {
+        "winner": "anomaly_baseline_mad",
+        "decision": "promoted",
+        "honest_gate_pass": {
+          "anomaly_baseline_mad": true,
+          "anomaly_pca_recon": false
+        },
+        "affiliation_f1": 0.4656819554437516,
+        "f1_point_adjusted_reference": 0.6386571043323628
+      },
+      "rul": {
+        "winner": "rul_linear_baseline",
+        "decision": "model_not_promoted",
+        "gate_eval": {
+          "rul_linear_baseline": {
+            "passed": false,
+            "checks": {
+              "rmse_under_abs_ceiling": true,
+              "beats_naive_rmse_by_margin": true,
+              "phm_better_than_naive": true,
+              "late_rate_under_ceiling": false,
+              "leakage_control_passed": true
+            },
+            "rmse": 21.702448390120548,
+            "phm": 1036.1390874014483,
+            "late_rate": 0.59,
+            "rmse_ratio_vs_naive": 0.5203855505607189,
+            "phm_improvement": 29717.172210077355
+          },
+          "rul_gbm": {
+            "passed": false,
+            "checks": {
+              "rmse_under_abs_ceiling": true,
+              "beats_naive_rmse_by_margin": true,
+              "phm_better_than_naive": true,
+              "late_rate_under_ceiling": false,
+              "leakage_control_passed": true
+            },
+            "rmse": 20.321851416076,
+            "phm": 1423.3269302516078,
+            "late_rate": 0.58,
+            "rmse_ratio_vs_naive": 0.4872813263955005,
+            "phm_improvement": 29329.984367227193
+          }
+        },
+        "failed_checks": {
+          "rul_linear_baseline": [
+            "late_rate_under_ceiling"
+          ],
+          "rul_gbm": [
+            "late_rate_under_ceiling"
+          ]
+        }
+      },
+      "gates": {
+        "honest_gate": {
+          "f1_pointwise": 0.1,
+          "event_recall": 0.5,
+          "alarm_precision": 0.2,
+          "affiliation_f1": 0.25
+        },
+        "rul_gate": {
+          "rmse_abs_max": 25.0,
+          "max_rmse_ratio_vs_naive": 0.75,
+          "require_phm_better_than_naive": true,
+          "max_late_prediction_rate": 0.55,
+          "require_leakage_control_passed": true
+        },
+        "rmse_gate": 25.0
+      }
+    }
+  },
+  "status": "ok"
+}

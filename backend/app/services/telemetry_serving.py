@@ -124,10 +124,7 @@ def _score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name:
             "model_alias": champ["model_alias"],
             "mlflow_run_id": champ["mlflow_run_id"],
             "attribution": attribution,
-            "confidence": round(
-                min(0.99, max(0.5, abs((anomaly_score or 0) - 1.0) / 3.0 + 0.5)),
-                3,
-            ),
+            "confidence": round(min(0.99, max(0.5, abs((anomaly_score or 0) - 1.0) / 3.0 + 0.5)), 3),
             "missing_data": [],
             "null_reason": None,
         }
@@ -152,12 +149,8 @@ def score_window(*, env_id: str, business_id: UUID, run_key: str, channel_name: 
                  window: list[dict]) -> dict:
     """Score a window and persist the existing tel_predictions receipt."""
     return _score_window(
-        env_id=env_id,
-        business_id=business_id,
-        run_key=run_key,
-        channel_name=channel_name,
-        window=window,
-        persist=True,
+        env_id=env_id, business_id=business_id, run_key=run_key,
+        channel_name=channel_name, window=window, persist=True,
     )
 
 
@@ -165,12 +158,8 @@ def preview_score_window(*, env_id: str, business_id: UUID, run_key: str,
                          channel_name: str, window: list[dict]) -> dict:
     """Read-only score preview. Never inserts into tel_predictions."""
     return _score_window(
-        env_id=env_id,
-        business_id=business_id,
-        run_key=run_key,
-        channel_name=channel_name,
-        window=window,
-        persist=False,
+        env_id=env_id, business_id=business_id, run_key=run_key,
+        channel_name=channel_name, window=window, persist=False,
     )
 
 

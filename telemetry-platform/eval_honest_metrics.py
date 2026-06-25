@@ -41,9 +41,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
+
+# Canonical anomaly metric definitions (single source of truth). This local evaluator now DELEGATES
+# point-adjust + affiliation to telemetry-platform/pipeline/metrics.py so the math can't drift.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pipeline import metrics as _pm  # noqa: E402
 
 BASELINE_K = 4.0
 AFFIL_CAP_D = 50      # fixed tick budget for affiliation proximity (NOT window length) — un-gameable cap
@@ -76,25 +82,10 @@ def channel_values(npy: Path) -> np.ndarray:
 
 
 def point_adjust(y: np.ndarray, p: np.ndarray, chan_offsets: list[tuple[int, int]]) -> dict:
-    """Reproduce the notebook's point-adjusted P/R/F1 (segment-expansion per channel)."""
-    adj = p.copy()
-    for lo, hi in chan_offsets:
-        yy, pp = y[lo:hi], p[lo:hi]
-        i, n = 0, len(yy)
-        while i < n:
-            if yy[i] == 1:
-                j = i
-                while j < n and yy[j] == 1:
-                    j += 1
-                if pp[i:j].any():
-                    adj[lo + i:lo + j] = 1
-                i = j
-            else:
-                i += 1
-    tp = int(((adj == 1) & (y == 1)).sum())
-    fp = int(((adj == 1) & (y == 0)).sum())
-    fn = int(((adj == 0) & (y == 1)).sum())
-    return _prf(tp, fp, fn)
+    """Point-adjusted P/R/F1 — DELEGATES to pipeline.metrics (segment-expansion per channel)."""
+    channels = [(y[lo:hi], p[lo:hi]) for lo, hi in chan_offsets]
+    r = _pm.point_adjusted_metrics(channels)
+    return _prf(r["tp"], r["fp"], r["fn"])
 
 
 def _prf(tp: int, fp: int, fn: int) -> dict:
@@ -105,52 +96,14 @@ def _prf(tp: int, fp: int, fn: int) -> dict:
             "tp": tp, "fp": fp, "fn": fn}
 
 
-def _pt_to_intervals_dist(idx: np.ndarray, intervals: list[tuple[int, int]]) -> np.ndarray:
-    """Min tick-distance from each position in `idx` to any inclusive [a,b] interval (0 if inside)."""
-    if idx.size == 0:
-        return np.empty(0, dtype=np.float64)
-    if not intervals:
-        return np.full(idx.shape, np.inf)
-    d = np.full(idx.shape, np.inf)
-    for a, b in intervals:
-        dd = np.where(idx < a, a - idx, np.where(idx > b, idx - b, 0)).astype(np.float64)
-        d = np.minimum(d, dd)
-    return d
-
-
 def affiliation_metrics(per_chan: list[dict], cap_d: int = AFFIL_CAP_D) -> dict:
-    """Capped-proximity affiliation P/R/F1. Distances are WITHIN-channel; proximity = max(0, 1-dist/D),
-    so a labeled window's length cannot inflate the score (each event contributes exactly one recall
-    term; each predicted positive exactly one precision term)."""
-    prec_prox_sum = 0.0
-    prec_count = 0
-    rec_prox_sum = 0.0
-    rec_count = 0
-    for ch in per_chan:
-        events = ch["events"]            # list[(a,b)] inclusive, clipped to channel length
-        pred_idx = ch["pred_idx"]        # np.ndarray of predicted-positive positions
-        # precision: each predicted positive -> nearest event
-        if pred_idx.size:
-            d = _pt_to_intervals_dist(pred_idx, events)        # inf where channel has no events
-            prox = np.clip(1.0 - d / cap_d, 0.0, 1.0)
-            prox[~np.isfinite(d)] = 0.0
-            prec_prox_sum += float(prox.sum())
-            prec_count += int(pred_idx.size)
-        # recall: each event -> nearest predicted positive
-        for (a, b) in events:
-            if pred_idx.size:
-                dist = float(_pt_to_intervals_dist(pred_idx, [(a, b)]).min())
-                prox = max(0.0, 1.0 - dist / cap_d) if np.isfinite(dist) else 0.0
-            else:
-                prox = 0.0
-            rec_prox_sum += prox
-            rec_count += 1
-    p = prec_prox_sum / prec_count if prec_count else 0.0
-    r = rec_prox_sum / rec_count if rec_count else 0.0
-    f1 = 2 * p * r / (p + r) if (p + r) else 0.0
-    return {"affiliation_precision": round(p, 6), "affiliation_recall": round(r, 6),
-            "affiliation_f1": round(f1, 6), "cap_d_ticks": cap_d,
-            "predicted_positives": prec_count, "events": rec_count}
+    """Capped-proximity affiliation P/R/F1 — DELEGATES to pipeline.metrics. Output shape preserved
+    (rounded floats + counts) for downstream readers of this evaluator's JSON."""
+    r = _pm.affiliation_metrics(per_chan, cap_d)
+    return {"affiliation_precision": round(r["affiliation_precision"], 6),
+            "affiliation_recall": round(r["affiliation_recall"], 6),
+            "affiliation_f1": round(r["affiliation_f1"], 6), "cap_d_ticks": cap_d,
+            "predicted_positives": r["predicted_positives"], "events": r["events"]}
 
 
 def conformal_diagnostic(calib_norm_scores: np.ndarray, frozen_k: float = BASELINE_K,

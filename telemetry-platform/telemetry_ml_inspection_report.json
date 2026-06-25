@@ -1,0 +1,468 @@
+{
+  "schema": "novendor_1.telemetry",
+  "generated_by": "inspect_pipeline.py (read-only)",
+  "mlflow_latest": {
+    "ncr_backlog_forecast": {
+      "run_id": "d4ce7eb818af4439915c0014ab269f57",
+      "start_time": 1782159820692,
+      "status": "FINISHED",
+      "metrics": {
+        "backtest_folds": 8.0,
+        "mae": 1.234375,
+        "mae_naive": 1.25,
+        "mape_naive_pct": 9.056776556776558,
+        "mape_pct": 9.14606227106227,
+        "skill_vs_naive": 0.012499999999999956
+      },
+      "params": {
+        "backtest": "walk-forward h=1, weeks 8..15",
+        "band": "empirical q90(|resid|) * sqrt(h)",
+        "method": "drift(mean net flow, trailing 8w) vs naive(last value)",
+        "seed": "20260609"
+      }
+    },
+    "ncr_clustering": {
+      "run_id": "ae875c376c094424bb036f462ebc5327",
+      "start_time": 1782159732362,
+      "status": "FINISHED",
+      "metrics": {
+        "n_clusters": 7.0,
+        "n_docs": 128.0,
+        "noise_count": 7.0,
+        "noise_frac": 0.0546875
+      },
+      "params": {
+        "embed_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "hdbscan_params": "{\"min_cluster_size\": 6, \"min_samples\": 4}",
+        "seed": "20260609",
+        "status_slope_thresholds": "{\"rising\": 0.35, \"declining\": -0.35}",
+        "umap_params": "{\"n_neighbors\": 15, \"min_dist\": 0.1, \"n_components\": 2, \"metric\": \"cosine\"}"
+      }
+    },
+    "fused_autoencoder_256": {
+      "run_id": "7de5546fcbec4b58a10fa7891c51f882",
+      "start_time": 1782159279290,
+      "status": "FINISHED",
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "test_recon_mse": 1277.0497643735348,
+        "threshold": 464.36681003094407,
+        "tp": 78.0,
+        "train_recon_mse": 201.80916962968038
+      },
+      "params": {
+        "architecture": "256->128->32->16->32->128->256",
+        "buckets": "128",
+        "feature_dim": "256",
+        "features_per_channel": "8",
+        "model": "dense_autoencoder_bottleneck_mlpregressor",
+        "n_channels": "32",
+        "note": "dense autoencoder-style bottleneck network (sklearn MLPRegressor), not a torch/LSTM AE",
+        "train_samples": "128"
+      }
+    },
+    "fused_pca_256": {
+      "run_id": "52f8c511b6d5494f9a94c0fbc904f766",
+      "start_time": 1782159272000,
+      "status": "FINISHED",
+      "metrics": {
+        "f1": 0.7572815533980582,
+        "fn": 0.0,
+        "fp": 50.0,
+        "precision": 0.609375,
+        "recall": 1.0,
+        "threshold": 129.2564783512101,
+        "tp": 78.0
+      },
+      "params": {
+        "buckets": "128",
+        "feature_dim": "256",
+        "features_per_channel": "8",
+        "model": "pca_recon_256",
+        "n_channels": "32",
+        "n_components": "16"
+      }
+    },
+    "rul_gbm": {
+      "run_id": "d773eab980634302ab063fa2ec0aaf54",
+      "start_time": 1782158997329,
+      "status": "FINISHED",
+      "metrics": {
+        "phm": 1423.3269302516078,
+        "rmse": 20.321851416076
+      },
+      "params": {
+        "learning_rate": "0.05",
+        "max_depth": "3",
+        "model": "gradient_boosting",
+        "n_estimators": "300",
+        "rul_cap": "125"
+      }
+    },
+    "rul_linear_baseline": {
+      "run_id": "d4035973f5c049febbc5091803f0a463",
+      "start_time": 1782158942128,
+      "status": "FINISHED",
+      "metrics": {
+        "phm": 1036.1390874014483,
+        "rmse": 21.702448390120548
+      },
+      "params": {
+        "model": "linear_regression",
+        "rul_cap": "125"
+      }
+    },
+    "anomaly_pca_recon": {
+      "run_id": "3dbb490b6b264421bd264bb48727cdc2",
+      "start_time": 1782158848625,
+      "status": "FINISHED",
+      "metrics": {
+        "affiliation_f1": 0.36307228474268977,
+        "affiliation_precision": 0.2897221426525351,
+        "affiliation_recall": 0.4861538461538461,
+        "alarm_precision": 0.2635348037811515,
+        "event_recall": 0.4807692307692308,
+        "f1": 0.4196150866948698,
+        "f1_pointwise": 0.02736914129319193,
+        "fn": 46132.0,
+        "fp": 2571.0,
+        "precision": 0.8725776874659266,
+        "precision_pointwise": 0.2635348037811515,
+        "recall": 0.2762245442279331,
+        "recall_pointwise": 0.014434089554112147,
+        "tp": 17606.0
+      },
+      "params": {
+        "eval": "point_adjusted",
+        "honest_gate": "{\"f1_pointwise\": 0.1, \"event_recall\": 0.5, \"alarm_precision\": 0.2, \"affiliation_f1\": 0.25}",
+        "honest_gate_pass": "False",
+        "model": "pca_reconstruction_error",
+        "n_components": "3",
+        "train_pctl_threshold": "99.0"
+      }
+    },
+    "anomaly_baseline_mad": {
+      "run_id": "b93e13f753a047aa8818878dba859e5b",
+      "start_time": 1782158840157,
+      "status": "FINISHED",
+      "metrics": {
+        "affiliation_f1": 0.4656819554437516,
+        "affiliation_precision": 0.3339147150761413,
+        "affiliation_recall": 0.7692307692307693,
+        "alarm_precision": 0.31869013590090767,
+        "event_recall": 0.7692307692307693,
+        "f1": 0.6386571043323628,
+        "f1_pointwise": 0.30859251705635277,
+        "fn": 14715.0,
+        "fp": 40758.0,
+        "precision": 0.5460286697630902,
+        "precision_pointwise": 0.31869013590090767,
+        "recall": 0.7691330132730867,
+        "recall_pointwise": 0.29911512755342184,
+        "tp": 49023.0
+      },
+      "params": {
+        "eval": "point_adjusted",
+        "honest_gate": "{\"f1_pointwise\": 0.1, \"event_recall\": 0.5, \"alarm_precision\": 0.2, \"affiliation_f1\": 0.25}",
+        "honest_gate_pass": "True",
+        "k": "4.0",
+        "model": "rolling_mad_dynamic_threshold"
+      }
+    }
+  },
+  "mlflow_total_runs": 31,
+  "models": {
+    "tel_anomaly_detector": {
+      "versions": [
+        {
+          "version": 2,
+          "run_id": "b93e13f753a047aa8818878dba859e5b"
+        },
+        {
+          "version": 1,
+          "run_id": "4a48cb6af8714609b9581d66e904544c"
+        }
+      ],
+      "champion_version": 2,
+      "champion_run_id": "b93e13f753a047aa8818878dba859e5b"
+    },
+    "tel_rul_regressor": {
+      "versions": [
+        {
+          "version": 2,
+          "run_id": "d773eab980634302ab063fa2ec0aaf54"
+        },
+        {
+          "version": 1,
+          "run_id": "c970fdcc57d24f518cb8d3bc1a9fa3fc"
+        }
+      ],
+      "champion_version": 2,
+      "champion_run_id": "d773eab980634302ab063fa2ec0aaf54"
+    }
+  },
+  "tables": {
+    "gold_smap_msl_windows": {
+      "rows": "705876",
+      "by_split_label": [
+        [
+          "test",
+          "0",
+          "445817"
+        ],
+        [
+          "test",
+          "1",
+          "63738"
+        ],
+        [
+          "train",
+          "0",
+          "196321"
+        ]
+      ],
+      "null_value_rmean50": "0",
+      "n_channels": "81"
+    },
+    "gold_cmapss_features": {
+      "rows": "265256",
+      "by_split": [
+        [
+          "test",
+          "104897"
+        ],
+        [
+          "train",
+          "160359"
+        ]
+      ],
+      "rul_target_stats": [
+        [
+          "0",
+          "542",
+          "122.33",
+          "104897"
+        ]
+      ],
+      "n_units": "260"
+    },
+    "gold_replay_feed_scored": {
+      "rows": "8473",
+      "label_ticks": "3248",
+      "model_fired": "4488",
+      "agreement": "3248",
+      "false_positive": "1240",
+      "false_negative": "0"
+    },
+    "gold_fused_state_vectors": {
+      "rows": "256",
+      "by_split_label": [
+        [
+          "test",
+          "0",
+          "50"
+        ],
+        [
+          "test",
+          "1",
+          "78"
+        ],
+        [
+          "train",
+          "0",
+          "128"
+        ]
+      ]
+    },
+    "ncr_records": {
+      "rows": "128",
+      "by_family": [
+        [
+          "seal_thermal",
+          "34"
+        ],
+        [
+          "am_porosity",
+          "21"
+        ],
+        [
+          "fastener_torque",
+          "18"
+        ],
+        [
+          "surface_finish",
+          "14"
+        ],
+        [
+          "weld_undercut",
+          "12"
+        ],
+        [
+          "harness_chafing",
+          "9"
+        ],
+        [
+          "noise_adhesive",
+          "4"
+        ],
+        [
+          "noise_storage",
+          "3"
+        ],
+        [
+          "noise_fod",
+          "2"
+        ],
+        [
+          "noise_training",
+          "2"
+        ],
+        [
+          "noise_material",
+          "2"
+        ],
+        [
+          "noise_software",
+          "1"
+        ],
+        [
+          "noise_tooling",
+          "1"
+        ],
+        [
+          "noise_shipping",
+          "1"
+        ],
+        [
+          "noise_calibration",
+          "1"
+        ],
+        [
+          "noise_contamination",
+          "1"
+        ],
+        [
+          "noise_label",
+          "1"
+        ],
+        [
+          "noise_plumbing",
+          "1"
+        ]
+      ],
+      "open_unclosed": "13"
+    },
+    "ncr_clusters": {
+      "rows": "7",
+      "detail": [
+        [
+          "0",
+          "porosity \u00b7 wall \u00b7 ct",
+          "18",
+          "flat",
+          "0.012",
+          "14.0",
+          "0.0"
+        ],
+        [
+          "1",
+          "post-cure \u00b7 seal \u00b7 surface",
+          "31",
+          "rising",
+          "0.595",
+          "11.0",
+          "0.065"
+        ],
+        [
+          "2",
+          "seal \u00b7 thermal \u00b7 cycle",
+          "34",
+          "flat",
+          "0.131",
+          "11.0",
+          "0.0"
+        ],
+        [
+          "3",
+          "weld \u00b7 toe \u00b7 joint",
+          "10",
+          "flat",
+          "-0.095",
+          "12.5",
+          "0.3"
+        ],
+        [
+          "4",
+          "routing \u00b7 harness \u00b7 clamp",
+          "8",
+          "flat",
+          "-0.071",
+          "11.0",
+          "0.0"
+        ],
+        [
+          "5",
+          "audit \u00b7 fasteners \u00b7 below",
+          "9",
+          "flat",
+          "-0.226",
+          "7.0",
+          "0.0"
+        ],
+        [
+          "6",
+          "torque \u00b7 value \u00b7 transcription",
+          "11",
+          "flat",
+          "-0.179",
+          "6.0",
+          "0.0"
+        ]
+      ],
+      "noise_points": "7"
+    },
+    "ncr_backlog_weekly": {
+      "rows": "20",
+      "by_kind": [
+        [
+          "history",
+          "16"
+        ],
+        [
+          "forecast",
+          "4"
+        ]
+      ],
+      "forecast": [
+        [
+          "2026-06-08",
+          "14.25",
+          "12.01",
+          "16.49"
+        ],
+        [
+          "2026-06-15",
+          "14.5",
+          "11.34",
+          "17.66"
+        ],
+        [
+          "2026-06-22",
+          "14.75",
+          "10.87",
+          "18.63"
+        ],
+        [
+          "2026-06-29",
+          "15.0",
+          "10.52",
+          "19.48"
+        ]
+      ]
+    }
+  }
+}

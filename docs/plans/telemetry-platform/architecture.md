@@ -282,3 +282,27 @@ Run IDs, exact metrics, and gate decisions go to `telemetry-platform/PROOF.md` (
   enforces the configured telemetry serving scope before forwarding the request.
 - The React Flow layout is deterministic by lineage layer. Explicit edges are solid; inferred edges
   are dashed and carry confidence and description into the detail drawer.
+
+## Agent Builder read-only MVP (2026-06-25)
+
+- The existing `/lab/env/[envId]/telemetry/control-tower` route remains the owner. Its Run Console is
+  preserved and the page now exposes Agent Builder, Agent Registry, Run History, Tool Registry, and
+  Evals modes.
+- Operational workflow truth lives in primary Postgres/Supabase through the `ai_agent_*` tables from
+  migration `10035_agent_builder_mvp.sql`; it deliberately does not use telemetry Lakebase or the
+  ADE-only `nv_workflow_definitions` catalog.
+- Backend ownership is `backend/app/routes/agent_builder.py`,
+  `backend/app/services/agent_builder.py`, and `backend/app/schemas/agent_builder.py`.
+- Tool nodes are populated from the live MCP registry. Effective write tools are visible but disabled,
+  and validation/runtime both reject them.
+- `telemetry.preview_score_window` shares the promoted champion scoring math but never inserts a
+  `tel_predictions` row.
+- Prompt nodes call governed AI dispatch and validate strict JSON output. Sensitive nodes force the
+  Control Tower private-tier registry with no external fallback.
+- Migration `10036_agent_builder_evals.sql` adds version-pinned eval suites/cases/runs/results and
+  append-only promoted failure memory in primary Postgres. Deterministic graph, tool, permission,
+  fail-closed, cost, regression, and replay checks gate staged publication.
+- Regression evidence is cleared only by a later matching successful dry-run on the current immutable
+  version. Saving a new draft resets workflow status to `draft`; older readiness never transfers.
+- RAG, visual smoke, and production smoke remain explicit N/A states when capability/evidence is
+  absent. The API supports staged status only and rejects production publication/execution.

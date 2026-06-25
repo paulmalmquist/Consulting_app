@@ -1,0 +1,1288 @@
+{
+  "run_id": "20260622-1558-databricks-inspection",
+  "runs": [
+    {
+      "ws_name": "_diag_threadpool",
+      "job_name": "telemetry_diag_threadpool",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/_diag_threadpool",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 399447755875906,
+      "job_id": 1020250640312713,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/1020250640312713/run/399447755875906",
+      "state_message": "",
+      "elapsed_s": 31.9,
+      "timeout_s": 700,
+      "output": {
+        "versions": {
+          "python": "3.12.3",
+          "sklearn": "1.4.2",
+          "threadpoolctl": "2.2.0",
+          "numpy": "1.26.4",
+          "scipy": "1.13.1",
+          "threadpool_info": [
+            {
+              "filepath": "/databricks/python3/lib/python3.12/site-packages/scikit_learn.libs/libgomp-a34b3233.so.1.0.0",
+              "prefix": "libgomp",
+              "user_api": "openmp",
+              "internal_api": "openmp",
+              "version": null,
+              "num_threads": 4
+            },
+            {
+              "filepath": "/databricks/python3/lib/python3.12/site-packages/scipy.libs/libopenblasp-r0-01191904.3.27.so",
+              "prefix": "libopenblas",
+              "user_api": "blas",
+              "internal_api": "openblas",
+              "version": "0.3.27",
+              "num_threads": 4,
+              "threading_layer": "pthreads",
+              "architecture": "SkylakeX"
+            }
+          ]
+        },
+        "fit_predict_results": {
+          "pca_recon_finite": true,
+          "pca_recon_mean": 0.7247582526245699,
+          "iso_pred_unique": [
+            -1,
+            1
+          ],
+          "iso_flagged_frac": 0.04275
+        },
+        "unraisable_events": [],
+        "threadpoolctl_warning_in_stderr": false,
+        "stderr_tail": ""
+      }
+    },
+    {
+      "ws_name": "telemetry_probe",
+      "job_name": "telemetry_probe",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/telemetry_probe",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 640853957107629,
+      "job_id": 297793522118891,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/297793522118891/run/640853957107629",
+      "state_message": "",
+      "elapsed_s": 47.2,
+      "timeout_s": 600,
+      "output": {
+        "run_id": "c67fd7793fe942eca4f858b5c4402193",
+        "replay_rows": 8473,
+        "sklearn": "1.4.2",
+        "numpy": "1.26.4"
+      }
+    },
+    {
+      "ws_name": "train_anomaly",
+      "job_name": "telemetry_train_anomaly",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/train_anomaly",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 454828378162752,
+      "job_id": 847995460593187,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/847995460593187/run/454828378162752",
+      "state_message": "",
+      "elapsed_s": 78.0,
+      "timeout_s": 2400,
+      "output": {
+        "baseline": {
+          "run_id": "b93e13f753a047aa8818878dba859e5b",
+          "precision": 0.5460286697630902,
+          "recall": 0.7691330132730867,
+          "f1": 0.6386571043323628,
+          "tp": 49023,
+          "fp": 40758,
+          "fn": 14715,
+          "f1_pointwise": 0.30859251705635277,
+          "precision_pointwise": 0.31869013590090767,
+          "recall_pointwise": 0.29911512755342184,
+          "event_recall": 0.7692307692307693,
+          "alarm_precision": 0.31869013590090767,
+          "affiliation_precision": 0.3339147150761413,
+          "affiliation_recall": 0.7692307692307693,
+          "affiliation_f1": 0.4656819554437516,
+          "honest_gate_pass": true,
+          "k": 4.0
+        },
+        "pca": {
+          "run_id": "3dbb490b6b264421bd264bb48727cdc2",
+          "precision": 0.8725776874659266,
+          "recall": 0.2762245442279331,
+          "f1": 0.4196150866948698,
+          "tp": 17606,
+          "fp": 2571,
+          "fn": 46132,
+          "f1_pointwise": 0.02736914129319193,
+          "precision_pointwise": 0.2635348037811515,
+          "recall_pointwise": 0.014434089554112147,
+          "event_recall": 0.4807692307692308,
+          "alarm_precision": 0.2635348037811515,
+          "affiliation_precision": 0.2897221426525351,
+          "affiliation_recall": 0.4861538461538461,
+          "affiliation_f1": 0.36307228474268977,
+          "honest_gate_pass": false,
+          "threshold": 2.275280172102766
+        },
+        "f1_gate_reference_only": 0.3,
+        "honest_gate": {
+          "f1_pointwise": 0.1,
+          "event_recall": 0.5,
+          "alarm_precision": 0.2,
+          "affiliation_f1": 0.25
+        },
+        "test_anomaly_rate": 0.1250856139180265,
+        "experiment_id": "3740651530987773"
+      }
+    },
+    {
+      "ws_name": "train_rul",
+      "job_name": "telemetry_train_rul",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/train_rul",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 1069625059509494,
+      "job_id": 315672973732445,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/315672973732445/run/1069625059509494",
+      "state_message": "",
+      "elapsed_s": 123.5,
+      "timeout_s": 2400,
+      "output": {
+        "linear": {
+          "run_id": "d4035973f5c049febbc5091803f0a463",
+          "rmse": 21.702448390120548,
+          "phm": 1036.1390874014483
+        },
+        "gbm": {
+          "run_id": "d773eab980634302ab063fa2ec0aaf54",
+          "rmse": 20.321851416076,
+          "phm": 1423.3269302516078
+        },
+        "rmse_gate": 25.0,
+        "rul_cap": 125,
+        "test_units": 100,
+        "experiment_id": "3740651530987773"
+      }
+    },
+    {
+      "ws_name": "promote_models",
+      "job_name": "telemetry_promote_models",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/promote_models",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 273475505040153,
+      "job_id": 253157053787335,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/253157053787335/run/273475505040153",
+      "state_message": "",
+      "elapsed_s": 47.0,
+      "timeout_s": 1200,
+      "output": {
+        "run_ids": {
+          "anomaly_baseline_mad": "b93e13f753a047aa8818878dba859e5b",
+          "anomaly_pca_recon": "3dbb490b6b264421bd264bb48727cdc2",
+          "rul_linear_baseline": "d4035973f5c049febbc5091803f0a463",
+          "rul_gbm": "d773eab980634302ab063fa2ec0aaf54"
+        },
+        "metrics": {
+          "anomaly_baseline_mad": {
+            "affiliation_f1": 0.4656819554437516,
+            "affiliation_precision": 0.3339147150761413,
+            "affiliation_recall": 0.7692307692307693,
+            "alarm_precision": 0.31869013590090767,
+            "event_recall": 0.7692307692307693,
+            "f1": 0.6386571043323628,
+            "f1_pointwise": 0.30859251705635277,
+            "fn": 14715.0,
+            "fp": 40758.0,
+            "precision": 0.5460286697630902,
+            "precision_pointwise": 0.31869013590090767,
+            "recall": 0.7691330132730867,
+            "recall_pointwise": 0.29911512755342184,
+            "tp": 49023.0
+          },
+          "anomaly_pca_recon": {
+            "affiliation_f1": 0.36307228474268977,
+            "affiliation_precision": 0.2897221426525351,
+            "affiliation_recall": 0.4861538461538461,
+            "alarm_precision": 0.2635348037811515,
+            "event_recall": 0.4807692307692308,
+            "f1": 0.4196150866948698,
+            "f1_pointwise": 0.02736914129319193,
+            "fn": 46132.0,
+            "fp": 2571.0,
+            "precision": 0.8725776874659266,
+            "precision_pointwise": 0.2635348037811515,
+            "recall": 0.2762245442279331,
+            "recall_pointwise": 0.014434089554112147,
+            "tp": 17606.0
+          },
+          "rul_linear_baseline": {
+            "phm": 1036.1390874014483,
+            "rmse": 21.702448390120548
+          },
+          "rul_gbm": {
+            "phm": 1423.3269302516078,
+            "rmse": 20.321851416076
+          }
+        },
+        "gates": {
+          "honest_gate": {
+            "f1_pointwise": 0.1,
+            "event_recall": 0.5,
+            "alarm_precision": 0.2,
+            "affiliation_f1": 0.25
+          },
+          "rmse_gate": 25.0,
+          "f1_gate_reference_only": 0.3
+        },
+        "anomaly": {
+          "winner": "anomaly_baseline_mad",
+          "decision": "promoted",
+          "affiliation_f1": 0.4656819554437516,
+          "f1_point_adjusted_reference": 0.6386571043323628,
+          "honest_gate_pass": {
+            "anomaly_baseline_mad": true,
+            "anomaly_pca_recon": false
+          },
+          "baseline_affiliation_f1": 0.4656819554437516,
+          "pca_affiliation_f1": 0.36307228474268977
+        },
+        "rul": {
+          "winner": "rul_gbm",
+          "rmse": 20.321851416076,
+          "decision": "promoted",
+          "linear_rmse": 21.702448390120548,
+          "gbm_rmse": 20.321851416076,
+          "linear_phm": 1036.1390874014483,
+          "gbm_phm": 1423.3269302516078
+        },
+        "registry": {
+          "anomaly": {
+            "registered_model": "novendor_1.telemetry.tel_anomaly_detector",
+            "version": "2",
+            "alias": "champion"
+          },
+          "rul": {
+            "registered_model": "novendor_1.telemetry.tel_rul_regressor",
+            "version": "2",
+            "alias": "champion"
+          }
+        }
+      }
+    },
+    {
+      "ws_name": "score_replay_feed",
+      "job_name": "telemetry_score_replay_feed",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/score_replay_feed",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 815063442932503,
+      "job_id": 1034347688676393,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/1034347688676393/run/815063442932503",
+      "state_message": "",
+      "elapsed_s": 77.9,
+      "timeout_s": 1200,
+      "output": {
+        "rows": 8473,
+        "label_anomaly_ticks": 3248,
+        "model_fired_ticks": 4488,
+        "first_model_fire_t": 728,
+        "model_label_agreement_ticks": 3248,
+        "champion": "novendor_1.telemetry.tel_anomaly_detector@champion"
+      }
+    },
+    {
+      "ws_name": "fused_state_vector",
+      "job_name": "telemetry_fused_state_vector",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/fused_state_vector",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 166465491367800,
+      "job_id": 885462982648974,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/885462982648974/run/166465491367800",
+      "state_message": "",
+      "elapsed_s": 108.3,
+      "timeout_s": 2400,
+      "output": {
+        "feature_dim": 256,
+        "n_channels": 32,
+        "features_per_channel": 8,
+        "buckets": 128,
+        "fused_vectors_train": 128,
+        "fused_vectors_test": 128,
+        "rows_per_bucket": {
+          "min": 12,
+          "median": 23,
+          "max": 68
+        },
+        "test_anomaly_buckets": 78,
+        "selection": [
+          {
+            "chan_id": "A-1",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8640,
+            "anomaly_ticks_test": 85,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "A-2",
+            "spacecraft": "SMAP",
+            "n_train": 2648,
+            "n_test": 7914,
+            "anomaly_ticks_test": 111,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "A-3",
+            "spacecraft": "SMAP",
+            "n_train": 2736,
+            "n_test": 8205,
+            "anomaly_ticks_test": 186,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "A-4",
+            "spacecraft": "SMAP",
+            "n_train": 2690,
+            "n_test": 8080,
+            "anomaly_ticks_test": 111,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "A-7",
+            "spacecraft": "SMAP",
+            "n_train": 2879,
+            "n_test": 8631,
+            "anomaly_ticks_test": 2401,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "B-1",
+            "spacecraft": "SMAP",
+            "n_train": 2435,
+            "n_test": 8044,
+            "anomaly_ticks_test": 71,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "C-1",
+            "spacecraft": "MSL",
+            "n_train": 2158,
+            "n_test": 2264,
+            "anomaly_ticks_test": 312,
+            "anomaly_class": "[point, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "D-1",
+            "spacecraft": "SMAP",
+            "n_train": 2849,
+            "n_test": 8509,
+            "anomaly_ticks_test": 3259,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-11",
+            "spacecraft": "SMAP",
+            "n_train": 2611,
+            "n_test": 7431,
+            "anomaly_ticks_test": 61,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-14",
+            "spacecraft": "MSL",
+            "n_train": 3675,
+            "n_test": 2625,
+            "anomaly_ticks_test": 222,
+            "anomaly_class": "[point, point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "D-15",
+            "spacecraft": "MSL",
+            "n_train": 2074,
+            "n_test": 2158,
+            "anomaly_ticks_test": 641,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "D-2",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8595,
+            "anomaly_ticks_test": 4218,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-3",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8640,
+            "anomaly_ticks_test": 3276,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-4",
+            "spacecraft": "SMAP",
+            "n_train": 2833,
+            "n_test": 8473,
+            "anomaly_ticks_test": 3248,
+            "anomaly_class": "[point]",
+            "reason": "replay channel (forced)"
+          },
+          {
+            "chan_id": "D-5",
+            "spacecraft": "SMAP",
+            "n_train": 2561,
+            "n_test": 7628,
+            "anomaly_ticks_test": 51,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-6",
+            "spacecraft": "SMAP",
+            "n_train": 2594,
+            "n_test": 7884,
+            "anomaly_ticks_test": 81,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-7",
+            "spacecraft": "SMAP",
+            "n_train": 2583,
+            "n_test": 7642,
+            "anomaly_ticks_test": 2702,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "D-9",
+            "spacecraft": "SMAP",
+            "n_train": 2583,
+            "n_test": 7406,
+            "anomaly_ticks_test": 1156,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-1",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8516,
+            "anomaly_ticks_test": 508,
+            "anomaly_class": "[contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-10",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8505,
+            "anomaly_ticks_test": 322,
+            "anomaly_class": "[contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-11",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8514,
+            "anomaly_ticks_test": 295,
+            "anomaly_class": "[contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-12",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8512,
+            "anomaly_ticks_test": 583,
+            "anomaly_class": "[contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-13",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8640,
+            "anomaly_ticks_test": 264,
+            "anomaly_class": "[contextual, contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-2",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8532,
+            "anomaly_ticks_test": 1398,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "E-3",
+            "spacecraft": "SMAP",
+            "n_train": 2880,
+            "n_test": 8307,
+            "anomaly_ticks_test": 3213,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; SMAP; coverage"
+          },
+          {
+            "chan_id": "F-4",
+            "spacecraft": "MSL",
+            "n_train": 2244,
+            "n_test": 3422,
+            "anomaly_ticks_test": 71,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "F-5",
+            "spacecraft": "MSL",
+            "n_train": 2598,
+            "n_test": 3922,
+            "anomaly_ticks_test": 151,
+            "anomaly_class": "[point]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "F-7",
+            "spacecraft": "MSL",
+            "n_train": 2511,
+            "n_test": 5054,
+            "anomaly_ticks_test": 423,
+            "anomaly_class": "[contextual, contextual, contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "F-8",
+            "spacecraft": "MSL",
+            "n_train": 3342,
+            "n_test": 2487,
+            "anomaly_ticks_test": 537,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "M-1",
+            "spacecraft": "MSL",
+            "n_train": 2209,
+            "n_test": 2277,
+            "anomaly_ticks_test": 1141,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "M-2",
+            "spacecraft": "MSL",
+            "n_train": 2208,
+            "n_test": 2277,
+            "anomaly_ticks_test": 1141,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          },
+          {
+            "chan_id": "M-3",
+            "spacecraft": "MSL",
+            "n_train": 2037,
+            "n_test": 2127,
+            "anomaly_ticks_test": 251,
+            "anomaly_class": "[contextual]",
+            "reason": "adequate (train>=1500, test>=2000) + all 8 features non-constant; MSL; coverage"
+          }
+        ],
+        "feature_names": [
+          "value_last",
+          "value_mean",
+          "value_std",
+          "value_min",
+          "value_max",
+          "value_slope",
+          "residual_last",
+          "residual_z"
+        ],
+        "alignment": "normalized sequence progress per channel/split (NOT physical simultaneity)",
+        "models": {
+          "pca_256": {
+            "run_id": "52f8c511b6d5494f9a94c0fbc904f766",
+            "threshold": 129.2564783512101,
+            "precision": 0.609375,
+            "recall": 1.0,
+            "f1": 0.7572815533980582,
+            "tp": 78,
+            "fp": 50,
+            "fn": 0
+          },
+          "autoencoder_256": {
+            "run_id": "7de5546fcbec4b58a10fa7891c51f882",
+            "train_recon_mse": 201.80916962968038,
+            "test_recon_mse": 1277.0497643735348,
+            "threshold": 464.36681003094407,
+            "precision": 0.609375,
+            "recall": 1.0,
+            "f1": 0.7572815533980582,
+            "tp": 78,
+            "fp": 50,
+            "fn": 0
+          }
+        },
+        "experiment_id": "3740651530987773",
+        "delta_tables": [
+          "novendor_1.telemetry.gold_fused_state_vectors",
+          "novendor_1.telemetry.gold_fused_feature_manifest"
+        ]
+      }
+    },
+    {
+      "ws_name": "ncr_corpus",
+      "job_name": "telemetry_ncr_corpus",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/ncr_corpus",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 316835915512182,
+      "job_id": 462587839642995,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/462587839642995/run/316835915512182",
+      "state_message": "",
+      "elapsed_s": 62.2,
+      "timeout_s": 1200,
+      "output": {
+        "table": "novendor_1.telemetry.ncr_records",
+        "rows": 128,
+        "seed": 20260609,
+        "weeks": 16,
+        "families": [
+          "am_porosity",
+          "fastener_torque",
+          "harness_chafing",
+          "seal_thermal",
+          "surface_finish",
+          "weld_undercut"
+        ],
+        "noise_rows": 20,
+        "open_rows": 13
+      }
+    },
+    {
+      "ws_name": "ncr_clustering",
+      "job_name": "telemetry_ncr_clustering",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/ncr_clustering",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 849184872719071,
+      "job_id": 869832998864010,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/869832998864010/run/849184872719071",
+      "state_message": "",
+      "elapsed_s": 352.5,
+      "timeout_s": 1800,
+      "output": {
+        "mlflow_run_id": "ae875c376c094424bb036f462ebc5327",
+        "experiment_id": "3740651530987773",
+        "n_docs": 128,
+        "n_clusters": 7,
+        "noise": 7,
+        "sizes": {
+          "0": 18,
+          "1": 31,
+          "2": 34,
+          "3": 10,
+          "4": 8,
+          "5": 9,
+          "6": 11
+        },
+        "statuses": {
+          "0": "flat",
+          "1": "rising",
+          "2": "flat",
+          "3": "flat",
+          "4": "flat",
+          "5": "flat",
+          "6": "flat"
+        },
+        "tables": [
+          "novendor_1.telemetry.ncr_points",
+          "novendor_1.telemetry.ncr_clusters"
+        ]
+      }
+    },
+    {
+      "ws_name": "ncr_backlog_forecast",
+      "job_name": "telemetry_ncr_backlog_forecast",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/ncr_backlog_forecast",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 216155244100928,
+      "job_id": 1018345187867841,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/1018345187867841/run/216155244100928",
+      "state_message": "",
+      "elapsed_s": 62.3,
+      "timeout_s": 1200,
+      "output": {
+        "mlflow_run_id": "d4ce7eb818af4439915c0014ab269f57",
+        "experiment_id": "3740651530987773",
+        "mae": 1.234,
+        "mae_naive": 1.25,
+        "mape_pct": 9.15,
+        "mape_naive_pct": 9.06,
+        "skill_vs_naive": 0.0125,
+        "backtest_folds": 8,
+        "horizon_weeks": 4,
+        "table": "novendor_1.telemetry.ncr_backlog_weekly"
+      }
+    },
+    {
+      "ws_name": "train_rul_challenger_tmp",
+      "job_name": "telemetry_rul_challenger_diag",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/train_rul_challenger_tmp",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 598151536961911,
+      "job_id": 530794564504826,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/530794564504826/run/598151536961911",
+      "state_message": "",
+      "elapsed_s": 185.2,
+      "timeout_s": 1800,
+      "output": {
+        "challenger_run_id": "a64ca62d2cb54f468fea192fbaabb828",
+        "n_test_units": 100,
+        "scores": {
+          "linear": {
+            "rmse": 21.702,
+            "mae": 17.678,
+            "phm": 1036.1
+          },
+          "gbm": {
+            "rmse": 20.322,
+            "mae": 14.509,
+            "phm": 1423.3
+          },
+          "predict_train_mean": {
+            "rmse": 41.705,
+            "mae": 34.83,
+            "phm": 30753.3
+          },
+          "predict_train_median": {
+            "rmse": 48.63,
+            "mae": 37.67,
+            "phm": 150657.8
+          },
+          "gbm_SHUFFLED_LABELS_negctrl": {
+            "rmse": 41.652,
+            "mae": 34.411,
+            "phm": 33828.5
+          }
+        },
+        "negative_control": {
+          "gbm_shuffled_labels_rmse": 41.652,
+          "naive_mean_rmse": 41.705,
+          "gbm_real_rmse": 20.322,
+          "leakage_ok": true,
+          "interpretation": "PASS (no target leakage): shuffled-label RMSE collapses toward naive"
+        },
+        "gbm_late_fraction": 0.58,
+        "worst_10_units_gbm": [
+          {
+            "unit": 52,
+            "y_true": 29.0,
+            "pred_gbm": 86.3,
+            "signed_err": 57.3,
+            "late": true
+          },
+          {
+            "unit": 45,
+            "y_true": 114.0,
+            "pred_gbm": 57.1,
+            "signed_err": -56.9,
+            "early": true
+          },
+          {
+            "unit": 72,
+            "y_true": 50.0,
+            "pred_gbm": 106.8,
+            "signed_err": 56.8,
+            "late": true
+          },
+          {
+            "unit": 93,
+            "y_true": 85.0,
+            "pred_gbm": 34.4,
+            "signed_err": -50.6,
+            "early": true
+          },
+          {
+            "unit": 37,
+            "y_true": 21.0,
+            "pred_gbm": 66.2,
+            "signed_err": 45.2,
+            "late": true
+          },
+          {
+            "unit": 27,
+            "y_true": 66.0,
+            "pred_gbm": 110.9,
+            "signed_err": 44.9,
+            "late": true
+          },
+          {
+            "unit": 21,
+            "y_true": 57.0,
+            "pred_gbm": 100.5,
+            "signed_err": 43.5,
+            "late": true
+          },
+          {
+            "unit": 53,
+            "y_true": 26.0,
+            "pred_gbm": 69.0,
+            "signed_err": 43.0,
+            "late": true
+          },
+          {
+            "unit": 79,
+            "y_true": 63.0,
+            "pred_gbm": 101.8,
+            "signed_err": 38.8,
+            "late": true
+          },
+          {
+            "unit": 30,
+            "y_true": 115.0,
+            "pred_gbm": 78.7,
+            "signed_err": -36.3,
+            "early": true
+          }
+        ],
+        "error_by_regime": {
+          "low_RUL_<50_near_failure": {
+            "n": 30,
+            "rmse_gbm": 20.3,
+            "rmse_linear": 23.7
+          },
+          "mid_RUL_50_100": {
+            "n": 36,
+            "rmse_gbm": 23.1,
+            "rmse_linear": 20.0
+          },
+          "high_RUL_>=100_capped": {
+            "n": 34,
+            "rmse_gbm": 16.91,
+            "rmse_linear": 21.59
+          }
+        },
+        "note": "Diagnostic only. No model registered, no alias moved, no table written."
+      }
+    },
+    {
+      "ws_name": "train_rul",
+      "job_name": "telemetry_train_rul_pr1",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/train_rul",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 121809086188445,
+      "job_id": 457683722564514,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/457683722564514/run/121809086188445",
+      "state_message": "",
+      "elapsed_s": 169.6,
+      "timeout_s": 2400,
+      "output": {
+        "linear": {
+          "run_id": "cb5550556d374da89f30ea4faf5517ac",
+          "rmse": 21.702448390120548,
+          "mae": 17.678184465577615,
+          "phm": 1036.1390874014483,
+          "late_prediction_rate": 0.59
+        },
+        "gbm": {
+          "run_id": "37423c4767574ab9895fe1a85c9d474a",
+          "rmse": 20.321851416076,
+          "mae": 14.509108577409409,
+          "phm": 1423.3269302516078,
+          "late_prediction_rate": 0.58
+        },
+        "naive_baselines": {
+          "median": {
+            "rmse": 48.62992905608644,
+            "mae": 37.67,
+            "phm": 150657.8331344331
+          },
+          "mean": {
+            "rmse": 41.70455610601796,
+            "mae": 34.83,
+            "phm": 30753.311297478802
+          }
+        },
+        "strongest_naive": "mean",
+        "leakage_control": {
+          "shuffle_rmse": 41.652,
+          "naive_rmse": 41.705,
+          "passed": true
+        },
+        "rmse_gate": 25.0,
+        "rul_cap": 125,
+        "test_units": 100,
+        "experiment_id": "3740651530987773",
+        "model_cards": {
+          "linear": {
+            "model_name": "tel_rul_regressor",
+            "candidate": "linear_regression",
+            "target_definition": "Remaining Useful Life (cycles) at a unit's last observed cycle, capped at 125; truth = official RUL_FD001.",
+            "baseline_comparison": {
+              "naive_strongest": "mean",
+              "naive_rmse": 41.705,
+              "naive_phm": 30753.311,
+              "model_rmse": 21.702,
+              "model_phm": 1036.139,
+              "rmse_ratio_model_over_naive": 0.52,
+              "beats_naive_rmse": true
+            },
+            "phm_score": 1036.139,
+            "phm_note": "NASA PHM'08 asymmetric score; LOWER is better; late predictions penalized harder.",
+            "late_prediction_rate": 0.59,
+            "late_error_risk": {
+              "mean_late_error": 18.39,
+              "p95_late_error": 39.9,
+              "late_count": 59,
+              "by_regime": {
+                "low_RUL_<50": {
+                  "n": 30,
+                  "late_rate": 0.933
+                },
+                "mid_RUL_50_100": {
+                  "n": 36,
+                  "late_rate": 0.667
+                },
+                "high_RUL_>=100": {
+                  "n": 34,
+                  "late_rate": 0.206
+                }
+              }
+            },
+            "label_shuffle_leakage_control": {
+              "shuffle_rmse": 41.652,
+              "naive_rmse": 41.705,
+              "passed": true
+            },
+            "known_unsafe_failure_mode": "Over-predicting remaining life (late) on near-failure units: implies more safe life remains than is true. Captured by PHM + late_prediction_rate.",
+            "approved_use": "Approved use: telemetry demo / maintenance-risk investigation support.",
+            "not_approved_use": "Not approved use: autonomous launch, flight-safety, or maintenance authorization.",
+            "calibration": "Point predictions only \u2014 NO prediction interval / coverage guarantee. Do not present as a calibrated probability of failure.",
+            "promotion_state": "model_not_promoted"
+          },
+          "gbm": {
+            "model_name": "tel_rul_regressor",
+            "candidate": "gradient_boosting",
+            "target_definition": "Remaining Useful Life (cycles) at a unit's last observed cycle, capped at 125; truth = official RUL_FD001.",
+            "baseline_comparison": {
+              "naive_strongest": "mean",
+              "naive_rmse": 41.705,
+              "naive_phm": 30753.311,
+              "model_rmse": 20.322,
+              "model_phm": 1423.327,
+              "rmse_ratio_model_over_naive": 0.487,
+              "beats_naive_rmse": true
+            },
+            "phm_score": 1423.327,
+            "phm_note": "NASA PHM'08 asymmetric score; LOWER is better; late predictions penalized harder.",
+            "late_prediction_rate": 0.58,
+            "late_error_risk": {
+              "mean_late_error": 16.4,
+              "p95_late_error": 44.98,
+              "late_count": 58,
+              "by_regime": {
+                "low_RUL_<50": {
+                  "n": 30,
+                  "late_rate": 0.733
+                },
+                "mid_RUL_50_100": {
+                  "n": 36,
+                  "late_rate": 0.861
+                },
+                "high_RUL_>=100": {
+                  "n": 34,
+                  "late_rate": 0.147
+                }
+              }
+            },
+            "label_shuffle_leakage_control": {
+              "shuffle_rmse": 41.652,
+              "naive_rmse": 41.705,
+              "passed": true
+            },
+            "known_unsafe_failure_mode": "Over-predicting remaining life (late) on near-failure units: implies more safe life remains than is true. Captured by PHM + late_prediction_rate.",
+            "approved_use": "Approved use: telemetry demo / maintenance-risk investigation support.",
+            "not_approved_use": "Not approved use: autonomous launch, flight-safety, or maintenance authorization.",
+            "calibration": "Point predictions only \u2014 NO prediction interval / coverage guarantee. Do not present as a calibrated probability of failure.",
+            "promotion_state": "model_not_promoted"
+          }
+        }
+      }
+    },
+    {
+      "ws_name": "promote_models",
+      "job_name": "telemetry_promote_models_pr1",
+      "uploaded": "/Users/paulmalmquist@gmail.com/telemetry/promote_models",
+      "result_state": "SUCCESS",
+      "life_cycle_state": "TERMINATED",
+      "run_id": 261177164841175,
+      "job_id": 821969404932186,
+      "run_page_url": "https://dbc-2504bec5-b5ab.cloud.databricks.com/?o=7474657239253594#job/821969404932186/run/261177164841175",
+      "state_message": "",
+      "elapsed_s": 31.7,
+      "timeout_s": 1200,
+      "output": {
+        "run_ids": {
+          "anomaly_baseline_mad": "b93e13f753a047aa8818878dba859e5b",
+          "anomaly_pca_recon": "3dbb490b6b264421bd264bb48727cdc2",
+          "rul_linear_baseline": "cb5550556d374da89f30ea4faf5517ac",
+          "rul_gbm": "37423c4767574ab9895fe1a85c9d474a"
+        },
+        "metrics": {
+          "anomaly_baseline_mad": {
+            "affiliation_f1": 0.4656819554437516,
+            "affiliation_precision": 0.3339147150761413,
+            "affiliation_recall": 0.7692307692307693,
+            "alarm_precision": 0.31869013590090767,
+            "event_recall": 0.7692307692307693,
+            "f1": 0.6386571043323628,
+            "f1_pointwise": 0.30859251705635277,
+            "fn": 14715.0,
+            "fp": 40758.0,
+            "precision": 0.5460286697630902,
+            "precision_pointwise": 0.31869013590090767,
+            "recall": 0.7691330132730867,
+            "recall_pointwise": 0.29911512755342184,
+            "tp": 49023.0
+          },
+          "anomaly_pca_recon": {
+            "affiliation_f1": 0.36307228474268977,
+            "affiliation_precision": 0.2897221426525351,
+            "affiliation_recall": 0.4861538461538461,
+            "alarm_precision": 0.2635348037811515,
+            "event_recall": 0.4807692307692308,
+            "f1": 0.4196150866948698,
+            "f1_pointwise": 0.02736914129319193,
+            "fn": 46132.0,
+            "fp": 2571.0,
+            "precision": 0.8725776874659266,
+            "precision_pointwise": 0.2635348037811515,
+            "recall": 0.2762245442279331,
+            "recall_pointwise": 0.014434089554112147,
+            "tp": 17606.0
+          },
+          "rul_linear_baseline": {
+            "rul_model_vs_naive_rmse_ratio": 0.5203855505607189,
+            "rul_phm_score": 1036.1390874014483,
+            "rul_phm_improvement": 29717.172210077355,
+            "rul_p95_late_error": 39.90113429224764,
+            "rul_naive_rmse": 41.7046,
+            "rul_naive_phm_score": 30753.3113,
+            "rul_naive_median_rmse": 48.6299,
+            "rul_naive_median_phm_score": 150657.8331,
+            "rul_naive_mean_rmse": 41.7046,
+            "rul_naive_mean_phm_score": 30753.3113,
+            "rul_naive_mae": 34.83,
+            "mae": 17.678184465577615,
+            "rul_mean_late_error": 18.392944645792294,
+            "rul_leakage_control_passed": 1.0,
+            "rul_late_prediction_rate": 0.59,
+            "rul_late_error_count": 59.0,
+            "rul_label_shuffle_vs_naive_delta": 0.0522,
+            "rul_label_shuffle_rmse": 41.6524,
+            "rul_early_prediction_rate": 0.39,
+            "rmse": 21.702448390120548,
+            "phm": 1036.1390874014483
+          },
+          "rul_gbm": {
+            "rul_model_vs_naive_rmse_ratio": 0.4872813263955005,
+            "rul_phm_score": 1423.3269302516078,
+            "rul_phm_improvement": 29329.984367227193,
+            "rul_p95_late_error": 44.97664621495391,
+            "rul_naive_rmse": 41.7046,
+            "rul_naive_phm_score": 30753.3113,
+            "rul_naive_median_rmse": 48.6299,
+            "rul_naive_median_phm_score": 150657.8331,
+            "rul_naive_mean_rmse": 41.7046,
+            "rul_naive_mean_phm_score": 30753.3113,
+            "rul_naive_mae": 34.83,
+            "mae": 14.509108577409409,
+            "rul_mean_late_error": 16.39989302453454,
+            "rul_leakage_control_passed": 1.0,
+            "rul_late_prediction_rate": 0.58,
+            "rul_late_error_count": 58.0,
+            "rul_label_shuffle_vs_naive_delta": 0.0522,
+            "rul_label_shuffle_rmse": 41.6524,
+            "rul_early_prediction_rate": 0.42,
+            "rmse": 20.321851416076,
+            "phm": 1423.3269302516078
+          }
+        },
+        "gates": {
+          "honest_gate": {
+            "f1_pointwise": 0.1,
+            "event_recall": 0.5,
+            "alarm_precision": 0.2,
+            "affiliation_f1": 0.25
+          },
+          "rmse_gate": 25.0,
+          "f1_gate_reference_only": 0.3,
+          "rul_gate": {
+            "rmse_abs_max": 25.0,
+            "max_rmse_ratio_vs_naive": 0.75,
+            "require_phm_better_than_naive": true,
+            "max_late_prediction_rate": 0.55,
+            "require_leakage_control_passed": true
+          }
+        },
+        "anomaly": {
+          "winner": "anomaly_baseline_mad",
+          "decision": "promoted",
+          "affiliation_f1": 0.4656819554437516,
+          "f1_point_adjusted_reference": 0.6386571043323628,
+          "honest_gate_pass": {
+            "anomaly_baseline_mad": true,
+            "anomaly_pca_recon": false
+          },
+          "baseline_affiliation_f1": 0.4656819554437516,
+          "pca_affiliation_f1": 0.36307228474268977
+        },
+        "rul": {
+          "winner": "rul_linear_baseline",
+          "rmse": 21.702448390120548,
+          "decision": "model_not_promoted",
+          "gate_eval": {
+            "rul_linear_baseline": {
+              "passed": false,
+              "checks": {
+                "rmse_under_abs_ceiling": true,
+                "beats_naive_rmse_by_margin": true,
+                "phm_better_than_naive": true,
+                "late_rate_under_ceiling": false,
+                "leakage_control_passed": true
+              },
+              "rmse": 21.702448390120548,
+              "phm": 1036.1390874014483,
+              "late_rate": 0.59,
+              "rmse_ratio_vs_naive": 0.5203855505607189,
+              "phm_improvement": 29717.172210077355
+            },
+            "rul_gbm": {
+              "passed": false,
+              "checks": {
+                "rmse_under_abs_ceiling": true,
+                "beats_naive_rmse_by_margin": true,
+                "phm_better_than_naive": true,
+                "late_rate_under_ceiling": false,
+                "leakage_control_passed": true
+              },
+              "rmse": 20.321851416076,
+              "phm": 1423.3269302516078,
+              "late_rate": 0.58,
+              "rmse_ratio_vs_naive": 0.4872813263955005,
+              "phm_improvement": 29329.984367227193
+            }
+          },
+          "linear_rmse": 21.702448390120548,
+          "gbm_rmse": 20.321851416076,
+          "linear_phm": 1036.1390874014483,
+          "gbm_phm": 1423.3269302516078,
+          "linear_late_rate": 0.59,
+          "gbm_late_rate": 0.58,
+          "naive_rmse": 41.7046,
+          "leakage_control_passed": 1.0
+        },
+        "registry": {
+          "anomaly": {
+            "registered_model": "novendor_1.telemetry.tel_anomaly_detector",
+            "version": "3",
+            "alias": "champion"
+          },
+          "rul": {
+            "decision": "model_not_promoted",
+            "rmse": 21.702448390120548,
+            "failed_checks": {
+              "rul_linear_baseline": [
+                "late_rate_under_ceiling"
+              ],
+              "rul_gbm": [
+                "late_rate_under_ceiling"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "notebooks_completed": [
+    "_diag_threadpool",
+    "telemetry_probe",
+    "train_anomaly",
+    "train_rul",
+    "promote_models",
+    "score_replay_feed",
+    "fused_state_vector",
+    "ncr_corpus",
+    "ncr_clustering",
+    "ncr_backlog_forecast",
+    "train_rul_challenger_tmp",
+    "train_rul",
+    "promote_models"
+  ],
+  "notebooks_failed": [],
+  "cost_safety_events": [],
+  "finalized": {
+    "workspace_challenger_deleted": "train_rul_challenger_tmp",
+    "mlflow_runs_after": 32,
+    "models_after": {
+      "tel_anomaly_detector": {
+        "champion_version": 2,
+        "run_id": "b93e13f753a047aa8818878dba859e5b"
+      },
+      "tel_rul_regressor": {
+        "champion_version": 2,
+        "run_id": "d773eab980634302ab063fa2ec0aaf54"
+      }
+    },
+    "notebooks_completed_unique": [
+      "_diag_threadpool",
+      "fused_state_vector",
+      "ncr_backlog_forecast",
+      "ncr_clustering",
+      "ncr_corpus",
+      "promote_models",
+      "score_replay_feed",
+      "telemetry_probe",
+      "train_anomaly",
+      "train_rul",
+      "train_rul_challenger_tmp"
+    ],
+    "notebooks_failed": [],
+    "cost_safety_events": [],
+    "workspace_notebooks_modified": [
+      "telemetry_probe",
+      "train_anomaly",
+      "train_rul",
+      "promote_models",
+      "score_replay_feed",
+      "fused_state_vector",
+      "ncr_corpus",
+      "ncr_clustering",
+      "ncr_backlog_forecast",
+      "(deleted) train_rul_challenger_tmp"
+    ]
+  }
+}

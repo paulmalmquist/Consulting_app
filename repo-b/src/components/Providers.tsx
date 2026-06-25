@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ToastProvider } from "@/components/ui/Toast";
 import { applyThemeMode, getStoredThemeMode } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import WinstonLoader from "@/components/ui/WinstonLoader";
 import { winstonLoader } from "@/lib/loading-state";
 
 /**
@@ -67,12 +66,12 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
 }
 
 // App-only: route transition feedback. Winston AI chat is intentionally removed.
+// The floating Winston launcher/loader FAB is removed globally per product decision.
 export function WinstonProviders({ children }: { children: React.ReactNode }) {
   return (
     <>
       <RouteChangeListener />
       {children}
-      <WinstonLoader />
     </>
   );
 }

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "organization": "https://dev.azure.com/paulmalmquist1984",
+  "project": "Novendor",
+  "team": {
+    "name": "RS MLOps",
+    "description": "RS Analytics MLOps control tower",
+    "areaPath": "Novendor\\RS-Analytics",
+    "includeChildren": true,
+    "currentIteration": "Novendor\\Sprint 3",
+    "iterations": [
+      "Novendor\\Sprint 1",
+      "Novendor\\Sprint 2",
+      "Novendor\\Sprint 3",
+      "Novendor\\Sprint 4",
+      "Novendor\\Sprint 5",
+      "Novendor\\Sprint 6",
+      "Novendor\\Sprint 7",
+      "Novendor\\Sprint 8"
+    ]
+  },
+  "board": {
+    "name": "Stories",
+    "columns": [
+      { "name": "Intake", "state": "New", "type": "incoming", "wip": 0 },
+      { "name": "Needs Route", "state": "Active", "type": "inProgress", "wip": 5 },
+      { "name": "Experiment / Plan Written", "state": "Active", "type": "inProgress", "wip": 5 },
+      { "name": "Data Contract Ready", "state": "Active", "type": "inProgress", "wip": 3 },
+      { "name": "Build / Train / Implement", "state": "Active", "type": "inProgress", "wip": 3 },
+      { "name": "Eval Gate", "state": "Active", "type": "inProgress", "wip": 3 },
+      { "name": "Demo Integration", "state": "Active", "type": "inProgress", "wip": 2 },
+      { "name": "PR Open", "state": "Active", "type": "inProgress", "wip": 3 },
+      { "name": "Human Review", "state": "Active", "type": "inProgress", "wip": 3 },
+      { "name": "Verified", "state": "Resolved", "type": "inProgress", "wip": 5 },
+      { "name": "Blocked", "state": "Active", "type": "inProgress", "wip": 0 },
+      { "name": "Done", "state": "Closed", "type": "outgoing", "wip": 0 }
+    ],
+    "swimlanes": [
+      "Demo-Critical",
+      "Model Experiments",
+      "Data Contracts / Pipelines",
+      "Evaluation / QA",
+      "Agent Automation",
+      "Platform / Infra",
+      "Research / Backlog",
+      "Blocked / Risk"
+    ],
+    "cardFields": [
+      "System.Tags",
+      "System.AreaPath",
+      "System.IterationPath",
+      "System.AssignedTo",
+      "System.State",
+      "Microsoft.VSTS.Common.Priority",
+      "Microsoft.VSTS.Scheduling.StoryPoints",
+      "System.Parent"
+    ]
+  },
+  "queries": [
+    {
+      "name": "Agent Ready",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] <> 'Closed' AND [System.Tags] CONTAINS 'agent-ready' AND [System.Tags] NOT CONTAINS 'agent-running' ORDER BY [System.ChangedDate] DESC"
+    },
+    {
+      "name": "Agent Running",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] <> 'Closed' AND [System.Tags] CONTAINS 'agent-running' ORDER BY [System.ChangedDate] DESC"
+    },
+    {
+      "name": "Demo Critical Not Verified",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] <> 'Closed' AND [System.Tags] CONTAINS 'demo-critical' AND [System.Tags] NOT CONTAINS 'verified' ORDER BY [Microsoft.VSTS.Common.Priority]"
+    },
+    {
+      "name": "ML Experiments in Eval Gate",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags],[System.BoardColumn] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.Tags] CONTAINS 'ml-experiment' AND [System.BoardColumn] = 'Eval Gate' ORDER BY [System.ChangedDate] DESC"
+    },
+    {
+      "name": "No Fake Data Violations",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.Tags] CONTAINS 'no-fake-data' AND ([System.Tags] CONTAINS 'source-missing' OR [System.Tags] CONTAINS 'stale-input' OR [System.Tags] CONTAINS 'agent-blocked') ORDER BY [System.ChangedDate] DESC"
+    },
+    {
+      "name": "Human Approval Required",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] <> 'Closed' AND [System.Tags] CONTAINS 'human-approval' ORDER BY [Microsoft.VSTS.Common.Priority]"
+    },
+    {
+      "name": "PR Open",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] <> 'Closed' AND [System.Tags] CONTAINS 'pr-open' ORDER BY [System.ChangedDate] DESC"
+    },
+    {
+      "name": "Evidence Missing",
+      "wiql": "SELECT [System.Id],[System.Title],[System.State],[System.Tags] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AreaPath] UNDER 'Novendor\\RS-Analytics' AND [System.State] = 'Resolved' AND [System.Tags] NOT CONTAINS 'verified' ORDER BY [System.ChangedDate] DESC"
+    }
+  ],
+  "dashboards": [
+    "MLOps Control Tower",
+    "Model Quality",
+    "Data Reliability",
+    "Agent Delivery"
+  ],
+  "deliveryPlan": {
+    "name": "RS - Winston MLOps Delivery Plan",
+    "backlogLevel": "Feature",
+    "note": "Azure DevOps plan names reject slash characters, so the requested slash is represented by a hyphen."
+  },
+  "deferred": {
+    "testPlans": "Requires a dedicated Azure DevOps PAT and confirmed Test Plans license.",
+    "serviceHook": "Enable only after the Agent Ready polling workflow is stable.",
+    "githubEnvironments": "Configure protected deployment approvals in GitHub, not Azure Pipelines."
+  }
+}

@@ -1,56 +1,11 @@
 # Telemetry Confluent → Databricks → Postgres Lineage Walkthrough
 
-**Status:** Active — Tickets 1–3 + schema-export cleanup **COMPLETE (merged)**; next is Ticket 4
-(FastAPI lineage routes). See the Status timeline below.
+**Status:** Active — Tickets 1 & 2 COMPLETE (merged); next is Ticket 3 (triage agent artifacts)
 **Started:** 2026-06-24
 **Risk:** Medium (Ticket 1: additive schema; later tickets higher with consumer/Confluent access)
 **Linked build plan:** [Telemetry Platform Build](0003-telemetry-platform-build.md)
 **Related:** [Telemetry Metadata Explorer](telemetry-metadata-explorer.md) (visual lineage UI),
 [Event Streaming / BigQuery / GKE](0004-event-streaming-bigquery-gke.md) (raw-history sink)
-
-## Status timeline (merged)
-
-**Ticket 1 — COMPLETE / schema created.**
-- Additive migration `10034` for Databricks/Lakebase provenance pointers (lake pointer columns, extended
-  `record_kind`, `tel_stream_triage_events` projection, offset receipts).
-- `10033` already existed, so `10034` **extended** the committed tables rather than recreating them.
-- Lakebase **owner-role apply caveat**: `tel_*` are owned by the human Databricks identity, not
-  `telemetry_app` (which 42501s on DDL); apply via a short-lived Databricks-CLI credential (see
-  `tips.md` / the [[project_lakebase_owner_ddl_via_databricks_cli]] memory). Applied + verified on prod
-  Lakebase.
-- Supabase **no longer owns** the `tel_*` telemetry serving tables (they live on Lakebase).
-
-**Ticket 2 — COMPLETE.** PR #336, squash `7e68e9c5`.
-- Backend durable Kafka serving-slice consumer (`backend/app/services/telemetry_stream_consumer.py`).
-- **Default-off** via `TELEMETRY_KAFKA_CONSUMER_ENABLED`.
-- **At-least-once:** persist before committing the Kafka offset; replay-safe via the `10034` UNIQUE.
-- **Deterministic raw sampling** (`kafka_offset % TELEMETRY_KAFKA_RAW_SAMPLE_RATE`); anomalies/agg5s/
-  triage/dlq in full.
-- **Triage projection upsert** to `tel_stream_triage_events` supported.
-
-**Ticket 3 — COMPLETE.** PR #343, squash `3285d3d9`.
-- Confluent Streaming Agent reproducibility artifacts under `infra/confluent/stargate/agents/`.
-- Agent: `Paul_Streaming_Agent`. Model: `stargate-anomaly-triage-gpt4o`.
-- Output topic: `stargate.printer.anomaly.triage.v1`. The agent **explains** anomalies the upstream Flink
-  rule detected; it is not the detector.
-
-**Cleanup — COMPLETE.** PR #349, squash `136e767c`.
-- Fixed corrupted Schema Registry exports under `infra/confluent/stargate/schemas/` (held a CLI error
-  dump). Regenerated all 4 from live SR.
-- Fixed the lifecycle exporter's `schema describe … -o json 2>&1 > file` stderr-redirection bug so future
-  exports don't re-corrupt.
-
-**Next: Ticket 4 — FastAPI lineage/provenance routes.** Endpoints:
-- `GET /api/telemetry/stream/kafka/rows`
-- `GET /api/telemetry/stream/kafka/provenance/{row_id}`
-- `GET /api/telemetry/stream/kafka/triage/latest`
-- `GET /api/telemetry/stream/kafka/triage/{anomaly_id}`
-- `GET /api/telemetry/stream/lineage/anomaly/{anomaly_id}`
-
-Ticket 4 guardrails: read via `get_telemetry_cursor`; **fail closed** with `*_unavailable` null reasons
-per missing layer; **no fake Databricks linkage** (`databricks_lineage_status='not_available'` until a
-real mapping exists); **no frontend changes yet**; **no Confluent runtime changes**; do not touch the
-unrelated Stargate scoring-lane work.
 
 ## Objective
 
@@ -181,21 +136,77 @@ no `databricks_*` columns, `tel_stream_triage_events` does not exist, and the `r
 legacy `('telemetry','anomaly','agg5s')` — exactly what `10034` extends. Confirmed `tel_stream_*` tables
 are absent on Supabase (`to_regclass` → null), so Supabase is the wrong target.
 
-**Ticket 1 status (at time of this note):** **blocked** — schema complete and dry-run validated; live
-apply + post-apply verification pending owner-role access. **→ Since RESOLVED:** applied + verified on
-prod Lakebase via a short-lived Databricks-CLI credential; Ticket 1 is COMPLETE (see the Status timeline
-at the top).
+**Ticket 1 status:** **blocked** — schema complete and dry-run validated; live apply + post-apply
+verification pending owner-role access. Do **not** start Ticket 2 until `10034` is applied and verified.
 
 **Risks/unknowns:** owner credential is the interactive Databricks human login (not in Railway/Vercel/
 Supabase). No Stargate→Delta mapping yet (pointers stay `not_available`).
 
-## Cleanup — Stargate schema exports (2026-06-24)
+**PR + CI (added):** isolated `feat/telemetry-stream-lake-provenance` off `origin/main` (excludes the
+unrelated `#720` workflow-file commit that blocked pushing the skill branch); PR **#329**. All checks
+green, including **DB Schema Gate (apply + verify) → pass (2m43s)** — CI applied `10034` to a fresh CI
+Postgres (CI role owns the tables, so no 42501) and the migration's `DO $$` verification passed. This
+proves the SQL applies + self-verifies end-to-end; the `42501` blocker is specific to the Lakebase prod
+`telemetry_app` role, not a migration defect.
 
-Before Ticket 4: the 4 files under `infra/confluent/stargate/schemas/` held a Confluent CLI **error
-dump**, not schemas (born corrupted in `1de9b66e`). Root cause: the lifecycle `export` action ran
-`confluent schema-registry schema describe … -o json 2>&1 > file`, but `schema describe` has **no `-o`
-flag**, so the error was redirected into the file. Regenerated all 4 from live Schema Registry
-(env `env-vwkk2z`) into clean `{subject, version, id, schemaType, schema}` JSON — JSON-type subjects
-embed the parsed schema, the PROTOBUF telemetry subject embeds the raw `.proto` text. Fixed the exporter
-in `skills/confluent-stargate-lifecycle/scripts/lifecycle.ps1` so future exports don't re-corrupt.
-Validated: valid JSON, no CLI error strings, expected subjects/ids. Schema-artifact cleanup only.
+**Owner apply DONE (prod Lakebase).** Unblocked via the **Databricks CLI** (authenticated as
+`paulmalmquist@gmail.com`, the table owner): `databricks database generate-database-credential
+--instance novendor-telemetry` mints a short-lived OAuth token used as the Postgres password for the
+owner role (username = the Databricks email; host `ep-royal-pond-d2wqvv3i.database.us-east-1.cloud.
+databricks.com`, db `databricks_postgres`). `node repo-b/db/schema/apply.js --files 10034` →
+**"Schema applied successfully. 39 statements executed."** Token never written to disk/logs (regenerated
+inline per command, ~1h expiry).
+
+**Post-apply verification (prod Lakebase) — all PASS:** 11 Databricks pointer cols on
+`tel_stream_kafka_rows`; `databricks_lineage_status` default `not_available`; `record_kind` CHECK admits
+`triage/dlq/execution/signal` + legacy `telemetry/anomaly/agg5s`; `tel_stream_consumer_offsets` has
+`next_committed_offset/lag/status/null_reason`; `tel_stream_triage_events` exists with RLS;
+`requires_human_review` default `true`; the replay-safe Kafka-coordinate UNIQUE still rejects a
+duplicate (23505, tested in a rolled-back txn — 0 residual rows).
+
+**Ticket 1: COMPLETE** — schema applied + verified on prod Lakebase; PR #329 green; merge condition
+satisfied. Next session may proceed to Ticket 2.
+
+## Session update — 2026-06-24 (Ticket 2)
+
+**Ticket 2: COMPLETE.** Durable Kafka serving-slice consumer
+`backend/app/services/telemetry_stream_consumer.py` — async `run()` driving a threaded
+`confluent_kafka` poll; subscribes to the 4 Stargate topics + the new
+`stargate.printer.anomaly.triage.v1` (added `StargateTopics.TRIAGE`); persists to the `10034` tables
+(idempotent insert on the Kafka coordinate; `tel_stream_triage_events` upsert for triage; offset
+receipts). At-least-once (persist → then commit); deterministic raw sampling
+(`kafka_offset % TELEMETRY_KAFKA_RAW_SAMPLE_RATE`); anomalies/agg5s/triage/dlq in full; Databricks
+pointers `not_available`; fail-closed when no broker; lazy broker imports (import-safe). Default off via
+`TELEMETRY_KAFKA_CONSUMER_ENABLED`; wired into `main.py` lifespan beside the StreamWorker; SSE bridge
+unchanged.
+
+**Files:** new `telemetry_stream_consumer.py` + `tests/test_telemetry_stream_consumer.py`; edited
+`config.py` (3 settings), `main.py` (gated start + shutdown cancel), `stargate_bridge.py` (TRIAGE const).
+
+**Tests:** `pytest tests/test_telemetry_stream_consumer.py` 18 passed; `test_health.py` 2 passed;
+import-safe with no confluent-kafka. **PR #336 merged to main** (`7e68e9c5`); all checks green incl.
+Backend Lint (full suite) + DB Schema Gate. No prod-DB apply needed (default-off backend code).
+
+**Next: Ticket 3** — Confluent Streaming Agent triage artifacts under
+`infra/confluent/stargate/agents/` emitting to `stargate.printer.anomaly.triage.v1`. Then Ticket 4
+(FastAPI lineage routes), Ticket 5 (frontend drawer).
+
+## Session update — 2026-06-24 (Ticket 3)
+
+**Ticket 3: COMPLETE.** Made the Confluent Streaming Agent (`Paul_Streaming_Agent` /
+`stargate-anomaly-triage-gpt4o`) reproducible from the repo. New files under
+`infra/confluent/stargate/agents/`: `anomaly_triage_agent.sql` (CREATE MODEL + json-registry sink +
+agent INSERT, anomalies → ML_PREDICT → triage), `anomaly_triage_system_prompt.md` (single source of
+truth for the output contract; role boundary = explains, not detects; STRICT-JSON + fail-closed),
+`anomaly_triage_output.schema.json` (field names == the Ticket-2 consumer + `tel_stream_triage_events`),
+`README.md` (re-create/verify steps with secrets via a Flink connection, contract lock, cost hygiene);
+plus `topics/stargate.printer.anomaly.triage.v1.json`.
+
+**Verified:** contract cross-check — every field `telemetry_stream_consumer.persist_row` reads is in the
+schema; `pytest -k Lock` 3 passed (FlinkSqlLock parses `flink/*.sql`, not `agents/`); JSON parses.
+**PR #343 merged to main** (`3285d3d9`); all required checks green. Artifacts/config + docs only — no
+Confluent runtime change, no code, no secrets.
+
+**Next: Ticket 4** — FastAPI lineage/provenance routes
+(`/api/telemetry/stream/kafka/rows`, `/api/telemetry/stream/lineage/anomaly/{id}`, triage lookups)
+reading the `10034` tables, with fail-closed unavailable layers.
