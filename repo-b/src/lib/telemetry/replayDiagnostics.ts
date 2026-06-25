@@ -322,3 +322,50 @@ export function computeReplayDiagnostics(feed: ReplayFeed): ReplayDiagnostics {
     },
   };
 }
+
+// ── Residual-vs-threshold chart model (Ticket 6) ─────────────────────────────
+// The residual `|value - rmean|` is the quantity the MAD rule actually thresholds (unlike the degenerate
+// feed[].score). This pure model plots it against the frozen serving threshold so the divergence the
+// scoringDiagnostics block reports is also *visible*: on D-4 every model-fired tick sits BELOW the
+// serving global-fallback redline (the champion fires on a tighter per-channel scale). Pure + testable;
+// the component only renders it. `threshold` is null when the payload predates Ticket 2 (chart hides the redline).
+
+export interface ResidualPoint {
+  idx: number;
+  t: number;
+  residual: number; // abs(value - rmean)
+  fired: boolean; // model_pred === 1
+}
+
+export interface ResidualSeries {
+  points: ResidualPoint[];
+  threshold: number | null; // serving threshold in residual units, or null when unavailable
+  yMax: number; // chart y-axis ceiling: max(threshold, maxResidual) * 1.12, never 0
+  firedCount: number;
+  firedAboveThreshold: number; // model-fired ticks whose residual exceeds the threshold
+  allFiredBelowThreshold: boolean; // true => the visible divergence (fired, yet under the serving redline)
+}
+
+export function residualSeries(feed: ReplayFeed): ResidualSeries {
+  const ticks = feed.feed ?? [];
+  const threshold = thresholdOf(feed);
+  const points: ResidualPoint[] = ticks.map((p, idx) => ({
+    idx,
+    t: p.t,
+    residual: residualOf(p),
+    fired: p.model_pred === 1,
+  }));
+  const maxResidual = points.length ? Math.max(...points.map((p) => p.residual)) : 0;
+  const yMax = Math.max(threshold ?? 0, maxResidual) * 1.12 || 1;
+  const fired = points.filter((p) => p.fired);
+  const firedAboveThreshold =
+    threshold != null ? fired.filter((p) => p.residual > threshold).length : 0;
+  return {
+    points,
+    threshold,
+    yMax,
+    firedCount: fired.length,
+    firedAboveThreshold,
+    allFiredBelowThreshold: threshold != null && fired.length > 0 && firedAboveThreshold === 0,
+  };
+}

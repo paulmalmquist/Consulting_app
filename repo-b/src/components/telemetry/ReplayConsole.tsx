@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getReplayFeed, type ReplayFeed, type ReplayTick } from "@/lib/telemetry/api";
-import { computeReplayDiagnostics } from "@/lib/telemetry/replayDiagnostics";
+import { computeReplayDiagnostics, residualSeries } from "@/lib/telemetry/replayDiagnostics";
 import {
   C, Panel, Loading, ErrorState, DisclosureFooter, SplitGrid,
   Stat, StatGrid, MetricRow, StatusDot, Tag,
@@ -19,6 +19,15 @@ function pathFor(points: ReplayTick[], vMin: number, vMax: number, n: number): s
   const x = (i: number) => PAD + (i / Math.max(n - 1, 1)) * (W - 2 * PAD);
   const y = (v: number) => H - PAD - ((v - vMin) / span) * (H - 2 * PAD);
   return points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
+}
+
+// Residual sub-chart (Ticket 6): plots |value - rmean| scaled to [0, yMax] over a shorter frame.
+const RH = 156;
+function residualPathFor(points: { residual: number }[], yMax: number, n: number): string {
+  if (points.length === 0) return "";
+  const x = (i: number) => PAD + (i / Math.max(n - 1, 1)) * (W - 2 * PAD);
+  const y = (r: number) => RH - PAD - (r / (yMax || 1)) * (RH - 2 * PAD);
+  return points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.residual).toFixed(1)}`).join(" ");
 }
 
 type DrawerTab = "signal" | "model" | "evidence" | "operator" | "lineage";
@@ -57,6 +66,7 @@ export default function ReplayConsole() {
   const vMax = useMemo(() => (ticks.length ? Math.max(...ticks.map((p) => p.value)) : 1), [ticks]);
   // All honesty-sensitive math lives in the pure adapter; the component only renders it.
   const diag = useMemo(() => (feed ? computeReplayDiagnostics(feed) : null), [feed]);
+  const resSeries = useMemo(() => (feed ? residualSeries(feed) : null), [feed]);
 
   const heading = (
     <TelemetryPageHeader variant="compact" eyebrow="Replay test feed · NASA SMAP/MSL analog" title="Hot-fire-style replay → automated go/no-go"
@@ -70,6 +80,9 @@ export default function ReplayConsole() {
   const xAt = (idx: number) => PAD + (idx / Math.max(ticks.length - 1, 1)) * (W - 2 * PAD);
   const fireX = firstFireIdx >= 0 ? xAt(firstFireIdx) : -1;
   const cursorX = xAt(cursor);
+  const resThY = resSeries && resSeries.threshold != null
+    ? RH - PAD - (resSeries.threshold / (resSeries.yMax || 1)) * (RH - 2 * PAD)
+    : null;
   // NASA-labeled window overlay, revealed only up to the cursor (no spoiler ahead of playback).
   const labelStartX = labelStartIdx >= 0 ? xAt(labelStartIdx) : -1;
   const labelRevealedEndIdx = labelEndIdx >= 0 ? Math.min(labelEndIdx, cursor) : -1;
@@ -201,7 +214,8 @@ export default function ReplayConsole() {
             <MetricRow label="fired channel" value={firedSoFar ? "D-4" : "—"} tone={firedSoFar ? C.red : C.dim} />
             <MetricRow label="first fire" value={diag!.firstModelFireT != null ? `t=${diag!.firstModelFireT}` : "—"} />
             <MetricRow label="residual at fire" value={diag!.residualAtFire != null ? `${diag!.residualAtFire.toFixed(4)} ( |value−rmean| )` : "—"} />
-            <MetricRow label="score / threshold / margin" value="Not available (no calibrated score in payload)" tone={C.amber} />
+            <MetricRow label="serving threshold" value={diag!.scoringAvailable && diag!.threshold != null ? `${diag!.threshold.toFixed(4)} residual units · global-scale fallback` : "Not available (no calibrated score in payload)"} tone={diag!.scoringAvailable ? C.dim : C.amber} />
+            <MetricRow label="fired vs threshold" value={diag!.scoringAvailable && diag!.firedAboveThreshold != null && diag!.firedTicksScored != null ? `${diag!.firedAboveThreshold} of ${diag!.firedTicksScored} fired ticks above it` : "—"} tone={diag!.thresholdReproducesFiring === false ? C.amber : C.dim} />
             <MetricRow label="policy" value="frozen detector · model_pred flip" />
             <MetricRow label="basis" value="model output, not hand-authored" divider={false} />
             <div style={{ marginTop: 10, border: `1px solid ${(diag!.isPreLabel ? C.red : C.cyan)}33`,
@@ -241,6 +255,43 @@ export default function ReplayConsole() {
           </Panel>
         </div>
       </SplitGrid>
+
+      {/* Residual vs serving threshold (Ticket 6) — makes the scoringDiagnostics divergence VISIBLE:
+          on D-4 every model-fired tick (red) sits below the frozen redline, so the serving global-scale
+          fallback cannot reproduce the champion's firing. Residual, not the degenerate fixture score. */}
+      {resSeries && (
+        <Panel title="Model residual vs serving threshold" pad={12} style={{ marginTop: 16 }}>
+          <svg viewBox={`0 0 ${W} ${RH}`} style={{ width: "100%", display: "block" }} role="img" aria-label="Per-tick residual against the frozen serving threshold">
+            {resThY != null && resSeries.threshold != null && (
+              <>
+                <line x1={PAD} y1={resThY} x2={W - PAD} y2={resThY} stroke={C.red + "aa"} strokeDasharray="5 4" strokeWidth={1.3} />
+                <text x={W - PAD} y={resThY - 5} textAnchor="end" fontFamily={C.mono} fontSize={10} fill={C.red}>
+                  serving threshold {resSeries.threshold.toFixed(3)} (global-scale fallback)
+                </text>
+              </>
+            )}
+            {fireX >= 0 && cursorX >= fireX && (
+              <line x1={fireX} y1={PAD} x2={fireX} y2={RH - PAD} stroke={C.red + "70"} strokeDasharray="4 3" strokeWidth={1.2} />
+            )}
+            <path d={residualPathFor(resSeries.points.slice(0, cursor + 1), resSeries.yMax, resSeries.points.length)} fill="none" stroke={C.cyan} strokeWidth={1.5} />
+            {resSeries.points.slice(0, cursor + 1).filter((p) => p.fired).map((p) => (
+              <circle key={p.idx} cx={xAt(p.idx)} cy={RH - PAD - (p.residual / (resSeries.yMax || 1)) * (RH - 2 * PAD)} r={2.6} fill={C.red} />
+            ))}
+          </svg>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8, paddingLeft: 4 }}>
+            <LegendSwatch color={C.cyan} label="residual |value − rmean|" />
+            <LegendSwatch color={C.red} label="model-fired tick (model_pred=1)" />
+            <LegendSwatch color={C.red} dashed label="serving threshold (frozen)" />
+          </div>
+          <p style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 8, lineHeight: 1.5, paddingLeft: 4 }}>
+            {resSeries.threshold == null
+              ? "Residual is the quantity the MAD rule thresholds. The serving threshold is not present in this payload, so no redline is drawn."
+              : resSeries.allFiredBelowThreshold
+                ? <span style={{ color: C.amber }}>{diag!.perChannelCaveat ?? `Every model-fired tick (${resSeries.firedCount}) sits below the serving global-scale fallback threshold — the champion fires on a tighter per-channel D-4 scale. model_pred is authoritative; this redline cannot reproduce D-4's firing.`}</span>
+                : `${resSeries.firedAboveThreshold} of ${resSeries.firedCount} model-fired ticks cross the serving threshold.`}
+          </p>
+        </Panel>
+      )}
 
       <Panel style={{ marginTop: 16 }} pad={14}>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>
