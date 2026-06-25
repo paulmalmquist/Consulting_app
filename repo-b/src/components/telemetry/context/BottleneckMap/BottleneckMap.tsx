@@ -8,26 +8,20 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { RS, RS_MONO, RS_SANS } from "../../rsTokens";
 import styles from "./BottleneckMap.module.css";
-import CostPanel from "./CostPanel";
 import {
-  COLOR_DIMENSIONS, EVENTS, EVENTS_CHRONO, FULL_WINDOW, SIZE_MODES, YEAR_SERIES,
+  COLOR_DIMENSIONS, EVENTS, EVENTS_CHRONO, SIZE_MODES,
   eventDimension, eventDimensionKey,
 } from "./data";
 import EventRecord from "./EventRecord";
 import MapPanel from "./MapPanel";
-import MixPanel from "./MixPanel";
 import PresenterBanner from "./PresenterBanner";
 import type {
-  ColorByKey, DecoratedEvent, FocusPanelKey, LaunchEvent, SizeModeKey, TimeWindow,
+  ColorByKey, DecoratedEvent, LaunchEvent, SizeModeKey,
 } from "./types";
 
-// The three story tabs. Keys reuse FocusPanelKey so presenter-mode dimming math stays trivial.
-const TABS: { key: FocusPanelKey; label: string; accent: string }[] = [
-  { key: "map", label: "Bottleneck Map", accent: RS.blue },
-  { key: "cost", label: "Cost to LEO", accent: RS.amber },
-  { key: "mix", label: "Who Flies: Commercial vs Government", accent: RS.green },
-];
-
+// One integrated thesis chart. The standalone "Cost to LEO" and "Who Flies" tabs were retired: cost
+// lives as a Big Number on the Overview, and the commercial-share wave is folded into the Bottleneck
+// Map as a contextual underlay. A single hero chart reads as one argument, not three widgets.
 // TODO(P2 backlog): deep-link state (selected event and toggles) into the URL query string for
 // shareable demo states.
 
@@ -46,11 +40,8 @@ export default function BottleneckMap() {
   const [chipFilter, setChipFilter] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<SizeModeKey>("scale");
   const [colorBy, setColorBy] = useState<ColorByKey>("type");
-  const [inflationAdjusted, setInflationAdjusted] = useState(true);
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
-  const [timeWindow, setTimeWindow] = useState<TimeWindow>(FULL_WINDOW);
   const [presenterIdx, setPresenterIdx] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<FocusPanelKey>("map");
 
   const presenting = presenterIdx !== null;
   const presenterEvent = presenterIdx !== null ? EVENTS_CHRONO[presenterIdx] : null;
@@ -60,14 +51,11 @@ export default function BottleneckMap() {
       ? EVENTS_CHRONO.slice(0, presenterIdx + 1).map((e) => e.id) : []),
     [presenting, presenterIdx],
   );
+  // Presenter still steps event-by-event (the guided walkthrough), but every step lands on the one
+  // integrated chart now — there is no per-step panel switch.
   const focusPanel = presenterEvent ? presenterEvent.focusPanel : null;
 
   const dimension = COLOR_DIMENSIONS[colorBy];
-  const windowed = timeWindow[0] !== FULL_WINDOW[0] || timeWindow[1] !== FULL_WINDOW[1];
-
-  // While presenting, the visible tab follows the current step's focusPanel so each narration beat
-  // shows its own chart; otherwise it's the user's selected tab. The tab bar hides while presenting.
-  const effectiveTab: FocusPanelKey = presenting && focusPanel ? focusPanel : activeTab;
 
   // Bubbles: resolve color/label for the active dimension; chip filter applies outside presenter mode.
   const mapEvents = useMemo<DecoratedEvent[]>(() => {
@@ -102,31 +90,29 @@ export default function BottleneckMap() {
 
   const onHoverYear = useCallback((y: number | null) => setHoveredYear(y), []);
   const onSelect = useCallback((id: string) => setSelectedId(id), []);
-  const onBrush = useCallback(({ startIndex, endIndex }: { startIndex?: number; endIndex?: number }) => {
-    if (startIndex == null || endIndex == null) return;
-    const y0 = YEAR_SERIES[startIndex]?.year ?? FULL_WINDOW[0];
-    const y1 = YEAR_SERIES[endIndex]?.year ?? FULL_WINDOW[1];
-    setTimeWindow([y0, y1]);
-  }, []);
 
   const presenterAccent = presenterEvent ? eventDimension(presenterEvent, colorBy).color : RS.blue;
 
   return (
     <div style={{ fontFamily: RS_SANS, color: RS.text }}>
-      {/* presenter toggle — the thesis lives once in the page header above */}
+      {/* Play / Stop — a guided story walkthrough that steps through the eras (orbit proof → lower cost →
+          reuse → manufacturing scale → telemetry/data operations → continue to Stargate/Evidence). The
+          thesis itself lives once in the page header above. */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
         <button type="button" className={styles.control}
-          aria-label={presenting ? "Exit presenter mode" : "Enter presenter mode"}
+          aria-label={presenting ? "Stop walkthrough" : "Play guided walkthrough"}
           aria-pressed={presenting}
           onClick={() => setPresenterIdx(presenting ? null : 0)}
           style={{
-            background: presenting ? `${RS.red}22` : `${RS.blue}22`,
-            border: `1px solid ${presenting ? RS.red : RS.blue}`,
-            color: presenting ? RS.red : RS.blue,
-            borderRadius: 6, padding: "8px 14px", cursor: "pointer",
-            fontFamily: RS_MONO, fontSize: 11, letterSpacing: 0.5, whiteSpace: "nowrap",
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: presenting ? `${RS.red}22` : `${RS.green}1f`,
+            border: `1px solid ${presenting ? RS.red : RS.green}`,
+            color: presenting ? RS.red : RS.green,
+            borderRadius: 999, padding: "8px 18px", cursor: "pointer",
+            fontFamily: RS_MONO, fontSize: 11.5, letterSpacing: 0.6, whiteSpace: "nowrap",
           }}>
-          {presenting ? "Exit (Esc)" : "Present (P)"}
+          <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>{presenting ? "■" : "▶"}</span>
+          {presenting ? "Stop (Esc)" : "Play the story"}
         </button>
       </div>
 
@@ -138,144 +124,69 @@ export default function BottleneckMap() {
           onNext={() => setPresenterIdx((i) => Math.min((i ?? 0) + 1, EVENTS_CHRONO.length - 1))} />
       )}
 
-      {/* tabbed story module: tab bar (hidden while presenting) + per-tab controls */}
+      {/* single hero chart — map controls (chips + color/size toggles); hidden while the story plays */}
       {!presenting && (
-        <div style={{ marginTop: 16 }}>
-          <div role="tablist" aria-label="Launch-history charts"
-            style={{ display: "flex", gap: 0, borderBottom: `1px solid ${RS.line}`, flexWrap: "wrap" }}>
-            {TABS.map((t) => (
-              <button key={t.key} type="button" role="tab" className={styles.control}
-                aria-selected={effectiveTab === t.key}
-                onClick={() => setActiveTab(t.key)}
-                style={{
-                  background: "transparent", border: "none",
-                  borderBottom: `2px solid ${effectiveTab === t.key ? t.accent : "transparent"}`,
-                  color: effectiveTab === t.key ? RS.text : RS.faint,
-                  padding: "9px 16px", marginBottom: -1, cursor: "pointer", whiteSpace: "nowrap",
-                  fontFamily: RS_MONO, fontSize: 11.5, letterSpacing: 0.4,
-                }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0 4px", alignItems: "center", minHeight: 32 }}>
-            {effectiveTab === "map" && (
-              <>
-                {Object.entries(dimension.lookup).map(([key, v]) => (
-                  <button key={key} type="button" className={styles.control}
-                    aria-pressed={chipFilter === key}
-                    onClick={() => setChipFilter(chipFilter === key ? null : key)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      background: chipFilter === key ? `${v.color}22` : "transparent",
-                      border: `1px solid ${chipFilter === key ? v.color : RS.line}`,
-                      borderRadius: 999, padding: "4px 10px", cursor: "pointer",
-                      color: chipFilter === key ? v.color : RS.dim,
-                      fontFamily: RS_MONO, fontSize: 10, letterSpacing: 0.5,
-                      opacity: chipFilter && chipFilter !== key ? 0.45 : 1,
-                    }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color }} />
-                    {v.label}
-                  </button>
-                ))}
-                <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", border: `1px solid ${RS.line}`, borderRadius: 6, overflow: "hidden" }}>
-                    {(Object.keys(COLOR_DIMENSIONS) as ColorByKey[]).map((key) => (
-                      <button key={key} type="button" className={styles.control}
-                        aria-pressed={colorBy === key}
-                        onClick={() => { setColorBy(key); setChipFilter(null); }}
-                        style={{
-                          background: colorBy === key ? RS.barFill : "transparent",
-                          color: colorBy === key ? RS.text : RS.faint,
-                          border: "none", padding: "5px 10px", cursor: "pointer",
-                          fontFamily: RS_MONO, fontSize: 9.5, letterSpacing: 0.3,
-                        }}>
-                        {COLOR_DIMENSIONS[key].label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", border: `1px solid ${RS.line}`, borderRadius: 6, overflow: "hidden" }}>
-                    {SIZE_MODES.map((m) => (
-                      <button key={m.key} type="button" className={styles.control} title={m.note}
-                        aria-pressed={sizeMode === m.key}
-                        onClick={() => setSizeMode(m.key)}
-                        style={{
-                          background: sizeMode === m.key ? RS.barFill : "transparent",
-                          color: sizeMode === m.key ? RS.text : RS.faint,
-                          border: "none", padding: "5px 10px", cursor: "pointer",
-                          fontFamily: RS_MONO, fontSize: 9.5, letterSpacing: 0.3,
-                        }}>
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            {effectiveTab === "cost" && (
-              <>
-                <button type="button" className={styles.control}
-                  aria-label="Emphasize inflation-adjusted cost"
-                  aria-pressed={inflationAdjusted}
-                  onClick={() => setInflationAdjusted(!inflationAdjusted)}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "16px 0 4px", alignItems: "center", minHeight: 32 }}>
+          {Object.entries(dimension.lookup).map(([key, v]) => (
+            <button key={key} type="button" className={styles.control}
+              aria-pressed={chipFilter === key}
+              onClick={() => setChipFilter(chipFilter === key ? null : key)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: chipFilter === key ? `${v.color}22` : "transparent",
+                border: `1px solid ${chipFilter === key ? v.color : RS.line}`,
+                borderRadius: 999, padding: "4px 10px", cursor: "pointer",
+                color: chipFilter === key ? v.color : RS.dim,
+                fontFamily: RS_MONO, fontSize: 10, letterSpacing: 0.5,
+                opacity: chipFilter && chipFilter !== key ? 0.45 : 1,
+              }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color }} />
+              {v.label}
+            </button>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", border: `1px solid ${RS.line}`, borderRadius: 6, overflow: "hidden" }}>
+              {(Object.keys(COLOR_DIMENSIONS) as ColorByKey[]).map((key) => (
+                <button key={key} type="button" className={styles.control}
+                  aria-pressed={colorBy === key}
+                  onClick={() => { setColorBy(key); setChipFilter(null); }}
                   style={{
-                    display: "flex", alignItems: "center", gap: 7,
-                    background: inflationAdjusted ? `${RS.amber}18` : "transparent",
-                    border: `1px solid ${inflationAdjusted ? RS.amber : RS.line}`,
-                    borderRadius: 6, padding: "5px 10px", cursor: "pointer",
-                    color: inflationAdjusted ? RS.amber : RS.faint,
+                    background: colorBy === key ? RS.barFill : "transparent",
+                    color: colorBy === key ? RS.text : RS.faint,
+                    border: "none", padding: "5px 10px", cursor: "pointer",
                     fontFamily: RS_MONO, fontSize: 9.5, letterSpacing: 0.3,
                   }}>
-                  <span style={{ width: 22, height: 12, borderRadius: 999, position: "relative",
-                    background: inflationAdjusted ? RS.amber : RS.line, transition: "background 0.15s" }}>
-                    <span style={{ position: "absolute", top: 1.5, left: inflationAdjusted ? 11.5 : 1.5,
-                      width: 9, height: 9, borderRadius: "50%", background: RS.bg, transition: "left 0.15s" }} />
-                  </span>
-                  Inflation adjusted (2025 $)
+                  {COLOR_DIMENSIONS[key].label}
                 </button>
-                {windowed && (
-                  <button type="button" className={styles.control}
-                    onClick={() => setTimeWindow(FULL_WINDOW)}
-                    style={{ background: "transparent", border: `1px solid ${RS.line}`, color: RS.dim,
-                      borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: RS_MONO, fontSize: 9.5 }}>
-                    Reset window
-                  </button>
-                )}
-              </>
-            )}
-            {effectiveTab === "mix" && windowed && (
-              <button type="button" className={styles.control}
-                onClick={() => setTimeWindow(FULL_WINDOW)}
-                style={{ background: "transparent", border: `1px solid ${RS.line}`, color: RS.dim,
-                  borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: RS_MONO, fontSize: 9.5 }}>
-                Reset window
-              </button>
-            )}
+              ))}
+            </div>
+            <div style={{ display: "flex", border: `1px solid ${RS.line}`, borderRadius: 6, overflow: "hidden" }}>
+              {SIZE_MODES.map((m) => (
+                <button key={m.key} type="button" className={styles.control} title={m.note}
+                  aria-pressed={sizeMode === m.key}
+                  onClick={() => setSizeMode(m.key)}
+                  style={{
+                    background: sizeMode === m.key ? RS.barFill : "transparent",
+                    color: sizeMode === m.key ? RS.text : RS.faint,
+                    border: "none", padding: "5px 10px", cursor: "pointer",
+                    fontFamily: RS_MONO, fontSize: 9.5, letterSpacing: 0.3,
+                  }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* one large tabbed panel — only the active tab renders, full width + tall */}
+      {/* one large integrated hero chart — the Bottleneck Map with the commercial-share underlay */}
       <div style={{ marginTop: 12 }}>
-        {effectiveTab === "map" && (
-          <MapPanel events={mapEvents} selectedId={selected?.id ?? null}
-            presenting={presenting} revealedIds={revealedIds} presenterYear={presenterYear}
-            timeWindow={windowed ? timeWindow : null} hoveredYear={hoveredYear}
-            sizeModeLabel={SIZE_MODES.find((m) => m.key === sizeMode)?.label ?? ""}
-            focused={focusPanel === "map"} dimmed={presenting && focusPanel !== "map"}
-            onHoverYear={onHoverYear} onSelect={onSelect} />
-        )}
-        {effectiveTab === "cost" && (
-          <CostPanel inflationAdjusted={inflationAdjusted} hoveredYear={hoveredYear}
-            focused={focusPanel === "cost"} dimmed={presenting && focusPanel !== "cost"}
-            onHoverYear={onHoverYear} />
-        )}
-        {effectiveTab === "mix" && (
-          <MixPanel hoveredYear={hoveredYear}
-            focused={focusPanel === "mix"} dimmed={presenting && focusPanel !== "mix"}
-            onHoverYear={onHoverYear} onBrush={onBrush} />
-        )}
+        <MapPanel events={mapEvents} selectedId={selected?.id ?? null}
+          presenting={presenting} revealedIds={revealedIds} presenterYear={presenterYear}
+          timeWindow={null} hoveredYear={hoveredYear}
+          sizeModeLabel={SIZE_MODES.find((m) => m.key === sizeMode)?.label ?? ""}
+          focused dimmed={false}
+          onHoverYear={onHoverYear} onSelect={onSelect} />
       </div>
 
       {/* panel 4: pinned event record */}
