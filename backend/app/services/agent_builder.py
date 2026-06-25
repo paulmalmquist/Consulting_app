@@ -955,6 +955,41 @@ def _edge(source: str, target: str, source_handle: str | None = None) -> dict[st
     }
 
 
+def _deferred_capability_graph(*, capability: str) -> dict[str, Any]:
+    reason = (
+        f"{capability} is not registered as an executable read-only Agent Builder capability. "
+        "Operator review is required before enabling it."
+    )
+    return {
+        "schema_version": "agent-graph/v1",
+        "limits": {"max_runtime_seconds": 120, "max_tool_calls": 0, "max_cost_usd": 0},
+        "model_route_policy": {"sensitive_fallback": "fail_closed"},
+        "nodes": [
+            _node("trigger", "manual_trigger", 40, "Manual Trigger"),
+            _node("context", "context_loader", 260, "Load Governed Context"),
+            _node(
+                "capability_gate",
+                "human_approval",
+                500,
+                "Capability Gate",
+                {"reason": reason},
+            ),
+            _node(
+                "output",
+                "output",
+                760,
+                "Fail-Closed Result",
+                {"bindings": {"status": "NOT_AVAILABLE", "reason": reason}},
+            ),
+        ],
+        "edges": [
+            _edge("trigger", "context"),
+            _edge("context", "capability_gate"),
+            _edge("capability_gate", "output"),
+        ],
+    }
+
+
 def template_graphs() -> list[dict[str, Any]]:
     preview = registry.get("telemetry.preview_score_window")
     preview_digest = tool_schema_digest(preview) if preview else "not_available"
@@ -999,6 +1034,68 @@ def template_graphs() -> list[dict[str, Any]]:
         ("cost-guardrail-query", "Cost Guardrail Query Agent", "Draft shell that demonstrates deterministic budget branching.", None),
         ("sensitive-private-tier", "Sensitive Routing / Private Tier Agent", "Draft shell that fails closed without private model capacity.", None),
         ("ticket-to-pr-evidence", "Ticket-to-PR Evidence Agent", "Dry-run planning shell ending at simulated human approval.", None),
+    ]
+    governed_definitions = [
+        (
+            "governed-ticket-intake",
+            "Ticket Intake Agent",
+            "Governed intake and classification shell; ticket writes remain approval-gated and deferred.",
+            "Ticket intake system integration",
+        ),
+        (
+            "governed-analytics-engineer",
+            "Analytics Engineer Agent",
+            "Governed analytics implementation shell; warehouse and repository mutations remain deferred.",
+            "Analytics engineering execution",
+        ),
+        (
+            "governed-bigquery-sql",
+            "BigQuery SQL Agent",
+            "Governed BigQuery planning shell; query execution requires a registered read-only cost-aware tool.",
+            "BigQuery query execution",
+        ),
+        (
+            "governed-data-quality",
+            "Data Quality Agent",
+            "Governed data-quality shell; source-specific checks require registered deterministic contracts.",
+            "Data-quality source inspection",
+        ),
+        (
+            "governed-looker-dashboard",
+            "Looker Dashboard Agent",
+            "Governed Looker analysis shell; dashboard reads require a registered read-only connector.",
+            "Looker dashboard access",
+        ),
+        (
+            "governed-rag-knowledge",
+            "RAG Knowledge Agent",
+            "Governed retrieval shell; corpus retrieval and citation evaluation remain fail-closed until registered.",
+            "RAG corpus retrieval",
+        ),
+        (
+            "governed-ci-cd-evidence",
+            "CI/CD Evidence Agent",
+            "Governed delivery-evidence shell; CI provider access requires a registered read-only connector.",
+            "CI/CD evidence retrieval",
+        ),
+        (
+            "governed-cost-watchdog",
+            "Cost Watchdog Agent",
+            "Governed cost-monitoring shell; billing reads require a registered deterministic cost source.",
+            "Cost and billing telemetry",
+        ),
+        (
+            "governed-release-notes",
+            "Release Notes Agent",
+            "Governed release-note shell; repository and deployment evidence must be registered before synthesis.",
+            "Release evidence retrieval",
+        ),
+        (
+            "governed-executive-summary",
+            "Executive Summary Agent",
+            "Governed executive-summary shell; authoritative source retrieval must be registered before synthesis.",
+            "Executive source retrieval",
+        ),
     ]
     templates: list[dict[str, Any]] = []
     for index, (key, name, description, graph) in enumerate(definitions):
@@ -1057,6 +1154,17 @@ def template_graphs() -> list[dict[str, Any]]:
                 "edges": edges,
             }
         templates.append({"key": key, "name": name, "description": description, "graph": graph, "sort": index})
+    for offset, (key, name, description, capability) in enumerate(governed_definitions, start=len(definitions)):
+        templates.append(
+            {
+                "key": key,
+                "name": name,
+                "description": description,
+                "graph": _deferred_capability_graph(capability=capability),
+                "sort": offset,
+                "tags": ["template", "governed-agent", "read-only"],
+            }
+        )
     return templates
 
 
@@ -1076,7 +1184,7 @@ def seed_templates(*, env_id: str, business_id: str, actor: str) -> None:
                 env_id=env_id, business_id=business_id, actor=actor,
                 name=template["name"], description=template["description"],
                 graph=AgentGraph.model_validate(template["graph"]),
-                tags=["template", "read-only-mvp"], is_template=True,
+                tags=template.get("tags") or ["template", "read-only-mvp"], is_template=True,
                 template_key=template["key"],
             )
         except psycopg.errors.UniqueViolation:

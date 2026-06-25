@@ -2,7 +2,7 @@
 
 **ADO:** Story #735 under Feature #477 / Epic #476  
 **Risk:** High  
-**Status:** Implemented locally; database application and authenticated browser verification pending  
+**Status:** Deployed and production-verified through API/data evidence; authenticated visual verification pending
 **Last updated:** 2026-06-25
 
 ## Outcome
@@ -68,19 +68,15 @@ Added:
 
 ## Verification
 
-- Focused backend Agent Builder/MCP/AI dispatch/Control Tower suite: 79 passed.
-- Backend Agent Builder persistence/route suite: 26 passed.
-- Ruff: passed.
-- Frontend focused Agent Builder/Control Tower/proxy/schema-order suite: 15 passed.
-- Frontend Agent Builder component suite: 7 passed.
-- Frontend typecheck: passed.
-- Frontend lint: passed.
-- Targeted migration dry-run: migrations 10035 and 10036, 65 statements parsed, none executed.
-- Database application: blocked because no local `DATABASE_URL` or `SUPABASE_DB_URL` is configured.
-- Authenticated browser screenshots: pending database application and a usable local platform session.
+- Migration 10036 is applied in production with tenant RLS and append-only guards.
+- Production eval run `e06f0dcc-2ee8-411c-9ef0-7bc1792feade` completed `staged_ready` with ten
+  results: seven PASS, three explicit N/A, and zero blockers.
+- Staged publish succeeded for immutable workflow `2d28240d-1f89-45a5-95b3-7f45c2979a2e`.
+- GitHub main CI run `28192467071`, Railway health, and Vercel production deployment are green.
+- Authenticated browser screenshots remain blocked until the production telemetry reviewer
+  credentials are populated.
 
 ## Next production ticket
 
-Apply and verify migrations 10035/10036 in an authorized non-production Supabase environment, run
-authenticated desktop/mobile smoke, and attach eval/run/receipt database evidence. After that,
-implement durable approval resume and cancellation before considering production execution.
+Repair the production reviewer credentials and complete authenticated desktop/mobile smoke. After
+that, implement durable approval resume and cancellation before considering production execution.

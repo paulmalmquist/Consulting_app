@@ -4356,6 +4356,9 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
   generated Claude wrapper is missing.
 - Never store credential values in instructions, reports, transcripts, tips, or
   automatic memory.
+- `vercel env ls production` proves only that a variable name exists, not that it has a usable
+  value. Before authenticated production smoke, pull the environment to a temporary file, verify
+  required reviewer values are non-empty without logging them, and delete the file immediately.
 
 ## Overview pages as thesis pages (telemetry Overview redesign)
 

@@ -398,15 +398,77 @@ def test_prompt_budget_blocks_before_provider_call(monkeypatch):
         dispatch.stop()
 
 
-def test_templates_are_six_drafts_and_validate_with_registered_tools():
+def test_templates_include_six_demo_and_ten_governed_drafts():
     templates = agent_builder.template_graphs()
-    assert len(templates) == 6
+    assert len(templates) == 16
     assert templates[0]["key"] == "telemetry-triage"
+    governed = templates[6:]
+    assert [template["key"] for template in governed] == [
+        "governed-ticket-intake",
+        "governed-analytics-engineer",
+        "governed-bigquery-sql",
+        "governed-data-quality",
+        "governed-looker-dashboard",
+        "governed-rag-knowledge",
+        "governed-ci-cd-evidence",
+        "governed-cost-watchdog",
+        "governed-release-notes",
+        "governed-executive-summary",
+    ]
+    assert [template["name"] for template in governed] == [
+        "Ticket Intake Agent",
+        "Analytics Engineer Agent",
+        "BigQuery SQL Agent",
+        "Data Quality Agent",
+        "Looker Dashboard Agent",
+        "RAG Knowledge Agent",
+        "CI/CD Evidence Agent",
+        "Cost Watchdog Agent",
+        "Release Notes Agent",
+        "Executive Summary Agent",
+    ]
+    assert len({template["key"] for template in templates}) == 16
     results = [
         agent_builder.validate_graph(AgentGraph.model_validate(template["graph"]))["status"]
         for template in templates
     ]
-    assert results == ["pass"] * 6
+    assert results == ["pass"] * 16
+
+
+def test_governed_templates_are_zero_tool_fail_closed_graphs():
+    for template in agent_builder.template_graphs()[6:]:
+        candidate = AgentGraph.model_validate(template["graph"])
+        assert candidate.limits.max_tool_calls == 0
+        assert candidate.limits.max_cost_usd == 0
+        assert not any(node.type == "mcp_tool" for node in candidate.nodes)
+        approval = next(node for node in candidate.nodes if node.type == "human_approval")
+        assert "not registered" in approval.config["reason"]
+        output = next(node for node in candidate.nodes if node.type == "output")
+        assert output.config["bindings"]["status"] == "NOT_AVAILABLE"
+
+
+def test_seed_templates_is_idempotent_when_catalog_already_exists(monkeypatch):
+    template_keys = [template["key"] for template in agent_builder.template_graphs()]
+
+    class ExistingTemplatesCursor:
+        def execute(self, *_args, **_kwargs):
+            return None
+
+        def fetchall(self):
+            return [{"template_key": key} for key in template_keys]
+
+    @contextmanager
+    def existing_templates_cursor():
+        yield ExistingTemplatesCursor()
+
+    monkeypatch.setattr(agent_builder, "get_cursor", existing_templates_cursor)
+    create = patch.object(agent_builder, "create_workflow")
+    mocked = create.start()
+    try:
+        agent_builder.seed_templates(env_id=ENV, business_id=BIZ, actor="seed")
+        mocked.assert_not_called()
+    finally:
+        create.stop()
 
 
 def test_deterministic_eval_suite_is_staged_ready_for_valid_read_only_graph():
