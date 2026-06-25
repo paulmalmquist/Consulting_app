@@ -1224,8 +1224,8 @@ curl -s "https://authentic-sparkle-production-7f37.up.railway.app/api/ai/gateway
 
 # Or query Supabase directly (use pooler URL — direct host is IPv6 only and unreachable from most local setups)
 python3 -c "
-import psycopg, json
-conn = psycopg.connect('postgresql://postgres.ozboonlsplroialdwuxj:ripsalesforce8084@aws-1-us-east-1.pooler.supabase.com:6543/postgres')
+import os, psycopg, json
+conn = psycopg.connect(os.environ['DATABASE_URL'])
 cur = conn.cursor(row_factory=psycopg.rows.dict_row)
 cur.execute('SELECT route_lane, route_model, message_preview, tool_call_count, workflow_override, cost_total, elapsed_ms, created_at FROM ai_gateway_logs ORDER BY created_at DESC LIMIT 20')
 for r in cur.fetchall(): print(json.dumps(dict(r), default=str))
@@ -1721,13 +1721,12 @@ Tools are registered in `backend/app/mcp/tools/repe_investor_tools.py` and loade
 
 ## Instruction Routing Contract (March 2026)
 
-- `CLAUDE.md` is now the single global markdown router for repo-local prompt behavior. Do not add repo-wide dispatch tables to downstream `agents/*.md`, `skills/*.md`, or prompt docs.
-- Routed markdown docs now require the shared YAML front matter contract: `id`, `kind`, `status`, `source_of_truth`, `topic`, `owners`, `intent_tags`, `triggers`, `entrypoint`, `handoff_to`, `when_to_use`, `when_not_to_use`.
-- Keep skill-loader fields like `name` and `description` when a skill already uses them; add routing metadata on top instead of replacing them.
-- Every routed doc must be listed in `docs/instruction-index.md`. If a new routed markdown file is added and it is not in the index, the validator should fail.
-- Run `npm run validate:instructions` after changing routed markdown metadata or the registry.
-- Run `npm run test:instructions` after changing routing rules, triggers, or the example fixture set.
-- Use `status: archived` plus `entrypoint: false` for legacy prompt docs that must remain in the repo for history but should no longer act like alternate execution entrypoints.
+- Superseded 2026-06-25: `config/instruction-routing.json` is the machine-readable routing source of truth. `CLAUDE.md` is the compact startup contract, not the complete route inventory.
+- Claude Code discovers project skills under `.claude/skills/<name>/SKILL.md`. Generated wrappers delegate to canonical bodies under `skills/` or `.skills/`; edit the canonical body, then run `npm run generate:instructions`.
+- `docs/instruction-index.md` is generated from the registry. Do not hand-edit its table.
+- Root `agents/*.md` files are OpenClaw role contracts, not Claude Code subagent definitions.
+- The validator must fail on missing route sources, missing Claude wrappers, duplicate IDs/commands, or unknown handoffs.
+- Run `npm run generate:instructions`, `npm run validate:instructions`, and `npm run test:instructions` after routing, skill, or lifecycle changes.
 
 ## Prompt-to-Skill Normalization (March 2026)
 
@@ -3034,9 +3033,9 @@ Hierarchy + board hygiene decisions:
 - Test scenarios belong as `Test Case` items linked to their Story (via parent relation), or as Tasks under a test Story — not as peer User Stories.
 - Sprint 1 of a new ADO operating rhythm should be foundation work (board cleanup, CI confidence, app shell, auth, multi-tenant isolation, capability manifest), 5–8 Stories max. Defer not-yet-started feature work (Morning Book, REPE, IE) to later sprints even if it was drafted first.
 - Only create child Tasks for the current sprint's Stories. Do not pre-task the whole backlog.
-- ADO-first is now the default way of working. Every non-trivial coding request routes through `.skills/azure-devops-intake/SKILL.md` (classify → locate → propose → create → Session Brief → handoff to `feature-dev`) before any code is written. The only bypass is an explicit throwaway experiment or a harmless copyedit/typo/one-line non-behavioral tweak — and the bypass never applies to instruction/governance files (`CLAUDE.md`, `skills/`, `.skills/`, `docs/plans/`, AI behavior/deploy/security docs). Full standard: `docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md`.
+- Superseded 2026-06-25: ADO is risk-based. R0 read-only work needs no item; R1 focused reversible changes reuse an item when useful but do not require new intake; R2 schema/security/MCP/infra/production/deploy/governance/multi-session work requires an approved Story/Bug and Session Brief.
 - ADO state discipline for coding agents: `Active` at start, `Resolved` when code/tests/evidence are ready, `Closed` only when the PR is merged and deploy/smoke is verified. A local-only pass never closes a work item. Every session also appends an ADO discussion comment (branch/commit/PR, files, tests, evidence, risks, next item) — a bare state change is not an audit trail.
-- If the Azure DevOps CLI is unavailable or unauthenticated during intake, stop before coding and emit an "ADO Unavailable Blocker" note with the exact command and error. Do not silently proceed; proceed only on an explicit, marked user exception.
+- If ADO is unavailable, block R2 mutation and report the exact error. R0 analysis and safe R1 local work may continue.
 
 ### RS MLOps team board is the control tower for RS/telemetry work (2026-06-24)
 
@@ -3909,10 +3908,10 @@ runs it with `-SkipCI`. Two traps that cost real time:
   from the Bash tool (or a Bash heredoc with escaped `$`) mangles the command/encoding and produces a
   bogus "parse error" / `ERRORS: 1`. The script is valid UTF-8-with-BOM and parses clean; confirm with
   `[System.Management.Automation.Language.Parser]::ParseFile(path,[ref]$null,[ref]$errs)` in PowerShell.
-- **The gate flags its own pattern-definition strings.** The PR that adds or edits the gate trips its own
-  skip-marker check (its skip-pattern array reads as added skip markers) and its secrets scan (its
-  secret-pattern array reads as secret-shaped lines). That is a false positive limited to the gate's own
-  diff — bootstrap *that one* PR with `--no-verify`; unrelated PRs that don't touch the gate run clean.
+- **Exclude the gate from its own skip-marker diff.** Pattern definitions can look like new test
+  annotations. The checker now diffs the branch while excluding
+  `scripts/winston/merge_gate.ps1`; keep that exclusion when adding patterns. Test-skip matching also
+  uses word boundaries so Python process exits are not mistaken for JavaScript disabled-test shorthand.
 - **It lives only when present in the worktree.** It is referenced by `<toplevel>/scripts/winston/...`,
   so a branch/worktree cut from a base that lacks the file makes the hook fail file-not-found. Keeping it
   tracked on `main` is what lets the hook run from any worktree.
@@ -4299,3 +4298,28 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
 - **`describe` prints a human `Schema ID:/Type:/Schema:` block, not JSON.** To make a `.json` artifact: capture stdout only (no `2>&1`), parse out id/type, and emit `{subject, version, id, schemaType, schema}`. **JSON**-type subjects embed the parsed schema object; **PROTOBUF/AVRO** subjects embed the raw schema text as a string (the protobuf telemetry subject's body is a `.proto`, not JSON — don't `JSON.parse` it).
 - **Always validate exported schema JSON before committing:** `json.load` each file AND grep for `Error:`, `Usage:`, `failed`, `Unauthorized`, `Forbidden`. (Note `confluent` alone is a false-positive grep: real Avro schemas contain `io.confluent.connect.*` annotation keys.)
 - **Never hand-write a schema export when live Schema Registry is reachable** — query it (`confluent schema-registry schema list` / `describe --subject … --version latest`) so the artifact matches the registered subject/id exactly.
+
+## Claude session and routing lessons (2026-06-25)
+
+- Claude project skills must be discoverable under `.claude/skills/`. Keep the
+  procedural source in one canonical `skills/` or `.skills/` body and generate a
+  thin wrapper; otherwise direct skill invocation fails as "Unknown skill."
+- The shared checkout is unsafe when multiple agents run. Create a dedicated
+  worktree from fresh `origin/main` before mutation, and never branch-switch,
+  reset, clean, stage, or commit the shared checkout.
+- A continuation starts with a state delta: git HEAD/diff, worktrees, selected
+  plan, active PR, ADO item, tests, and deploy state. Conversation history is
+  supporting context, not the current source of truth.
+- The current runtime map is `backend/`, `repo-b/`, `telemetry-platform/`,
+  `excel-addin/`, `orchestration/`, `scripts/`, and persistence assets.
+  `repo-c/` is retired; lab compatibility APIs live in `backend/`.
+- ADO is risk-based: R0 read-only, R1 focused reversible, R2 governed.
+- Full delivery means tests → commit/push → PR/CI → merge → applicable
+  main-branch deploy → smoke verification. Frontend deploys from merged main;
+  backend deploys only from a clean main checkout.
+- `docs/tips.md` stores durable repeated lessons. Temporary branch, PR, and task
+  state belongs in ADO, the active plan, `next-session.md`, or local memory.
+- Instruction validation must be Windows-safe and fail when an active target or
+  generated Claude wrapper is missing.
+- Never store credential values in instructions, reports, transcripts, tips, or
+  automatic memory.

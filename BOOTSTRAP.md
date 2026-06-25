@@ -1,3 +1,5 @@
 # Bootstrap
 
-Winston workspace bootstrap is complete. Use the repository files and [tips.md](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/tips.md) as the persistent operating context.
+Resolve the repository root and run the `winston-session-start` workflow before
+continuing prior work or editing files. Use targeted sections of
+`docs/tips.md` for durable operating context.

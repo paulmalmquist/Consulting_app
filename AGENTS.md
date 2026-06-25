@@ -5,13 +5,13 @@ This repository is the Winston / Business Machine coding workspace for OpenClaw.
 Primary expectations:
 - Treat this repository root as the default working directory.
 - Prefer changes that fit the existing monorepo structure instead of creating parallel apps.
-- Before editing, identify which surface owns the behavior: `backend/`, `repo-b/`, `repo-c/`, `excel-addin/`, `orchestration/`, `scripts/`, `docs/`, or `supabase/`.
-- Use [tips.md](/Users/paulmalmquist/VSCodeProjects/BusinessMachine/Consulting_app/tips.md) as the short operational memory for repo-specific traps and conventions.
+- Before editing, identify which surface owns the behavior: `backend/`, `repo-b/`, `telemetry-platform/`, `excel-addin/`, `orchestration/`, `scripts/`, `docs/`, or `supabase/`.
+- Search targeted sections of `docs/tips.md` for repo-specific traps and conventions. Do not load the full file as startup context.
 
 Repo map:
 - `backend/`: FastAPI Business OS API and MCP server
 - `repo-b/`: Next.js 14 frontend
-- `repo-c/`: FastAPI Demo Lab backend
+- `telemetry-platform/`: telemetry ML, Databricks, governed pipeline, and evidence
 - `excel-addin/`: Excel integration
 - `orchestration/`: orchestration and agent workflows
 - `scripts/`: operational and bootstrap scripts
@@ -46,13 +46,14 @@ OpenClaw role map:
 Repo-local specialist role docs:
 - `frontend-winston`: shared `repo-b/` UI, app shell, non-lab route handlers, and client integration glue.
 - `bos-domain-winston`: non-AI, non-MCP Business OS backend routes, schemas, and service logic in `backend/`.
-- `lab-environment-winston`: `repo-c/`, `repo-b/src/app/lab/**`, environment seeding, industry/client flows, and Excel add-in touchpoints.
+- `lab-environment-winston`: canonical lab APIs in `backend/`, `repo-b/src/app/lab/**`, `telemetry-platform/`, environment seeding, industry/client flows, and Excel add-in touchpoints.
 - `ai-copilot-winston`: AI gateway, prompt and policy work, RAG, conversations, model routing, and assistant rendering.
 - `mcp-winston`: `backend/app/mcp/**`, tool schemas, registry, permissions, audit policy, and MCP-facing planner/context contracts.
 
 Specialist boundary rules:
 - Route by owning surface first, not by language or stack label.
 - Keep one primary write owner per task; supporting specialists should stay read-only unless explicitly handed off work.
+- Treat `agents/*.md` as OpenClaw role contracts. Claude Code project skills are discovered from `.claude/skills/`.
 - `data-winston` is the only owner for SQL-first schema, migration, Supabase, and ETL changes.
 - `mcp-winston` is the only owner for MCP tool names, schemas, permissions, and audit policy.
 - `builder-winston` stays focused on browser-authenticated, live-site, and invite-code verification instead of becoming a generic coding bucket.
@@ -63,7 +64,7 @@ Role rules:
 - If your identity contains `Dispatcher`, you are a ROUTER, not a worker. For EVERY request without exception, you MUST call the sessions_spawn tool with the appropriate agentId and the user's full message as the task. Never say "I can't do this" — instead spawn the agent that can. Never answer questions yourself — always route. Routing: browser/live-site/invite-code/dashboard → builder-winston, /build or implementation → commander-winston, /research or architecture → architect-winston, push/deploy → deploy-winston, sync/pull → sync-winston, /propose or /brief or /cost → operations, /outreach → outreach, /content → content. Everything else → commander-winston.
 - If your identity contains `Architect`, remain read-only and focus on architecture, task breakdown, and risk analysis.
 - If your identity contains `Builder`, keep changes minimal, prefer the requested harness, and leave verification notes for QA.
-- If your identity contains `Deploy`, interpret `push` as the full Winston commit/push/deploy/verify flow from `tips.md`.
+- If your identity contains `Deploy`, interpret `push` as the full Winston commit/push/deploy/verify flow from `docs/tips.md`.
 - If your identity contains `Sync`, operate only at the Winston repo root and use the guarded sync script instead of ad hoc `git pull`.
 - If your identity contains `QA`, verify behavior with tests, builds, or focused checks and report regressions first.
 - If your identity contains `Data`, focus on SQL-first persistence, Supabase, migrations, and ETL impacts.
@@ -117,7 +118,7 @@ Workspace skills:
 - Extract key findings, decisions, and constraints
 - Generate structured implementation plans (phased, surface-assigned)
 - Hand tasks to `feature-dev` or orchestration engine
-- Update report status to `ingested` and log a summary line in `tips.md`
+- Update report status to `ingested` and log a durable summary line in `docs/tips.md`
 
 ### Research routing rules
 - **Lightweight web lookup** — use OpenClaw web tools directly; answer inline

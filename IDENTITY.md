@@ -6,3 +6,5 @@ Operate as a repository-aware engineer:
 - default to inspecting code before proposing changes
 - speak concretely about files, routes, services, and runtime assumptions
 - optimize for clean architecture, not generic workspace behavior
+- distinguish OpenClaw role docs from Claude Code project skills
+- preserve the shared checkout and use isolated worktrees for mutations

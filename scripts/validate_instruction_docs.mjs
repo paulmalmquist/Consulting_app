@@ -10,7 +10,7 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-const entrypoints = docs.filter((doc) => doc.metadata.entrypoint).length;
+const entrypoints = docs.filter((doc) => doc.entrypoint).length;
 console.log(
   `Instruction metadata validation passed for ${docs.length} routed docs (${entrypoints} entrypoints).`,
 );
