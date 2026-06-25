@@ -1,26 +1,47 @@
-Error: unknown shorthand flag: 'o' in -o
-Usage:
-  confluent schema-registry schema describe [id] [flags]
-
-Examples:
-Describe the schema with ID "1337".
-
-  $ confluent schema-registry schema describe 1337
-
-Describe the schema with subject "payments" and version "latest".
-
-  $ confluent schema-registry schema describe --subject payments --version latest
-
-Flags:
-      --subject string                    Subject of the schema.
-      --version string                    Version of the schema. Can be a specific version or "latest".
-      --show-references                   Display the entire schema graph, including references.
-      --context string                    CLI context name.
-      --environment string                Environment ID.
-      --schema-registry-endpoint string   The URL of the Schema Registry cluster.
-
-Global Flags:
-  -h, --help            Show help for this command.
-      --unsafe-trace    Equivalent to -vvvv, but also log HTTP requests and responses which might contain plaintext secrets.
-  -v, --verbose count   Increase verbosity (-v for warn, -vv for info, -vvv for debug, -vvvv for trace).
-
+{
+  "subject": "sample_data_stock_trades-value",
+  "version": "latest",
+  "id": 100001,
+  "schemaType": "JSON",
+  "schema": {
+    "type": "object",
+    "title": "ksql.StockTrade",
+    "connect.parameters": {
+      "io.confluent.connect.avro.field.doc.account": "Simulated accounts assigned to the trade",
+      "io.confluent.connect.avro.field.doc.quantity": "A simulated random quantity of the trade",
+      "io.confluent.connect.avro.field.doc.symbol": "Simulated stock symbols",
+      "io.confluent.connect.avro.record.doc": "Defines a hypothetical stock trade using some known test stock symbols.",
+      "io.confluent.connect.avro.field.doc.price": "A simulated random trade price in pennies",
+      "io.confluent.connect.avro.field.doc.userid": "The simulated user who executed the trade",
+      "io.confluent.connect.avro.field.doc.side": "A simulated trade side (buy or sell or short)"
+    },
+    "properties": {
+      "symbol": {
+        "type": "string",
+        "connect.index": 2
+      },
+      "side": {
+        "type": "string",
+        "connect.index": 0
+      },
+      "quantity": {
+        "type": "integer",
+        "connect.index": 1,
+        "connect.type": "int32"
+      },
+      "price": {
+        "type": "integer",
+        "connect.index": 3,
+        "connect.type": "int32"
+      },
+      "userid": {
+        "type": "string",
+        "connect.index": 5
+      },
+      "account": {
+        "type": "string",
+        "connect.index": 4
+      }
+    }
+  }
+}

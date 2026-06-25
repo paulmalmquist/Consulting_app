@@ -141,3 +141,14 @@ verification pending owner-role access. Do **not** start Ticket 2 until `10034` 
 
 **Risks/unknowns:** owner credential is the interactive Databricks human login (not in Railway/Vercel/
 Supabase). No Stargate→Delta mapping yet (pointers stay `not_available`).
+
+## Cleanup — Stargate schema exports (2026-06-24)
+
+Before Ticket 4: the 4 files under `infra/confluent/stargate/schemas/` held a Confluent CLI **error
+dump**, not schemas (born corrupted in `1de9b66e`). Root cause: the lifecycle `export` action ran
+`confluent schema-registry schema describe … -o json 2>&1 > file`, but `schema describe` has **no `-o`
+flag**, so the error was redirected into the file. Regenerated all 4 from live Schema Registry
+(env `env-vwkk2z`) into clean `{subject, version, id, schemaType, schema}` JSON — JSON-type subjects
+embed the parsed schema, the PROTOBUF telemetry subject embeds the raw `.proto` text. Fixed the exporter
+in `skills/confluent-stargate-lifecycle/scripts/lifecycle.ps1` so future exports don't re-corrupt.
+Validated: valid JSON, no CLI error strings, expected subjects/ids. Schema-artifact cleanup only.
