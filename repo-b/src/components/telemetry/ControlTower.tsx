@@ -29,6 +29,7 @@ import {
   verifyReceipt,
   warmGemma,
 } from "@/lib/telemetry/controlTower-api";
+import AgentBuilder, { type ControlTowerTab } from "./AgentBuilder";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 // Truth label: every panel says where its data comes from. Never imply live execution over a fixture.
