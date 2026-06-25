@@ -33,6 +33,40 @@ export interface ReplayFeed {
   };
   feed: ReplayTick[];
   null_reason?: string | null;
+  // Additive replay diagnostics from the backend (Ticket 2 — Replay Model Diagnostics API). Optional
+  // and nullable for backward-compatibility with older payloads / consumers.
+  scoringDiagnostics?: ReplayScoringDiagnostics | null;
+  lineage?: ReplayLineage | null;
+}
+
+// The frozen serving threshold (MAD_K * GLOBAL_TRAIN_SCALE — the SAME threshold /score applies) PLUS the
+// honest divergence facts the backend computes from the committed fixture: whether that threshold actually
+// reproduces the champion's firing. For D-4 it does NOT — every fired tick sits below the global-fallback
+// threshold, so the champion fires on a tighter per-channel scale the serving constants do not carry. We
+// surface that divergence (per_channel_caveat) rather than invent a per-tick verdict that contradicts model_pred.
+export interface ReplayScoringDiagnostics {
+  mad_k: number;
+  global_train_scale: number;
+  threshold_residual_units: number;
+  threshold_source: string;
+  residual_definition: string;
+  fired_ticks: number;
+  fired_ticks_above_threshold: number;
+  max_fired_residual: number | null;
+  threshold_reproduces_firing: boolean;
+  per_channel_caveat: string | null;
+  fixture_score_degenerate: boolean;
+  note: string;
+}
+
+// Reproducibility chain echoed from the replay fixture provenance (no DB).
+export interface ReplayLineage {
+  databricks_catalog: string | null;
+  source_table: string | null;
+  champion_model: string | null;
+  champion_mlflow_run_id_fixture: string | null;
+  scoring_notebook: string | null;
+  backend_route: string | null;
 }
 
 export interface ModelRun {

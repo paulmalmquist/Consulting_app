@@ -160,3 +160,47 @@ def test_monitoring_no_predictions(client, fake_cursor):
     d = resp.json()
     assert d["prediction_count"] == 0
     assert d["null_reason"] == "no_prediction_rows"
+
+
+def test_replay_returns_scoring_diagnostics_and_lineage(client):
+    """Additive replay diagnostics: the frozen MAD threshold + reproducibility lineage, DB-free and
+    backward-compatible (existing top-level keys + feed[] rows unchanged)."""
+    import app.services.telemetry_serving as svc
+    svc._replay_cache = None  # force a fresh fixture load through the enrichment path
+    resp = client.get("/api/telemetry/replay")
+    assert resp.status_code == 200
+    d = resp.json()
+    # back-compat: existing shape preserved; feed rows keep exactly their original 6 keys
+    assert isinstance(d["feed"], list) and len(d["feed"]) > 0
+    assert d["provenance"]["champion_model"].endswith("tel_anomaly_detector@champion")
+    assert set(d["feed"][0]) == {"t", "value", "rmean", "score", "model_pred", "is_anomaly"}
+    # scoringDiagnostics: the REAL frozen detector threshold (not the degenerate fixture score)
+    sd = d["scoringDiagnostics"]
+    assert sd["mad_k"] == svc.MAD_K
+    assert sd["global_train_scale"] == svc.GLOBAL_TRAIN_SCALE
+    assert sd["threshold_residual_units"] == svc.DETECTOR_THRESHOLD == svc.MAD_K * svc.GLOBAL_TRAIN_SCALE
+    assert sd["fixture_score_degenerate"] is True
+    # honest divergence (computed from the committed fixture): the serving global-fallback threshold does
+    # NOT reproduce the champion's D-4 firing — no fired tick exceeds it, so model_pred is authoritative.
+    assert sd["fired_ticks"] == 412
+    assert sd["fired_ticks_above_threshold"] == 0
+    assert sd["threshold_reproduces_firing"] is False
+    assert sd["max_fired_residual"] < sd["threshold_residual_units"]
+    assert "per-channel" in sd["per_channel_caveat"]
+    # lineage: reproducibility chain echoed from the fixture provenance (no fabrication)
+    ln = d["lineage"]
+    assert ln["source_table"] == d["provenance"]["source_table"]
+    assert ln["champion_model"] == d["provenance"]["champion_model"]
+    assert ln["champion_mlflow_run_id_fixture"] == d["provenance"]["champion_mlflow_run_id"]
+    assert ln["databricks_catalog"] == "novendor_1.telemetry"
+    assert "11_score_replay_feed.py" in ln["scoring_notebook"]
+
+
+def test_replay_threshold_matches_live_score_threshold():
+    """The exposed replay threshold must equal the live /score threshold (MAD_K*GLOBAL_TRAIN_SCALE) so
+    the forensics surface can never invent a second threshold."""
+    import app.services.telemetry_serving as svc
+    svc._replay_cache = None
+    sd = svc.replay_feed()["scoringDiagnostics"]
+    assert sd["threshold_residual_units"] == 0.13546720472974538
+    assert sd["threshold_residual_units"] == svc.MAD_K * svc.GLOBAL_TRAIN_SCALE

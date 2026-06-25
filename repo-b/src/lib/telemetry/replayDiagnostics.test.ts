@@ -180,3 +180,59 @@ describe("NA_REASONS", () => {
     }
   });
 });
+
+describe("computeReplayDiagnostics — scoring diagnostics (Ticket 2)", () => {
+  it("is fail-closed (scoringAvailable false, all scoring fields null) when the payload has no scoringDiagnostics", () => {
+    const d = computeReplayDiagnostics(feed); // `feed` carries no scoringDiagnostics
+    expect(d.scoringAvailable).toBe(false);
+    expect(d.threshold).toBeNull();
+    expect(d.firedAboveThreshold).toBeNull();
+    expect(d.maxFiredResidual).toBeNull();
+    expect(d.thresholdReproducesFiring).toBeNull();
+    expect(d.perChannelCaveat).toBeNull();
+  });
+
+  // The real D-4 shape: the serving global-fallback threshold does NOT reproduce the champion's firing
+  // (every fired tick sits below it), so the backend reports the divergence and we surface it verbatim.
+  const scored: ReplayFeed = {
+    ...feed,
+    scoringDiagnostics: {
+      mad_k: 4, global_train_scale: 0.0339, threshold_residual_units: 0.135467,
+      threshold_source: "serving global-scale fallback",
+      residual_definition: "residual = abs(value - rmean)",
+      fired_ticks: 412, fired_ticks_above_threshold: 0, max_fired_residual: 0.0699,
+      threshold_reproduces_firing: false,
+      per_channel_caveat: "The serving global-scale fallback threshold does NOT reproduce the champion's D-4 firing.",
+      fixture_score_degenerate: true, note: "test",
+    },
+  };
+  const d = computeReplayDiagnostics(scored);
+
+  it("surfaces the backend divergence facts verbatim and never invents a per-tick verdict", () => {
+    expect(d.scoringAvailable).toBe(true);
+    expect(d.threshold).toBe(0.135467);
+    expect(d.madK).toBe(4);
+    expect(d.firedTicksScored).toBe(412);
+    expect(d.firedAboveThreshold).toBe(0);
+    expect(d.maxFiredResidual).toBeCloseTo(0.0699, 6);
+    expect(d.thresholdReproducesFiring).toBe(false);
+    expect(d.perChannelCaveat).toMatch(/does NOT reproduce/i);
+    // internally consistent: the largest fired residual sits BELOW the serving threshold
+    expect(d.maxFiredResidual!).toBeLessThan(d.threshold!);
+  });
+
+  it("still reports the real residual at the first fire (the trustworthy quantity), degenerate score flagged", () => {
+    // fire tick t=10: residual |1.0-(-0.9)| = 1.9; the fixture score there is the degenerate 1.48e12
+    expect(d.residualAtFire).toBeCloseTo(1.9, 6);
+    expect(d.scoreIsDegenerate).toBe(true);
+    expect(d.residualAtFire).not.toBe(d.scoreAtFire);
+  });
+
+  it("inspectTick no longer fabricates a per-tick verdict — it returns the real residual only", () => {
+    const insp = inspectTick(scored, 10);
+    expect(insp!.residual).toBeCloseTo(1.9, 6);
+    // the removed per-tick verdict fields must not reappear on the shape
+    expect((insp as Record<string, unknown>).verdict).toBeUndefined();
+    expect((insp as Record<string, unknown>).realScore).toBeUndefined();
+  });
+});
