@@ -66,7 +66,9 @@ export function MetricCard({ label, value, sub, accent }: {
 
 // Intentional "fail-closed / nothing here yet" state — a designed card with an amber status dot,
 // NOT a broken-looking dashed box. Used wherever a real value is honestly unavailable.
-export function EmptyState({ label, hint }: { label: string; hint: string }) {
+// `nullReason` (when provided) surfaces the SPECIFIC fail-closed reason from the data contract
+// (e.g. EvidenceContract.null_reason) on its own line — never invents a generic message.
+export function EmptyState({ label, hint, nullReason }: { label: string; hint: string; nullReason?: string | null }) {
   return (
     <div style={{ border: `1px solid ${C.amber}33`, background: `${C.amber}0d`, borderRadius: 9, padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -74,6 +76,11 @@ export function EmptyState({ label, hint }: { label: string; hint: string }) {
         <span style={{ fontFamily: C.mono, fontSize: 13, color: C.amber, letterSpacing: "0.02em" }}>{label}</span>
       </div>
       <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.dim, marginTop: 8, lineHeight: 1.55, paddingLeft: 17 }}>{hint}</div>
+      {nullReason ? (
+        <div style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, marginTop: 8, paddingLeft: 17, overflowWrap: "anywhere" }}>
+          <span style={{ color: C.dim }}>reason: </span>{nullReason}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -257,27 +264,63 @@ export function StatusDot({ color, size = 8, glow = true }: { color: string; siz
 }
 
 // Mono label/value row (the most-duplicated card/console line). border-bottom
-// optional so it composes into lists.
-export function MetricRow({ label, value, tone, divider = true }: {
+// optional so it composes into lists. When `onDrill` is set the row becomes a
+// button with a subtle "›" drill affordance (use with MetricInspectorDrawer);
+// without it the markup is unchanged (existing call sites are untouched).
+export function MetricRow({ label, value, tone, divider = true, onDrill, drillLabel }: {
   label: ReactNode; value: ReactNode; tone?: string; divider?: boolean;
+  onDrill?: () => void; drillLabel?: string;
 }) {
-  return (
-    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
-      padding: "7px 0", borderBottom: divider ? `1px solid ${C.border}` : undefined }}>
-      <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>{label}</span>
-      <span style={{ fontFamily: C.mono, fontSize: 12, color: tone || C.text, textAlign: "right" }}>{value}</span>
-    </div>
+  const rowStyle: CSSProperties = {
+    display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
+    padding: "7px 0", borderBottom: divider ? `1px solid ${C.border}` : undefined,
+  };
+  const labelEl = <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint }}>{label}</span>;
+  const valueEl = (
+    <span style={{ fontFamily: C.mono, fontSize: 12, color: tone || C.text, textAlign: "right",
+      display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {value}
+      {onDrill && <span aria-hidden style={{ color: C.faint, fontSize: 13, lineHeight: 1 }}>›</span>}
+    </span>
   );
+  if (onDrill) {
+    return (
+      <button type="button" onClick={onDrill} aria-label={drillLabel}
+        style={{ ...rowStyle, width: "100%", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}>
+        {labelEl}
+        {valueEl}
+      </button>
+    );
+  }
+  return <div style={rowStyle}>{labelEl}{valueEl}</div>;
 }
 
-// Stacked label-over-value stat (used in metric blocks / strips).
-export function Stat({ label, value, tone }: { label: ReactNode; value: ReactNode; tone?: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+// Stacked label-over-value stat (used in metric blocks / strips). Optional
+// `onDrill` makes it an inspectable button with a "›" affordance; otherwise the
+// markup is unchanged.
+export function Stat({ label, value, tone, onDrill, drillLabel }: {
+  label: ReactNode; value: ReactNode; tone?: string; onDrill?: () => void; drillLabel?: string;
+}) {
+  const inner = (
+    <>
       <span style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: tone || C.text }}>{value}</span>
-    </div>
+      <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: tone || C.text,
+        display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {value}
+        {onDrill && <span aria-hidden style={{ color: C.faint, fontSize: 12, lineHeight: 1 }}>›</span>}
+      </span>
+    </>
   );
+  const colStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 3 };
+  if (onDrill) {
+    return (
+      <button type="button" onClick={onDrill} aria-label={drillLabel}
+        style={{ ...colStyle, alignItems: "flex-start", background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
+        {inner}
+      </button>
+    );
+  }
+  return <div style={colStyle}>{inner}</div>;
 }
 
 // Mono inline code for ids / null_reason / formulas / version strings.

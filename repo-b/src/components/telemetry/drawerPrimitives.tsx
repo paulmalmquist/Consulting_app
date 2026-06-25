@@ -79,3 +79,24 @@ export function DrawerWrapper({ open, onClose, children }: {
     </Dialog.Root>
   );
 }
+
+// Reusable metric-inspector drawer: header + a fail-closed FieldRow list + optional
+// extra sections (provenance, formulas, a chart). The standard drill target for a
+// MetricRow/Stat `onDrill` — compose, don't build a new drawer per page. Each missing
+// field renders "Not available" via FieldRow, never blank.
+export function MetricInspectorDrawer({ open, onClose, title, description, fields, children }: {
+  open: boolean; onClose: () => void; title: ReactNode; description?: ReactNode;
+  fields: { label: string; value: unknown }[]; children?: ReactNode;
+}) {
+  return (
+    <DrawerWrapper open={open} onClose={onClose}>
+      <DrawerHeader title={title} description={description} />
+      <div style={{ marginTop: 16 }}>
+        {fields.map((f) => (
+          <FieldRow key={f.label} label={f.label} value={f.value} />
+        ))}
+      </div>
+      {children}
+    </DrawerWrapper>
+  );
+}

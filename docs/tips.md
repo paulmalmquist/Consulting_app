@@ -4436,6 +4436,15 @@ Scaffold for landing the raw Stargate printer Kafka stream into `novendor_1.tele
 - **Bronze table created + verified:** `bronze_ddl()` via `DatabricksClient.execute_sql` made `novendor_1.telemetry.bronze_stargate_printer` at Delta **version 0** (managed, partitioned by `ingest_date`, 0 rows, columns match the contract). `CREATE TABLE IF NOT EXISTS` is idempotent, so the loader can re-run it harmlessly.
 - **The Kafka read is the real gate, not Databricks.** `CONFLUENT_API_KEY`/`CONFLUENT_API_SECRET` are absent in shell env, `backend/.env`, and Railway `authentic-sparkle` (which only has `TELEMETRY_KAFKA_CONSUMER_ENABLED=0`). The cluster `lkc-gqpvvyv` is reachable (confluent CLI is authed; broker `pkc-619z3.us-east1.gcp.confluent.cloud:9092`), but `confluent_kafka` (2.14.2, importable) fails closed without SASL creds: `KafkaError _INVALID_ARG "sasl.username and sasl.password must be set"`. The CLI's SSO session is NOT SASL creds — the Python/Spark client needs a minted API key+secret. To land data: mint a scoped read API key → store in a Databricks secret scope → submit the loader as a bounded one-shot job with broker egress.
 
+## Telemetry primitive drill + null-state pattern (PR 1.1, 2026-06-25)
+
+Reusable drill-down without per-page drawers, all in `repo-b/src/components/telemetry/`:
+
+- **`MetricRow` / `Stat` take an optional `onDrill?: () => void` (+ `drillLabel` for the aria-label).** When set they render as a `<button>` with a subtle `›` affordance; when absent the markup is byte-identical to before, so existing call sites are untouched (no migration). Drive a drawer's open-state from `onDrill`.
+- **`MetricInspectorDrawer({ open, onClose, title, description, fields, children })`** in `drawerPrimitives.tsx` is the standard drill target — `DrawerWrapper` + `DrawerHeader` + a `FieldRow` list + optional extra sections. Don't hand-build a drawer per metric; compose this. Each missing field value fails closed to "Not available" via `FieldRow`.
+- **`EmptyState` takes optional `nullReason`** — surface `EvidenceContract.null_reason` (the specific reason) on its own line instead of a generic message. Keep the existing `label`/`hint`.
+- **Tests:** `npx vitest run src/components/telemetry/primitivesDrill.test.tsx` (button fires `onDrill`; no button without it; `nullReason` shows/omits; drawer renders title+fields and fail-closes missing values). Radix Dialog renders into a portal, so `screen.getByText` finds drawer content when `open`.
+
 ## Evidence-freeze guard for the frozen ML artifacts (PR 0.2, 2026-06-25)
 
 The five `telemetry-platform/*_evidence.json` (rul_conformal, regime_anomaly, competence_envelope, lead_lag_attribution, event_windowed_analog) carry the numbers + caveats the telemetry surface presents as proof. `backend/tests/test_evidence_freeze.py` locks them so any refactor that drifts a number or weakens a caveat fails CI.
