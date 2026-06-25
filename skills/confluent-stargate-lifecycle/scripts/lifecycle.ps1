@@ -164,14 +164,29 @@ function Do-Export {
   }
   Say "exported $($topicNames.Count) topics" 'Green'
 
-  # schema subjects (latest version each)
+  # schema subjects (latest version each).
+  # NOTE: `schema describe` does NOT support `-o json` (unlike the cluster/topic/pool describe
+  # commands above). Passing it errors, and a blind `2>&1 > file` writes the CLI error dump INTO the
+  # schema file. So: capture stdout only (no 2>&1) and parse the human "Schema ID:/Type:/Schema:"
+  # output into a clean {subject, version, id, schemaType, schema} doc. JSON schemas embed the parsed
+  # object; PROTOBUF/AVRO embed the raw schema text as a string. A bad/empty describe is skipped, never
+  # written. (Re-corrupting these files is exactly the bug fix/stargate-schema-exports addressed.)
   $subs = & confluent schema-registry subject list --environment $ENV_ID -o json 2>&1 | ConvertFrom-Json
   $subjNames = @()
   foreach ($s in $subs) {
-    $subjNames += $s.subject
     $safe = ($s.subject -replace '[^\w\.\-]','_')
-    & confluent schema-registry schema describe --subject $s.subject --version latest --environment $ENV_ID -o json 2>&1 |
-      Out-File -Encoding utf8 (Join-Path $IacDir 'schemas' "$safe.json")
+    $raw = & confluent schema-registry schema describe --subject $s.subject --version latest --environment $ENV_ID 2>$null
+    $text = ($raw -join "`n")
+    if ($text -match 'Error:|Usage:' -or [string]::IsNullOrWhiteSpace($text)) {
+      Say "  skipped schema $($s.subject) (describe returned no schema)" 'Yellow'; continue
+    }
+    $id   = if ($text -match 'Schema ID:\s*(\d+)') { [int]$Matches[1] } else { $null }
+    $type = if ($text -match 'Type:\s*(\w+)')      { $Matches[1] }       else { $null }
+    $body = if ($text -match '(?s)Schema:\s*\n(.*)$') { $Matches[1].Trim() } else { '' }
+    $schema = if ($type -eq 'JSON') { $body | ConvertFrom-Json } else { $body }  # proto/avro: raw text
+    $doc = [ordered]@{ subject = $s.subject; version = 'latest'; id = $id; schemaType = $type; schema = $schema }
+    $doc | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $IacDir 'schemas' "$safe.json")
+    $subjNames += $s.subject
   }
   Say "exported $($subjNames.Count) schema subjects" 'Green'
 

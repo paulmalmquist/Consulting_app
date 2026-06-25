@@ -4292,3 +4292,9 @@ claims as fact unless sourced; keep era framing general (access → cost → reu
   env access) + `BOS_API_ORIGIN=<railway backend>` so `/api/telemetry/*` proxies to real data; junction
   `node_modules` into the worktree; Playwright at 1440×900, env `telemetry-demo`. The playwright.config
   webServer already sets `PLAYWRIGHT_BYPASS_AUTH=1` for `tests/*.spec.ts`.
+
+**Schema Registry exports — validate after export; don't blind-redirect stderr:**
+- **`confluent schema-registry schema describe` has NO `-o`/`--output json` flag** (unlike `kafka cluster/topic describe` and `flink compute-pool describe`, which do). Passing `-o json` errors; a blind `… -o json 2>&1 > file.json` writes the CLI error dump INTO the file. This silently corrupted all 4 `infra/confluent/stargate/schemas/*-value.json` at birth — they looked exported but contained `Error: unknown shorthand flag: 'o'`.
+- **`describe` prints a human `Schema ID:/Type:/Schema:` block, not JSON.** To make a `.json` artifact: capture stdout only (no `2>&1`), parse out id/type, and emit `{subject, version, id, schemaType, schema}`. **JSON**-type subjects embed the parsed schema object; **PROTOBUF/AVRO** subjects embed the raw schema text as a string (the protobuf telemetry subject's body is a `.proto`, not JSON — don't `JSON.parse` it).
+- **Always validate exported schema JSON before committing:** `json.load` each file AND grep for `Error:`, `Usage:`, `failed`, `Unauthorized`, `Forbidden`. (Note `confluent` alone is a false-positive grep: real Avro schemas contain `io.confluent.connect.*` annotation keys.)
+- **Never hand-write a schema export when live Schema Registry is reachable** — query it (`confluent schema-registry schema list` / `describe --subject … --version latest`) so the artifact matches the registered subject/id exactly.
