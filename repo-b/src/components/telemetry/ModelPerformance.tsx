@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   getModelPerformance, type ModelRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, PageHeading, DisclosureFooter, ScrollTable } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 function metric(m: ModelRun, k: string): string {
   const v = (m.metrics || {})[k];
@@ -90,8 +91,8 @@ export default function ModelPerformance() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  const heading = <PageHeading eyebrow="Model Performance" title="Champions, metrics, and promotion gates"
-    blurb="Exact metrics from the registry-backed serving API, no hardcoded numbers. Baseline vs stronger model side by side, with the promotion decision shown honestly." />;
+  const heading = <TelemetryPageHeader variant="standard" eyebrow="Model Performance" title="Champions, metrics, and promotion gates"
+    description="Exact metrics from the registry-backed serving API, no hardcoded numbers. Baseline vs stronger model side by side, with the promotion decision shown honestly." />;
   if (error) return <>{heading}<ErrorState message={error} /></>;
   if (!models) return <>{heading}<Loading label="Loading model metrics…" /></>;
   if (nullReason) return <>{heading}<ErrorState message={nullReason} /></>;
