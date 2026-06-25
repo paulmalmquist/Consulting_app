@@ -11,12 +11,14 @@ Safety contract (enforced here + in the core):
   - A cold partition (no checkpoint) reads only the tail (cold_start_tail), never the whole backlog.
   - No long-running cluster: this is a batch job that runs the bounded read and exits.
   - No pointer stamping here — that is Ticket B.
-  - No secrets in the repo. Broker config comes from env vars (see ENV below).
+  - No secrets in the repo. On Databricks, broker creds come from the secret scope; locally, from env.
 
-ENV (only needed for --execute against real Kafka; never committed):
-  CONFLUENT_BOOTSTRAP_SERVERS   host:port of the Confluent cluster
-  CONFLUENT_API_KEY             SASL username (API key)
-  CONFLUENT_API_SECRET          SASL password (API secret)
+CREDS (only needed for --execute against real Kafka; never committed):
+  On Databricks: a secret scope (default 'stargate_kafka', override via STARGATE_KAFKA_SECRET_SCOPE)
+  holding CONFLUENT_BOOTSTRAP_SERVERS / CONFLUENT_API_KEY / CONFLUENT_API_SECRET. Created with:
+    databricks secrets create-scope stargate_kafka
+    databricks secrets put-secret stargate_kafka CONFLUENT_API_KEY      # etc.
+  Locally (fallback): the same three names as CONFLUENT_* environment variables.
 
 Local dry-run (no Kafka, no Spark, no creds) — the evidence path:
   python telemetry-platform/databricks/notebooks/stargate_bronze_loader.py \
@@ -81,19 +83,38 @@ def plan_from_fixture(fixture_path: str, rails: GuardRails):
 
 # ── real Kafka / Spark shell (only used under --execute on a cluster) ────────────────────
 
-def _kafka_conf() -> dict:
+def _kafka_conf(spark=None) -> dict:
+    """Kafka SASL config. On Databricks, read from the secret scope (default 'stargate_kafka';
+    override via STARGATE_KAFKA_SECRET_SCOPE) so creds never sit in env or the repo. Falls back to
+    CONFLUENT_* env vars for a local run. Never logs the values."""
     import os
-    servers = os.environ.get("CONFLUENT_BOOTSTRAP_SERVERS")
-    key = os.environ.get("CONFLUENT_API_KEY")
-    secret = os.environ.get("CONFLUENT_API_SECRET")
+    scope = os.environ.get("STARGATE_KAFKA_SECRET_SCOPE", "stargate_kafka")
+    servers = key = secret = None
+    source = "env:CONFLUENT_*"
+    if spark is not None:
+        try:
+            from pyspark.dbutils import DBUtils
+            d = DBUtils(spark)
+            servers = d.secrets.get(scope, "CONFLUENT_BOOTSTRAP_SERVERS")
+            key = d.secrets.get(scope, "CONFLUENT_API_KEY")
+            secret = d.secrets.get(scope, "CONFLUENT_API_SECRET")
+            source = f"databricks-secret-scope:{scope}"
+        except Exception:
+            pass  # not on Databricks, or scope unreadable -> fall back to env
+    servers = servers or os.environ.get("CONFLUENT_BOOTSTRAP_SERVERS")
+    key = key or os.environ.get("CONFLUENT_API_KEY")
+    secret = secret or os.environ.get("CONFLUENT_API_SECRET")
     missing = [n for n, v in (
         ("CONFLUENT_BOOTSTRAP_SERVERS", servers),
         ("CONFLUENT_API_KEY", key),
         ("CONFLUENT_API_SECRET", secret),
     ) if not v]
     if missing:
-        raise RuntimeError(f"missing Kafka env vars: {', '.join(missing)} (never commit these)")
-    return {"servers": servers, "key": key, "secret": secret}
+        raise RuntimeError(
+            f"missing Kafka creds: {', '.join(missing)} — set them in the '{scope}' Databricks "
+            f"secret scope (or CONFLUENT_* env locally). Never commit these."
+        )
+    return {"servers": servers, "key": key, "secret": secret, "source": source}
 
 
 def get_kafka_end_offsets(topics, conf) -> dict[tuple[str, int], int]:
@@ -156,6 +177,9 @@ def execute_plan(spark, plan, run_id: str, conf) -> int:
         .option("assign", json.dumps({t: sorted(ps) for t, ps in assign.items()}))
         .option("startingOffsets", kafka_offsets_json(plan, "start"))
         .option("endingOffsets", kafka_offsets_json(plan, "end"))
+        # tolerate a planned start that fell below the broker's retained low watermark (short-retention
+        # high-throughput topics) rather than failing the whole batch on OffsetOutOfRange.
+        .option("failOnDataLoss", "false")
         .load()
         .selectExpr(*bronze_select_exprs(run_id))
     )
@@ -207,18 +231,14 @@ def main(argv=None) -> int:
               file=sys.stderr)
         return 3
 
-    conf = _kafka_conf()
+    conf = _kafka_conf(spark)
     spark.sql(bronze_ddl(args.table))  # idempotent create
     end_offsets = get_kafka_end_offsets(STARGATE_TOPICS, conf)
     checkpoint = get_checkpoint_from_delta(spark, args.table)
     plan = plan_offsets(end_offsets, checkpoint, rails)
 
-    rows_written = 0
-    if dry_run:
-        cred_src = "env:CONFLUENT_*"
-    else:
-        rows_written = execute_plan(spark, plan, run_id, conf)
-        cred_src = "env:CONFLUENT_*"
+    cred_src = conf["source"]
+    rows_written = 0 if dry_run else execute_plan(spark, plan, run_id, conf)
 
     receipt = build_receipt(
         plan=plan, dry_run=dry_run, run_id=run_id, started_at=started, finished_at=_now_iso(),

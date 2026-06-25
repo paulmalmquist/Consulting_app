@@ -228,7 +228,9 @@ scripts/streaming/stargate/.venv/
 # Known-bad name plus the general class (no legit tracked files match these — checked).
 confluent_api.json
 confluent_kafka_api.json
+confluent_key.json
 *_api.json
+*_key.json
 *_creds.json
 *_credentials.json
 *credentials.json

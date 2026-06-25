@@ -145,6 +145,13 @@ def test_select_exprs_cover_every_bronze_column():
         assert f"AS {name}" in aliased, f"select exprs do not produce {name}"
 
 
+def test_select_exprs_use_base64_for_lossless_raw_value():
+    # The Stargate stream is binary/Avro; raw_value must be base64(value), not a lossy CAST AS STRING.
+    exprs = bronze_select_exprs("run-x")
+    assert "base64(value) AS raw_value" in exprs
+    assert "CAST(value AS STRING) AS raw_value" not in exprs
+
+
 def test_select_exprs_reject_unsafe_run_id():
     with pytest.raises(ValueError):
         bronze_select_exprs("bad'; DROP TABLE x; --")
