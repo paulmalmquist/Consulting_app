@@ -5,7 +5,8 @@
 // already real_backend and fail closed; this composes them (embedded, no duplicate chrome) under
 // section dividers. Finer Data/Models/Agents/Infrastructure quadranting + RS polish is a later phase.
 
-import { C, DisclosureFooter, PageHeading } from "./primitives";
+import { C, DisclosureFooter } from "./primitives";
+import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import Monitoring from "./Monitoring";
 import SpikeInspector from "./SpikeInspector";
 
@@ -24,10 +25,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function SystemHealth({ envId }: { envId: string }) {
   return (
     <>
-      <PageHeading
+      <TelemetryPageHeader
+        variant="compact"
         eyebrow="Operations"
         title="System Health"
-        blurb="One operational view: data freshness and drift, model serving health, and the analyzer's findings. Real serving reads only — each panel fails closed (a dash or an explicit null_reason), never a fabricated value."
+        description="One operational view: data freshness and drift, model serving health, and the analyzer's findings. Real serving reads only — each panel fails closed (a dash or an explicit null_reason), never a fabricated value."
       />
 
       <SectionLabel>Data &amp; infrastructure — drift, serving, stream health</SectionLabel>
