@@ -332,6 +332,25 @@ missing — no rewrite of the broker consumer, no new tables, no schema changes 
 | Routes | `/api/telemetry/stargate/provenance` refactored to read via `get_kafka_row_by_coords` (single read path); added `/api/telemetry/stargate/anomalies/tail` (survives-reload anomaly feed). Both keep `durable_sink_not_enabled` vs `provenance_not_found` fail-closed |
 | Tests | `test_stargate_durable_sink.py` (make_provenance capture+broker, raw sampling, ON CONFLICT + GUC, synthetic sentinel, commit/read SQL, bridge hook: flag-off no-DB, flag-on persists anomaly on the anomalies topic, DB-failure-doesn't-break-SSE, raw-sampled-but-anomaly-full). Full telemetry+stargate suite **214 passed / 2 skipped** (incl. existing broker-consumer tests + determinism, no regression) |
 
-**Not done yet — sign-off blocked on the live Confluent pass:** un-park cluster → register proto v3 →
-`producer --mode cloud` → bridge in cloud mode with the durable sink on (real broker coordinates) → verify a
-`tel_stream_kafka_rows` row's provenance equals the broker coordinates and open it from the drawer → re-park.
+### Sign-off — live Confluent round-trip (PASS)
+
+Ran against the real cluster `lkc-gqpvvyv` (Confluent Cloud, SASL_SSL, bootstrap
+`pkc-619z3.us-east1.gcp.confluent.cloud:9092`, SR `psrc-z27ovke…`):
+
+| Step | Result |
+|---|---|
+| Register proto v3 | `confluent schema-registry schema create` on `stargate.printer.telemetry.v1-value` (type protobuf) → **schema ID 100006**, accepted under the subject's BACKWARD compatibility |
+| Produce | **40/40** messages delivered to `stargate.printer.telemetry.v1`; real broker partition/offset captured per delivery |
+| Consume | **40/40** read back off the broker (wire round-trip OK) |
+| Durable persist | 6 rows written via `persist_kafka_row` + `make_provenance("cloud", …)` carrying the REAL coordinates |
+| Verify | **6/6** durable rows in `tel_stream_kafka_rows` have `kafka_partition/kafka_offset` == the broker coordinate (partition 5, offsets 50515–50520) with `source_system=confluent_cloud`, `synthetic=false`; each resolves via `get_kafka_row_by_coords` (the drawer's read path) |
+
+**Teardown (kill all):** all 7 Confluent API keys created during the pass were deleted; `stop-serving`
+re-confirmed 0 connectors + 0 running Flink statements (topics + schemas retained) and stamped the Mission
+Control broker row `warm`. The cluster was already alive+warm before the session and is left in that exact
+state — the cluster was NOT deleted (it also hosts non-Stargate topics: `history-rhymes.signals.v1`,
+`winston.executions.v1`, `sample_data`; deletion would be high-blast-radius and only saves the small STANDARD
+flat hourly base that predates this work). Note: the SR python client needs the
+`confluent-kafka[schemaregistry,protobuf]` extras (authlib/cachetools/httpx) installed in the tooling venv.
+
+**Phase 7 COMPLETE** — T1–T4 landed and committed; the live Confluent sign-off passes.
