@@ -31,7 +31,6 @@ import {
 } from "@/lib/telemetry/controlTower-api";
 import AgentBuilder, { type ControlTowerTab } from "./AgentBuilder";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
-import AgentBuilder, { type ControlTowerTab } from "./AgentBuilder";
 
 // Truth label: every panel says where its data comes from. Never imply live execution over a fixture.
 function TruthLabel({ kind }: { kind: "fixture" | "staged" | "live" | "cold" | "unavailable" }) {
