@@ -33,6 +33,7 @@ This file is a human-facing overview of routed markdown docs that still exist on
 | ID | Kind | Status | Owners | Entry | Path |
 |---|---|---|---|---|---|
 | `claude-router` | `router` | `active` | `cross-repo` | `yes` | `CLAUDE.md` |
+| `telemetry-phase9-demo` | `demo-script` | `active` | `repo-b` | `no` | `docs/plans/03-implementation-plans/active/0013-telemetry-phase9-demo-rehearsal.md` |
 | `ai-copilot-winston` | `agent` | `active` | `backend, repo-b` | `yes` | `agents/ai-copilot.md` |
 | `architect-winston` | `agent` | `active` | `cross-repo` | `yes` | `agents/architect.md` |
 | `bos-domain-winston` | `agent` | `active` | `backend` | `yes` | `agents/bos-domain.md` |
