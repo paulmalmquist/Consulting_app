@@ -17,6 +17,8 @@ import TempVibrationChart from "./TempVibrationChart";
 import StreamLineageDrawer from "./StreamLineageDrawer";
 import { useStargateStream } from "@/lib/lab/stargateStream";
 import type { AnomalyRow } from "@/lib/lab/stargateStream";
+import { ExportToCsvButton } from "../drill";
+import { ANOMALY_EXPORT_COLUMNS, anomalyExportRows } from "./streamExportRows";
 import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -297,6 +299,15 @@ export default function StargateConsole() {
               ))}
             </div>
           )}
+          <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, display: "flex",
+            alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.mono, fontSize: 9.5, color: C.faint }}>
+              {anomalies.length} routed · real SSE rows over a recorded-capture replay · all printers
+            </span>
+            <ExportToCsvButton filename="stargate_anomalies" columns={ANOMALY_EXPORT_COLUMNS}
+              rows={anomalyExportRows(anomalies)} label="Export CSV"
+              disabledReason="No routed anomalies yet" />
+          </div>
         </Panel>
         <DlqPanel rows={dlq} count={stream.dlqCount} />
       </SplitGrid>
