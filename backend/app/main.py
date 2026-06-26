@@ -95,6 +95,7 @@ from app.routes import workflow_registry
 from app.routes import audit_dashboard
 from app.routes import analysis_sessions
 from app.routes import telemetry_analyzer
+from app.routes import relativity_mes
 from app.routes import data_platform_analyzer
 from app.routes import business_analyzer
 from app.routes import agent_personalities
@@ -606,6 +607,7 @@ app.include_router(workflow_registry.router)
 app.include_router(audit_dashboard.router)
 app.include_router(analysis_sessions.router)
 app.include_router(telemetry_analyzer.router)
+app.include_router(relativity_mes.router)
 app.include_router(data_platform_analyzer.router)
 app.include_router(business_analyzer.router)
 app.include_router(agent_personalities.router)

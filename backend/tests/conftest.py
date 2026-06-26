@@ -92,6 +92,7 @@ _GET_CURSOR_TARGETS = [
     "app.services.telemetry_stream_lineage.get_cursor",
     "app.services.telemetry_registry.get_cursor",
     "app.services.telemetry_factory.get_cursor",
+    "app.services.relativity_mes.get_cursor",
     "app.services.copilot_logger.get_cursor",
     "app.services.underwriting.get_cursor",
     "app.services.real_estate.get_cursor",
