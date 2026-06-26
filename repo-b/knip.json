@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/app/**/{page,layout,template,loading,error,not-found,global-error,route,default}.{ts,tsx}",
+    "src/app/**/{sitemap,robots,manifest,opengraph-image,twitter-image,icon,apple-icon}.{ts,tsx}",
+    "src/middleware.{ts,tsx}",
+    "src/instrumentation.{ts,tsx}",
+    "next.config.{js,mjs,ts}",
+    "**/*.{test,spec}.{ts,tsx}",
+    "**/*.config.{ts,js,mjs,cjs}",
+    "scripts/**/*.{ts,mjs,js}"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignoreExportsUsedInFile": true,
+  "ignore": [
+    "db/**",
+    "**/*.d.ts"
+  ],
+  "next": true,
+  "vitest": true
+}

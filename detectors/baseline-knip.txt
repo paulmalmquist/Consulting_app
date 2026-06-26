@@ -1,0 +1,680 @@
+Unused files (169)
+src/data/visualResumeSeed.ts                                        
+src/industry/packs.ts                                               
+src/lib/unified-metrics-api.ts                                      
+src/components/admin/ControlTowerAlertsPanel.tsx                    
+src/components/admin/SystemStatusBanner.tsx                         
+src/components/automated-data-engineering/AdeOverview.tsx           
+src/components/automated-data-engineering/AdeShell.tsx              
+src/components/automated-data-engineering/AuditDashboard.tsx        
+src/components/automated-data-engineering/ConnectorMap.tsx          
+src/components/automated-data-engineering/PlaybooksPanel.tsx        
+src/components/automated-data-engineering/primitives.tsx            
+src/components/automated-data-engineering/ReceiptsFeed.tsx          
+src/components/automated-data-engineering/SkillRegistryTable.tsx    
+src/components/automated-data-engineering/WorkflowCatalog.tsx       
+src/components/bos/TasksWidget.tsx                                  
+src/components/capital-projects/ApprovalWorkflow.tsx                
+src/components/capital-projects/BudgetWaterfall.tsx                 
+src/components/capital-projects/DrawEditor.tsx                      
+src/components/capital-projects/DrawTimeline.tsx                    
+src/components/capital-projects/G702Preview.tsx                     
+src/components/capital-projects/InvoiceMatchReview.tsx              
+src/components/capital-projects/InvoiceUploader.tsx                 
+src/components/capital-projects/VarianceAlert.tsx                   
+src/components/commandbar/ActiveContextBar.tsx                      
+src/components/commandbar/AssistantShell.tsx                        
+src/components/commandbar/CitationSection.tsx                       
+src/components/commandbar/ConfirmPanel.tsx                          
+src/components/commandbar/ConversationPane.tsx                      
+src/components/commandbar/ExecutePanel.tsx                          
+src/components/commandbar/ExecutionTimeline.tsx                     
+src/components/commandbar/GlobalCommandBar.tsx                      
+src/components/commandbar/PlanCard.tsx                              
+src/components/commandbar/QuickActions.tsx                          
+src/components/commandbar/SaveAnalysisDialog.tsx                    
+src/components/commandbar/VerificationCard.tsx                      
+src/components/consulting/AttackList.tsx                            
+src/components/consulting/GlobalFilterBar.tsx                       
+src/components/consulting/IndustryBreakdown.tsx                     
+src/components/consulting/OutreachFlightDeck.tsx                    
+src/components/consulting/OutreachSnapshot.tsx                      
+src/components/consulting/pipeline-industry-colors.ts               
+src/components/consulting/PipelineActionBar.tsx                     
+src/components/consulting/PipelineStageBarChart.tsx                 
+src/components/consulting/PipelineStrip.tsx                         
+src/components/consulting/StuckMoney.tsx                            
+src/components/consulting/TodayPanel.tsx                            
+src/components/consulting/WeeklyRhythmCard.tsx                      
+src/components/consulting/WinstonAssistPanel.tsx                    
+src/components/historyrhymes/AlertBanner.tsx                        
+src/components/historyrhymes/DecisionCard.tsx                       
+src/components/historyrhymes/PulseStrip.tsx                         
+src/components/historyrhymes/RoutineHeader.tsx                      
+src/components/market/AgentForecastPanel.tsx                        
+src/components/market/BtcSpxCorrelationChart.tsx                    
+src/components/market/CalibrationFooter.tsx                         
+src/components/market/CommandCenterLayout.tsx                       
+src/components/market/DataProvenanceBadge.tsx                       
+src/components/market/DebugPanel.tsx                                
+src/components/market/DecisionEngineSidebar.tsx                     
+src/components/market/DivergenceTable.tsx                           
+src/components/market/EpisodeLibrary.tsx                            
+src/components/market/MobileDecisionEngine.tsx                      
+src/components/market/RegimeClassifierWidget.tsx                    
+src/components/market/TrapDetectorFullView.tsx                      
+src/components/ncf/GrantFrictionDrawer.tsx                          
+src/components/ncf/GrantFrictionKpiTile.tsx                         
+src/components/pds-enterprise/ForecastVersionSelector.tsx           
+src/components/pds-enterprise/GovernanceTrackToggle.tsx             
+src/components/pds-enterprise/QuadrantScatter.tsx                   
+src/components/pds-executive/BoardInvestorBriefingsTab.tsx          
+src/components/pds-executive/DecisionDetailDrawer.tsx               
+src/components/pds-executive/DecisionMemoryTab.tsx                  
+src/components/public/WinstonPublicHome.tsx                         
+src/components/repe/ExcelExportButton.tsx                           
+src/components/repe/MetricsStrip.tsx                                
+src/components/repe/PropertyComps.tsx                               
+src/components/repe/RepeWorkspace.tsx                               
+src/components/repe/ValuationLeverPanel.tsx                         
+src/components/resume/ArchitectureNodeDetail.tsx                    
+src/components/resume/SkillsCapabilityMap.tsx                       
+src/components/trading/ClosePositionModal.tsx                       
+src/components/trading/EditPositionModal.tsx                        
+src/components/trading/NewPositionModal.tsx                         
+src/components/ui/InsightRail.tsx                                   
+src/components/ui/QuickActions.tsx                                  
+src/components/ui/WorkspaceCard.tsx                                 
+src/lib/analyzer/types.ts                                           
+src/lib/automated-data-engineering/audit.ts                         
+src/lib/automated-data-engineering/workflows.ts                     
+src/lib/lab/homepageContract.ts                                     
+src/lib/lab/homepageHealth.ts                                       
+src/lib/marketing/booking-store.ts                                  
+src/lib/marketing/calendar.ts                                       
+src/lib/marketing/mailer.ts                                         
+src/lib/trading-lab/safe-display.ts                                 
+src/lib/trading-lab/types.ts                                        
+src/test/mocks/next-dynamic.tsx                                     
+src/test/mocks/next-link.tsx                                        
+src/test/mocks/next-navigation.ts                                   
+src/app/(marketing)/about/metadata.ts                               
+src/app/(marketing)/cfo/metadata.ts                                 
+src/app/(marketing)/contact/metadata.ts                             
+src/app/(marketing)/demo/metadata.ts                                
+src/app/(marketing)/docs/metadata.ts                                
+src/app/(marketing)/industries/metadata.ts                          
+src/app/(marketing)/insights/metadata.ts                            
+src/app/(marketing)/legal/metadata.ts                               
+src/app/(marketing)/method/metadata.ts                              
+src/app/(marketing)/proof/metadata.ts                               
+src/app/(marketing)/saas-iceberg/metadata.ts                        
+src/app/(marketing)/services/metadata.ts                            
+src/app/(marketing)/support-ops/metadata.ts                         
+src/components/market/hooks/useAssetScopedData.ts                   
+src/components/market/panels/DecisionNarrativeCard.tsx              
+src/components/market/panels/index.ts                               
+src/components/market/panels/ModelTransparencyPanel.tsx             
+src/components/market/panels/TopAnalogCard.tsx                      
+src/components/market/panels/TrapDetectionPanel.tsx                 
+src/components/market/panels/WhatChangedPanel.tsx                   
+src/components/marketing/ai/ConciergeFlowGraphic.tsx                
+src/components/marketing/content/CarouselRow.tsx                    
+src/components/marketing/content/ContentCard.tsx                    
+src/components/marketing/content/Hero.tsx                           
+src/components/marketing/content/TagPills.tsx                       
+src/components/marketing/demo/KBExplorer.tsx                        
+src/components/marketing/demo/QuestionSimulator.tsx                 
+src/components/marketing/home/CapabilityScrollPanels.tsx            
+src/components/marketing/home/CardGrid.tsx                          
+src/components/marketing/home/CTASection.tsx                        
+src/components/marketing/home/EngagementPhases.tsx                  
+src/components/marketing/home/ExploreCarousel.tsx                   
+src/components/marketing/home/FAQAccordion.tsx                      
+src/components/marketing/home/ProofBullets.tsx                      
+src/components/marketing/home/Stepper.tsx                           
+src/components/marketing/home/StickyNav.tsx                         
+src/components/marketing/home/SystemConvergenceGraphic.tsx          
+src/components/marketing/home/VisualPlaceholder.tsx                 
+src/components/marketing/ui/Modal.tsx                               
+src/components/marketing/ui/SectionHeader.tsx                       
+src/components/marketing/visual/SloganBadge.tsx                     
+src/components/operator/property-ops/PropertyOpsIntelligencePage.tsx
+src/components/pds-enterprise/landing/OperatingPostureBadgeStrip.tsx
+src/components/pds-enterprise/landing/PrioritizedActionList.tsx     
+src/components/pds-enterprise/landing/SuppressedDataChip.tsx        
+src/components/pds-enterprise/landing/WinstonActionMenu.tsx         
+src/components/repe/asset-cockpit/KpiCard.tsx                       
+src/components/repe/asset-cockpit/OpsAuditSection.tsx               
+src/components/repe/asset-cockpit/ScenarioComparePanel.tsx          
+src/components/repe/dashboards/QueryResultRenderer.tsx              
+src/components/repe/development/DevScenarioComparison.tsx           
+src/components/repe/model/AssetsTab.tsx                             
+src/components/repe/model/AssetSurgeryDrawer.tsx                    
+src/components/repe/model/FundImpactTab.tsx                         
+src/components/repe/model/ModelOverviewTab.tsx                      
+src/components/repe/model/MonteCarloTab.tsx                         
+src/components/repe/pipeline/DealFilterBar.tsx                      
+src/components/repe/pipeline/PipelineMap.tsx                        
+src/components/repe/portfolio/CapitalActivityCard.tsx               
+src/components/repe/portfolio/DataIntegrityBanner.tsx               
+src/components/repe/portfolio/PortfolioSignalsStrip.tsx             
+src/components/repe/workspace/ContextRail.tsx                       
+src/components/repe/workspace/WinstonUmbrellaMenu.tsx               
+src/components/resume/timeline/TimelineContextPanel.tsx             
+src/lib/winston-companion/widget-adapters/ChartAdapter.ts           
+src/lib/winston-companion/widget-adapters/KpiStripAdapter.ts        
+src/lib/winston-companion/widget-adapters/MapAdapter.ts             
+src/lib/winston-companion/widget-adapters/TableAdapter.ts           
+src/components/repe/portfolio/command/PortfolioCommandBar.tsx       
+src/components/repe/portfolio/command/useCommandBar.ts              
+Unused dependencies (3)
+@tanstack/react-virtual  package.json:38:6
+iconoir-react            package.json:47:6
+nodemailer               package.json:53:6
+Unused devDependencies (1)
+@types/nodemailer  package.json:71:6
+Unlisted dependencies (1)
+server-only  src/lib/server/ncfMetrics.ts:1:9
+Unresolved imports (1)
+./api  src/components/telemetry/ReplayForensicsDrawer.test.tsx:11:40
+Unused exports (427)
+environmentLogoutPath                     function  src/lib/environmentAuth.ts:139:17                                   
+environmentCallbackPath                   function  src/lib/environmentAuth.ts:143:17                                   
+sessionHasManagerAccess                   function  src/lib/server/sessionAuth.ts:392:17                                
+unauthorizedJson                          function  src/lib/server/sessionAuth.ts:417:17                                
+forbiddenJson                             function  src/lib/server/sessionAuth.ts:421:17                                
+resolveExecutionPlanTargets               function  src/lib/server/commandOrchestrator.ts:846:23                        
+getAllPages                               function  src/lib/marketing/content.ts:79:17                                  
+getInsightBySlug                          function  src/lib/marketing/content.ts:89:17                                  
+getAllCaseStudies                         function  src/lib/marketing/content.ts:98:17                                  
+getCaseStudyBySlug                        function  src/lib/marketing/content.ts:104:17                                 
+createBusiness                            function  src/lib/bos-api.ts:554:17                                           
+listPdsProjects                           function  src/lib/bos-api.ts:2362:17                                          
+getPdsPortfolio                           function  src/lib/bos-api.ts:2413:17                                          
+getPdsPortfolioDashboard                  function  src/lib/bos-api.ts:2419:17                                          
+getPdsPortfolioHealth                     function  src/lib/bos-api.ts:2425:17                                          
+getPdsProject                             function  src/lib/bos-api.ts:2443:17                                          
+updatePdsProject                          function  src/lib/bos-api.ts:2449:17                                          
+createPdsProjectSiteReport                function  src/lib/bos-api.ts:2525:17                                          
+listPdsProjectRfis                        function  src/lib/bos-api.ts:2538:17                                          
+listPdsProjectSubmittals                  function  src/lib/bos-api.ts:2544:17                                          
+listPdsProjectDocuments                   function  src/lib/bos-api.ts:2550:17                                          
+listPdsProjectPermits                     function  src/lib/bos-api.ts:2556:17                                          
+createPdsProjectPermit                    function  src/lib/bos-api.ts:2562:17                                          
+listPdsProjectContractorClaims            function  src/lib/bos-api.ts:2575:17                                          
+createPdsProjectContractorClaim           function  src/lib/bos-api.ts:2586:17                                          
+listPdsVendors                            function  src/lib/bos-api.ts:2599:17                                          
+createPdsVendor                           function  src/lib/bos-api.ts:2605:17                                          
+seedPdsWorkspace                          function  src/lib/bos-api.ts:2640:17                                          
+getPdsV2Context                           function  src/lib/bos-api.ts:2647:17                                          
+getPdsPerformanceTable                    function  src/lib/bos-api.ts:2758:17                                          
+getPdsDeliveryRisk                        function  src/lib/bos-api.ts:2772:17                                          
+getPdsResourceHealth                      function  src/lib/bos-api.ts:2785:17                                          
+getPdsTimecardHealth                      function  src/lib/bos-api.ts:2798:17                                          
+getPdsForecast                            function  src/lib/bos-api.ts:2811:17                                          
+getPdsSatisfaction                        function  src/lib/bos-api.ts:2825:17                                          
+getPdsCloseout                            function  src/lib/bos-api.ts:2838:17                                          
+getPdsExecutiveBriefingV2                 function  src/lib/bos-api.ts:2851:17                                          
+getPdsExecutiveMemory                     function  src/lib/bos-api.ts:3036:17                                          
+runPdsExecutiveConnectors                 function  src/lib/bos-api.ts:3042:17                                          
+listPdsExecutiveConnectorRuns             function  src/lib/bos-api.ts:3056:17                                          
+runPdsExecutiveDecisionEngine             function  src/lib/bos-api.ts:3071:17                                          
+runPdsExecutiveFull                       function  src/lib/bos-api.ts:3083:17                                          
+generatePdsExecutiveMessaging             function  src/lib/bos-api.ts:3096:17                                          
+listPdsExecutiveDrafts                    function  src/lib/bos-api.ts:3109:17                                          
+approvePdsExecutiveDraft                  function  src/lib/bos-api.ts:3125:17                                          
+generatePdsExecutiveBriefing              function  src/lib/bos-api.ts:3135:17                                          
+getPdsExecutiveBriefing                   function  src/lib/bos-api.ts:3149:17                                          
+getCreditV2Context                        function  src/lib/bos-api.ts:3304:17                                          
+initCreditV2Context                       function  src/lib/bos-api.ts:3310:17                                          
+evaluateCreditLoan                        function  src/lib/bos-api.ts:3394:17                                          
+listLegalMatters                          function  src/lib/bos-api.ts:3429:17                                          
+getExtraction                             function  src/lib/bos-api.ts:3965:17                                          
+listExtractionFields                      function  src/lib/bos-api.ts:3969:17                                          
+createFinContribution                     function  src/lib/bos-api.ts:4139:17                                          
+runFinCapitalRollforward                  function  src/lib/bos-api.ts:4227:17                                          
+listFinCapitalRollforward                 function  src/lib/bos-api.ts:4239:17                                          
+getReV1Fund                               function  src/lib/bos-api.ts:4497:17                                          
+createRepeDeal                            function  src/lib/bos-api.ts:4523:17                                          
+getRepeDeal                               function  src/lib/bos-api.ts:4539:17                                          
+createRepeAsset                           function  src/lib/bos-api.ts:4547:17                                          
+getRepeAsset                              function  src/lib/bos-api.ts:4570:17                                          
+createRepeEntity                          function  src/lib/bos-api.ts:4574:17                                          
+createRepeOwnershipEdge                   function  src/lib/bos-api.ts:4586:17                                          
+getRepeAssetOwnership                     function  src/lib/bos-api.ts:4599:17                                          
+getUnderwritingResearchContract           function  src/lib/bos-api.ts:4751:17                                          
+getUnderwritingRun                        function  src/lib/bos-api.ts:4797:17                                          
+getMetricDefinitions                      function  src/lib/bos-api.ts:4899:17                                          
+queryMetrics                              function  src/lib/bos-api.ts:4905:17                                          
+createReport                              function  src/lib/bos-api.ts:4919:17                                          
+listReports                               function  src/lib/bos-api.ts:4932:17                                          
+getReport                                 function  src/lib/bos-api.ts:4938:17                                          
+runReport                                 function  src/lib/bos-api.ts:4944:17                                          
+explainReportRun                          function  src/lib/bos-api.ts:4954:17                                          
+listCrmAccounts                           function  src/lib/bos-api.ts:5088:17                                          
+createCrmAccount                          function  src/lib/bos-api.ts:5094:17                                          
+listCrmPipelineStages                     function  src/lib/bos-api.ts:5107:17                                          
+createCrmOpportunity                      function  src/lib/bos-api.ts:5119:17                                          
+runReValuationQuarter                     function  src/lib/bos-api.ts:5210:17                                          
+runReRefinanceSimulation                  function  src/lib/bos-api.ts:5251:17                                          
+runReMonteCarlo                           function  src/lib/bos-api.ts:5289:17                                          
+getFundComparison                         function  src/lib/bos-api.ts:6090:17                                          
+searchHybrid                              function  src/lib/bos-api.ts:6207:17                                          
+getPortfolioSignals                       function  src/lib/bos-api.ts:6251:17                                          
+createReV2Jv                              function  src/lib/bos-api.ts:6307:17                                          
+listReV2Partners                          function  src/lib/bos-api.ts:6331:17                                          
+listReV2FundPartners                      function  src/lib/bos-api.ts:6335:17                                          
+createReV2Partner                         function  src/lib/bos-api.ts:6339:17                                          
+createReV2Commitment                      function  src/lib/bos-api.ts:6352:17                                          
+listReV2Commitments                       function  src/lib/bos-api.ts:6363:17                                          
+recordReV2CapitalEntry                    function  src/lib/bos-api.ts:6368:17                                          
+listReV2CapitalLedger                     function  src/lib/bos-api.ts:6383:17                                          
+getReV2PartnerMetrics                     function  src/lib/bos-api.ts:6640:17                                          
+runReV2Waterfall                          function  src/lib/bos-api.ts:6660:17                                          
+listReV2WaterfallRuns                     function  src/lib/bos-api.ts:6672:17                                          
+listReV2Models                            function  src/lib/bos-api.ts:6695:17                                          
+createReV2Model                           function  src/lib/bos-api.ts:6699:17                                          
+getModelScenario                          function  src/lib/bos-api.ts:6759:17                                          
+listReV2ScenarioVersions                  function  src/lib/bos-api.ts:6938:17                                          
+createReV2ScenarioVersion                 function  src/lib/bos-api.ts:6942:17                                          
+lockReV2ScenarioVersion                   function  src/lib/bos-api.ts:6954:17                                          
+setReV2Override                           function  src/lib/bos-api.ts:6960:17                                          
+listReV2Overrides                         function  src/lib/bos-api.ts:6975:17                                          
+getReV2AssetSustainabilityProfile         function  src/lib/bos-api.ts:7056:17                                          
+updateReV2AssetSustainabilityProfile      function  src/lib/bos-api.ts:7060:17                                          
+listReV2AssetUtilityMonthly               function  src/lib/bos-api.ts:7086:17                                          
+createReV2AssetUtilityMonthly             function  src/lib/bos-api.ts:7090:17                                          
+listReV2SustainabilityEmissionFactorSets  function  src/lib/bos-api.ts:7141:17                                          
+createReV2SustainabilityEmissionFactorS…  function  src/lib/bos-api.ts:7145:17                                          
+getFiFundMetrics                          function  src/lib/bos-api.ts:8059:17                                          
+runFiQuarterClose                         function  src/lib/bos-api.ts:8103:17                                          
+runFiCovenantTests                        function  src/lib/bos-api.ts:8117:17                                          
+runFiWaterfallShadow                      function  src/lib/bos-api.ts:8129:17                                          
+listFiRuns                                function  src/lib/bos-api.ts:8141:17                                          
+listFiUwVersions                          function  src/lib/bos-api.ts:8150:17                                          
+seedFiData                                function  src/lib/bos-api.ts:8157:17                                          
+generateReV2AssetReport                   function  src/lib/bos-api.ts:8518:17                                          
+computeAssetValuation                     function  src/lib/bos-api.ts:8588:17                                          
+saveAssetValuation                        function  src/lib/bos-api.ts:8598:17                                          
+getAssetValuationOverrides                function  src/lib/bos-api.ts:8621:17                                          
+upsertAssetValuationOverride              function  src/lib/bos-api.ts:8630:17                                          
+deleteAssetValuationOverride              function  src/lib/bos-api.ts:8640:17                                          
+seedInstitutionalFund                     function  src/lib/bos-api.ts:9226:17                                          
+getInvestor                               function  src/lib/bos-api.ts:9252:17                                          
+getInvestorCapitalActivity                function  src/lib/bos-api.ts:9265:17                                          
+getCapitalCall                            function  src/lib/bos-api.ts:9293:17                                          
+listDistributions                         function  src/lib/bos-api.ts:9299:17                                          
+getDistribution                           function  src/lib/bos-api.ts:9309:17                                          
+listPeriodCloseRuns                       function  src/lib/bos-api.ts:9315:17                                          
+getPeriodCloseDetail                      function  src/lib/bos-api.ts:9324:17                                          
+listFees                                  function  src/lib/bos-api.ts:9332:17                                          
+getFundFees                               function  src/lib/bos-api.ts:9340:17                                          
+listVariance                              function  src/lib/bos-api.ts:9348:17                                          
+listWaterfallRuns                         function  src/lib/bos-api.ts:9360:17                                          
+compareWaterfallRuns                      function  src/lib/bos-api.ts:9367:17                                          
+listApprovals                             function  src/lib/bos-api.ts:9377:17                                          
+listSavedAnalyses                         function  src/lib/bos-api.ts:9387:17                                          
+getSavedAnalysis                          function  src/lib/bos-api.ts:9394:17                                          
+listReDocuments                           function  src/lib/bos-api.ts:9400:17                                          
+getDocument                               function  src/lib/bos-api.ts:9410:17                                          
+getInvestorStatementHtml                  function  src/lib/bos-api.ts:9416:17                                          
+getAssetComps                             function  src/lib/bos-api.ts:9472:17                                          
+validateWaterfallScenarioIngredients      function  src/lib/bos-api.ts:9769:17                                          
+runMonteCarloWaterfall                    function  src/lib/bos-api.ts:9798:17                                          
+getUwVsActualWaterfall                    function  src/lib/bos-api.ts:9877:17                                          
+getConstructionWaterfall                  function  src/lib/bos-api.ts:9894:17                                          
+seedWaterfallScenarios                    function  src/lib/bos-api.ts:9924:17                                          
+createCreIngestRun                        function  src/lib/bos-api.ts:10159:23                                         
+listCreIntelligenceGeographies            function  src/lib/bos-api.ts:10176:23                                         
+getCreForecastSignals                     function  src/lib/bos-api.ts:10289:23                                         
+listCreResolutionCandidates               function  src/lib/bos-api.ts:10299:23                                         
+listResumeSkills                          function  src/lib/bos-api.ts:11080:17                                         
+getResumeSkillMatrix                      function  src/lib/bos-api.ts:11098:17                                         
+listResumeSystemComponents                function  src/lib/bos-api.ts:11154:17                                         
+listResumeDeployments                     function  src/lib/bos-api.ts:11160:17                                         
+getResumeSystemStats                      function  src/lib/bos-api.ts:11166:17                                         
+getResumeWorkspace                        function  src/lib/bos-api.ts:11467:17                                         
+askResumeAssistant                        function  src/lib/bos-api.ts:11473:17                                         
+getDiscoveryDashboard                     function  src/lib/bos-api.ts:11625:17                                         
+listDiscoveryAccounts                     function  src/lib/bos-api.ts:11631:17                                         
+createDiscoveryAccount                    function  src/lib/bos-api.ts:11637:17                                         
+listDiscoverySystems                      function  src/lib/bos-api.ts:11645:17                                         
+createDiscoverySystem                     function  src/lib/bos-api.ts:11651:17                                         
+listDiscoveryVendors                      function  src/lib/bos-api.ts:11659:17                                         
+createDiscoveryVendor                     function  src/lib/bos-api.ts:11665:17                                         
+listDiscoverySessions                     function  src/lib/bos-api.ts:11673:17                                         
+createDiscoverySession                    function  src/lib/bos-api.ts:11679:17                                         
+listDiscoveryPainPoints                   function  src/lib/bos-api.ts:11687:17                                         
+createDiscoveryPainPoint                  function  src/lib/bos-api.ts:11693:17                                         
+listDataStudioArtifacts                   function  src/lib/bos-api.ts:11705:17                                         
+createDataStudioArtifact                  function  src/lib/bos-api.ts:11711:17                                         
+listDataStudioEntities                    function  src/lib/bos-api.ts:11719:17                                         
+createDataStudioEntity                    function  src/lib/bos-api.ts:11725:17                                         
+listDataStudioEntityMappings              function  src/lib/bos-api.ts:11733:17                                         
+createDataStudioEntityMapping             function  src/lib/bos-api.ts:11739:17                                         
+getPdsRevenueTimeSeries                   function  src/lib/bos-api.ts:11864:17                                         
+getPdsRevenueVariance                     function  src/lib/bos-api.ts:11876:17                                         
+getPdsRevenuePipeline                     function  src/lib/bos-api.ts:11884:17                                         
+getPdsDedicatedPortfolio                  function  src/lib/bos-api.ts:11888:17                                         
+getPdsRevenueWaterfall                    function  src/lib/bos-api.ts:11892:17                                         
+getPdsRevenueMix                          function  src/lib/bos-api.ts:11896:17                                         
+getPdsUtilizationSummary                  function  src/lib/bos-api.ts:11900:17                                         
+getPdsUtilizationHeatmap                  function  src/lib/bos-api.ts:11904:17                                         
+getPdsUtilizationBench                    function  src/lib/bos-api.ts:11908:17                                         
+getPdsNpsSummary                          function  src/lib/bos-api.ts:11912:17                                         
+getPdsSatisfactionDrivers                 function  src/lib/bos-api.ts:11916:17                                         
+getPdsAdoptionOverview                    function  src/lib/bos-api.ts:11920:17                                         
+getPdsAdoptionHealthScore                 function  src/lib/bos-api.ts:11924:17                                         
+getPdsAccountsExecutiveOverview           function  src/lib/bos-api.ts:11928:17                                         
+getPdsAccountsRegional                    function  src/lib/bos-api.ts:11932:17                                         
+getPdsAccount360                          function  src/lib/bos-api.ts:11936:17                                         
+seedPdsAnalytics                          function  src/lib/bos-api.ts:11940:17                                         
+getCapitalActivity                        function  src/lib/bos-api.ts:12183:17                                         
+listCpProjects                            function  src/lib/bos-api.ts:12368:17                                         
+approveCpPayApp                           function  src/lib/bos-api.ts:12424:17                                         
+getCpInvoice                              function  src/lib/bos-api.ts:12496:17                                         
+overrideCpInvoiceMatch                    function  src/lib/bos-api.ts:12500:17                                         
+assignCpInvoiceToDraw                     function  src/lib/bos-api.ts:12504:17                                         
+createCpInspection                        function  src/lib/bos-api.ts:12508:17                                         
+listCpInspections                         function  src/lib/bos-api.ts:12512:17                                         
+getCpDrawPortfolioSummary                 function  src/lib/bos-api.ts:12516:17                                         
+getCpBudgetVsActual                       function  src/lib/bos-api.ts:12520:17                                         
+getCpDrawAudit                            function  src/lib/bos-api.ts:12524:17                                         
+getDevAssumptions                         function  src/lib/bos-api.ts:12661:17                                         
+getDevScenarioImpact                      function  src/lib/bos-api.ts:12676:17                                         
+getDevDraws                               function  src/lib/bos-api.ts:12684:17                                         
+seedDevBridge                             function  src/lib/bos-api.ts:12690:17                                         
+getTradeIntent                            function  src/lib/bos-api.ts:12708:17                                         
+getTradeOrder                             function  src/lib/bos-api.ts:12749:17                                         
+cancelTradeOrder                          function  src/lib/bos-api.ts:12753:17                                         
+createPostTradeReview                     function  src/lib/bos-api.ts:12792:17                                         
+getTradePortfolioAccountability           function  src/lib/bos-api.ts:12879:17                                         
+getTradePortfolioDecision                 function  src/lib/bos-api.ts:12885:17                                         
+listReSignalSources                       function  src/lib/bos-api.ts:13087:17                                         
+listReSignals                             function  src/lib/bos-api.ts:13091:17                                         
+getReSignal                               function  src/lib/bos-api.ts:13107:17                                         
+createReOpportunity                       function  src/lib/bos-api.ts:13130:17                                         
+getReOpportunityScoreBreakdown            function  src/lib/bos-api.ts:13146:17                                         
+linkReSignal                              function  src/lib/bos-api.ts:13154:17                                         
+unlinkReSignal                            function  src/lib/bos-api.ts:13165:17                                         
+getReModelRunWithOutput                   function  src/lib/bos-api.ts:13203:17                                         
+getReOpportunityPromotion                 function  src/lib/bos-api.ts:13244:17                                         
+getNvReviewQueue                          function  src/lib/bos-api.ts:13377:17                                         
+getNvSoftwareSpend                        function  src/lib/bos-api.ts:13405:17                                         
+getNvCashStatement                        function  src/lib/bos-api.ts:13424:17                                         
+nvMatchTransaction                        function  src/lib/bos-api.ts:13465:17                                         
+nvSplitTransaction                        function  src/lib/bos-api.ts:13481:17                                         
+nvCreateInvoice                           function  src/lib/bos-api.ts:13495:17                                         
+nvRemindInvoice                           function  src/lib/bos-api.ts:13520:17                                         
+getReleasedNav                            function  src/lib/bos-api.ts:13761:17                                         
+getReconciliationReport                   function  src/lib/bos-api.ts:13774:17                                         
+evaluatePreTrade                          function  src/lib/bos-api.ts:13990:17                                         
+listSessions                                        src/lib/investigation/sessionStream.ts:70:14                        
+isFloyorkerEnvironment                    function  src/components/lab/environments/constants.ts:113:17                 
+isPdsEnterpriseTemplate                   function  src/components/lab/environments/constants.ts:277:17                 
+default                                             src/components/investigation/InvestigateButton.tsx:59:16            
+bumpCardPriority                                    src/lib/intelligence/cards.ts:69:14                                 
+AGENT_LABELS                                        src/lib/intelligence/cards.ts:183:14                                
+CardInteractive                           function  src/components/ui/Card.tsx:39:17                                    
+CardFooter                                function  src/components/ui/Card.tsx:78:17                                    
+listTaskBoards                            function  src/lib/tasks-api.ts:207:23                                         
+bulkUploadReceipts                        function  src/lib/accounting-api.ts:208:23                                    
+listOccurrences                           function  src/lib/accounting-api.ts:295:23                                    
+attachIntakeToSubscription                function  src/lib/accounting-api.ts:320:23                                    
+suppressOccurrence                        function  src/lib/accounting-api.ts:335:23                                    
+setOccurrenceReviewState                  function  src/lib/accounting-api.ts:346:23                                    
+processIntake                             function  src/lib/accounting-api.ts:363:23                                    
+fetchSoftwareSpend                        function  src/lib/accounting-api.ts:399:23                                    
+fetchAppleBilledSpend                     function  src/lib/accounting-api.ts:414:23                                    
+createApproval                                      src/lib/ade-ops/api.ts:164:14                                       
+approveApproval                                     src/lib/ade-ops/api.ts:175:14                                       
+preflightApproval                                   src/lib/ade-ops/api.ts:187:14                                       
+simulateExecute                                     src/lib/ade-ops/api.ts:195:14                                       
+simulateRollback                                    src/lib/ade-ops/api.ts:207:14                                       
+default                                             src/components/history-rhymes/DissensusPanel.tsx:531:16             
+fetchPolymarketPulse                      function  src/lib/historyrhymes/client.ts:418:17                              
+default                                             src/components/intelligence/IntelligenceCard.tsx:127:16             
+default                                             src/components/market/HistoryRhymesDataStateBanner.tsx:114:16       
+TrapSummaryCard                           function  src/components/market/HistoryRhymesTab.tsx:714:17                   
+default                                             src/components/operator/AccountabilityLayer.tsx:220:16              
+default                                             src/components/operator/ActionQueueSection.tsx:175:16               
+default                                             src/components/operator/BudgetDriftWatch.tsx:277:16                 
+default                                             src/components/operator/InspectionRework.tsx:218:16                 
+default                                             src/components/operator/LessonsEngine.tsx:129:16                    
+default                                             src/components/operator/OperatorUnavailableState.tsx:117:16         
+default                                             src/components/operator/PermitTracker.tsx:220:16                    
+default                                             src/components/operator/PipelineIntegrityPages.tsx:377:16           
+default                                             src/components/operator/ReviewCycleAnalyzer.tsx:206:16              
+default                                             src/components/operator/StaffingLoad.tsx:190:16                     
+default                                             src/components/operator/WeeklyNarrativeCard.tsx:123:16              
+getEvalRun                                          src/lib/telemetry/agentBuilder-api.ts:250:14                        
+getReport                                           src/lib/telemetry/copilot-api.ts:205:14                             
+EvidencePageHeading                       function  src/components/telemetry/evidenceCard.tsx:135:17                    
+getStreamHealth                                     src/lib/telemetry/stream.ts:85:14                                   
+TelemetryPanel                                      src/components/telemetry/primitives.tsx:256:14                      
+TelemetryPageHeading                                src/components/telemetry/primitives.tsx:257:14                      
+TelemetryNullState                                  src/components/telemetry/primitives.tsx:258:14                      
+TelemetryInlineCode                                 src/components/telemetry/primitives.tsx:332:14                      
+TelemetryProvenancePanel                  function  src/components/telemetry/primitives.tsx:413:17                      
+TelemetryThesisHeading                    function  src/components/telemetry/primitives.tsx:450:17                      
+getAssistantFeatureFlags                  function  src/lib/commandbar/assistantApi.ts:399:17                           
+confirmPlan                               function  src/lib/commandbar/assistantApi.ts:499:23                           
+executePlan                               function  src/lib/commandbar/assistantApi.ts:549:23                           
+getRunStatus                              function  src/lib/commandbar/assistantApi.ts:603:23                           
+cancelRun                                 function  src/lib/commandbar/assistantApi.ts:685:23                           
+runDiagnostics                            function  src/lib/commandbar/assistantApi.ts:757:23                           
+buildExecutionSummary                     function  src/lib/commandbar/assistantApi.ts:857:17                           
+findVisibleEntityByName                   function  src/lib/commandbar/contextEnvelope.ts:256:17                        
+planEpisodeEmbedding                                src/lib/historyrhymes/promotions.ts:235:14                          
+isRenderable                              function  src/lib/re/assertAuthoritativeMetric.ts:265:17                      
+ADE_DEFAULT_BUSINESS_ID                             src/lib/automated-data-engineering/api.ts:10:14                     
+getToolDetail                                       src/lib/automated-data-engineering/api.ts:129:14                    
+getConnectors                                       src/lib/automated-data-engineering/api.ts:132:14                    
+INDUSTRY_THEME_STYLES                               src/lib/marketing/industryThemes.ts:39:14                           
+getPsychragSession                        function  src/lib/psychrag/api.ts:60:23                                       
+getResumeBiMetrics                        function  src/components/resume/ResumeBiModule.tsx:594:17                     
+getResumeBiSelection                      function  src/components/resume/ResumeBiModule.tsx:603:17                     
+getLinkedArchitectureNodes                function  src/components/resume/useResumeWorkspaceStore.ts:428:17             
+getBiRootId                               function  src/components/resume/useResumeWorkspaceStore.ts:437:17             
+WinstonCompanionWorkspace                 function  src/components/winston-companion/WinstonCompanionSurface.tsx:826:17 
+updateRun                                 function  src/lib/server/commandOrchestratorStore.ts:171:17                   
+eccResponse                               function  src/lib/server/eccApi.ts:8:17                                       
+proxyOrFallback                           function  src/lib/v1Proxy.ts:5:23                                             
+default                                             src/components/investigation/SteeringChatRail.tsx:185:16            
+fmtMoneyExact                             function  src/lib/format-utils.ts:30:17                                       
+fmtDateShort                              function  src/lib/format-utils.ts:120:17                                      
+fmtRelative                               function  src/lib/format-utils.ts:130:17                                      
+fmtBps                                    function  src/lib/format-utils.ts:147:17                                      
+HEALTH_BADGE_CLASSES                                src/lib/repe-health.ts:48:14                                        
+getAxisLineStyle                          function  src/components/charts/chart-theme.ts:102:17                         
+fmtPctRaw                                 function  src/components/charts/chart-theme.ts:148:17                         
+getChartTextColor                         function  src/components/charts/chart-theme.ts:152:17                         
+getChartBgColor                           function  src/components/charts/chart-theme.ts:156:17                         
+getModeColor                              function  src/components/repe/pipeline/radar/utils.ts:821:17                  
+getSectorEmphasis                         function  src/components/repe/pipeline/radar/utils.ts:826:17                  
+createPublicLead                          function  src/lib/server/publicBoundaryStore.ts:65:17                         
+createScenarioForFund                     function  src/lib/server/repe.ts:1355:23                                      
+RUN_TYPE_LABELS                                     src/lib/labels.ts:6:14                                              
+FEE_TYPE_LABELS                                     src/lib/labels.ts:24:14                                             
+SCENARIO_TYPE_LABELS                                src/lib/labels.ts:64:14                                             
+VALUATION_METHOD_LABELS                             src/lib/labels.ts:71:14                                             
+MERIDIAN_DEMO_ENV_ID                                src/lib/winston-demo.ts:3:14                                        
+MERIDIAN_DEMO_DOWNSIDE_SCENARIO_ID                  src/lib/winston-demo.ts:7:14                                        
+UNAVAILABLE_TILE_TESTID                             src/components/re/UnavailableTile.tsx:138:14                        
+UNAVAILABLE_CELL_TESTID                             src/components/re/UnavailableTile.tsx:139:14                        
+getVultrReconciliationDetail              function  src/lib/vultr-api.ts:88:17                                          
+getVultrGpuEconomics                      function  src/lib/vultr-api.ts:101:17                                         
+getVultrCustomerDetail                    function  src/lib/vultr-api.ts:144:17                                         
+getMetricsForEntity                       function  src/lib/dashboards/metric-catalog.ts:100:17                         
+getMetricGroups                           function  src/lib/dashboards/metric-catalog.ts:107:17                         
+validateMetricKeys                        function  src/lib/dashboards/metric-catalog.ts:112:17                         
+getArchetype                              function  src/lib/dashboards/layout-archetypes.ts:120:17                      
+fetchPipelineKanban                       function  src/lib/cro-api.ts:413:17                                           
+fetchDailyExecutionBrief                  function  src/lib/cro-api.ts:448:17                                           
+fetchStuckDeals                           function  src/lib/cro-api.ts:452:17                                           
+fetchStageSuggestions                     function  src/lib/cro-api.ts:456:17                                           
+simulateOpportunityAction                 function  src/lib/cro-api.ts:481:17                                           
+createLead                                function  src/lib/cro-api.ts:503:17                                           
+createOutreachTemplate                    function  src/lib/cro-api.ts:532:17                                           
+fetchProposal                             function  src/lib/cro-api.ts:596:17                                           
+createProposal                            function  src/lib/cro-api.ts:600:17                                           
+updateProposalStatus                      function  src/lib/cro-api.ts:616:17                                           
+createProposalVersion                     function  src/lib/cro-api.ts:623:17                                           
+fetchClient                               function  src/lib/cro-api.ts:646:17                                           
+convertToClient                           function  src/lib/cro-api.ts:650:17                                           
+fetchLatestMetrics                        function  src/lib/cro-api.ts:780:17                                           
+seedConsultingWorkspace                   function  src/lib/cro-api.ts:786:17                                           
+fetchTodayOverdue                         function  src/lib/cro-api.ts:950:23                                           
+updateContact                             function  src/lib/cro-api.ts:1291:23                                          
+fetchObjections                           function  src/lib/cro-api.ts:1452:23                                          
+fetchTopObjections                        function  src/lib/cro-api.ts:1458:23                                          
+createObjection                           function  src/lib/cro-api.ts:1462:23                                          
+updateObjection                           function  src/lib/cro-api.ts:1473:23                                          
+fetchDemoReadiness                        function  src/lib/cro-api.ts:1493:23                                          
+updateDemoReadiness                       function  src/lib/cro-api.ts:1497:23                                          
+fetchStaleRecords                         function  src/lib/cro-api.ts:1524:23                                          
+resetAndReseed                            function  src/lib/cro-api.ts:1528:23                                          
+TARGET_QUEUE                                        src/lib/cro-api.ts:1555:14                                          
+PROOF_ASSET_GAPS                                    src/lib/cro-api.ts:1720:14                                          
+fetchDailyBrief                           function  src/lib/cro-api.ts:1826:17                                          
+fetchDeals                                function  src/lib/cro-api.ts:1915:17                                          
+fetchDealSummary                          function  src/lib/cro-api.ts:1928:17                                          
+logDealActivity                           function  src/lib/cro-api.ts:1934:17                                          
+ingestLeads                               function  src/lib/cro-api.ts:1955:17                                          
+fetchWinstonAssist                        function  src/lib/cro-api.ts:1979:23                                          
+applyAssistAsNextAction                   function  src/lib/cro-api.ts:1990:23                                          
+createExecutionTask                       function  src/lib/cro-api.ts:2622:17                                          
+patchRoutingEngagement                    function  src/lib/cro-api.ts:2931:17                                          
+patchRoutingInvoice                       function  src/lib/cro-api.ts:2979:17                                          
+patchRoutingAttribution                   function  src/lib/cro-api.ts:3002:17                                          
+previewDealConversion                     function  src/lib/cro-api.ts:3030:17                                          
+toneClasses                               function  src/components/pds-enterprise/pdsEnterprise.ts:78:17                
+ROLE_TARGETS                                        src/lib/pds-thresholds.ts:10:14                                     
+measureTextLayout                         function  src/hooks/usePretext.ts:124:17                                      
+usePretextHeight                          function  src/hooks/usePretext.ts:213:17                                      
+usePretextShrinkwrap                      function  src/hooks/usePretext.ts:234:17                                      
+usePretextComposerHeight                  function  src/hooks/usePretext.ts:257:17                                      
+logDebug                                  function  src/lib/logging/logger.ts:76:17                                     
+patchPipelineStage                        function  src/lib/pipeline-api.ts:56:23                                       
+sqlAgentExplain                           function  src/lib/sql-agent-api.ts:89:23                                      
+sqlAgentTemplates                         function  src/lib/sql-agent-api.ts:98:23                                      
+sqlAgentRunTemplate                       function  src/lib/sql-agent-api.ts:109:23                                     
+sqlAgentSchema                            function  src/lib/sql-agent-api.ts:123:23                                     
+clearVendorIntel                          function  src/lib/vendor-intelligence-store.ts:78:17                          
+resolveCommandContext                     function  src/lib/commandbar/store.ts:94:17                                   
+loadHistory                               function  src/lib/commandbar/store.ts:141:17                                  
+persistHistory                            function  src/lib/commandbar/store.ts:184:17                                  
+REPE_MOBILE_NAV_ITEMS                               src/components/repe/workspace/MobileBottomNav.tsx:63:14             
+fetchHhaHealth                            function  src/lib/healthcare-subscription/client.ts:147:17                    
+DissensusClientError                      class     src/lib/trading-lab/dissensus-client.ts:68:14                       
+MetricCard                                function  src/components/historyrhymes/cockpit/primitives.tsx:103:17          
+PageHeading                               function  src/components/historyrhymes/cockpit/primitives.tsx:147:17          
+StatGrid                                  function  src/components/historyrhymes/cockpit/primitives.tsx:173:17          
+LogOutIcon                                function  src/components/lab/LabIcons.tsx:150:17                              
+ChevronsLeftIcon                          function  src/components/lab/LabIcons.tsx:162:17                              
+ChevronsRightIcon                         function  src/components/lab/LabIcons.tsx:171:17                              
+Trash2Icon                                function  src/components/lab/LabIcons.tsx:283:17                              
+NavIcon                                   function  src/components/lab/LabIcons.tsx:344:17                              
+DECISION_TAB_LABELS                                 src/lib/trading-lab/decision-engine-types.ts:15:14                  
+ASSET_SCOPE_LABELS                                  src/lib/trading-lab/decision-engine-types.ts:26:14                  
+fetchRhymesAlerts                         function  src/lib/trading-lab/rhymes-client.ts:65:17                          
+ShockClassificationBadge                  function  src/components/market/ResearchStateCards.tsx:13:17                  
+SignalFreshnessCard                       function  src/components/market/ResearchStateCards.tsx:34:17                  
+CoherenceMeter                            function  src/components/market/ResearchStateCards.tsx:50:17                  
+default                                             src/components/operator/CashAtRiskStrip.tsx:62:16                   
+default                                             src/components/operator/SiteOrdinanceStrip.tsx:196:16               
+getSkillsByCapabilityTag                  function  src/components/resume/skillsData.ts:204:17                          
+getSkillsByMilestoneId                    function  src/components/resume/skillsData.ts:209:17                          
+getSkillsByPhaseId                        function  src/components/resume/skillsData.ts:214:17                          
+CAPABILITY_MAP                                      src/components/resume/timeline/timelineData.ts:156:14               
+buildCurveData                            function  src/components/resume/timeline/timelineData.ts:643:17               
+isCapabilityActiveAt                      function  src/components/resume/timeline/timelineData.ts:731:17               
+getSystemsForEvent                        function  src/components/resume/timeline/timelineData.ts:740:17               
+getSystemsForCapability                   function  src/components/resume/timeline/timelineData.ts:747:17               
+getEventsForCapability                    function  src/components/resume/timeline/timelineData.ts:757:17               
+getNotebookById                                     src/lib/supply-chain/notebooks.ts:155:14                            
+getPublicKey                                        src/lib/telemetry/controlTower-api.ts:115:14                        
+WINSTON_RUNTIME_STORAGE_KEY                         src/lib/winston-companion/runtimeRouter.ts:98:14                    
+WINSTON_RUNTIME_EVENT_NAME                          src/lib/winston-companion/runtimeRouter.ts:99:14                    
+getWinstonLaunchSurfaceContract           function  src/lib/winston-companion/launchSurfaces.ts:22:17                   
+getSupportedWinstonLaunchSurfaces         function  src/lib/winston-companion/launchSurfaces.ts:26:17                   
+getFreshnessLabel                         function  src/components/lab/environments/visuals.tsx:103:17                  
+NovendorLockup                            function  src/components/marketing/branding/NovendorWordmark.tsx:73:17        
+IconShift                                           src/components/marketing/ui/icons.tsx:82:14                         
+IconStack                                           src/components/marketing/ui/icons.tsx:84:14                         
+toCurrency                                function  src/components/pds-enterprise/landing/utils.ts:16:17                
+fmtUSDDelta                               function  src/components/operator/command-desk/atoms/format.ts:17:17          
+CommandDeskShell                          function  …/components/operator/command-desk/layout/CommandDeskShell.tsx:15:17
+Unused exported types (41)
+SideEffectClass        type       src/lib/commandbar/types.ts:68:13                            
+SkillDefinition        type       src/lib/commandbar/types.ts:109:13                           
+CommandContextKey      type       src/lib/commandbar/types.ts:636:13                           
+OperatorSiteRow        interface  src/lib/bos-api.ts:1046:18                                   
+OperatorSiteDetail     interface  src/lib/bos-api.ts:1098:18                                   
+PdsV2BusinessLine      interface  src/lib/bos-api.ts:1809:18                                   
+PdsV2LeaderCoverage    interface  src/lib/bos-api.ts:1818:18                                   
+LegalPlaybookPosition  interface  src/lib/bos-api.ts:3663:18                                   
+AnomalyEvent           interface  src/lib/telemetry/api.ts:252:18                              
+DrawVarianceAnalysis   interface  src/types/capital-projects.ts:474:18                         
+DrawPortfolioSummary   interface  src/types/capital-projects.ts:497:18                         
+CpDrawAuditEntry       interface  src/types/capital-projects.ts:506:18                         
+BudgetVsActual         interface  src/types/capital-projects.ts:528:18                         
+DrillKind              type       src/components/telemetry/factory-ml/factoryDrill.ts:61:13    
+DashboardSubscription  interface  src/lib/dashboards/types.ts:176:18                           
+Vertical               type       src/components/consulting/pipeline-verticals.ts:80:13        
+ModelScenario          interface  src/components/repe/model/types.ts:18:18                     
+ScenarioAsset          interface  src/components/repe/model/types.ts:28:18                     
+ScenarioOverride       interface  src/components/repe/model/types.ts:40:18                     
+ScenarioRunResult      interface  src/components/repe/model/types.ts:51:18                     
+ScenarioComparison     interface  src/components/repe/model/types.ts:72:18                     
+ReModelScope           interface  src/components/repe/model/types.ts:86:18                     
+ReModelOverride        interface  src/components/repe/model/types.ts:95:18                     
+Asset                  interface  src/components/repe/model/types.ts:110:18                    
+SurgeryOverrides       interface  src/components/repe/model/types.ts:133:18                    
+AssetPeriod            interface  src/components/repe/model/types.ts:148:18                    
+FundScenarioState      interface  src/components/repe/fund-scenario/types.ts:18:18             
+PdsPunchItem           interface  src/types/pds.ts:126:18                                      
+PdsProjectDetail       interface  src/types/pds.ts:229:18                                      
+WhatChangedDelta       interface  src/lib/trading-lab/decision-engine-types.ts:66:18           
+AnalogMatch            interface  src/lib/trading-lab/decision-engine-types.ts:75:18           
+ForecastAgent          interface  src/lib/trading-lab/decision-engine-types.ts:208:18          
+CalibrationState       interface  src/lib/trading-lab/decision-engine-types.ts:238:18          
+SystemHealthStatus     interface  src/lib/trading-lab/decision-engine-types.ts:278:18          
+MSAZone                interface  src/lib/trading-lab/decision-engine-types.ts:347:18          
+MSAFeatureCard         interface  src/lib/trading-lab/decision-engine-types.ts:380:18          
+MarketSegment          interface  src/lib/trading-lab/decision-engine-types.ts:396:18          
+DecisionSummary        interface  src/lib/trading-lab/decision-engine-types.ts:462:18          
+DatabricksP0Signals    interface  src/lib/trading-lab/decision-engine-types.ts:505:18          
+StateVector            interface  src/lib/trading-lab/decision-engine-types.ts:521:18          
+KpiSummary             interface  src/components/telemetry/context/BottleneckMap/types.ts:65:18
+Duplicate exports (24)
+isTradingPlatformEnvironment|isMarketRotationEnvironment  src/components/lab/environments/constants.ts          
+IntelligenceCardFeed|default                              src/components/intelligence/IntelligenceCardFeed.tsx  
+InvestigateButton|default                                 src/components/investigation/InvestigateButton.tsx    
+DissensusPanel|default                                    src/components/history-rhymes/DissensusPanel.tsx      
+IntelligenceCard|default                                  src/components/intelligence/IntelligenceCard.tsx      
+HistoryRhymesDataStateBanner|default                      src/components/market/HistoryRhymesDataStateBanner.tsx
+AccountabilityLayer|default                               src/components/operator/AccountabilityLayer.tsx       
+ActionQueueSection|default                                src/components/operator/ActionQueueSection.tsx        
+BudgetDriftWatch|default                                  src/components/operator/BudgetDriftWatch.tsx          
+InspectionRework|default                                  src/components/operator/InspectionRework.tsx          
+LessonsEngine|default                                     src/components/operator/LessonsEngine.tsx             
+OperatorUnavailableState|default                          src/components/operator/OperatorUnavailableState.tsx  
+PermitTracker|default                                     src/components/operator/PermitTracker.tsx             
+PipelineIntegrityLandingPage|default                      src/components/operator/PipelineIntegrityPages.tsx    
+ReviewCycleAnalyzer|default                               src/components/operator/ReviewCycleAnalyzer.tsx       
+StaffingLoad|default                                      src/components/operator/StaffingLoad.tsx              
+WeeklyNarrativeCard|default                               src/components/operator/WeeklyNarrativeCard.tsx       
+Panel|TelemetryPanel                                      src/components/telemetry/primitives.tsx               
+PageHeading|TelemetryPageHeading                          src/components/telemetry/primitives.tsx               
+EmptyState|TelemetryNullState                             src/components/telemetry/primitives.tsx               
+InlineCode|TelemetryInlineCode                            src/components/telemetry/primitives.tsx               
+SteeringChatRail|default                                  src/components/investigation/SteeringChatRail.tsx     
+CashAtRiskStrip|default                                   src/components/operator/CashAtRiskStrip.tsx           
+SiteOrdinanceStrip|default                                src/components/operator/SiteOrdinanceStrip.tsx        
+Configuration hints (4)
+. (root)                        knip.json  Add entry and/or refine project files (169 unused files)
+db/**                           knip.json  Remove from ignore                                      
+**/*.d.ts                       knip.json  Remove from ignore                                      
+src/instrumentation.{ts,tsx}    knip.json  Refine entry pattern (no matches)                       
