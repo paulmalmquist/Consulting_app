@@ -24,7 +24,7 @@ related:
 # Phase 8 — Telemetry Presentation Readiness, Drill-Through, Export, Page Rationalization
 
 > **Companion docs:** acceptance receipts → [`0012-telemetry-phase8-acceptance.md`](./0012-telemetry-phase8-acceptance.md) ·
-> demo script / talk track → [`0013-telemetry-phase9-demo-rehearsal.md`](./0013-telemetry-phase9-demo-rehearsal.md) (Phase 9).
+> demo script / talk track → [`0013-telemetry-phase9-demo.md`](./0013-telemetry-phase9-demo.md) (Phase 9, Relativity onsite package) · top-level pointer → [`docs/DEMO_TELEMETRY.md`](../../../DEMO_TELEMETRY.md).
 
 ## Goal
 
