@@ -30,6 +30,7 @@ from fastapi.responses import JSONResponse, Response  # noqa: E402
 from openpyxl import load_workbook  # noqa: E402
 
 from app.routes import telemetry_export as te  # noqa: E402
+from app.services import telemetry_stream_etl  # noqa: E402
 
 BIZ = UUID("00000000-0000-0000-0000-000000000002")
 COLS = te.TELEMETRY_EXPORT_DATASETS["model_runs"].columns
@@ -115,9 +116,9 @@ def _fake_stream_live(events, null_reason=None):
 
 
 def _stub_stream_etl(monkeypatch, events, null_reason=None):
-    stub = types.ModuleType("app.services.telemetry_stream_etl")
-    stub.stream_live = _fake_stream_live(events, null_reason)
-    monkeypatch.setitem(sys.modules, "app.services.telemetry_stream_etl", stub)
+    # Patch the attribute on the REAL module so the extract's `from app.services import
+    # telemetry_stream_etl` picks it up regardless of import order in the full suite.
+    monkeypatch.setattr(telemetry_stream_etl, "stream_live", _fake_stream_live(events, null_reason))
 
 
 ANOMALY_COLS = list(te.TELEMETRY_EXPORT_DATASETS["anomaly_events"].columns)
