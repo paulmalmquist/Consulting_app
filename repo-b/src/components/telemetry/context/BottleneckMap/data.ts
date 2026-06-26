@@ -4,6 +4,7 @@
 // are computed once at module scope.
 
 import { RS } from "../../rsTokens";
+import type { SourceKind } from "../../drill/sourceKind";
 import type {
   ColorByKey, CostPoint, DimensionEntry, DimensionKey, LaunchEvent, SizeModeKey, TimeWindow,
   YearPoint,
@@ -364,7 +365,22 @@ export function fmtCost(v: number): string {
 // window (inflation-adjusted cost). Presented as inline editorial text under the Overview thesis,
 // not as a dashboard strip. Mirrors the windowed KPI logic that used to live in BottleneckMap.
 export type BigNumberAccent = "text" | "share" | "cost";
-export interface BigNumber { label: string; value: string; sub: string; accent: BigNumberAccent }
+
+// Drill payload for a Big Number. These are curated public-data anchors (GCAT / Wikipedia /
+// company-stated), not operational telemetry — so the source kind is always "fixture" and the rows
+// are the underlying public series, never row-level serving data. `rows: []` renders the honest
+// "no row-level series" state (e.g. the derived timeline range) instead of a dead click.
+export interface BigNumberDrill {
+  sourceKind: SourceKind;
+  sourceLabel: string;
+  note: string;
+  nullReason?: string;
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+}
+export interface BigNumber {
+  label: string; value: string; sub: string; accent: BigNumberAccent; drill: BigNumberDrill;
+}
 
 export function computeBigNumbers(): BigNumber[] {
   const attempts = YEAR_SERIES.reduce((s, d) => s + (d.attempts || 0), 0);
@@ -377,11 +393,68 @@ export function computeBigNumbers(): BigNumber[] {
   const costLabel = first?.costMeta && last?.costMeta
     ? `${first.costMeta.v} to ${last.costMeta.v}, 2025 $` : "";
   return [
-    { label: "Timeline", value: `${FULL_WINDOW[0]} – ${FULL_WINDOW[1]}`, sub: "full range", accent: "text" },
-    { label: "Launch attempts", value: attempts.toLocaleString(), sub: "orbital, total", accent: "text" },
-    { label: "Commercial share",
+    {
+      label: "Timeline", value: `${FULL_WINDOW[0]} – ${FULL_WINDOW[1]}`, sub: "full range", accent: "text",
+      drill: {
+        sourceKind: "fixture", sourceLabel: "GCAT / Wikipedia spaceflight series",
+        note: "The window spanned by the cadence series.", columns: [], rows: [],
+        nullReason: "Derived range — no separate row-level table; see Launch attempts for the per-year cadence rows.",
+      },
+    },
+    {
+      label: "Launch attempts", value: attempts.toLocaleString(), sub: "orbital, total", accent: "text",
+      drill: {
+        sourceKind: "fixture", sourceLabel: "CADENCE (GCAT / Wikipedia yearly spaceflight series)",
+        note: "Annual world orbital launch attempts. Pre-2000 are close approximations; 2018+ are exact.",
+        columns: ["year", "attempts"],
+        rows: CADENCE.map(([year, n]) => ({ year, attempts: n })),
+      },
+    },
+    {
+      label: "Commercial share",
       value: lastReal?.commercialPct != null ? `${Math.round(lastReal.commercialPct)}%` : "n/a",
-      sub: lastReal ? `as of ${lastReal.year}` : "", accent: "share" },
-    { label: "Cost per kg to LEO", value: cost, sub: costLabel, accent: "cost" },
+      sub: lastReal ? `as of ${lastReal.year}` : "", accent: "share",
+      drill: {
+        sourceKind: "fixture", sourceLabel: "SHARE_ANCHORS (commercial share of attempts)",
+        note: "2022-2025 reported; earlier anchors are coarse estimates, interpolated between.",
+        columns: ["year", "commercial_share_pct"],
+        rows: SHARE_ANCHORS.map(([year, pct]) => ({ year, commercial_share_pct: pct })),
+      },
+    },
+    {
+      label: "Cost per kg to LEO", value: cost, sub: costLabel, accent: "cost",
+      drill: {
+        sourceKind: "fixture", sourceLabel: "COST_POINTS (per-launch price ÷ LEO capacity)",
+        note: "Per-launch sticker/marginal price ÷ LEO capacity, one consistent basis; 2025$ via approx CPI. Terran R is company-stated.",
+        columns: ["year", "vehicle", "usd_per_kg_nominal", "usd_per_kg_2025", "basis"],
+        rows: Object.entries(COST_POINTS).map(([year, cp]) => ({
+          year: Number(year), vehicle: cp.v, usd_per_kg_nominal: cp.nominal, usd_per_kg_2025: cp.adj, basis: cp.basis,
+        })),
+      },
+    },
   ];
 }
+
+// Per-event narrative for the selected-event explanation strip (PR 8B). The bottleneck solved + the
+// new data burden come from the event itself (bottleneckSolved / bottleneckCreated / dataProduct);
+// this map adds the two framing fields the demo wants: the operational question that got harder, and
+// which downstream telemetry page proves the pattern next. Slugs are real telemetry routes.
+export interface EventNarrative { harderQuestion: string; provesNextSlug: string; provesNextLabel: string }
+export const EVENT_NARRATIVE: Record<string, EventNarrative> = {
+  sputnik: { harderQuestion: "Once you have a signal, what do you do with it?", provesNextSlug: "stream", provesNextLabel: "Mission Control" },
+  vostok: { harderQuestion: "How do you trust a life-critical reading in real time?", provesNextSlug: "stream", provesNextLabel: "Mission Control" },
+  apollo11: { harderQuestion: "How do thousands of subsystems resolve into one go/no-go?", provesNextSlug: "replay", provesNextLabel: "Replay" },
+  shuttle: { harderQuestion: "How do you inspect a reused vehicle between flights?", provesNextSlug: "factory-ml", provesNextLabel: "Flight Readiness" },
+  iss: { harderQuestion: "How do you run a system for decades on a continuous feed?", provesNextSlug: "stream", provesNextLabel: "Mission Control" },
+  falcon1: { harderQuestion: "How does a small team validate a vehicle from sparse data?", provesNextSlug: "evidence", provesNextLabel: "Evidence" },
+  falcon9: { harderQuestion: "How do you drive cost down with data, not just hardware?", provesNextSlug: "model-performance", provesNextLabel: "Model Performance" },
+  dragon: { harderQuestion: "How do you certify a service on its operating data?", provesNextSlug: "evidence", provesNextLabel: "Evidence" },
+  f9landing: { harderQuestion: "How do you decide a recovered booster is safe to refly?", provesNextSlug: "factory-ml", provesNextLabel: "Flight Readiness" },
+  falconheavy: { harderQuestion: "How do you carry evidence across vehicle variants?", provesNextSlug: "metric-lineage", provesNextLabel: "Metric Lineage" },
+  crewdragon: { harderQuestion: "How do you show human-rated reliability from test data?", provesNextSlug: "evidence", provesNextLabel: "Evidence" },
+  terran1: { harderQuestion: "How do you tie a printed part to its build and inspection history?", provesNextSlug: "factory", provesNextLabel: "Factory · NCR" },
+  starshipcatch: { harderQuestion: "How do you learn fast when each flight floods you with data?", provesNextSlug: "stargate", provesNextLabel: "Stargate Live" },
+  fleetscale: { harderQuestion: "How do you keep judgment fast as cadence climbs?", provesNextSlug: "stream", provesNextLabel: "Mission Control" },
+  terranR: { harderQuestion: "How do you trust a model's call before a test you can't cheaply repeat?", provesNextSlug: "calibration", provesNextLabel: "RUL Calibration" },
+  artemis: { harderQuestion: "How do you trace every number a supply-chain decision rests on?", provesNextSlug: "metric-lineage", provesNextLabel: "Metric Lineage" },
+};

@@ -5,11 +5,13 @@
 // decision velocity, a data platform problem. Four linked panels derive from one event model.
 // This is a context module, not an operational view: static public data, no network calls.
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { RS, RS_MONO, RS_SANS } from "../../rsTokens";
+import { telemetryHref } from "../../telemetryNav";
 import styles from "./BottleneckMap.module.css";
 import {
-  COLOR_DIMENSIONS, EVENTS, EVENTS_CHRONO, SIZE_MODES,
+  COLOR_DIMENSIONS, EVENT_NARRATIVE, EVENTS, EVENTS_CHRONO, SIZE_MODES,
   eventDimension, eventDimensionKey,
 } from "./data";
 import EventRecord from "./EventRecord";
@@ -35,7 +37,19 @@ function decorate(e: LaunchEvent, colorBy: ColorByKey, sizeMode: SizeModeKey): D
   };
 }
 
-export default function BottleneckMap() {
+// One framing line in the selected-event narrative strip.
+function NarrLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontFamily: RS_MONO, fontSize: 8.5, letterSpacing: 0.6, textTransform: "uppercase", color: RS.faint, marginBottom: 3 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: RS_SANS, fontSize: 12.5, color: RS.text, lineHeight: 1.45 }}>{value}</div>
+    </div>
+  );
+}
+
+export default function BottleneckMap({ envId }: { envId?: string }) {
   const [selectedId, setSelectedId] = useState<string | null>("terran1");
   const [chipFilter, setChipFilter] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<SizeModeKey>("scale");
@@ -188,6 +202,40 @@ export default function BottleneckMap() {
           focused dimmed={false}
           onHoverYear={onHoverYear} onSelect={onSelect} />
       </div>
+
+      {/* selected-event framing strip: the two questions the record below does not answer — the
+          operational question this era created, and which downstream page proves the pattern next. The
+          bottleneck solved and the new data burden are in the event record (the relay cells) just below;
+          this strip carries the forward-looking framing without repeating them. */}
+      {selected && (() => {
+        const n = EVENT_NARRATIVE[selected.id];
+        return (
+          <div style={{ marginTop: 14, border: `1px solid ${selected.color}33`, borderLeft: `2px solid ${selected.color}`,
+            borderRadius: 9, background: `${selected.color}0a`, padding: "12px 15px" }}>
+            <div style={{ fontFamily: RS_MONO, fontSize: 9, letterSpacing: 0.8, textTransform: "uppercase", color: RS.faint, marginBottom: 10 }}>
+              {selected.name} — the operational question this era created
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) minmax(180px, 1fr)", gap: "11px 22px", alignItems: "start" }}>
+              <NarrLine label="Question that got harder" value={n?.harderQuestion ?? "—"} />
+              <div>
+                <div style={{ fontFamily: RS_MONO, fontSize: 8.5, letterSpacing: 0.6, textTransform: "uppercase", color: RS.faint, marginBottom: 5 }}>
+                  Proves the pattern next
+                </div>
+                {n && envId ? (
+                  <Link href={telemetryHref(envId, n.provesNextSlug)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none",
+                      fontFamily: RS_MONO, fontSize: 11.5, color: RS.cyan, border: `1px solid ${RS.cyan}55`,
+                      background: `${RS.cyan}12`, borderRadius: 6, padding: "5px 11px" }}>
+                    {n.provesNextLabel} →
+                  </Link>
+                ) : (
+                  <span style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.faint }}>downstream link unavailable</span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* panel 4: pinned event record */}
       {selected && <EventRecord event={selected} presenting={presenting} focusPanel={focusPanel} />}

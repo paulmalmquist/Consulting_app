@@ -44,6 +44,18 @@ describe("BottleneckMap rendering", () => {
     expect(screen.getByText("Scaling printed production to a reusable medium-heavy vehicle")).toBeInTheDocument();
   });
 
+  it("shows the selected-event framing strip: the harder question + a real downstream link", () => {
+    render(<BottleneckMap envId="env-x" />);
+    expect(screen.getByText(/tie a printed part to its build and inspection history/i)).toBeInTheDocument();
+    const link = screen.getByText(/Factory.*NCR/).closest("a");
+    expect(link).toHaveAttribute("href", "/lab/env/env-x/telemetry/factory");
+  });
+
+  it("fails closed on the strip's downstream link when envId is absent", () => {
+    render(<BottleneckMap />);
+    expect(screen.getByText(/downstream link unavailable/i)).toBeInTheDocument();
+  });
+
   it("enters presenter mode from the button, steps with the on-screen controls, exits on Escape", () => {
     render(<BottleneckMap />);
     fireEvent.click(screen.getByRole("button", { name: "Play guided walkthrough" }));
