@@ -5,8 +5,8 @@ import {
   telemetryHref,
 } from "./telemetryNav";
 
-describe("telemetry navigation structure (6-section redesign + Data Engineering)", () => {
-  it("exposes the redesign sections in order, with Data Engineering last", () => {
+describe("telemetry navigation structure (6 presentation sections)", () => {
+  it("exposes the six presentation sections in order (Data Engineering hidden from nav)", () => {
     expect(TELEMETRY_NAV_GROUPS).toEqual([
       "Overview",
       "Operations",
@@ -14,7 +14,6 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
       "Factory & Quality",
       "Evidence & Lineage",
       "Agent Operations",
-      "Data Engineering",
     ]);
   });
 
@@ -24,25 +23,16 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
     }
   });
 
-  it("exposes exactly the presentation-nav slugs (governance/how-it-works/evidence hidden, routes still resolve)", () => {
-    // PR 2.1 conservative declutter: Trust Center (governance), How This Works (how-it-works), and
-    // Resume Evidence (evidence) are intentionally dropped from the nav. Their routes still resolve
-    // for deep links; they are simply not surfaced in the rail. Any OTHER slug change is a regression.
+  it("exposes exactly the presentation-nav slugs (hidden surfaces dropped, routes still resolve)", () => {
+    // Hidden-before-delete: Trust Center (governance), How This Works (how-it-works), Resume Evidence
+    // (evidence), Test Intelligence (copilot), and the whole Data Engineering group are intentionally
+    // dropped from the nav. Their routes still resolve for deep links. Any OTHER slug change is a regression.
     const slugs = TELEMETRY_NAV.map((n) => n.slug).sort();
     expect(slugs).toEqual(
       [
         "",
         "calibration",
         "control-tower",
-        "copilot",
-        "data-engineering",
-        "data-engineering/autopsy",
-        "data-engineering/grain",
-        "data-engineering/pipelines",
-        "data-engineering/relationships",
-        "data-engineering/sources",
-        "data-engineering/workbench",
-        "data-engineering/workflows",
         "factory",
         "factory-ml",
         "metadata",
@@ -57,9 +47,10 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
       ].sort(),
     );
     // The hidden slugs must NOT appear in the nav (but their page routes still exist on disk).
-    expect(slugs).not.toContain("governance");
-    expect(slugs).not.toContain("how-it-works");
-    expect(slugs).not.toContain("evidence");
+    for (const hidden of ["governance", "how-it-works", "evidence", "copilot", "data-engineering"]) {
+      expect(slugs).not.toContain(hidden);
+    }
+    expect(slugs.some((s) => s.startsWith("data-engineering/"))).toBe(false);
   });
 
   it("applies the redesign relabels without changing slugs", () => {
@@ -76,7 +67,8 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
       group: "Evidence & Lineage",
     });
     expect(item?.mobilePrimary).not.toBe(true);
-    expect(TELEMETRY_NAV.filter((entry) => entry.mobilePrimary)).toHaveLength(4);
+    // Three mobile-primary tabs remain after Test Intelligence (copilot) was hidden.
+    expect(TELEMETRY_NAV.filter((entry) => entry.mobilePrimary)).toHaveLength(3);
   });
 
   it("builds and recognizes the env-scoped metadata route", () => {
@@ -92,29 +84,15 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
     ).toBe(true);
   });
 
-  it("registers the seven Data Engineering items under their group", () => {
-    const slugs = TELEMETRY_NAV.filter((n) => n.group === "Data Engineering").map((n) => n.slug);
-    expect(slugs).toEqual([
-      "data-engineering",
-      "data-engineering/grain",
-      "data-engineering/relationships",
-      "data-engineering/pipelines",
-      "data-engineering/workflows",
-      "data-engineering/workbench",
-      "data-engineering/autopsy",
-      "data-engineering/sources",
-    ]);
-  });
-
-  it("builds and recognizes a nested data-engineering route", () => {
+  it("no longer surfaces any Data Engineering nav items (group hidden; routes still resolve)", () => {
+    expect(TELEMETRY_NAV.filter((n) => n.group === "Data Engineering")).toHaveLength(0);
+    // The nested route still builds/recognizes for deep links even though it is not in the nav.
     expect(telemetryHref("env-1", "data-engineering/grain")).toBe(
       "/lab/env/env-1/telemetry/data-engineering/grain",
     );
     expect(
       isTelemetryItemActive(
-        "/lab/env/env-1/telemetry/data-engineering/grain",
-        "env-1",
-        "data-engineering/grain",
+        "/lab/env/env-1/telemetry/data-engineering/grain", "env-1", "data-engineering/grain",
       ),
     ).toBe(true);
   });

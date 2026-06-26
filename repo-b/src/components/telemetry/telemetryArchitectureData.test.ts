@@ -10,7 +10,7 @@ import { TELEMETRY_NAV } from "./telemetryNav";
 // intentionally hidden from the nav but still resolve (PR 2.1 hide-before-delete: Trust Center,
 // How This Works, Resume Evidence). Their page.tsx still exist, so an arch node pointing at them is
 // a real deep-link, not a dead one.
-const HIDDEN_BUT_RESOLVING = ["governance", "how-it-works", "evidence"];
+const HIDDEN_BUT_RESOLVING = ["governance", "how-it-works", "evidence", "copilot"];
 const VALID_SLUGS = new Set<string>([...TELEMETRY_NAV.map((n) => n.slug), ...HIDDEN_BUT_RESOLVING]);
 const ALL_NODES: ArchNode[] = ARCH_VIEWS.flatMap((v) => v.nodes);
 
