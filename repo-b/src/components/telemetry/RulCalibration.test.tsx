@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import RulCalibration from "./RulCalibration";
 import { CALIBRATION_TRAJECTORY } from "@/lib/telemetry/calibrationEvidence";
@@ -37,6 +37,20 @@ describe("RulCalibration", () => {
     // the only mention of distance/embedding trust is the kill context — never as a live feature
     const body = document.body.textContent || "";
     expect(body).not.toMatch(/SupCon|analog retrieval|pgvector|novelty distance/i);
+  });
+
+  it("drills to per-cycle unit-level rows (fixture) with coverage + CSV export (8E)", () => {
+    render(<RulCalibration />);
+    // source-kind is labeled on the page
+    expect(screen.getByText(/computed evidence artifact/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Inspect the unit-level calibration rows and export/i }));
+    // the drawer labels the source kind honestly + exposes the unit-level columns
+    expect(screen.getByText(/computed-artifact \(conformal bands\)/i)).toBeInTheDocument();
+    expect(screen.getByText("covered_90")).toBeInTheDocument();
+    // flip/gate is honestly marked not-applicable here (the 100-unit aggregate lives on Evidence)
+    expect(screen.getByText(/100-unit gate-flip aggregate is on the Evidence/i)).toBeInTheDocument();
+    // CSV export of the displayed unit rows is enabled (fixture rows present)
+    expect(screen.getByRole("button", { name: /Export CSV/i })).not.toBeDisabled();
   });
 
   it("builds a deterministic trajectory with monotone non-increasing true RUL ending at 0", () => {
