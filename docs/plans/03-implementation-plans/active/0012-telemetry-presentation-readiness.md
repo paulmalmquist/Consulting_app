@@ -92,6 +92,21 @@ telemetry surface is more complete than the Phase 8 brief assumes. These rescope
    `mlflowRunLink`/`registeredModelLink`/`deltaTableLink`). A CSV Blob/anchor pattern exists
    (`winston/blocks/ChatTableBlock.tsx`). So 8A is mostly **extract + promote + wire**, not net-new.
 
+## Decisions (2026-06-26, owner-confirmed)
+
+1. **Green-wave axis (8B):** show a faint labeled true-scale 0/50/100% axis so the commercial-share
+   wave reads correctly, while keeping it visually subordinate (lower opacity, behind the bars). Do
+   not rescale it to full height; do not leave it compressed-and-unlabeled.
+2. **Agent Control Tower (8F):** hide from the nav (route still resolves), same hide-before-delete
+   treatment as the other folded surfaces. Its nav comment already calls it a "mockup".
+3. **Export (8A + wiring PRs):** CSV now (client-side Blob, reflects the on-screen filter) **and** a
+   server-side XLSX export route. The XLSX route is a new read-only FastAPI endpoint over existing
+   `tel_*` data via `openpyxl` (already a dep), mirroring the REPE `ExcelExportButton` →
+   `exportFundExcelUrl` → server-built `.xlsx` pattern. No new table. The XLSX route + its
+   `ExportToExcelButton` land in 8A's framework but require a backend deploy to be live in prod
+   (`scripts/deploy_backend.sh`) — treat that deploy as a normal, low-risk additive step. This moves
+   XLSX out of the original out-of-scope list.
+
 ## The honesty source-kind framework (the axis that makes drill-through safe)
 
 Drill-through and export must carry the source kind so no page implies more than it has. Four kinds:
@@ -177,8 +192,8 @@ Readiness, the simplified sidebar, one drill drawer, one CSV export path.
 
 Model semantics, ML evidence artifacts/values, claim strength, DB schema, Databricks notebooks,
 evidence JSONs (no routed refresh), the deferred Spin 6 / Spin 2 UI cards (a concurrent agent owns
-that surface), XLSX export (CSV first; XLSX only if the server-export pattern is later routed), any
-new backend table or endpoint.
+that surface), any new backend **table**. (XLSX export is now IN scope per Decision 3 — a new
+read-only export endpoint over existing `tel_*` data, no new table.)
 
 ## Risks
 
