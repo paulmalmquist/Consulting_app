@@ -5,15 +5,16 @@ import { C } from "./primitives";
 
 // ===========================================================================
 // Telemetry page header system. One header family for every telemetry route so
-// the pages scan as a typographic system:
-//   - hero      → Overview only: editorial (Cormorant) display title + metric row.
-//   - evidence  → evidence/lineage pages: editorial title, restrained.
-//   - standard  → models/factory consoles: Inter Tight title.
-//   - compact   → operational consoles: tighter Inter Tight title + live chips/actions.
+// the pages scan as a typographic system. Every page title now shares one editorial
+// font and one size (see TITLE_STYLE); the variant only drives layout:
+//   - hero      → Overview: title + the Big Numbers metric row.
+//   - evidence  → evidence/lineage pages: wider measure.
+//   - standard  → models/factory consoles.
+//   - compact   → operational consoles: tighter margin + live chips/actions.
 //
 // Fonts come from the global next/font CSS vars (set on <html> in app/layout.tsx):
-//   --font-editorial (Cormorant Garamond), --font-display (Inter Tight),
-//   --font-mono (JetBrains Mono). Colors stay on the telemetry `C` palette.
+//   --font-editorial (Cormorant Garamond) for titles, --font-mono (JetBrains Mono)
+//   for data labels/IDs/values. Colors stay on the telemetry `C` palette.
 //
 // No fetching, no state, no invented metadata — callers pass existing values into
 // the metadata/actions/metrics slots. Nested section headings keep using PageHeading.
@@ -38,27 +39,15 @@ export interface HeaderMetric {
 }
 
 const FONT_EDITORIAL = "var(--font-editorial), Georgia, serif";
-const FONT_DISPLAY = "var(--font-display), 'Inter Tight', Inter, system-ui, sans-serif";
 
-// Per-variant title typography. Sizes use clamp() so titles wrap cleanly from
-// 390px → desktop without overflow.
-const TITLE_STYLE: Record<HeaderVariant, CSSProperties> = {
-  hero: {
-    fontFamily: FONT_EDITORIAL, fontWeight: 600,
-    fontSize: "clamp(2.4rem, 5.2vw, 3.25rem)", lineHeight: 1.05, letterSpacing: "0.002em",
-  },
-  evidence: {
-    fontFamily: FONT_EDITORIAL, fontWeight: 600,
-    fontSize: "clamp(1.7rem, 3.4vw, 2.15rem)", lineHeight: 1.1, letterSpacing: "0.004em",
-  },
-  standard: {
-    fontFamily: FONT_DISPLAY, fontWeight: 700,
-    fontSize: "clamp(1.45rem, 2.6vw, 1.9rem)", lineHeight: 1.12, letterSpacing: "-0.012em",
-  },
-  compact: {
-    fontFamily: FONT_DISPLAY, fontWeight: 700,
-    fontSize: "clamp(1.25rem, 2vw, 1.45rem)", lineHeight: 1.15, letterSpacing: "-0.01em",
-  },
+// One unified page-title treatment across every variant (owner decision, Phase 9A): the same editorial
+// face and the same size on every telemetry page, so the headlines read as one product. Overview is no
+// longer the oversized outlier and the operational consoles are no longer the small ones. The clamp() keeps
+// it wrapping cleanly from 390px to desktop. Variant still drives layout (margin, hero metric strip) and the
+// gradient still emphasizes a meaningful phrase, but the title font and size are shared.
+const TITLE_STYLE: CSSProperties = {
+  fontFamily: FONT_EDITORIAL, fontWeight: 600,
+  fontSize: "clamp(1.85rem, 3.4vw, 2.3rem)", lineHeight: 1.12, letterSpacing: "0.003em",
 };
 
 const MARGIN_BOTTOM: Record<HeaderVariant, number> = { hero: 26, evidence: 24, standard: 22, compact: 18 };
@@ -121,7 +110,7 @@ export function TelemetryPageHeader({
             <span aria-hidden style={{ width: variant === "hero" ? 18 : 16, height: 2, borderRadius: 2, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa` }} />
             <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: C.cyan, textTransform: "uppercase" }}>{eyebrow}</span>
           </div>
-          <h1 style={{ ...TITLE_STYLE[variant], color: C.text, marginTop: variant === "hero" ? 12 : 9 }}>
+          <h1 style={{ ...TITLE_STYLE, color: C.text, marginTop: variant === "hero" ? 12 : 9 }}>
             {renderTitle(title)}
           </h1>
         </div>

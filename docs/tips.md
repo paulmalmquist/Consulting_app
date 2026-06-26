@@ -4637,3 +4637,19 @@ Lessons from making the Overview hero background follow the selected Bottleneck 
 - **Repo gotcha:** the CI typecheck is `tsc --noEmit -p tsconfig.typecheck.json` (excludes test files);
   a bare `tsc --noEmit` surfaces unrelated pre-existing test-file errors (historyrhymes, replay
   diagnostics) — judge by the `tsconfig.typecheck.json` run.
+
+## A demo beat can live on a hidden-but-resolving route — verify the beat→route→value map before scripting (Phase 9)
+
+The Gold Demo Path's two strongest beats (RUL conformal **PICP 0.86 / 15-of-100** via `RulConformalCard`, and the **FD004 90.5% out-of-envelope abstention** via `CompetenceEnvelopeCard`) both render on `/evidence`, which 8H made **hidden-but-resolving**. The RUL Calibration *nav* page (`/calibration`) shows different numbers (FD001 0.778/0.903). A page-centric click-path would point the presenter at the wrong page for the number they say. Map each beat to its exact route + component + on-screen value, and when the value lives on a hidden page, the demo deep-links it (pre-open the tab) rather than un-hiding — matches the "pre-open three tabs" demo method, no 8H reversal. Source files referencing a stale host (`fly.io`) get reconciled to reality (Railway + Vercel + Lakebase), and the live app already running on Databricks Lakebase turns the Lakebase pitch from hypothetical into demonstrated.
+
+## Fix a raw-exception demo wart at the render layer, not the backend (Phase 9A-C)
+
+A raw Python traceback (`pending: import failed (ModuleNotFoundError: No module named 'vus')`) reached the Model Registry screen because it was captured as a string, stored in `tel_model_runs.metrics.vus_status`, returned verbatim, and rendered raw in `RegistryConsole.tsx`. The value already lives in the DB (written by a telemetry-platform script), so the cheap, safe fix is a **frontend render-mapping** (`vusUnavailableReason()` → "optional VUS library not installed") — no backend, no DB, no evidence-JSON touch. Keep the limitation visible as a `null_reason`, don't hide it. Same idea for raw `JSON.stringify(gate)` → a readable `key value · key value` join. Leave intentional fail-closed patterns alone (e.g. an error already wrapped in a null_reason+retry frame with the raw message demoted to a subordinate "Detail:"), and don't touch the `—` empty-value placeholders (an established UI convention, not a wart).
+
+## A read-only preflight reports recommendations; it never mutates by default (Phase 9A-B)
+
+`preflight_demo.py` (modeled on `verify_lineage.py`: stdlib urllib, `_emit` PASS/WARN/FAIL, exit 0-unless-FAIL) checks the demo surfaces and prints a per-surface **recommended action** (safe to show / cold → warm-or-show-empty / start the capture first). Cold is a WARN, not a FAIL. Two gotchas: the Vercel proxy **strips `X-Telemetry-*` headers**, so XLSX validity is checked by transport + the **`PK` zip-magic bytes** (stdlib, no openpyxl) and row counts come from `/stream/live` (the same source the export reads); and mutation is **opt-in only** — `--dry-run` prints what `--warm` would POST, `--warm` starts only the two safe capture-mode replays. Keep the decision logic in pure functions so it unit-tests without network.
+
+## Unify a typographic system at the shared primitive, not per page (Phase 9A-A)
+
+To make every telemetry page title "feel like one product," collapse the per-variant title styles in `TelemetryPageHeader` to **one shared `TITLE_STYLE`** (one font, one size) and let the variant keep driving only layout (margin, hero metric strip, measure). Titles render the same text, just restyled, so component tests that assert title *text* keep passing — only a title whose *text* you change (the ALL-CAPS Registry outlier → title case) needs a test update, and only if a test pins it. Watch for a now-unused font const after collapsing the styles (lint catches it).
