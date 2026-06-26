@@ -146,6 +146,10 @@ data unavailable" + null_reason + the artifact/source pointer if one exists.
   `context/BottleneckMap/{BottleneckMap,MapPanel,data}.tsx`. Risk: medium (live demo hero) — screenshot
   before/after, preserve all Big Number values.
   - **DONE (PR #405, main `0af103cc`).** Stayed strictly in the four scoped files + their tests. (a) **Green-wave axis**: `MapPanel` share axis `domain [0,260]→[0,100]` (true scale) + faint labeled `ReferenceLine`s at 0/50/100% — 0 bottom, 50 mid, 100 top; wave reaches ~70% on its own scale (no full-height rescale), kept low-opacity behind the bars; footnote updated. (b) **Big Number drill** (`TelemetryOverview` + `data.ts`): each Big Number → `MetricInspectorDrawer` + `SourceRowsTable` over the public series (`CADENCE`/`SHARE_ANCHORS`/`COST_POINTS`), labeled `fixture — curated public data`, CSV export; Timeline → honest no-rows state + null_reason (no dead click). (c) **Richer event framing**: new `EVENT_NARRATIVE` map adds the harder-question + downstream "proves next" link per event (real route); bottleneck-solved/burden stay in the record below (no duplication); fails closed without envId. (d) **Bridge links**: Stargate / Mission Control / Replay / Evidence / Metric Lineage / Model Performance (Governance dropped; "Resume Evidence"→"Evidence"). Verify: 209 telemetry tests + typecheck + lint green; **frozen-evidence 8/8 (no ML value/caveat changed)**; reused 8A primitives (no rebuild); rebase clean (no concurrent conflict). Frontend auto-deploys on merge.
+> **SUPERSEDED (2026-06-26).** The PR split below (8C–8G) is replaced by the finer **8C–8I** sequence
+> in the "Original Scope Coverage Gap — Remaining 30–40%" section further down. Kept here for history;
+> execute against the 8C–8I list.
+
 - **PR 8C — streaming/Stargate/Mission Control controls.** Relabel for clarity (e.g. "Hold"→"Pause"),
   remove any genuine duplicate control, keep every "recorded capture" / source-chip honesty label,
   make anomalies-routed + dead-letters drillable (already) + exportable. Never imply live hardware.
@@ -180,6 +184,40 @@ data unavailable" + null_reason + the artifact/source pointer if one exists.
 Final nav target: Overview · Mission Control · Stargate Live · Replay · Test Runs · System Health ·
 Model Performance · RUL Calibration · Model Registry · Factory NCR · Flight Readiness · Metric Lineage
 · (Metadata Explorer under Evidence & Lineage). Fold the five flagged surfaces + DE group.
+
+## Original Scope Coverage Gap — Remaining 30–40%
+
+8A (drill/export framework + XLSX route, deployed) and 8B (Overview polish) shipped, but the original
+Phase 8 ask was broader than Overview + the framework. This section tracks the remaining product scope
+so it does not collapse into "controls cleanup." **Global rule for every item:** every chart, number,
+radial, table summary, and model metric must be **drillable/exportable, or explicitly unavailable with
+a `null_reason`** — source-kind honesty everywhere, no fabricated rows or links.
+
+**Remaining product requirements**
+
+- **Test Runs / Run Autopsy / Review flows** — Databricks run links, source artifacts, model artifacts, drill-through, export.
+- **Model Performance** — deeper champion/challenger explanation, model artifact links, source/evidence links, exportable metric rows.
+- **RUL Calibration** — wider/saner layout; unit-level prediction drill-through; export of lower/upper bound, point, actual, flip status, gate decision; **preserve PICP 0.86 and the 15/100 flips**.
+- **Model Registry** — challenger values or explicit `null_reason`; training window, validation method, promotion gate, artifact/model-version/run links; export/drill-through; no blank-looking cells.
+- **Factory NCR** — typography, explanation, filters, tooltips, source-kind honesty, row-level drill-through/export.
+- **Flight Readiness** — radial ingredient tables, drill-through, export; re-evaluate the layer heat-map (explain or demote if not meaningful); preserve source/freshness/null behavior.
+- **Global all-important-numbers rule** — the rule above, enforced as a hard acceptance gate.
+- **Page rationalization** — not just hide nav: **fold** the essential trust / how-it-works / resume-evidence / data-engineering content into Evidence, Metric Lineage, source strips, and drill drawers; **delete only after quarantine/approval** (hide-before-delete).
+- **Screenshots / smoke receipts** across Overview, Mission Control/Stargate, Replay, Evidence, Model Performance, RUL Calibration, Model Registry, Factory NCR, Flight Readiness, Metric Lineage.
+
+**Remaining PR sequence (8C–8I)** — replaces the superseded 8C–8G split above:
+
+- **PR 8C** — Streaming/Stargate/Mission Control controls + anomalies/DLQ export. **(this PR)**
+- **PR 8D** — Model Performance + Model Registry: artifact/run links + exportable metric rows (incl. the server `tel_anomaly_events` XLSX dataset batched here, with one controlled backend deploy).
+- **PR 8E** — RUL Calibration: wider layout + unit-level drill/export (preserve PICP 0.86 / 15-of-100).
+- **PR 8F** — Factory NCR + Flight Readiness: source/drill/export + layer-heat-map review.
+- **PR 8G** — Test Runs / Run Autopsy / Review flows, incl. Databricks run links where available.
+- **PR 8H** — Page rationalization / folding, hide-before-delete only.
+- **PR 8I** — Screenshots / smoke / final acceptance pass.
+
+**Hard constraints (carry through every remaining PR):** no evidence value changes · no claim-strength
+changes · no fake links · no fake rows · no schema changes unless explicitly routed · fail closed with
+`null_reason` · source-kind honesty everywhere.
 
 ## Test plan
 
