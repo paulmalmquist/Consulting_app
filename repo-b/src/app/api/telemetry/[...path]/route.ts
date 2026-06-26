@@ -93,10 +93,26 @@ async function forward(request: NextRequest, context: { params: { path: string[]
       },
       body,
     });
+    const contentType = upstream.headers.get("content-type") || "application/json";
+    // Binary/download responses (e.g. the XLSX export) must not go through .text(),
+    // which corrupts non-text bytes. Forward the raw body and the disposition header.
+    const isDownload =
+      !contentType.includes("json") &&
+      !contentType.startsWith("text/") &&
+      (contentType.includes("spreadsheetml") ||
+        contentType.includes("octet-stream") ||
+        upstream.headers.has("content-disposition"));
+    if (isDownload) {
+      const buffer = await upstream.arrayBuffer();
+      const headers: Record<string, string> = { "Content-Type": contentType };
+      const disposition = upstream.headers.get("content-disposition");
+      if (disposition) headers["Content-Disposition"] = disposition;
+      return new NextResponse(buffer, { status: upstream.status, headers });
+    }
     const payload = await upstream.text();
     return new NextResponse(payload, {
       status: upstream.status,
-      headers: { "Content-Type": upstream.headers.get("content-type") || "application/json" },
+      headers: { "Content-Type": contentType },
     });
   } catch {
     return NextResponse.json(

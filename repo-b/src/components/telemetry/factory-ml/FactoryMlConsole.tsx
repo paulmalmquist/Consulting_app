@@ -15,6 +15,7 @@ import ReadinessGauge from "./ReadinessGauge";
 import RegistryPanel from "./RegistryPanel";
 import type { DrillObject } from "./factoryDrill";
 import { useFactoryMlData } from "@/lib/lab/factoryMlData";
+import { ExportToCsvButton, SOURCE_KIND_LABEL } from "../drill";
 
 const SECTIONS = [
   { id: "readiness", label: "Readiness" },
@@ -63,7 +64,22 @@ export default function FactoryMlConsole() {
           </div>
 
           {section === "readiness" && (data.readiness
-            ? <ReadinessGauge data={data.readiness} onDrill={setDrill} />
+            ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <ReadinessGauge data={data.readiness} onDrill={setDrill} />
+                {(() => {
+                  const rows = data.readiness.vehicles as unknown as Array<Record<string, unknown>>;
+                  const cols = rows.length ? Object.keys(rows[0]) : [];
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>
+                        {SOURCE_KIND_LABEL.fixture} — public/labs/factory-ml/readiness.json
+                      </span>
+                      <ExportToCsvButton filename="flight_readiness_vehicles" columns={cols} rows={rows}
+                        label="Export readiness rows" />
+                    </div>
+                  );
+                })()}
+              </div>
             : <EmptyState label="readiness.json missing" hint="Re-run the export stage." />)}
           {section === "heatmap" && (data.heatmap
             ? <LayerHeatmap data={data.heatmap} />
