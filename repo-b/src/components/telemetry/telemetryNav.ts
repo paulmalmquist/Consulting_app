@@ -46,7 +46,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "Models & Intelligence" },
   { slug: "calibration", label: "RUL Calibration", icon: "M2 13h12M4 13V7m4 6V4m4 9V9", group: "Models & Intelligence" },
   { slug: "registry", label: "Model Registry", icon: "M3 2h10v3H3zM3 7h10v3H3zM3 12h6v2H3z", group: "Models & Intelligence" },
-  { slug: "copilot", label: "Test Intelligence", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "Models & Intelligence", mobilePrimary: true },
+  // "Test Intelligence" (copilot) hidden from the nav (per owner). Its /telemetry/copilot route still resolves.
 
   // Section 4 — Factory & Quality (what's broken / needs intervention)
   { slug: "factory", label: "Factory · NCR", icon: "M2 13V7l4 3V7l4 3V4h4v9z", group: "Factory & Quality" },
@@ -63,18 +63,9 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   // Section 6 — Agent Operations (approved execution)
   { slug: "control-tower", label: "Agent Control Tower", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6", group: "Agent Operations" },
 
-  // Section 7 — Data Engineering (the governed fabric between operational data and trusted AI).
-  // Composed surface: data-semantics pages reuse the telemetry metadata catalog; the agent/governance
-  // pages read the portable ADE endpoints (/api/ade/*). Replaces the old standalone
-  // /automated-data-engineering domain route (which now redirects here).
-  { slug: "data-engineering", label: "Data Engineering", icon: "M3 3h4v4H3zM9 9h4v4H9zM7 5h2M5 7v2M11 7V5M9 11H7", group: "Data Engineering" },
-  { slug: "data-engineering/grain", label: "Data Map & Grain", icon: "M2 3h12v3H2zM2 8h12v3H2zM2 13h7v1H2z", group: "Data Engineering" },
-  { slug: "data-engineering/relationships", label: "Relationships & Lineage", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Data Engineering" },
-  { slug: "data-engineering/pipelines", label: "Pipelines & Quality", icon: "M2 8h3l2-4 2 8 2-4h3", group: "Data Engineering" },
-  { slug: "data-engineering/workflows", label: "Workflow Registry", icon: "M3 3h3v3H3zM10 3h3v3h-3zM3 10h3v3H3zM10 10h3v3h-3zM6 4.5h4M11.5 6v4M6 11.5h4M4.5 6v4", group: "Data Engineering" },
-  { slug: "data-engineering/workbench", label: "Agent Workbench", icon: "M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z", group: "Data Engineering" },
-  { slug: "data-engineering/autopsy", label: "Run Autopsy", icon: "M3 2h8l2 2v10H3zM5 6h6M5 9h6M5 12h4", group: "Data Engineering" },
-  { slug: "data-engineering/sources", label: "Source & Platform Map", icon: "M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z", group: "Data Engineering" },
+  // The Data Engineering group is hidden from the nav (per owner). The
+  // /telemetry/data-engineering[/grain|relationships|pipelines|workflows|workbench|autopsy|sources]
+  // routes still resolve for deep links; only the nav entries are removed (hide-before-delete).
 ];
 
 export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
@@ -84,7 +75,8 @@ export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
   "Factory & Quality",
   "Evidence & Lineage",
   "Agent Operations",
-  "Data Engineering",
+  // "Data Engineering" stays in the TelemetryNavGroup union (the sidebar color map keys on it) but is
+  // no longer a displayed group — its items are hidden from the nav (routes still resolve).
 ];
 
 export function telemetryHref(envId: string, slug: string): string {
