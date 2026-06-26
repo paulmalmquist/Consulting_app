@@ -25,4 +25,10 @@ describe("TelemetrySidebar — 6-section rail", () => {
       expect(screen.getAllByRole("link", { name: new RegExp(`^${label}$`, "i") }).length).toBeGreaterThanOrEqual(1);
     }
   });
+
+  it("no longer renders the Automated Data Engineering rail cross-link (8H — telemetry-only rail)", () => {
+    render(<TelemetrySidebar envId="env-1" />);
+    expect(screen.queryByRole("link", { name: /Automated Data Engineering/i })).toBeNull();
+    // the route itself is NOT asserted here — it still resolves directly for deep links.
+  });
 });
