@@ -240,7 +240,10 @@ export default function FactoryNcrIntelligence() {
                 cluster_{c.cluster_id} · {c.n_records}
               </ChipButton>
             ))}
-            <RsChip color={RS.gray}>noise · {noisePareto?.n ?? 0}</RsChip>
+            {/* WCAG: RS.gray (#3D4D60) is fine as the de-emphasized noise-scatter FILL, but as chip
+                text it is ~2.1 contrast (unreadable). Use RS.dim for the readable label; the scatter
+                points keep RS.gray. */}
+            <RsChip color={RS.dim}>noise · {noisePareto?.n ?? 0}</RsChip>
           </div>
         </RsPanel>
 
