@@ -1,7 +1,11 @@
 "use client";
 
-import { C, Tag, Panel, MetricCard, StatGrid, SplitGrid, DisclosureFooter } from "./primitives";
+import { useState } from "react";
+
+import { C, Tag, Panel, MetricCard, StatGrid, SplitGrid, DisclosureFooter, TelemetryActionButton } from "./primitives";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import { MetricInspectorDrawer } from "./drawerPrimitives";
+import { SourceRowsTable } from "./drill";
 import {
   CALIBRATION_EVIDENCE as E,
   CALIBRATION_TRAJECTORY as TRAJ,
@@ -9,9 +13,26 @@ import {
   type CalibrationPoint,
 } from "@/lib/telemetry/calibrationEvidence";
 
+// Unit-level rows for the drill/export: one row per cycle of the representative engine. point/bounds/
+// true are the displayed values; covered_80/90 is the per-point calibration hit (derived from the
+// shown bands, not fabricated). The 100-unit gate-flip status lives on the Evidence RUL conformal card.
+const DRILL_COLS = ["unit", "cycle", "true_rul", "point_pred", "lo80", "hi80", "lo90", "hi90", "covered_80", "covered_90"];
+const r1 = (v: number) => Math.round(v * 10) / 10;
+function drillRows(): Array<Record<string, unknown>> {
+  return TRAJ.map((p) => ({
+    unit: "FD001-representative",
+    cycle: p.cycle,
+    true_rul: p.trueRul,
+    point_pred: p.predRul,
+    lo80: r1(p.lo80), hi80: r1(p.hi80), lo90: r1(p.lo90), hi90: r1(p.hi90),
+    covered_80: p.trueRul >= p.lo80 && p.trueRul <= p.hi80,
+    covered_90: p.trueRul >= p.lo90 && p.trueRul <= p.hi90,
+  }));
+}
+
 // ---- Inline-SVG trajectory chart (no chart dependency) ----------------------------------------
 function TrajectoryChart({ pts }: { pts: CalibrationPoint[] }) {
-  const W = 720, H = 300, padL = 40, padR = 16, padT = 16, padB = 34;
+  const W = 900, H = 340, padL = 46, padR = 18, padT = 18, padB = 38;
   const xs = pts.map((p) => p.cycle);
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const yMax = Math.max(...pts.map((p) => p.hi90)) * 1.05;
@@ -28,7 +49,7 @@ function TrajectoryChart({ pts }: { pts: CalibrationPoint[] }) {
 
   return (
     <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520, display: "block" }}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 640, display: "block" }}
         role="img" aria-label="RUL trajectory with 80% and 90% calibrated intervals">
         {yticks.map((t) => (
           <g key={t}>
@@ -84,9 +105,10 @@ function Note({ children, accent = C.dim }: { children: React.ReactNode; accent?
 
 export default function RulCalibration() {
   const i80 = E.intervals["80"], i90 = E.intervals["90"];
+  const [drillOpen, setDrillOpen] = useState(false);
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1320, margin: "0 auto" }}>
       <TelemetryPageHeader
         variant="standard"
         eyebrow="Telemetry · Calibration"
@@ -111,6 +133,13 @@ export default function RulCalibration() {
         <MetricCard label="Interval width (MPIW)" value={`${i80.mpiw.toFixed(1)} / ${i90.mpiw.toFixed(1)}`} sub={`GBM ${E.gbmIntervals["80"].mpiw} / ${E.gbmIntervals["90"].mpiw}`} />
       </StatGrid>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 14px" }}>
+        <Tag color={C.amber}>computed artifact</Tag>
+        <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>
+          FD001 scalars + conformal bands are a computed evidence artifact · the per-cycle trajectory is a replay fixture · not live serving
+        </span>
+      </div>
+
       <SplitGrid variant="two-one" style={{ marginBottom: 12 }}>
         {/* 3 — trajectory chart */}
         <Panel title={`Trajectory · ${TRAJECTORY_ENGINE_LABEL}`}
@@ -122,6 +151,12 @@ export default function RulCalibration() {
               q₉₀ = −{i90.qLower.toFixed(1)}/+{i90.qUpper.toFixed(1)} cycles). Replay fixture from the committed evidence artifact — not live data.
             </span>
           </Note>
+          <div style={{ marginTop: 14 }}>
+            <TelemetryActionButton variant="secondary" onClick={() => setDrillOpen(true)}
+              aria-label="Inspect the unit-level calibration rows and export">
+              Unit-level rows + export ›
+            </TelemetryActionButton>
+          </div>
         </Panel>
 
         {/* 4 — calibration summary */}
@@ -203,6 +238,30 @@ export default function RulCalibration() {
           <Field label="Provenance" value={E.source} />
         </div>
       </Panel>
+
+      <MetricInspectorDrawer
+        open={drillOpen}
+        onClose={() => setDrillOpen(false)}
+        title="RUL calibration — unit-level rows"
+        description="Per-cycle calibration for the representative FD001 engine: point prediction, the 80/90% conformal bounds, the true label, and the per-point coverage hit. Computed-artifact + replay fixture, not live serving."
+        fields={[
+          { label: "Unit", value: "FD001-representative (replay)" },
+          { label: "Source kind", value: "computed-artifact (conformal bands) + fixture (per-cycle replay)" },
+          { label: "Cycles", value: TRAJ.length },
+          { label: "Flip status / gate decision (per cycle)", value: "not applicable here — the 100-unit gate-flip aggregate is on the Evidence RUL conformal card" },
+        ]}
+      >
+        <div style={{ marginTop: 14 }}>
+          <SourceRowsTable
+            kind="fixture"
+            columns={DRILL_COLS}
+            rows={drillRows()}
+            sourceLabel="FD001 representative engine (replay) · bands = real conformal quantiles"
+            filterContext="one representative engine, all observed cycles"
+            exportName="rul_calibration_unit_rows"
+          />
+        </div>
+      </MetricInspectorDrawer>
 
       <DisclosureFooter />
     </div>
