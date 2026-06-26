@@ -2,6 +2,10 @@
 
 Lessons learned building the Winston Loader — bowtie physics animation system.
 
+> **Domain-scoped tips**, co-located with the UI component. For general repo-wide tips see the
+> canonical [`docs/tips.md`](../../../../docs/tips.md) (a condensed version of these motion
+> lessons also lives there under "Motion & SVG animation (condensed)").
+
 ---
 
 ## 1. Centered SVG rotation in CSS context

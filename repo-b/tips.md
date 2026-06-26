@@ -2,6 +2,10 @@
 
 Lessons from building institutional-grade investment analysis surfaces.
 
+> **Domain-scoped tips**, co-located with repo-b UI code. For general repo-wide tips see the
+> canonical [`docs/tips.md`](../docs/tips.md) (a condensed version of these density lessons
+> also lives there under "REPE / institutional UI density (condensed)").
+
 ## Density Over Decoration
 
 - Use `divide-y` row containers instead of individually bordered cards. Cards add ~16px of visual overhead per item (border + padding + gap). Rows in a single bordered table recover that.
