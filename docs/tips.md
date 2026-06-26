@@ -4610,6 +4610,34 @@ The telemetry nav was already hide-before-deleted in earlier phases, and **`tele
 
 No Playwright/screenshot tool in this env → the acceptance pass verifies routes by (a) **route file exists on disk** ⇒ the Next.js route resolves, and (b) render proven by the **component test suite** — never fabricate screenshots. Live prod posture is checkable headless: `/api/version` (SHA), `verify_lineage.py --base https://novendor.ai` (6/1/0 honest WARN posture), and the XLSX routes through the proxy (`model_runs` 200/rows, `anomaly_events` 200/header-only when the consumer is cold, unknown→404+null_reason). Validate the XLSX bytes with `openpyxl` — but print **ASCII only**: the Windows cp1252 console throws `UnicodeEncodeError` on `→`/`·` in a `python -c` print, which looks like a failure but isn't.
 
+---
+
+## Telemetry Overview era backdrop (Phase 9B-A, 2026-06-26)
+
+Lessons from making the Overview hero background follow the selected Bottleneck Map event:
+
+- **Surface internal component state with an additive optional callback, not a refactor.** `BottleneckMap`
+  owns `selected` privately; exposing it to the Overview was one prop + `useEffect(() => onSelectedEventChange?.(selected), [selected, onSelectedEventChange])`. Default-`{}` param means existing call sites and the mocked Overview test are untouched.
+- **Decorative imagery should use a CSS `background-image`, never an `<img>`.** A missing/renamed asset
+  then degrades to a tone wash instead of a broken-image glyph — the "no broken image" requirement is
+  satisfied structurally, not by error handling.
+- **Tie atmosphere to an existing semantic dimension.** Backdrops key off `event.type` (`InnovationKey`)
+  via `THEME_BACKDROPS` + `resolveBackdrop()` (override → theme → null), so 17 events get relevant
+  visuals from 5 assets with no per-event config, and the mapping is stable across the chart's color-by
+  toggle.
+- **Don't let a backdrop bleed under a chart.** The scrim gradient reaches full page-bg opacity *above*
+  where the chart starts (`height: min(60vh, 560px)` band + `…#070b11 100%`), keeping plot contrast and
+  the selected-dot emphasis unchanged. Looks-cool full-bleed hurts live explanation.
+- **Motion stays CSS-only** (no `useReducedMotion`, no `matchMedia` in JS) — a `.module.css`
+  `@media (prefers-reduced-motion: reduce)` guard plus the global guard neutralize the fade. Tests then
+  assert content (alt/label) renders independent of animation, dodging jsdom `matchMedia` stubs.
+- **Vector SVGs are committable "images."** Hand-authored abstract SVGs satisfy "commit illustrative
+  images" with zero binary/licensing/mass-asset concern (text, diff-able) and scale cleanly under
+  `background-size: cover`.
+- **Repo gotcha:** the CI typecheck is `tsc --noEmit -p tsconfig.typecheck.json` (excludes test files);
+  a bare `tsc --noEmit` surfaces unrelated pre-existing test-file errors (historyrhymes, replay
+  diagnostics) — judge by the `tsconfig.typecheck.json` run.
+
 ## A demo beat can live on a hidden-but-resolving route — verify the beat→route→value map before scripting (Phase 9)
 
 The Gold Demo Path's two strongest beats (RUL conformal **PICP 0.86 / 15-of-100** via `RulConformalCard`, and the **FD004 90.5% out-of-envelope abstention** via `CompetenceEnvelopeCard`) both render on `/evidence`, which 8H made **hidden-but-resolving**. The RUL Calibration *nav* page (`/calibration`) shows different numbers (FD001 0.778/0.903). A page-centric click-path would point the presenter at the wrong page for the number they say. Map each beat to its exact route + component + on-screen value, and when the value lives on a hidden page, the demo deep-links it (pre-open the tab) rather than un-hiding — matches the "pre-open three tabs" demo method, no 8H reversal. Source files referencing a stale host (`fly.io`) get reconciled to reality (Railway + Vercel + Lakebase), and the live app already running on Databricks Lakebase turns the Lakebase pitch from hypothetical into demonstrated.

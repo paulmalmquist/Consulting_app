@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Illustrative mission-control dense-signal-field motif">
+  <defs>
+    <radialGradient id="d-bg" cx="42%" cy="30%" r="92%">
+      <stop offset="0%" stop-color="#0b2a31"/>
+      <stop offset="55%" stop-color="#08171c"/>
+      <stop offset="100%" stop-color="#05080e"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#d-bg)"/>
+  <!-- dense signal field -->
+  <g fill="none" stroke="#67e8f9" stroke-opacity="0.32" stroke-width="1.6">
+    <polyline points="0,300 160,300 200,250 280,250 320,330 440,330 480,270 600,270 640,300 1600,300"/>
+    <polyline points="0,420 220,420 260,380 360,380 400,470 520,470 560,410 700,410 740,440 1600,440"/>
+    <polyline points="0,540 140,540 180,500 300,500 340,590 460,590 500,520 660,520 700,560 1600,560"/>
+    <polyline points="0,660 240,660 280,620 380,620 420,700 560,700 600,640 760,640 800,670 1600,670"/>
+  </g>
+  <!-- mission-control glass panels -->
+  <g stroke="#67e8f9" stroke-opacity="0.4" stroke-width="2" fill="#67e8f9" fill-opacity="0.05">
+    <rect x="1120" y="200" width="320" height="150" rx="8"/>
+    <rect x="1120" y="380" width="150" height="150" rx="8"/>
+    <rect x="1290" y="380" width="150" height="150" rx="8"/>
+  </g>
+  <g fill="#67e8f9" fill-opacity="0.5"><circle cx="1140" cy="222" r="4"/><circle cx="1140" cy="402" r="4"/><circle cx="1310" cy="402" r="4"/></g>
+</svg>
