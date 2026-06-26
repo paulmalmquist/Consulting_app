@@ -9,11 +9,11 @@ from typing import Any, Protocol
 from app.config import IBKR_CLIENT_ID, IBKR_HOST, IBKR_LIVE_PORT, IBKR_PAPER_PORT
 
 try:  # pragma: no cover - optional runtime dependency
-    from ib_insync import Contract, IB, LimitOrder, MarketOrder, Order, StopLimitOrder, StopOrder, Stock
+    from ib_insync import Contract, IB, LimitOrder, MarketOrder, StopLimitOrder, StopOrder, Stock
 except Exception:  # pragma: no cover - optional runtime dependency
     Contract = object  # type: ignore[assignment]
     IB = None  # type: ignore[assignment]
-    LimitOrder = MarketOrder = StopLimitOrder = StopOrder = Stock = Order = None  # type: ignore[assignment]
+    LimitOrder = MarketOrder = StopLimitOrder = StopOrder = Stock = None  # type: ignore[assignment]
 
 
 class BrokerService(Protocol):
