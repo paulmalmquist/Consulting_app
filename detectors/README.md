@@ -20,6 +20,11 @@ Baselines captured 2026-06-25: `baseline-knip.txt`, `baseline-vulture.txt`, `bas
 
 ## Baseline summary
 
+- **knip unused-deps are FP-prone — verified 2026-06-25 (2 of 3 were false positives):**
+  `@tanstack/react-virtual` = genuinely unused (0 refs) → removed. `nodemailer` = **actively imported**
+  in `src/lib/marketing/mailer.ts` (knip missed the server-lib chain) → KEPT. `iconoir-react` = no
+  import but a design-intent comment + the CLAUDE.md icon system → KEPT (conservative). Always grep
+  before removing a knip-flagged dep.
 - **knip:** 169 unused files · 427 unused exports · 41 unused exported types · 24 duplicate exports ·
   3 unused deps · 1 unused devDep · 1 unlisted · 1 unresolved import. Expect heavy false positives:
   the Next.js App Router pages are entrypoints, many components are dynamically/string-referenced, and
