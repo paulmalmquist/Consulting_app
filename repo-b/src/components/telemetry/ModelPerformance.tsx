@@ -7,7 +7,7 @@ import {
 import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable, TelemetryActionButton } from "./primitives";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import { MetricInspectorDrawer } from "./drawerPrimitives";
-import { SourceRowsTable, DatabricksRunLink, exportXlsxUrl } from "./drill";
+import { SourceRowsTable, DatabricksRunLink, ModelArtifactLink, exportXlsxUrl } from "./drill";
 
 // Columns surfaced when drilling into the model rows. Mirrors the server XLSX export
 // (telemetry_export.py "model_runs") so the CSV preview and the .xlsx match.
@@ -21,17 +21,22 @@ function metric(m: ModelRun, k: string): string {
   return v == null ? "—" : Number(v).toFixed(k === "rmse" || k === "phm" ? 2 : 4);
 }
 
+// Champion = promoted alias; everything else is a challenger/alternative shown by its registry state
+// so the role is explicit, not just "promoted".
 function StatusTag({ m }: { m: ModelRun }) {
   return m.model_alias === "champion" || m.promotion_state === "promoted"
-    ? <Tag color={C.green}>promoted</Tag>
-    : <Tag color={C.faint}>{m.promotion_state}</Tag>;
+    ? <Tag color={C.green}>champion</Tag>
+    : <Tag color={C.faint}>challenger · {m.promotion_state}</Tag>;
 }
 
-function Table({ title, cols, rows }: { title: string; cols: string[]; rows: ModelRun[] }) {
+function Table({ title, cols, rows, note }: { title: string; cols: string[]; rows: ModelRun[]; note?: string }) {
   const isRul = rows[0]?.model_kind === "rul";
   const grid = "1.4fr 0.8fr 0.8fr 0.9fr 0.9fr";
   return (
     <Panel title={title}>
+      {note && (
+        <div style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, lineHeight: 1.5, marginBottom: 10 }}>{note}</div>
+      )}
       <ScrollTable minWidth={560}>
         <div style={{ display: "grid", gridTemplateColumns: grid, gap: 8, fontFamily: C.mono, fontSize: 10,
           color: C.faint, letterSpacing: "0.08em", textTransform: "uppercase", paddingBottom: 8 }}>
@@ -114,11 +119,19 @@ export default function ModelPerformance() {
     <>
       {heading}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Tag color={C.green}>live rows</Tag>
+          <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>
+            tel_model_runs · metrics + promotion gate logged per run · champion vs challenger below
+          </span>
+        </div>
         <Table title="Anomaly detection — SMAP/MSL (legacy baseline · point-adjusted, labeled test split)"
-          cols={["Model", "Precision", "Recall", "F1 (legacy)", "Status"]} rows={anomaly} />
+          cols={["Model", "Precision", "Recall", "F1 (legacy)", "Role"]} rows={anomaly}
+          note="Operational use: scores each window; a NO-GO verdict routes the print for review. The promoted champion is the rolling-MAD detector." />
         <HonestMetrics rows={anomaly} />
         <Table title="Remaining useful life — C-MAPSS FD001 (100 test units)"
-          cols={["Model", "RMSE", "PHM", "", "Status"]} rows={rul} />
+          cols={["Model", "RMSE", "PHM", "", "Role"]} rows={rul}
+          note="Operational use: estimates remaining useful life; the go/no-go gate clears on the conformal lower bound (see RUL Calibration)." />
         <Panel pad={14}>
           <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>
             Gates declared before training: anomaly F1 ≥ 0.30, RUL RMSE ≤ 25. Values fetched live from the
@@ -157,15 +170,20 @@ export default function ModelPerformance() {
               businessId: TELEMETRY_DEMO_BUSINESS_ID,
             })}
           />
-          {(() => {
-            const champ = models.find((m) => m.model_alias === "champion") ?? models[0];
-            return champ?.mlflow_run_id ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>Champion run:</span>
-                <DatabricksRunLink runId={champ.mlflow_run_id} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>
+              Runs &amp; artifacts (per model) — MLflow link where a run id is logged; UC model link fails closed for seed registry names
+            </span>
+            {models.map((m) => (
+              <div key={`${m.model_name}-${m.model_version}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: C.mono, fontSize: 11, color: C.text, minWidth: 170 }}>
+                  {m.model_name} <span style={{ color: C.faint }}>v{m.model_version}</span>
+                </span>
+                <DatabricksRunLink runId={m.mlflow_run_id} />
+                <ModelArtifactLink modelName={m.model_name} />
               </div>
-            ) : null;
-          })()}
+            ))}
+          </div>
         </div>
       </MetricInspectorDrawer>
       <DisclosureFooter />
