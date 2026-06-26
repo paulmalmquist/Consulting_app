@@ -13,7 +13,9 @@ function fmtTime(tsMs: number): string {
   return new Date(tsMs).toLocaleTimeString([], { hour12: false });
 }
 
-export default function DlqPanel({ rows, count }: { rows: DlqRow[]; count: number }) {
+export default function DlqPanel({ rows, count, onInspect }: {
+  rows: DlqRow[]; count: number; onInspect?: (row: DlqRow) => void;
+}) {
   const newestMs = rows.length ? rows[rows.length - 1].ts_ms : 0;
   const hot = newestMs > 0 && Date.now() - newestMs < 3000;
   return (
@@ -30,15 +32,19 @@ export default function DlqPanel({ rows, count }: { rows: DlqRow[]; count: numbe
       ) : (
         <div style={{ maxHeight: 220, overflowY: "auto" }}>
           {[...rows].reverse().map((row, i) => (
-            <div key={`${row.ts_ms}-${i}`} style={{ display: "flex", gap: 12, alignItems: "baseline",
-              padding: "8px 14px", borderBottom: `1px solid ${C.border}` }}>
+            <button key={`${row.ts_ms}-${i}`} type="button"
+              onClick={onInspect ? () => onInspect(row) : undefined}
+              aria-label={onInspect ? `Inspect dead letter: ${row.reason}` : undefined}
+              style={{ display: "flex", gap: 12, alignItems: "baseline", width: "100%", textAlign: "left",
+                background: "transparent", border: "none", borderBottom: `1px solid ${C.border}`,
+                padding: "8px 14px", cursor: onInspect ? "pointer" : "default" }}>
               <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, flexShrink: 0 }}>{fmtTime(row.ts_ms)}</span>
               <span style={{ fontFamily: C.mono, fontSize: 11, color: C.red, flexShrink: 0 }}>{row.reason}</span>
               <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim, overflow: "hidden",
                 textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {row.raw_bytes}B · {row.raw_preview}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       )}

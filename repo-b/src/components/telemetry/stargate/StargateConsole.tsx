@@ -12,13 +12,14 @@ import { C, EmptyState, MetricCard, Panel, RowCard, SplitGrid, Tag } from "../pr
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import AnomalyInspectionDrawer from "./AnomalyInspectionDrawer";
 import DlqPanel from "./DlqPanel";
+import DlqInspectionDrawer from "./DlqInspectionDrawer";
 import RulesVsBaselineLane from "./RulesVsBaselineLane";
 import TempVibrationChart from "./TempVibrationChart";
 import StreamLineageDrawer from "./StreamLineageDrawer";
 import { useStargateStream } from "@/lib/lab/stargateStream";
-import type { AnomalyRow } from "@/lib/lab/stargateStream";
+import type { AnomalyRow, DlqRow } from "@/lib/lab/stargateStream";
 import { ExportToCsvButton, SOURCE_KIND_TAG } from "../drill";
-import { ANOMALY_EXPORT_COLUMNS, anomalyExportRows } from "./streamExportRows";
+import { ANOMALY_EXPORT_COLUMNS, anomalyExportRows, SERIES_EXPORT_COLUMNS, seriesExportRows } from "./streamExportRows";
 import StreamContextStrip from "./StreamContextStrip";
 import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -62,6 +63,7 @@ export default function StargateConsole() {
   const [starting, setStarting] = useState(false);
   const [startMsg, setStartMsg] = useState<string | null>(null);
   const [inspected, setInspected] = useState<AnomalyRow | null>(null);
+  const [dlqInspected, setDlqInspected] = useState<DlqRow | null>(null);
   const [highlight, setHighlight] = useState<{ start: number; end: number } | null>(null);
   // The three.js canvas only mounts on desktop, and only after hydration —
   // useIsMobile defaults to desktop on the server, so an unguarded render
@@ -256,7 +258,10 @@ export default function StargateConsole() {
             </>
           )}
         </Panel>
-        <Panel title="Melt pool vs arm vibration — 60s window" pad={10}>
+        <Panel title="Melt pool vs arm vibration — 60s window" pad={10}
+          right={<ExportToCsvButton filename={`stargate_series_${printer ?? "all"}`}
+            columns={SERIES_EXPORT_COLUMNS} rows={seriesExportRows(printerPoints)} label="Export series CSV"
+            disabled={printerPoints.length === 0} disabledReason="No telemetry points in the window" />}>
           <TempVibrationChart points={printerPoints} agg={printerAgg} anomalies={printerAnomalies}
             highlight={highlight} />
         </Panel>
@@ -313,7 +318,7 @@ export default function StargateConsole() {
               disabledReason="No routed anomalies yet" />
           </div>
         </Panel>
-        <DlqPanel rows={dlq} count={stream.dlqCount} />
+        <DlqPanel rows={dlq} count={stream.dlqCount} onInspect={setDlqInspected} />
       </SplitGrid>
 
       <AnomalyInspectionDrawer
@@ -330,6 +335,7 @@ export default function StargateConsole() {
         routeEnvId={TELEMETRY_DEMO_ENV_ID}
         onClose={() => setLineageAnomalyId(null)}
       />
+      <DlqInspectionDrawer row={dlqInspected} onClose={() => setDlqInspected(null)} />
     </div>
   );
 }
