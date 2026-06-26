@@ -4,6 +4,18 @@ This file is a repo inventory plus a pre-flight checklist for giving instruction
 
 The main repeat failure pattern here is simple: assistants assume there is one app, one backend, one API surface, and one database path. That is false in this repo.
 
+## Tips files in this repo (canonical map)
+
+This file (`docs/tips.md`) is the **canonical, repo-wide** tips file — `.gitignore` confirms it ("the tracked one is docs/tips.md"), and the session-bootstrap / feature-dev / azure-devops-intake skills all point here. The other `tips.md` files are domain-scoped and kept where they sit, co-located with their subarea's code:
+
+| File | Scope | Status |
+|---|---|---|
+| `docs/tips.md` (this file) | Repo-wide operational lessons | **Canonical** |
+| `docs/podcast-intelligence/tips.md` | Podcast Intelligence extraction playbook | Domain reference (cited by the historyrhymes skill + podcast meta-prompt) |
+| `repo-b/tips.md` | REPE / institutional-UI density patterns | Domain detail (condensed here under "REPE / institutional UI density (condensed)") |
+| `repo-b/src/components/ui/tips.md` | Motion & SVG animation (Winston Loader) | Domain detail (condensed here under "Motion & SVG animation (condensed)") |
+| `repo-b/docs/tips.md` | — | Redirect → this file (was a duplicate of "Domain Routing Notes (2026-05-19)") |
+
 ## Dashboard Intelligence Engines (depth-2 upgrade)
 
 Five TypeScript engines in `repo-b/src/lib/dashboards/` power smarter dashboard generation:
@@ -4507,3 +4519,22 @@ deptry `DEP003` = a package imported directly in the code but only present *tran
 - **Use a `>=` floor, never `==`.** These packages are also pulled transitively (e.g. `anyio` via httpx/starlette), so an `==` pin can fight the transitive resolver on a future bump. A floor declares the dependency without over-constraining. Pin to the version resolved at declaration time (record it in a comment); do **not** opportunistically upgrade.
 - **Verify before pinning:** `grep -rnE "^\s*(import X|from X[. ])" backend/app` to confirm a real direct import, and `grep -inE "^X([=<>!~ ]|$)" backend/requirements.txt` to confirm it isn't already declared. Lazy imports (inside a function / `try`) still count as direct use.
 - **deptry exits non-zero if ANY DEP00x finding remains** — it's not a per-package signal and it's report-only here (the `detectors` CI job is `continue-on-error`). Don't treat its exit code as a gate; check that *your* targeted packages dropped out of the output. Confirm the resolver is still happy with `python -m pip check` ("No broken requirements found").
+
+## REPE / institutional UI density (condensed) — folded from repo-b/tips.md (2026-06-25)
+
+The full version lives in `repo-b/tips.md`, co-located with repo-b UI code. Durable rules for institutional investment-analysis surfaces:
+
+- **Density over decoration.** `divide-y` row containers, not individually bordered cards (cards add ~16px overhead/item). Data rows at `py-2`–`py-2.5`, not `py-4`. Panels `rounded-md`/`rounded-lg` — avoid `rounded-[18px]+` (reads consumer, not institutional).
+- **Bars + numbers.** 5px `rounded-sm` bars over a bg track, normalized to the dataset max. `tabular-nums` is mandatory for any column of figures; lead labels with the number.
+- **Color carries data, not chrome.** Reserve hue for meaning (e.g. blue = called, green = distributed); don't decorate with it.
+- **Alignment + interaction.** `grid items-start` for side-by-side panels; a subtle `hover:bg` shift on dense rows (never a `border-color` hover in a dense grid). `WinstonShell` density: `xl:gap-5` / `px-6` / `py-2`.
+- **Telemetry Spike Inspector (evaluate-and-recommend):** `insufficient_evidence` is a first-class fail-closed state; keep *finding* separate from *recommendation*; no operational verbs on read-only surfaces; wire new pages through `TELEMETRY_NAV`.
+
+## Motion & SVG animation (condensed) — folded from repo-b/src/components/ui/tips.md (2026-06-25)
+
+The full version lives in `repo-b/src/components/ui/tips.md` (Winston Loader / bowtie physics), co-located with the UI component. Durable rules:
+
+- **Spin in place:** SVG `transform-origin` defaults to `0,0`. Set `transformBox: fill-box` + `transformOrigin: center` at the *usage site*, not in the SVG def, to rotate centered.
+- **Encode physics in keyframe SHAPES** (scale compression for inertia, overshoot + multi-step settle), and use easing only for between-keyframe speed — not to fake the physics.
+- **Stack entrance + loop:** a comma-separated CSS `animation` with a delayed second animation + `forwards` fill makes the spin-up read as the entrance.
+- **Loader phase model:** `idle → loading_fast → loading_slow → thinking → complete`, with 300ms auto-promote, an 800ms label delay, and the overlay only on `slow`/`thinking`.

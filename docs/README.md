@@ -1,6 +1,79 @@
 # Documentation Index
 
-This folder contains all project documentation, organized by category. Start here to navigate the knowledge base.
+This folder contains all project documentation. The **Canonical Docs Map** below is the current, hand-maintained entry point to the source-of-truth doc for each area. The older folder-oriented index (March 2026) is preserved further down under **Historical index**.
+
+## Canonical Docs Map (current — maintained 2026-06-25)
+
+> Hand-maintained and freshness-tagged. **Not** in the morning-ops-digest auto-overwrite set (unlike `LATEST.md` / `CAPABILITY_INVENTORY.md`, which are regenerated daily). All paths are **relative to the repo root**. `CLAUDE.md` remains the top-level routing contract; this is a discoverability map, not a router.
+
+### Planning
+- `docs/plans/CONSOLIDATED_BACKLOG.md` — single source of truth for open work across workstreams
+- `docs/plans/00-dispatch/README.md` — routes every new idea/bug/feature to the right plan folder
+- `docs/plans/03-implementation-plans/active/` — numbered `NNNN-*` dispatch records (the active plans CLAUDE.md points at)
+- `docs/plans/PLAN_MAINTENANCE_RULES.md` — how plan folders are read/updated each session
+- `docs/plans/01-shared-standards/README.md` — platform-wide contracts every environment obeys
+
+### Architecture
+- `ARCHITECTURE.md` — durable architecture + DB guardrail contract (table prefixes, RLS/tenant rules); mandatory pre-read for SQL/schema work
+- `docs/AI_ARCHITECTURE_AND_WORKFLOWS.md` — map of the distinct AI systems and their workflows
+- `docs/REPE_ARCHITECTURE.md` — snapshot/rollup REPE platform architecture
+- `docs/adr/` — Architecture Decision Records, namespaced by subsystem (investment-engine, rs-analytics, automated-data-engineering, telemetry-lineage)
+- `PORTABILITY.MD` — the platform-core / environment-package / client-config three-layer portability contract
+
+### Telemetry
+- `docs/plans/telemetry-platform/architecture.md` — current telemetry platform architecture (Bronze/Silver/Gold Delta, models+gates, `tel_*` serving)
+- `docs/plans/telemetry-platform/README.md` — telemetry platform overview and scope
+- `docs/plans/telemetry-platform/control-tower-runbook.md` — control-tower operational runbook
+- `skills/telemetry-data-interrogation/SKILL.md` — read-only slices/pivots/freshness over `tel_*`
+
+### Lineage
+- `docs/runbooks/telemetry-confluent-databricks-lineage.md` — Confluent→Databricks→Postgres lineage runbook (start/check/shutdown, honesty boundary)
+- `docs/plans/03-implementation-plans/active/telemetry-confluent-databricks-supabase-lineage.md` — lineage workstream plan (Tickets A/B/C, ADR 0001)
+- `backend/app/services/telemetry_stream_lineage.py` — service backing the `/api/telemetry/stream/*` lineage routes
+
+### Deployment
+- `CLAUDE.md` (Infrastructure CLI Guardrails + Production Surface + credentials flow) — authoritative deploy contract (Vercel/Railway/Supabase/GitHub CLI, prod URLs, secret flow)
+- `docs/SHIP_STATUS.md` — what is in flight vs shipped, by what deploys when
+- `docs/LOCAL_DEV_PORTS.md` — local service/port map
+- `infra/k8s/README.md` — GKE event-sink worker deploy (recreate-from-IaC for the streaming spine)
+- `docs/ops-reports/deploy/` — daily post-deploy smoke-test results
+
+### Constraint / governance — **preserve, never delete or move**
+- `CLAUDE.md` — top-level router + governance (routing precedence, intent taxonomy, owning-surface map, mass-deletion protection, work-intake gate)
+- `docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md` — non-negotiable REPE authoritative-state lockdown invariants (enforced by lint + tests)
+- `docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md` — coding-session lifecycle (PLAN vs CODE, intake gate, trivial-bypass standard)
+- `docs/AUTONOMOUS_RELIABILITY_PROTOCOL.md` — anti-hallucination / refusal protocols for autonomous runs
+- `ARCHITECTURE.md`, `AGENTS.md`, `PORTABILITY.MD` — DB/agent-workspace/portability contracts
+- `docs/anti-ai-style.md` — mandatory writing-style constraints CLAUDE.md binds for all prose
+- `claim_coverage_matrix.md`, `PLAN_DIVERGENCE_REVIEW.md`, `DIVERGENCE_FINDINGS_DEMO_SCRIPT.md`, `DIVERGENCE_RECEIPTS_MANIFEST.md` — the claim→proof accuracy record + divergence program (load-bearing accuracy/provenance)
+- `docs/reference/RULES.MD` — Business OS core system rules
+- `.githooks/pre-commit`, `.githooks/pre-push` — local enforcement of the mass-deletion + merge-gate policies
+
+### Security / compliance
+- `docs/security-architecture.md` — SOC 2 MVP security architecture (evidence-first, append-only auditability)
+- `docs/soc2-gap-analysis.md` — SOC 2 Type II readiness inventory + gaps
+- `docs/identity-oidc.md` — identity/OIDC auth design
+- `compliance/README.md` — compliance evidence entry point
+
+### Intelligence / autonomous (auto-generated — read-first situational awareness)
+- `docs/LATEST.md` — daily manifest of every scheduled-task output (read first in a new session)
+- `docs/CAPABILITY_INVENTORY.md` — daily inventory of what's already built (read before suggesting new builds)
+- `docs/daily-intel/`, `docs/feature-radar/`, `docs/ops-reports/digests/` — daily market/feature/ops outputs
+
+### Tips
+- `docs/tips.md` is the **canonical repo-wide tips file**. See its top **"Tips files in this repo"** map for the domain-scoped tips (`docs/podcast-intelligence/tips.md`, `repo-b/tips.md`, `repo-b/src/components/ui/tips.md`).
+
+### Related indexes (different axes — not superseded by this map)
+- `docs/instruction-index.md` — routing registry for agents/skills/prompts (companion to `CLAUDE.md`)
+- `docs/LATEST.md` / `docs/CAPABILITY_INVENTORY.md` — auto-generated manifests (see Intelligence section; do not hand-edit, they are overwritten daily)
+
+---
+
+> ## ⚠️ Historical index (last updated 2026-03-02 — kept for reference)
+>
+> The sections below predate the current workstreams and reference the retired `paulmalmquist.com`
+> test environment and the "Wave 1 + Wave 2" status. They are preserved for provenance — use the
+> **Canonical Docs Map** above for current navigation.
 
 ## 📋 Quick Navigation
 
