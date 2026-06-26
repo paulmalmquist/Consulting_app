@@ -10,7 +10,9 @@ export const C = {
   bg: "#070b11", rail: "#0a0f16", panel: "#0f1622", panelHi: "#14202f",
   border: "rgba(120,162,205,0.16)", borderHi: "rgba(120,162,205,0.30)",
   // text brighter; "dim" (secondary) and "faint" (labels) raised so important facts read clearly.
-  text: "#e9eff6", dim: "#9fb0c4", faint: "#6f7e90",
+  // faint was #6f7e90 (WCAG AA fail on panels: 4.37/3.96 < 4.5 for small text); bumped to #8392a4
+  // (panel 5.71 / panelHi 5.18, still below dim so the hierarchy holds). Propagates to RS.faint.
+  text: "#e9eff6", dim: "#9fb0c4", faint: "#8392a4",
   // RS signal accents (match Mission Control): high-contrast cyan/green/amber/red.
   cyan: "#67e8f9", green: "#6ee7a0", amber: "#f5b452", red: "#f4715f",
   mono: "'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace",
