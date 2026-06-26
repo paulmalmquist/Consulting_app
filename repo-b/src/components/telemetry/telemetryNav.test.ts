@@ -24,7 +24,10 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
     }
   });
 
-  it("keeps every existing surface routable (regression guard — no slug dropped)", () => {
+  it("exposes exactly the presentation-nav slugs (governance/how-it-works/evidence hidden, routes still resolve)", () => {
+    // PR 2.1 conservative declutter: Trust Center (governance), How This Works (how-it-works), and
+    // Resume Evidence (evidence) are intentionally dropped from the nav. Their routes still resolve
+    // for deep links; they are simply not surfaced in the rail. Any OTHER slug change is a regression.
     const slugs = TELEMETRY_NAV.map((n) => n.slug).sort();
     expect(slugs).toEqual(
       [
@@ -40,11 +43,8 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
         "data-engineering/sources",
         "data-engineering/workbench",
         "data-engineering/workflows",
-        "evidence",
         "factory",
         "factory-ml",
-        "governance",
-        "how-it-works",
         "metadata",
         "metric-lineage",
         "model-performance",
@@ -56,12 +56,15 @@ describe("telemetry navigation structure (6-section redesign + Data Engineering)
         "system-health",
       ].sort(),
     );
+    // The hidden slugs must NOT appear in the nav (but their page routes still exist on disk).
+    expect(slugs).not.toContain("governance");
+    expect(slugs).not.toContain("how-it-works");
+    expect(slugs).not.toContain("evidence");
   });
 
   it("applies the redesign relabels without changing slugs", () => {
     const labelOf = (slug: string) => TELEMETRY_NAV.find((n) => n.slug === slug)?.label;
     expect(labelOf("")).toBe("Overview");
-    expect(labelOf("governance")).toBe("Trust Center");
     expect(labelOf("control-tower")).toBe("Agent Control Tower");
     expect(labelOf("factory-ml")).toBe("Flight Readiness");
   });
