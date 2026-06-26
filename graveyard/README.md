@@ -8,17 +8,17 @@ location, and only AFTER that lives through a green cycle does a **separate hard
 **Hard deletion is a human gate** (per the execution posture). Nothing here is `rm`'d without explicit
 approval. To restore an item: `git mv graveyard/<path> <original-path>`.
 
-## Quarantined items
+## Currently quarantined
 
-### `telemetry-platform/{frontend,api}` — README-only stubs (quarantined 2026-06-25)
+None.
+
+## Hard-deleted (history)
+
+### `telemetry-platform/{frontend,api}` — README-only stubs (deleted 2026-06-25)
 - **What:** two documentation-only stub dirs, each a single `README.md` pointing at the real code
-  (`telemetry-platform/frontend/README.md` → the real telemetry UI lives in `repo-b`;
-  `telemetry-platform/api/README.md` → the real API lives in `backend`).
-- **Why dead:** the real telemetry UI is in `repo-b/src/components/telemetry/**` and the real API in
-  `backend/app/**`. These stubs hold no code.
-- **Verified safe (B3 protocol):** zero importers across all surfaces — `grep -rn
-  "telemetry-platform/(frontend|api)"` over `repo-b` + `backend` finds no `import`/`from`/`require`;
-  no reference anywhere outside `docs/`, plan files, and the stubs themselves. Not in the TS module
-  graph (knip), not a Python package.
-- **Remove after:** this quarantine PR has lived through one green CI cycle on `main` → then a
-  separate hard-delete PR (human-gated) may `rm -rf graveyard/telemetry-platform/`.
+  (telemetry UI in `repo-b`, API in `backend`). They held no code.
+- **Verified safe (B3 protocol):** zero importers across all surfaces; no reference anywhere outside
+  `docs/`, plan files, and the stubs themselves; not in the TS module graph (knip), not a Python
+  package. Re-confirmed empty at delete time.
+- **Lifecycle:** quarantined (`git mv` → here) in PR #391 (green on `main`), then hard-deleted (human-
+  gated approval) after a green CI cycle. Recoverable from git history if ever needed.
