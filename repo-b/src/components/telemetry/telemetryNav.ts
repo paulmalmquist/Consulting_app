@@ -18,7 +18,8 @@ export type TelemetryNavGroup =
   | "Factory & Quality"
   | "Evidence & Lineage"
   | "Agent Operations"
-  | "Data Engineering";
+  | "Data Engineering"
+  | "Relativity MES Sandbox";
 
 export type TelemetryNavItem = {
   slug: string;
@@ -66,6 +67,15 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   // The Data Engineering group is hidden from the nav (per owner). The
   // /telemetry/data-engineering[/grain|relationships|pipelines|workflows|workbench|autopsy|sources]
   // routes still resolve for deep links; only the nav entries are removed (hide-before-delete).
+
+  // Section 8 — Relativity MES Sandbox (Phase 10). A SYNTHETIC build-to-flight MES/ERP/PLM facsimile
+  // (shaped like Manufacturo + a generic ERP/PLM), kept visibly separate from the core telemetry
+  // workbench. Reads the rel_* Lakebase serving tables through the same data-product patterns.
+  { slug: "relativity-mes", label: "Build Overview", icon: "M2 13V6l4-3 4 3v7zM6 13V9M9 3h5v10h-5", group: "Relativity MES Sandbox" },
+  { slug: "relativity-mes/genealogy", label: "Build Genealogy", icon: "M8 2v3M8 5L4 8M8 5l4 3M4 8v3M12 8v3M3 11h2v3H3zM7 11h2v3H7zM11 11h2v3h-2z", group: "Relativity MES Sandbox" },
+  { slug: "relativity-mes/ncr", label: "NCR Traceability", icon: "M8 2l6 11H2zM8 6v3M8 11h.01", group: "Relativity MES Sandbox" },
+  { slug: "relativity-mes/cost", label: "Cost Reconciliation", icon: "M3 13V8l3-2 4 3 3-4v8zM2 14h12", group: "Relativity MES Sandbox" },
+  { slug: "relativity-mes/lineage", label: "Lineage & Source Tables", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Relativity MES Sandbox" },
 ];
 
 export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
@@ -77,6 +87,7 @@ export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
   "Agent Operations",
   // "Data Engineering" stays in the TelemetryNavGroup union (the sidebar color map keys on it) but is
   // no longer a displayed group — its items are hidden from the nav (routes still resolve).
+  "Relativity MES Sandbox",
 ];
 
 // Per-group identity for the collapsible icon rail (Phase 9B): the group's own icon (a representative
@@ -91,6 +102,8 @@ export const TELEMETRY_NAV_GROUP_META: Record<TelemetryNavGroup, { icon: string;
   "Evidence & Lineage":    { accent: "#6ee7a0", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3" },
   "Agent Operations":      { accent: "#f472b6", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6" },
   "Data Engineering":      { accent: "#a855f7", icon: "M3 3h4v4H3zM9 9h4v4H9zM7 5h2M5 7v2M11 7V5M9 11H7" },
+  // Distinct warm-orange accent so the synthetic Relativity MES Sandbox reads as its own space.
+  "Relativity MES Sandbox": { accent: "#ff9e64", icon: "M8 2v3M8 5L4 8M8 5l4 3M4 8v3M12 8v3M3 11h2v3H3zM7 11h2v3H7zM11 11h2v3h-2z" },
 };
 
 export function telemetryHref(envId: string, slug: string): string {
