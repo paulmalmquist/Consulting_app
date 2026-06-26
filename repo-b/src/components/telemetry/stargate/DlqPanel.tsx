@@ -6,6 +6,8 @@
 
 import { C, Panel, Tag } from "../primitives";
 import type { DlqRow } from "@/lib/lab/stargateStream";
+import { ExportToCsvButton } from "../drill";
+import { DLQ_EXPORT_COLUMNS, dlqExportRows } from "./streamExportRows";
 
 function fmtTime(tsMs: number): string {
   return new Date(tsMs).toLocaleTimeString([], { hour12: false });
@@ -40,6 +42,14 @@ export default function DlqPanel({ rows, count }: { rows: DlqRow[]; count: numbe
           ))}
         </div>
       )}
+      <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, display: "flex",
+        alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: C.mono, fontSize: 9.5, color: C.faint }}>
+          {count} routed · real SSE rows over a recorded-capture replay
+        </span>
+        <ExportToCsvButton filename="stargate_dead_letters" columns={DLQ_EXPORT_COLUMNS}
+          rows={dlqExportRows(rows)} label="Export CSV" disabledReason="No dead letters" />
+      </div>
     </Panel>
   );
 }

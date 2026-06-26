@@ -135,4 +135,28 @@ describe("MissionControlStream — actionable fail-closed states (hardening)", (
     expect(screen.getByText(/CAPTURE/)).toBeInTheDocument();
     expect(screen.getByText("USLAB000058")).toBeInTheDocument();
   });
+
+  it("relabels the poll control to Pause and exports the live anomaly events as CSV (8C)", async () => {
+    useStreamPoll.mockReturnValue({
+      live: live({
+        source: "capture",
+        pipeline: { status: "fresh", as_of_ts: "2026-06-10T18:00:00+00:00", reason: null, surfaces: {} },
+        channels: [{
+          channel_name: "USLAB000058", unit: "mmHg", redline_low: 700, redline_high: 790,
+          readings: [{ t: "2026-06-10T17:59:59+00:00", v: 752.1 }],
+          latest: { t: "2026-06-10T17:59:59+00:00", v: 752.1 },
+        }],
+        events: [{ channel_name: "USLAB000058", start_t: 1, end_t: 2, anomaly_class: "point", confidence: 0.9 }],
+      }),
+      error: null, clientNowMs: Date.parse("2026-06-10T18:00:01+00:00"),
+    });
+    render(<MissionControlStream />);
+    await waitFor(() => expect(screen.queryByTestId("stream-unavailable")).toBeNull());
+    // "Hold" → "Pause" relabel.
+    expect(screen.getByRole("button", { name: /Pause the live poll/i })).toBeInTheDocument();
+    expect(screen.queryByText("Hold")).toBeNull();
+    // Live anomaly events are exportable, honestly labeled as tel_anomaly_events rows.
+    expect(screen.getByText(/live tel_anomaly_events/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Export CSV/i })).not.toBeDisabled();
+  });
 });

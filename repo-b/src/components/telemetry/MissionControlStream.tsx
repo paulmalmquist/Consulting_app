@@ -17,6 +17,7 @@ import {
 import { SplitGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import { ExportToCsvButton } from "./drill";
 
 const WINDOW_S = 120;
 const MAX_STRIPS = 4;
@@ -199,10 +200,12 @@ export default function MissionControlStream() {
               {starting ? "Starting…" : "Start stream"}
             </button>
             <button type="button" onClick={() => setHold((h) => !h)}
+              aria-label={hold ? "Resume the live poll" : "Pause the live poll"}
+              title={hold ? "Resume the 1s poll" : "Pause the 1s poll — freezes the view; the backend keeps ingesting"}
               style={{ fontFamily: RS_MONO, fontSize: 11, padding: "4px 10px", borderRadius: 4,
                 cursor: "pointer", color: hold ? RS.bg : RS.dim,
                 background: hold ? RS.amber : "transparent", border: `1px solid ${RS.line}` }}>
-              {hold ? "Resume" : "Hold"}
+              {hold ? "Resume" : "Pause"}
             </button>
           </>
         }
@@ -300,6 +303,18 @@ export default function MissionControlStream() {
                   ))}
                 </div>
               )}
+              <div style={{ padding: "0 12px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: RS_MONO, fontSize: 9.5, color: RS.faint }}>
+                  live tel_anomaly_events · {live.events.length} rows
+                </span>
+                <ExportToCsvButton
+                  filename="mission_control_anomaly_events"
+                  columns={["channel_name", "start_t", "end_t", "anomaly_class", "confidence"]}
+                  rows={live.events as unknown as Array<Record<string, unknown>>}
+                  label="Export CSV"
+                  disabledReason="No anomaly events on the live window"
+                />
+              </div>
             </RsPanel>
 
             <RsPanel title="LATENCY">
