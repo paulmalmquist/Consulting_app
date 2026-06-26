@@ -8,6 +8,14 @@ cryptography>=42.0
 pydantic==2.10.4
 httpx==0.28.1
 
+# Direct imports that were only present transitively (deptry DEP003). Floors (not ==)
+# so they don't fight the transitive resolver; pinned to the versions resolved at
+# declaration time, no opportunistic upgrade. anyio: stargate_bridge route + service
+# (top-level); requests: receipt_intake.py (lazy); websockets: hr_polymarket/worker.py (lazy).
+anyio>=4.13          # resolved 4.13.0
+requests>=2.33       # resolved 2.33.1
+websockets>=16.0     # resolved 16.0
+
 # RS Demo streaming slice: ISS Lightstreamer live adapter (lazy-imported; capture mode needs no network)
 lightstreamer-client-lib==2.2.2
 scikit-learn==1.6.1
