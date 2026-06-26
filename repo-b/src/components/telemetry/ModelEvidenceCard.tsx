@@ -77,7 +77,10 @@ function ModelCard({ m, psi }: { m: ModelRun; psi: number | null }) {
       </div>
       {gateEntries.length > 0 ? (
         gateEntries.map(([k, v]) => (
-          <MetricRow key={k} label={k} value={typeof v === "object" ? JSON.stringify(v) : String(v)} />
+          <MetricRow key={k} label={k}
+            value={v !== null && typeof v === "object"
+              ? Object.entries(v as Record<string, unknown>).map(([kk, vv]) => `${kk} ${vv}`).join(" · ")
+              : String(v)} />
         ))
       ) : (
         <MetricRow label="gate" value="—" />

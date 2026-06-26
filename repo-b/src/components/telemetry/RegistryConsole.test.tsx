@@ -19,7 +19,7 @@ const champion: RegistryModel = {
   metrics: {
     f1: 0.6387, f1_pointwise: 0.312953, event_recall: 0.769231,
     alarm_precision: 0.3279, affiliation_f1: 0.474634,
-    vus_status: "pending: import failed",
+    vus_status: "pending: import failed (ModuleNotFoundError: No module named 'vus')",
     honest_gate: {
       thresholds: { f1_pointwise: 0.10, affiliation_f1: 0.25 },
       values: { f1_pointwise: 0.312953, affiliation_f1: 0.474634 },
@@ -73,7 +73,10 @@ describe("RegistryConsole rendering", () => {
     expect(promote).toBeDisabled();
     expect(screen.getByText(/none registered/)).toBeInTheDocument();                 // challenger absent → explicit
     expect(screen.getByText(/null_reason: no non-promoted run/)).toBeInTheDocument();
-    expect(screen.getByText(/pending: import failed/)).toBeInTheDocument();   // honest VUS status
+    // VUS status is honest but shown as fail-closed product copy, not a raw Python traceback (9A-C).
+    expect(screen.getByText(/optional VUS library not installed/)).toBeInTheDocument();
+    expect(screen.queryByText(/ModuleNotFoundError/)).toBeNull();
+    expect(screen.queryByText(/pending: import failed/)).toBeNull();
   });
 
   it("links the run, fails closed on the UC model link, marks absent metadata, and exports (8D-2)", async () => {
