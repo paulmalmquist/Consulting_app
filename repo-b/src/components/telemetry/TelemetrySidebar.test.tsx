@@ -19,8 +19,9 @@ describe("TelemetrySidebar — 6-section rail", () => {
       const links = screen.getAllByRole("link", { name: new RegExp(`^${item.label}$`, "i") });
       expect(links.some((l) => l.getAttribute("href") === telemetryHref("env-1", item.slug))).toBe(true);
     }
-    // The four redesign relabels are present as links.
-    for (const label of ["Overview", "Agent Control Tower", "Trust Center", "Flight Readiness"]) {
+    // Redesign relabels are present as links. (Trust Center / governance is intentionally hidden by
+    // the PR 2.1 conservative declutter; its route still resolves.)
+    for (const label of ["Overview", "Agent Control Tower", "Flight Readiness"]) {
       expect(screen.getAllByRole("link", { name: new RegExp(`^${label}$`, "i") }).length).toBeGreaterThanOrEqual(1);
     }
   });

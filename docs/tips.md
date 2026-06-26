@@ -4443,6 +4443,15 @@ Scaffold for landing the raw Stargate printer Kafka stream into `novendor_1.tele
 - **`raw_value` is `base64(value)`** (lossless, ascii-safe) because the stream is binary/Avro; a plain `CAST(value AS STRING)` is lossy and breaks Windows console printing. `raw_value_bytes` keeps the true size.
 - **Lineage stays `not_available`** — bronze has data but the Postgres pointer columns are NOT stamped yet. That is Ticket B; do not stamp until bronze is verified (it now is).
 
+**Ticket B zero-match gate (2026-06-25):** the lineage flips ONLY for `tel_stream_kafka_rows` rows whose `(kafka_topic, kafka_partition, kafka_offset)` is also in bronze. Pull `TELEMETRY_DATABASE_URL` from Railway leak-free — `railway` is NOT on Python's subprocess PATH (Windows shim), so do it in bash: `railway link -p authentic-sparkle -e production -s authentic-sparkle` then `export X="$(railway variables --kv | grep '^TELEMETRY_DATABASE_URL=' | sed 's/^[^=]*=//')"` (the `$()` assignment never echoes the value); link leaves no `.railway` artifact in the repo. The serving slice was empty (6 rows, 0 on bronze topics) because the durable Kafka→Postgres consumer never ran against Stargate — so stamping was correctly a no-op. To get matches, run the durable consumer to populate the slice first.
+
+## Telemetry nav change blast radius (PR 2.1, 2026-06-25)
+
+Editing `telemetryNav.ts` (`TELEMETRY_NAV`) ripples to THREE test files — run the full telemetry suite, not just the nav test: `npx vitest run src/components/telemetry src/lib/telemetry`.
+- `telemetryNav.test.ts` — asserts the exact slug set + relabels.
+- `TelemetrySidebar.test.tsx` — asserts each nav item renders a routable link + specific relabels.
+- `telemetryArchitectureData.test.ts` — **the easy-to-miss one**: it validates every architecture-map node `slug` against `TELEMETRY_NAV` membership ("no dead deep-links"). Hiding a nav slug whose arch node still references it (e.g. `governance` → nodes `H_gov`, `ui_gov`) fails it. Fix honestly: the routes still resolve under hide-before-delete, so add the hidden-but-resolving slugs to the test's `VALID_SLUGS` (don't delete the arch nodes — they document real surfaces).
+
 ## Telemetry primitive drill + null-state pattern (PR 1.1, 2026-06-25)
 
 Reusable drill-down without per-page drawers, all in `repo-b/src/components/telemetry/`:
