@@ -131,16 +131,26 @@ export default function MapPanel({
               ticks={[0, 165, 330]}
               tick={{ fill: RS.crosshair, fontSize: 9, fontFamily: RS_MONO }}
               width={34} stroke={RS.line} tickLine={false} />
-            {/* Hidden axis for the commercial-share underlay: 0-100% mapped low so the wave reads as a
-                subordinate context band behind the bars and bubbles, never the primary series. */}
-            <YAxis yAxisId="share" hide type="number" domain={[0, 260]} />
+            {/* Commercial-share underlay axis: a TRUE 0-100% scale (0% bottom, 100% top). The observed
+                wave only reaches ~70%, so it naturally sits in the lower-to-mid chart on its own scale —
+                no rescaling to full height. The gutter axis stays hidden; faint labeled reference lines
+                at 0/50/100 (below) give the reading without crowding the band/cadence axes. */}
+            <YAxis yAxisId="share" hide type="number" domain={[0, 100]} />
             <Tooltip content={<MapTip />} cursor={false} />
             {/* Commercial-share contextual underlay (rendered first = painted behind everything). The
                 rising wave is the story backdrop: cadence and commercialization climbed together, and the
                 data/interpretation burden climbed with them. Honest label in the sub + footnote. */}
             <Area yAxisId="share" dataKey="commercialPct" stroke={RS.green} strokeWidth={1}
-              strokeOpacity={0.35} fill={RS.green} fillOpacity={0.07} connectNulls
+              strokeOpacity={0.32} fill={RS.green} fillOpacity={0.06} connectNulls
               isAnimationActive={false} />
+            {/* Faint labeled true-scale gridlines for the share underlay (0/50/100%). Drawn after the
+                Area but before the bars/bubbles so the wave's own scale is readable yet subordinate. */}
+            {[0, 50, 100].map((pct) => (
+              <ReferenceLine key={`share-${pct}`} yAxisId="share" y={pct} stroke={RS.green}
+                strokeOpacity={pct === 0 ? 0.1 : 0.16} strokeDasharray="2 7"
+                label={{ value: `${pct}%`, position: "insideLeft", fill: RS.green, fontSize: 9,
+                  fontFamily: RS_MONO, opacity: 0.5 }} />
+            ))}
             <Bar yAxisId="cadence" dataKey="attempts" barSize={5} radius={[2, 2, 0, 0]} isAnimationActive={false}>
               {YEAR_SERIES.map((d) => (
                 <Cell key={d.year}
@@ -183,7 +193,7 @@ export default function MapPanel({
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 16px 8px",
         fontFamily: RS_MONO, fontSize: 9, color: RS.faint }}>
-        <span style={{ color: RS.green }}>green wave = commercial share of attempts (contextual underlay, 0–70%)</span>
+        <span style={{ color: RS.green }}>green wave = commercial share of attempts · true 0–100% axis (observed ≈0–70%) · contextual underlay</span>
         <span>border: solid = flown · dashed = partial · dotted = planned · size = {sizeModeLabel.toLowerCase()}</span>
       </div>
     </PanelShell>

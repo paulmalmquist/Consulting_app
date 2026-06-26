@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 // Stub the heavy Bottleneck Map (recharts) — its own tests cover its behavior.
@@ -27,7 +27,29 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     expect(screen.getByText(/Launch source ETL not connected/i)).toBeInTheDocument();
     expect(screen.getByText("Continue the demo")).toBeInTheDocument();
     expect(screen.getByText("Stargate Live").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/stargate");
-    expect(screen.getByText("Resume Evidence").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/evidence");
+    expect(screen.getByText("Evidence").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/evidence");
+    // 8B bridge additions: Mission Control, Metric Lineage, Model Performance (Governance dropped).
+    expect(screen.getByText("Mission Control").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/stream");
+    expect(screen.getByText("Metric Lineage").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/metric-lineage");
+    expect(screen.getByText("Model Performance").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/model-performance");
+    expect(screen.queryByText("Trust & Lineage")).not.toBeInTheDocument();
+  });
+
+  it("makes a Big Number drillable to its honest fixture source (no live-rows claim)", () => {
+    render(<TelemetryOverview />);
+    fireEvent.click(screen.getByRole("button", { name: /Cost per kg to LEO.*inspect source/i }));
+    // Drawer opens labeling the source kind honestly + shows an underlying public-data row.
+    expect(screen.getByText(/fixture — curated public data/i)).toBeInTheDocument();
+    expect(screen.getByText("Saturn V")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Export CSV/i })).not.toBeDisabled();
+  });
+
+  it("renders a clear no-rows state for a derived Big Number rather than a dead click", () => {
+    render(<TelemetryOverview />);
+    fireEvent.click(screen.getByRole("button", { name: /Timeline.*inspect source/i }));
+    // The null reason appears in the empty state and the disabled export reasons — good UX, multiple nodes.
+    expect(screen.getAllByText(/Derived range/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Export CSV/i })).toBeDisabled();
   });
 
   it("does not render the serving KPI strip, the Trace-lineage CTA, or Mission Summary scaffolding", () => {

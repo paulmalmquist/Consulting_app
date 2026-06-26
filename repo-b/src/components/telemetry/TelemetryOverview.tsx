@@ -8,12 +8,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
 import { C, TelemetryPageShell } from "./primitives";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import { MetricInspectorDrawer } from "./drawerPrimitives";
+import { SourceRowsTable } from "./drill";
 import { telemetryHref } from "./telemetryNav";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
-import { computeBigNumbers, type BigNumberAccent } from "./context/BottleneckMap/data";
+import { computeBigNumbers, type BigNumber, type BigNumberAccent } from "./context/BottleneckMap/data";
 
 // Big Numbers accent → C palette. Rendered locally (not via the shared header metric row) so the
 // numerals can be materially larger narrative anchors without touching the shared header component.
@@ -23,7 +26,7 @@ function accentColor(a: BigNumberAccent): string {
 
 // Large editorial Big Numbers — historical context anchors, not operating KPIs. Bigger numerals +
 // cleaner uppercase labels than the old inline header metric row.
-function BigNumbersBand() {
+function BigNumbersBand({ onDrill }: { onDrill: (b: BigNumber) => void }) {
   const numbers = computeBigNumbers();
   return (
     <div style={{
@@ -32,15 +35,17 @@ function BigNumbersBand() {
       borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "22px 0",
     }}>
       {numbers.map((b) => (
-        <div key={b.label}>
+        <button key={b.label} type="button" onClick={() => onDrill(b)}
+          aria-label={`${b.label}: ${b.value} — inspect source`}
+          style={{ display: "block", textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
           <div style={{ fontFamily: C.mono, fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: C.faint, marginBottom: 8 }}>
-            {b.label}
+            {b.label} <span aria-hidden style={{ color: C.faint, fontSize: 12 }}>›</span>
           </div>
           <div style={{ fontFamily: C.mono, fontWeight: 700, fontSize: "clamp(2rem, 4.4vw, 2.85rem)", lineHeight: 1, letterSpacing: "-0.02em", color: accentColor(b.accent) }}>
             {b.value}
           </div>
           {b.sub && <div style={{ fontFamily: C.sans, fontSize: 12, color: C.dim, marginTop: 7 }}>{b.sub}</div>}
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -68,9 +73,11 @@ function SourceHonestyStrip() {
 // Bridge into the rest of the demo — the Overview's job is to make the other surfaces feel necessary.
 const BRIDGE: { slug: string; label: string; blurb: string }[] = [
   { slug: "stargate", label: "Stargate Live", blurb: "Recorded test-stand capture, replayed through the real Kafka/SSE bridge" },
-  { slug: "evidence", label: "Resume Evidence", blurb: "The ML findings, each backed by a reproducible artifact" },
+  { slug: "stream", label: "Mission Control", blurb: "Live channel strips, anomalies, and the GO / REVIEW / NO-GO verdict" },
   { slug: "replay", label: "Replay", blurb: "Model score → ranked channels → GO / REVIEW / NO-GO" },
-  { slug: "governance", label: "Trust & Lineage", blurb: "Where every number comes from; refusals and audit" },
+  { slug: "evidence", label: "Evidence", blurb: "The ML findings, each backed by a reproducible artifact" },
+  { slug: "metric-lineage", label: "Metric Lineage", blurb: "Where every number comes from — the governed metric catalog" },
+  { slug: "model-performance", label: "Model Performance", blurb: "Champions, honest metrics, and the promotion gate" },
 ];
 
 function DemoBridge({ envId }: { envId: string }) {
@@ -103,6 +110,7 @@ export default function TelemetryOverview() {
   const envId = typeof params?.envId === "string"
     ? params.envId
     : Array.isArray(params?.envId) ? params.envId[0] : "";
+  const [drillNum, setDrillNum] = useState<BigNumber | null>(null);
 
   // Thesis-first: the dominant hero states the argument once (Big Numbers render below it as larger
   // narrative anchors, not in the header metric row), then the integrated Bottleneck Map carries it.
@@ -123,10 +131,35 @@ export default function TelemetryOverview() {
 
   return (
     <TelemetryPageShell heading={heading}>
-      <BigNumbersBand />
-      <BottleneckMap />
+      <BigNumbersBand onDrill={setDrillNum} />
+      <BottleneckMap envId={envId} />
       <SourceHonestyStrip />
       {envId && <DemoBridge envId={envId} />}
+      <MetricInspectorDrawer
+        open={drillNum !== null}
+        onClose={() => setDrillNum(null)}
+        title={drillNum?.label ?? ""}
+        description={drillNum ? `${drillNum.value} — a curated public-data anchor, not operational telemetry.` : ""}
+        fields={drillNum ? [
+          { label: "Value", value: drillNum.value },
+          { label: "Source kind", value: "fixture — curated public data" },
+          { label: "Source", value: drillNum.drill.sourceLabel },
+          { label: "Note", value: drillNum.drill.note },
+        ] : []}
+      >
+        {drillNum && (
+          <div style={{ marginTop: 14 }}>
+            <SourceRowsTable
+              kind={drillNum.drill.sourceKind}
+              columns={drillNum.drill.columns}
+              rows={drillNum.drill.rows}
+              sourceLabel={drillNum.drill.sourceLabel}
+              nullReason={drillNum.drill.nullReason}
+              exportName={`telemetry_overview_${drillNum.label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`}
+            />
+          </div>
+        )}
+      </MetricInspectorDrawer>
     </TelemetryPageShell>
   );
 }
