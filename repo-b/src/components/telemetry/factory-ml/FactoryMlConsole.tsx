@@ -9,7 +9,7 @@ import { C, EmptyState, Loading, Panel, Tag } from "../primitives";
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import FactoryEvidenceDrawer from "./FactoryEvidenceDrawer";
 import FeatureImportancePanel from "./FeatureImportancePanel";
-import LayerHeatmap from "./LayerHeatmap";
+import LayerHeatmap, { HEATMAP_EXPORT_COLUMNS, heatmapExportRows } from "./LayerHeatmap";
 import NcrPanel from "./NcrPanel";
 import ReadinessGauge from "./ReadinessGauge";
 import RegistryPanel from "./RegistryPanel";
@@ -76,13 +76,26 @@ export default function FactoryMlConsole() {
                       </span>
                       <ExportToCsvButton filename="flight_readiness_vehicles" columns={cols} rows={rows}
                         label="Export readiness rows" />
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>
+                        ingredients are counts; per-ingredient contribution weight is not published in the
+                        gold rollup (null_reason: weight_not_in_rollup)
+                      </span>
                     </div>
                   );
                 })()}
               </div>
             : <EmptyState label="readiness.json missing" hint="Re-run the export stage." />)}
           {section === "heatmap" && (data.heatmap
-            ? <LayerHeatmap data={data.heatmap} />
+            ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <LayerHeatmap data={data.heatmap} />
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>
+                    {SOURCE_KIND_LABEL.fixture} — public/labs/factory-ml/layer_heatmap.json
+                  </span>
+                  <ExportToCsvButton filename="layer_heatmap_cells" columns={HEATMAP_EXPORT_COLUMNS}
+                    rows={heatmapExportRows(data.heatmap)} label="Export heatmap cells" />
+                </div>
+              </div>
             : <EmptyState label="layer_heatmap.json missing" hint="Re-run the export stage." />)}
           {section === "model" && (data.importance
             ? <FeatureImportancePanel data={data.importance} onDrill={setDrill} />

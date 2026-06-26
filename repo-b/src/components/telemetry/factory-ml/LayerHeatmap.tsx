@@ -9,6 +9,22 @@ import { useState } from "react";
 import { C, Panel, Tag } from "../primitives";
 import type { HeatmapExport } from "@/lib/lab/factoryMlData";
 
+// Long-form flatten for CSV export: one row per (run, window) cell — the exact cells shown.
+export const HEATMAP_EXPORT_COLUMNS = ["run_id", "pattern", "scenario_id", "is_anchor", "window_w", "z"];
+export function heatmapExportRows(data: HeatmapExport): Array<Record<string, unknown>> {
+  const anchorSet = new Set(data.anchor_pair);
+  const rows: Array<Record<string, unknown>> = [];
+  for (const run of data.runs) {
+    for (const cell of run.cells) {
+      rows.push({
+        run_id: run.run_id, pattern: run.pattern, scenario_id: run.scenario_id ?? "",
+        is_anchor: anchorSet.has(run.run_id), window_w: cell.w, z: cell.z,
+      });
+    }
+  }
+  return rows;
+}
+
 function zColor(z: number): string {
   // blue (calm) -> panel (neutral) -> red (agitated)
   const clamped = Math.max(-2.5, Math.min(2.5, z));
@@ -72,9 +88,11 @@ export default function LayerHeatmap({ data }: { data: HeatmapExport }) {
           </span>
         </div>
       )}
-      <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 10 }}>
-        Amber rows: the SCN-005 golden pair — the inconclusive run rhymes with the failed one
-        (shared PF-TPL-01 signature). Red cells: rolling variance well above fleet baseline.
+      <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>
+        Each cell is one layer-window&rsquo;s rolling-std z-score: 0 = fleet baseline, &gt;0 (red) = more
+        agitated, &lt;0 (blue) = calmer; the ±2.5 clamp is for color only. Amber rows: the SCN-005 golden
+        pair — the inconclusive run rhymes with the failed one (shared PF-TPL-01 signature). Click a row
+        for its pattern, scenario, and peak z.
       </div>
     </Panel>
   );
