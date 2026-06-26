@@ -17,8 +17,9 @@ import TempVibrationChart from "./TempVibrationChart";
 import StreamLineageDrawer from "./StreamLineageDrawer";
 import { useStargateStream } from "@/lib/lab/stargateStream";
 import type { AnomalyRow } from "@/lib/lab/stargateStream";
-import { ExportToCsvButton } from "../drill";
+import { ExportToCsvButton, SOURCE_KIND_TAG } from "../drill";
 import { ANOMALY_EXPORT_COLUMNS, anomalyExportRows } from "./streamExportRows";
+import StreamContextStrip from "./StreamContextStrip";
 import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -189,6 +190,7 @@ export default function StargateConsole() {
             )}
             <Tag color={stream.connected ? C.green : C.red}>{stream.connected ? "stream live" : "reconnecting"}</Tag>
             <Tag color={badge.color}>{badge.label}</Tag>
+            <Tag color={C.amber}>{SOURCE_KIND_TAG.fixture} · recorded capture</Tag>
           </>
         }
       />
@@ -212,6 +214,8 @@ export default function StargateConsole() {
           value={anomalies.length} sub="temp<1400°C ∧ vib>0.08g" />
         <MetricCard label="Dead letters" accent={stream.dlqCount ? C.red : C.green} value={stream.dlqCount} />
       </div>
+
+      <StreamContextStrip health={stream.health} latestAgg={printerAgg.at(-1) ?? agg.at(-1) ?? null} />
 
       {printers.length > 1 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
