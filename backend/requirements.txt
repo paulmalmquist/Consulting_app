@@ -15,6 +15,16 @@ httpx==0.28.1
 anyio>=4.13          # resolved 4.13.0
 requests>=2.33       # resolved 2.33.1
 websockets>=16.0     # resolved 16.0
+# Second DEP003 batch: starlette is imported directly (BaseHTTPMiddleware) in auth/middleware.py +
+# middleware/request_logging.py; floor = FastAPI's own starlette floor (FastAPI 0.115.6 pins
+# starlette>=0.40,<0.42), so this can never fight FastAPI's range. pyarrow (cre_egress.py parquet,
+# lazy) + scipy (hr_ml_demo/trainers.py cluster.hierarchy, lazy) get conservative floors well below
+# the resolved versions so they declare the dep without forcing a CI upgrade.
+# Skipped: vertexai (DEP003) — not installed here, a lazy optional heavy cloud SDK; pinning would
+# force-install it and change the footprint. Left transitive on purpose.
+starlette>=0.40      # resolved 0.41.3 (FastAPI-coupled; floor matches FastAPI's own)
+pyarrow>=14          # resolved 24.0.0 (conservative floor; via google-cloud-bigquery/pandas)
+scipy>=1.10          # resolved 1.17.1 (conservative floor; via scikit-learn/pandas)
 
 # RS Demo streaming slice: ISS Lightstreamer live adapter (lazy-imported; capture mode needs no network)
 lightstreamer-client-lib==2.2.2
