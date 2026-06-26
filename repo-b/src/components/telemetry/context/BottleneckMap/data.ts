@@ -6,8 +6,8 @@
 import { RS } from "../../rsTokens";
 import type { SourceKind } from "../../drill/sourceKind";
 import type {
-  ColorByKey, CostPoint, DimensionEntry, DimensionKey, LaunchEvent, SizeModeKey, TimeWindow,
-  YearPoint,
+  ColorByKey, CostPoint, DimensionEntry, DimensionKey, EventBackdrop, InnovationKey,
+  LaunchEvent, SizeModeKey, TimeWindow, YearPoint,
 } from "./types";
 
 // Two color dimensions for the bubbles
@@ -34,6 +34,24 @@ export function eventDimensionKey(e: LaunchEvent, colorBy: ColorByKey): Dimensio
 }
 export function eventDimension(e: LaunchEvent, colorBy: ColorByKey): DimensionEntry {
   return colorBy === "type" ? INNOVATION[e.type] : FUNDING[e.funding];
+}
+
+// Overview hero backdrops (Phase 9B), keyed off the innovation dimension so the visual is tied to the
+// era and stays stable regardless of the chart's color-by toggle. Tones echo the INNOVATION palette
+// (dataops uses cyan rather than the near-white text token, which washes out). Assets are illustrative
+// generative vector art under /public/telemetry/backdrops — not historical photos, never evidence.
+export const THEME_BACKDROPS: Record<InnovationKey, EventBackdrop> = {
+  mission:       { image: "/telemetry/backdrops/mission.svg",       tone: RS.blue,   sourceKind: "generative", alt: "Illustrative analog launch-pad and telemetry-room motif" },
+  cost:          { image: "/telemetry/backdrops/cost.svg",          tone: RS.green,  sourceKind: "generative", alt: "Illustrative cost-decline and reusable-booster motif" },
+  reuse:         { image: "/telemetry/backdrops/reuse.svg",         tone: RS.amber,  sourceKind: "generative", alt: "Illustrative reusable-booster recovery motif" },
+  manufacturing: { image: "/telemetry/backdrops/manufacturing.svg", tone: RS.violet, sourceKind: "generative", alt: "Illustrative additive-manufacturing inspection-grid motif" },
+  dataops:       { image: "/telemetry/backdrops/dataops.svg",       tone: RS.cyan,   sourceKind: "generative", alt: "Illustrative mission-control dense-signal-field motif" },
+};
+
+// Per-event override wins; otherwise the era theme; otherwise null (Overview falls back to its gradient).
+export function resolveBackdrop(e: LaunchEvent | null): EventBackdrop | null {
+  if (!e) return null;
+  return e.backdrop ?? THEME_BACKDROPS[e.type] ?? null;
 }
 
 export const BANDS: { y: number; label: string }[] = [

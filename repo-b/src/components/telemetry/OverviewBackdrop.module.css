@@ -1,0 +1,15 @@
+/* Overview era backdrop cross-fade (Phase 9B). Decorative only; the global
+   prefers-reduced-motion guard in globals.css also neutralizes this, but the
+   explicit guard keeps the behavior local and obvious. */
+.backdropFade {
+  animation: ob-fade 360ms ease both;
+}
+
+@keyframes ob-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdropFade { animation: none; }
+}

@@ -16,7 +16,9 @@ import { MetricInspectorDrawer } from "./drawerPrimitives";
 import { SourceRowsTable } from "./drill";
 import { telemetryHref } from "./telemetryNav";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
+import OverviewBackdrop from "./OverviewBackdrop";
 import { computeBigNumbers, type BigNumber, type BigNumberAccent } from "./context/BottleneckMap/data";
+import type { DecoratedEvent } from "./context/BottleneckMap/types";
 
 // Big Numbers accent → C palette. Rendered locally (not via the shared header metric row) so the
 // numerals can be materially larger narrative anchors without touching the shared header component.
@@ -111,6 +113,8 @@ export default function TelemetryOverview() {
     ? params.envId
     : Array.isArray(params?.envId) ? params.envId[0] : "";
   const [drillNum, setDrillNum] = useState<BigNumber | null>(null);
+  // Phase 9B: the Bottleneck Map reports its selected event up so the hero backdrop can follow it.
+  const [selectedEvent, setSelectedEvent] = useState<DecoratedEvent | null>(null);
 
   // Thesis-first: the dominant hero states the argument once (Big Numbers render below it as larger
   // narrative anchors, not in the header metric row), then the integrated Bottleneck Map carries it.
@@ -130,12 +134,16 @@ export default function TelemetryOverview() {
   );
 
   return (
-    <TelemetryPageShell heading={heading}>
-      <BigNumbersBand onDrill={setDrillNum} />
-      <BottleneckMap envId={envId} />
-      <SourceHonestyStrip />
-      {envId && <DemoBridge envId={envId} />}
-      <MetricInspectorDrawer
+    <div style={{ position: "relative" }}>
+      {/* Era backdrop sits behind the hero band only; the scrim fades to C.bg before the chart. */}
+      <OverviewBackdrop event={selectedEvent} />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <TelemetryPageShell heading={heading}>
+          <BigNumbersBand onDrill={setDrillNum} />
+          <BottleneckMap envId={envId} onSelectedEventChange={setSelectedEvent} />
+          <SourceHonestyStrip />
+          {envId && <DemoBridge envId={envId} />}
+          <MetricInspectorDrawer
         open={drillNum !== null}
         onClose={() => setDrillNum(null)}
         title={drillNum?.label ?? ""}
@@ -160,6 +168,8 @@ export default function TelemetryOverview() {
           </div>
         )}
       </MetricInspectorDrawer>
-    </TelemetryPageShell>
+        </TelemetryPageShell>
+      </div>
+    </div>
   );
 }

@@ -15,6 +15,23 @@ export interface DimensionEntry {
   label: string;
 }
 
+// Optional era backdrop for the Overview hero (Phase 9B). Decorative/illustrative only — never a
+// historical photograph and never a source of evidence. Rendered as a CSS background behind a scrim,
+// so a missing `image` degrades to the `tone` wash (no broken-image glyph).
+export interface EventBackdrop {
+  /** Path under /public, e.g. "/telemetry/backdrops/dataops.svg". Optional — tone wash is the floor. */
+  image?: string;
+  /** Accessible description. Must not imply the asset is a real photo of the event. */
+  alt: string;
+  /** Base wash color, tied to the era for relevance. */
+  tone: string;
+  /** CSS background-position; defaults to "center". */
+  focus?: string;
+  /** Honesty label shown in the UI — these assets are generative/curated, never evidence. */
+  sourceKind: "generative" | "curated" | "illustrative";
+  credit?: string;
+}
+
 export interface CostPoint {
   v: string;
   nominal: number;
@@ -53,6 +70,8 @@ export interface LaunchEvent {
   bottleneckCreated: string;
   dataProduct: string;
   rhyme: string;
+  /** Optional per-event override for the Overview hero backdrop; falls back to the era theme. */
+  backdrop?: EventBackdrop;
 }
 
 // Event decorated with the values the active color/size dimension resolves to.

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Illustrative reusable-booster recovery motif">
+  <defs>
+    <radialGradient id="r-bg" cx="34%" cy="32%" r="90%">
+      <stop offset="0%" stop-color="#2a2012"/>
+      <stop offset="55%" stop-color="#16100a"/>
+      <stop offset="100%" stop-color="#05080e"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#r-bg)"/>
+  <!-- recovery arcs (launch out, land back) -->
+  <g fill="none" stroke="#f5b452" stroke-opacity="0.45" stroke-width="2.5" stroke-dasharray="2 10" stroke-linecap="round">
+    <path d="M300 760 C 520 240, 980 240, 1180 720"/>
+    <path d="M340 780 C 560 340, 940 340, 1140 740"/>
+  </g>
+  <!-- booster silhouette -->
+  <g fill="#f5b452" fill-opacity="0.12" stroke="#f5b452" stroke-opacity="0.55" stroke-width="3">
+    <path d="M1140 720 L1140 360 Q1160 300 1180 360 L1180 720 Z"/>
+    <path d="M1140 720 L1110 790 L1140 760 Z"/>
+    <path d="M1180 720 L1210 790 L1180 760 Z"/>
+    <line x1="1160" y1="360" x2="1160" y2="300"/>
+  </g>
+  <!-- landing pad -->
+  <g stroke="#f5b452" stroke-opacity="0.4" stroke-width="2" fill="none">
+    <ellipse cx="1160" cy="800" rx="120" ry="22"/>
+    <line x1="1100" y1="800" x2="1220" y2="800"/><line x1="1160" y1="780" x2="1160" y2="820"/>
+  </g>
+</svg>

@@ -1,8 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
-// Stub the heavy Bottleneck Map (recharts) — its own tests cover its behavior.
-vi.mock("./context/BottleneckMap/BottleneckMap", () => ({ default: () => <div data-testid="bottleneck-map">charts</div> }));
+// Stub the heavy Bottleneck Map (recharts) — its own tests cover its behavior. The stub exposes a
+// button that fires onSelectedEventChange so the Overview→backdrop wiring (Phase 9B) is testable.
+vi.mock("./context/BottleneckMap/BottleneckMap", () => ({
+  default: ({ onSelectedEventChange }: { onSelectedEventChange?: (e: unknown) => void }) => (
+    <div data-testid="bottleneck-map">
+      charts
+      <button type="button" onClick={() => onSelectedEventChange?.({ type: "mission" })}>select mission event</button>
+    </div>
+  ),
+}));
 // The Overview reads envId from the route to build the demo bridge links.
 vi.mock("next/navigation", () => ({ useParams: () => ({ envId: "env-test" }) }));
 
@@ -50,6 +58,16 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     // The null reason appears in the empty state and the disabled export reasons — good UX, multiple nodes.
     expect(screen.getAllByText(/Derived range/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Export CSV/i })).toBeDisabled();
+  });
+
+  it("drives the Overview era backdrop from the selected Bottleneck Map event (Phase 9B)", () => {
+    render(<TelemetryOverview />);
+    // No backdrop before any selection — the hero keeps its plain background.
+    expect(screen.queryByText(/Backdrop: illustrative/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /select mission event/i }));
+    // The mission-era backdrop appears, labeled honestly as illustrative/generative.
+    expect(screen.getByText(/Backdrop: illustrative · generative asset/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /illustrative analog launch-pad/i })).toBeInTheDocument();
   });
 
   it("does not render the serving KPI strip, the Trace-lineage CTA, or Mission Summary scaffolding", () => {

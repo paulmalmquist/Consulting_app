@@ -49,7 +49,13 @@ function NarrLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function BottleneckMap({ envId }: { envId?: string }) {
+export default function BottleneckMap(
+  { envId, onSelectedEventChange }: {
+    envId?: string;
+    /** Phase 9B: surface the selected/presented event so the Overview can drive its hero backdrop. */
+    onSelectedEventChange?: (e: DecoratedEvent | null) => void;
+  } = {},
+) {
   const [selectedId, setSelectedId] = useState<string | null>("terran1");
   const [chipFilter, setChipFilter] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<SizeModeKey>("scale");
@@ -83,6 +89,10 @@ export default function BottleneckMap({ envId }: { envId?: string }) {
     const base = presenting ? presenterEvent : EVENTS.find((e) => e.id === selectedId) ?? null;
     return base ? decorate(base, colorBy, sizeMode) : null;
   }, [selectedId, presenting, presenterEvent, colorBy, sizeMode]);
+
+  // Surface the active event to the parent (Overview hero backdrop). Additive and optional — fires on
+  // mount and on every click/presenter change.
+  useEffect(() => { onSelectedEventChange?.(selected); }, [selected, onSelectedEventChange]);
 
 
   // Presenter keyboard controls. Never captures keys when focus is inside a form field, and never
