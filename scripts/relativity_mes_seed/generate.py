@@ -402,6 +402,17 @@ def build_dataset() -> dict[str, Any]:
     for v in rework_cost:
         vehicle_costs[v]["rework"] = rework_cost[v]
 
+    # Emit the rework cost as ERP source rows so the medallion's gold cost rollup is fully derivable
+    # from source (no generator-only constant): cost_element='rework' on the affected mfg orders.
+    for v, fam, amt in (("VEH-DEMO-001", "TPS", 4200.0), ("VEH-DEMO-002", "STR", 2650.0)):
+        mfg_order = f"MFG-{v[-3:]}-{fam}"
+        src["rel_erp_prod_order_cost"].append(_stamp(
+            "ERP", "rel_erp_prod_order_cost", f"{mfg_order}:rework", {
+                "cost_id": f"{mfg_order}:rework", "mfg_order_no": mfg_order, "vehicle_serial": v,
+                "cost_element": "rework", "debit_credit": "D", "amount": amt,
+                "posting_date": "2026-06-18",
+            }))
+
     # ── GOLD marts ─────────────────────────────────────────────────────────────
     gold = _build_gold(src, vehicle_costs)
     return {"source": src, "gold": gold}

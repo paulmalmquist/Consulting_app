@@ -106,6 +106,16 @@ vehicles; the Lineage page proves the live Lakebase path. Green: `npm run typech
 `npm test` (new + frozen telemetry suites), `pytest backend/tests/test_relativity_mes*` and the
 existing telemetry tests. No `tel_*` table is reused as MES data.
 
+## Databricks medallion run status
+
+The medallion (`telemetry-platform/databricks/relativity_mes/rel_medallion.py` + `rel_bronze_load.sql`)
+is complete and runnable (bronze → silver CTAS → gold Delta → independent invariant validation →
+read-back serving sync). The live run is currently **blocked platform-side**: the workspace serverless
+SQL warehouse reports `health=FAILED — "Clusters are failing to launch"` (OAuth auth works). Per the
+approved fallback, serving is loaded via the proven Postgres/Lakebase route (`10037`/`10038`, applied)
+— real Lakebase rows, `serving_provenance='seed-bootstrap'`, never local JSON. Re-running the medallion
+when the warehouse is healthy flips serving to `databricks-gold`.
+
 ## Out of scope
 
 No ML model (roadmap note only). No real Relativity data/schema/API. Unity Catalog lineage beyond

@@ -10036,6 +10036,36 @@
         "source_pk": "MFG-003-FED:overhead",
         "ingest_batch_id": "rel-mes-seed-v1",
         "as_of": "2026-06-26T00:00:00Z"
+      },
+      {
+        "cost_id": "MFG-001-TPS:rework",
+        "mfg_order_no": "MFG-001-TPS",
+        "vehicle_serial": "VEH-DEMO-001",
+        "cost_element": "rework",
+        "debit_credit": "D",
+        "amount": 4200.0,
+        "posting_date": "2026-06-18",
+        "synthetic": true,
+        "source_system": "ERP",
+        "source_table": "rel_erp_prod_order_cost",
+        "source_pk": "MFG-001-TPS:rework",
+        "ingest_batch_id": "rel-mes-seed-v1",
+        "as_of": "2026-06-26T00:00:00Z"
+      },
+      {
+        "cost_id": "MFG-002-STR:rework",
+        "mfg_order_no": "MFG-002-STR",
+        "vehicle_serial": "VEH-DEMO-002",
+        "cost_element": "rework",
+        "debit_credit": "D",
+        "amount": 2650.0,
+        "posting_date": "2026-06-18",
+        "synthetic": true,
+        "source_system": "ERP",
+        "source_table": "rel_erp_prod_order_cost",
+        "source_pk": "MFG-002-STR:rework",
+        "ingest_batch_id": "rel-mes-seed-v1",
+        "as_of": "2026-06-26T00:00:00Z"
       }
     ],
     "rel_erp_cost_variance": [

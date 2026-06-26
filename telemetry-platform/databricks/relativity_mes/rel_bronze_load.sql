@@ -883,7 +883,9 @@ INSERT INTO novendor_1.relativity_mes.bronze_rel_erp_prod_order_cost VALUES
   ('MFG-003-TPS:overhead', 'MFG-003-TPS', 'VEH-DEMO-003', 'overhead', 'D', 473.1, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-TPS:overhead', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1'),
   ('MFG-003-FED:material', 'MFG-003-FED', 'VEH-DEMO-003', 'material', 'D', 26152.37, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:material', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1'),
   ('MFG-003-FED:labor', 'MFG-003-FED', 'VEH-DEMO-003', 'labor', 'D', 1649.83, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:labor', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1'),
-  ('MFG-003-FED:overhead', 'MFG-003-FED', 'VEH-DEMO-003', 'overhead', 'D', 296.97, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:overhead', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1');
+  ('MFG-003-FED:overhead', 'MFG-003-FED', 'VEH-DEMO-003', 'overhead', 'D', 296.97, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:overhead', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1'),
+  ('MFG-001-TPS:rework', 'MFG-001-TPS', 'VEH-DEMO-001', 'rework', 'D', 4200.0, '2026-06-18', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-001-TPS:rework', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1'),
+  ('MFG-002-STR:rework', 'MFG-002-STR', 'VEH-DEMO-002', 'rework', 'D', 2650.0, '2026-06-18', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-002-STR:rework', 'rel-mes-seed-v1', TIMESTAMP'2026-06-26 00:00:00', 'rel-mes-seed-v1');
 
 CREATE OR REPLACE TABLE novendor_1.relativity_mes.bronze_rel_erp_cost_variance (
   variance_id STRING,

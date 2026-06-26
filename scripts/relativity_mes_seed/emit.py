@@ -286,6 +286,29 @@ def build_bronze_sql(ds: dict[str, Any]) -> str:
     return out
 
 
+def build_gold_dbx_sql(ds: dict[str, Any]) -> str:
+    """Databricks SQL that materializes the deterministic gold marts as Delta tables (gold_rel_*).
+
+    The gold marts are the deterministic computed product (see ADR 0002 — the generator is the gold
+    transform); this lands them in Unity Catalog so the medallion holds bronze (raw) → silver
+    (conformed, built by the orchestrator's CTAS) → gold (these marts), and serving syncs FROM gold.
+    """
+    gold = ds["gold"]
+    out = HEADER.format(file="rel_gold_load.sql", kind="Databricks gold marts (Delta)", seed=MASTER_SEED)
+    out += f"CREATE SCHEMA IF NOT EXISTS {DBX_CATALOG}.{DBX_SCHEMA};\n\n"
+    for mart, rows in gold.items():
+        table = f"{DBX_CATALOG}.{DBX_SCHEMA}.gold_{SERVING_MAP[mart]}"
+        cols = _columns(rows)
+        types = _infer_types(rows)
+        col_defs = ",\n  ".join(f"{c} {_dbx_type(types[c])}" for c in cols)
+        out += f"CREATE OR REPLACE TABLE {table} (\n  {col_defs}\n) USING DELTA;\n"
+        value_rows = ["  (" + ", ".join(_dbx_lit(r.get(c), types[c]) for c in cols) + ")" for r in rows]
+        if value_rows:
+            out += f"INSERT INTO {table} VALUES\n" + ",\n".join(value_rows) + ";\n"
+        out += "\n"
+    return out
+
+
 def assert_no_banned(ds: dict[str, Any]) -> None:
     blob = json.dumps({"source": ds["source"], "gold": ds["gold"]}).lower()
     for term in BANNED:
