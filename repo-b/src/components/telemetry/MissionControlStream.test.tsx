@@ -158,5 +158,7 @@ describe("MissionControlStream — actionable fail-closed states (hardening)", (
     // Live anomaly events are exportable, honestly labeled as tel_anomaly_events rows.
     expect(screen.getByText(/live tel_anomaly_events/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Export CSV/i })).not.toBeDisabled();
+    // 8D-3: the server XLSX export (anomaly_events dataset) is wired next to the CSV.
+    expect(screen.getByRole("button", { name: /Export XLSX/i })).not.toBeDisabled();
   });
 });

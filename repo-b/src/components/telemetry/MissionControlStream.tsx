@@ -17,7 +17,7 @@ import {
 import { SplitGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
-import { ExportToCsvButton } from "./drill";
+import { ExportToCsvButton, ExportToExcelButton, exportXlsxUrl } from "./drill";
 
 const WINDOW_S = 120;
 const MAX_STRIPS = 4;
@@ -312,6 +312,14 @@ export default function MissionControlStream() {
                   columns={["channel_name", "start_t", "end_t", "anomaly_class", "confidence"]}
                   rows={live.events as unknown as Array<Record<string, unknown>>}
                   label="Export CSV"
+                  disabledReason="No anomaly events on the live window"
+                />
+                <ExportToExcelButton
+                  url={exportXlsxUrl("anomaly_events", {
+                    envId: TELEMETRY_DEMO_ENV_ID, businessId: TELEMETRY_DEMO_BUSINESS_ID,
+                  })}
+                  label="Export XLSX"
+                  disabled={live.events.length === 0}
                   disabledReason="No anomaly events on the live window"
                 />
               </div>

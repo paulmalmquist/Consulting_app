@@ -103,4 +103,59 @@ def test_list_datasets_exposes_allowlist_no_data():
     out = te.list_export_datasets()
     names = {d["dataset"] for d in out["datasets"]}
     assert "model_runs" in names
+    assert "anomaly_events" in names
     assert all("source_kind" in d for d in out["datasets"])
+
+
+# ── anomaly_events dataset (8D-3): reuses the read-only stream_live scoped path ──────────────────
+def _fake_stream_live(events, null_reason=None):
+    def _f(*, env_id, business_id, **kw):
+        return {"events": events, "null_reason": null_reason, "channels": [], "source": "db_tail"}
+    return _f
+
+
+def _stub_stream_etl(monkeypatch, events, null_reason=None):
+    stub = types.ModuleType("app.services.telemetry_stream_etl")
+    stub.stream_live = _fake_stream_live(events, null_reason)
+    monkeypatch.setitem(sys.modules, "app.services.telemetry_stream_etl", stub)
+
+
+ANOMALY_COLS = list(te.TELEMETRY_EXPORT_DATASETS["anomaly_events"].columns)
+
+
+def test_anomaly_events_streams_xlsx_with_fixed_columns(monkeypatch):
+    _stub_stream_etl(monkeypatch, [
+        {"channel_name": "USLAB000058", "start_t": 1, "end_t": 2, "anomaly_class": "point", "confidence": 0.9},
+    ])
+    resp = te.export_dataset_xlsx("anomaly_events", env_id="telemetry-demo", business_id=BIZ, limit=None)
+    assert isinstance(resp, Response)
+    assert resp.headers["X-Telemetry-Export-Rows"] == "1"
+    assert resp.headers["X-Telemetry-Export-Source"] == "tel_anomaly_events"
+    assert resp.headers["X-Telemetry-Export-Source-Kind"] == "live-rows"
+    ws = load_workbook(io.BytesIO(resp.body)).active
+    assert [c.value for c in ws[1]] == ANOMALY_COLS
+    assert ws.cell(row=2, column=1).value == "USLAB000058"
+
+
+def test_anomaly_events_row_limit_capped(monkeypatch):
+    many = [{"channel_name": f"c{i}", "start_t": i, "end_t": i + 1, "anomaly_class": "point", "confidence": 0.5}
+            for i in range(10)]
+    _stub_stream_etl(monkeypatch, many)
+    resp = te.export_dataset_xlsx("anomaly_events", env_id="telemetry-demo", business_id=BIZ, limit=3)
+    assert resp.headers["X-Telemetry-Export-Rows"] == "3"
+
+
+def test_anomaly_events_empty_is_header_only_with_null_reason(monkeypatch):
+    _stub_stream_etl(monkeypatch, [], null_reason="stream_worker_disabled")
+    resp = te.export_dataset_xlsx("anomaly_events", env_id="telemetry-demo", business_id=BIZ, limit=None)
+    assert resp.headers["X-Telemetry-Export-Rows"] == "0"
+    assert resp.headers["X-Telemetry-Null-Reason"] == "stream_worker_disabled"
+    ws = load_workbook(io.BytesIO(resp.body)).active
+    assert [c.value for c in ws[1]] == ANOMALY_COLS
+    assert ws.max_row == 1
+
+
+def test_anomaly_events_empty_no_stream_reason_uses_specific_null_reason(monkeypatch):
+    _stub_stream_etl(monkeypatch, [], null_reason=None)
+    resp = te.export_dataset_xlsx("anomaly_events", env_id="telemetry-demo", business_id=BIZ, limit=None)
+    assert resp.headers["X-Telemetry-Null-Reason"] == "no_live_anomaly_events"
