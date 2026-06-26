@@ -231,7 +231,7 @@ export default function RegistryConsole() {
       <TelemetryPageHeader
         variant="standard"
         eyebrow="TELEMETRY LAB"
-        title="MODEL REGISTRY · PROMOTION CONTROL"
+        title="Model Registry · Promotion control"
         actions={
           <>
             <RsChip color={RS.cyan}>registry: unity_catalog · novendor_1.telemetry</RsChip>
