@@ -7,15 +7,28 @@ import TelemetryBottomNav from "./TelemetryBottomNav";
 import { C } from "./primitives";
 import { telemetrySectionLabel } from "./telemetryNav";
 
-// Option B "Lab Workbench" shell. Desktop: a single 224px rail (TEL ANOMALY / WORKBENCH
-// identity, grouped sections, serving + auth status pinned at the bottom) and a full-bleed
-// main column. Mobile: sticky top header (identity + current section + hamburger), a
-// slide-over drawer reusing the rail, and a bottom tab bar with the four primary sections.
+const COLLAPSE_KEY = "telemetry.sidebar.collapsed";
+
+// Option B "Lab Workbench" shell. Desktop: a single rail (TEL ANOMALY / WORKBENCH identity, grouped
+// sections, serving + auth status pinned at the bottom) that collapses to a 64px icon rail, and a
+// full-bleed main column. Mobile: sticky top header (identity + current section + hamburger), a
+// slide-over drawer reusing the rail (always expanded), and a bottom tab bar with the primary sections.
 // No executive chrome (the lab shell yields full-bleed for /telemetry).
 export default function TelemetryShell({ envId, children }: { envId: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Desktop rail collapse. Default expanded so SSR/first paint is deterministic; hydrate the stored
+  // preference after mount to avoid a hydration mismatch.
+  const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    try { if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true); } catch { /* no-op */ }
+  }, []);
+  const toggleCollapsed = () => setCollapsed((c) => {
+    const next = !c;
+    try { localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0"); } catch { /* no-op */ }
+    return next;
+  });
 
   // Lock body scroll while the drawer is open (same pattern as ConsultingWorkspaceShell).
   useEffect(() => {
@@ -25,16 +38,20 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
     return () => { document.body.style.overflow = prev; };
   }, [drawerOpen]);
 
+  const BrandMark = (
+    <div style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #B040FF66",
+      background: "linear-gradient(135deg, rgba(176,64,255,0.22), rgba(63,177,232,0.20))",
+      boxShadow: "0 0 14px rgba(176,64,255,0.25)",
+      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width="15" height="15" viewBox="0 0 14 14">
+        <path d="M1 10l3-4 2.5 2L9 4l4 6" stroke={C.cyan} strokeWidth="1.4" fill="none" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+
   const Brand = (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #B040FF66",
-        background: "linear-gradient(135deg, rgba(176,64,255,0.22), rgba(63,177,232,0.20))",
-        boxShadow: "0 0 14px rgba(176,64,255,0.25)",
-        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="15" height="15" viewBox="0 0 14 14">
-          <path d="M1 10l3-4 2.5 2L9 4l4 6" stroke={C.cyan} strokeWidth="1.4" fill="none" strokeLinejoin="round" />
-        </svg>
-      </div>
+      {BrandMark}
       <div>
         <div style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", color: C.text }}>TEL ANOMALY</div>
         <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.1em" }}>WORKBENCH</div>
@@ -42,24 +59,52 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
     </div>
   );
 
-  const Rail = (
-    <aside style={{ width: 224, flexShrink: 0, background: C.rail, borderRight: `1px solid ${C.border}`,
-      display: "flex", flexDirection: "column", padding: "20px 14px", minHeight: "100%" }}>
-      <div style={{ padding: "0 6px 18px" }}>{Brand}</div>
-      <TelemetrySidebar envId={envId} onNavigate={() => setDrawerOpen(false)} />
+  // Rail body — parametrized by collapse so the desktop rail can shrink to icons while the mobile drawer
+  // always renders the full expanded rail.
+  const renderRail = (railCollapsed: boolean, showToggle: boolean) => (
+    <aside style={{ width: railCollapsed ? 64 : 224, flexShrink: 0, background: C.rail,
+      borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column",
+      padding: railCollapsed ? "20px 8px" : "20px 14px", minHeight: "100%",
+      overflow: "hidden", transition: "width 200ms ease" }}>
+      <div style={{ padding: railCollapsed ? "0 0 18px" : "0 6px 18px",
+        display: "flex", justifyContent: railCollapsed ? "center" : "flex-start" }}>
+        {railCollapsed ? BrandMark : Brand}
+      </div>
+      <TelemetrySidebar envId={envId} collapsed={railCollapsed}
+        onNavigate={() => setDrawerOpen(false)}
+        onExpandRequest={() => setCollapsed(false)} />
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
-          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>serving · prod</span>
-        </div>
-        <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 8 }}>reviewer access · auth</div>
+        {railCollapsed ? (
+          <div style={{ display: "flex", justifyContent: "center" }} title="serving · prod">
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
+              <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>serving · prod</span>
+            </div>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 8 }}>reviewer access · auth</div>
+          </>
+        )}
+        {showToggle && (
+          <button type="button" onClick={toggleCollapsed}
+            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-pressed={railCollapsed}
+            style={{ marginTop: 14, width: railCollapsed ? 40 : "100%", marginLeft: railCollapsed ? "auto" : 0,
+              marginRight: railCollapsed ? "auto" : 0, display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 8, height: 36, borderRadius: 8, cursor: "pointer",
+              background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: C.mono, fontSize: 12 }}>
+            <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>{railCollapsed ? "›" : "‹"}</span>
+            {!railCollapsed && <span>Collapse</span>}
+          </button>
+        )}
       </div>
     </aside>
   );
 
   return (
     <div style={{ display: "flex", background: C.bg, minHeight: "100vh", fontFamily: C.sans, color: C.text }}>
-      <div className="hidden lg:flex">{Rail}</div>
+      <div className="hidden lg:flex">{renderRail(collapsed, true)}</div>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {/* mobile top header — display lives in classes so lg:hidden can win */}
@@ -93,7 +138,8 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
             style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", border: "none" }} />
           <div className="max-w-[88vw]"
             style={{ position: "absolute", left: 0, top: 0, height: "100%", overflowY: "auto", overflowX: "hidden", display: "flex" }}>
-            {Rail}
+            {/* drawer always shows the full expanded rail (no collapse on mobile) */}
+            {renderRail(false, false)}
           </div>
         </div>
       )}

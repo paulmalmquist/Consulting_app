@@ -79,6 +79,20 @@ export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [
   // no longer a displayed group — its items are hidden from the nav (routes still resolve).
 ];
 
+// Per-group identity for the collapsible icon rail (Phase 9B): the group's own icon (a representative
+// child glyph) + accent color. Accents mirror the telemetry `C` palette (cyan #67e8f9, amber #f5b452,
+// green #6ee7a0) plus the cyberpunk purple/pink; kept as literals so this data module stays
+// dependency-free. Single source of truth — TelemetrySidebar reads icon + accent from here.
+export const TELEMETRY_NAV_GROUP_META: Record<TelemetryNavGroup, { icon: string; accent: string }> = {
+  Overview:                { accent: "#67e8f9", icon: "M2 9h3v5H2zM7 4h3v10H7zM12 7h3v7h-3z" },
+  Operations:              { accent: "#67e8f9", icon: "M2 12c2-6 10-6 12 0M8 3v3M8 8l3 3" },
+  "Models & Intelligence": { accent: "#a855f7", icon: "M2 13l4-5 3 2 5-7" },
+  "Factory & Quality":     { accent: "#f5b452", icon: "M2 13V7l4 3V7l4 3V4h4v9z" },
+  "Evidence & Lineage":    { accent: "#6ee7a0", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3" },
+  "Agent Operations":      { accent: "#f472b6", icon: "M8 1l6 3v4c0 3-2.5 5.5-6 7-3.5-1.5-6-4-6-7V4zM8 5v6M5 8h6" },
+  "Data Engineering":      { accent: "#a855f7", icon: "M3 3h4v4H3zM9 9h4v4H9zM7 5h2M5 7v2M11 7V5M9 11H7" },
+};
+
 export function telemetryHref(envId: string, slug: string): string {
   const base = `/lab/env/${envId}/telemetry`;
   return slug ? `${base}/${slug}` : base;

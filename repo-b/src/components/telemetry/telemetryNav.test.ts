@@ -1,6 +1,7 @@
 import {
   TELEMETRY_NAV,
   TELEMETRY_NAV_GROUPS,
+  TELEMETRY_NAV_GROUP_META,
   isTelemetryItemActive,
   telemetryHref,
 } from "./telemetryNav";
@@ -82,6 +83,15 @@ describe("telemetry navigation structure (6 presentation sections)", () => {
         "metadata",
       ),
     ).toBe(true);
+  });
+
+  it("provides icon + accent metadata for every displayed nav group (collapsible icon rail)", () => {
+    for (const group of TELEMETRY_NAV_GROUPS) {
+      const meta = TELEMETRY_NAV_GROUP_META[group];
+      expect(meta).toBeDefined();
+      expect(meta.icon).toMatch(/^M/); // SVG path data
+      expect(meta.accent).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
   });
 
   it("no longer surfaces any Data Engineering nav items (group hidden; routes still resolve)", () => {
