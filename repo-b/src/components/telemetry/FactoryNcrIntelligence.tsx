@@ -15,10 +15,29 @@ import {
 import { SplitGrid, StatGrid } from "./primitives";
 import { RS, RS_MONO, RS_SANS, RsPanel, RsChip, RsKpi } from "./rsTokens";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import { ExportToCsvButton, DatabricksRunLink, SOURCE_KIND_TAG } from "./drill";
+import { MetricInspectorDrawer } from "./drawerPrimitives";
 import {
   getNcr, TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID,
   type NcrResponse, type NcrCluster, type NcrBacklogRow,
 } from "@/lib/telemetry/api";
+
+// ── drill/export row builders (the displayed grain, no fabricated fields) ───────────────────────
+const CLUSTER_COLS = ["cluster_id", "label", "status", "n_records", "median_ttc_days", "reopen_rate", "keywords", "mlflow_run_id", "provenance"];
+function clusterRows(clusters: NcrCluster[]): Array<Record<string, unknown>> {
+  return clusters.map((c) => ({
+    cluster_id: c.cluster_id, label: c.label, status: c.status, n_records: c.n_records,
+    median_ttc_days: c.median_ttc_days, reopen_rate: c.reopen_rate,
+    keywords: c.keywords.join("|"), mlflow_run_id: c.mlflow_run_id ?? "", provenance: c.provenance,
+  }));
+}
+const EXEMPLAR_COLS = ["ncr_key", "severity", "workcell", "summary", "cluster_id", "cluster_label", "cluster_status"];
+function exemplarRows(c: NcrCluster, exemplars: NcrCluster["exemplars"]): Array<Record<string, unknown>> {
+  return exemplars.map((e) => ({
+    ncr_key: e.ncr_key, severity: e.severity, workcell: e.workcell, summary: e.summary,
+    cluster_id: c.cluster_id, cluster_label: c.label, cluster_status: c.status,
+  }));
+}
 
 // Stable cluster color assignment: clusters arrive ordered by size (largest first).
 const CLUSTER_COLORS = [RS.red, RS.amber, RS.blue, RS.teal, RS.violet, RS.green, RS.cyan];
@@ -85,6 +104,8 @@ export default function FactoryNcrIntelligence() {
   const [data, setData] = useState<NcrResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [drillExemplar, setDrillExemplar] = useState<NcrCluster["exemplars"][number] | null>(null);
 
   useEffect(() => {
     getNcr(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID)
@@ -121,6 +142,11 @@ export default function FactoryNcrIntelligence() {
   const backtest = data?.backlog.backtest ?? null;
   const prov = data?.provenance ?? null;
   const isDatabricks = prov?.provenance === "databricks";
+  // severity filter over the selected cluster's exemplars (the data carries severity per exemplar)
+  const exemplarSeverities = selected ? Array.from(new Set(selected.exemplars.map((e) => e.severity))) : [];
+  const shownExemplars = !selected ? []
+    : severityFilter === "all" ? selected.exemplars
+    : selected.exemplars.filter((e) => e.severity === severityFilter);
 
   if (err) {
     return (
@@ -174,6 +200,9 @@ export default function FactoryNcrIntelligence() {
         actions={
           <>
             <RsChip color={RS.cyan}>pipeline: embed → UMAP → HDBSCAN → c-TF-IDF</RsChip>
+            <RsChip color={isDatabricks ? RS.green : RS.amber}>
+              {SOURCE_KIND_TAG[isDatabricks ? "computed-artifact" : "fixture"]}
+            </RsChip>
             {prov && (
               <RsChip color={isDatabricks ? RS.green : RS.amber}>
                 {isDatabricks
@@ -184,8 +213,19 @@ export default function FactoryNcrIntelligence() {
           </>
         }
         metadata={
-          <div style={{ color: RS.faint, fontFamily: RS_MONO, fontSize: 11 }}>
-            window: 16-week corpus · batch pipeline mirror (not live)
+          <div style={{ color: RS.faint, fontFamily: RS_MONO, fontSize: 11, display: "flex",
+            flexDirection: "column", gap: 5 }}>
+            <span>
+              window: 16-week corpus · batch pipeline mirror (not live) ·{" "}
+              {isDatabricks ? "real Databricks run, batch — not live serving" : "local fallback fixture"}
+            </span>
+            <span style={{ fontFamily: RS_SANS, maxWidth: 900, lineHeight: 1.55, color: RS.dim }}>
+              NCRs are non-conformance reports — the unstructured quality record raised when a part fails
+              inspection. This is where &ldquo;the launch became a data problem&rdquo;: the failure signal is
+              buried in free-text narratives, so the surface embeds and clusters them into defect families
+              to answer <em>which families are rising, how long they take to close, and where the open
+              backlog is heading</em>.
+            </span>
           </div>
         }
       />
@@ -206,6 +246,16 @@ export default function FactoryNcrIntelligence() {
             : (k?.rising_labels?.[0] ?? "none rising")}
           color={k && k.clusters_rising > 0 ? RS.red : RS.green} />
       </StatGrid>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 10 }}>
+        <ExportToCsvButton
+          filename="factory_ncr_clusters"
+          columns={CLUSTER_COLS}
+          rows={clusterRows(clusters)}
+          label="Export clusters CSV"
+          disabled={clusters.length === 0}
+          disabledReason="No clusters in this corpus window" />
+      </div>
 
       <SplitGrid variant="two-one">
         {/* embedding map — REAL model coordinates */}
@@ -320,12 +370,41 @@ export default function FactoryNcrIntelligence() {
               </div>
 
               <div>
-                <div style={{ color: RS.faint, letterSpacing: "0.1em", marginBottom: 6 }}>
-                  EXEMPLAR RECORDS · NEAREST CENTROID
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                  <span style={{ color: RS.faint, letterSpacing: "0.1em" }}>
+                    EXEMPLAR RECORDS · NEAREST CENTROID
+                  </span>
+                  <ExportToCsvButton
+                    filename={`factory_ncr_exemplars_cluster_${selected.cluster_id}`}
+                    columns={EXEMPLAR_COLS}
+                    rows={exemplarRows(selected, shownExemplars)}
+                    label="Export exemplars CSV"
+                    disabled={shownExemplars.length === 0}
+                    disabledReason="No exemplars match this severity filter" />
                 </div>
-                {selected.exemplars.map((e) => (
-                  <div key={e.ncr_key} style={{ background: RS.panelAlt, borderRadius: 4,
-                    padding: 8, marginBottom: 6 }}>
+                {/* severity filter — only severities actually present in the cluster */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  <ChipButton color={RS.dim} active={severityFilter === "all"}
+                    onClick={() => setSeverityFilter("all")}>all · {selected.exemplars.length}</ChipButton>
+                  {exemplarSeverities.map((sev) => (
+                    <ChipButton key={sev}
+                      color={sev === "major" || sev === "critical" ? RS.amber : RS.dim}
+                      active={severityFilter === sev} onClick={() => setSeverityFilter(sev)}>
+                      {sev} · {selected.exemplars.filter((e) => e.severity === sev).length}
+                    </ChipButton>
+                  ))}
+                </div>
+                {shownExemplars.length === 0 ? (
+                  <div style={{ color: RS.dim, fontFamily: RS_MONO, fontSize: 11, padding: "6px 0" }}>
+                    No exemplars at severity &ldquo;{severityFilter}&rdquo; in this cluster.
+                  </div>
+                ) : shownExemplars.map((e) => (
+                  <button key={e.ncr_key} type="button" onClick={() => setDrillExemplar(e)}
+                    aria-label={`Inspect NCR ${e.ncr_key}`}
+                    style={{ display: "block", width: "100%", textAlign: "left", cursor: "pointer",
+                      background: RS.panelAlt, border: `1px solid ${RS.line}`, borderRadius: 4,
+                      padding: 8, marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center",
                       justifyContent: "space-between", marginBottom: 2 }}>
                       <span style={{ fontFamily: RS_MONO, color: RS.cyan }}>{e.ncr_key}</span>
@@ -334,9 +413,9 @@ export default function FactoryNcrIntelligence() {
                     </div>
                     <div style={{ color: RS.dim }}>{e.summary}</div>
                     <div style={{ color: RS.faint, fontFamily: RS_MONO, fontSize: 10 }}>
-                      {e.workcell}
+                      {e.workcell} · click to inspect ›
                     </div>
-                  </div>
+                  </button>
                 ))}
                 <div style={{ color: RS.faint, fontSize: 10 }}>
                   Summaries shown are redacted per export-control handling. Embeddings computed on
@@ -433,6 +512,38 @@ export default function FactoryNcrIntelligence() {
         clustering and forecast outputs shown are real model runs; provenance is labeled in the
         header. Production equivalent would ingest the live NCR/QMS system.
       </div>
+
+      <MetricInspectorDrawer
+        open={drillExemplar !== null}
+        onClose={() => setDrillExemplar(null)}
+        title={drillExemplar ? `NCR ${drillExemplar.ncr_key}` : "NCR"}
+        description="One non-conformance exemplar from the selected cluster. Record-level history (detected/created date, disposition, record status) is not carried in the corpus-grain mirror — shown fail-closed below, never fabricated."
+        fields={drillExemplar && selected ? [
+          { label: "NCR id", value: drillExemplar.ncr_key },
+          { label: "Severity", value: drillExemplar.severity },
+          { label: "Workcell / station", value: drillExemplar.workcell },
+          { label: "Summary (redacted)", value: drillExemplar.summary },
+          { label: "Cluster", value: `cluster_${selected.cluster_id} · ${selected.label}` },
+          { label: "Cluster status", value: selected.status },
+          { label: "Detected / created at", value: null },
+          { label: "Disposition", value: null },
+          { label: "Record status", value: null },
+        ] : []}
+      >
+        {drillExemplar && selected && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.faint, lineHeight: 1.5 }}>
+              null_reason: detected_at / disposition / record-status are not in the NCR mirror&rsquo;s
+              cluster-grain exemplar; the source QMS holds record-level history.
+            </div>
+            {selected.mlflow_run_id
+              ? <DatabricksRunLink runId={selected.mlflow_run_id} />
+              : <span style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.faint }}>
+                  cluster run link unavailable — no mlflow_run_id on this cluster (local fallback)
+                </span>}
+          </div>
+        )}
+      </MetricInspectorDrawer>
     </div>
   );
 }

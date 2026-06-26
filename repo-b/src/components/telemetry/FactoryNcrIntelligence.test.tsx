@@ -125,6 +125,32 @@ describe("FactoryNcrIntelligence rendering", () => {
     expect(screen.getByText("FLAT")).toBeInTheDocument();
   });
 
+  it("labels source-kind, explains the thesis, and exports clusters CSV (8F)", async () => {
+    getNcr.mockResolvedValueOnce(FULL);
+    render(<FactoryNcrIntelligence />);
+    // source-kind chip (databricks batch mirror = computed artifact, not live)
+    await waitFor(() => expect(screen.getByText("computed artifact")).toBeInTheDocument());
+    expect(screen.getByText(/non-conformance reports/i)).toBeInTheDocument();   // explanation
+    expect(screen.getByRole("button", { name: /Export clusters CSV/i })).not.toBeDisabled();
+  });
+
+  it("filters exemplars by severity and drills a record fail-closed for absent fields (8F)", async () => {
+    getNcr.mockResolvedValueOnce(FULL);
+    render(<FactoryNcrIntelligence />);
+    await waitFor(() =>
+      expect(screen.getByTestId("cluster-detail").textContent).toContain("seal · thermal cycle"));
+    // severity filter present (the one exemplar is major); exemplar CSV export enabled
+    expect(screen.getByRole("button", { name: /major · 1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Export exemplars CSV/i })).not.toBeDisabled();
+    // filtering to a severity with no exemplars empties the list + disables the export, no fake rows
+    fireEvent.click(screen.getByRole("button", { name: /major · 1/i }));
+    expect(screen.getByRole("button", { name: /Inspect NCR ncr_2026_00018/i })).toBeInTheDocument();
+    // drill the record → drawer exposes the NCR id and fail-closes the absent record-level fields
+    fireEvent.click(screen.getByRole("button", { name: /Inspect NCR ncr_2026_00018/i }));
+    expect(screen.getByText("NCR ncr_2026_00018")).toBeInTheDocument();
+    expect(screen.getByText(/detected_at \/ disposition \/ record-status are not in the NCR mirror/i)).toBeInTheDocument();
+  });
+
   it("local_fallback provenance is labeled, never passed off as a Databricks run", async () => {
     getNcr.mockResolvedValueOnce({
       ...FULL,
