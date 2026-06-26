@@ -45,6 +45,11 @@ export default function FeatureContractCard({ embedded = false }: { embedded?: b
   return (
     <>
       {heading}
+      {!embedded && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <Tag color={C.green}>live · fused-vector-info</Tag>
+        </div>
+      )}
       <StatGrid cols={4}>
         <MetricCard label="Feature count" value={info.vector_dim != null ? String(info.vector_dim) : "—"}
           sub="fused vector dimension" accent={C.cyan} />

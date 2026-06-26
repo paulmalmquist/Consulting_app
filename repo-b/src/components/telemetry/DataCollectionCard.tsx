@@ -6,7 +6,7 @@
 // operational decision it changes. It claims no metrics and presents no live values —
 // it is the framework, labeled as such, that the rest of the evidence page proves out.
 
-import { C, PageHeading, Panel, ScrollTable } from "./primitives";
+import { C, PageHeading, Panel, ScrollTable, Tag } from "./primitives";
 
 type Row = { type: string; collected: string; affects: string };
 
@@ -35,6 +35,9 @@ export default function DataCollectionCard() {
       <PageHeading eyebrow="Data collection · methodology"
         title="What modern launch operations actually run on"
         blurb="Increasing vehicle complexity, reuse, rapid iteration, and higher cadence make telemetry and operational data central to launch reliability — not a side effect of it. This is the data a modern test/build/launch program depends on, and the decision each type changes. (Framework, not live metrics — the cards below prove each one out.)" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <Tag color={C.dim}>static framework · methodology (not evidence-tier)</Tag>
+      </div>
       <Panel title="Data type → what it changes" pad={0}>
         <ScrollTable minWidth={640}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: C.sans, fontSize: 12.5 }}>
