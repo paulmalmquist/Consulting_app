@@ -115,6 +115,14 @@ function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
+// vus_status is a captured Python exception string (e.g. "pending: import failed (ModuleNotFoundError:
+// No module named 'vus')"). Map it to fail-closed product copy so the limitation stays visible but the
+// raw traceback never reaches the screen.
+function vusUnavailableReason(status: string): string {
+  if (status.includes("import failed")) return "optional VUS library not installed";
+  return "VUS computation unavailable in this environment";
+}
+
 function MetricBars({ label, higherBetter, champ, chall }: {
   label: string; higherBetter: boolean; champ: number | null; chall: number | null;
 }) {
@@ -276,8 +284,8 @@ export default function RegistryConsole() {
               Anomaly quality is reported range-aware (affiliation F1) beside the honest point-wise
               metrics; the point-adjusted legacy F1 is shown last and labeled inflated.
               {typeof vusStatus === "string" && vusStatus.startsWith("pending") && (
-                <> VUS-PR/ROC: <span style={{ color: RS.amber }}>{vusStatus}</span> — shown only when a
-                vetted library computes them.</>
+                <> VUS-PR/ROC: <span style={{ color: RS.amber }}>unavailable in this environment</span>{" "}
+                (null_reason: {vusUnavailableReason(vusStatus)}). Shown only when a vetted library computes them.</>
               )}
             </div>
           </RsPanel>
