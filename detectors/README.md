@@ -30,8 +30,16 @@ Baselines captured 2026-06-25: `baseline-knip.txt`, `baseline-vulture.txt`, `bas
   the Next.js App Router pages are entrypoints, many components are dynamically/string-referenced, and
   the telemetry primitives intentionally export aliases (`Panel`/`TelemetryPanel`, etc.). Treat the
   **duplicate exports** and **unused deps** as the highest-signal starting points.
-- **vulture (≥80% confidence):** ~10 findings — small + high-signal (genuine unused vars/imports,
-  one unreachable-after-return). The likeliest real cleanups.
+- **vulture (≥90% confidence):** ~16 findings — but verified 2026-06-25, **most "unused variable"
+  hits are unused FUNCTION PARAMETERS** (e.g. `winston_assist`, `re_scenario_engine_v2`,
+  `credit_decisioning`, `ai_gateway`, the adapter stubs) — removing those changes signatures (unsafe;
+  some are interface contracts or latent bugs), so they are NOT bulk cleanups. Genuinely safe + done:
+  `trades_broker.py` unused import `Order`. **SURFACED (not auto-fixed): `re_env_portfolio.py` has a
+  `return` at line ~74 followed by ~178 lines of UNREACHABLE legacy SQL** (orphaned by the
+  authoritative-state migration — the function now returns `get_released_portfolio_kpis()` early). It
+  is dead and a good cleanup, BUT it is REPE financial-read code under the Authoritative State
+  Lockdown — its removal needs its own reviewed PR (read `docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md`;
+  confirm `no_legacy_repe_reads.py` + `test_state_lock_invariants.py` stay green).
 - **deptry:** 36 issues. Mostly **false positives**: `DEP002` flags `pytest`/`ruff`/`respx`/
   `python-multipart`/`pgvector`/`redis` (used via CLI / runtime / FastAPI form-parsing, not a plain
   `import`); `DEP001` flags optional-feature imports guarded by `try/except` (`twilio`, `sendgrid`,
