@@ -4,8 +4,17 @@ import { useEffect, useState } from "react";
 import {
   getModelPerformance, type ModelRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable, TelemetryActionButton } from "./primitives";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import { MetricInspectorDrawer } from "./drawerPrimitives";
+import { SourceRowsTable, DatabricksRunLink, exportXlsxUrl } from "./drill";
+
+// Columns surfaced when drilling into the model rows. Mirrors the server XLSX export
+// (telemetry_export.py "model_runs") so the CSV preview and the .xlsx match.
+const MODEL_ROW_COLS = [
+  "model_name", "model_kind", "model_version", "model_alias",
+  "promotion_state", "mlflow_run_id", "metrics", "gate",
+];
 
 function metric(m: ModelRun, k: string): string {
   const v = (m.metrics || {})[k];
@@ -84,6 +93,7 @@ export default function ModelPerformance() {
   const [models, setModels] = useState<ModelRun[] | null>(null);
   const [nullReason, setNullReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [drillOpen, setDrillOpen] = useState(false);
 
   useEffect(() => {
     getModelPerformance(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID)
@@ -116,7 +126,48 @@ export default function ModelPerformance() {
             so it was promoted, recorded honestly rather than forcing a fancier model to win.
           </span>
         </Panel>
+        <div>
+          <TelemetryActionButton variant="secondary" onClick={() => setDrillOpen(true)}
+            aria-label="Inspect the model rows and export">
+            Source rows + export ›
+          </TelemetryActionButton>
+        </div>
       </div>
+      <MetricInspectorDrawer
+        open={drillOpen}
+        onClose={() => setDrillOpen(false)}
+        title="Model runs — source rows"
+        description="The rows behind these metrics, straight from the registry-backed serving API. Export reflects this exact set."
+        fields={[
+          { label: "Source", value: "tel_model_runs" },
+          { label: "Scope", value: `env ${TELEMETRY_DEMO_ENV_ID}` },
+          { label: "Models", value: models.length },
+        ]}
+      >
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+          <SourceRowsTable
+            kind="live-rows"
+            columns={MODEL_ROW_COLS}
+            rows={models as unknown as Array<Record<string, unknown>>}
+            sourceLabel="tel_model_runs"
+            filterContext="all model kinds"
+            exportName="telemetry_model_runs"
+            xlsxUrl={exportXlsxUrl("model_runs", {
+              envId: TELEMETRY_DEMO_ENV_ID,
+              businessId: TELEMETRY_DEMO_BUSINESS_ID,
+            })}
+          />
+          {(() => {
+            const champ = models.find((m) => m.model_alias === "champion") ?? models[0];
+            return champ?.mlflow_run_id ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>Champion run:</span>
+                <DatabricksRunLink runId={champ.mlflow_run_id} />
+              </div>
+            ) : null;
+          })()}
+        </div>
+      </MetricInspectorDrawer>
       <DisclosureFooter />
     </>
   );
