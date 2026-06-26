@@ -80,6 +80,7 @@ export default function CompetenceEnvelopeCard() {
       {heading}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <Tag color={C.amber}>computed evidence artifact · not live serving</Tag>
+        <Tag color={C.dim}>as of {ev.as_of}</Tag>
         <Tag color={C.dim}>train: {ev.training_reference}</Tag>
         <Tag color={C.dim}>stress: FD004 regime shift</Tag>
       </div>

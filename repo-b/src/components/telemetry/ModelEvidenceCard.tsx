@@ -134,6 +134,9 @@ export default function ModelEvidenceCard() {
   return (
     <>
       {heading}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <Tag color={C.green}>live · model registry + monitoring</Tag>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {cards.map((m) => <ModelCard key={`${m.model_name}-${m.model_version}`} m={m} psi={psi} />)}
       </div>

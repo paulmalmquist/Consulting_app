@@ -7,7 +7,7 @@ import {
   TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
 import {
-  C, Panel, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter,
+  C, Panel, Loading, ErrorState, EmptyState, PageHeading, DisclosureFooter, Tag,
 } from "./primitives";
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -76,6 +76,9 @@ export default function PipelineEvidenceCard() {
   return (
     <>
       {heading}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <Tag color={C.green}>live · telemetry summary + fused-vector-info</Tag>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Panel title="telemetry_feature_build — Databricks / PySpark medallion">
           <Row label="Pipeline" value="telemetry_feature_build" />
