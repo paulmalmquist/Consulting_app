@@ -13,8 +13,43 @@ import {
 } from "@/lib/telemetry/api";
 import { RS, RS_MONO, RS_SANS, RsChip, RsPanel } from "./rsTokens";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
+import {
+  DatabricksRunLink, ModelArtifactLink, ExportToCsvButton, ExportToExcelButton, exportXlsxUrl,
+} from "./drill";
 
 const PSI_WARN = 0.15;
+
+// CSV column sets for the registry exports — mirror the displayed live rows (metrics/gate jsonb are
+// JSON-stringified by the CSV writer, not flattened, so no value is altered).
+const REGISTRY_COLS = [
+  "model_name", "model_kind", "model_version", "model_alias", "promotion_state",
+  "mlflow_run_id", "experiment_id", "metrics", "gate", "created_at",
+];
+const DRIFT_COLS = ["channel", "psi", "window_label", "computed_at"];
+
+function driftRows(drift: RegistryResponse["drift"]): Array<Record<string, unknown>> {
+  return Object.entries(drift).flatMap(([channel, series]) =>
+    series.map((s) => ({ channel, psi: s.psi, window_label: s.window_label, computed_at: s.computed_at })));
+}
+
+// One model-metadata field. Fields that are not columns in tel_model_runs render an explicit
+// null_reason (+ the run link is the place to find them), never a blank/"n/a" cell.
+function MetaField({ label, value }: { label: string; value?: string }) {
+  return (
+    <div>
+      <div style={{ color: RS.faint, letterSpacing: "0.06em", textTransform: "uppercase", fontSize: 8.5, marginBottom: 2 }}>
+        {label}
+      </div>
+      {value ? (
+        <div style={{ color: RS.dim, fontSize: 10.5, lineHeight: 1.4 }}>{value}</div>
+      ) : (
+        <div style={{ color: RS.faint, fontSize: 9.5, lineHeight: 1.4 }}>
+          null_reason: not recorded in tel_model_runs — see the MLflow run
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface GateRow { rule: string; observed: string; pass: boolean }
 
@@ -253,21 +288,43 @@ export default function RegistryConsole() {
             : "NO PROMOTED CHAMPION"}>
             {champion && (
               <div style={{ padding: "8px 12px", borderBottom: `1px solid ${RS.line}`,
-                display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
-                fontFamily: RS_MONO, fontSize: 10, color: RS.faint }}>
-                <div>
-                  <div style={{ color: RS.teal }}>champion: {champion.model_name} v{champion.model_version}</div>
-                  <div>mlflow {champion.mlflow_run_id}</div>
+                display: "flex", flexDirection: "column", gap: 12, fontFamily: RS_MONO, fontSize: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={{ color: RS.teal }}>champion: {champion.model_name} v{champion.model_version}</div>
+                    <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <DatabricksRunLink runId={champion.mlflow_run_id} />
+                      <ModelArtifactLink modelName={champion.model_name} />
+                    </div>
+                  </div>
+                  <div>
+                    {challenger ? (
+                      <>
+                        <div style={{ color: RS.violet }}>challenger: {challenger.model_name} v{challenger.model_version}</div>
+                        <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <DatabricksRunLink runId={challenger.mlflow_run_id} />
+                          <ModelArtifactLink modelName={challenger.model_name} />
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <div style={{ color: RS.violet }}>challenger: <span style={{ color: RS.amber }}>none registered</span></div>
+                        <div style={{ color: RS.faint, fontSize: 9.5, marginTop: 4 }}>
+                          null_reason: no non-promoted run for this kind
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  {challenger ? (
-                    <>
-                      <div style={{ color: RS.violet }}>challenger: {challenger.model_name} v{challenger.model_version}</div>
-                      <div>mlflow {challenger.mlflow_run_id}</div>
-                    </>
-                  ) : (
-                    <div style={{ color: RS.faint }}>no challenger registered for this kind</div>
-                  )}
+                {/* Lifecycle metadata not held in the serving table → explicit null_reason, never blank */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "8px 14px",
+                  borderTop: `1px solid ${RS.line}`, paddingTop: 10 }}>
+                  <MetaField label="Training window" />
+                  <MetaField label="Validation method" />
+                  <MetaField label="Operational use" value="Champion serves the live go/no-go verdict; the challenger is the held comparison." />
+                </div>
+                <div style={{ color: RS.faint, fontSize: 9, letterSpacing: "0.04em" }}>
+                  metric bars below: &quot;n/a&quot; = the metric was not logged on that run (not a UI error).
                 </div>
               </div>
             )}
@@ -367,6 +424,23 @@ export default function RegistryConsole() {
               </div>
             </RsPanel>
           </div>
+        </div>
+      )}
+
+      {data && data.models.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 4px 4px" }}>
+          <RsChip color={RS.green}>live rows</RsChip>
+          <span style={{ fontFamily: RS_MONO, fontSize: 10, color: RS.faint }}>
+            tel_model_runs · tel_drift_metrics (lifecycle = derived) — export reflects the registry rows
+          </span>
+          <ExportToCsvButton filename="telemetry_model_registry" columns={REGISTRY_COLS}
+            rows={data.models as unknown as Array<Record<string, unknown>>}
+            label="Models CSV" disabledReason="No model rows" />
+          <ExportToExcelButton
+            url={exportXlsxUrl("model_runs", { envId: TELEMETRY_DEMO_ENV_ID, businessId: TELEMETRY_DEMO_BUSINESS_ID })}
+            label="Models XLSX" />
+          <ExportToCsvButton filename="telemetry_drift_psi" columns={DRIFT_COLS}
+            rows={driftRows(data.drift)} label="Drift CSV" disabledReason="No PSI history" />
         </div>
       )}
 

@@ -71,7 +71,34 @@ describe("RegistryConsole rendering", () => {
     await waitFor(() => expect(screen.getByText(/CHAMPION v1/)).toBeInTheDocument());
     const promote = screen.getByRole("button", { name: /Promote — requires reviewer approval/ });
     expect(promote).toBeDisabled();
-    expect(screen.getByText(/no challenger registered/)).toBeInTheDocument();
+    expect(screen.getByText(/none registered/)).toBeInTheDocument();                 // challenger absent → explicit
+    expect(screen.getByText(/null_reason: no non-promoted run/)).toBeInTheDocument();
     expect(screen.getByText(/pending: import failed/)).toBeInTheDocument();   // honest VUS status
+  });
+
+  it("links the run, fails closed on the UC model link, marks absent metadata, and exports (8D-2)", async () => {
+    getRegistry.mockResolvedValueOnce({
+      models: [champion],
+      drift: {
+        USLAB000058: [
+          { psi: 0.08, window_label: "w1", computed_at: "2026-05-21T00:00:00Z" },
+          { psi: 0.12, window_label: "w2", computed_at: "2026-05-22T00:00:00Z" },
+        ],
+      },
+      lifecycle: [], null_reason: null,
+    } satisfies RegistryResponse);
+    render(<RegistryConsole />);
+    await waitFor(() => expect(screen.getByText(/CHAMPION v1/)).toBeInTheDocument());
+    // The run id is now a live MLflow link, not raw text.
+    const runLink = screen.getByRole("link", { name: /Open MLflow Run/i });
+    expect(runLink.getAttribute("href")).toContain("4a48cb6a");
+    // The UC model link fails closed for the seed registry name.
+    expect(screen.getAllByText(/Unavailable —/i).length).toBeGreaterThan(0);
+    // Absent lifecycle metadata renders an explicit null_reason, not a blank cell.
+    expect(screen.getByText("Training window")).toBeInTheDocument();
+    expect(screen.getAllByText(/not recorded in tel_model_runs/i).length).toBeGreaterThan(0);
+    // Registry rows + drift are exportable; source-kind is labeled live rows.
+    expect(screen.getByRole("button", { name: /Models CSV/i })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /Drift CSV/i })).not.toBeDisabled();
   });
 });
