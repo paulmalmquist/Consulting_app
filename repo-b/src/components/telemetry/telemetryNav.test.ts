@@ -6,8 +6,8 @@ import {
   telemetryHref,
 } from "./telemetryNav";
 
-describe("telemetry navigation structure (6 presentation sections)", () => {
-  it("exposes the six presentation sections in order (Data Engineering hidden from nav)", () => {
+describe("telemetry navigation structure (7 presentation sections)", () => {
+  it("exposes the seven presentation sections in order (Data Engineering hidden; Relativity MES Sandbox added)", () => {
     expect(TELEMETRY_NAV_GROUPS).toEqual([
       "Overview",
       "Operations",
@@ -15,6 +15,8 @@ describe("telemetry navigation structure (6 presentation sections)", () => {
       "Factory & Quality",
       "Evidence & Lineage",
       "Agent Operations",
+      // Phase 10 — the synthetic Relativity MES Sandbox, kept visibly separate from the core workbench.
+      "Relativity MES Sandbox",
     ]);
   });
 
@@ -45,6 +47,12 @@ describe("telemetry navigation structure (6 presentation sections)", () => {
         "stargate",
         "stream",
         "system-health",
+        // Phase 10 — Relativity MES Sandbox section.
+        "relativity-mes",
+        "relativity-mes/genealogy",
+        "relativity-mes/ncr",
+        "relativity-mes/cost",
+        "relativity-mes/lineage",
       ].sort(),
     );
     // The hidden slugs must NOT appear in the nav (but their page routes still exist on disk).
