@@ -60,6 +60,17 @@ def _extract_model_runs(env_id: str, business_id: UUID) -> tuple[list[dict], str
     return list(data.get("models") or []), data.get("null_reason")
 
 
+def _extract_anomaly_events(env_id: str, business_id: UUID) -> tuple[list[dict], str | None]:
+    # Reuse the same scoped read the Mission Control page uses (stream_live), so the export equals the
+    # screen's live anomaly events. No new SQL; stream_live is read-only and already env/business/run
+    # scoped and bounded (LIMIT 20). Empty → an honest null_reason, never a fabricated row.
+    from app.services import telemetry_stream_etl
+    data = telemetry_stream_etl.stream_live(env_id=env_id, business_id=business_id)
+    events = list(data.get("events") or [])
+    null_reason = None if events else (data.get("null_reason") or "no_live_anomaly_events")
+    return events, null_reason
+
+
 # Allowlist. Add a dataset here (mapped to an existing scoped service) to expose it.
 TELEMETRY_EXPORT_DATASETS: dict[str, ExportDataset] = {
     "model_runs": ExportDataset(
@@ -71,6 +82,14 @@ TELEMETRY_EXPORT_DATASETS: dict[str, ExportDataset] = {
             "promotion_state", "mlflow_run_id", "experiment_id", "metrics", "gate",
         ),
         extract=_extract_model_runs,
+    ),
+    "anomaly_events": ExportDataset(
+        label="Live anomaly events",
+        source="tel_anomaly_events",
+        source_kind="live-rows",
+        columns=("channel_name", "start_t", "end_t", "anomaly_class", "confidence"),
+        extract=_extract_anomaly_events,
+        default_limit=20, max_limit=200,
     ),
 }
 
