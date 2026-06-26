@@ -207,7 +207,7 @@ a `null_reason`** — source-kind honesty everywhere, no fabricated rows or link
 
 **Remaining PR sequence (8C–8I)** — replaces the superseded 8C–8G split above:
 
-- **PR 8C** — Streaming/Stargate/Mission Control controls + anomalies/DLQ export. **(this PR)**
+- **PR 8C** — Streaming/Stargate/Mission Control controls + anomalies/DLQ export. **DONE (PR #408, main `bfbce31f`).** Frontend-only. Verify-then-build found **no duplicate controls** (surfaces already honest + distinct) → the only relabel was Mission Control `Hold`→`Pause` (+ aria/title). Added CSV export (reusing 8A `ExportToCsvButton`) for Stargate anomalies + dead letters (SSE `CircularBuffer`, captioned "real SSE rows over a recorded-capture replay") and Mission Control live anomaly events (`tel_anomaly_events` via `/stream/live`). New `stargate/streamExportRows.ts` flattens `AnomalyRow`/`DlqRow` (absent enrichment → null, never fabricated); fail-closed when buffers empty. `AnomalyInspectionDrawer` drill already existed. The `tel_anomaly_events` **server XLSX dataset deferred to 8D**. No backend, no route/service deleted, no Model/RUL/Registry/Factory/Flight touched. Frozen-evidence 8/8 green; full telemetry suite 216 green.
 - **PR 8D** — Model Performance + Model Registry: artifact/run links + exportable metric rows (incl. the server `tel_anomaly_events` XLSX dataset batched here, with one controlled backend deploy).
 - **PR 8E** — RUL Calibration: wider layout + unit-level drill/export (preserve PICP 0.86 / 15-of-100).
 - **PR 8F** — Factory NCR + Flight Readiness: source/drill/export + layer-heat-map review.
