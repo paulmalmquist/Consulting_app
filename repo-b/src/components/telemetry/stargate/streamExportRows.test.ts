@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { AnomalyRow, DlqRow } from "@/lib/lab/stargateStream";
+import type { TelemetryPoint } from "@/lib/lab/stargateStream";
 import {
-  ANOMALY_EXPORT_COLUMNS, DLQ_EXPORT_COLUMNS, anomalyExportRows, dlqExportRows,
+  ANOMALY_EXPORT_COLUMNS, DLQ_EXPORT_COLUMNS, SERIES_EXPORT_COLUMNS,
+  anomalyExportRows, dlqExportRows, seriesExportRows,
 } from "./streamExportRows";
 
 const base: AnomalyRow = {
@@ -49,5 +51,19 @@ describe("dlqExportRows", () => {
     const [row] = dlqExportRows([dlq]);
     expect(row).toEqual(dlq);
     expect(DLQ_EXPORT_COLUMNS).toContain("raw_bytes");
+  });
+});
+
+describe("seriesExportRows", () => {
+  it("flattens the raw telemetry window points (the chart data is exportable)", () => {
+    const pt: TelemetryPoint = {
+      printer_id: "P1", ts_us: 1_700_000_000_000_000, layer: 7, print_job_id: "job-3",
+      melt_pool_temp_c: 1500, arm_vibration_g: 0.05, x_mm: 1, y_mm: 2, z_mm: 3,
+    } as TelemetryPoint;
+    const [row] = seriesExportRows([pt]);
+    expect(row.printer_id).toBe("P1");
+    expect(row.melt_pool_temp_c).toBe(1500);
+    expect(row.arm_vibration_g).toBe(0.05);
+    for (const c of SERIES_EXPORT_COLUMNS) expect(c in row).toBe(true);
   });
 });

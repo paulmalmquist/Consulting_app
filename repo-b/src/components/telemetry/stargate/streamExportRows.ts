@@ -2,7 +2,7 @@
 // affordances. These are REAL rows pushed over the SSE bridge during a recorded-capture replay — not
 // fixtures and not live printer hardware. The nested enrichment (rule / scorer / routing / provenance)
 // is flattened to the most useful scalar columns; missing enrichment → null (never fabricated).
-import type { AnomalyRow, DlqRow } from "@/lib/lab/stargateStream";
+import type { AnomalyRow, DlqRow, TelemetryPoint } from "@/lib/lab/stargateStream";
 
 export const ANOMALY_EXPORT_COLUMNS = [
   "printer_id", "ts_us", "layer", "print_job_id", "melt_pool_temp_c", "arm_vibration_g",
@@ -35,5 +35,20 @@ export const DLQ_EXPORT_COLUMNS = ["ts_ms", "topic", "reason", "raw_preview", "r
 export function dlqExportRows(dlq: DlqRow[]): Array<Record<string, unknown>> {
   return dlq.map((d) => ({
     ts_ms: d.ts_ms, topic: d.topic, reason: d.reason, raw_preview: d.raw_preview, raw_bytes: d.raw_bytes,
+  }));
+}
+
+// The underlying telemetry window series (the temp/vibration chart data) — the raw decoded points, so the
+// chart is exportable, not just the anomalies routed off it.
+export const SERIES_EXPORT_COLUMNS = ["printer_id", "ts_us", "layer", "print_job_id", "melt_pool_temp_c", "arm_vibration_g"];
+
+export function seriesExportRows(points: TelemetryPoint[]): Array<Record<string, unknown>> {
+  return points.map((p) => ({
+    printer_id: p.printer_id,
+    ts_us: p.ts_us,
+    layer: p.layer,
+    print_job_id: p.print_job_id,
+    melt_pool_temp_c: p.melt_pool_temp_c,
+    arm_vibration_g: p.arm_vibration_g,
   }));
 }
