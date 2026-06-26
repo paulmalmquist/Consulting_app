@@ -1,0 +1,56 @@
+Assuming the corresponding module name of package 'python-docx' is 'python_docx'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'reportlab' is 'reportlab'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'usaddress' is 'usaddress'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'networkx' is 'networkx'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'pytesseract' is 'pytesseract'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'anthropic' is 'anthropic'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'tiktoken' is 'tiktoken'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'pgvector' is 'pgvector'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'cohere' is 'cohere'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'langfuse' is 'langfuse'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'celery' is 'celery'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'redis' is 'redis'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'ib_insync' is 'ib_insync'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'yt-dlp' is 'yt_dlp'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Assuming the corresponding module name of package 'feedparser' is 'feedparser'. Install the package or configure a package_module_name_map entry to override this behaviour.
+Scanning 1115 files...
+
+app\auth\middleware.py:10:1: DEP003 'starlette' imported but it is a transitive dependency
+app\middleware\request_logging.py:7:1: DEP003 'starlette' imported but it is a transitive dependency
+app\routes\stargate_bridge.py:24:8: DEP003 'anyio' imported but it is a transitive dependency
+app\services\ade_ops\snowflake_executor.py:184:12: DEP001 'snowflake' imported but missing from the dependency definitions
+app\services\ade_warehouse_export.py:61:12: DEP001 'export_audit_to_bq' imported but missing from the dependency definitions
+app\services\attachment_classifier.py:129:5: DEP001 'docx' imported but missing from the dependency definitions
+app\services\control_tower\gemma_tier.py:369:12: DEP003 'vertexai' imported but it is a transitive dependency
+app\services\control_tower\gemma_tier.py:370:5: DEP003 'vertexai' imported but it is a transitive dependency
+app\services\cre_egress.py:191:16: DEP001 'boto3' imported but missing from the dependency definitions
+app\services\cre_egress.py:192:16: DEP003 'pyarrow' imported but it is a transitive dependency
+app\services\cre_egress.py:193:16: DEP003 'pyarrow' imported but it is a transitive dependency
+app\services\cre_egress.py:222:16: DEP001 'paramiko' imported but missing from the dependency definitions
+app\services\cre_egress.py:250:16: DEP001 'snowflake' imported but missing from the dependency definitions
+app\services\hr_ml_demo\trainers.py:373:5: DEP003 'scipy' imported but it is a transitive dependency
+app\services\hr_polymarket\worker.py:60:24: DEP003 'websockets' imported but it is a transitive dependency
+app\services\messaging.py:52:9: DEP001 'twilio' imported but missing from the dependency definitions
+app\services\messaging.py:96:16: DEP001 'sendgrid' imported but missing from the dependency definitions
+app\services\messaging.py:97:9: DEP001 'sendgrid' imported but missing from the dependency definitions
+app\services\ocr_parser.py:39:9: DEP001 'pdf2image' imported but missing from the dependency definitions
+app\services\podcast_transcription.py:93:13: DEP001 'faster_whisper' imported but missing from the dependency definitions
+app\services\podcast_transcription.py:104:20: DEP001 'faster_whisper' imported but missing from the dependency definitions
+app\services\receipt_intake.py:45:16: DEP003 'requests' imported but it is a transitive dependency
+app\services\stargate_bridge.py:46:8: DEP003 'anyio' imported but it is a transitive dependency
+app\services\stargate_bridge.py:65:5: DEP001 'proto_gen' imported but missing from the dependency definitions
+app\services\text_extractor.py:64:5: DEP001 'docx' imported but missing from the dependency definitions
+app\services\winston_demo.py:16:5: DEP001 'docx' imported but missing from the dependency definitions
+app\services\winston_demo_docs.py:11:5: DEP001 'docx' imported but missing from the dependency definitions
+requirements.txt: DEP002 'pytest' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'respx' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'ruff' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'python-docx' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'python-multipart' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'pgvector' defined as a dependency but not used in the codebase
+requirements.txt: DEP002 'redis' defined as a dependency but not used in the codebase
+scripts\etl_tiger_counties.py:50:16: DEP001 'geopandas' imported but missing from the dependency definitions
+scripts\etl_tiger_counties.py:111:13: DEP001 'shapely' imported but missing from the dependency definitions
+Found 36 dependency issues.
+
+For more information, see the documentation: https://deptry.com/

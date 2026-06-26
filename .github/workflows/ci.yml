@@ -241,3 +241,45 @@ jobs:
         with:
           name: smoke-test-result
           path: smoke-result.json
+
+  detectors:
+    name: Dead-code detectors (report-only)
+    runs-on: ubuntu-latest
+    # REPORT-ONLY: never gates a merge. Committed baselines live in detectors/; this job surfaces
+    # drift as uploaded artifacts. Do NOT flip to fail-on-findings until an area is converged (Phase 7).
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install repo-b deps (for the knip module graph)
+        working-directory: repo-b
+        run: npm ci || npm install
+
+      - name: knip — unused TS files/exports/deps (report-only)
+        working-directory: repo-b
+        run: npx --yes knip@5 --no-progress > ../detectors/report-knip.txt 2>&1 || true
+
+      - name: vulture + deptry — unused Python + deps (report-only)
+        run: |
+          python -m pip install --quiet vulture deptry || true
+          python -m vulture backend/app --min-confidence 80 > detectors/report-vulture.txt 2>&1 || true
+          (cd backend && python -m deptry . --requirements-files requirements.txt > ../detectors/report-deptry.txt 2>&1) || true
+          echo "Detector reports written (report-only; see artifacts). ruff stays the in-file linter."
+
+      - name: Upload detector reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: detector-reports
+          path: detectors/report-*.txt
