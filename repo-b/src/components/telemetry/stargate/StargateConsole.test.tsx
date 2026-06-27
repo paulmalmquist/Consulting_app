@@ -38,6 +38,15 @@ describe("StargateConsole without a configured bridge", () => {
     ).toBeInTheDocument();
     expect(MockEventSource.instances).toHaveLength(0);
   });
+
+  it("still surfaces the historical ML evidence bridge (static, not gated on the live stream)", () => {
+    render(<StargateConsole />);
+    // the validated historical evidence must not vanish just because the live bridge URL is unset
+    expect(screen.getByText("validated historical ML evidence")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Open validated historical ML evidence/i }));
+    expect(screen.getByText("Historical ML anomaly evidence")).toBeInTheDocument();
+    expect(screen.getByText("novendor_1.telemetry.silver_cmapss")).toBeInTheDocument();
+  });
 });
 
 describe("StargateConsole Start recorded capture control", () => {
