@@ -17,6 +17,32 @@ import {
 
 export const REL_ACCENT = "#ff9e64";
 
+// Hero band for the sandbox landing: an aerospace-manufacturing photo behind a dark scrim so the page
+// header reads as a build-to-flight MES, not a bare table. Illustrative only (a NASA/Michoud rocket
+// factory, public domain) — NOT a Relativity facility and never evidence; credited in the corner.
+// CSS background (not <img>) so a missing asset degrades to the scrim, no broken-image glyph.
+export function RelMesHeroBand({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ position: "relative", marginBottom: 14 }}>
+      <div aria-hidden style={{ position: "absolute", left: 0, right: 0, top: 0, height: 240,
+        zIndex: 0, overflow: "hidden", borderRadius: 12, border: `1px solid ${C.border}` }}>
+        <div role="img" aria-label="Illustrative rocket-factory backdrop (NASA/Michoud, public domain)"
+          style={{ position: "absolute", inset: 0, backgroundImage: "url('/telemetry/backdrops/mes-hero.jpg')",
+            backgroundSize: "cover", backgroundPosition: "center 38%" }} />
+        <div style={{ position: "absolute", inset: 0,
+          background: "linear-gradient(180deg, rgba(7,11,17,0.50) 0%, rgba(7,11,17,0.82) 62%, #070b11 100%)" }} />
+        <div style={{ position: "absolute", inset: 0,
+          background: `radial-gradient(120% 90% at 18% 8%, ${REL_ACCENT}22, transparent 58%)` }} />
+        <div style={{ position: "absolute", right: 12, bottom: 9, fontFamily: C.mono, fontSize: 9.5,
+          letterSpacing: "0.06em", color: C.faint }}>
+          Illustrative — NASA / Michoud Assembly Facility · public domain
+        </div>
+      </div>
+      <div style={{ position: "relative", zIndex: 1, padding: "14px 16px 0" }}>{children}</div>
+    </div>
+  );
+}
+
 // The unmistakable "this is synthetic" banner, rendered above the fold on every sandbox dashboard.
 export function SyntheticBanner() {
   return (

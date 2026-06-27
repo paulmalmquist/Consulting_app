@@ -10,7 +10,7 @@ import { C, EmptyState, ErrorState, Loading, MetricCard, Panel, ScrollTable, Sta
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import { ExportToCsvButton } from "../drill";
 import { getOverview, useRel, type OverviewResp, type Row } from "@/lib/telemetry/relativityMes";
-import { REL_ACCENT, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } from "./relMesShared";
+import { REL_ACCENT, RelMesHeroBand, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } from "./relMesShared";
 
 const num = (r: Row, k: string) => Number(r[k] ?? 0);
 const str = (r: Row, k: string) => (r[k] == null ? "—" : String(r[k]));
@@ -24,9 +24,11 @@ export default function BuildOverviewConsole({ envId }: { envId: string }) {
 
   return (
     <div>
-      <TelemetryPageHeader variant="standard" eyebrow="Relativity MES Sandbox" title="Build Overview"
-        description="Program-level health for the synthetic demo build set, read from the rel_build_overview serving mart. Click any number to see the source rows; click a vehicle to trace its genealogy, NCRs, or cost."
-        actions={<Tag color={REL_ACCENT}>synthetic</Tag>} />
+      <RelMesHeroBand>
+        <TelemetryPageHeader variant="standard" eyebrow="Relativity MES Sandbox" title="Build Overview"
+          description="Program-level health for the synthetic demo build set, read from the rel_build_overview serving mart. Click any number to see the source rows; click a vehicle to trace its genealogy, NCRs, or cost."
+          actions={<Tag color={REL_ACCENT}>synthetic</Tag>} />
+      </RelMesHeroBand>
       <SyntheticBanner />
 
       {loading && <Loading label="Loading rel_build_overview…" />}
