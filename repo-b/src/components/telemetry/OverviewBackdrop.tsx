@@ -58,7 +58,8 @@ export default function OverviewBackdrop({ event }: { event: DecoratedEvent | nu
       {/* scrim for readability + fade to background before the chart */}
       <div style={{ position: "absolute", inset: 0, background: SCRIM }} />
 
-      {/* honesty label — these assets are illustrative/generative, never evidence */}
+      {/* honesty label — illustrative atmosphere, never evidence. Curated era photos show their
+          credit/license; generative motifs say so. */}
       {bd && (
         <div
           style={{
@@ -66,7 +67,9 @@ export default function OverviewBackdrop({ event }: { event: DecoratedEvent | nu
             fontFamily: C.mono, fontSize: 10, letterSpacing: "0.08em", color: C.faint,
           }}
         >
-          Backdrop: illustrative · {bd.sourceKind} asset{bd.credit ? ` · ${bd.credit}` : ""}
+          {bd.sourceKind === "generative"
+            ? "Backdrop: illustrative · generative"
+            : `Illustrative — ${bd.credit ?? "curated asset"}`}
         </div>
       )}
     </div>

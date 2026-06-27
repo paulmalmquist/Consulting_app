@@ -70,7 +70,7 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     expect(screen.queryByText(/Backdrop: illustrative/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /select mission event/i }));
     // The mission-era backdrop appears, labeled honestly as illustrative/generative.
-    expect(screen.getByText(/Backdrop: illustrative · generative asset/i)).toBeInTheDocument();
+    expect(screen.getByText(/Backdrop: illustrative · generative/i)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /illustrative analog launch-pad/i })).toBeInTheDocument();
   });
 
