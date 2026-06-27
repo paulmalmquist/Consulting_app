@@ -14,6 +14,9 @@ import { getLineage, useRel, type LineageResp, type Row } from "@/lib/telemetry/
 import {
   REL_GOLD_TABLES, catalogLink, goldTableLink, schemaLink, workspaceLink,
 } from "@/lib/telemetry/relativityMesDatabricks";
+import {
+  BQ_GOLD_TABLES, bqDatasetLink, bqGoldTableLink,
+} from "@/lib/telemetry/relativityMesBigquery";
 import { REL_ACCENT, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } from "./relMesShared";
 
 const str = (r: Row, k: string) => (r[k] == null ? "—" : String(r[k]));
@@ -59,6 +62,22 @@ export default function LineageSourceConsole() {
               <span style={{ color: dbxLive ? C.green : REL_ACCENT }}>
                 {dbxLive ? "databricks-gold (synced from Databricks Gold)" : "seed-bootstrap (deterministic gold load; Databricks backfill flips this to databricks-gold)"}
               </span>.
+            </div>
+          </Panel>
+
+          <Panel title="BigQuery medallion (GCP) — live" style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginBottom: 10, lineHeight: 1.5 }}>
+              The medallion is materialized on serverless BigQuery (no warehouse to provision) in{" "}
+              <span style={{ color: C.dim }}>novendor-events-prod.relativity_mes</span> — 23 bronze + 23
+              silver + 5 gold. These links are <span style={{ color: C.green }}>live</span> (the tables exist).
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <EvidenceLink link={bqDatasetLink()} />
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {BQ_GOLD_TABLES.map((t) => (
+                <EvidenceLink key={t} link={bqGoldTableLink(t)} />
+              ))}
             </div>
           </Panel>
 
