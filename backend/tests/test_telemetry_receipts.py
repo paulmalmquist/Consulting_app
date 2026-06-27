@@ -110,15 +110,19 @@ def test_unknown_kind_raises():
 
 # ── route-level: HTTP 200 + null_reason (never 500), read-only ────────────────
 
-def test_workbench_experiments_route_fails_closed(client):
-    # experiment_runs.json is intentionally absent in the repo until the GCP run (Part II).
+def test_workbench_experiments_route_is_real_vertex_run(client):
+    # S8 landed the real Vertex Custom Training Job receipt (provider=vertex, real run id).
     r = client.get("/api/telemetry/workbench/experiments")
     assert r.status_code == 200
     body = r.json()
     assert body["kind"] == "experiment_runs"
-    assert body["payload"] is None
-    assert body["null_reason"] == "gcp_receipt_not_generated_yet"
-    assert body["fallback_used"] is True
+    assert body["provider"] == "vertex"
+    assert body["null_reason"] is None
+    assert body["vertex_experiment"] == "telemetry-predictive-maintenance"
+    assert body["vertex_run_id"] == "anomaly-mad-baseline-001"
+    assert body["gcs_artifact_uri"].startswith("gs://")
+    assert len(body["payload"]["runs"]) >= 1
+    assert body["payload"]["runs"][0]["metrics"]["f1_pointwise"] == pytest.approx(0.312953, abs=1e-4)
 
 
 def test_workbench_feature_manifest_route_real(client):
