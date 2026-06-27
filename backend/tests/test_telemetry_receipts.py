@@ -83,13 +83,25 @@ def test_experiment_runs_hpo_board_real():
     assert out["vertex_model_id"]
 
 
-def test_s11_receipt_kinds_fail_closed_until_generated():
-    # drift / embedding / SHAP receipts are not generated yet (S11) → fail closed, never 500.
-    for kind in ("drift_features", "embedding_projection", "factory_local_shap"):
-        out = rcpt.load_receipt(kind)
-        assert out["payload"] is None
-        assert out["null_reason"] == "gcp_receipt_not_generated_yet"
-        assert out["fallback_used"] is True
+def test_s11_drift_and_embedding_are_real():
+    drift = rcpt.load_receipt("drift_features")
+    assert drift["null_reason"] is None and drift["provider"] == "gcp"
+    assert len(drift["payload"]["features"]) >= 1
+    assert "psi" in drift["payload"]["features"][0]
+
+    emb = rcpt.load_receipt("embedding_projection")
+    assert emb["null_reason"] is None and emb["provider"] == "gcp"
+    assert len(emb["payload"]["points"]) > 0
+    assert "label_any_anomaly" in emb["payload"]["points"][0]
+    assert "not a trust gate" in emb["payload"]["non_goal_note"].lower()
+
+
+def test_factory_shap_stays_fail_closed():
+    # The factory tree models are outside this Databricks→GCP migration's scope.
+    out = rcpt.load_receipt("factory_local_shap")
+    assert out["payload"] is None
+    assert out["null_reason"] == "gcp_receipt_not_generated_yet"
+    assert out["fallback_used"] is True
 
 
 def test_new_workbench_routes_served(client):
