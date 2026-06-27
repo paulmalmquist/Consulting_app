@@ -179,3 +179,18 @@ The prior telemetry-only optional items remain tracked in `backlog.md` and
 > (component-contracts, design-adaptation, qa-checklist, eval-plan, tips). All behavior-preserving; live
 > data/chips/fail-closed in header slots. Remaining optional polish: header-system multi-viewport screenshot
 > set under `telemetry-platform/docs/screenshots/header-system/`; deeper console component-splits (maintainability only).
+
+> ## Model Workbench + GCP migration (2026-06-27)
+> The Model Workbench (Epic #497 / Feature #513, Stories #736–#746) is the inspectable, receipt-driven
+> ML surface at `/lab/env/[envId]/telemetry/workbench`. Part I (S1–S5) shipped the experience
+> (receipt contract, landing + headline card + lifecycle stepper + A/B/C selector, threshold-sweep tab +
+> FP/FN drawer, champion review + Replay-receipt button, continuous prediction drill + MAD reconciliation).
+> Part II migrates the ML **off Databricks onto GCP**: S6 provider-neutral cloud links (receipt-driven, no
+> Lakebase DDL); S7 real BigQuery gold (`novendor-events-prod.telemetry.gold_smap_msl_windows`, 509,555
+> rows) + real MAD_K threshold sweep + **exact parity** with the deployed champion (Δ=0, Databricks-free);
+> S8 a real **Vertex Custom Training Job** (CPU, no endpoint) logging to Vertex Experiment
+> `telemetry-predictive-maintenance` + GCS, exporting `experiment_runs.json` (provider=vertex); S9 real
+> FP/FN `error_review.json` from BigQuery. Remaining: S10 (Vizier HPO + Vertex Model Registry promotion →
+> `promotion_review.json`, MAD reconciliation gate) and S11 (drift/embedding/SHAP receipts) — backend
+> kinds + routes + UI panels already scaffolded fail-closed. Conventions in `docs/tips.md` (Model
+> Workbench). No Databricks dependency in the GCP proof path; no online Vertex endpoint.

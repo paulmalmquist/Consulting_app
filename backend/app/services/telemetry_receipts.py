@@ -28,6 +28,9 @@ RECEIPT_FILES: dict[str, str] = {
     "error_review": "error_review.json",
     "promotion_review": "promotion_review.json",
     "parity": "parity_receipt.json",
+    "drift_features": "drift_feature_stats.json",
+    "embedding_projection": "embedding_projection.json",
+    "factory_local_shap": "factory_local_shap.json",
 }
 
 # Strict provenance header every receipt carries. Missing keys normalize to None — never fabricated.

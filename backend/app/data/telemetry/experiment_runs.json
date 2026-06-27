@@ -1,0 +1,64 @@
+{
+  "provider": "vertex",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+  "vertex_experiment": "telemetry-predictive-maintenance",
+  "vertex_run_id": "anomaly-mad-baseline-001",
+  "vertex_model_id": null,
+  "gcs_artifact_uri": "gs://novendor-events-prod-telemetry-ml/telemetry/anomaly-mad/anomaly-mad-baseline-001",
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "vertex-training@7ec4c110",
+  "data_manifest_sha": null,
+  "rows_evaluated": 509555,
+  "null_reason": null,
+  "payload": {
+    "experiment_id": "telemetry-predictive-maintenance",
+    "runs": [
+      {
+        "run_id": "anomaly-mad-baseline-001",
+        "model_kind": "anomaly",
+        "feature_set": "baseline",
+        "params": {
+          "feature_set": "baseline",
+          "n_channels": 81.0,
+          "mad_k": 4.0,
+          "source_table": "novendor-events-prod.telemetry.gold_smap_msl_windows"
+        },
+        "metrics": {
+          "event_recall": 0.769231,
+          "affiliation_f1": 0.474634,
+          "precision_pointwise": 0.3279,
+          "recall_pointwise": 0.29931,
+          "alarm_precision": 0.3279,
+          "f1_pointwise": 0.312953
+        },
+        "status": "4",
+        "gcs_artifact_uri": "gs://novendor-events-prod-telemetry-ml/telemetry/anomaly-mad/anomaly-mad-baseline-001"
+      }
+    ],
+    "hpo": {
+      "status": "not_run",
+      "note": "Vizier HPO lands in S10; this is the baseline run."
+    },
+    "headline": {
+      "experiment_label": "Baseline \u2014 rolling-MAD on Vertex",
+      "hypothesis": "A transparent rolling-MAD detector is hard to beat honestly on operational metrics.",
+      "feature_change": "Baseline feature set (value \u00b7 rolling_mean_50 \u00b7 residual \u00b7 per-channel scale).",
+      "result": "Reproduced on Vertex from BigQuery gold \u2014 f1_pointwise 0.312953, event_recall 0.769231.",
+      "promotion_outcome": "MAD is the promoted champion."
+    },
+    "latest_run": {
+      "run_id": "anomaly-mad-baseline-001",
+      "dataset": "bq novendor-events-prod.telemetry.gold_smap_msl_windows",
+      "feature_set": "baseline",
+      "training_window": "SMAP/MSL train split (per-channel scale)",
+      "validation": "labeled SMAP/MSL test split",
+      "params": "MAD_K=4.0",
+      "result": "champion reproduced on Vertex (CPU CustomJob)",
+      "reason": "deterministic MAD baseline; no challenger displaced it",
+      "artifacts": [
+        "model.joblib",
+        "model_card.json"
+      ]
+    }
+  }
+}

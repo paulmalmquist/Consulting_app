@@ -4,8 +4,10 @@ import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import { C, DisclosureFooter, Panel } from "../primitives";
 import { ChampionReviewPanel } from "./ChampionReviewPanel";
 import { ExperimentReplayButton } from "./ExperimentReplayButton";
+import { ExperimentTrackingPanel } from "./ExperimentTrackingPanel";
 import { FeatureSetSelector } from "./FeatureSetSelector";
 import { LifecycleStepper } from "./LifecycleStepper";
+import { DriftPanel, EmbeddingPanel, FactoryShapPanel, ParityPanel } from "./SupportingPanels";
 import { WorkbenchDrillButton } from "./WorkbenchDrillButton";
 import { WorkbenchHeadlineCard } from "./WorkbenchHeadlineCard";
 
@@ -36,6 +38,19 @@ export default function ModelWorkbench() {
         </Panel>
         <Panel title="Champion review — why MAD stayed champion">
           <ChampionReviewPanel />
+        </Panel>
+        <Panel title="Experiment tracking — Vertex runs & HPO">
+          <ExperimentTrackingPanel />
+        </Panel>
+        <Panel title="Parity — GCP reproduces the champion (no Databricks)">
+          <ParityPanel />
+        </Panel>
+        <Panel title="Supporting evidence — drift · latent · explainability">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <DriftPanel />
+            <EmbeddingPanel />
+            <FactoryShapPanel />
+          </div>
         </Panel>
         <Panel pad={14}>
           <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>

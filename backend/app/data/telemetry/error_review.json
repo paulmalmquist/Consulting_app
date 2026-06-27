@@ -1,0 +1,143 @@
+{
+  "provider": "gcp",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+  "vertex_experiment": null,
+  "vertex_run_id": null,
+  "vertex_model_id": null,
+  "gcs_artifact_uri": null,
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "gcp-migration@21b08cbb",
+  "data_manifest_sha": null,
+  "rows_evaluated": 509555,
+  "null_reason": null,
+  "payload": {
+    "operating_k": 4.0,
+    "cases": [
+      {
+        "id": "fp-M-1-359",
+        "kind": "false_positive",
+        "channel": "M-1",
+        "window": "t=359",
+        "model_saw": "residual 2.6106 > threshold 1.5801",
+        "true_label": "nominal",
+        "feature_pushed": "residual = |value - rolling_mean_50| (single-tick spike)",
+        "acceptable": "Low-cost false alarm in isolation, but adds operator review load on a noisy channel.",
+        "suggested_fix": "Temporal context (residual_slope / duration_above_band, feature set B) would separate a transient spike from sustained drift."
+      },
+      {
+        "id": "fp-F-5-568",
+        "kind": "false_positive",
+        "channel": "F-5",
+        "window": "t=568",
+        "model_saw": "residual 2.3975 > threshold 0.5053",
+        "true_label": "nominal",
+        "feature_pushed": "residual = |value - rolling_mean_50| (single-tick spike)",
+        "acceptable": "Low-cost false alarm in isolation, but adds operator review load on a noisy channel.",
+        "suggested_fix": "Temporal context (residual_slope / duration_above_band, feature set B) would separate a transient spike from sustained drift."
+      },
+      {
+        "id": "fp-M-3-2039",
+        "kind": "false_positive",
+        "channel": "M-3",
+        "window": "t=2039",
+        "model_saw": "residual 2.2886 > threshold 0.0000",
+        "true_label": "nominal",
+        "feature_pushed": "residual = |value - rolling_mean_50| (single-tick spike)",
+        "acceptable": "Low-cost false alarm in isolation, but adds operator review load on a noisy channel.",
+        "suggested_fix": "Temporal context (residual_slope / duration_above_band, feature set B) would separate a transient spike from sustained drift."
+      },
+      {
+        "id": "fp-F-8-293",
+        "kind": "false_positive",
+        "channel": "F-8",
+        "window": "t=293",
+        "model_saw": "residual 2.1583 > threshold 0.8487",
+        "true_label": "nominal",
+        "feature_pushed": "residual = |value - rolling_mean_50| (single-tick spike)",
+        "acceptable": "Low-cost false alarm in isolation, but adds operator review load on a noisy channel.",
+        "suggested_fix": "Temporal context (residual_slope / duration_above_band, feature set B) would separate a transient spike from sustained drift."
+      },
+      {
+        "id": "fn-E-4-6609",
+        "kind": "false_negative",
+        "channel": "E-4",
+        "window": "t=6609 (missed segment len 2812)",
+        "model_saw": "peak residual 0.8709 <= threshold 1.0143 across the labeled segment",
+        "true_label": "anomaly",
+        "feature_pushed": "no feature crossed the frozen threshold",
+        "acceptable": "Unsafe if sustained \u2014 a missed anomaly segment; the operational cost is higher than a false alarm.",
+        "suggested_fix": "A lower operating threshold raises recall but degrades alarm precision (see the sweep); per-channel scale or temporal features are the safer lever."
+      },
+      {
+        "id": "fn-A-7-6200",
+        "kind": "false_negative",
+        "channel": "A-7",
+        "window": "t=6200 (missed segment len 2401)",
+        "model_saw": "peak residual 0.6900 <= threshold 1.2669 across the labeled segment",
+        "true_label": "anomaly",
+        "feature_pushed": "no feature crossed the frozen threshold",
+        "acceptable": "Unsafe if sustained \u2014 a missed anomaly segment; the operational cost is higher than a false alarm.",
+        "suggested_fix": "A lower operating threshold raises recall but degrades alarm precision (see the sweep); per-channel scale or temporal features are the safer lever."
+      },
+      {
+        "id": "fn-T-2-8108",
+        "kind": "false_negative",
+        "channel": "T-2",
+        "window": "t=8108 (missed segment len 1785)",
+        "model_saw": "peak residual 1.4367 <= threshold 2.0869 across the labeled segment",
+        "true_label": "anomaly",
+        "feature_pushed": "no feature crossed the frozen threshold",
+        "acceptable": "Unsafe if sustained \u2014 a missed anomaly segment; the operational cost is higher than a false alarm.",
+        "suggested_fix": "A lower operating threshold raises recall but degrades alarm precision (see the sweep); per-channel scale or temporal features are the safer lever."
+      },
+      {
+        "id": "fn-T-1-3797",
+        "kind": "false_negative",
+        "channel": "T-1",
+        "window": "t=3797 (missed segment len 1500)",
+        "model_saw": "peak residual 1.4203 <= threshold 2.0639 across the labeled segment",
+        "true_label": "anomaly",
+        "feature_pushed": "no feature crossed the frozen threshold",
+        "acceptable": "Unsafe if sustained \u2014 a missed anomaly segment; the operational cost is higher than a false alarm.",
+        "suggested_fix": "A lower operating threshold raises recall but degrades alarm precision (see the sweep); per-channel scale or temporal features are the safer lever."
+      },
+      {
+        "id": "bd-F-7-81",
+        "kind": "borderline",
+        "channel": "F-7",
+        "window": "t=81",
+        "model_saw": "residual 1.3157 ~ threshold 1.2000",
+        "true_label": "nominal",
+        "feature_pushed": "residual sits within \u00b110% of the threshold",
+        "acceptable": "Sensitive to the exact operating point \u2014 exactly what the threshold sweep is for.",
+        "suggested_fix": "Pick the operating K from the sweep's precision/recall tradeoff, not a single guess."
+      },
+      {
+        "id": "bd-E-13-79",
+        "kind": "borderline",
+        "channel": "E-13",
+        "window": "t=79",
+        "model_saw": "residual 1.3682 ~ threshold 1.2546",
+        "true_label": "nominal",
+        "feature_pushed": "residual sits within \u00b110% of the threshold",
+        "acceptable": "Sensitive to the exact operating point \u2014 exactly what the threshold sweep is for.",
+        "suggested_fix": "Pick the operating K from the sweep's precision/recall tradeoff, not a single guess."
+      }
+    ],
+    "highlights": [
+      {
+        "label": "Worst noisy channel",
+        "value": "P-14 (4914 FPs)"
+      },
+      {
+        "label": "Longest missed anomaly",
+        "value": "E-4 (len 2812)"
+      },
+      {
+        "label": "Earliest correct warning",
+        "value": "C-2 @ t=290"
+      }
+    ],
+    "note": "Real cases from the frozen champion over the BigQuery gold test split. Lowering the threshold raises recall but degrades alarm precision \u2014 the honest operating-point tradeoff."
+  }
+}

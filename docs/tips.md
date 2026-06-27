@@ -4712,3 +4712,35 @@ fixture vs synthetic vs cold with the repo's own vocabulary (`source_kind`, `ser
 `provenance: databricks|local_fallback`, `null_reason`). The only real risk is manifest drift, so cite
 the file/route on every row. Note: `npm run build` is NOT a CI gate (CI runs lint/typecheck/test:unit);
 run it locally to confirm a new route compiles before relying on the Vercel deploy.
+
+## Model Workbench — receipt-driven, GCP-native, Databricks-free (2026-06-27)
+
+The telemetry Model Workbench replays **committed JSON receipts** under `backend/app/data/telemetry/`,
+read by a single fail-closed loader (`backend/app/services/telemetry_receipts.py` →
+`/api/telemetry/workbench/*`). Conventions discovered building it (Parts I–II):
+
+- **Receipt contract.** Every receipt carries a header (`provider`, `source_bigquery_table`,
+  `vertex_experiment`, `vertex_run_id`, `vertex_model_id`, `gcs_artifact_uri`, `created_at`,
+  `code_version`, `data_manifest_sha`, `rows_evaluated`, `null_reason`) + a `payload`. Absent/unreadable
+  → `null_reason` at HTTP 200 (never 500, never fabricated). Add a receipt kind in `RECEIPT_FILES` + one
+  route; the UI panel reads it and fails closed automatically.
+- **Provider drives links, not a DB column.** `provider` ∈ `databricks|vertex|gcp|local_fixture` routes
+  the cloud links (`repo-b/src/lib/telemetry/cloudLinks.ts`): databricks/null → MLflow/UC; vertex/gcp/
+  bigquery → Vertex/BigQuery console; local_fixture → copyable id only. **No Lakebase/Databricks DDL is
+  required** — the migration is *away* from Databricks, so the provider-neutral contract is receipt-driven.
+- **Databricks-free parity anchor.** `telemetry-platform/eval_honest_metrics.py` reproduces the frozen
+  rolling-MAD champion in pure numpy from the public SMAP/MSL data and matches the deployed champion
+  exactly (`f1_pointwise 0.312953`, `event_recall 0.769231`, `affiliation_f1 0.474634`). `parity_receipt.json`
+  records Δ=0 — the honest proof the GCP path reproduces the champion with no Databricks dependency.
+- **BigQuery gold load.** Write NDJSON + `load_table_from_file(NEWLINE_DELIMITED_JSON, autodetect, WRITE_TRUNCATE)`
+  to avoid a `pyarrow`/`db-dtypes` dependency. Gold table `novendor-events-prod.telemetry.gold_smap_msl_windows`
+  (509,555 test rows, us-east4).
+- **Vertex Custom Training Job.** `aiplatform.CustomJob.from_local_script` needs `setuptools` installed
+  locally (it builds an sdist). CPU-only `n1-standard-4`, prebuilt `sklearn-cpu` container, **no online
+  endpoint**; the job logs to the Vertex Experiment `telemetry-predictive-maintenance` and writes the model
+  to GCS; the submitter reads the run back by deterministic `run_name` and exports `experiment_runs.json`.
+- **`bq` CLI is broken here** (its shim points to a missing `python3.14`) — use the Python
+  `google-cloud-bigquery` client (works via ADC) instead.
+- **"Real ROC = threshold sweep."** The promoted detector is a thresholded MAD rule, not a probabilistic
+  classifier, so the honest curve is a `MAD_K` sweep over the labeled test split (`threshold_sweep.json`),
+  not a raw ROC. Lowering K raises recall but degrades alarm precision — the real operating-point story.

@@ -49,6 +49,33 @@ def test_parity_receipt_reproduces_champion():
     assert out["payload"]["deltas"]["f1_pointwise"] == pytest.approx(0.0, abs=1e-4)
 
 
+def test_error_review_has_real_cases():
+    # S9 generated real FP/FN/borderline cases from the BigQuery gold.
+    out = rcpt.load_receipt("error_review")
+    assert out["null_reason"] is None
+    assert out["provider"] == "gcp"
+    cases = out["payload"]["cases"]
+    assert len(cases) >= 4
+    kinds = {c["kind"] for c in cases}
+    assert "false_positive" in kinds and "false_negative" in kinds
+    assert out["payload"]["highlights"]            # worst-channel / longest-missed / earliest-warning
+
+
+def test_s11_receipt_kinds_fail_closed_until_generated():
+    # drift / embedding / SHAP receipts are not generated yet (S11) → fail closed, never 500.
+    for kind in ("drift_features", "embedding_projection", "factory_local_shap"):
+        out = rcpt.load_receipt(kind)
+        assert out["payload"] is None
+        assert out["null_reason"] == "gcp_receipt_not_generated_yet"
+        assert out["fallback_used"] is True
+
+
+def test_new_workbench_routes_served(client):
+    for path in ("parity", "drift", "embedding-projection", "factory-local-shap"):
+        r = client.get(f"/api/telemetry/workbench/{path}")
+        assert r.status_code == 200          # served + fail-closed where absent, never 500
+
+
 # ── service: fail-closed paths ────────────────────────────────────────────────
 
 def test_absent_receipt_fails_closed(tmp_path):
@@ -83,15 +110,19 @@ def test_unknown_kind_raises():
 
 # ── route-level: HTTP 200 + null_reason (never 500), read-only ────────────────
 
-def test_workbench_experiments_route_fails_closed(client):
-    # experiment_runs.json is intentionally absent in the repo until the GCP run (Part II).
+def test_workbench_experiments_route_is_real_vertex_run(client):
+    # S8 landed the real Vertex Custom Training Job receipt (provider=vertex, real run id).
     r = client.get("/api/telemetry/workbench/experiments")
     assert r.status_code == 200
     body = r.json()
     assert body["kind"] == "experiment_runs"
-    assert body["payload"] is None
-    assert body["null_reason"] == "gcp_receipt_not_generated_yet"
-    assert body["fallback_used"] is True
+    assert body["provider"] == "vertex"
+    assert body["null_reason"] is None
+    assert body["vertex_experiment"] == "telemetry-predictive-maintenance"
+    assert body["vertex_run_id"] == "anomaly-mad-baseline-001"
+    assert body["gcs_artifact_uri"].startswith("gs://")
+    assert len(body["payload"]["runs"]) >= 1
+    assert body["payload"]["runs"][0]["metrics"]["f1_pointwise"] == pytest.approx(0.312953, abs=1e-4)
 
 
 def test_workbench_feature_manifest_route_real(client):
