@@ -1,0 +1,79 @@
+{
+  "provider": "gcp",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+  "vertex_experiment": null,
+  "vertex_run_id": null,
+  "vertex_model_id": null,
+  "gcs_artifact_uri": null,
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "gcp-migration@9818989d",
+  "data_manifest_sha": null,
+  "rows_evaluated": 509555,
+  "null_reason": null,
+  "payload": {
+    "reference_window": "train",
+    "comparison_window": "test",
+    "features": [
+      {
+        "feature": "value",
+        "psi": 0.05,
+        "ks_stat": 0.059,
+        "wasserstein": 0.6714,
+        "drifted": false,
+        "stability": "stable"
+      },
+      {
+        "feature": "residual",
+        "psi": 0.067,
+        "ks_stat": 0.0777,
+        "wasserstein": 0.5308,
+        "drifted": false,
+        "stability": "stable"
+      }
+    ],
+    "top_drifted_channels": [
+      {
+        "channel": "F-3",
+        "psi": 9.6873
+      },
+      {
+        "channel": "D-6",
+        "psi": 7.9952
+      },
+      {
+        "channel": "G-6",
+        "psi": 7.8623
+      },
+      {
+        "channel": "A-1",
+        "psi": 7.5343
+      },
+      {
+        "channel": "D-8",
+        "psi": 7.5136
+      },
+      {
+        "channel": "G-2",
+        "psi": 7.4984
+      },
+      {
+        "channel": "R-1",
+        "psi": 7.4948
+      },
+      {
+        "channel": "D-3",
+        "psi": 7.3336
+      }
+    ],
+    "summary": {
+      "n_features": 2,
+      "n_drifted": 0,
+      "max_psi": 0.067
+    },
+    "thresholds": {
+      "psi_watch": 0.1,
+      "psi_drift": 0.2
+    },
+    "note": "PSI/KS/Wasserstein per feature, train reference vs test (public SMAP/MSL)."
+  }
+}
