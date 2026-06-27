@@ -51,6 +51,7 @@ function selectionFromReplay(feed: ReplayFeed): MlProvenanceSelection | null {
       { label: "This tick", value: `residual ${r.toFixed(4)} ${r > threshold ? ">" : "≤"} threshold` },
     ],
     reconciliationCaveat: diag?.per_channel_caveat ?? null,
+    provider: "databricks", // the deployed replay champion is Databricks-trained (honest lineage)
     mlflowRunId: feed.provenance?.champion_mlflow_run_id ?? null,
     modelName: feed.provenance?.champion_model ?? null,
     gate: [{ label: "Promotion gate", value: "anomaly honest gate — see Model Registry" }],

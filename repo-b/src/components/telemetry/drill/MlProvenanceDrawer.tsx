@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { C, MetricRow, Tag } from "../primitives";
 import { MetricInspectorDrawer } from "../drawerPrimitives";
 import { SourceRowsTable } from "./SourceRowsTable";
-import { DatabricksRunLink, DeltaTableLink, LineageLink, ModelArtifactLink } from "./evidenceLinks";
+import { CloudRunLink, FeatureTableLink, LineageLink, ModelRegistryLink } from "./evidenceLinks";
 
 const ACCENT = "#a855f7";
 
@@ -34,12 +34,16 @@ export interface MlProvenanceSelection {
   math: Array<{ label: string; value: ReactNode }>;
   /** Rung 3 — reconciliation finding when the scoring path diverges (per_channel_caveat). */
   reconciliationCaveat?: string | null;
+  /** Provenance — drives provider-aware links on rungs 4/5 (databricks/null | vertex | local_fixture). */
+  provider?: string | null;
   /** Rung 4 — the experiment run + model artifact. */
-  mlflowRunId?: string | null;
-  modelName?: string | null;
+  mlflowRunId?: string | null;       // run id (MLflow for databricks, Vertex run for vertex)
+  experimentId?: string | null;
+  modelName?: string | null;         // UC model name (databricks)
+  modelId?: string | null;           // Vertex model id (vertex)
   /** Rung 5 — the promotion gate decision + the source Delta/BigQuery table + lineage. */
   gate?: Array<{ label: string; value: ReactNode }>;
-  deltaTable?: string | null;
+  deltaTable?: string | null;        // UC Delta path (databricks) or BigQuery table (vertex)
   lineageHref?: string | null;
 }
 
@@ -102,15 +106,15 @@ export function MlProvenanceDrawer({
 
           <Rung n={4} label="Run — the experiment that produced the model">
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <DatabricksRunLink runId={s.mlflowRunId} />
-              <ModelArtifactLink modelName={s.modelName} />
+              <CloudRunLink provider={s.provider} runId={s.mlflowRunId} experimentId={s.experimentId} />
+              <ModelRegistryLink provider={s.provider} modelId={s.modelId} modelName={s.modelName} />
             </div>
           </Rung>
 
           <Rung n={5} label="Gate — the promotion decision + source table">
             {(s.gate ?? []).map((g) => <MetricRow key={g.label} label={g.label} value={g.value} />)}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-              <DeltaTableLink tableName={s.deltaTable} />
+              <FeatureTableLink provider={s.provider} table={s.deltaTable} />
               <LineageLink href={s.lineageHref ?? undefined} unavailableReason={s.lineageHref ? undefined : "lineage link not attached"} />
             </div>
           </Rung>
