@@ -61,6 +61,28 @@ def test_error_review_has_real_cases():
     assert out["payload"]["highlights"]            # worst-channel / longest-missed / earliest-warning
 
 
+def test_promotion_review_is_real_vizier_decision():
+    # S10 landed the real Vizier search + Vertex Model Registry promotion decision.
+    out = rcpt.load_receipt("promotion_review")
+    assert out["null_reason"] is None
+    assert out["provider"] == "vertex"
+    assert out["vertex_model_id"]                      # real registered model id
+    p = out["payload"]
+    assert p["champion_unchanged"] is True
+    assert p["decision"] == "model_not_promoted"
+    assert p["champion_metrics"]["affiliation_f1"] == pytest.approx(0.474634, abs=1e-4)
+    assert p["reason_rejected"]
+
+
+def test_experiment_runs_hpo_board_real():
+    out = rcpt.load_receipt("experiment_runs")
+    hpo = out["payload"]["hpo"]
+    assert hpo["status"] == "completed"
+    assert hpo["n_trials"] >= 8
+    assert hpo["beat_honest_baseline"] is False        # Vizier best did not displace MAD
+    assert out["vertex_model_id"]
+
+
 def test_s11_receipt_kinds_fail_closed_until_generated():
     # drift / embedding / SHAP receipts are not generated yet (S11) → fail closed, never 500.
     for kind in ("drift_features", "embedding_projection", "factory_local_shap"):

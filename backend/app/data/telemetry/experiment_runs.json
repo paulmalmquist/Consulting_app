@@ -3,7 +3,7 @@
   "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
   "vertex_experiment": "telemetry-predictive-maintenance",
   "vertex_run_id": "anomaly-mad-baseline-001",
-  "vertex_model_id": null,
+  "vertex_model_id": "1129589867865440256",
   "gcs_artifact_uri": "gs://novendor-events-prod-telemetry-ml/telemetry/anomaly-mad/anomaly-mad-baseline-001",
   "created_at": "2026-06-27T00:00:00Z",
   "code_version": "vertex-training@7ec4c110",
@@ -36,8 +36,113 @@
       }
     ],
     "hpo": {
-      "status": "not_run",
-      "note": "Vizier HPO lands in S10; this is the baseline run."
+      "status": "completed",
+      "objective": "affiliation_f1",
+      "direction": "maximize",
+      "n_trials": 12,
+      "best_mad_k": 4.7039,
+      "best_value": 0.479915,
+      "beat_honest_baseline": false,
+      "vizier_study": "projects/827691285849/locations/us-east4/studies/3302579067830",
+      "trials": [
+        {
+          "trial": "1",
+          "mad_k": 4.7184,
+          "affiliation_f1": 0.479912,
+          "f1_pointwise": 0.312815,
+          "event_recall": 0.711538,
+          "alarm_precision": 0.344238
+        },
+        {
+          "trial": "2",
+          "mad_k": 4.0,
+          "affiliation_f1": 0.474634,
+          "f1_pointwise": 0.312953,
+          "event_recall": 0.769231,
+          "alarm_precision": 0.3279
+        },
+        {
+          "trial": "3",
+          "mad_k": 4.706,
+          "affiliation_f1": 0.479907,
+          "f1_pointwise": 0.3129,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344105
+        },
+        {
+          "trial": "4",
+          "mad_k": 4.7044,
+          "affiliation_f1": 0.479904,
+          "f1_pointwise": 0.312919,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344104
+        },
+        {
+          "trial": "5",
+          "mad_k": 4.7039,
+          "affiliation_f1": 0.479915,
+          "f1_pointwise": 0.312933,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344116
+        },
+        {
+          "trial": "6",
+          "mad_k": 4.7023,
+          "affiliation_f1": 0.479896,
+          "f1_pointwise": 0.312934,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344096
+        },
+        {
+          "trial": "7",
+          "mad_k": 4.7323,
+          "affiliation_f1": 0.479684,
+          "f1_pointwise": 0.312362,
+          "event_recall": 0.711538,
+          "alarm_precision": 0.344047
+        },
+        {
+          "trial": "8",
+          "mad_k": 4.7014,
+          "affiliation_f1": 0.479889,
+          "f1_pointwise": 0.312931,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344089
+        },
+        {
+          "trial": "9",
+          "mad_k": 4.7009,
+          "affiliation_f1": 0.479894,
+          "f1_pointwise": 0.312943,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344095
+        },
+        {
+          "trial": "10",
+          "mad_k": 4.7007,
+          "affiliation_f1": 0.479894,
+          "f1_pointwise": 0.312943,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344095
+        },
+        {
+          "trial": "11",
+          "mad_k": 4.6999,
+          "affiliation_f1": 0.479888,
+          "f1_pointwise": 0.312941,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344089
+        },
+        {
+          "trial": "12",
+          "mad_k": 4.7005,
+          "affiliation_f1": 0.479894,
+          "f1_pointwise": 0.312943,
+          "event_recall": 0.721154,
+          "alarm_precision": 0.344095
+        }
+      ],
+      "note": "Vizier best trial did not displace the MAD champion at the declared operating point."
     },
     "headline": {
       "experiment_label": "Baseline \u2014 rolling-MAD on Vertex",
