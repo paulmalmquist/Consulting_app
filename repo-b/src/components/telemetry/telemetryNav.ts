@@ -44,6 +44,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "system-health", label: "System Health", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
 
   // Section 3 — Models & Intelligence (how we know / can we trust it)
+  { slug: "workbench", label: "Model Workbench", icon: "M6 2h4M7 2v3L3 13a1 1 0 001 1h8a1 1 0 001-1L9 5V2M5.5 9h5", group: "Models & Intelligence" },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "Models & Intelligence" },
   { slug: "calibration", label: "RUL Calibration", icon: "M2 13h12M4 13V7m4 6V4m4 9V9", group: "Models & Intelligence" },
   { slug: "registry", label: "Model Registry", icon: "M3 2h10v3H3zM3 7h10v3H3zM3 12h6v2H3z", group: "Models & Intelligence" },
@@ -135,6 +136,7 @@ const TELEMETRY_SLUG_GROUP: Record<string, TelemetryNavGroup> = {
   runs: "Operations", "system-health": "Operations",
   monitoring: "Operations", "spike-inspector": "Operations",
   // Models & Intelligence
+  workbench: "Models & Intelligence",
   "model-performance": "Models & Intelligence", calibration: "Models & Intelligence",
   registry: "Models & Intelligence", copilot: "Models & Intelligence",
   // Factory & Quality
