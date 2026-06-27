@@ -4,6 +4,8 @@ import {
   TELEMETRY_NAV_GROUP_META,
   isTelemetryItemActive,
   telemetryHref,
+  telemetryGroupForPath,
+  telemetryAccentForPath,
 } from "./telemetryNav";
 
 describe("telemetry navigation structure (7 presentation sections)", () => {
@@ -99,6 +101,39 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
       expect(meta).toBeDefined();
       expect(meta.icon).toMatch(/^M/); // SVG path data
       expect(meta.accent).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+
+  it("resolves a page's category color from its route — including hidden + multi-segment routes", () => {
+    const base = "/lab/env/env-1/telemetry";
+    const cases: Array<[string, string]> = [
+      [base, "Overview"],                                  // section root
+      [`${base}/stream`, "Operations"],
+      [`${base}/system-health`, "Operations"],
+      [`${base}/model-performance`, "Models & Intelligence"],
+      [`${base}/calibration`, "Models & Intelligence"],
+      [`${base}/factory`, "Factory & Quality"],
+      [`${base}/factory-ml`, "Factory & Quality"],
+      [`${base}/metric-lineage`, "Evidence & Lineage"],
+      [`${base}/metadata`, "Evidence & Lineage"],
+      [`${base}/control-tower`, "Agent Operations"],
+      // hidden-before-delete routes still recover their section color
+      [`${base}/copilot`, "Models & Intelligence"],
+      [`${base}/governance`, "Evidence & Lineage"],
+      [`${base}/how-it-works`, "Evidence & Lineage"],
+      [`${base}/evidence`, "Evidence & Lineage"],
+      // multi-segment groups matched by prefix
+      [`${base}/data-engineering`, "Data Engineering"],
+      [`${base}/data-engineering/grain`, "Data Engineering"],
+      [`${base}/relativity-mes`, "Relativity MES Sandbox"],
+      [`${base}/relativity-mes/ncr`, "Relativity MES Sandbox"],
+      // unknown / off-route falls back to Overview cyan
+      [`${base}/not-a-real-page`, "Overview"],
+      ["/some/other/path", "Overview"],
+    ];
+    for (const [path, group] of cases) {
+      expect(telemetryGroupForPath(path)).toBe(group);
+      expect(telemetryAccentForPath(path)).toBe(TELEMETRY_NAV_GROUP_META[group as keyof typeof TELEMETRY_NAV_GROUP_META].accent);
     }
   });
 

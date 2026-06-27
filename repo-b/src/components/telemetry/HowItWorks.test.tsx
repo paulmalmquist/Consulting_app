@@ -16,7 +16,7 @@ beforeAll(() => {
 describe("HowItWorks — telemetry system-architecture exhibit", () => {
   it("renders the heading and the four view tabs", () => {
     render(<HowItWorks envId="telemetry-demo" />);
-    expect(screen.getByText("Winston Telemetry Platform")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Winston Telemetry Platform" })).toBeInTheDocument();
     for (const label of ["Master System", "NASA · Databricks ML", "Streaming", "Factory ML · NCR"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }

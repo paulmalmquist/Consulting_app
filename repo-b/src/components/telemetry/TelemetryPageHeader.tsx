@@ -1,7 +1,9 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { C } from "./primitives";
+import { telemetryAccentForPath } from "./telemetryNav";
 
 // ===========================================================================
 // Telemetry page header system. One header family for every telemetry route so
@@ -20,13 +22,9 @@ import { C } from "./primitives";
 // the metadata/actions/metrics slots. Nested section headings keep using PageHeading.
 // ---------------------------------------------------------------------------
 
-// Brand fluorescent purple — gradient emphasis is limited to a meaningful phrase
-// (Overview's "Launch"/"Data", and at most one phrase on selected evidence headers).
-const NV_PURPLE = "#B040FF";
-
 export type HeaderVariant = "hero" | "compact" | "standard" | "evidence";
 
-/** A title is plain text or typed segments; a segment may be gradient-emphasized. */
+/** A title is plain text or typed segments; a `gradient` segment is emphasized in the category color. */
 export type TitleSegment = { text: string; gradient?: boolean };
 export type HeaderTitle = string | TitleSegment[];
 
@@ -44,22 +42,42 @@ const FONT_EDITORIAL = "var(--font-editorial), Georgia, serif";
 // face and the same size on every telemetry page, so the headlines read as one product. Overview is no
 // longer the oversized outlier and the operational consoles are no longer the small ones. The clamp() keeps
 // it wrapping cleanly from 390px to desktop. Variant still drives layout (margin, hero metric strip) and the
-// gradient still emphasizes a meaningful phrase, but the title font and size are shared.
+// emphasized word still carries the category color, but the title font and size are shared.
+//
+// Casing is normalized to sentence case in CSS (`lowercase` + a `first-letter:uppercase` cap), so every
+// title reads "First letter capitalized, the rest lowercase" regardless of how it is authored — no per-page
+// copy edits, and source-system acronyms can't reintroduce SHOUTING. text-transform is purely visual, so the
+// h1's textContent (and the header tests) are unchanged.
 const TITLE_STYLE: CSSProperties = {
   fontFamily: FONT_EDITORIAL, fontWeight: 600,
   fontSize: "clamp(1.85rem, 3.4vw, 2.3rem)", lineHeight: 1.12, letterSpacing: "0.003em",
 };
+const TITLE_CASE_CLASS = "lowercase first-letter:uppercase";
 
 const MARGIN_BOTTOM: Record<HeaderVariant, number> = { hero: 26, evidence: 24, standard: 22, compact: 18 };
 
-function renderTitle(title: HeaderTitle): ReactNode {
-  const segments: TitleSegment[] = typeof title === "string" ? [{ text: title }] : title;
-  return segments.map((seg, i) => {
-    if (!seg.gradient) return <span key={i}>{seg.text}</span>;
-    return (
-      <span key={i} style={{ color: NV_PURPLE, textShadow: `0 0 18px ${NV_PURPLE}99` }}>{seg.text}</span>
-    );
-  });
+// One emphasized word per title, painted in the page's category color (the same color the left rail
+// gives this section). For a typed-segment title, the authored `gradient` segments are the emphasis;
+// for a plain string we emphasize the leading word (letters/digits + internal hyphens/apostrophes),
+// leaving any trailing "·"/punctuation un-tinted.
+function accentSpan(text: string, accent: string, key?: number): ReactNode {
+  return <span key={key} style={{ color: accent, textShadow: `0 0 18px ${accent}99` }}>{text}</span>;
+}
+
+function renderTitle(title: HeaderTitle, accent: string): ReactNode {
+  if (typeof title !== "string") {
+    return title.map((seg, i) => (seg.gradient ? accentSpan(seg.text, accent, i) : <span key={i}>{seg.text}</span>));
+  }
+  const m = title.match(/^(\s*)([\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*)([\s\S]*)$/u);
+  if (!m) return <span>{title}</span>;
+  const [, lead, firstWord, rest] = m;
+  return (
+    <>
+      {lead}
+      {accentSpan(firstWord, accent)}
+      {rest}
+    </>
+  );
 }
 
 // Hero metric row — inline editorial stats under the thesis (not a card dashboard).
@@ -89,6 +107,7 @@ export function TelemetryPageHeader({
   metadata,
   actions,
   metrics,
+  accent,
 }: {
   variant?: HeaderVariant;
   eyebrow: string;
@@ -100,18 +119,24 @@ export function TelemetryPageHeader({
   actions?: ReactNode;
   /** Hero metric row (e.g. Overview Big Numbers). */
   metrics?: HeaderMetric[];
+  /** Category color override; defaults to the section color of the current route (the rail color). */
+  accent?: string;
 }) {
   const isWide = variant === "hero" || variant === "evidence";
+  // The page's section color — same as the left rail's. Resolved from the route so no page has to pass
+  // it; `usePathname` is null outside the app router (e.g. unit tests), where we fall back to cyan.
+  const pathname = usePathname();
+  const sectionAccent = accent ?? telemetryAccentForPath(pathname ?? "");
   return (
     <header style={{ marginBottom: MARGIN_BOTTOM[variant], maxWidth: isWide ? 880 : undefined }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span aria-hidden style={{ width: variant === "hero" ? 18 : 16, height: 2, borderRadius: 2, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}aa` }} />
-            <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: C.cyan, textTransform: "uppercase" }}>{eyebrow}</span>
+            <span aria-hidden style={{ width: variant === "hero" ? 18 : 16, height: 2, borderRadius: 2, background: sectionAccent, boxShadow: `0 0 8px ${sectionAccent}aa` }} />
+            <span style={{ fontFamily: C.mono, fontSize: 11, letterSpacing: "0.16em", color: sectionAccent, textTransform: "uppercase" }}>{eyebrow}</span>
           </div>
-          <h1 style={{ ...TITLE_STYLE, color: C.text, marginTop: variant === "hero" ? 12 : 9 }}>
-            {renderTitle(title)}
+          <h1 className={TITLE_CASE_CLASS} style={{ ...TITLE_STYLE, color: C.text, marginTop: variant === "hero" ? 12 : 9 }}>
+            {renderTitle(title, sectionAccent)}
           </h1>
         </div>
         {actions && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", flexShrink: 0 }}>{actions}</div>}

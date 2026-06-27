@@ -38,6 +38,20 @@ describe("TelemetryPageHeader", () => {
     expect(screen.getByText("$12k")).toBeInTheDocument();
   });
 
+  it("sentence-cases the title in CSS and emphasizes the leading word in its own span", () => {
+    render(<TelemetryPageHeader variant="standard" eyebrow="Factory & Quality" title="Factory · NCR Intelligence" accent="#f5b452" />);
+    const h1 = screen.getByRole("heading", { level: 1 });
+    // Casing is normalized purely in CSS — textContent (and acronyms) are untouched in the DOM.
+    expect(h1.className).toContain("lowercase");
+    expect(h1.className).toContain("first-letter:uppercase");
+    expect(h1).toHaveTextContent("Factory · NCR Intelligence");
+    // The leading word is isolated so it can carry the category color.
+    const firstWord = screen.getByText("Factory");
+    expect(firstWord.tagName).toBe("SPAN");
+    expect(firstWord).not.toBe(h1);
+    expect(firstWord.getAttribute("style") ?? "").toMatch(/color/i);
+  });
+
   it("renders actions and metadata slots when provided", () => {
     render(
       <TelemetryPageHeader

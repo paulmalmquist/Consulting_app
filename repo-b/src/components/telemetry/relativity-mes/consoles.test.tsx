@@ -39,7 +39,7 @@ describe("BuildOverviewConsole", () => {
       ],
     });
     render(<BuildOverviewConsole envId="telemetry" />);
-    expect(await screen.findByText("Build Overview")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Build Overview" })).toBeTruthy();
     expect(screen.getByText("synthetic sandbox")).toBeTruthy();
     expect((await screen.findAllByText("VEH-DEMO-001")).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("blocked")).toBeTruthy();
@@ -77,7 +77,7 @@ describe("BuildGenealogyConsole", () => {
       affected_vehicle_count: 2, rows: [{ vehicle_serial: "VEH-DEMO-001" }],
     });
     render(<BuildGenealogyConsole />);
-    expect(await screen.findByText("Build Genealogy")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Build Genealogy" })).toBeTruthy();
     // LOT-7788 appears as both a tree-row link and a where-used chip
     const lots = await screen.findAllByText("LOT-7788");
     expect(lots.length).toBeGreaterThanOrEqual(1);
@@ -98,7 +98,7 @@ describe("NcrTraceabilityConsole", () => {
         affected_vehicle_count: 2, estimated_rework_cost: 4200 }],
     });
     render(<NcrTraceabilityConsole envId="telemetry" />);
-    expect(await screen.findByText("NCR Traceability")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "NCR Traceability" })).toBeTruthy();
     expect(await screen.findByText("NCR-0001")).toBeTruthy();
     expect(screen.getByText("Open now")).toBeTruthy();
   });
@@ -116,7 +116,7 @@ describe("CostReconciliationConsole", () => {
         actual_cost: 5700, variance_amount: 700, variance_category: "input_qty", reconciliation_status: "exception" }],
     });
     render(<CostReconciliationConsole />);
-    expect(await screen.findByText("Cost Reconciliation")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Cost Reconciliation" })).toBeTruthy();
     expect(screen.getByText("Standard cost")).toBeTruthy();
     expect(await screen.findByText("MES actuals (physical truth)")).toBeTruthy();
     expect(screen.getByText("ERP settlement (financial truth)")).toBeTruthy();
@@ -137,7 +137,7 @@ describe("LineageSourceConsole", () => {
       serving: { rel_build_overview: { row_count: 3, serving_provenance: "seed-bootstrap" } },
     });
     render(<LineageSourceConsole />);
-    expect(await screen.findByText("Lineage & Source Tables")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Lineage & Source Tables" })).toBeTruthy();
     expect(await screen.findByText("rel_mes_vehicle")).toBeTruthy();
     expect(screen.getByText(/Live serving/)).toBeTruthy();
   });

@@ -11,7 +11,7 @@ import SystemHealth from "./SystemHealth";
 describe("SystemHealth — consolidated operations view", () => {
   it("renders one System Health heading and embeds both operational sub-surfaces under sections", () => {
     render(<SystemHealth envId="env-1" />);
-    expect(screen.getByText("System Health")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "System Health" })).toBeInTheDocument();
     expect(screen.getByText(/drift, serving, stream health/i)).toBeInTheDocument();
     expect(screen.getByText(/analyzer dispositions/i)).toBeInTheDocument();
     expect(screen.getByTestId("monitoring-embed")).toBeInTheDocument();
