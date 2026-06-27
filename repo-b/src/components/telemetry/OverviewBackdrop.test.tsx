@@ -18,6 +18,14 @@ describe("OverviewBackdrop (Phase 9B)", () => {
     expect(screen.queryByText(/generative/i)).toBeNull();
   });
 
+  it("renders the Relativity nodes as a sized centered logo (not a cover-cropped photo)", () => {
+    render(<OverviewBackdrop event={node("terran1")} />);
+    const layer = screen.getByRole("img", { name: /Relativity Space — company logo/i });
+    expect(layer.style.backgroundImage).toContain("/telemetry/backdrops/nodes/relativity-logo.svg");
+    expect(layer.style.backgroundSize).toBe("62% auto");
+    expect(screen.getByText(/Relativity Space \(logo/i)).toBeInTheDocument();
+  });
+
   it("renders the resolved era backdrop with its accessible label, image, and honesty caption", () => {
     render(<OverviewBackdrop event={ev("mission")} />);
     const layer = screen.getByRole("img", { name: THEME_BACKDROPS.mission.alt });

@@ -102,5 +102,14 @@
     "license": "Public domain",
     "artist": "Joel Kowsky",
     "source": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_(NHQ202211160017).jpg"
+  },
+  {
+    "id": "terran1, terranR",
+    "file": "/telemetry/backdrops/nodes/relativity-logo.svg",
+    "title": "File:Relativity Space Logo.svg",
+    "license": "Trademark of Relativity Space — used for identification (recolored white for the dark UI)",
+    "artist": "Relativity Space",
+    "source": "https://en.wikipedia.org/wiki/File:Relativity_Space_Logo.svg",
+    "note": "Manually sourced (not via fetch_node_backdrops.mjs, which is free-license-only). The Relativity nodes show the company wordmark instead of a launch photo because no freely-licensed Relativity launch image exists."
   }
 ]

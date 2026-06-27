@@ -27,6 +27,8 @@ export interface EventBackdrop {
   tone: string;
   /** CSS background-position; defaults to "center". */
   focus?: string;
+  /** CSS background-size; defaults to "cover". Use e.g. "62% auto" to show a centered logo at scale. */
+  size?: string;
   /** Honesty label shown in the UI — these assets are generative/curated, never evidence. */
   sourceKind: "generative" | "curated" | "illustrative";
   credit?: string;
