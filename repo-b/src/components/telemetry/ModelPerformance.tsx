@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import {
   getModelPerformance, type ModelRun, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID,
 } from "@/lib/telemetry/api";
-import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable, TelemetryActionButton } from "./primitives";
+import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable, SectionTabButton, TelemetryActionButton } from "./primitives";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import { MetricInspectorDrawer } from "./drawerPrimitives";
 import { SourceRowsTable, DatabricksRunLink, ModelArtifactLink, exportXlsxUrl } from "./drill";
+import { ThresholdSweepTab } from "./workbench/ThresholdSweepTab";
+import { FpFnReviewDrawer } from "./workbench/FpFnReviewDrawer";
 
 // Columns surfaced when drilling into the model rows. Mirrors the server XLSX export
 // (telemetry_export.py "model_runs") so the CSV preview and the .xlsx match.
@@ -99,6 +101,8 @@ export default function ModelPerformance() {
   const [nullReason, setNullReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drillOpen, setDrillOpen] = useState(false);
+  const [tab, setTab] = useState<"metrics" | "sweep">("metrics");
+  const [fpfnOpen, setFpfnOpen] = useState(false);
 
   useEffect(() => {
     getModelPerformance(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID)
@@ -118,6 +122,11 @@ export default function ModelPerformance() {
   return (
     <>
       {heading}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <SectionTabButton active={tab === "metrics"} onClick={() => setTab("metrics")}>Metrics</SectionTabButton>
+        <SectionTabButton active={tab === "sweep"} onClick={() => setTab("sweep")}>Threshold sweep</SectionTabButton>
+      </div>
+      {tab === "sweep" ? <ThresholdSweepTab /> : (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Tag color={C.green}>live rows</Tag>
@@ -139,13 +148,18 @@ export default function ModelPerformance() {
             so it was promoted, recorded honestly rather than forcing a fancier model to win.
           </span>
         </Panel>
-        <div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <TelemetryActionButton variant="secondary" onClick={() => setDrillOpen(true)}
             aria-label="Inspect the model rows and export">
             Source rows + export ›
           </TelemetryActionButton>
+          <TelemetryActionButton variant="secondary" onClick={() => setFpfnOpen(true)}
+            aria-label="Open the false-positive / false-negative review">
+            Failure review ›
+          </TelemetryActionButton>
         </div>
       </div>
+      )}
       <MetricInspectorDrawer
         open={drillOpen}
         onClose={() => setDrillOpen(false)}
@@ -186,6 +200,7 @@ export default function ModelPerformance() {
           </div>
         </div>
       </MetricInspectorDrawer>
+      <FpFnReviewDrawer open={fpfnOpen} onClose={() => setFpfnOpen(false)} />
       <DisclosureFooter />
     </>
   );
