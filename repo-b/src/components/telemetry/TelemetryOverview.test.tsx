@@ -11,8 +11,12 @@ vi.mock("./context/BottleneckMap/BottleneckMap", () => ({
     </div>
   ),
 }));
-// The Overview reads envId from the route to build the demo bridge links.
-vi.mock("next/navigation", () => ({ useParams: () => ({ envId: "env-test" }) }));
+// The Overview reads envId from the route to build the demo bridge links; the page header reads the
+// pathname to resolve its section (Overview → cyan) accent color.
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ envId: "env-test" }),
+  usePathname: () => "/lab/env/env-test/telemetry",
+}));
 
 import TelemetryOverview from "./TelemetryOverview";
 

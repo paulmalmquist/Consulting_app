@@ -140,7 +140,7 @@ describe("TelemetryMetadataExplorer", () => {
     const user = userEvent.setup();
     render(<TelemetryMetadataExplorer envId="route-env" />);
 
-    expect(await screen.findByText("Telemetry Metadata Explorer")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Telemetry Metadata Explorer" })).toBeInTheDocument();
     expect(screen.getByText("route-env")).toBeInTheDocument();
     expect(screen.getByText("telemetry-demo")).toBeInTheDocument();
     expect(screen.getByText("Runtime column enrichment is unavailable.")).toBeInTheDocument();
@@ -157,7 +157,7 @@ describe("TelemetryMetadataExplorer", () => {
     vi.spyOn(metadataApi, "getMetadataGraph").mockResolvedValue(graph);
     const user = userEvent.setup();
     render(<TelemetryMetadataExplorer envId="route-env" />);
-    await screen.findByText("Telemetry Metadata Explorer");
+    await screen.findByRole("heading", { name: "Telemetry Metadata Explorer" });
 
     await user.type(
       screen.getByPlaceholderText("Search schemas, tables, metrics, consumers..."),
@@ -178,6 +178,6 @@ describe("TelemetryMetadataExplorer", () => {
     expect(await screen.findByText("Metadata graph unavailable")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText("Telemetry Metadata Explorer")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Telemetry Metadata Explorer" })).toBeInTheDocument();
   });
 });

@@ -123,3 +123,47 @@ export function telemetrySectionLabel(pathname: string, envId: string): string {
   const match = TELEMETRY_NAV.find((n) => n.slug && isTelemetryItemActive(pathname, envId, n.slug));
   return match?.label ?? "Overview";
 }
+
+// Top-level slug -> owning group. Covers both visible nav slugs and the hide-before-delete routes
+// (copilot / governance / how-it-works / evidence / data-engineering / monitoring / spike-inspector)
+// that still resolve as deep links — so a page header can always recover its category color even when
+// the route is no longer shown in the rail. Multi-segment groups (relativity-mes/*, data-engineering/*)
+// are matched by prefix below, so they need no entry here.
+const TELEMETRY_SLUG_GROUP: Record<string, TelemetryNavGroup> = {
+  // Operations
+  stream: "Operations", replay: "Operations", stargate: "Operations",
+  runs: "Operations", "system-health": "Operations",
+  monitoring: "Operations", "spike-inspector": "Operations",
+  // Models & Intelligence
+  "model-performance": "Models & Intelligence", calibration: "Models & Intelligence",
+  registry: "Models & Intelligence", copilot: "Models & Intelligence",
+  // Factory & Quality
+  factory: "Factory & Quality", "factory-ml": "Factory & Quality",
+  // Evidence & Lineage
+  "metric-lineage": "Evidence & Lineage", metadata: "Evidence & Lineage",
+  governance: "Evidence & Lineage", "how-it-works": "Evidence & Lineage", evidence: "Evidence & Lineage",
+  // Agent Operations
+  "control-tower": "Agent Operations",
+};
+
+/** Group owning a telemetry pathname (best-effort; defaults to Overview). */
+export function telemetryGroupForPath(pathname: string): TelemetryNavGroup {
+  const marker = "/telemetry";
+  const i = pathname.indexOf(marker);
+  if (i === -1) return "Overview";
+  // Everything after "/telemetry/" — "" at the section root, else "factory", "relativity-mes/ncr", …
+  const rest = pathname.slice(i + marker.length).replace(/^\/+/, "").replace(/[?#].*$/, "");
+  if (rest === "") return "Overview";
+  if (rest.startsWith("relativity-mes")) return "Relativity MES Sandbox";
+  if (rest.startsWith("data-engineering")) return "Data Engineering";
+  return TELEMETRY_SLUG_GROUP[rest.split("/")[0]] ?? "Overview";
+}
+
+/**
+ * Category accent color for a telemetry pathname — the same per-group color the left rail (the
+ * "selector") paints each section with. Page headers use it to tint the eyebrow + emphasize one
+ * word in the title, so every page reads in its section's color. Defaults to the Overview cyan.
+ */
+export function telemetryAccentForPath(pathname: string): string {
+  return TELEMETRY_NAV_GROUP_META[telemetryGroupForPath(pathname)].accent;
+}

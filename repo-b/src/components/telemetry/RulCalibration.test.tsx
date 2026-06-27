@@ -7,7 +7,7 @@ import { CALIBRATION_TRAJECTORY } from "@/lib/telemetry/calibrationEvidence";
 describe("RulCalibration", () => {
   it("renders the champion header and required status chips", () => {
     render(<RulCalibration />);
-    expect(screen.getByText("RUL Calibration")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "RUL Calibration" })).toBeInTheDocument();
     expect(screen.getByText("Champion: CNN-LSTM")).toBeInTheDocument();
     expect(screen.getByText("Gate: Passed")).toBeInTheDocument();
     // honesty: must say not-SOTA and label the data source
