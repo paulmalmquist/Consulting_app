@@ -2,6 +2,8 @@
 
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import { C, DisclosureFooter, Panel } from "../primitives";
+import { ChampionReviewPanel } from "./ChampionReviewPanel";
+import { ExperimentReplayButton } from "./ExperimentReplayButton";
 import { FeatureSetSelector } from "./FeatureSetSelector";
 import { LifecycleStepper } from "./LifecycleStepper";
 import { WorkbenchHeadlineCard } from "./WorkbenchHeadlineCard";
@@ -21,11 +23,17 @@ export default function ModelWorkbench() {
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <WorkbenchHeadlineCard />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <ExperimentReplayButton />
+        </div>
         <Panel title="ML lifecycle">
           <LifecycleStepper activeSlug="workbench" />
         </Panel>
         <Panel title="Feature sets — baseline → temporal → diagnostic">
           <FeatureSetSelector />
+        </Panel>
+        <Panel title="Champion review — why MAD stayed champion">
+          <ChampionReviewPanel />
         </Panel>
         <Panel pad={14}>
           <span style={{ fontFamily: C.mono, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>
