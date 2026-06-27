@@ -62,6 +62,17 @@ describe("StargateConsole Start recorded capture control", () => {
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(2));
   });
 
+  it("bridges to the validated historical ML evidence and opens the auditable drawer", () => {
+    render(<StargateConsole />);
+    // the bridge card states the live detector is a transparent baseline, not the PCA model
+    expect(screen.getByText("validated historical ML evidence")).toBeInTheDocument();
+    expect(screen.getByText(/transparent rolling-MAD baseline/i)).toBeInTheDocument();
+    // opening it reveals the auditable Databricks source
+    fireEvent.click(screen.getByRole("button", { name: /Open validated historical ML evidence/i }));
+    expect(screen.getByText("Historical ML anomaly evidence")).toBeInTheDocument();
+    expect(screen.getByText("novendor_1.telemetry.silver_cmapss")).toBeInTheDocument();
+  });
+
   it("surfaces a capture-mode-only message on 409 and does not imply a live feed", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);

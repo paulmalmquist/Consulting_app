@@ -13,6 +13,7 @@ import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import AnomalyInspectionDrawer from "./AnomalyInspectionDrawer";
 import DlqPanel from "./DlqPanel";
 import DlqInspectionDrawer from "./DlqInspectionDrawer";
+import HistoricalMlEvidenceDrawer from "./HistoricalMlEvidenceDrawer";
 import RulesVsBaselineLane from "./RulesVsBaselineLane";
 import TempVibrationChart from "./TempVibrationChart";
 import StreamLineageDrawer from "./StreamLineageDrawer";
@@ -64,6 +65,7 @@ export default function StargateConsole() {
   const [startMsg, setStartMsg] = useState<string | null>(null);
   const [inspected, setInspected] = useState<AnomalyRow | null>(null);
   const [dlqInspected, setDlqInspected] = useState<DlqRow | null>(null);
+  const [mlEvidenceOpen, setMlEvidenceOpen] = useState(false);
   const [highlight, setHighlight] = useState<{ start: number; end: number } | null>(null);
   // The three.js canvas only mounts on desktop, and only after hydration —
   // useIsMobile defaults to desktop on the server, so an unguarded render
@@ -321,6 +323,31 @@ export default function StargateConsole() {
         <DlqPanel rows={dlq} count={stream.dlqCount} onInspect={setDlqInspected} />
       </SplitGrid>
 
+      {/* Bridge to the validated historical ML anomaly pipeline. The live detection above is a transparent
+          baseline; this states that plainly and opens the auditable evidence (Databricks source + lineage). */}
+      <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 9, background: C.panel,
+        border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 16, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Tag color={C.cyan}>validated historical ML evidence</Tag>
+            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>NASA C-MAPSS FD004 · Databricks</span>
+          </div>
+          <p style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55, margin: "8px 0 0", maxWidth: 760 }}>
+            Live detection above is a <strong style={{ color: C.text }}>transparent rolling-MAD baseline</strong> over a recorded
+            capture, not the PCA model itself. Behind it is a validated ML anomaly pipeline: a regime-conditioned PCA detector
+            trained and evaluated on historical NASA run-to-failure telemetry, proving regime-conditioning cuts false positives
+            <strong style={{ color: C.green }}> 93.3%</strong> versus a naive global detector.
+          </p>
+        </div>
+        <button type="button" onClick={() => setMlEvidenceOpen(true)}
+          aria-label="Open validated historical ML evidence with Databricks source and lineage"
+          style={{ flexShrink: 0, fontFamily: C.mono, fontSize: 11, padding: "8px 14px", borderRadius: 7,
+            cursor: "pointer", color: C.text, background: "rgba(103,232,249,0.12)", border: `1px solid ${C.cyan}66` }}>
+          Inspect evidence + Databricks source ›
+        </button>
+      </div>
+
       <AnomalyInspectionDrawer
         anomaly={inspected}
         envId={TELEMETRY_DEMO_ENV_ID}
@@ -336,6 +363,8 @@ export default function StargateConsole() {
         onClose={() => setLineageAnomalyId(null)}
       />
       <DlqInspectionDrawer row={dlqInspected} onClose={() => setDlqInspected(null)} />
+      <HistoricalMlEvidenceDrawer open={mlEvidenceOpen} onClose={() => setMlEvidenceOpen(false)}
+        envHref={pathname.replace(/\/stargate.*$/, "")} />
     </div>
   );
 }
