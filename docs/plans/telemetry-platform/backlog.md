@@ -44,3 +44,12 @@ can act on it without asking questions.
 - **PCA anomaly model underperformed the baseline (F1 0.42 vs 0.64).** Not a blocker — the baseline
   was promoted honestly. If a stronger anomaly model is wanted later, an LSTM/temporal autoencoder on
   the rolling-feature sequence is the natural next attempt (deferred; not required for the demo).
+
+## AI Build & Operations Reference (shipped 2026-06-27) — follow-ups
+
+- Capture an authenticated desktop+mobile screenshot of `/lab/env/[envId]/telemetry/ai-build-ops` into
+  `docs/plans/telemetry-platform/screenshots/` (this session verified by build + render tests; the route
+  is auth-gated so no headless screenshot was taken).
+- Keep `repo-b/src/components/telemetry/reference/manifest.ts` in step with the code — it is a
+  hand-maintained inventory; if an endpoint/MCP tool/CI job/page changes, update the matching row.
+- Optional: add a focused Playwright route/render check if reference-nav e2e coverage is introduced.
