@@ -275,6 +275,38 @@ export const getRuns = (env: string, biz: string) =>
 export const getSummary = (env: string, biz: string) =>
   apiFetch<TelemetrySummary>("/api/telemetry/summary", { params: params(env, biz) });
 
+// ── Model Workbench receipts (Part I.1) — receipt-driven, DB-free, fail-closed ──────────────────
+// The Workbench REPLAYS committed receipts produced offline by the GCP MLOps pipeline (Part II); no
+// live compute. `payload` is null and `null_reason` is set ("gcp_receipt_not_generated_yet") until the
+// real artifact lands. A `local_fixture` provider with no vertex_* refs is an honest seeded preview.
+export interface ReceiptEnvelope<P = unknown> {
+  kind: string;
+  provider: string | null;               // databricks | vertex | local_fixture | null
+  source_bigquery_table: string | null;
+  vertex_experiment: string | null;
+  vertex_run_id: string | null;
+  vertex_model_id: string | null;
+  gcs_artifact_uri: string | null;
+  created_at: string | null;
+  code_version: string | null;
+  data_manifest_sha: string | null;
+  rows_evaluated: number | null;
+  payload: P | null;
+  fallback_used: boolean;
+  null_reason: string | null;
+}
+
+export const getWorkbenchExperiments = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/experiments");
+export const getWorkbenchFeatureManifest = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/feature-manifest");
+export const getWorkbenchThresholdSweep = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/threshold-sweep");
+export const getWorkbenchErrorReview = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/error-review");
+export const getWorkbenchPromotionReview = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/promotion-review");
+
 export interface FusedVectorInfo {
   available: boolean;
   null_reason?: string;

@@ -29,10 +29,12 @@ from app.mcp.tools.telemetry_tools import (
 )
 from app.observability.logger import emit_log
 from app.schemas.telemetry import (
-    MonitoringResponse, RunDetailOut, ScoreRequest, ScoreResponse, StreamSourceRequest, TestRunOut,
+    MonitoringResponse, ReceiptEnvelope, RunDetailOut, ScoreRequest, ScoreResponse,
+    StreamSourceRequest, TestRunOut,
 )
 from app.schemas.telemetry_metadata import TelemetryMetadataGraph
 from app.services import telemetry_analyzer
+from app.services import telemetry_receipts as receipts
 from app.services import telemetry_serving as svc
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
@@ -168,6 +170,57 @@ def model_performance(env_id: str = Query(...), business_id: UUID = Query(...)):
     """Promoted-model metadata + exact metrics from tel_model_runs (no hardcoded numbers)."""
     try:
         return svc.model_performance(env_id=env_id, business_id=business_id)
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+# ── Model Workbench receipts (Part I.1) — receipt-driven, DB-free, fail-closed ─────────────────────
+# The Workbench REPLAYS committed receipts produced offline by the GCP MLOps pipeline (Part II); it
+# never triggers live compute. An absent receipt returns null_reason at HTTP 200 — never a 500, never a
+# fabricated value. No env/business params: these are demo artifacts (the /replay precedent), not
+# tenant-scoped DB reads.
+
+@router.get("/workbench/experiments", response_model=ReceiptEnvelope)
+def workbench_experiments():
+    """MLflow/Vertex experiment runs + HPO board (experiment_runs receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("experiment_runs"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/feature-manifest", response_model=ReceiptEnvelope)
+def workbench_feature_manifest():
+    """Feature-set contract A/B/C with leakage notes (feature_manifest receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("feature_manifest"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/threshold-sweep", response_model=ReceiptEnvelope)
+def workbench_threshold_sweep():
+    """MAD_K sweep PR/ROC + confusion + operating point (threshold_sweep receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("threshold_sweep"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/error-review", response_model=ReceiptEnvelope)
+def workbench_error_review():
+    """FP/FN/borderline cases with feature attribution (error_review receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("error_review"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/promotion-review", response_model=ReceiptEnvelope)
+def workbench_promotion_review():
+    """Gate-by-gate promotion decision vs prior champion (promotion_review receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("promotion_review"))
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc)
 
