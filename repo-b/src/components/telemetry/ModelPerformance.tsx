@@ -8,8 +8,9 @@ import { C, Tag, Panel, Loading, ErrorState, DisclosureFooter, ScrollTable, Sect
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
 import { MetricInspectorDrawer } from "./drawerPrimitives";
 import { SourceRowsTable, DatabricksRunLink, ModelArtifactLink, exportXlsxUrl } from "./drill";
+import { MlProvenanceDrawer, MAD_FROZEN, type MlProvenanceSelection } from "./drill";
 import { ThresholdSweepTab } from "./workbench/ThresholdSweepTab";
-import { FpFnReviewDrawer } from "./workbench/FpFnReviewDrawer";
+import { FpFnReviewDrawer, type ErrorCase } from "./workbench/FpFnReviewDrawer";
 
 // Columns surfaced when drilling into the model rows. Mirrors the server XLSX export
 // (telemetry_export.py "model_runs") so the CSV preview and the .xlsx match.
@@ -103,6 +104,8 @@ export default function ModelPerformance() {
   const [drillOpen, setDrillOpen] = useState(false);
   const [tab, setTab] = useState<"metrics" | "sweep">("metrics");
   const [fpfnOpen, setFpfnOpen] = useState(false);
+  const [provSel, setProvSel] = useState<MlProvenanceSelection | null>(null);
+  const [provOpen, setProvOpen] = useState(false);
 
   useEffect(() => {
     getModelPerformance(TELEMETRY_DEMO_ENV_ID, TELEMETRY_DEMO_BUSINESS_ID)
@@ -118,6 +121,37 @@ export default function ModelPerformance() {
 
   const anomaly = models.filter((m) => m.model_kind === "anomaly");
   const rul = models.filter((m) => m.model_kind === "rul");
+  const champ = anomaly.find((m) => m.model_alias === "champion" || m.promotion_state === "promoted");
+
+  // Build the continuous-drill selection from a failure case + the frozen MAD rule. The exact feature
+  // vector and the per-channel reconciliation caveat arrive with the GCP error_review receipt (S9);
+  // until then the drill shows the rule, the run, and the case facts honestly.
+  function drillCase(c: ErrorCase) {
+    setProvSel({
+      title: `Failure case ${c.id} — ${c.kind}`,
+      signal: [
+        { label: "Case", value: c.kind },
+        { label: "Channel", value: c.channel ?? "—" },
+        { label: "Window", value: c.window ?? "—" },
+        { label: "True label", value: c.true_label ?? "—" },
+      ],
+      featureVector: null,
+      math: [
+        { label: "Rule", value: "MAD: residual = |value − rmean| > k · scale" },
+        { label: "MAD_K", value: MAD_FROZEN.mad_k },
+        { label: "Detector threshold", value: MAD_FROZEN.detector_threshold.toFixed(4) },
+        { label: "Feature pushed", value: c.feature_pushed ?? "—" },
+      ],
+      reconciliationCaveat: null,
+      mlflowRunId: champ?.mlflow_run_id ?? null,
+      modelName: champ?.model_name ?? null,
+      gate: [
+        { label: "Operationally", value: c.acceptable ?? "—" },
+        { label: "Might fix it", value: c.suggested_fix ?? "—" },
+      ],
+    });
+    setProvOpen(true);
+  }
 
   return (
     <>
@@ -200,7 +234,8 @@ export default function ModelPerformance() {
           </div>
         </div>
       </MetricInspectorDrawer>
-      <FpFnReviewDrawer open={fpfnOpen} onClose={() => setFpfnOpen(false)} />
+      <FpFnReviewDrawer open={fpfnOpen} onClose={() => setFpfnOpen(false)} onDrill={drillCase} />
+      <MlProvenanceDrawer open={provOpen} onClose={() => setProvOpen(false)} selection={provSel} />
       <DisclosureFooter />
     </>
   );

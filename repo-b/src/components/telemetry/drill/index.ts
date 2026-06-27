@@ -13,3 +13,4 @@ export {
   DeltaTableLink,
   LineageLink,
 } from "./evidenceLinks";
+export { MlProvenanceDrawer, MAD_FROZEN, type MlProvenanceSelection } from "./MlProvenanceDrawer";
