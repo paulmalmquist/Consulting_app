@@ -142,20 +142,27 @@ describe("LineageSourceConsole", () => {
     expect(screen.getByText(/Live serving/)).toBeTruthy();
   });
 
-  it("renders honest Databricks deep links: live catalog, fail-closed gold tables (bootstrap)", async () => {
+  it("renders honest medallion links: BigQuery live, Databricks fail-closed", async () => {
     (lib.getLineage as Mock).mockResolvedValue({
-      ...META, // serving_provenance = seed-bootstrap -> medallion not materialized
+      ...META, // serving_provenance = seed-bootstrap -> Databricks medallion not materialized
       rows: [{ object_name: "rel_mes_vehicle", layer: "source", source_system: "MES", row_count: 3,
         dashboard_consumers: "[]", ingest_batch_id: "rel-mes-seed-v1", source_system_layer: "rel_*" }],
       serving: { rel_build_overview: { row_count: 3, serving_provenance: "seed-bootstrap" } },
     });
     render(<LineageSourceConsole />);
-    expect(await screen.findByText("Databricks medallion & Unity Catalog")).toBeTruthy();
-    // catalog (novendor_1) exists now -> a live anchor to the workspace
-    const catalog = await screen.findByText(/Open catalog novendor_1/);
-    expect(catalog.closest("a")?.getAttribute("href")).toContain("dbc-2504bec5-b5ab");
-    // gold tables not materialized -> fail-closed (disabled + reason), NOT a live link
-    expect(screen.getByText("gold_rel_build_overview").closest("a")).toBeNull();
+    // BigQuery medallion is materialized -> live links
+    expect(await screen.findByText("BigQuery medallion (GCP) — live")).toBeTruthy();
+    const bqDataset = screen.getByText(/Open BigQuery dataset/);
+    expect(bqDataset.closest("a")?.getAttribute("href")).toContain("console.cloud.google.com/bigquery");
+    // a BigQuery gold table is a LIVE anchor to the BQ console
+    const bqGoldAnchor = screen.getAllByRole("link").find(
+      (a) => a.getAttribute("href")?.includes("relativity_mes") && a.textContent?.includes("gold_rel_build_overview"));
+    expect(bqGoldAnchor).toBeTruthy();
+    // Databricks catalog (novendor_1) is live; its gold tables are fail-closed (not materialized)
+    expect(screen.getByText("Databricks medallion & Unity Catalog")).toBeTruthy();
+    expect(screen.getByText(/Open catalog novendor_1/).closest("a")?.getAttribute("href")).toContain("dbc-2504bec5-b5ab");
     expect(screen.getAllByText(/Medallion not materialized/).length).toBeGreaterThanOrEqual(1);
+    // the Databricks gold label (exact text, no trailing ↗) is fail-closed -> not an anchor
+    expect(screen.getByText("gold_rel_build_overview").closest("a")).toBeNull();
   });
 });
