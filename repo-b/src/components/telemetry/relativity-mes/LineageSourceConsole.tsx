@@ -9,7 +9,11 @@
 import { C, EmptyState, ErrorState, Loading, Panel, ScrollTable, StatGrid, Stat, Tag } from "../primitives";
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import { ExportToCsvButton } from "../drill";
+import { EvidenceLink } from "../drill";
 import { getLineage, useRel, type LineageResp, type Row } from "@/lib/telemetry/relativityMes";
+import {
+  REL_GOLD_TABLES, catalogLink, goldTableLink, schemaLink, workspaceLink,
+} from "@/lib/telemetry/relativityMesDatabricks";
 import { REL_ACCENT, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } from "./relMesShared";
 
 const str = (r: Row, k: string) => (r[k] == null ? "—" : String(r[k]));
@@ -55,6 +59,25 @@ export default function LineageSourceConsole() {
               <span style={{ color: dbxLive ? C.green : REL_ACCENT }}>
                 {dbxLive ? "databricks-gold (synced from Databricks Gold)" : "seed-bootstrap (deterministic gold load; Databricks backfill flips this to databricks-gold)"}
               </span>.
+            </div>
+          </Panel>
+
+          <Panel title="Databricks medallion & Unity Catalog" style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <EvidenceLink link={workspaceLink()} />
+              <EvidenceLink link={catalogLink()} />
+              <EvidenceLink link={schemaLink(dbxLive)} />
+            </div>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginBottom: 10, lineHeight: 1.5 }}>
+              Gold Delta tables in <span style={{ color: C.dim }}>{`novendor_1.relativity_mes`}</span> (workspace
+              dbc-2504bec5-b5ab). {dbxLive
+                ? "Live links — the medallion has materialized these tables."
+                : "Fail-closed below: the medallion has not run (serverless warehouse health=FAILED), so these tables do not exist yet. Each becomes a live ↗ link once serving_provenance flips to databricks-gold. Copy the catalog path to inspect when the warehouse is healthy."}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {REL_GOLD_TABLES.map((t) => (
+                <EvidenceLink key={t} link={goldTableLink(t, dbxLive)} />
+              ))}
             </div>
           </Panel>
 
