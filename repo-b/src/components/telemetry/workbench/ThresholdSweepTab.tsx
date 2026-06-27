@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { getWorkbenchThresholdSweep, type ReceiptEnvelope } from "@/lib/telemetry/api";
 import { C, EmptyState, Loading, MetricCard, StatGrid, Tag } from "../primitives";
+import { FeatureTableLink } from "../drill";
 
 const ACCENT = "#a855f7";
 
@@ -53,12 +54,14 @@ export function ThresholdSweepTab() {
   const [data, setData] = useState<SweepPayload | null>(null);
   const [nullReason, setNullReason] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
+  const [sourceTable, setSourceTable] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getWorkbenchThresholdSweep()
       .then((r: ReceiptEnvelope) => {
         setProvider(r.provider);
+        setSourceTable(r.source_bigquery_table);
         setNullReason(r.null_reason);
         setData(r.payload as SweepPayload | null);
       })
@@ -95,6 +98,7 @@ export function ThresholdSweepTab() {
         <span style={{ fontFamily: C.sans, fontSize: 12, color: C.dim }}>
           the honest threshold-selection story — a real sweep, not a single magic number
         </span>
+        {sourceTable && <FeatureTableLink provider={provider} table={sourceTable} />}
       </div>
 
       <StatGrid cols={3}>

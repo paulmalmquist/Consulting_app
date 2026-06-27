@@ -1,27 +1,244 @@
 {
-  "provider": "local_fixture",
-  "source_bigquery_table": null,
+  "provider": "gcp",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
   "vertex_experiment": null,
   "vertex_run_id": null,
   "vertex_model_id": null,
   "gcs_artifact_uri": null,
   "created_at": "2026-06-27T00:00:00Z",
-  "code_version": "local_fixture@0d502954",
-  "data_manifest_sha": null,
-  "rows_evaluated": null,
+  "code_version": "gcp-migration@08a0d352",
+  "data_manifest_sha": "d26cb66bb7817b67",
+  "rows_evaluated": 509555,
   "null_reason": null,
   "payload": {
     "operating_point": {
       "mad_k": 4.0,
-      "global_train_scale": 0.033866801182436346,
-      "detector_threshold": 0.13546720472974538,
-      "source": "frozen serving constants (backend/app/services/telemetry_serving.py)"
+      "global_train_scale": 0.033866801182424466,
+      "detector_threshold": 0.13546720472969787,
+      "source": "rolling-MAD over BigQuery gold_smap_msl_windows (public SMAP/MSL test split)"
     },
-    "sweep": [],
-    "confusion_at_operating": null,
-    "curves": {"pr": [], "roc": []},
+    "sweep": [
+      {
+        "threshold": 2.0,
+        "precision": 0.264653,
+        "recall": 0.362455,
+        "f1_pointwise": 0.305928,
+        "event_recall": 0.971154,
+        "alarm_precision": 0.264653,
+        "affiliation_f1": 0.434318,
+        "tpr": 0.362455,
+        "fpr": 0.143583,
+        "tp": 23046,
+        "fp": 64034,
+        "fn": 40537,
+        "tn": 381938
+      },
+      {
+        "threshold": 2.5,
+        "precision": 0.284714,
+        "recall": 0.338314,
+        "f1_pointwise": 0.309208,
+        "event_recall": 0.932692,
+        "alarm_precision": 0.284714,
+        "affiliation_f1": 0.453997,
+        "tpr": 0.338314,
+        "fpr": 0.121178,
+        "tp": 21511,
+        "fp": 54042,
+        "fn": 42072,
+        "tn": 391930
+      },
+      {
+        "threshold": 3.0,
+        "precision": 0.302593,
+        "recall": 0.320054,
+        "f1_pointwise": 0.311079,
+        "event_recall": 0.894231,
+        "alarm_precision": 0.302593,
+        "affiliation_f1": 0.469342,
+        "tpr": 0.320054,
+        "fpr": 0.105168,
+        "tp": 20350,
+        "fp": 46902,
+        "fn": 43233,
+        "tn": 399070
+      },
+      {
+        "threshold": 3.5,
+        "precision": 0.318217,
+        "recall": 0.309234,
+        "f1_pointwise": 0.313661,
+        "event_recall": 0.807692,
+        "alarm_precision": 0.318217,
+        "affiliation_f1": 0.472736,
+        "tpr": 0.309234,
+        "fpr": 0.094459,
+        "tp": 19662,
+        "fp": 42126,
+        "fn": 43921,
+        "tn": 403846
+      },
+      {
+        "threshold": 4.0,
+        "precision": 0.3279,
+        "recall": 0.29931,
+        "f1_pointwise": 0.312953,
+        "event_recall": 0.769231,
+        "alarm_precision": 0.3279,
+        "affiliation_f1": 0.474634,
+        "tpr": 0.29931,
+        "fpr": 0.087467,
+        "tp": 19031,
+        "fp": 39008,
+        "fn": 44552,
+        "tn": 406964
+      },
+      {
+        "threshold": 4.5,
+        "precision": 0.341676,
+        "recall": 0.290722,
+        "f1_pointwise": 0.314146,
+        "event_recall": 0.721154,
+        "alarm_precision": 0.341676,
+        "affiliation_f1": 0.477843,
+        "tpr": 0.290722,
+        "fpr": 0.079862,
+        "tp": 18485,
+        "fp": 35616,
+        "fn": 45098,
+        "tn": 410356
+      },
+      {
+        "threshold": 5.0,
+        "precision": 0.346955,
+        "recall": 0.281884,
+        "f1_pointwise": 0.311052,
+        "event_recall": 0.701923,
+        "alarm_precision": 0.346955,
+        "affiliation_f1": 0.477779,
+        "tpr": 0.281884,
+        "fpr": 0.075644,
+        "tp": 17923,
+        "fp": 33735,
+        "fn": 45660,
+        "tn": 412237
+      },
+      {
+        "threshold": 5.5,
+        "precision": 0.350487,
+        "recall": 0.275608,
+        "f1_pointwise": 0.30857,
+        "event_recall": 0.692308,
+        "alarm_precision": 0.350487,
+        "affiliation_f1": 0.478567,
+        "tpr": 0.275608,
+        "fpr": 0.072818,
+        "tp": 17524,
+        "fp": 32475,
+        "fn": 46059,
+        "tn": 413497
+      },
+      {
+        "threshold": 6.0,
+        "precision": 0.356193,
+        "recall": 0.269978,
+        "f1_pointwise": 0.30715,
+        "event_recall": 0.663462,
+        "alarm_precision": 0.356193,
+        "affiliation_f1": 0.475768,
+        "tpr": 0.269978,
+        "fpr": 0.069572,
+        "tp": 17166,
+        "fp": 31027,
+        "fn": 46417,
+        "tn": 414945
+      }
+    ],
+    "confusion_at_operating": {
+      "tp": 19031,
+      "fp": 39008,
+      "fn": 44552,
+      "tn": 406964
+    },
+    "curves": {
+      "pr": [
+        {
+          "recall": 0.362455,
+          "precision": 0.264653
+        },
+        {
+          "recall": 0.338314,
+          "precision": 0.284714
+        },
+        {
+          "recall": 0.320054,
+          "precision": 0.302593
+        },
+        {
+          "recall": 0.309234,
+          "precision": 0.318217
+        },
+        {
+          "recall": 0.29931,
+          "precision": 0.3279
+        },
+        {
+          "recall": 0.290722,
+          "precision": 0.341676
+        },
+        {
+          "recall": 0.281884,
+          "precision": 0.346955
+        },
+        {
+          "recall": 0.275608,
+          "precision": 0.350487
+        },
+        {
+          "recall": 0.269978,
+          "precision": 0.356193
+        }
+      ],
+      "roc": [
+        {
+          "fpr": 0.143583,
+          "tpr": 0.362455
+        },
+        {
+          "fpr": 0.121178,
+          "tpr": 0.338314
+        },
+        {
+          "fpr": 0.105168,
+          "tpr": 0.320054
+        },
+        {
+          "fpr": 0.094459,
+          "tpr": 0.309234
+        },
+        {
+          "fpr": 0.087467,
+          "tpr": 0.29931
+        },
+        {
+          "fpr": 0.079862,
+          "tpr": 0.290722
+        },
+        {
+          "fpr": 0.075644,
+          "tpr": 0.281884
+        },
+        {
+          "fpr": 0.072818,
+          "tpr": 0.275608
+        },
+        {
+          "fpr": 0.069572,
+          "tpr": 0.269978
+        }
+      ]
+    },
     "metric_basis": "point-wise honest (telemetry-platform/pipeline/metrics.honest_anomaly_metrics)",
-    "sweep_pending": true,
-    "note": "The operating point is the real frozen serving threshold. The full MAD_K sweep + confusion matrix + PR/ROC curves are computed over the BigQuery labeled SMAP/MSL test split in the GCP run (Part II.4) and will replace this preview."
+    "sweep_pending": false
   }
 }

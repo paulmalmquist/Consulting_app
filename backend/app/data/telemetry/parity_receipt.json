@@ -1,0 +1,34 @@
+{
+  "provider": "gcp",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+  "vertex_experiment": null,
+  "vertex_run_id": null,
+  "vertex_model_id": null,
+  "gcs_artifact_uri": null,
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "gcp-migration@08a0d352",
+  "data_manifest_sha": "d26cb66bb7817b67",
+  "rows_evaluated": 509555,
+  "null_reason": null,
+  "payload": {
+    "claim": "GCP-side rolling-MAD reproduces the deployed champion's honest metrics from public data, with no Databricks dependency.",
+    "operating_k": 4.0,
+    "gcp_metrics": {
+      "f1_pointwise": 0.312953,
+      "event_recall": 0.769231,
+      "affiliation_f1": 0.474634
+    },
+    "champion_metrics": {
+      "f1_pointwise": 0.312953,
+      "event_recall": 0.769231,
+      "affiliation_f1": 0.474634
+    },
+    "deltas": {
+      "f1_pointwise": 0.0,
+      "event_recall": 0.0,
+      "affiliation_f1": 0.0
+    },
+    "match": true,
+    "test_channels": 81
+  }
+}

@@ -25,15 +25,28 @@ def test_seeded_feature_manifest_loads():
     assert all(fs["included"] is False for fs in out["payload"]["feature_sets"][1:])
 
 
-def test_seeded_threshold_sweep_operating_point_is_real():
+def test_threshold_sweep_is_real_gcp_sweep():
+    # S7 replaced the seed with the real GCP/BigQuery-backed sweep.
     out = rcpt.load_receipt("threshold_sweep")
     assert out["null_reason"] is None
-    assert out["provider"] == "local_fixture"
+    assert out["provider"] == "gcp"
+    assert out["source_bigquery_table"] == "novendor-events-prod.telemetry.gold_smap_msl_windows"
     op = out["payload"]["operating_point"]
     assert op["mad_k"] == 4.0
-    assert op["detector_threshold"] == pytest.approx(0.13546720472974538)
-    assert out["payload"]["sweep"] == []             # full sweep pending the GCP run (Part II.4)
-    assert out["payload"]["sweep_pending"] is True
+    assert op["detector_threshold"] == pytest.approx(0.13546720472974538, rel=1e-6)
+    assert out["payload"]["sweep_pending"] is False
+    assert len(out["payload"]["sweep"]) >= 5         # a real multi-K sweep
+    # operating point reproduces the deployed champion's honest f1
+    op_row = next(s for s in out["payload"]["sweep"] if s["threshold"] == 4.0)
+    assert op_row["f1_pointwise"] == pytest.approx(0.312953, abs=1e-4)
+
+
+def test_parity_receipt_reproduces_champion():
+    out = rcpt.load_receipt("parity")
+    assert out["null_reason"] is None
+    assert out["provider"] == "gcp"
+    assert out["payload"]["match"] is True
+    assert out["payload"]["deltas"]["f1_pointwise"] == pytest.approx(0.0, abs=1e-4)
 
 
 # ── service: fail-closed paths ────────────────────────────────────────────────

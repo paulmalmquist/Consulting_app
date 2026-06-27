@@ -225,6 +225,15 @@ def workbench_promotion_review():
         raise _to_http(exc)
 
 
+@router.get("/workbench/parity", response_model=ReceiptEnvelope)
+def workbench_parity():
+    """GCP-side reproduction of the champion's honest metrics vs the deployed champion (parity receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("parity"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
 @router.get("/summary")
 def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
     """Single KPI + serving-inventory contract for the Overview (counts + headline metrics)."""
