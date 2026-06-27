@@ -97,6 +97,18 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
     ).toBe(true);
   });
 
+  it("highlights only the most specific route — an index route does not stay active on a child", () => {
+    const child = "/lab/env/env-1/telemetry/relativity-mes/ncr";
+    // On a child route, only the child is active; the index ("Build Overview") is NOT.
+    expect(isTelemetryItemActive(child, "env-1", "relativity-mes/ncr")).toBe(true);
+    expect(isTelemetryItemActive(child, "env-1", "relativity-mes")).toBe(false);
+    // The index route is active on its own page.
+    expect(isTelemetryItemActive("/lab/env/env-1/telemetry/relativity-mes", "env-1", "relativity-mes")).toBe(true);
+    // Overview (empty slug) stays exact-only and never matches a child path.
+    expect(isTelemetryItemActive("/lab/env/env-1/telemetry", "env-1", "")).toBe(true);
+    expect(isTelemetryItemActive(child, "env-1", "")).toBe(false);
+  });
+
   it("provides icon + accent metadata for every displayed nav group (collapsible icon rail)", () => {
     for (const group of TELEMETRY_NAV_GROUPS) {
       const meta = TELEMETRY_NAV_GROUP_META[group];

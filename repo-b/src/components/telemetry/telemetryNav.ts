@@ -118,9 +118,19 @@ export function telemetryHref(envId: string, slug: string): string {
 
 export function isTelemetryItemActive(pathname: string, envId: string, slug: string): boolean {
   const base = `/lab/env/${envId}/telemetry`;
-  if (!slug) return pathname === base;
-  const href = `${base}/${slug}`;
-  return pathname === href || pathname.startsWith(`${href}/`);
+  // A slug matches the path when it is the exact route or an ancestor segment of it.
+  const matches = (s: string): boolean => {
+    const href = s ? `${base}/${s}` : base;
+    return pathname === href || (s !== "" && pathname.startsWith(`${href}/`));
+  };
+  if (!matches(slug)) return false;
+  // Only the MOST specific (longest) matching slug is active, so an index route like "relativity-mes"
+  // ("Build Overview") does not stay highlighted while a child route ("relativity-mes/ncr") is open.
+  // Candidates are the declared nav slugs plus this slug (so deep-link-only routes still resolve).
+  const best = [...TELEMETRY_NAV.map((n) => n.slug), slug]
+    .filter(matches)
+    .reduce((a, b) => (b.length > a.length ? b : a), "");
+  return slug === best;
 }
 
 /** Label of the section owning the current pathname (for the mobile header). */
