@@ -377,7 +377,7 @@ operated* — the missing "AI / automation / CLI / REST / MCP / CI-CD / DevOps c
   honest boundaries) rendered from a hand-maintained manifest where every claim-bearing row carries
   `sourceRefs` citing the real file/route. Engineering-runbook layout, not a card grid.
 - **Files:** `repo-b/src/app/lab/env/[envId]/telemetry/ai-build-ops/page.tsx`;
-  `repo-b/src/components/telemetry/reference/{AiBuildOpsReference.tsx,refPrimitives.tsx,manifest.ts,
+  `repo-b/src/components/telemetry/buildops/{AiBuildOpsReference.tsx,refPrimitives.tsx,manifest.ts,
   AiBuildOpsReference.test.tsx}`; nav entry + slug→group in `telemetryNav.ts` (+ test).
 - **Verified:** `npm run typecheck` clean; `npm run lint` clean (new files); focused vitest 13/13;
   `npm run build` compiles the route (14.8 kB, 295 pages). Manifest sourced from the verified

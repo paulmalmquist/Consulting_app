@@ -50,6 +50,6 @@ can act on it without asking questions.
 - Capture an authenticated desktop+mobile screenshot of `/lab/env/[envId]/telemetry/ai-build-ops` into
   `docs/plans/telemetry-platform/screenshots/` (this session verified by build + render tests; the route
   is auth-gated so no headless screenshot was taken).
-- Keep `repo-b/src/components/telemetry/reference/manifest.ts` in step with the code — it is a
+- Keep `repo-b/src/components/telemetry/buildops/manifest.ts` in step with the code — it is a
   hand-maintained inventory; if an endpoint/MCP tool/CI job/page changes, update the matching row.
 - Optional: add a focused Playwright route/render check if reference-nav e2e coverage is introduced.

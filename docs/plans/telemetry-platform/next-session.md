@@ -7,7 +7,7 @@
 > Evidence & Lineage) answering "how was this demo built and how is it operated" — page-by-page AI
 > inventory, AI-skill map, runtime AI layers, REST endpoint map, MCP tool map, CLI/DevOps, CI/CD gates,
 > evidence checklist, honest boundaries. Pure static manifest (`repo-b/src/components/telemetry/
-> reference/manifest.ts`) where every claim-bearing row cites a real file/route via `sourceRefs`; no
+> buildops/manifest.ts`) where every claim-bearing row cites a real file/route via `sourceRefs`; no
 > fetch, no new API, no DB change. typecheck + lint clean, vitest 13/13, `npm run build` compiles the
 > route. **Follow-up:** keep the manifest in step with the code (it's the only drift risk); an
 > authenticated browser screenshot wasn't captured this session (route is auth-gated) — verified by
