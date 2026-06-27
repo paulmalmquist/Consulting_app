@@ -141,4 +141,21 @@ describe("LineageSourceConsole", () => {
     expect(await screen.findByText("rel_mes_vehicle")).toBeTruthy();
     expect(screen.getByText(/Live serving/)).toBeTruthy();
   });
+
+  it("renders honest Databricks deep links: live catalog, fail-closed gold tables (bootstrap)", async () => {
+    (lib.getLineage as Mock).mockResolvedValue({
+      ...META, // serving_provenance = seed-bootstrap -> medallion not materialized
+      rows: [{ object_name: "rel_mes_vehicle", layer: "source", source_system: "MES", row_count: 3,
+        dashboard_consumers: "[]", ingest_batch_id: "rel-mes-seed-v1", source_system_layer: "rel_*" }],
+      serving: { rel_build_overview: { row_count: 3, serving_provenance: "seed-bootstrap" } },
+    });
+    render(<LineageSourceConsole />);
+    expect(await screen.findByText("Databricks medallion & Unity Catalog")).toBeTruthy();
+    // catalog (novendor_1) exists now -> a live anchor to the workspace
+    const catalog = await screen.findByText(/Open catalog novendor_1/);
+    expect(catalog.closest("a")?.getAttribute("href")).toContain("dbc-2504bec5-b5ab");
+    // gold tables not materialized -> fail-closed (disabled + reason), NOT a live link
+    expect(screen.getByText("gold_rel_build_overview").closest("a")).toBeNull();
+    expect(screen.getAllByText(/Medallion not materialized/).length).toBeGreaterThanOrEqual(1);
+  });
 });
