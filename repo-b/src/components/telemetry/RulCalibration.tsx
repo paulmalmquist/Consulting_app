@@ -108,7 +108,9 @@ export default function RulCalibration() {
   const [drillOpen, setDrillOpen] = useState(false);
 
   return (
-    <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+    // Full-bleed left-aligned like every other telemetry page (no centered max-width wrapper) so the
+    // left margin matches the rest of the workbench; the shell's main padding owns the gutter.
+    <div>
       <TelemetryPageHeader
         variant="standard"
         eyebrow="Telemetry · Calibration"
