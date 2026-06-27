@@ -234,6 +234,33 @@ def workbench_parity():
         raise _to_http(exc)
 
 
+@router.get("/workbench/drift", response_model=ReceiptEnvelope)
+def workbench_drift():
+    """Statistical drift trio (PSI/KS/Wasserstein) per feature (drift_feature_stats receipt; S11)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("drift_features"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/embedding-projection", response_model=ReceiptEnvelope)
+def workbench_embedding_projection():
+    """2-D PCA/latent projection + reconstruction error (embedding_projection receipt; S11)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("embedding_projection"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
+@router.get("/workbench/factory-local-shap", response_model=ReceiptEnvelope)
+def workbench_factory_local_shap():
+    """Per-prediction SHAP for the factory tree models (factory_local_shap receipt; S11)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("factory_local_shap"))
+    except Exception as exc:  # noqa: BLE001
+        raise _to_http(exc)
+
+
 @router.get("/summary")
 def summary(env_id: str = Query(...), business_id: UUID = Query(...)):
     """Single KPI + serving-inventory contract for the Overview (counts + headline metrics)."""

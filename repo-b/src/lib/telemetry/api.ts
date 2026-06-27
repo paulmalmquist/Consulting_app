@@ -306,6 +306,14 @@ export const getWorkbenchErrorReview = () =>
   apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/error-review");
 export const getWorkbenchPromotionReview = () =>
   apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/promotion-review");
+export const getWorkbenchParity = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/parity");
+export const getWorkbenchDrift = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/drift");
+export const getWorkbenchEmbedding = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/embedding-projection");
+export const getWorkbenchFactoryShap = () =>
+  apiFetch<ReceiptEnvelope>("/api/telemetry/workbench/factory-local-shap");
 
 export interface FusedVectorInfo {
   available: boolean;
