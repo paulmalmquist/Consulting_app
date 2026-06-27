@@ -27,6 +27,7 @@ RECEIPT_FILES: dict[str, str] = {
     "threshold_sweep": "threshold_sweep.json",
     "error_review": "error_review.json",
     "promotion_review": "promotion_review.json",
+    "parity": "parity_receipt.json",
 }
 
 # Strict provenance header every receipt carries. Missing keys normalize to None — never fabricated.

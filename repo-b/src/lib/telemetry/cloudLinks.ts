@@ -23,6 +23,12 @@ const GCP_PROJECT =
 const GCP_LOCATION =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TELEMETRY_GCP_LOCATION) || "us-east4";
 
+// GCP family — a Vertex run, a BigQuery-backed artifact, or a generic GCP-computed receipt all route to
+// the GCP console. (Run/model deep links still require a real id; otherwise they fail closed.)
+function isGcp(p: LinkProvider): boolean {
+  return p === "vertex" || p === "gcp" || p === "bigquery";
+}
+
 function fixtureOnly(label: string, copyText?: string | null): ExternalEvidenceLink {
   return {
     label,
@@ -38,7 +44,7 @@ export function cloudRunLink(opts: {
   provider?: LinkProvider; runId?: string | null; experimentId?: string | null;
 }): ExternalEvidenceLink {
   const { provider, runId, experimentId } = opts;
-  if (provider === "vertex") {
+  if (isGcp(provider)) {
     const label = "Open Vertex run";
     if (!runId) return { label, kind: "mlflow_run", href: null, unavailableReason: "No Vertex run id on this object.", copyText: null };
     const exp = experimentId ?? "";
@@ -56,7 +62,7 @@ export function cloudModelLink(opts: {
   provider?: LinkProvider; modelId?: string | null; modelName?: string | null;
 }): ExternalEvidenceLink {
   const { provider, modelId, modelName } = opts;
-  if (provider === "vertex") {
+  if (isGcp(provider)) {
     const label = "Open Vertex model";
     if (!modelId) return { label, kind: "registered_model", href: null, unavailableReason: "No Vertex model id on this object.", copyText: null };
     return {
@@ -73,7 +79,7 @@ export function cloudModelLink(opts: {
 // ── Feature / source table ─────────────────────────────────────────────────────
 export function cloudTableLink(opts: { provider?: LinkProvider; table?: string | null }): ExternalEvidenceLink {
   const { provider, table } = opts;
-  if (provider === "vertex") {
+  if (isGcp(provider)) {
     const label = "Open BigQuery table";
     if (!table) return { label, kind: "delta_table", href: null, unavailableReason: "No source table on this object.", copyText: null };
     // table is "project.dataset.table" or "dataset.table".

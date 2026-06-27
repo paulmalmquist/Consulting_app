@@ -37,4 +37,12 @@ describe("cloudLinks — provider-aware deep links", () => {
     expect(l.href).toContain("vertex-ai/models");
     expect(l.href).toContain("9988");
   });
+
+  it("gcp provider (BigQuery-backed, no Vertex run) routes the table to BigQuery and fails the run closed", () => {
+    const table = cloudTableLink({ provider: "gcp", table: "novendor-events-prod.telemetry.gold_smap_msl_windows" });
+    expect(table.href).toContain("bigquery");
+    expect(table.href).toContain("gold_smap_msl_windows");
+    const run = cloudRunLink({ provider: "gcp", runId: null });
+    expect(run.href).toBeNull(); // no Vertex run produced a gcp-computed receipt
+  });
 });
