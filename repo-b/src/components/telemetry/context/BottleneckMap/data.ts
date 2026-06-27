@@ -67,6 +67,11 @@ export const NODE_BACKDROPS: Record<string, EventBackdrop> = {
   starshipcatch: { image: "/telemetry/backdrops/nodes/starshipcatch.jpg", tone: RS.amber, sourceKind: "curated", focus: "center", alt: "Starship full stack — illustrative era photo (CC BY-SA 2.0, Wikimedia Commons)", credit: "Hotel Pika · CC BY-SA 2.0 · Wikimedia Commons" },
   fleetscale: { image: "/telemetry/backdrops/nodes/fleetscale.jpg", tone: RS.cyan, sourceKind: "curated", focus: "center", alt: "Falcon 9 fleet launch — illustrative era photo (CC0, Wikimedia Commons)", credit: "SpaceX · CC0 · Wikimedia Commons" },
   artemis: { image: "/telemetry/backdrops/nodes/artemis.jpg", tone: RS.cyan, sourceKind: "curated", focus: "center", alt: "Artemis I SLS launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "Joel Kowsky · Public domain · Wikimedia Commons" },
+  // Relativity Space nodes: no freely-licensed launch photo exists, and the audience is Relativity — so
+  // their own wordmark stands in as a big centered logo (white-recolored, sized to a share of the band,
+  // not cover-cropped). Used for identification; trademark of Relativity Space.
+  terran1: { image: "/telemetry/backdrops/nodes/relativity-logo.svg", tone: RS.violet, sourceKind: "curated", size: "62% auto", focus: "center 42%", alt: "Relativity Space — company logo (used for identification)", credit: "Relativity Space (logo · trademark of Relativity Space)" },
+  terranR: { image: "/telemetry/backdrops/nodes/relativity-logo.svg", tone: RS.violet, sourceKind: "curated", size: "62% auto", focus: "center 42%", alt: "Relativity Space — company logo (used for identification)", credit: "Relativity Space (logo · trademark of Relativity Space)" },
 };
 
 // Resolution order: explicit per-event override → curated per-node era photo → era theme art → null

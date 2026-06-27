@@ -19,9 +19,18 @@ describe("resolveBackdrop (Phase 9B era backdrops)", () => {
     expect(bd.credit).toMatch(/Wikimedia Commons/);
   });
 
-  it("falls back to the era theme art for a node with no curated photo", () => {
-    const terran1 = EVENTS.find((e) => e.id === "terran1")!; // Relativity — no freely-licensed image
-    expect(resolveBackdrop(terran1)).toBe(THEME_BACKDROPS.manufacturing);
+  it("uses the Relativity wordmark logo (not a launch photo) for the Relativity nodes", () => {
+    for (const id of ["terran1", "terranR"]) {
+      const ev = EVENTS.find((e) => e.id === id)!;
+      const bd = resolveBackdrop(ev)!;
+      expect(bd).toBe(NODE_BACKDROPS[id]);
+      expect(bd.image).toBe("/telemetry/backdrops/nodes/relativity-logo.svg");
+      expect(bd.size).toBe("62% auto"); // shown as a big centered logo, not cover-cropped
+      expect(bd.credit).toMatch(/Relativity Space/i);
+    }
+  });
+
+  it("falls back to the era theme art for a node with no curated backdrop", () => {
     const falcon1 = EVENTS.find((e) => e.id === "falcon1")!; // intentionally not fetched
     expect(resolveBackdrop(falcon1)).toBe(THEME_BACKDROPS.cost);
   });
@@ -32,9 +41,9 @@ describe("resolveBackdrop (Phase 9B era backdrops)", () => {
     expect(resolveBackdrop({ ...base, backdrop: override })).toBe(override);
   });
 
-  it("every curated node backdrop is credited and points at a committed jpg", () => {
-    for (const [id, bd] of Object.entries(NODE_BACKDROPS)) {
-      expect(bd.image).toBe(`/telemetry/backdrops/nodes/${id}.jpg`);
+  it("every curated node backdrop is credited and points at a committed asset", () => {
+    for (const bd of Object.values(NODE_BACKDROPS)) {
+      expect(bd.image).toMatch(/^\/telemetry\/backdrops\/nodes\/.+\.(jpg|svg)$/);
       expect(bd.sourceKind).toBe("curated");
       expect(bd.credit && bd.credit.length > 0).toBe(true);
     }

@@ -33,7 +33,9 @@ export default function OverviewBackdrop({ event }: { event: DecoratedEvent | nu
       {/* persistent base wash */}
       <div style={{ position: "absolute", inset: 0, background: BASE }} />
 
-      {/* era theme layer — keyed so each selection cross-fades; carries the accessible label */}
+      {/* era theme layer — keyed so each selection cross-fades; carries the accessible label. The image
+          sits on this element so its background-size can vary (cover for photos/motifs, a fixed share
+          for a centered logo); the tone wash is a full-bleed child so the custom size never warps it. */}
       {bd && (
         <div
           key={themeKey ?? undefined}
@@ -44,15 +46,15 @@ export default function OverviewBackdrop({ event }: { event: DecoratedEvent | nu
           style={{
             position: "absolute", inset: 0,
             backgroundColor: `${bd.tone}14`,
-            backgroundImage: [
-              `radial-gradient(120% 95% at 28% 16%, ${bd.tone}33, transparent 60%)`,
-              bd.image ? `url("${bd.image}")` : null,
-            ].filter(Boolean).join(", "),
-            backgroundSize: "cover",
+            backgroundImage: bd.image ? `url("${bd.image}")` : undefined,
+            backgroundSize: bd.size ?? "cover",
             backgroundPosition: bd.focus ?? "center",
             backgroundRepeat: "no-repeat",
           }}
-        />
+        >
+          <div style={{ position: "absolute", inset: 0,
+            background: `radial-gradient(120% 95% at 28% 16%, ${bd.tone}33, transparent 60%)` }} />
+        </div>
       )}
 
       {/* scrim for readability + fade to background before the chart */}
