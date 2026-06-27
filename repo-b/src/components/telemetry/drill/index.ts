@@ -12,5 +12,8 @@ export {
   ModelArtifactLink,
   DeltaTableLink,
   LineageLink,
+  CloudRunLink,
+  ModelRegistryLink,
+  FeatureTableLink,
 } from "./evidenceLinks";
 export { MlProvenanceDrawer, MAD_FROZEN, type MlProvenanceSelection } from "./MlProvenanceDrawer";

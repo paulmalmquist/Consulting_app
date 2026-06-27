@@ -143,6 +143,7 @@ export default function ModelPerformance() {
         { label: "Feature pushed", value: c.feature_pushed ?? "—" },
       ],
       reconciliationCaveat: null,
+      provider: "databricks",
       mlflowRunId: champ?.mlflow_run_id ?? null,
       modelName: champ?.model_name ?? null,
       gate: [

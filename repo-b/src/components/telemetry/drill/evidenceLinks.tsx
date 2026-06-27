@@ -8,6 +8,7 @@ import {
   deltaTableLink,
   type ExternalEvidenceLink,
 } from "@/lib/lab/factoryEvidenceLinks";
+import { cloudRunLink, cloudModelLink, cloudTableLink, type LinkProvider } from "@/lib/telemetry/cloudLinks";
 
 // Self-contained copy chip (the factory drawer's is private to that file; we keep this
 // shared component independent of it).
@@ -88,6 +89,27 @@ export function ModelArtifactLink({ modelName }: { modelName?: string | null }) 
 
 export function DeltaTableLink({ tableName }: { tableName?: string | null }) {
   return <EvidenceLink link={deltaTableLink(tableName)} />;
+}
+
+// ── Provider-aware links (Model Workbench Part II.1) ───────────────────────────
+// Render the right console link per provenance (databricks/null → MLflow/Unity Catalog; vertex → GCP
+// console; local_fixture → copyable id only). All fail closed through the same EvidenceLink contract.
+export function CloudRunLink({
+  provider, runId, experimentId,
+}: { provider?: LinkProvider; runId?: string | null; experimentId?: string | null }) {
+  return <EvidenceLink link={cloudRunLink({ provider, runId, experimentId })} />;
+}
+
+export function ModelRegistryLink({
+  provider, modelId, modelName,
+}: { provider?: LinkProvider; modelId?: string | null; modelName?: string | null }) {
+  return <EvidenceLink link={cloudModelLink({ provider, modelId, modelName })} />;
+}
+
+export function FeatureTableLink({
+  provider, table,
+}: { provider?: LinkProvider; table?: string | null }) {
+  return <EvidenceLink link={cloudTableLink({ provider, table })} />;
 }
 
 // Inline "open lineage" affordance. The caller supplies either an `href` (deep-link to
