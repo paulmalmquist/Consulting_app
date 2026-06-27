@@ -48,10 +48,32 @@ export const THEME_BACKDROPS: Record<InnovationKey, EventBackdrop> = {
   dataops:       { image: "/telemetry/backdrops/dataops.svg",       tone: RS.cyan,   sourceKind: "generative", alt: "Illustrative mission-control dense-signal-field motif" },
 };
 
-// Per-event override wins; otherwise the era theme; otherwise null (Overview falls back to its gradient).
+// Per-node era photos (Phase 9B). One freely-licensed Wikimedia Commons image per Bottleneck Map node,
+// downloaded + committed under /public/telemetry/backdrops/nodes (provenance in nodes/manifest.json,
+// fetched by scripts/telemetry/fetch_node_backdrops.mjs). These are real era photographs used as
+// illustrative atmosphere behind the scrim — NOT evidence, and credited. Nodes with no free image
+// (Relativity's Terran 1 / Terran R) are intentionally absent and fall back to the era theme art.
+export const NODE_BACKDROPS: Record<string, EventBackdrop> = {
+  sputnik: { image: "/telemetry/backdrops/nodes/sputnik.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "Sputnik 1 — illustrative era photo (Public domain, Wikimedia Commons)", credit: "Soyuz235 · Public domain · Wikimedia Commons" },
+  vostok: { image: "/telemetry/backdrops/nodes/vostok.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "Vostok 1 / Gagarin — illustrative era photo (Public domain, Wikimedia Commons)", credit: "\"Romina Posta\" · Public domain · Wikimedia Commons" },
+  apollo11: { image: "/telemetry/backdrops/nodes/apollo11.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "Apollo 11 Saturn V launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "NASA; restored by Michel Vuijlsteke · Public domain · Wikimedia Commons" },
+  shuttle: { image: "/telemetry/backdrops/nodes/shuttle.jpg", tone: RS.amber, sourceKind: "curated", focus: "center", alt: "Space Shuttle Columbia launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "NASA · Public domain · Wikimedia Commons" },
+  iss: { image: "/telemetry/backdrops/nodes/iss.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "International Space Station — illustrative era photo (Public domain, Wikimedia Commons)", credit: "NASA · Public domain · Wikimedia Commons" },
+  falcon9: { image: "/telemetry/backdrops/nodes/falcon9.jpg", tone: RS.green, sourceKind: "curated", focus: "center", alt: "Falcon 9 launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "U.S. Space Force photo by Joshua Conti · Public domain · Wikimedia Commons" },
+  dragon: { image: "/telemetry/backdrops/nodes/dragon.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "SpaceX Dragon — illustrative era photo (CC0, Wikimedia Commons)", credit: "SpaceX Photos · CC0 · Wikimedia Commons" },
+  f9landing: { image: "/telemetry/backdrops/nodes/f9landing.jpg", tone: RS.amber, sourceKind: "curated", focus: "center", alt: "Falcon 9 booster landing — illustrative era photo (CC0, Wikimedia Commons)", credit: "SpaceX Photos · CC0 · Wikimedia Commons" },
+  falconheavy: { image: "/telemetry/backdrops/nodes/falconheavy.jpg", tone: RS.green, sourceKind: "curated", focus: "center", alt: "Falcon Heavy on the pad — illustrative era photo (CC BY-SA 4.0, Wikimedia Commons)", credit: "Daniel Oberhaus · CC BY-SA 4.0 · Wikimedia Commons" },
+  crewdragon: { image: "/telemetry/backdrops/nodes/crewdragon.jpg", tone: RS.blue, sourceKind: "curated", focus: "center", alt: "Crew Dragon Demo-2 launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "Bill Ingalls · Public domain · Wikimedia Commons" },
+  starshipcatch: { image: "/telemetry/backdrops/nodes/starshipcatch.jpg", tone: RS.amber, sourceKind: "curated", focus: "center", alt: "Starship full stack — illustrative era photo (CC BY-SA 2.0, Wikimedia Commons)", credit: "Hotel Pika · CC BY-SA 2.0 · Wikimedia Commons" },
+  fleetscale: { image: "/telemetry/backdrops/nodes/fleetscale.jpg", tone: RS.cyan, sourceKind: "curated", focus: "center", alt: "Falcon 9 fleet launch — illustrative era photo (CC0, Wikimedia Commons)", credit: "SpaceX · CC0 · Wikimedia Commons" },
+  artemis: { image: "/telemetry/backdrops/nodes/artemis.jpg", tone: RS.cyan, sourceKind: "curated", focus: "center", alt: "Artemis I SLS launch — illustrative era photo (Public domain, Wikimedia Commons)", credit: "Joel Kowsky · Public domain · Wikimedia Commons" },
+};
+
+// Resolution order: explicit per-event override → curated per-node era photo → era theme art → null
+// (Overview falls back to its gradient when nothing is selected).
 export function resolveBackdrop(e: LaunchEvent | null): EventBackdrop | null {
   if (!e) return null;
-  return e.backdrop ?? THEME_BACKDROPS[e.type] ?? null;
+  return e.backdrop ?? NODE_BACKDROPS[e.id] ?? THEME_BACKDROPS[e.type] ?? null;
 }
 
 export const BANDS: { y: number; label: string }[] = [

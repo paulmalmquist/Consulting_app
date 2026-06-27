@@ -1,0 +1,106 @@
+[
+  {
+    "id": "sputnik",
+    "file": "/telemetry/backdrops/nodes/sputnik.jpg",
+    "title": "File:Sputnik 1 Arming Key.jpg",
+    "license": "Public domain",
+    "artist": "Soyuz235",
+    "source": "https://commons.wikimedia.org/wiki/File:Sputnik_1_Arming_Key.jpg"
+  },
+  {
+    "id": "vostok",
+    "file": "/telemetry/backdrops/nodes/vostok.jpg",
+    "title": "File:Romania 1961 MI 1962 stamp (Yuri Gagarin, Soviet pilot and cosmonaut who became the first human to journey into outer space).jpg",
+    "license": "Public domain",
+    "artist": "\"Romina Posta\"",
+    "source": "https://commons.wikimedia.org/wiki/File:Romania_1961_MI_1962_stamp_(Yuri_Gagarin,_Soviet_pilot_and_cosmonaut_who_became_the_first_human_to_journey_into_outer_space).jpg"
+  },
+  {
+    "id": "apollo11",
+    "file": "/telemetry/backdrops/nodes/apollo11.jpg",
+    "title": "File:Apollo 11 Launch2.jpg",
+    "license": "Public domain",
+    "artist": "NASA; restored by Michel Vuijlsteke",
+    "source": "https://commons.wikimedia.org/wiki/File:Apollo_11_Launch2.jpg"
+  },
+  {
+    "id": "shuttle",
+    "file": "/telemetry/backdrops/nodes/shuttle.jpg",
+    "title": "File:Space Shuttle Columbia launching.jpg",
+    "license": "Public domain",
+    "artist": "NASA",
+    "source": "https://commons.wikimedia.org/wiki/File:Space_Shuttle_Columbia_launching.jpg"
+  },
+  {
+    "id": "iss",
+    "file": "/telemetry/backdrops/nodes/iss.jpg",
+    "title": "File:STS-134 International Space Station after undocking.jpg",
+    "license": "Public domain",
+    "artist": "NASA",
+    "source": "https://commons.wikimedia.org/wiki/File:STS-134_International_Space_Station_after_undocking.jpg"
+  },
+  {
+    "id": "falcon9",
+    "file": "/telemetry/backdrops/nodes/falcon9.jpg",
+    "title": "File:45th Space Wing Supports Successful Falcon 9 L-24 Starlink Launch (210428-F-KD758-241).jpg",
+    "license": "Public domain",
+    "artist": "U.S. Space Force photo by Joshua Conti",
+    "source": "https://commons.wikimedia.org/wiki/File:45th_Space_Wing_Supports_Successful_Falcon_9_L-24_Starlink_Launch_(210428-F-KD758-241).jpg"
+  },
+  {
+    "id": "dragon",
+    "file": "/telemetry/backdrops/nodes/dragon.jpg",
+    "title": "File:Dragon 2 hover test (24159153709).jpg",
+    "license": "CC0",
+    "artist": "SpaceX Photos",
+    "source": "https://commons.wikimedia.org/wiki/File:Dragon_2_hover_test_(24159153709).jpg"
+  },
+  {
+    "id": "f9landing",
+    "file": "/telemetry/backdrops/nodes/f9landing.jpg",
+    "title": "File:Falcon 9 first stage at LZ-1(two).jpg",
+    "license": "CC0",
+    "artist": "SpaceX Photos",
+    "source": "https://commons.wikimedia.org/wiki/File:Falcon_9_first_stage_at_LZ-1(two).jpg"
+  },
+  {
+    "id": "falconheavy",
+    "file": "/telemetry/backdrops/nodes/falconheavy.jpg",
+    "title": "File:SpaceX Falcon Heavy on the Launch Pad.jpg",
+    "license": "CC BY-SA 4.0",
+    "artist": "Daniel Oberhaus",
+    "source": "https://commons.wikimedia.org/wiki/File:SpaceX_Falcon_Heavy_on_the_Launch_Pad.jpg"
+  },
+  {
+    "id": "crewdragon",
+    "file": "/telemetry/backdrops/nodes/crewdragon.jpg",
+    "title": "File:SpaceX Demo-2 Launch (NHQ202005300009).jpg",
+    "license": "Public domain",
+    "artist": "Bill Ingalls",
+    "source": "https://commons.wikimedia.org/wiki/File:SpaceX_Demo-2_Launch_(NHQ202005300009).jpg"
+  },
+  {
+    "id": "starshipcatch",
+    "file": "/telemetry/backdrops/nodes/starshipcatch.jpg",
+    "title": "File:Starship full stack with Jeep.jpg",
+    "license": "CC BY-SA 2.0",
+    "artist": "Hotel Pika",
+    "source": "https://commons.wikimedia.org/wiki/File:Starship_full_stack_with_Jeep.jpg"
+  },
+  {
+    "id": "fleetscale",
+    "file": "/telemetry/backdrops/nodes/fleetscale.jpg",
+    "title": "File:CRS-9 mission (28348649546).jpg",
+    "license": "CC0",
+    "artist": "SpaceX",
+    "source": "https://commons.wikimedia.org/wiki/File:CRS-9_mission_(28348649546).jpg"
+  },
+  {
+    "id": "artemis",
+    "file": "/telemetry/backdrops/nodes/artemis.jpg",
+    "title": "File:Artemis I Launch (NHQ202211160017).jpg",
+    "license": "Public domain",
+    "artist": "Joel Kowsky",
+    "source": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_(NHQ202211160017).jpg"
+  }
+]

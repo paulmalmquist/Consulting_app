@@ -2,18 +2,27 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import OverviewBackdrop from "./OverviewBackdrop";
-import { THEME_BACKDROPS } from "./context/BottleneckMap/data";
+import { NODE_BACKDROPS, THEME_BACKDROPS } from "./context/BottleneckMap/data";
 import type { DecoratedEvent, InnovationKey } from "./context/BottleneckMap/types";
 
-// Only the innovation `type` drives the backdrop; build a minimal event for the unit test.
+// `type` drives the era theme; `id` drives the curated per-node photo. Build minimal events.
 const ev = (type: InnovationKey): DecoratedEvent => ({ type } as unknown as DecoratedEvent);
+const node = (id: string): DecoratedEvent => ({ id } as unknown as DecoratedEvent);
 
 describe("OverviewBackdrop (Phase 9B)", () => {
+  it("renders a curated per-node era photo with its credit (not 'generative')", () => {
+    render(<OverviewBackdrop event={node("apollo11")} />);
+    const layer = screen.getByRole("img", { name: NODE_BACKDROPS.apollo11.alt });
+    expect(layer.style.backgroundImage).toContain("/telemetry/backdrops/nodes/apollo11.jpg");
+    expect(screen.getByText(/Illustrative — .*Wikimedia Commons/i)).toBeInTheDocument();
+    expect(screen.queryByText(/generative/i)).toBeNull();
+  });
+
   it("renders the resolved era backdrop with its accessible label, image, and honesty caption", () => {
     render(<OverviewBackdrop event={ev("mission")} />);
     const layer = screen.getByRole("img", { name: THEME_BACKDROPS.mission.alt });
     expect(layer.style.backgroundImage).toContain("/telemetry/backdrops/mission.svg");
-    expect(screen.getByText(/Backdrop: illustrative · generative asset/i)).toBeInTheDocument();
+    expect(screen.getByText(/Backdrop: illustrative · generative/i)).toBeInTheDocument();
   });
 
   it("changes backdrop metadata when the selected event's era changes", () => {
@@ -39,6 +48,6 @@ describe("OverviewBackdrop (Phase 9B)", () => {
     // The transition is a CSS class the prefers-reduced-motion media query neutralizes; the alt/content
     // do not depend on it.
     expect(layer.className).toMatch(/backdropFade/);
-    expect(screen.getByText(/Backdrop: illustrative · generative asset/i)).toBeInTheDocument();
+    expect(screen.getByText(/Backdrop: illustrative · generative/i)).toBeInTheDocument();
   });
 });
