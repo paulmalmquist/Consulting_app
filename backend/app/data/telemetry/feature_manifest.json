@@ -1,0 +1,71 @@
+{
+  "provider": "local_fixture",
+  "source_bigquery_table": null,
+  "vertex_experiment": null,
+  "vertex_run_id": null,
+  "vertex_model_id": null,
+  "gcs_artifact_uri": null,
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "local_fixture@0d502954",
+  "data_manifest_sha": null,
+  "rows_evaluated": null,
+  "null_reason": null,
+  "payload": {
+    "feature_sets": [
+      {
+        "id": "baseline",
+        "label": "A — Baseline",
+        "purpose": "Transparent starting point — the promoted MAD champion's real inputs.",
+        "model_family": "rolling-MAD",
+        "included": true,
+        "features": [
+          {"name": "value", "calc": "raw channel reading", "leakage_risk": "none"},
+          {"name": "rolling_mean_50", "calc": "trailing mean over 50 ticks (no look-ahead)", "leakage_risk": "none"},
+          {"name": "residual", "calc": "abs(value - rolling_mean_50)", "leakage_risk": "none"},
+          {"name": "global_train_scale", "calc": "median abs residual across SMAP/MSL train channels (frozen)", "leakage_risk": "none"},
+          {"name": "channel_id", "calc": "categorical channel identifier", "leakage_risk": "none"}
+        ],
+        "leakage_notes": "Trailing windows only; train scale frozen from the train split. No test labels touch features."
+      },
+      {
+        "id": "temporal",
+        "label": "B — Temporal context",
+        "purpose": "Catch drift before static redlines trip.",
+        "model_family": "MAD / PCA",
+        "included": false,
+        "features": [
+          {"name": "rolling_mean_10", "calc": "trailing mean over 10 ticks", "leakage_risk": "none"},
+          {"name": "rolling_mean_50", "calc": "trailing mean over 50 ticks", "leakage_risk": "none"},
+          {"name": "rolling_mean_100", "calc": "trailing mean over 100 ticks", "leakage_risk": "none"},
+          {"name": "rolling_std_10", "calc": "trailing std over 10 ticks", "leakage_risk": "none"},
+          {"name": "rolling_std_50", "calc": "trailing std over 50 ticks", "leakage_risk": "none"},
+          {"name": "residual_zscore", "calc": "residual / trailing residual std", "leakage_risk": "none"},
+          {"name": "residual_slope", "calc": "OLS slope of residual over a short trailing window", "leakage_risk": "none"},
+          {"name": "residual_acceleration", "calc": "second difference of residual", "leakage_risk": "none"},
+          {"name": "time_since_last_spike", "calc": "ticks since last residual above the warning band", "leakage_risk": "none"},
+          {"name": "duration_above_warning_band", "calc": "consecutive ticks above the warning band", "leakage_risk": "none"}
+        ],
+        "leakage_notes": "All windows are trailing. Engineered in the GCP gold step (Part II) — not yet computed; this is the planned contract, not measured output."
+      },
+      {
+        "id": "diagnostic",
+        "label": "C — Rich diagnostic state",
+        "purpose": "More robust and more explainable.",
+        "model_family": "PCA / autoencoder",
+        "included": false,
+        "features": [
+          {"name": "channel_normalized_residual", "calc": "residual / per-channel train scale", "leakage_risk": "none"},
+          {"name": "per_channel_train_scale", "calc": "median abs residual per channel (train only)", "leakage_risk": "none"},
+          {"name": "regime_bucket", "calc": "discretized operating regime", "leakage_risk": "low"},
+          {"name": "recent_volatility_regime", "calc": "trailing volatility band", "leakage_risk": "none"},
+          {"name": "cross_channel_aggregate", "calc": "aggregate across correlated channels (if present)", "leakage_risk": "medium"},
+          {"name": "pca_recon_error", "calc": "PCA-256 reconstruction error", "leakage_risk": "none"},
+          {"name": "ae_recon_error", "calc": "autoencoder reconstruction error", "leakage_risk": "none"},
+          {"name": "top_contributing_feature_group", "calc": "argmax reconstruction-error contributor", "leakage_risk": "none"}
+        ],
+        "leakage_notes": "PCA/AE fit on train only; cross-channel aggregate flagged medium pending a look-ahead audit. Engineered in Part II."
+      }
+    ],
+    "note": "Feature-set contract for the Workbench selector. A is the promoted champion's real inputs; B/C are the planned feature-tightening candidates engineered in the GCP gold step (Part II). Measured ablation results arrive as separate receipts (experiment_runs / threshold_sweep / error_review)."
+  }
+}

@@ -6,6 +6,7 @@ null_reason field wherever a value can be unavailable (fail-closed contract).
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -125,3 +126,25 @@ class MonitoringResponse(BaseModel):
 
 class StreamSourceRequest(BaseModel):
     source: str                                # iss | capture | adsb
+
+
+# ── /workbench/* receipts (Model Workbench, receipt-driven) ────────────────────
+
+class ReceiptEnvelope(BaseModel):
+    """One committed Model Workbench receipt: a strict provenance header + heterogeneous payload, served
+    fail-closed. ``payload`` is None and ``null_reason`` is set when the real GCP artifact has not been
+    generated yet — the Workbench replays receipts, it never triggers live compute."""
+    kind: str
+    provider: str | None = None                # databricks | vertex | local_fixture | None
+    source_bigquery_table: str | None = None
+    vertex_experiment: str | None = None
+    vertex_run_id: str | None = None
+    vertex_model_id: str | None = None
+    gcs_artifact_uri: str | None = None
+    created_at: str | None = None
+    code_version: str | None = None
+    data_manifest_sha: str | None = None
+    rows_evaluated: int | None = None
+    payload: Any = None
+    fallback_used: bool = False
+    null_reason: str | None = None             # e.g. gcp_receipt_not_generated_yet
