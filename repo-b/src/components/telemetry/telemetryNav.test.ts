@@ -46,6 +46,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
         "registry",
         "replay",
         "runs",
+        "workbench",
         "stargate",
         "stream",
         "system-health",
@@ -110,6 +111,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
       [base, "Overview"],                                  // section root
       [`${base}/stream`, "Operations"],
       [`${base}/system-health`, "Operations"],
+      [`${base}/workbench`, "Models & Intelligence"],
       [`${base}/model-performance`, "Models & Intelligence"],
       [`${base}/calibration`, "Models & Intelligence"],
       [`${base}/factory`, "Factory & Quality"],
