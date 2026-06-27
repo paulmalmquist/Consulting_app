@@ -362,3 +362,23 @@ needs the bindings regenerated** — `pip install grpcio-tools` then
 (output as `stargate_telemetry_pb2.py`). Do not claim full on-wire v3 field production until that regen lands.
 
 **Phase 7 COMPLETE** — T1–T4 landed and committed; the live Confluent sign-off passes.
+
+---
+
+## Reference ticket — AI Build & Operations Reference page (2026-06-27)
+
+Added one document-style telemetry reference page that explains *how the demo was built and how it is
+operated* — the missing "AI / automation / CLI / REST / MCP / CI-CD / DevOps connections" artifact.
+
+- **Route:** `/lab/env/[envId]/telemetry/ai-build-ops` (flat convention; nav label "AI Build & Ops",
+  page title "AI Build & Operations Reference"). Visible in the **Evidence & Lineage** nav group.
+- **Shape:** static — no fetch, no live compute, no new API, no migration. 11 numbered sections (page
+  inventory, AI-skill map, runtime AI, REST endpoint map, MCP map, CLI/DevOps, CI/CD gates, evidence,
+  honest boundaries) rendered from a hand-maintained manifest where every claim-bearing row carries
+  `sourceRefs` citing the real file/route. Engineering-runbook layout, not a card grid.
+- **Files:** `repo-b/src/app/lab/env/[envId]/telemetry/ai-build-ops/page.tsx`;
+  `repo-b/src/components/telemetry/reference/{AiBuildOpsReference.tsx,refPrimitives.tsx,manifest.ts,
+  AiBuildOpsReference.test.tsx}`; nav entry + slug→group in `telemetryNav.ts` (+ test).
+- **Verified:** `npm run typecheck` clean; `npm run lint` clean (new files); focused vitest 13/13;
+  `npm run build` compiles the route (14.8 kB, 295 pages). Manifest sourced from the verified
+  endpoint/MCP/CI inventory so it can't drift silently.

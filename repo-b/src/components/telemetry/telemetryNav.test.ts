@@ -36,6 +36,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
     expect(slugs).toEqual(
       [
         "",
+        "ai-build-ops",
         "calibration",
         "control-tower",
         "factory",
@@ -118,6 +119,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
       [`${base}/factory-ml`, "Factory & Quality"],
       [`${base}/metric-lineage`, "Evidence & Lineage"],
       [`${base}/metadata`, "Evidence & Lineage"],
+      [`${base}/ai-build-ops`, "Evidence & Lineage"],
       [`${base}/control-tower`, "Agent Operations"],
       // hidden-before-delete routes still recover their section color
       [`${base}/copilot`, "Models & Intelligence"],

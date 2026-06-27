@@ -57,6 +57,10 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   // Section 5 — Evidence & Lineage (where did this number come from / why trust it)
   { slug: "metric-lineage", label: "Metric Lineage", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Evidence & Lineage" },
   { slug: "metadata", label: "Metadata Explorer", icon: "M2 3h5v4H2zM9 3h5v4H9zM5 9h6v4H5zM4.5 7v2M11.5 7v2M7 11H5M11 11h-1", group: "Evidence & Lineage" },
+  // Document-style "how it was built & how it is operated" reference. Visible here (the section that
+  // owns "where it came from / why trust it"); the rail label stays short, the page title carries
+  // the full "AI Build & Operations Reference". Static page — nothing fetches or executes.
+  { slug: "ai-build-ops", label: "AI Build & Ops", icon: "M5 2h6l3 3v9H2V2zM9 2v4h4M4 9h7M4 12h5", group: "Evidence & Lineage" },
   // Hidden-before-delete (presentation declutter): "Trust Center" (governance), "How This Works"
   // (how-it-works), and "Resume Evidence" (evidence) are dropped from the nav. Their /telemetry/<slug>
   // routes still resolve for deep links; only the nav entries are removed. The How-This-Works framing
@@ -143,6 +147,7 @@ const TELEMETRY_SLUG_GROUP: Record<string, TelemetryNavGroup> = {
   factory: "Factory & Quality", "factory-ml": "Factory & Quality",
   // Evidence & Lineage
   "metric-lineage": "Evidence & Lineage", metadata: "Evidence & Lineage",
+  "ai-build-ops": "Evidence & Lineage",
   governance: "Evidence & Lineage", "how-it-works": "Evidence & Lineage", evidence: "Evidence & Lineage",
   // Agent Operations
   "control-tower": "Agent Operations",

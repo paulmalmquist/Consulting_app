@@ -4687,3 +4687,28 @@ The Stargate console gated its entire render on `bridgeBaseUrl()` (reads `NEXT_P
 - **Setting a Vercel env from this Windows shell:** `printf … | vercel env add` and `vercel env add < file` both fail to feed stdin (the CLI prints help / writes empty), and `vercel` resolves to a `.ps1` that `Process.Start` can't launch. The reliable path is the **REST API**: read the token from `C:/Users/paulm/AppData/Roaming/com.vercel.cli/Data/auth.json` (use the Windows `C:/` path in Python, not the Git-Bash `/c/` mount), `projectId`/`orgId` from `.vercel/project.json`, then `POST https://api.vercel.com/v10/projects/{projectId}/env?teamId={orgId}&upsert=true` with `{key,value,type:"plain",target:["production"]}`. NEXT_PUBLIC is inlined at build, so trigger a fresh prod build (merge to main / `vercel deploy --prod`) after setting it — a `redeploy` of the cached build won't pick it up.
 - **The Stargate capture bridge is already deployed on the Railway backend** (`/stargate/*`, `mode:capture`, CORS allows `https://novendor.ai`); wiring the demo is just pointing `NEXT_PUBLIC_STARGATE_BRIDGE_URL` at it — no separate bridge service to deploy. Capture mode = deterministic recorded replay, no Confluent cost.
 - **Databricks deep-links default live:** `resolveWorkspace()` falls back to the committed workspace const when `NEXT_PUBLIC_DATABRICKS_WORKSPACE_URL` is unset, so `deltaTableLink` renders clickable by default; it only fails closed (copyable id + reason) when the workspace resolves empty.
+
+### Telemetry doc-style reference pages: static manifest + two nav edits + the slug-group accent gotcha (2026-06-27)
+
+Adding a *written reference* page to the telemetry section (not a dashboard): mirror `how-it-works`.
+Wrapper is `repo-b/src/app/lab/env/[envId]/telemetry/<slug>/page.tsx` (`async`, `params: Promise<…>`,
+`await params`) rendering a `"use client"` component under `repo-b/src/components/telemetry/<area>/`.
+Reuse the doc primitives in `components/telemetry/primitives.tsx` (`TelemetryPageHeader variant="evidence"`,
+`Panel`, `ScrollTable`, `ResponsiveSwap`+`RowCard` for mobile tables, `InlineCode`, `Tag`,
+`TelemetryStatusBanner`, `DisclosureFooter`) — there is no in-page TOC/`<table>` primitive, so a tiny
+local `refPrimitives.tsx` (TOC + anchored section + a generic `RefTable` that swaps to `RowCard` on
+mobile) is the right amount of new code; keep it on the `C` tokens.
+
+Two **separate** edits in `telemetryNav.ts` for a visible page, and missing the second is a silent bug:
+(1) add the `{ slug, label, icon, group }` to `TELEMETRY_NAV` (the rail); (2) add `slug → group` to the
+`TELEMETRY_SLUG_GROUP` map — the page header resolves its accent color from the **route** via
+`telemetryAccentForPath`, so without (2) the header falls back to Overview cyan even though the rail item
+is green. `telemetryNav.test.ts` hard-asserts the exact sorted slug set ("any OTHER slug change is a
+regression") and the route→color cases, so update both when you add a nav item.
+
+Make a static reference honest by construction: put the data in a `manifest.ts` where every claim-bearing
+row carries `sourceRefs: {label,path,note}[]` rendered as compact path chips, and label real vs
+fixture vs synthetic vs cold with the repo's own vocabulary (`source_kind`, `serving_provenance`,
+`provenance: databricks|local_fallback`, `null_reason`). The only real risk is manifest drift, so cite
+the file/route on every row. Note: `npm run build` is NOT a CI gate (CI runs lint/typecheck/test:unit);
+run it locally to confirm a new route compiles before relying on the Vercel deploy.
