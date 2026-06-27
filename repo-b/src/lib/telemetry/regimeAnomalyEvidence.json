@@ -10,6 +10,51 @@
   "n_eval_rows": 11273,
   "n_regimes": 6,
   "n_active_sensors": 21,
+  "source": {
+    "catalog": "novendor_1",
+    "schema": "telemetry",
+    "table": "silver_cmapss",
+    "fully_qualified": "novendor_1.telemetry.silver_cmapss",
+    "dataset_family": "NASA C-MAPSS",
+    "subset": "FD004",
+    "split": "train",
+    "purpose": "Typed and ordered C-MAPSS rows with no-look-ahead target handling.",
+    "compute_artifact": "telemetry-platform/compute_regime_anomaly.py",
+    "rows_used_fit": 36349,
+    "rows_used_eval": 11273,
+    "table_rowcount": null,
+    "table_rowcount_null_reason": "full source-table rowcount is not captured in this committed artifact; rows-used (fit + held-out eval) are shown instead",
+    "materialized_at": null,
+    "materialized_at_null_reason": "live table materialization timestamp is not exposed by the committed evidence artifact; as_of is the date the artifact was computed, not a live table refresh"
+  },
+  "source_query": "SELECT unit, cycle, op_setting_1, op_setting_2, op_setting_3,\n       sensor_1, ... , sensor_21, rul_target\nFROM novendor_1.telemetry.silver_cmapss\nWHERE subset = 'FD004' AND split = 'train';\n-- regimes  : KMeans(6) on (op_setting_1, op_setting_2, op_setting_3)\n-- healthy  : rul_target >= 100  (fit PCA reconstruction on these)\n-- split    : grouped by unit (no unit in both fit and eval) to prevent leakage\n-- threshold: 95th percentile of fit reconstruction error",
+  "source_query_note": "Representative extraction matching the documented pipeline (the compute_artifact above is the exact build script; an exact query string is not stored in the artifact).",
+  "lineage": [
+    { "id": "src_nasa_cmapss", "label": "NASA C-MAPSS", "kind": "source", "layer": "source", "ref": "telemetry-platform/databricks/data/manifest_cmapss.json", "note": "Public turbofan run-to-failure data (public_nasa_analog, batch)." },
+    { "id": "dbx_bronze_cmapss", "label": "bronze_cmapss", "kind": "table", "layer": "bronze", "table": "novendor_1.telemetry.bronze_cmapss", "ref": "telemetry-platform/databricks/02_bronze_cmapss.py", "note": "Raw C-MAPSS sensor cycles as landed by the committed ingestion job." },
+    { "id": "dbx_silver_cmapss", "label": "silver_cmapss", "kind": "table", "layer": "silver", "table": "novendor_1.telemetry.silver_cmapss", "note": "Typed and ordered rows with no-look-ahead target handling — the source for this artifact." }
+  ],
+  "lineage_status": "unknown",
+  "lineage_status_null_reason": "the lake catalog carries committed table definitions; live materialization status is not probed by this artifact",
+  "model_card": {
+    "family": "Regime-conditioned PCA reconstruction-error anomaly detector",
+    "training_data": "C-MAPSS FD004 healthy rows (rul_target >= 100), grouped by unit",
+    "evaluation_data": "Held-out FD004 units (grouped split): 11,273 healthy eval rows across 6 regimes",
+    "baseline": "GLOBAL single-operating-mode detector (fit + threshold on the most common regime, applied to all)",
+    "validated_method": "Per-regime standardization (KMeans(6) on operating settings) before a shared PCA model",
+    "primary_metric": "False-positive rate on healthy rows (mean across regimes; worst regime)",
+    "headline": "93.3% mean false-positive reduction (84.3% to 5.7%); worst regime 100% to 10.2% (89.8% reduction)",
+    "caveat": "Historical validation on NASA C-MAPSS FD004. This is NOT proof that this PCA model scores live Stargate events; live Stargate detection is a separate transparent rolling-MAD baseline over a recorded capture.",
+    "decision_informed": "Whether anomaly detection must be regime-aware (condition on operating mode) before it is trusted to alert operators."
+  },
+  "theory": [
+    "C-MAPSS FD004 spans six operating regimes, so normal sensor behavior differs by regime; a single global reconstruction threshold treats off-regime-but-healthy points as anomalies.",
+    "KMeans on the three operating-setting columns separates the operating conditions into approximate regimes.",
+    "PCA reconstruction error flags observations that are hard to reconstruct from healthy behavior within the appropriate regime.",
+    "A grouped fit/eval split by unit prevents leakage from the same engine appearing in both fit and evaluation.",
+    "A 95th-percentile cutoff on fit reconstruction error is a transparent threshold, not a black-box alarm.",
+    "The lesson is not that ML magically detects anomalies; it is that you condition the detector on operating regime, or you page operators constantly."
+  ],
   "metrics": {
     "global_worst_regime_fp": 1.0,
     "regime_conditioned_worst_regime_fp": 0.102,

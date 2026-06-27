@@ -296,3 +296,26 @@ explanatory + linked + exportable. NCR + Flight Readiness get typography/explana
 The five flagged surfaces folded (routes still resolve). Contrast stays AA. All shipped ML values +
 caveats preserved. Tests/typecheck/lint green. Screenshots + smoke captured. `claim_coverage_matrix.md`
 not contradicted.
+
+---
+
+## Post-8I addendum — Stargate streaming enrichment + Historical ML Evidence Bridge
+
+Two post-phase enrichments resuming the 8D–8G drill/export/source-kind pass on the streaming surface, then connecting it to the validated historical ML pipeline.
+
+### Stargate streaming enrichment (PRs #436, #437)
+Source-kind chip + `StreamContextStrip` (in-flight `AggRow` window + `BridgeHealth` engine/freshness/uptime, fail-closed); `DlqInspectionDrawer` (parity with the anomaly drawer); telemetry-series CSV export (`seriesExportRows`). Verified live via capture-mode replay (600 telemetry / 64 agg / 200 anomalies / 7 DLQ), zero Confluent cost.
+
+### Historical ML Evidence Bridge (this work — `feat/historical-ml-evidence-bridge`)
+Connects the live Stargate baseline to the validated historical ML anomaly pipeline (regime-conditioned PCA on NASA C-MAPSS FD004), made auditable down to the Databricks source.
+
+**Files changed:**
+- `repo-b/src/lib/telemetry/regimeAnomalyEvidence.json` (+ synced canonical `telemetry-platform/regime_anomaly_evidence.json`): added **additive** `source`, `source_query` (+ note), `lineage`, `lineage_status`, `model_card`, `theory` blocks. All grounded in real data (lineage chain from `metadata_catalog.json`: `src_nasa_cmapss` → `bronze_cmapss` → `silver_cmapss`); genuinely-unknown metadata (full table rowcount, live materialized-at, live materialization status) carries explicit `*_null_reason`. No frozen value changed.
+- `repo-b/src/components/telemetry/stargate/HistoricalMlEvidenceDrawer.tsx` (new): auditable drawer — headline (93.3% FP reduction), model card, "Why this works" theory, per-regime FP, and a **Source & lineage (Databricks)** section: source table + copyable id, subset/split, rows-used, sensors/units/regimes, full-rowcount + last-materialized + lineage-status as fail-closed "Not available — <reason>", the source query excerpt, `deltaTableLink` for silver_cmapss + bronze_cmapss (live `<a>` when the workspace resolves, else copyable id + reason), the lineage chain, and the honest caveat (this is historical validation, NOT the live Stargate detector).
+- `repo-b/src/components/telemetry/stargate/StargateConsole.tsx`: bridge card near the anomaly surface ("Live detection is a transparent rolling-MAD baseline, not the PCA model … 93.3% FP reduction") opening the drawer; deep-link to the full Evidence card via the env path.
+
+**Tests run:** `HistoricalMlEvidenceDrawer.test.tsx` (model card + headline + theory + Databricks source + field-level fail-closed), `HistoricalMlEvidenceDrawer.failclosed.test.tsx` (drawer-level fail-closed via mocked empty artifact), `StargateConsole.test.tsx` (+bridge renders + opens drawer). Full telemetry suite **259 passed**; typecheck + lint clean; **frozen-evidence 8/8** (source synced).
+
+**Evidence (route notes — no browser tool here):** Route `…/telemetry/stargate` renders the bridge card; clicking "Inspect evidence + Databricks source ›" opens the drawer. Example payload: `source.fully_qualified="novendor_1.telemetry.silver_cmapss"`, lineage `NASA C-MAPSS → bronze_cmapss → silver_cmapss`, headline "93.3% mean false-positive reduction", `table_rowcount=null` → "Not available — full source-table rowcount is not captured…". Databricks links resolve to `dbc-2504bec5-b5ab.cloud.databricks.com` (committed demo workspace).
+
+**Risks / follow-ups:** the Evidence page hosting the full `RegimeAnomalyCard` is hidden-but-resolving (deep-link only); the Databricks links use the committed demo workspace (override via `NEXT_PUBLIC_DATABRICKS_WORKSPACE_URL`); live table refresh/rowcount are not exposed (fail-closed) — a future backend `silver_cmapss` metadata probe could fill them. No live PCA scorer was built (out of scope, explicitly caveated).
