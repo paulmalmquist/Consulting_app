@@ -28,8 +28,12 @@ to provision, so the `RESOURCE_EXHAUSTED` failure mode does not exist.
 - Because the BigQuery gold tables genuinely exist, the **Lineage page links to them live** (via
   `relativityMesBigquery.ts`), beside the Databricks links which stay **fail-closed** (Databricks gold
   is not materialized). Honesty rule unchanged: a link is live only when its target exists.
-- `serving_provenance='bigquery-gold'` is reserved for when the Lakebase serving tables are reloaded
-  from the BigQuery gold; `servingLabel()` already renders it ("synthetic BigQuery Gold serving rows").
+- **Serving reloaded from BigQuery (done).** The Lakebase `rel_*` serving tables were genuinely
+  reloaded *from* the BigQuery gold marts (read `gold_*`, transactional DELETE+INSERT per table) and
+  now report `serving_provenance='bigquery-gold'`. Verified in prod: `/overview` → `bigquery-gold`,
+  all five serving marts `bigquery-gold`, invariants intact (VEH-DEMO-001 blocked, `LOT-7788` → 2
+  vehicles). The live dashboards now serve from the GCP/BigQuery medallion; the Lineage page's path
+  text + serving panel reflect it. `servingLabel()` renders "synthetic BigQuery Gold serving rows".
 
 The deterministic generator remains the single source of truth (see ADR 0002), so the BigQuery gold,
 the Databricks gold (when it runs), and the Lakebase serving rows are byte-identical by construction.

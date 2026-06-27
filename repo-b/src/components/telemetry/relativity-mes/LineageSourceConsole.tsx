@@ -32,7 +32,16 @@ export default function LineageSourceConsole() {
   const joinKeys: string[] = joinDoc && typeof joinDoc.join_keys === "string"
     ? (() => { try { return JSON.parse(String(joinDoc.join_keys)); } catch { return []; } })() : [];
   const serving = data?.serving ?? {};
-  const dbxLive = Object.values(serving).some((s) => s.serving_provenance === "databricks-gold");
+  const provenance = Object.values(serving).map((s) => s.serving_provenance).find(Boolean) ?? "seed-bootstrap";
+  // dbxLive gates the Databricks panel only (its gold is still not materialized even when serving is BigQuery).
+  const dbxLive = provenance === "databricks-gold";
+  const bqLive = provenance === "bigquery-gold";
+  const goldLive = dbxLive || bqLive;
+  const medallionName = bqLive ? "BigQuery medallion (bronze → silver → gold)"
+    : "Databricks medallion (bronze → silver → gold_rel_*)";
+  const provText = bqLive ? "bigquery-gold (synced from the BigQuery Gold marts)"
+    : dbxLive ? "databricks-gold (synced from Databricks Gold)"
+    : "seed-bootstrap (deterministic gold load; a medallion backfill flips this to bigquery-gold / databricks-gold)";
 
   return (
     <div>
@@ -47,21 +56,19 @@ export default function LineageSourceConsole() {
 
       {data && !data.null_reason && (
         <>
-          <ServingStrip meta={data} note={dbxLive ? "Databricks-gold serving" : "bootstrap serving"} />
+          <ServingStrip meta={data} note={bqLive ? "BigQuery-gold serving" : dbxLive ? "Databricks-gold serving" : "bootstrap serving"} />
 
           <Panel title="Live serving (Postgres/Lakebase) — proof of the real serving path" style={{ marginBottom: 14 }}>
             <StatGrid cols={5}>
               {Object.entries(serving).map(([t, s]) => (
                 <Stat key={t} label={t.replace(/^rel_/, "")} value={s.row_count}
-                  tone={s.serving_provenance === "databricks-gold" ? C.green : REL_ACCENT} />
+                  tone={s.serving_provenance === "bigquery-gold" || s.serving_provenance === "databricks-gold" ? C.green : REL_ACCENT} />
               ))}
             </StatGrid>
             <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>
-              Path: synthetic source (rel_*) → Databricks medallion (bronze → silver → gold_rel_*) →
+              Path: synthetic source (rel_*) → {medallionName} →
               Postgres/Lakebase serving (rel_*) → FastAPI → this dashboard. Provenance{" "}
-              <span style={{ color: dbxLive ? C.green : REL_ACCENT }}>
-                {dbxLive ? "databricks-gold (synced from Databricks Gold)" : "seed-bootstrap (deterministic gold load; Databricks backfill flips this to databricks-gold)"}
-              </span>.
+              <span style={{ color: goldLive ? C.green : REL_ACCENT }}>{provText}</span>.
             </div>
           </Panel>
 

@@ -142,6 +142,20 @@ describe("LineageSourceConsole", () => {
     expect(screen.getByText(/Live serving/)).toBeTruthy();
   });
 
+  it("reflects BigQuery-gold serving in the medallion path when serving is reloaded from BigQuery", async () => {
+    (lib.getLineage as Mock).mockResolvedValue({
+      ...META, serving_provenance: "bigquery-gold",
+      rows: [{ object_name: "rel_mes_vehicle", layer: "source", source_system: "MES", row_count: 3,
+        dashboard_consumers: "[]", ingest_batch_id: "rel-mes-seed-v1", source_system_layer: "rel_*" }],
+      serving: { rel_build_overview: { row_count: 3, serving_provenance: "bigquery-gold" } },
+    });
+    render(<LineageSourceConsole />);
+    expect((await screen.findAllByText(/BigQuery medallion/)).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/bigquery-gold \(synced from the BigQuery Gold marts\)/)).toBeTruthy();
+    // Databricks gold stays fail-closed (its tables aren't materialized even when serving is BigQuery)
+    expect(screen.getAllByText(/Medallion not materialized/).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("renders honest medallion links: BigQuery live, Databricks fail-closed", async () => {
     (lib.getLineage as Mock).mockResolvedValue({
       ...META, // serving_provenance = seed-bootstrap -> Databricks medallion not materialized
