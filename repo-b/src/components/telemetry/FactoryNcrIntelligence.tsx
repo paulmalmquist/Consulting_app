@@ -196,7 +196,7 @@ export default function FactoryNcrIntelligence() {
       <TelemetryPageHeader
         variant="standard"
         eyebrow="TELEMETRY LAB"
-        title="FACTORY · NCR INTELLIGENCE"
+        title="Factory · NCR Intelligence"
         actions={
           <>
             <RsChip color={RS.cyan}>pipeline: embed → UMAP → HDBSCAN → c-TF-IDF</RsChip>

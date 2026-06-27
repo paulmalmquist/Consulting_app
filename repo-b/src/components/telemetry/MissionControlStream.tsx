@@ -171,7 +171,7 @@ export default function MissionControlStream() {
       <TelemetryPageHeader
         variant="compact"
         eyebrow="TELEMETRY LAB"
-        title="MISSION CONTROL · LIVE STREAM"
+        title="Mission Control · Live Stream"
         metadata={
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
             <RsChip color={RS.cyan}>run: iss_live:stream</RsChip>

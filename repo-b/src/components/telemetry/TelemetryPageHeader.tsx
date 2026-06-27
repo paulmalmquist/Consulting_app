@@ -44,15 +44,16 @@ const FONT_EDITORIAL = "var(--font-editorial), Georgia, serif";
 // it wrapping cleanly from 390px to desktop. Variant still drives layout (margin, hero metric strip) and the
 // emphasized word still carries the category color, but the title font and size are shared.
 //
-// Casing is normalized to sentence case in CSS (`lowercase` + a `first-letter:uppercase` cap), so every
-// title reads "First letter capitalized, the rest lowercase" regardless of how it is authored — no per-page
-// copy edits, and source-system acronyms can't reintroduce SHOUTING. text-transform is purely visual, so the
-// h1's textContent (and the header tests) are unchanged.
+// Casing is normalized to title case in CSS (`capitalize`), so every title reads "First Letter Of Every
+// Word Capitalized" regardless of how it is authored. text-transform is purely visual, so the h1's
+// textContent (and the header tests) stay unchanged. `capitalize` only uppercases each word's first letter
+// — it does NOT lowercase the rest — so the few page titles authored in ALL CAPS are de-shouted at their
+// callers, and acronyms (NCR / RUL / AI) keep their casing rather than becoming "Ncr".
 const TITLE_STYLE: CSSProperties = {
   fontFamily: FONT_EDITORIAL, fontWeight: 600,
   fontSize: "clamp(1.85rem, 3.4vw, 2.3rem)", lineHeight: 1.12, letterSpacing: "0.003em",
 };
-const TITLE_CASE_CLASS = "lowercase first-letter:uppercase";
+const TITLE_CASE_CLASS = "capitalize";
 
 const MARGIN_BOTTOM: Record<HeaderVariant, number> = { hero: 26, evidence: 24, standard: 22, compact: 18 };
 
