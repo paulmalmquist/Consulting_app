@@ -152,6 +152,38 @@ export default function StargateConsole() {
     }
   }
 
+  // The Historical ML Evidence Bridge reads a committed artifact and is independent of the live SSE
+  // stream, so it renders in BOTH the configured and not-configured states — the validated historical
+  // evidence (and its Databricks lineage) is never hidden just because the live bridge URL is unset.
+  const mlEvidenceBridge = (
+    <>
+      <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 9, background: C.panel,
+        border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 16, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Tag color={C.cyan}>validated historical ML evidence</Tag>
+            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>NASA C-MAPSS FD004 · Databricks</span>
+          </div>
+          <p style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55, margin: "8px 0 0", maxWidth: 760 }}>
+            Live Stargate detection is a <strong style={{ color: C.text }}>transparent rolling-MAD baseline</strong> over a recorded
+            capture, not the PCA model itself. Behind it is a validated ML anomaly pipeline: a regime-conditioned PCA detector
+            trained and evaluated on historical NASA run-to-failure telemetry, proving regime-conditioning cuts false positives
+            <strong style={{ color: C.green }}> 93.3%</strong> versus a naive global detector.
+          </p>
+        </div>
+        <button type="button" onClick={() => setMlEvidenceOpen(true)}
+          aria-label="Open validated historical ML evidence with Databricks source and lineage"
+          style={{ flexShrink: 0, fontFamily: C.mono, fontSize: 11, padding: "8px 14px", borderRadius: 7,
+            cursor: "pointer", color: C.text, background: "rgba(103,232,249,0.12)", border: `1px solid ${C.cyan}66` }}>
+          Inspect evidence + Databricks source ›
+        </button>
+      </div>
+      <HistoricalMlEvidenceDrawer open={mlEvidenceOpen} onClose={() => setMlEvidenceOpen(false)}
+        envHref={pathname.replace(/\/stargate.*$/, "")} />
+    </>
+  );
+
   // Fail closed: a deployment without a configured bridge URL shows an explicit
   // diagnostic instead of silently trying (and failing) to reach localhost.
   // Placed after all hooks so the rules of hooks hold.
@@ -168,6 +200,9 @@ export default function StargateConsole() {
           label="Stargate bridge URL is not configured for this deployment."
           hint="Set NEXT_PUBLIC_STARGATE_BRIDGE_URL to the Railway bridge endpoint."
         />
+        {/* The live SSE stream is unavailable here, but the validated historical ML evidence is static
+            and stays reachable so the operating-model story is never lost behind a missing bridge URL. */}
+        {mlEvidenceBridge}
       </div>
     );
   }
@@ -323,30 +358,7 @@ export default function StargateConsole() {
         <DlqPanel rows={dlq} count={stream.dlqCount} onInspect={setDlqInspected} />
       </SplitGrid>
 
-      {/* Bridge to the validated historical ML anomaly pipeline. The live detection above is a transparent
-          baseline; this states that plainly and opens the auditable evidence (Databricks source + lineage). */}
-      <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 9, background: C.panel,
-        border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 16, flexWrap: "wrap" }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <Tag color={C.cyan}>validated historical ML evidence</Tag>
-            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint }}>NASA C-MAPSS FD004 · Databricks</span>
-          </div>
-          <p style={{ fontFamily: C.sans, fontSize: 12.5, color: C.dim, lineHeight: 1.55, margin: "8px 0 0", maxWidth: 760 }}>
-            Live detection above is a <strong style={{ color: C.text }}>transparent rolling-MAD baseline</strong> over a recorded
-            capture, not the PCA model itself. Behind it is a validated ML anomaly pipeline: a regime-conditioned PCA detector
-            trained and evaluated on historical NASA run-to-failure telemetry, proving regime-conditioning cuts false positives
-            <strong style={{ color: C.green }}> 93.3%</strong> versus a naive global detector.
-          </p>
-        </div>
-        <button type="button" onClick={() => setMlEvidenceOpen(true)}
-          aria-label="Open validated historical ML evidence with Databricks source and lineage"
-          style={{ flexShrink: 0, fontFamily: C.mono, fontSize: 11, padding: "8px 14px", borderRadius: 7,
-            cursor: "pointer", color: C.text, background: "rgba(103,232,249,0.12)", border: `1px solid ${C.cyan}66` }}>
-          Inspect evidence + Databricks source ›
-        </button>
-      </div>
+      {mlEvidenceBridge}
 
       <AnomalyInspectionDrawer
         anomaly={inspected}
@@ -363,8 +375,6 @@ export default function StargateConsole() {
         onClose={() => setLineageAnomalyId(null)}
       />
       <DlqInspectionDrawer row={dlqInspected} onClose={() => setDlqInspected(null)} />
-      <HistoricalMlEvidenceDrawer open={mlEvidenceOpen} onClose={() => setMlEvidenceOpen(false)}
-        envHref={pathname.replace(/\/stargate.*$/, "")} />
     </div>
   );
 }
