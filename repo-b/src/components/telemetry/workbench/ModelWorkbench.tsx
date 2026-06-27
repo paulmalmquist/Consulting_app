@@ -6,6 +6,7 @@ import { ChampionReviewPanel } from "./ChampionReviewPanel";
 import { ExperimentReplayButton } from "./ExperimentReplayButton";
 import { FeatureSetSelector } from "./FeatureSetSelector";
 import { LifecycleStepper } from "./LifecycleStepper";
+import { WorkbenchDrillButton } from "./WorkbenchDrillButton";
 import { WorkbenchHeadlineCard } from "./WorkbenchHeadlineCard";
 
 // Model Workbench landing — composed inside the existing telemetry shell (Models & Intelligence group).
@@ -25,6 +26,7 @@ export default function ModelWorkbench() {
         <WorkbenchHeadlineCard />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <ExperimentReplayButton />
+          <WorkbenchDrillButton />
         </div>
         <Panel title="ML lifecycle">
           <LifecycleStepper activeSlug="workbench" />
