@@ -1,0 +1,68 @@
+{
+  "provider": "vertex",
+  "source_bigquery_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+  "vertex_experiment": "telemetry-predictive-maintenance",
+  "vertex_run_id": "anomaly-mad-baseline-001",
+  "vertex_model_id": "1129589867865440256",
+  "gcs_artifact_uri": "gs://novendor-events-prod-telemetry-ml/telemetry/anomaly-mad/anomaly-mad-baseline-001",
+  "created_at": "2026-06-27T00:00:00Z",
+  "code_version": "vertex-vizier@fff1691e",
+  "data_manifest_sha": null,
+  "rows_evaluated": 509555,
+  "null_reason": null,
+  "payload": {
+    "champion": "tel_anomaly_detector (rolling-MAD, K=4.0)",
+    "challenger": "Vizier best trial (MAD_K=4.7039)",
+    "decision": "model_not_promoted",
+    "champion_unchanged": true,
+    "failed_gate": null,
+    "reason_rejected": "Vizier searched MAD_K over 12 trials and maximized affiliation_f1 at K=4.7039 (0.4799 vs champion 0.4746), but it trades away event recall; lowering K raises recall while degrading alarm precision. K=4.0 is the declared operating point that balances both, and no trial beat it on the operational gate \u2014 so the champion is unchanged.",
+    "gates": [
+      {
+        "name": "f1_pointwise",
+        "threshold": 0.1,
+        "champion": 0.312953,
+        "challenger": 0.312933,
+        "verdict": "pass"
+      },
+      {
+        "name": "event_recall",
+        "threshold": 0.5,
+        "champion": 0.769231,
+        "challenger": 0.721154,
+        "verdict": "pass"
+      },
+      {
+        "name": "alarm_precision",
+        "threshold": 0.2,
+        "champion": 0.3279,
+        "challenger": 0.344116,
+        "verdict": "pass"
+      },
+      {
+        "name": "affiliation_f1",
+        "threshold": 0.25,
+        "champion": 0.474634,
+        "challenger": 0.479915,
+        "verdict": "pass"
+      }
+    ],
+    "champion_metrics": {
+      "f1_pointwise": 0.312953,
+      "precision_pointwise": 0.3279,
+      "recall_pointwise": 0.29931,
+      "event_recall": 0.769231,
+      "alarm_precision": 0.3279,
+      "affiliation_precision": 0.343198,
+      "affiliation_recall": 0.769231,
+      "affiliation_f1": 0.474634
+    },
+    "best_trial_metrics": {
+      "f1_pointwise": 0.312933,
+      "event_recall": 0.721154,
+      "alarm_precision": 0.344116,
+      "affiliation_f1": 0.479915
+    },
+    "vizier_study": "projects/827691285849/locations/us-east4/studies/3302579067830"
+  }
+}
