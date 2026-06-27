@@ -116,6 +116,42 @@ approved fallback, serving is loaded via the proven Postgres/Lakebase route (`10
 — real Lakebase rows, `serving_provenance='seed-bootstrap'`, never local JSON. Re-running the medallion
 when the warehouse is healthy flips serving to `databricks-gold`.
 
+## Ticket — Real medallion on Dataproc Serverless (GCP PySpark), BigQuery as serving source (2026-06-27)
+
+**Why:** A read-only audit of the BigQuery `novendor-events-prod.relativity_mes` dataset found a
+**cosmetic medallion**: all 23 `silver_rel_*` are views `SELECT * FROM bronze_rel_* WHERE synthetic IS
+TRUE` (the filter excludes 0 rows — every bronze row is already synthetic), 0 columns added, identical
+counts/types; the 5 `gold_rel_*` are Python-generated literals that read neither silver nor bronze. The
+BQ dataset is also an **orphan** — nothing in the repo reads or writes it; the live demo serves from
+Lakebase (`serving_provenance='seed-bootstrap'`) and the Databricks `novendor_1` medallion never ran
+(warehouse `health=FAILED`).
+
+**Decision (user-directed, aggressive to completion):** Promote the BigQuery dataset to the real
+serving path using **true GCP PySpark on Dataproc Serverless**. Everything but bronze is on the chopping
+block; bronze is made *uglier* (realistic raw mess) so silver has visible work. Gold is rebuilt as real
+Spark joins/aggregations over silver, regression-locked to current gold values so demo invariants hold.
+Databricks medallion path retired (superseding ADR follows).
+
+**Target flow:** generator → ugly `bronze_rel_*` (BQ) → Dataproc PySpark conform → `silver_rel_*`
+(+`_reject` quarantine sinks) → Dataproc PySpark derive → `gold_rel_*` → sync → Lakebase serving
+(`serving_provenance='dataproc-gold'`) → FastAPI/dashboards unchanged.
+
+**Runtime proven (2026-06-27):** Dataproc APIs enabled; default compute SA (`roles/editor`) sufficient;
+GCS staging bucket `gs://novendor-rel-mes-dataproc` (US, matches the US dataset) created; smoke batch
+`rel-mes-smoke-1` read `bronze_rel_mes_operation_execution` (153 rows) via the Spark-BigQuery connector,
+no IAM/connector errors. Build runs in worktree `feat/rel-mes-dataproc-medallion`.
+
+**Build sequence:** (0) provision ✓ → (1) ugly-bronze generator mess + BQ reload → (2) `rel_silver.py`
+conform/cast/normalize/dedup/quarantine → (3) `rel_gold.py` derive 5 marts from silver
+(regression-locked) → (4) serving sync BQ→Lakebase (`dataproc-gold`), retire Databricks path → (5)
+re-run audit + invariant gate, table/column descriptions, tests → (6) docs (plan, superseding ADR,
+README, tips). Owning surface adds `telemetry-platform/dataproc/relativity_mes/`.
+
+**Acceptance:** re-run audit yields `healthy` (silver_cols > bronze_cols everywhere; silver casts/
+normalizes/dedups/quarantines with populated `_reject` sinks; gold derives from silver via SQL lineage,
+not literals); demo invariants survive (3 vehicles, suspect lot on exactly 2, open major NCR, a
+reconciliation exception); fail-closed gate aborts the serving flip on any invariant/DQ failure.
+
 ## Out of scope
 
 No ML model (roadmap note only). No real Relativity data/schema/API. Unity Catalog lineage beyond

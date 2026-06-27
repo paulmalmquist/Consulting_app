@@ -142,6 +142,7 @@ export function useRel<T>(fetcher: () => Promise<T>, deps: unknown[] = []): {
 // Human label for the serving source-kind + provenance (honest chip text).
 export function servingLabel(meta: ServingMeta): string {
   if (meta.source_kind === "unavailable") return "serving unavailable";
+  if (meta.serving_provenance === "dataproc-gold") return "synthetic BigQuery Gold serving rows (Dataproc PySpark)";
   if (meta.serving_provenance === "bigquery-gold") return "synthetic BigQuery Gold serving rows";
   if (meta.serving_provenance === "databricks-gold") return "synthetic Databricks Gold serving rows";
   return "synthetic gold serving rows (bootstrap load)";

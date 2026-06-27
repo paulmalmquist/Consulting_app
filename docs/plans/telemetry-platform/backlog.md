@@ -53,3 +53,21 @@ can act on it without asking questions.
 - Keep `repo-b/src/components/telemetry/buildops/manifest.ts` in step with the code — it is a
   hand-maintained inventory; if an endpoint/MCP tool/CI job/page changes, update the matching row.
 - Optional: add a focused Playwright route/render check if reference-nav e2e coverage is introduced.
+
+## Relativity MES — real Dataproc PySpark medallion (2026-06-27, DONE)
+
+Flipped `novendor-events-prod.relativity_mes` from a cosmetic medallion (silver = no-op views, gold =
+Python literals; see the audit) to a real one built by Dataproc Serverless PySpark. Shipped:
+`telemetry-platform/dataproc/relativity_mes/` — `load_ugly_bronze.py` (realistic dirty all-STRING
+bronze), `jobs/rel_silver.py` (cast/normalize/dedup/quarantine + `_reject` sinks + `dq_*` cols),
+`jobs/rel_gold.py` (5 marts joined/aggregated from silver), `sync_serving_from_bq.py` (Lakebase serving
+← BQ gold, `serving_provenance='dataproc-gold'`), `audit_medallion.py` (fail-closed healthy gate),
+`apply_descriptions.py`. Frontend learned `dataproc-gold` (LineageSourceConsole + relativityMes.ts +
+test). ADR 0005 supersedes 0004. Audit verdict now **healthy** (9/9 checks); invariants hold.
+
+Follow-ups (deferred):
+- Wrap the 6 steps in one orchestrator script (currently run sequentially by hand).
+- Column-level descriptions (table-level done; audit's column-desc check is still 0).
+- ML on silver/gold marts (Vertex, like `mlops_learning_lab`) — natural next step per ADR 0005.
+- Add table partitioning/clustering if the dataset ever grows beyond a few hundred rows (currently
+  unjustified at this scale; audit noted 0 partition/cluster).

@@ -1,6 +1,12 @@
 # ADR 0004 — BigQuery medallion (GCP) as the serverless fallback for Databricks
 
-- Status: Accepted
+> **Superseded by [0005](0005-dataproc-pyspark-real-medallion.md) (2026-06-27).** The silver layer
+> described here was a set of `SELECT * ... WHERE synthetic IS TRUE` views (a no-op filter) and gold
+> was Python-generated literals — a cosmetic medallion. ADR 0005 replaces it with real Dataproc
+> Serverless PySpark transforms (typed/normalized/deduped/quarantined silver; gold derived from silver)
+> and flips serving provenance from `bigquery-gold` to `dataproc-gold`. Read 0005 for the current path.
+
+- Status: Superseded by 0005
 - Date: 2026-06-27
 - Deciders: Paul Malmquist
 - Related: [0002](0002-real-serving-architecture-not-fixtures.md),
