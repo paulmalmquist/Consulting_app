@@ -38,23 +38,32 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
     return () => { document.body.style.overflow = prev; };
   }, [drawerOpen]);
 
+  // Brand mark: the Relativity Space wordmark (white-recolored SVG, reused from the node backdrops).
+  // Shown alone in the collapsed icon rail. CSS background (not <img>) — no next/image lint, crisp sizing.
+  const LOGO = "/telemetry/backdrops/nodes/relativity-logo.svg";
   const BrandMark = (
-    <div style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #B040FF66",
-      background: "linear-gradient(135deg, rgba(176,64,255,0.22), rgba(63,177,232,0.20))",
-      boxShadow: "0 0 14px rgba(176,64,255,0.25)",
-      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <svg width="15" height="15" viewBox="0 0 14 14">
-        <path d="M1 10l3-4 2.5 2L9 4l4 6" stroke={C.cyan} strokeWidth="1.4" fill="none" strokeLinejoin="round" />
-      </svg>
+    <div role="img" aria-label="Relativity Space"
+      style={{ width: 46, height: 10, flexShrink: 0, backgroundImage: `url('${LOGO}')`,
+        backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+  );
+
+  // "RelativitySpace" lockup: "Relativity" solid white, "Space" white-outlined with a transparent fill
+  // (the backdrop shows through the letter interiors).
+  const RelativitySpaceLabel = (
+    <div style={{ fontFamily: C.sans, fontWeight: 700, fontSize: 13.5, lineHeight: 1.05,
+      letterSpacing: "0.01em", whiteSpace: "nowrap" }}>
+      <span style={{ color: "#ffffff" }}>Relativity</span>
+      <span style={{ color: "transparent", WebkitTextStroke: "0.7px #ffffff" }}>Space</span>
     </div>
   );
 
   const Brand = (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      {BrandMark}
+    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      <div aria-hidden style={{ height: 17, width: 79, flexShrink: 0, backgroundImage: `url('${LOGO}')`,
+        backgroundSize: "contain", backgroundPosition: "left center", backgroundRepeat: "no-repeat" }} />
       <div>
-        <div style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", color: C.text }}>TEL ANOMALY</div>
-        <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.1em" }}>WORKBENCH</div>
+        {RelativitySpaceLabel}
+        <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.1em", marginTop: 2 }}>WORKBENCH</div>
       </div>
     </div>
   );
