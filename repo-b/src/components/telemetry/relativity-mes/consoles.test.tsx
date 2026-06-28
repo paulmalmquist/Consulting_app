@@ -7,6 +7,7 @@ import BuildGenealogyConsole from "./BuildGenealogyConsole";
 import NcrTraceabilityConsole from "./NcrTraceabilityConsole";
 import CostReconciliationConsole from "./CostReconciliationConsole";
 import LineageSourceConsole from "./LineageSourceConsole";
+import BuildAnalyticsConsole from "./BuildAnalyticsConsole";
 
 // Keep useRel + servingLabel real; mock only the network fetchers so the consoles render over canned
 // serving payloads (the dashboards read APIs, never local data).
@@ -16,6 +17,7 @@ vi.mock("@/lib/telemetry/relativityMes", async (importOriginal) => {
     ...actual,
     getOverview: vi.fn(), getGenealogy: vi.fn(), getWhereUsed: vi.fn(),
     getNcr: vi.fn(), getCost: vi.fn(), getLineage: vi.fn(), getSourceRows: vi.fn(),
+    getAnalytics: vi.fn(),
   };
 });
 
@@ -178,5 +180,69 @@ describe("LineageSourceConsole", () => {
     expect(screen.getAllByText(/Medallion not materialized/).length).toBeGreaterThanOrEqual(1);
     // the Databricks gold label (exact text, no trailing ↗) is fail-closed -> not an anchor
     expect(screen.getByText("gold_rel_build_overview").closest("a")).toBeNull();
+  });
+});
+
+describe("BuildAnalyticsConsole", () => {
+  const ANALYTICS = {
+    ...META,
+    kpis: {
+      total_variance: 9600, rework_share_pct: 25.8, recon_exception_count: 2,
+      suspect_lot_vehicle_count: 2, busiest_work_center: "WC-NDE", defect_concentration_pct: 61.3,
+    },
+    blocks: {
+      readiness: { rows: [
+        { vehicle_serial: "VEH-DEMO-001", readiness_state: "blocked", driver: "open major NCR · suspect lot" },
+        { vehicle_serial: "VEH-DEMO-002", readiness_state: "on_track", driver: "on track · suspect lot" },
+      ], null_reason: null },
+      asymmetry: { shared_exposure: ["VEH-DEMO-001", "VEH-DEMO-002"], rows: [
+        { vehicle_serial: "VEH-DEMO-001", readiness_state: "blocked", open_major_ncr: 1, note: "open major NCR on the lot install" },
+        { vehicle_serial: "VEH-DEMO-002", readiness_state: "on_track", open_major_ncr: 0, note: "lot installed; no open major NCR on it" },
+      ], null_reason: null },
+      blast: { rows_present: true, lot_id: "LOT-7788", part_number: "PN-TPS-SEAL",
+        vehicles: [{ vehicle_serial: "VEH-DEMO-001", readiness_state: "blocked" }],
+        ncrs: [{ ncr_id: "NCR-0001", severity: "major", status: "open", rework_cost: 4200 }],
+        work_orders: [{ work_order_id: "WO-001-TPS", variance_pct: 70, actual_cost: 16000, standard_cost: 9400 }],
+        edges: [], null_reason: null },
+      bridge: { reconciled_pct: 95.6, residual_total: 700, rows: [
+        { vehicle_serial: "VEH-DEMO-001", planned_cost: 10000, material: 6000, labor_overhead: 5800, rework: 4200, residual: 0, actual_cost: 16000 },
+      ], null_reason: null },
+      pareto: { concentration_pct: 61.3, n_ncrs: 7, rows: [
+        { cluster_label: "witness-mark·WC-NDE", ncr_count: 1, rework_cost: 4200, cumulative_rework_pct: 61.3 },
+        { cluster_label: "weld-undercut·WC-WELD", ncr_count: 1, rework_cost: 2650, cumulative_rework_pct: 100 },
+      ], null_reason: null },
+      workcenter: { rows: [
+        { work_center: "WC-NDE", subassembly: "TPS", actual_minutes: 180, std_minutes: 150, actual_std_ratio: 1.2, op_count: 6, low_n: false },
+        { work_center: "WC-WELD", subassembly: "STR", actual_minutes: 80, std_minutes: 60, actual_std_ratio: 1.33, op_count: 2, low_n: true },
+      ], null_reason: null },
+      recon: { exception_threshold_pct: 25, threshold_sensitivity: [{ k: 25, exception_count: 2 }, { k: 50, exception_count: 1 }], rows: [
+        { work_order_id: "WO-001-TPS", standard_cost: 9400, actual_cost: 16000, variance_pct: 70, is_exception: true },
+      ], null_reason: null },
+      disconfirmation: { checks_run: 3, findings: [
+        { kind: "exception_without_ncr", ref: "WO-003-AVI", detail: "variance 37.5% but no linked NCR" },
+      ], null_reason: null },
+    },
+  };
+
+  it("renders the simulation-analysis surface with provenance chips + page copy", async () => {
+    (lib.getAnalytics as Mock).mockResolvedValue(ANALYTICS);
+    render(<BuildAnalyticsConsole />);
+    expect(await screen.findByRole("heading", { name: "Build Analytics" })).toBeTruthy();
+    expect(screen.getByText(/Current seed is a story\. Multi-seed stability is the analysis\./)).toBeTruthy();
+    expect(screen.getAllByText("generated scenario input").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("emergent from simulation").length).toBeGreaterThan(0);
+    expect(screen.getByText("low-n directional only")).toBeTruthy();
+    // asymmetry + disconfirmation (non-authored finding) are the credibility panels
+    expect(screen.getByText(/Why VEH-DEMO-001 vs VEH-DEMO-002 differ/)).toBeTruthy();
+    expect(screen.getByText("exception_without_ncr")).toBeTruthy();
+  });
+
+  it("fails closed at the page level when core marts are empty", async () => {
+    (lib.getAnalytics as Mock).mockResolvedValue({
+      source_kind: "unavailable", serving_provenance: null, as_of: null,
+      null_reason: "serving_not_loaded", kpis: null, blocks: {},
+    });
+    render(<BuildAnalyticsConsole />);
+    expect(await screen.findByText("No analytics data")).toBeTruthy();
   });
 });
