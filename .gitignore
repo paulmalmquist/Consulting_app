@@ -118,6 +118,9 @@ scripts/.winston_managed_agent_state.json
 # Local scratch: daily dumps, outreach drafts, article scratch
 outputs/
 deal-opportunities-*.md
+# Loose working-tree scratch swept out of the repo root during cleanup passes
+# (relativity demo notes, productionize drafts, test reports, etc.). Local-only.
+_scratch/
 
 # Binary files and outputs
 *.pdf
