@@ -16,6 +16,7 @@ import { MetricInspectorDrawer } from "./drawerPrimitives";
 import { SourceRowsTable } from "./drill";
 import { telemetryHref } from "./telemetryNav";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
+import LaunchEventHero from "./LaunchEventHero";
 import OverviewBackdrop from "./OverviewBackdrop";
 import { computeBigNumbers, type BigNumber, type BigNumberAccent } from "./context/BottleneckMap/data";
 import type { DecoratedEvent } from "./context/BottleneckMap/types";
@@ -113,12 +114,29 @@ export default function TelemetryOverview() {
     ? params.envId
     : Array.isArray(params?.envId) ? params.envId[0] : "";
   const [drillNum, setDrillNum] = useState<BigNumber | null>(null);
-  // Phase 9B: the Bottleneck Map reports its selected event up so the hero backdrop can follow it.
+  // Selection state lives on the page (the map is a controlled selector). State invariant:
+  //   - `selectedEvent` is the resolved display event — it drives BOTH the hero and the backdrop, so it
+  //     tracks clicks AND presenter steps. The hero branches on this, never on `selectedId`.
+  //   - `selectedId` is the clicked-node control value passed down to the map (default null → overview).
+  //   - `resetSignal` is a command channel: bumping it tells the map to stop the walkthrough AND clear
+  //     its selection, so "Back to overview" works even mid-walkthrough.
   const [selectedEvent, setSelectedEvent] = useState<DecoratedEvent | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [resetSignal, setResetSignal] = useState(0);
 
-  // Thesis-first: the dominant hero states the argument once (Big Numbers render below it as larger
-  // narrative anchors, not in the header metric row), then the integrated Bottleneck Map carries it.
-  const heading = (
+  // Back to overview: clear the hero immediately (deterministic) and signal the map to stop presenter +
+  // deselect, so it cannot re-emit a presenter event back into the hero.
+  const handleBack = () => {
+    setSelectedId(null);
+    setSelectedEvent(null);
+    setResetSignal((s) => s + 1);
+  };
+
+  // Two-mode hero. Overview: the thesis states the argument once (Big Numbers render below as larger
+  // anchors). Selected: the hero ADAPTS to the chosen launch event (the map is the selector).
+  const heading = selectedEvent ? (
+    <LaunchEventHero event={selectedEvent} envId={envId} onBack={handleBack} />
+  ) : (
     <TelemetryPageHeader
       variant="hero"
       eyebrow="Overview"
@@ -139,8 +157,11 @@ export default function TelemetryOverview() {
       <OverviewBackdrop event={selectedEvent} />
       <div style={{ position: "relative", zIndex: 1 }}>
         <TelemetryPageShell heading={heading}>
-          <BigNumbersBand onDrill={setDrillNum} />
-          <BottleneckMap envId={envId} onSelectedEventChange={setSelectedEvent} />
+          {/* Historical Big Numbers anchor the overview; in selected mode the node's own KPIs live in the
+              hero, so this row is replaced rather than duplicated. */}
+          {!selectedEvent && <BigNumbersBand onDrill={setDrillNum} />}
+          <BottleneckMap envId={envId} onSelectedEventChange={setSelectedEvent}
+            selectedId={selectedId} onSelectNode={setSelectedId} resetSignal={resetSignal} />
           <SourceHonestyStrip />
           {envId && <DemoBridge envId={envId} />}
           <MetricInspectorDrawer

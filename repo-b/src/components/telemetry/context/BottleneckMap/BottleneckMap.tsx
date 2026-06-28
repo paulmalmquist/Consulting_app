@@ -4,17 +4,14 @@
 // spaceflight solved the previous bottleneck and exposed a new one; the current bottleneck is
 // decision velocity, a data platform problem. Four linked panels derive from one event model.
 // This is a context module, not an operational view: static public data, no network calls.
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { RS, RS_MONO, RS_SANS } from "../../rsTokens";
-import { telemetryHref } from "../../telemetryNav";
 import styles from "./BottleneckMap.module.css";
 import {
-  COLOR_DIMENSIONS, EVENT_NARRATIVE, EVENTS, EVENTS_CHRONO, SIZE_MODES,
+  COLOR_DIMENSIONS, EVENTS, EVENTS_CHRONO, SIZE_MODES,
   eventDimension, eventDimensionKey,
 } from "./data";
-import EventRecord from "./EventRecord";
 import MapPanel from "./MapPanel";
 import PresenterBanner from "./PresenterBanner";
 import type {
@@ -37,31 +34,52 @@ function decorate(e: LaunchEvent, colorBy: ColorByKey, sizeMode: SizeModeKey): D
   };
 }
 
-// One framing line in the selected-event narrative strip.
-function NarrLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontFamily: RS_MONO, fontSize: 8.5, letterSpacing: 0.6, textTransform: "uppercase", color: RS.faint, marginBottom: 3 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: RS_SANS, fontSize: 12.5, color: RS.text, lineHeight: 1.45 }}>{value}</div>
-    </div>
-  );
-}
-
 export default function BottleneckMap(
-  { envId, onSelectedEventChange }: {
+  { envId, onSelectedEventChange, selectedId: selectedIdProp, onSelectNode, resetSignal }: {
     envId?: string;
     /** Phase 9B: surface the selected/presented event so the Overview can drive its hero backdrop. */
     onSelectedEventChange?: (e: DecoratedEvent | null) => void;
+    /** Controlled clicked-node selection (lifted to the Overview page). */
+    selectedId?: string | null;
+    /** Set the clicked-node selection (null clears). Presence of this makes the map controlled. */
+    onSelectNode?: (id: string | null) => void;
+    /** Bump this from the parent to fully reset — stops the walkthrough AND clears the selection. */
+    resetSignal?: number;
   } = {},
 ) {
-  const [selectedId, setSelectedId] = useState<string | null>("terran1");
+  // Hybrid controlled/uncontrolled: when the parent passes `onSelectNode` the page owns selection (and may
+  // pass null → overview, with NO terran1 fallback); standalone the module keeps its own default pin.
+  const isControlled = onSelectNode !== undefined;
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>("terran1");
+  const selectedId = isControlled ? (selectedIdProp ?? null) : internalSelectedId;
   const [chipFilter, setChipFilter] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<SizeModeKey>("scale");
   const [colorBy, setColorBy] = useState<ColorByKey>("type");
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const [presenterIdx, setPresenterIdx] = useState<number | null>(null);
+
+  const setSelected = useCallback((id: string | null) => {
+    if (isControlled) onSelectNode!(id);
+    else setInternalSelectedId(id);
+  }, [isControlled, onSelectNode]);
+
+  // The single full reset: stop the presenter walkthrough AND clear the clicked selection. After this the
+  // resolved `selected` becomes null and onSelectedEventChange emits null exactly once — the presenter
+  // event is never re-emitted into the hero.
+  const clearAll = useCallback(() => {
+    setPresenterIdx(null);
+    setSelected(null);
+  }, [setSelected]);
+
+  // Parent-driven reset (e.g. the hero's "Back to overview"). Fire only on an actual change of resetSignal
+  // so a stable-deps re-render can never clobber a fresh selection.
+  const prevResetSignal = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal !== prevResetSignal.current) {
+      prevResetSignal.current = resetSignal;
+      clearAll();
+    }
+  }, [resetSignal, clearAll]);
 
   const presenting = presenterIdx !== null;
   const presenterEvent = presenterIdx !== null ? EVENTS_CHRONO[presenterIdx] : null;
@@ -73,7 +91,6 @@ export default function BottleneckMap(
   );
   // Presenter still steps event-by-event (the guided walkthrough), but every step lands on the one
   // integrated chart now — there is no per-step panel switch.
-  const focusPanel = presenterEvent ? presenterEvent.focusPanel : null;
 
   const dimension = COLOR_DIMENSIONS[colorBy];
 
@@ -103,6 +120,8 @@ export default function BottleneckMap(
       const t = ev.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       if ((ev.key === "p" || ev.key === "P") && !presenting) { setPresenterIdx(0); return; }
+      // Escape clears a click-selection back to overview (the presenter Escape path is below).
+      if (ev.key === "Escape" && !presenting) { if (selectedId) setSelected(null); return; }
       if (!presenting) return;
       if (ev.key === "ArrowRight") setPresenterIdx((i) => Math.min((i ?? 0) + 1, EVENTS_CHRONO.length - 1));
       if (ev.key === "ArrowLeft") setPresenterIdx((i) => Math.max((i ?? 0) - 1, 0));
@@ -110,10 +129,11 @@ export default function BottleneckMap(
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [presenting]);
+  }, [presenting, selectedId, setSelected]);
 
   const onHoverYear = useCallback((y: number | null) => setHoveredYear(y), []);
-  const onSelect = useCallback((id: string) => setSelectedId(id), []);
+  // Clicking the already-selected node toggles back to overview.
+  const onSelect = useCallback((id: string) => setSelected(selectedId === id ? null : id), [selectedId, setSelected]);
 
   const presenterAccent = presenterEvent ? eventDimension(presenterEvent, colorBy).color : RS.blue;
 
@@ -213,42 +233,26 @@ export default function BottleneckMap(
           onHoverYear={onHoverYear} onSelect={onSelect} />
       </div>
 
-      {/* selected-event framing strip: the two questions the record below does not answer — the
-          operational question this era created, and which downstream page proves the pattern next. The
-          bottleneck solved and the new data burden are in the event record (the relay cells) just below;
-          this strip carries the forward-looking framing without repeating them. */}
-      {selected && (() => {
-        const n = EVENT_NARRATIVE[selected.id];
-        return (
-          <div style={{ marginTop: 14, border: `1px solid ${selected.color}33`, borderLeft: `2px solid ${selected.color}`,
-            borderRadius: 9, background: `${selected.color}0a`, padding: "12px 15px" }}>
-            <div style={{ fontFamily: RS_MONO, fontSize: 9, letterSpacing: 0.8, textTransform: "uppercase", color: RS.faint, marginBottom: 10 }}>
-              {selected.name} — the operational question this era created
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) minmax(180px, 1fr)", gap: "11px 22px", alignItems: "start" }}>
-              <NarrLine label="Question that got harder" value={n?.harderQuestion ?? "—"} />
-              <div>
-                <div style={{ fontFamily: RS_MONO, fontSize: 8.5, letterSpacing: 0.6, textTransform: "uppercase", color: RS.faint, marginBottom: 5 }}>
-                  Proves the pattern next
-                </div>
-                {n && envId ? (
-                  <Link href={telemetryHref(envId, n.provesNextSlug)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none",
-                      fontFamily: RS_MONO, fontSize: 11.5, color: RS.cyan, border: `1px solid ${RS.cyan}55`,
-                      background: `${RS.cyan}12`, borderRadius: 6, padding: "5px 11px" }}>
-                    {n.provesNextLabel} →
-                  </Link>
-                ) : (
-                  <span style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.faint }}>downstream link unavailable</span>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* panel 4: pinned event record */}
-      {selected && <EventRecord event={selected} presenting={presenting} focusPanel={focusPanel} />}
+      {/* Orientation strip near the chart. The full node story now lives in the page hero above; this is
+          a non-narrative reminder of what is selected plus a quick way back. Suppressed during the
+          walkthrough, where the PresenterBanner already carries the near-map context. */}
+      {selected && !presenting && (
+        <div style={{
+          marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+          border: `1px solid ${selected.color}33`, borderLeft: `2px solid ${selected.color}`,
+          borderRadius: 8, background: `${selected.color}0a`, padding: "8px 13px",
+        }}>
+          <span style={{ fontFamily: RS_MONO, fontSize: 11, color: RS.dim }}>
+            <span style={{ color: RS.faint }}>Selected: </span>
+            <span style={{ color: RS.text }}>{selected.name}</span> · {selected.dimLabel}
+          </span>
+          <button type="button" className={styles.control} onClick={clearAll}
+            style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.dim, background: "transparent",
+              border: `1px solid ${RS.line}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
+            Back to overview
+          </button>
+        </div>
+      )}
 
       {/* methodology footer (verbatim; the module makes no domain-expertise claims) */}
       <div style={{ marginTop: 12, fontFamily: RS_MONO, fontSize: 9.5, color: RS.faint, lineHeight: 1.6 }}>
