@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -103,12 +102,7 @@ export default function TelemetrySidebar({ envId, onNavigate, collapsed = false,
                 background: active ? `${meta.accent}1f` : "transparent",
                 border: `1px solid ${active ? `${meta.accent}66` : "transparent"}`,
                 boxShadow: active ? `0 0 12px ${meta.accent}33` : "none" }}>
-              {group === "Relativity MES Sandbox" ? (
-                <Image src="/telemetry/relativityspace.png" alt="Relativity Space" width={22} height={22}
-                  style={{ objectFit: "contain", filter: "invert(1) brightness(0.7)", opacity: active ? 1 : 0.55 }} />
-              ) : (
-                <NavIcon d={meta.icon} color={active ? meta.accent : `${meta.accent}b3`} size={16} />
-              )}
+              <NavIcon d={meta.icon} color={active ? meta.accent : `${meta.accent}b3`} size={16} />
             </button>
           );
         })}
@@ -148,12 +142,7 @@ export default function TelemetrySidebar({ envId, onNavigate, collapsed = false,
                 background: groupActive && !open ? `${accent}14` : "transparent",
                 border: `1px solid ${groupActive ? `${accent}40` : "transparent"}`, color: C.text }}>
               <NavIcon d={meta.icon} color={accent} size={16} />
-              {group === "Relativity MES Sandbox" ? (
-                <Image src="/telemetry/relativityspace.png" alt="Relativity Space" width={72} height={20}
-                  style={{ objectFit: "contain", objectPosition: "left", filter: "invert(1) brightness(0.7)", opacity: open ? 1 : 0.6 }} />
-              ) : (
-                <span style={{ fontFamily: C.mono, fontSize: 12, letterSpacing: "0.02em", color: open ? C.text : C.dim }}>{group}</span>
-              )}
+              <span style={{ fontFamily: C.mono, fontSize: 12, letterSpacing: "0.02em", color: open ? C.text : C.dim }}>{group}</span>
               <span aria-hidden style={{ marginLeft: "auto", color: accent, fontSize: 13, lineHeight: 1,
                 transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }}>›</span>
             </button>

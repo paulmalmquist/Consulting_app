@@ -47,25 +47,10 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
         backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
   );
 
-  // "RelativitySpace" lockup: "Relativity" solid white, "Space" white-outlined with a transparent fill
-  // (the backdrop shows through the letter interiors).
-  const RelativitySpaceLabel = (
-    <div style={{ fontFamily: C.sans, fontWeight: 700, fontSize: 13.5, lineHeight: 1.05,
-      letterSpacing: "0.01em", whiteSpace: "nowrap" }}>
-      <span style={{ color: "#ffffff" }}>Relativity</span>
-      <span style={{ color: "transparent", WebkitTextStroke: "0.7px #ffffff" }}>Space</span>
-    </div>
-  );
-
   const Brand = (
-    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <div aria-hidden style={{ height: 17, width: 79, flexShrink: 0, backgroundImage: `url('${LOGO}')`,
+    <div aria-label="Relativity Space" role="img"
+      style={{ height: 17, width: 79, flexShrink: 0, backgroundImage: `url('${LOGO}')`,
         backgroundSize: "contain", backgroundPosition: "left center", backgroundRepeat: "no-repeat" }} />
-      <div>
-        {RelativitySpaceLabel}
-        <div style={{ fontFamily: C.mono, fontSize: 9, color: C.faint, letterSpacing: "0.1em", marginTop: 2 }}>WORKBENCH</div>
-      </div>
-    </div>
   );
 
   // Rail body — parametrized by collapse so the desktop rail can shrink to icons while the mobile drawer
