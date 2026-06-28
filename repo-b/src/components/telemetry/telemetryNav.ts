@@ -77,6 +77,7 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "relativity-mes/ncr", label: "NCR Traceability", icon: "M8 2l6 11H2zM8 6v3M8 11h.01", group: "Relativity MES Sandbox" },
   { slug: "relativity-mes/cost", label: "Cost Reconciliation", icon: "M3 13V8l3-2 4 3 3-4v8zM2 14h12", group: "Relativity MES Sandbox" },
   { slug: "relativity-mes/lineage", label: "Lineage & Source Tables", icon: "M4 2v12M4 6h6M4 11h5M10 4v4M9 9v3", group: "Relativity MES Sandbox" },
+  { slug: "relativity-mes/analytics", label: "Build Analytics", icon: "M2 13l3-4 3 2 3-6 3 3M2 13h12", group: "Relativity MES Sandbox" },
 ];
 
 export const TELEMETRY_NAV_GROUPS: TelemetryNavGroup[] = [

@@ -48,6 +48,13 @@ def lineage(env_id: str = Query(...), business_id: UUID = Query(...)):
     return svc.lineage(env_id=env_id, business_id=business_id)
 
 
+@router.get("/analytics")
+def analytics(env_id: str = Query(...), business_id: UUID = Query(...),
+              vehicle_serial: str | None = Query(None)):
+    """Build Analytics simulation-analysis blocks. vehicle_serial refilters readiness+bridge only."""
+    return svc.analytics(env_id=env_id, business_id=business_id, vehicle_serial=vehicle_serial)
+
+
 @router.get("/source/{table}")
 def source(table: str, env_id: str = Query(...), business_id: UUID = Query(...),
            key: str | None = Query(None), value: str | None = Query(None),

@@ -41,6 +41,37 @@ export interface SourceRowsResp extends ServingMeta {
   table: string; columns: string[]; rows: Row[]; row_count: number;
 }
 
+// Build Analytics — simulation-analysis blocks (Phase 10 hardening). Each block carries its own
+// null_reason so one empty supporting mart degrades that block, not the page.
+export interface AnalyticsKpis {
+  total_variance: number | null;
+  rework_share_pct: number | null;
+  recon_exception_count: number | null;
+  suspect_lot_vehicle_count: number | null;
+  busiest_work_center: string | null;
+  defect_concentration_pct: number | null;
+}
+export interface AnalyticsBlocks {
+  readiness?: { rows: Row[]; null_reason: string | null };
+  asymmetry?: { rows: Row[]; shared_exposure: string[]; null_reason: string | null };
+  blast?: {
+    rows_present: boolean; lot_id: string | null; part_number: string | null;
+    vehicles: Row[]; ncrs: Row[]; work_orders: Row[]; edges: Row[]; null_reason: string | null;
+  };
+  bridge?: { rows: Row[]; reconciled_pct: number | null; residual_total: number; null_reason: string | null };
+  pareto?: { rows: Row[]; concentration_pct: number | null; n_ncrs?: number; null_reason: string | null };
+  workcenter?: { rows: Row[]; null_reason: string | null };
+  recon?: {
+    rows: Row[]; threshold_sensitivity: { k: number; exception_count: number }[];
+    exception_threshold_pct?: number; null_reason: string | null;
+  };
+  disconfirmation?: { findings: Row[]; checks_run: number; null_reason: string | null };
+}
+export interface AnalyticsResp extends ServingMeta {
+  kpis: AnalyticsKpis | null;
+  blocks: AnalyticsBlocks;
+}
+
 export const getOverview = () =>
   apiFetch<OverviewResp>(`${base}/overview`, { params: tenant() });
 
@@ -58,6 +89,9 @@ export const getCost = (vehicleSerial?: string) =>
   apiFetch<CostResp>(`${base}/cost`, { params: { ...tenant(), vehicle_serial: vehicleSerial } });
 
 export const getLineage = () => apiFetch<LineageResp>(`${base}/lineage`, { params: tenant() });
+
+export const getAnalytics = (vehicleSerial?: string) =>
+  apiFetch<AnalyticsResp>(`${base}/analytics`, { params: { ...tenant(), vehicle_serial: vehicleSerial } });
 
 export const getSourceRows = (table: string, key?: string, value?: string) =>
   apiFetch<SourceRowsResp>(`${base}/source/${encodeURIComponent(table)}`, {

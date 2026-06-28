@@ -56,6 +56,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
         "relativity-mes/ncr",
         "relativity-mes/cost",
         "relativity-mes/lineage",
+        "relativity-mes/analytics",
       ].sort(),
     );
     // The hidden slugs must NOT appear in the nav (but their page routes still exist on disk).
