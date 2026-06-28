@@ -1,8 +1,17 @@
 "use client";
 
 import { apiFetch } from "@/lib/api";
+import { TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "./api";
 
 const BASE = "/api/agent-builder";
+
+// The Agent Builder backend resolves tenant context from session headers when present,
+// and otherwise falls back to allowlisted query params (the headerless telemetry reviewer
+// login). Mirror the Control Tower pattern: always send the demo scope as query params so
+// the page works under the reviewer login. For a real platform session the backend ignores
+// these params and uses the header-derived tenant. Sent on every method (the backend reads
+// scope from query params for GET/POST/PATCH alike, so typed POST bodies stay untouched).
+const scope = { env_id: TELEMETRY_DEMO_ENV_ID, business_id: TELEMETRY_DEMO_BUSINESS_ID };
 
 export type AgentNodeType =
   | "manual_trigger"
@@ -199,19 +208,24 @@ export interface AgentEvalRun {
 }
 
 const post = <T>(path: string, body: Record<string, unknown> = {}) =>
-  apiFetch<T>(`${BASE}${path}`, { method: "POST", body: JSON.stringify(body), timeoutMs: 120_000 });
+  apiFetch<T>(`${BASE}${path}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    params: scope,
+    timeoutMs: 120_000,
+  });
 
 export const getPalette = () =>
-  apiFetch<{ schema_version: string; nodes: PaletteNode[] }>(`${BASE}/palette`);
+  apiFetch<{ schema_version: string; nodes: PaletteNode[] }>(`${BASE}/palette`, { params: scope });
 
 export const getMcpTools = () =>
-  apiFetch<{ tools: McpTool[] }>(`${BASE}/mcp-tools`);
+  apiFetch<{ tools: McpTool[] }>(`${BASE}/mcp-tools`, { params: scope });
 
 export const getWorkflows = () =>
-  apiFetch<{ workflows: WorkflowSummary[] }>(`${BASE}/workflows`, { timeoutMs: 60_000 });
+  apiFetch<{ workflows: WorkflowSummary[] }>(`${BASE}/workflows`, { params: scope, timeoutMs: 60_000 });
 
 export const getWorkflow = (workflowId: string) =>
-  apiFetch<WorkflowDetail>(`${BASE}/workflows/${workflowId}`);
+  apiFetch<WorkflowDetail>(`${BASE}/workflows/${workflowId}`, { params: scope });
 
 export const createWorkflow = (body: {
   name: string;
@@ -227,6 +241,7 @@ export const saveWorkflowDraft = (
   apiFetch<WorkflowDetail>(`${BASE}/workflows/${workflowId}/draft`, {
     method: "PATCH",
     body: JSON.stringify(body),
+    params: scope,
   });
 
 export const validateWorkflow = (workflowId: string) =>
@@ -236,19 +251,19 @@ export const dryRunWorkflow = (workflowId: string, input: Record<string, unknown
   post<AgentRun>(`/workflows/${workflowId}/dry-run`, { input });
 
 export const getRuns = () =>
-  apiFetch<{ runs: AgentRun[] }>(`${BASE}/runs`);
+  apiFetch<{ runs: AgentRun[] }>(`${BASE}/runs`, { params: scope });
 
 export const getRun = (runId: string) =>
-  apiFetch<AgentRun>(`${BASE}/runs/${runId}`);
+  apiFetch<AgentRun>(`${BASE}/runs/${runId}`, { params: scope });
 
 export const getWorkflowEvals = (workflowId: string) =>
-  apiFetch<AgentEvalRun>(`${BASE}/workflows/${workflowId}/evals`);
+  apiFetch<AgentEvalRun>(`${BASE}/workflows/${workflowId}/evals`, { params: scope });
 
 export const runWorkflowEvals = (workflowId: string) =>
   post<AgentEvalRun>(`/workflows/${workflowId}/evals/run`);
 
 export const getEvalRun = (evalRunId: string) =>
-  apiFetch<AgentEvalRun>(`${BASE}/eval-runs/${evalRunId}`);
+  apiFetch<AgentEvalRun>(`${BASE}/eval-runs/${evalRunId}`, { params: scope });
 
 export const stageWorkflow = (workflowId: string) =>
   post<WorkflowDetail>(`/workflows/${workflowId}/publish`, { status: "staged" });

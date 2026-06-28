@@ -5,7 +5,8 @@ from __future__ import annotations
 import psycopg
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from app.auth.platform import require_tenant_context
+from app.auth.platform import require_authenticated_request
+from app.config import TELEMETRY_STREAM_BUSINESS_ID, TELEMETRY_STREAM_ENV_ID
 from app.schemas.agent_builder import (
     DryRunRequest,
     PublishRequest,
@@ -18,14 +19,50 @@ from app.services import agent_builder_evals as eval_service
 
 router = APIRouter(prefix="/api/agent-builder", tags=["agent-builder"])
 
+# A headerless reviewer/demo session (the scoped telemetry login, which carries no DB
+# membership and therefore no x-bm-business-id header) may scope ONLY to this single,
+# known-public demo tenant — supplied via query params. Any other (env_id, business_id)
+# pair from params is rejected, so params are never a general tenant-injection path.
+_DEMO_SCOPE_ALLOWLIST: frozenset[tuple[str, str]] = frozenset(
+    {(TELEMETRY_STREAM_ENV_ID, TELEMETRY_STREAM_BUSINESS_ID)}
+)
+
 
 def _scope(request: Request, *, mutate: bool = False) -> tuple[str, str, str]:
-    auth = require_tenant_context(request)
-    if not auth.env_id:
-        raise HTTPException(status_code=403, detail="Environment context required")
-    if mutate and "write" not in auth.permissions and "admin" not in auth.roles:
-        raise HTTPException(status_code=403, detail="Operator or admin role required")
-    return auth.env_id, str(auth.business_id), auth.actor
+    """Resolve (env_id, business_id, actor) with explicit precedence.
+
+    1. A real, header-derived platform-session tenant always wins; params are ignored,
+       so a real tenant can never be redirected to (or downgraded into) the demo scope.
+    2. A headerless-but-authenticated demo session falls back to query params, accepted
+       ONLY for the allowlisted telemetry-demo pair — otherwise it fails closed (403),
+       exactly as before.
+
+    The mutate gate (operator/admin) is enforced for real tenants. For the allowlisted
+    demo scope only, Agent Builder persistence is permitted (workflow drafts, validation
+    records, dry-run/run-step rows, run events, receipts — all in the ai_agent_* audit/
+    config tables, scoped to env_id='telemetry-demo'). This grant does NOT enable MCP
+    write tools (still disabled in describe_tools and rejected by validate_graph), any
+    production data write, deploy/PR action, or any non-demo-tenant mutation.
+    """
+    auth = require_authenticated_request(request)
+
+    if auth.business_id:
+        # Real, header-derived tenant — authoritative. Params are ignored.
+        if not auth.env_id:
+            raise HTTPException(status_code=403, detail="Environment context required")
+        if mutate and "write" not in auth.permissions and "admin" not in auth.roles:
+            raise HTTPException(status_code=403, detail="Operator or admin role required")
+        return auth.env_id, str(auth.business_id), auth.actor
+
+    # Headerless demo/reviewer session — fall back to allowlisted param scope.
+    env_id = request.query_params.get("env_id") or ""
+    business_id = request.query_params.get("business_id") or ""
+    if (env_id, business_id) not in _DEMO_SCOPE_ALLOWLIST:
+        raise HTTPException(
+            status_code=403,
+            detail="Tenant context required: this request carries no business_id",
+        )
+    return env_id, business_id, auth.actor or "telemetry-demo"
 
 
 def _to_http(exc: Exception) -> HTTPException:
