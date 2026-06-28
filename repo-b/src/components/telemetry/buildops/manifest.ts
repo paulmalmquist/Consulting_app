@@ -598,6 +598,7 @@ export const CI_GATES: CiGateRow[] = [
   { gate: "repo-guardrails", catches: "Assistant-runtime + repo guardrail violations.", evidence: "node scripts/check_repo_guardrails.mjs", blocks: true, sourceRefs: [CI] },
   { gate: "frontend-quality", catches: "lint + typecheck + vitest in repo-b.", evidence: "npm run lint/typecheck/test:unit", blocks: true, sourceRefs: [CI] },
   { gate: "db-schema-gate", catches: "Schema idempotency + RLS contract.", evidence: "apply twice + verify", blocks: true, sourceRefs: [CI] },
+  { gate: "vercelignore-collision-guard", catches: "A frontend folder silently dropped from the Vercel deploy upload by an unanchored .vercelignore pattern — a class of bug local `npm run build` and CI both miss (neither runs `next build`). Added after this exact failure: this very page's component folder was excluded; the deploy 500'd with 'Module not found' while local build + CI were green. Fixed in PR #462 (commit 57c459c5) + the .vercelignore anchored repo-wide.", evidence: "node scripts/check_vercelignore_collisions.mjs (repo-guardrails)", blocks: true, sourceRefs: [{ label: "check_vercelignore_collisions.mjs", path: "scripts/check_vercelignore_collisions.mjs" }, { label: ".vercelignore", path: ".vercelignore" }, CI] },
 ];
 
 // ── Section 9: evidence / "can I see…?" checklist ────────────────────────────────────────────────

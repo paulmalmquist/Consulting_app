@@ -109,6 +109,9 @@ jobs:
       - name: Assistant runtime validation
         run: node scripts/validate_assistant_runtime.mjs
 
+      - name: .vercelignore collision guard
+        run: node scripts/check_vercelignore_collisions.mjs
+
   frontend-quality:
     name: Frontend Lint + Typecheck + Unit
     runs-on: ubuntu-latest
