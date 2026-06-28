@@ -184,7 +184,7 @@ const MASTER_NODES: ArchNode[] = [
   // Lane B — operational serving
   n("B_db", 8, 1, "cylinder", "live", "Supabase / Postgres\noperational serving", 0, "The operational serving system of record.", "The always-on database of record. Everything the live app shows comes from here.", "sb"),
   n("B_api", 9, 1, "rect", "live", "FastAPI services", 0, "Does not import Spark or the full MLflow training stack.", "The web-service layer. Deliberately lightweight — it never runs the heavy training engine.", "api"),
-  n("B_ui", 10, 1, "screen", "live", "Monitoring · Registry\nSystem Health", 0, "", "Operational dashboards: monitoring, model registry, system health.", null, { slug: "system-health" }),
+  n("B_ui", 10, 1, "screen", "live", "Monitoring · Registry\nSystem Health", 0, "", "Operational dashboards: monitoring, model registry, system health.", null, { slug: "monitoring" }),
 
   // Lane C — ISS live streaming
   n("C_iss", 1, 2, "cloud", "optional", "ISS Lightstreamer\n(live)", -30, "Optional; fails closed when unavailable.", "A live feed of real telemetry from the International Space Station. Nice to have — if it drops, the system keeps working.", "iss"),
@@ -192,7 +192,7 @@ const MASTER_NODES: ArchNode[] = [
   n("C_open", 2, 2, "cloud", "optional", "OpenSky ADS-B\nfallback", -34, "", "A backup live feed (aircraft positions) used if the ISS feed is down.", null),
   n("C_ing", 2, 2, "rect", "live", "telemetry_stream_ingest", 30, "", "Takes each incoming reading and stores it.", "api"),
   n("C_bz", 3, 2, "cylinder", "live", "tel_stream_readings\n_bronze", 0, "", "Raw streamed readings, as they arrive.", "sb", { slug: "stream" }),
-  n("C_sv", 4, 2, "cylinder", "live", "tel_stream_readings\ntel_stream_minute_agg", 0, "", "Cleaned readings plus per-minute summaries.", "sb", { slug: "system-health" }),
+  n("C_sv", 4, 2, "cylinder", "live", "tel_stream_readings\ntel_stream_minute_agg", 0, "", "Cleaned readings plus per-minute summaries.", "sb", { slug: "monitoring" }),
   n("C_ev", 8, 2, "cylinder", "live", "tel_anomaly_events\ntel_dq_assertions", 0, "", "Flagged anomalies and data-quality checks.", "sb"),
   n("C_api", 9, 2, "rect", "live", "/stream/live\n/stream/health", 0, "", "Endpoints the live-stream dashboards poll.", "api"),
   n("C_ui", 10, 2, "screen", "live", "Mission Control Stream\nSystem Health", 0, "", "The live Mission Control stream and system-health screens.", null, { slug: "stream" }),
@@ -326,7 +326,7 @@ const STREAM_NODES: ArchNode[] = [
   d("s_bz", 3, 1, "cylinder", "live", "tel_stream_readings\n_bronze", "Raw streamed readings, as received.", "sb", { slug: "stream" }),
   d("s_etl", 4, 1, "rect", "live", "telemetry_stream_etl", "Cleans the readings and rolls them up.", "api"),
   d("s_rd", 5, 0.4, "cylinder", "live", "tel_stream_readings", "The cleaned per-reading table.", "sb"),
-  d("s_agg", 5, 1.6, "cylinder", "live", "tel_stream_minute_agg", "Per-minute summaries.", "sb", { slug: "system-health" }),
+  d("s_agg", 5, 1.6, "cylinder", "live", "tel_stream_minute_agg", "Per-minute summaries.", "sb", { slug: "monitoring" }),
   d("s_state", 6, 1, "cylinder", "live", "tel_anomaly_events · dq_assertions\netl_watermarks · pipeline_status", "Anomalies, data-quality checks, and pipeline bookkeeping.", "sb", { width: 214 }),
   d("s_api", 7, 1, "rect", "live", "/api/telemetry/stream\n/live · /health", "Endpoints the live dashboards poll.", "api"),
   d("s_ui", 8, 1, "screen", "live", "Mission Control Stream\nSystem Health", "The live ISS stream and health screens.", null, { slug: "stream" }),
