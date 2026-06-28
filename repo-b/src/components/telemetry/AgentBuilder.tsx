@@ -458,22 +458,39 @@ export default function AgentBuilder({ tab, onOpenBuilder }: { tab: ControlTower
 
   const refresh = useCallback(async () => {
     setError(null);
+    // Bootstrap each surface independently: a failure in one call (e.g. tenant context
+    // unresolved, or schema not migrated) must not blank the whole builder. Whatever
+    // resolves still renders; only the parts that genuinely failed surface a banner.
+    const [paletteResult, toolResult, workflowResult, runResult] = await Promise.allSettled([
+      getPalette(),
+      getMcpTools(),
+      getWorkflows(),
+      getRuns(),
+    ]);
+    if (paletteResult.status === "fulfilled") setPalette(paletteResult.value.nodes);
+    if (toolResult.status === "fulfilled") setTools(toolResult.value.tools);
+    let firstWorkflowId: string | null = null;
+    if (workflowResult.status === "fulfilled") {
+      setWorkflows(workflowResult.value.workflows);
+      firstWorkflowId = workflowResult.value.workflows[0]?.id ?? null;
+    }
+    if (runResult.status === "fulfilled") setRuns(runResult.value.runs);
+
+    const failures = [paletteResult, toolResult, workflowResult, runResult].filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (failures.length) {
+      const detail = failures[0].reason;
+      const detailMessage = detail instanceof Error ? detail.message : String(detail);
+      setError(
+        "Context required — select an environment or reload from a valid telemetry environment. " +
+          `Read-only demo templates and palette remain available where they loaded. (${detailMessage})`,
+      );
+    }
     try {
-      const [paletteResult, toolResult, workflowResult, runResult] = await Promise.all([
-        getPalette(),
-        getMcpTools(),
-        getWorkflows(),
-        getRuns(),
-      ]);
-      setPalette(paletteResult.nodes);
-      setTools(toolResult.tools);
-      setWorkflows(workflowResult.workflows);
-      setRuns(runResult.runs);
-      if (!workflow && workflowResult.workflows[0]) {
-        await loadWorkflow(workflowResult.workflows[0].id);
+      if (!workflow && firstWorkflowId) {
+        await loadWorkflow(firstWorkflowId);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

@@ -4796,3 +4796,28 @@ reusing on any synthetic/demo analytics surface:
   rewrites `repo-b/db/schema/10037`/`10038` in place from the generator; applying to Lakebase needs a
   short-lived Databricks cred (see the Lakebase-owner-DDL memory). Generator changes that alter rows are
   a backend-deploy + serving-refresh, not just a code merge.
+- **Two telemetry tenancy patterns — don't mix them up.** The telemetry demo is reached via the scoped
+  reviewer login (`telemetry`), whose session has NO DB membership and therefore NO `x-bm-business-id`
+  header. Most telemetry routes (`/api/telemetry/*`, control-tower) read `env_id`/`business_id` from
+  **request params**, and the frontend passes the hardcoded `TELEMETRY_DEMO_ENV_ID`/`_BUSINESS_ID`
+  constants (`repo-b/src/lib/telemetry/api.ts`) — so they work under the reviewer login. The Agent
+  Builder backend was instead written to **header-based** tenancy (`require_tenant_context`), which 403s
+  ("Tenant context required: this request carries no business_id") for the headerless reviewer session →
+  the whole builder went dead (empty palette, because `refresh()` used `Promise.all`). Fix pattern:
+  resolve scope with precedence — header-derived `auth.business_id` wins when present (real tenant, never
+  overridable by params); else fall back to query params **allowlisted to the one telemetry-demo pair**
+  (`_DEMO_SCOPE_ALLOWLIST` in `backend/app/routes/agent_builder.py`, sourced from `config.TELEMETRY_STREAM_*`).
+  Read scope from `request.query_params` for ALL methods so typed Pydantic POST bodies stay untouched.
+  Never accept arbitrary param scope — that's an open tenant-injection hole.
+- **A headerless `platform-session` request is still authenticated.** `mcp_provider.authenticate` treats
+  `x-bm-auth-provider: platform-session` (or any `x-bm-user-id`) as authenticated even with no
+  `x-bm-business-id`; default `membership_role` is `viewer` → `permissions=["read"]`. So a tenantless
+  demo session passes `require_authenticated_request` but fails any `write`/`admin` mutate gate. To make
+  a demo interactive (Save/Validate/Dry-Run), grant the mutate skip for the allowlisted demo scope ONLY
+  — it persists to the `ai_agent_*` audit/config tables under `env_id='telemetry-demo'`, and does NOT
+  unlock MCP write tools (still disabled in `describe_tools` / rejected by `validate_graph`).
+- **Test the context pipe, not just mocked handlers.** The Agent Builder break was pure
+  context-propagation, yet the heavy component test mocks the whole api module and never noticed. Add a
+  thin test that un-mocks `fetch` and asserts the real `agentBuilder-api` + `apiFetch` put
+  `env_id`/`business_id` on the request URL (`repo-b/src/lib/telemetry/agentBuilder-api.test.ts`).
+  Backend coverage: `cd backend && python -m pytest tests/test_agent_builder.py -q`.

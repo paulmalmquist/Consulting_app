@@ -587,6 +587,131 @@ def _platform_headers(role: str = "member") -> dict[str, str]:
     }
 
 
+# The scoped telemetry reviewer login: authenticated, but its session carries no DB
+# membership and therefore NO x-bm-business-id / x-bm-env-id header. This is the exact
+# shape that previously 403'd the whole Agent Builder.
+def _demo_headers() -> dict[str, str]:
+    return {
+        "x-bm-auth-provider": "platform-session",
+        "x-bm-user-id": "reviewer-1",
+        "x-bm-actor": "user:test:reviewer-1",
+        # deliberately no x-bm-business-id / x-bm-env-id
+    }
+
+
+_DEMO_ENV, _DEMO_BIZ = next(iter(agent_builder_route._DEMO_SCOPE_ALLOWLIST))
+
+
+def _demo_scope_params() -> dict[str, str]:
+    return {"env_id": _DEMO_ENV, "business_id": _DEMO_BIZ}
+
+
+def test_agent_builder_api_demo_scope_resolves_palette_without_business_id_header(client):
+    # The headerless reviewer session, scoped via allowlisted query params, must load the
+    # palette — this is the regression test for the original "Tenant context required" bug.
+    response = client.get(
+        "/api/agent-builder/palette",
+        headers=_demo_headers(),
+        params=_demo_scope_params(),
+    )
+    assert response.status_code == 200
+    assert len(response.json()["nodes"]) == 10
+
+
+def test_agent_builder_api_rejects_non_allowlisted_param_scope(client):
+    # Params are NOT a general tenant-injection path: any pair other than the demo tenant
+    # fails closed even for an authenticated-but-tenantless session.
+    response = client.get(
+        "/api/agent-builder/palette",
+        headers=_demo_headers(),
+        params={"env_id": "some-other-env", "business_id": str(uuid4())},
+    )
+    assert response.status_code == 403
+
+
+def test_agent_builder_api_header_tenant_overrides_spoofed_params(client, monkeypatch):
+    # A real, header-derived tenant must win: spoofed demo params cannot redirect a real
+    # session's reads to the demo scope.
+    captured: dict[str, str] = {}
+
+    def _capture(**kwargs):
+        captured["env_id"] = kwargs["env_id"]
+        captured["business_id"] = kwargs["business_id"]
+        return []
+
+    monkeypatch.setattr(agent_builder_route.service, "list_workflows", _capture)
+    response = client.get(
+        "/api/agent-builder/workflows",
+        headers=_platform_headers("member"),
+        params=_demo_scope_params(),  # attempt to spoof the demo scope
+    )
+    assert response.status_code == 200
+    assert captured["env_id"] == ENV
+    assert captured["business_id"] == BIZ
+
+
+def test_agent_builder_api_demo_scope_can_persist_drafts_and_dry_runs(client, monkeypatch):
+    # Decision 1: the allowlisted demo scope is granted Agent Builder persistence so
+    # Save / Validate / Dry Run work under the reviewer login (no write tools, demo tenant
+    # only). Without the demo grant the headerless 'viewer' session would 403 on mutate.
+    monkeypatch.setattr(
+        agent_builder_route.service,
+        "create_workflow",
+        lambda **kwargs: {"id": "wf-demo", "version_number": 1, "env_id": kwargs["env_id"]},
+    )
+    monkeypatch.setattr(
+        agent_builder_route.service,
+        "dry_run",
+        lambda **kwargs: {"id": "run-demo", "status": "succeeded", "steps": [], "receipts": []},
+    )
+    created = client.post(
+        "/api/agent-builder/workflows",
+        headers=_demo_headers(),
+        params=_demo_scope_params(),
+        json={"name": "Agent", "graph": valid_minimal_graph().model_dump(mode="json")},
+    )
+    assert created.status_code == 200
+    assert created.json()["env_id"] == _DEMO_ENV
+    run = client.post(
+        "/api/agent-builder/workflows/wf-demo/dry-run",
+        headers=_demo_headers(),
+        params=_demo_scope_params(),
+        json={"input": {"run_key": "run-1"}},
+    )
+    assert run.status_code == 200
+    assert run.json()["status"] == "succeeded"
+
+
+def test_agent_builder_demo_scope_does_not_unlock_write_capable_mcp_tools():
+    # The demo persistence grant must NOT open MCP writes. A graph pinning a write-capable
+    # tool is rejected by validation and the tool is reported disabled — independent of the
+    # caller's scope (validation is scope-agnostic; the route never executes a failing graph).
+    write_tool = registry.get("business.create")
+    assert write_tool is not None and write_tool.permission == "write"
+    candidate = graph(
+        [
+            node("trigger", "manual_trigger", 0),
+            node(
+                "tool",
+                "mcp_tool",
+                100,
+                {
+                    "tool_name": write_tool.name,
+                    "tool_schema_digest": agent_builder.tool_schema_digest(write_tool),
+                    "bindings": {},
+                },
+            ),
+            node("output", "output", 200),
+        ],
+        [edge("trigger", "tool"), edge("tool", "output")],
+    )
+    result = agent_builder.validate_graph(candidate)
+    assert result["status"] == "fail"
+    assert any(issue["code"] == "WRITE_TOOL_FORBIDDEN" for issue in result["issues"])
+    described = next(tool for tool in agent_builder.describe_tools() if tool["name"] == write_tool.name)
+    assert described["enabled"] is False
+
+
 def test_agent_builder_api_enforces_viewer_vs_operator_mutations(client, monkeypatch):
     payload = {"name": "Agent", "graph": valid_minimal_graph().model_dump(mode="json")}
     monkeypatch.setattr(
