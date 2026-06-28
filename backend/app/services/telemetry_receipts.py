@@ -31,6 +31,11 @@ RECEIPT_FILES: dict[str, str] = {
     "drift_features": "drift_feature_stats.json",
     "embedding_projection": "embedding_projection.json",
     "factory_local_shap": "factory_local_shap.json",
+    # Relativity MES Build Analytics (Phase 10 hardening) — offline pure-Python study receipts. Same
+    # fail-closed contract; provider=local_fixture (no Databricks/BigQuery/Vertex in this path).
+    "mes_scenario_manifest": "mes_scenario_manifest.json",
+    "mes_seed_stability": "mes_seed_stability.json",
+    "mes_data_quality": "mes_data_quality.json",
 }
 
 # Strict provenance header every receipt carries. Missing keys normalize to None — never fabricated.

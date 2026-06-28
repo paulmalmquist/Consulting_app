@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.services import relativity_mes as svc
+from app.services import telemetry_receipts as receipts
+from app.schemas.telemetry import ReceiptEnvelope
 
 router = APIRouter(prefix="/api/telemetry/relativity-mes", tags=["relativity-mes"])
 
@@ -53,6 +55,35 @@ def analytics(env_id: str = Query(...), business_id: UUID = Query(...),
               vehicle_serial: str | None = Query(None)):
     """Build Analytics simulation-analysis blocks. vehicle_serial refilters readiness+bridge only."""
     return svc.analytics(env_id=env_id, business_id=business_id, vehicle_serial=vehicle_serial)
+
+
+# ── Simulation-analysis receipts (offline pure-Python study; replayed, never recomputed) ──────────
+
+@router.get("/analytics/scenario-manifest", response_model=ReceiptEnvelope)
+def analytics_scenario_manifest():
+    """What the default seed PLANTED vs what emerges (mes_scenario_manifest receipt). Fail-closed."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("mes_scenario_manifest"))
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/analytics/seed-stability", response_model=ReceiptEnvelope)
+def analytics_seed_stability():
+    """Per-metric current / median / P10–P90 + verdict across N seeds (mes_seed_stability receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("mes_seed_stability"))
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/analytics/data-quality", response_model=ReceiptEnvelope)
+def analytics_data_quality():
+    """Chaos / data-quality survivability across injected mess levels (mes_data_quality receipt)."""
+    try:
+        return ReceiptEnvelope(**receipts.load_receipt("mes_data_quality"))
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/source/{table}")

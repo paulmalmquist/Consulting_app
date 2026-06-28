@@ -98,3 +98,43 @@ def test_gold_marts_present_and_nonempty():
         "gold.rel_build_cost_rollup", "gold.rel_mes_erp_reconciliation",
     ):
         assert ds["gold"][mart], f"{mart} is empty"
+
+
+# ── Phase 10 hardening: seed-parametric + clean residual + seed-varying concentration ──────────
+
+def test_seed_parametric_and_deterministic_per_seed():
+    a = json.dumps(gen.build_dataset(12345), sort_keys=True)
+    b = json.dumps(gen.build_dataset(12345), sort_keys=True)
+    assert a == b                                   # deterministic for a given seed
+    assert a != json.dumps(gen.build_dataset(99), sort_keys=True)  # different seed → different data
+
+
+def test_bridge_residual_is_small_and_source_traceable():
+    ds = _ds()
+    ov = ds["gold"]["gold.rel_build_overview"]
+    ru = ds["gold"]["gold.rel_build_cost_rollup"]
+    actual = sum(r["actual_cost"] for r in ov)
+    rollup = sum(r["total_actual_cost"] for r in ru)
+    gap = round(actual - rollup, 2)
+    # the gap equals the committed 'unallocated' ERP cost rows (not a generator-only constant)
+    unalloc = sum(r["amount"] for r in ds["source"]["rel_erp_prod_order_cost"]
+                  if r["cost_element"] == "unallocated")
+    assert abs(unalloc - gap) < 0.5
+    residual_pct = gap / actual * 100
+    assert 0.5 < residual_pct < 4.0                 # a real, modest residual (never a pure identity)
+
+
+def test_largest_ncr_concentration_varies_across_seeds():
+    # The pattern (one dominant defect) is stable; the exact % must be seed-specific, else the
+    # "multi-seed stability" study is theatre. Assert a real spread across seeds.
+    shares = [gen.study_aggregates(gen.build_dataset(s))["largest_ncr_share_pct"] for s in range(40)]
+    assert max(shares) - min(shares) > 5.0
+    assert all(s > 0 for s in shares)
+
+
+def test_scenario_manifest_records_planted_facts():
+    m = gen.scenario_manifest()
+    assert m["planted"]["suspect_lot"] == gen.SUSPECT_LOT
+    assert m["planted"]["suspect_vehicles"] == ["VEH-DEMO-001", "VEH-DEMO-002"]
+    assert m["planted"]["recon_threshold_pct"] == gen.RECON_EXCEPTION_PCT
+    assert "generated_vs_emergent" in m

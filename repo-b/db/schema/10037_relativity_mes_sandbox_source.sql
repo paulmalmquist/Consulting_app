@@ -1018,7 +1018,10 @@ INSERT INTO rel_erp_prod_order_cost (env_id, business_id, cost_id, mfg_order_no,
   ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'MFG-003-FED:labor', 'MFG-003-FED', 'VEH-DEMO-003', 'labor', 'D', 1649.83, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:labor', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
   ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'MFG-003-FED:overhead', 'MFG-003-FED', 'VEH-DEMO-003', 'overhead', 'D', 296.97, '2026-06-16', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-003-FED:overhead', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
   ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'MFG-001-TPS:rework', 'MFG-001-TPS', 'VEH-DEMO-001', 'rework', 'D', 4200.0, '2026-06-18', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-001-TPS:rework', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
-  ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'MFG-002-STR:rework', 'MFG-002-STR', 'VEH-DEMO-002', 'rework', 'D', 2650.0, '2026-06-18', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-002-STR:rework', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z');
+  ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'MFG-002-STR:rework', 'MFG-002-STR', 'VEH-DEMO-002', 'rework', 'D', 2650.0, '2026-06-18', true, 'ERP', 'rel_erp_prod_order_cost', 'MFG-002-STR:rework', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
+  ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'VEH-001:unallocated', NULL, 'VEH-DEMO-001', 'unallocated', 'D', 3947.88, '2026-06-19', true, 'ERP', 'rel_erp_prod_order_cost', 'VEH-001:unallocated', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
+  ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'VEH-002:unallocated', NULL, 'VEH-DEMO-002', 'unallocated', 'D', 2022.43, '2026-06-19', true, 'ERP', 'rel_erp_prod_order_cost', 'VEH-002:unallocated', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z'),
+  ('telemetry-demo', '7e1eb000-0000-4000-a000-000000000001', 'VEH-003:unallocated', NULL, 'VEH-DEMO-003', 'unallocated', 'D', 3536.36, '2026-06-19', true, 'ERP', 'rel_erp_prod_order_cost', 'VEH-003:unallocated', 'rel-mes-seed-v1', '2026-06-26T00:00:00Z');
 
 CREATE TABLE IF NOT EXISTS rel_erp_cost_variance (
   env_id text NOT NULL DEFAULT 'telemetry-demo',
