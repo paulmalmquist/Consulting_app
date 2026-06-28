@@ -38,13 +38,14 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
     return () => { document.body.style.overflow = prev; };
   }, [drawerOpen]);
 
-  // Brand mark: the Relativity Space wordmark (white-recolored SVG, reused from the node backdrops).
-  // Shown alone in the collapsed icon rail. CSS background (not <img>) — no next/image lint, crisp sizing.
   const LOGO = "/telemetry/backdrops/nodes/relativity-logo.svg";
+  // Collapsed: icon mark (dots/bowtie symbol), not the wordmark.
   const BrandMark = (
     <div role="img" aria-label="Relativity Space"
-      style={{ width: 46, height: 10, flexShrink: 0, backgroundImage: `url('${LOGO}')`,
-        backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+      style={{ width: 28, height: 28, flexShrink: 0,
+        backgroundImage: "url('/telemetry/relativityspace.png')",
+        backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+        filter: "invert(1) brightness(0.85)" }} />
   );
 
   const Brand = (
