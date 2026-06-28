@@ -597,6 +597,18 @@ export default function EnvironmentHomePage({ params }: { params: { envId: strin
     }
   };
 
+  // If env is loaded and resolves to a dedicated workspace, suppress the generic page entirely
+  // while router.replace() is in flight. Without this the page flickers before the redirect lands.
+  if (env) {
+    const workspacePath = resolveEnvironmentOpenPath({
+      envId: params.envId,
+      industry: env.industry,
+      industryType: env.industry_type,
+      workspaceTemplateKey: env.workspace_template_key,
+    });
+    if (workspacePath !== `/lab/env/${params.envId}`) return null;
+  }
+
   return (
     <div className="space-y-6">
       {/* Flash message */}

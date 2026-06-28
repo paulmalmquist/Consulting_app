@@ -100,14 +100,11 @@ function useIntelligenceFeed(env: Environment | null, bizId: string | null) {
   const seededRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    // Fail closed: no env, or no real tenant → no fetch, no seed.
+    // Fail closed: no env, or no real tenant → no fetch, no seed. Environments without a
+    // business_id (e.g. telemetry, domain-specific labs) legitimately have no intelligence feed;
+    // treat as silent empty rather than surfacing an error to the user.
     if (!env || !bizId) {
-      setState({
-        cards: [],
-        loading: false,
-        error: null,
-        nullReason: !env ? null : "missing_business_id",
-      });
+      setState({ cards: [], loading: false, error: null, nullReason: null });
       return;
     }
 
