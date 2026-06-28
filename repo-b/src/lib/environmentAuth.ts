@@ -148,6 +148,7 @@ export function environmentHomePath(args: {
   envId: string;
   slug: EnvironmentSlug;
   role?: EnvironmentMembershipRole | null;
+  industryType?: string | null;
 }): string {
   switch (args.slug) {
     case "novendor":
@@ -162,8 +163,11 @@ export function environmentHomePath(args: {
       return `/lab/env/${args.envId}/markets`;
     case "ncf":
       return `/lab/env/${args.envId}/ncf`;
-    default:
+    default: {
+      const it = (args.industryType || "").toLowerCase();
+      if (it === "telemetry" || it === "telemetry_platform") return `/lab/env/${args.envId}/telemetry`;
       return `/lab/env/${args.envId}`;
+    }
   }
 }
 

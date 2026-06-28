@@ -199,6 +199,7 @@ function resolveSessionRedirect(args: {
     envId: args.activeMembership.env_id,
     slug: args.activeMembership.env_slug,
     role: args.activeMembership.role,
+    industryType: args.activeMembership.industry_type,
   });
 }
 
@@ -648,6 +649,7 @@ export async function rotatePlatformSessionEnvironment(args: {
       envId: richMembership.env_id,
       slug: richMembership.env_slug,
       role: richMembership.role,
+      industryType: richMembership.industry_type,
     }),
   };
 }
