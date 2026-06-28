@@ -17,7 +17,7 @@ vi.mock("@/lib/telemetry/relativityMes", async (importOriginal) => {
     ...actual,
     getOverview: vi.fn(), getGenealogy: vi.fn(), getWhereUsed: vi.fn(),
     getNcr: vi.fn(), getCost: vi.fn(), getLineage: vi.fn(), getSourceRows: vi.fn(),
-    getAnalytics: vi.fn(),
+    getAnalytics: vi.fn(), getSeedStability: vi.fn(), getDataQuality: vi.fn(),
   };
 });
 
@@ -244,5 +244,47 @@ describe("BuildAnalyticsConsole", () => {
     });
     render(<BuildAnalyticsConsole />);
     expect(await screen.findByText("No analytics data")).toBeTruthy();
+  });
+});
+
+describe("BuildAnalyticsConsole — simulation receipt panels", () => {
+  const ANALYTICS_MIN = {
+    ...META,
+    kpis: { total_variance: 0, rework_share_pct: 0, recon_exception_count: 0,
+      suspect_lot_vehicle_count: 0, busiest_work_center: "WC-NDE", defect_concentration_pct: 0 },
+    blocks: { readiness: { rows: [{ vehicle_serial: "VEH-DEMO-001", readiness_state: "blocked", driver: "x" }], null_reason: null } },
+  };
+
+  it("multi-seed stability mode renders the committed study receipt (median + P10–P90 + verdict)", async () => {
+    (lib.getAnalytics as Mock).mockResolvedValue(ANALYTICS_MIN);
+    (lib.getSeedStability as Mock).mockResolvedValue({
+      kind: "mes_seed_stability", provider: "local_fixture", created_at: "2026-06-27T00:00:00Z",
+      code_version: "mes-study-v1", data_manifest_sha: "abc123", rows_evaluated: 200,
+      fallback_used: false, null_reason: null,
+      payload: { n_seeds: 200, base_seed: 20260626, metrics: [
+        { key: "largest_ncr_share_pct", label: "Largest-NCR rework concentration", unit: "%",
+          current: 55.24, median: 51.87, p10: 45.24, p90: 59.94, value_stable: false,
+          verdict: "stable pattern, seed-specific value" },
+      ] },
+    });
+    render(<BuildAnalyticsConsole />);
+    await screen.findByRole("heading", { name: "Build Analytics" });
+    fireEvent.change(screen.getByLabelText("Scenario mode"), { target: { value: "stability" } });
+    expect(await screen.findByText("Multi-seed stability — the analysis")).toBeTruthy();
+    expect(await screen.findByText("stable pattern, seed-specific value")).toBeTruthy();
+    expect(screen.getByText(/receipt · local_fixture · 200 runs/)).toBeTruthy();
+  });
+
+  it("chaos mode fails closed honestly when the receipt is absent", async () => {
+    (lib.getAnalytics as Mock).mockResolvedValue(ANALYTICS_MIN);
+    (lib.getDataQuality as Mock).mockResolvedValue({
+      kind: "mes_data_quality", provider: null, created_at: null, code_version: null,
+      data_manifest_sha: null, rows_evaluated: null, fallback_used: true,
+      null_reason: "gcp_receipt_not_generated_yet", payload: null,
+    });
+    render(<BuildAnalyticsConsole />);
+    await screen.findByRole("heading", { name: "Build Analytics" });
+    fireEvent.change(screen.getByLabelText("Scenario mode"), { target: { value: "chaos" } });
+    expect(await screen.findByText("Chaos study not generated yet")).toBeTruthy();
   });
 });

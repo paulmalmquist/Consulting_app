@@ -93,6 +93,26 @@ export const getLineage = () => apiFetch<LineageResp>(`${base}/lineage`, { param
 export const getAnalytics = (vehicleSerial?: string) =>
   apiFetch<AnalyticsResp>(`${base}/analytics`, { params: { ...tenant(), vehicle_serial: vehicleSerial } });
 
+// Committed simulation-analysis receipts (replayed, never recomputed). Same fail-closed envelope as
+// the Model Workbench receipts: header + payload + null_reason ("..._not_generated_yet" when absent).
+export interface ReceiptEnvelope {
+  kind: string;
+  provider: string | null;
+  created_at: string | null;
+  code_version: string | null;
+  data_manifest_sha: string | null;
+  rows_evaluated: number | null;
+  fallback_used: boolean;
+  null_reason: string | null;
+  payload: Record<string, unknown> | null;
+}
+export const getScenarioManifest = () =>
+  apiFetch<ReceiptEnvelope>(`${base}/analytics/scenario-manifest`);
+export const getSeedStability = () =>
+  apiFetch<ReceiptEnvelope>(`${base}/analytics/seed-stability`);
+export const getDataQuality = () =>
+  apiFetch<ReceiptEnvelope>(`${base}/analytics/data-quality`);
+
 export const getSourceRows = (table: string, key?: string, value?: string) =>
   apiFetch<SourceRowsResp>(`${base}/source/${encodeURIComponent(table)}`, {
     params: { ...tenant(), key, value },

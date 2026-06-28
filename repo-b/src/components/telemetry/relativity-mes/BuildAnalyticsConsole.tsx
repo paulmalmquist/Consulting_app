@@ -15,7 +15,10 @@ import {
 } from "../primitives";
 import { TelemetryPageHeader } from "../TelemetryPageHeader";
 import { TelemetryChartFrame } from "../chartPrimitives";
-import { getAnalytics, useRel, type AnalyticsResp, type Row } from "@/lib/telemetry/relativityMes";
+import {
+  getAnalytics, getSeedStability, getDataQuality, useRel,
+  type AnalyticsResp, type ReceiptEnvelope, type Row,
+} from "@/lib/telemetry/relativityMes";
 import { REL_ACCENT, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } from "./relMesShared";
 
 const n = (v: unknown) => Number(v ?? 0);
@@ -105,22 +108,8 @@ export default function BuildAnalyticsConsole() {
             <Stat label="Defect concentration" value={k?.defect_concentration_pct == null ? "—" : `${n(k.defect_concentration_pct).toFixed(1)}%`} />
           </StatGrid>
 
-          {mode === "stability" && (
-            <Panel title="Multi-seed stability" style={{ marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><Chip kind="emergent" /></div>
-              <EmptyState label="Multi-seed stability not generated yet"
-                hint="The N-seed study (seed_stability.json) lands in Batch B; it shows median + P10–P90 for the fragile metrics so the exact percentages aren't read as stable."
-                nullReason="study_receipt_not_generated_yet" />
-            </Panel>
-          )}
-          {mode === "chaos" && (
-            <Panel title="Chaos survivability" style={{ marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><Chip kind="data-quality" /></div>
-              <EmptyState label="Chaos survivability not generated yet"
-                hint="The data-quality chaos study (data_quality.json) lands in Batch B: graph join coverage, NCR linkage rate, dangling work orders under injected mess."
-                nullReason="chaos_receipt_not_generated_yet" />
-            </Panel>
-          )}
+          {mode === "stability" && <StabilityPanel />}
+          {mode === "chaos" && <ChaosPanel />}
 
           {/* 1. Readiness board + asymmetry */}
           <Panel title="Build readiness" style={{ marginBottom: 14 }}>
@@ -345,3 +334,104 @@ function Node({ label, sub, tone, onClick }: { label: string; sub: string; tone:
     </button>
   );
 }
+
+function ReceiptStrip({ r }: { r: ReceiptEnvelope }) {
+  return (
+    <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginBottom: 8 }}>
+      receipt · {r.provider ?? "—"} · {r.rows_evaluated ?? "—"} runs · {r.code_version ?? "—"} · sha {r.data_manifest_sha ?? "—"}
+    </div>
+  );
+}
+
+// Multi-seed stability — replays the committed seed_stability receipt (median + P10–P90 + verdict).
+// The whole point: turn "61%" into "median 52%, P10–P90 45–60% — stable pattern, seed-specific value".
+function StabilityPanel() {
+  const { data, loading, error } = useRel<ReceiptEnvelope>(getSeedStability, []);
+  const metrics = (data?.payload?.metrics as Row[] | undefined) ?? [];
+  return (
+    <Panel title="Multi-seed stability — the analysis" style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><Chip kind="emergent" /></div>
+      {loading && <Loading label="Loading the multi-seed study receipt…" />}
+      {error && <ErrorState message={error} />}
+      {data && data.null_reason && (
+        <EmptyState label="Multi-seed study not generated yet"
+          hint="Run python -m scripts.relativity_mes_seed.study to commit seed_stability.json."
+          nullReason={data.null_reason} />
+      )}
+      {data && !data.null_reason && (
+        <>
+          <ReceiptStrip r={data} />
+          <ScrollTable minWidth={620}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: C.mono, fontSize: 11 }}>
+              <thead><tr>{["metric", "current", "median", "P10", "P90", "verdict"].map((h) => (
+                <th key={h} style={th}>{h}</th>))}</tr></thead>
+              <tbody>
+                {metrics.map((m) => {
+                  const stable = Boolean(m.value_stable);
+                  return (
+                    <tr key={str(m, "key")}>
+                      <td style={td}>{str(m, "label")}</td>
+                      <td style={td}>{str(m, "current")}{str(m, "unit") === "%" ? "%" : ""}</td>
+                      <td style={td}>{str(m, "median")}</td>
+                      <td style={td}>{str(m, "p10")}</td>
+                      <td style={td}>{str(m, "p90")}</td>
+                      <td style={{ ...td, color: stable ? C.green : C.amber }}>{str(m, "verdict")}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollTable>
+          <Caption>Across {data.rows_evaluated ?? "—"} re-randomized seeds. A wide P10–P90 means the exact percentage is seed-specific even when the pattern (one dominant defect, a residual that never vanishes) holds — the honest reading of small-n synthetic data.</Caption>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// Chaos survivability — replays the committed data_quality receipt (join/linkage/dangling under mess).
+function ChaosPanel() {
+  const { data, loading, error } = useRel<ReceiptEnvelope>(getDataQuality, []);
+  const runs = (data?.payload?.runs as Row[] | undefined) ?? [];
+  return (
+    <Panel title="Chaos survivability" style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><Chip kind="data-quality" /></div>
+      {loading && <Loading label="Loading the chaos study receipt…" />}
+      {error && <ErrorState message={error} />}
+      {data && data.null_reason && (
+        <EmptyState label="Chaos study not generated yet"
+          hint="Run python -m scripts.relativity_mes_seed.chaos to commit data_quality.json."
+          nullReason={data.null_reason} />
+      )}
+      {data && !data.null_reason && (
+        <>
+          <ReceiptStrip r={data} />
+          <ScrollTable minWidth={620}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: C.mono, fontSize: 11 }}>
+              <thead><tr>{["chaos level", "graph join %", "NCR linkage %", "dangling WOs", "survives"].map((h) => (
+                <th key={h} style={th}>{h}</th>))}</tr></thead>
+              <tbody>
+                {runs.map((r) => {
+                  const ok = Boolean(r.survives);
+                  return (
+                    <tr key={str(r, "chaos_level")}>
+                      <td style={td}>{(n(r.chaos_level) * 100).toFixed(0)}%</td>
+                      <td style={td}>{str(r, "genealogy_join_coverage_pct")}%</td>
+                      <td style={td}>{str(r, "ncr_linkage_rate_pct")}%</td>
+                      <td style={td}>{str(r, "dangling_work_orders")}</td>
+                      <td style={{ ...td, color: ok ? C.green : C.red }}>{ok ? "yes" : "no"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollTable>
+          <Caption>Mess (missing work-order joins, NCRs against ghost orders, duplicate edges) is injected into a COPY only — the committed live serving stays clean. These are the metrics a real MES/ERP data-quality monitor watches; the surface degrades honestly rather than hiding the gaps.</Caption>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+const th = { textAlign: "left", color: C.dim, padding: "6px 9px", borderBottom: `1px solid ${C.border}` } as const;
+const td = { padding: "6px 9px", borderBottom: `1px solid ${C.border}`, color: C.text } as const;

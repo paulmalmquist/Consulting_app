@@ -64,8 +64,8 @@ def _stamp(source_system: str, source_table: str, source_pk: str, row: dict[str,
     return row
 
 
-def build_dataset() -> dict[str, Any]:
-    rng = random.Random(MASTER_SEED)
+def build_dataset(seed: int = MASTER_SEED) -> dict[str, Any]:
+    rng = random.Random(seed)
 
     src: dict[str, list[dict[str, Any]]] = {
         "rel_mes_vehicle": [],
@@ -211,7 +211,8 @@ def build_dataset() -> dict[str, Any]:
             "unit_serial": veh_unit, "product_code": PRODUCT_CODE, "work_order_no": None,
             "parent_unit_serial": None, "build_status": build_status,
         }))
-        vehicle_costs[vehicle_serial] = {"material": 0.0, "labor": 0.0, "overhead": 0.0, "rework": 0.0}
+        vehicle_costs[vehicle_serial] = {"material": 0.0, "labor": 0.0, "overhead": 0.0,
+                                         "rework": 0.0, "unallocated": 0.0}
 
         for fam, fam_desc in SUBASSEMBLIES:
             sub_unit = f"SN-{vehicle_serial[-3:]}-{fam}"
@@ -299,9 +300,6 @@ def build_dataset() -> dict[str, Any]:
                             "result": insp_result,
                         }))
 
-            vehicle_costs[vehicle_serial]["overhead"] += round(
-                vehicle_costs[vehicle_serial]["labor"] * 0.18, 2)
-
             # ERP order + costs for this work order
             mat = round(sum(c["qty"] * std_cost.get(f"MAT-{c['part_no']}", 250.0)
                             for c in src["rel_mes_material_consumption"]
@@ -310,6 +308,9 @@ def build_dataset() -> dict[str, Any]:
                             for oe in src["rel_mes_operation_execution"]
                             if oe["work_order_no"] == wo), 2)
             ovh = round(lab * 0.18, 2)
+            # overhead accrues PER WORK ORDER (matches the gold rollup's per-WO ovh exactly), so the
+            # only gap between the vehicle 'actual' and the summed rollup is the unallocated residual.
+            vehicle_costs[vehicle_serial]["overhead"] += ovh
             std_estimate = round((mat + lab + ovh) * rng.uniform(0.9, 1.0), 2)
             src["rel_erp_production_order"].append(_stamp(
                 "ERP", "rel_erp_production_order", mfg_order, {
@@ -386,14 +387,29 @@ def build_dataset() -> dict[str, Any]:
         "NCR-0002": "rework",
         "NCR-0003": "use-as-is",
     }
+    disp_by_id: dict[str, str] = {}
     for ncr in src["rel_mes_nonconformance"]:
         dtype = disp_map.get(ncr["ncr_id"], rng.choice(["use-as-is", "rework", "repair"]))
+        disp_by_id[ncr["ncr_id"]] = dtype
         did = f"DISP-{ncr['ncr_id'][-4:]}"
         src["rel_mes_disposition"].append(_stamp("MES", "rel_mes_disposition", did, {
             "disposition_id": did, "ncr_id": ncr["ncr_id"], "disposition_type": dtype,
             "approved_by": rng.choice(OPERATORS),
             "approved_ts": None if ncr["status"] == "open" else "2026-06-17T12:00:00Z",
         }))
+
+    # Rework cost per NCR (minutes, cost). The two hero NCRs are PLANTED constants (the story). The
+    # emergent minors carry a small seed-varying rework cost when their disposition is rework/repair —
+    # so the largest-NCR CONCENTRATION (NCR-0001's $4,200 over the total) is a stable pattern but a
+    # seed-specific percentage, which is exactly what the multi-seed stability study should show.
+    rework_est: dict[str, tuple[int, float]] = {"NCR-0001": (320, 4200.0), "NCR-0002": (210, 2650.0)}
+    for ncr in src["rel_mes_nonconformance"]:
+        nid = ncr["ncr_id"]
+        if nid in rework_est:
+            continue
+        if disp_by_id.get(nid) in ("rework", "repair"):
+            cost = round(rng.uniform(150.0, 1200.0), 2)
+            rework_est[nid] = (int(cost / 13), cost)
 
     # rework cost attribution (labor/material variance drivers)
     rework_cost = {"VEH-DEMO-001": 0.0, "VEH-DEMO-002": 0.0, "VEH-DEMO-003": 0.0}
@@ -413,12 +429,30 @@ def build_dataset() -> dict[str, Any]:
                 "posting_date": "2026-06-18",
             }))
 
+    # Small UNALLOCATED cost (1–3% of direct cost): mix/routing settlement ERP posts but the MES
+    # component rollup does not attribute to a work order. This makes the cost-overrun bridge reconcile
+    # to ~97–99% with a real, source-traceable residual instead of being a pure accounting identity
+    # (a single seed allocates everything; real ERP/MES data never does). Emitted as a cost ROW with
+    # cost_element='unallocated' (no new column / no schema migration); it flows into the gold overview
+    # actual but NOT into the per-work-order rollup, so analytics() recovers it as the bridge residual.
+    for v, _status in VEHICLES:
+        c = vehicle_costs[v]
+        direct = c["material"] + c["labor"] + c["overhead"] + c["rework"]
+        unalloc = round(direct * rng.uniform(0.01, 0.03), 2)
+        c["unallocated"] = unalloc
+        src["rel_erp_prod_order_cost"].append(_stamp(
+            "ERP", "rel_erp_prod_order_cost", f"VEH-{v[-3:]}:unallocated", {
+                "cost_id": f"VEH-{v[-3:]}:unallocated", "mfg_order_no": None, "vehicle_serial": v,
+                "cost_element": "unallocated", "debit_credit": "D", "amount": unalloc,
+                "posting_date": "2026-06-19",
+            }))
+
     # ── GOLD marts ─────────────────────────────────────────────────────────────
-    gold = _build_gold(src, vehicle_costs)
+    gold = _build_gold(src, vehicle_costs, rework_est)
     return {"source": src, "gold": gold}
 
 
-def _build_gold(src, vehicle_costs) -> dict[str, list[dict[str, Any]]]:
+def _build_gold(src, vehicle_costs, rework_est) -> dict[str, list[dict[str, Any]]]:
     ncrs = src["rel_mes_nonconformance"]
     disp_by_ncr = {d["ncr_id"]: d for d in src["rel_mes_disposition"]}
     genealogy = src["rel_mes_as_built_genealogy"]
@@ -438,7 +472,9 @@ def _build_gold(src, vehicle_costs) -> dict[str, list[dict[str, Any]]]:
         major_ncr = [n for n in v_ncrs if n["severity"] == "major"]
         suspect_lots = sorted({g["lot_no"] for g in edges if g.get("lot_no") == SUSPECT_LOT})
         c = vehicle_costs[v]
-        actual = round(c["material"] + c["labor"] + c["overhead"] + c["rework"], 2)
+        # actual includes the unallocated mix/routing settlement; the per-WO rollup does not — that gap
+        # is the bridge residual analytics() surfaces (source-traceable to the 'unallocated' ERP rows).
+        actual = round(c["material"] + c["labor"] + c["overhead"] + c["rework"] + c.get("unallocated", 0.0), 2)
         planned = round((c["material"] + c["labor"] + c["overhead"]) * 0.97, 2)
         variance = round(actual - planned, 2)
         variance_pct = round(variance / planned * 100, 2) if planned else 0.0
@@ -482,8 +518,7 @@ def _build_gold(src, vehicle_costs) -> dict[str, list[dict[str, Any]]]:
             "disposition_type": disp["disposition_type"] if disp else None,
         }))
 
-    # ncr_traceability gold
-    rework_est = {"NCR-0001": (320, 4200.0), "NCR-0002": (210, 2650.0)}
+    # ncr_traceability gold (rework_est is computed in build_dataset where rng lives)
     ncr_gold = []
     for n in ncrs:
         disp = disp_by_ncr.get(n["ncr_id"])
@@ -581,3 +616,83 @@ def _std(src, part_no):
         if m["material_id"] == f"MAT-{part_no}":
             return m["standard_cost"]
     return 250.0
+
+
+# ── Simulation-analysis helpers (Phase 10 hardening) — pure Python, no Databricks ──────────────────
+
+RECON_EXCEPTION_PCT = 25.0  # mirrors the gold writer + backend constant; the threshold-sensitivity sweep
+#                             in analytics() exists precisely to show this fixed band is not discriminating.
+
+
+def scenario_manifest(seed: int = MASTER_SEED) -> dict[str, Any]:
+    """What this seed PLANTED (vs what emerges) — the adult synthetic-data posture for the UI labels."""
+    return {
+        "seed": seed,
+        "master_seed": MASTER_SEED,
+        "planted": {
+            "suspect_lot": SUSPECT_LOT,
+            "suspect_part": SUSPECT_PART,
+            "suspect_vehicles": ["VEH-DEMO-001", "VEH-DEMO-002"],
+            "planted_ncrs": [
+                {"ncr_id": "NCR-0001", "severity": "major", "status": "open", "on_lot": True},
+                {"ncr_id": "NCR-0002", "severity": "major", "status": "closed", "on_lot": False},
+                {"ncr_id": "NCR-0003", "severity": "minor", "status": "closed", "on_lot": False},
+            ],
+            "planted_rework": {"VEH-DEMO-001": 4200.0, "VEH-DEMO-002": 2650.0},
+            "recon_threshold_pct": RECON_EXCEPTION_PCT,
+            "unallocated_residual_pct_range": [1.0, 3.0],
+        },
+        "generated_vs_emergent": {
+            "suspect_lot_exposure": "generated",
+            "blocked_state_of_VEH-DEMO-001": "emergent (open major NCR + over-threshold WO)",
+            "rework_amounts": "generated (emitted as traceable ERP cost rows)",
+            "largest_ncr_concentration_pct": "emergent (ratio of planted rework over total)",
+            "minor_ncrs_NCR-0004..0007": "emergent (random vehicle/subassembly/defect)",
+            "standard_cost": "emergent (direct cost x rng 0.9..1.0)",
+            "unallocated_residual": "emergent (rng 1..3% of direct cost)",
+            "cost_overrun_bridge": "derived accounting identity + emergent residual",
+        },
+    }
+
+
+def study_aggregates(ds: dict[str, Any]) -> dict[str, float]:
+    """The fragile metrics whose seed-to-seed spread the multi-seed study measures."""
+    gold = ds["gold"]
+    overview = gold["gold.rel_build_overview"]
+    ncrs = gold["gold.rel_ncr_traceability"]
+    recon = gold["gold.rel_mes_erp_reconciliation"]
+    ops = ds["source"]["rel_mes_operation_execution"]
+
+    rework_by_cluster: dict[str, float] = {}
+    for nc in ncrs:
+        rework_by_cluster[nc.get("cluster_label", "?")] = (
+            rework_by_cluster.get(nc.get("cluster_label", "?"), 0.0) + (nc.get("estimated_rework_cost") or 0.0))
+    total_rework = sum(rework_by_cluster.values()) or 0.0
+    largest_share = (max(rework_by_cluster.values()) / total_rework * 100) if total_rework else 0.0
+
+    wc_minutes: dict[str, float] = {}
+    max_ratio = 0.0
+    for o in ops:
+        wc_minutes[o["work_center"]] = wc_minutes.get(o["work_center"], 0.0) + (o.get("actual_minutes") or 0)
+        std = o.get("std_minutes") or 0
+        if std:
+            max_ratio = max(max_ratio, (o.get("actual_minutes") or 0) / std)
+
+    actual_tot = sum(r.get("actual_cost", 0.0) for r in overview) or 0.0
+    # residual = portion of overview actual not explained by the per-WO rollup components
+    rollup = gold["gold.rel_build_cost_rollup"]
+    rollup_tot = sum(r.get("total_actual_cost", 0.0) for r in rollup) or 0.0
+    residual_pct = ((actual_tot - rollup_tot) / actual_tot * 100) if actual_tot else 0.0
+
+    suspect_vehicles = sorted({g["vehicle_serial"] for g in gold["gold.rel_as_built_genealogy"]
+                               if g.get("lot_no") == SUSPECT_LOT})
+
+    return {
+        "largest_ncr_share_pct": round(largest_share, 2),
+        "exception_wo_count": float(sum(1 for r in recon if r.get("reconciliation_status") == "exception")),
+        "max_actual_std_ratio": round(max_ratio, 3),
+        "blocked_build_count": float(sum(1 for o in overview if o.get("readiness_state") == "blocked")),
+        "residual_pct": round(residual_pct, 2),
+        "blast_size": float(len(suspect_vehicles)),
+        "ncr_count": float(len(ncrs)),
+    }

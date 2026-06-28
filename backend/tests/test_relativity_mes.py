@@ -252,3 +252,36 @@ def test_recon_exception_threshold_boundary():
     by_wo = {r["work_order_id"]: r for r in block["rows"]}
     assert by_wo["A"]["is_exception"] is True
     assert by_wo["B"]["is_exception"] is False
+
+
+# ── Phase 10 hardening: MES simulation-analysis receipts (study/chaos) ─────────
+
+def test_mes_receipts_load_committed():
+    from app.services import telemetry_receipts as rcpt
+    manifest = rcpt.load_receipt("mes_scenario_manifest")
+    assert manifest["null_reason"] is None and manifest["provider"] == "local_fixture"
+    assert manifest["payload"]["planted"]["suspect_lot"] == "LOT-7788"
+
+    stab = rcpt.load_receipt("mes_seed_stability")
+    assert stab["null_reason"] is None
+    keys = {m["key"] for m in stab["payload"]["metrics"]}
+    assert "largest_ncr_share_pct" in keys and "residual_pct" in keys
+    share = next(m for m in stab["payload"]["metrics"] if m["key"] == "largest_ncr_share_pct")
+    assert share["p90"] > share["p10"]            # a real seed spread, not a flat replay
+
+    dq = rcpt.load_receipt("mes_data_quality")
+    assert dq["null_reason"] is None
+    assert any(r["chaos_level"] == 0 for r in dq["payload"]["runs"])
+
+
+def test_mes_receipts_fail_closed_when_absent(tmp_path):
+    from app.services import telemetry_receipts as rcpt
+    out = rcpt.load_receipt("mes_seed_stability", base_dir=tmp_path)
+    assert out["payload"] is None and out["fallback_used"] is True
+
+
+def test_mes_receipt_routes_served(client):
+    for path in ("scenario-manifest", "seed-stability", "data-quality"):
+        r = client.get(f"/api/telemetry/relativity-mes/analytics/{path}")
+        assert r.status_code == 200
+        assert r.json()["null_reason"] is None     # committed receipts present
