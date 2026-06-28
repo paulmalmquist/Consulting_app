@@ -4755,3 +4755,44 @@ Consolidated the launch-data Overview so the hero IS the node story (the map is 
 - **`TelemetryPageHeader` already supports adaptive heroes.** It takes `accent` (overrides the route's section color — pass the event color) and a right-aligned `actions` slot (put the Back button there). The title's leading word is auto-isolated for the accent; `textContent` stays intact so `getByRole("heading", { name })` still works.
 - **Styling:** `RS.*` tokens === the `C` palette (see `rsTokens.tsx`), so telemetry components freely mix them; inline styles are the house convention here (the "no inline styles" IDE warning is noise on this surface). `StatGrid cols={4}` is the responsive KPI grid (2-up mobile → 4-up desktop).
 - **Testing telemetry components:** Vitest + RTL; `next/navigation`/`next/link` are globally aliased to mocks in `vitest.config.ts` (no per-file mock needed unless you want a specific `envId`). recharts mounts in jsdom via the `ResizeObserver` polyfill in `src/test/setup.ts`, so you *can* render the real `BottleneckMap` for integration tests (e.g. presenter→hero) — but mock `MapPanel` when you only need deterministic node clicks. Run one file: `npm run test:unit -- <path>`.
+
+## Relativity MES "Build Analytics" — synthetic data as a simulation bench (2026-06-28)
+
+The 6th MES console (`relativity-mes/analytics`) reframes a small synthetic dataset (3 vehicles, 7 NCRs,
+18 WOs) from "dashboard with caveats" into an honest **simulation-analysis surface**. Conventions worth
+reusing on any synthetic/demo analytics surface:
+
+- **Label every claim generated-vs-emergent.** A provenance chip on each visual (`generated scenario
+  input` · `emergent from simulation` · `derived accounting identity` · `low-n directional only` ·
+  `data-quality`). The authored-vs-emergent map lives in `scripts/relativity_mes_seed/generate.py`
+  (`scenario_manifest()` → `generated_vs_emergent`). The suspect lot's *exposure* is generated; the
+  *blocked-state* is emergent — keep those separate, never one causal handwave.
+- **De-theatre at small n.** No Lorenz/Gini at n=7, no "clustering" of 7 NCRs, no cohort/time-series/
+  forecast at n=3. A sorted bar + one computed concentration stat says it honestly.
+- **Multi-seed stability is the analysis; the current seed is a story.** The generator is
+  `build_dataset(seed=MASTER_SEED)` (deterministic per seed). `study.py` loops N seeds → committed
+  `mes_seed_stability.json`; the panel shows median + P10–P90 + a *stable-value* vs *stable-pattern*
+  verdict. Make the fragile metric actually vary: here the planted $4,200/$2,650 rework stays constant
+  but the emergent minor NCRs carry seed-varying rework, so the largest-NCR *share* spans 45–60% across
+  seeds (the pattern is stable, the % is seed-specific). A flat metric across seeds means the study is
+  theatre — fix the generator, not the panel.
+- **Residual must be real and source-traceable.** Don't let the cost waterfall be a pure accounting
+  identity. Emit a small (1–3%) `unallocated` cost as an actual ERP cost **row** (`cost_element`, no new
+  column / no migration); make overhead accrue per-work-order so the bridge residual == those rows
+  exactly. `analytics()` recovers it as `overview.actual_cost − Σ(rollup components)`.
+- **Disconfirmation panel = the "it just replays the seed" rebuttal.** A block that hunts for facts the
+  generator did NOT plant (cost exception with no linked NCR, exposed-but-unblocked vehicle). A backend
+  test asserts it can return a non-authored finding on a crafted fixture — the hard acceptance criterion.
+- **Offline studies → committed receipts, replayed not recomputed.** `study.py`/`chaos.py` write JSON
+  under `backend/app/data/telemetry/`; reuse `telemetry_receipts.load_receipt` (add a kind to
+  `RECEIPT_FILES`) + a `ReceiptEnvelope` route. Chaos is injected into a COPY only — the committed live
+  serving stays clean. Same fail-closed envelope as the Model Workbench receipts.
+- **Per-block fail-closed.** `analytics()` returns a page-level `null_reason` only if a CORE mart
+  (`rel_build_overview`/`rel_build_cost_rollup`) is empty; each supporting block carries its own
+  `null_reason` so one empty mart degrades that block, not the page. `RECON_EXCEPTION_PCT` is one shared
+  constant (generator + backend) with a boundary test; the recon panel ships a threshold-sensitivity
+  sweep so the fixed ±25% band isn't presented as discriminating.
+- **Regenerate, don't hand-edit, the serving SQL.** `python -m scripts.relativity_mes_seed.emit`
+  rewrites `repo-b/db/schema/10037`/`10038` in place from the generator; applying to Lakebase needs a
+  short-lived Databricks cred (see the Lakebase-owner-DDL memory). Generator changes that alter rows are
+  a backend-deploy + serving-refresh, not just a code merge.
