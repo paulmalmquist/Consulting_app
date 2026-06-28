@@ -1,15 +1,34 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
-// Stub the heavy Bottleneck Map (recharts) — its own tests cover its behavior. The stub exposes a
-// button that fires onSelectedEventChange so the Overview→backdrop wiring (Phase 9B) is testable.
+// Stub the heavy Bottleneck Map (recharts) — its own tests cover its behavior. The stub exposes a button
+// that mimics the real map: it reports the clicked node up via onSelectNode AND surfaces a full resolved
+// event via onSelectedEventChange, so both the Overview→backdrop wiring (Phase 9B) and the new
+// selected-node hero are testable here. (The real presenter→hero path is covered in the .presenter test.)
 vi.mock("./context/BottleneckMap/BottleneckMap", () => ({
-  default: ({ onSelectedEventChange }: { onSelectedEventChange?: (e: unknown) => void }) => (
-    <div data-testid="bottleneck-map">
-      charts
-      <button type="button" onClick={() => onSelectedEventChange?.({ type: "mission" })}>select mission event</button>
-    </div>
-  ),
+  default: ({ onSelectedEventChange, onSelectNode }: {
+    onSelectedEventChange?: (e: unknown) => void;
+    onSelectNode?: (id: string | null) => void;
+  }) => {
+    const sample = {
+      id: "sputnik", name: "Sputnik 1", date: "1957-10-04",
+      vehicle: "R-7 / Sputnik 8K71PS (USSR)", type: "mission",
+      caption: "Orbit access itself is the achievement.",
+      metrics: [["Payload", "83.6 kg"], ["Telemetry", "~2 analog channels"], ["Orbit lifetime", "92 days"], ["World launches that year", "3"]],
+      bottleneckSolved: "Reaching orbit at all",
+      bottleneckCreated: "Doing anything useful once there",
+      dataProduct: "Doppler tracking as the first orbital data pipeline",
+      color: "#6CA8F0", dimLabel: "Mission achievement",
+    };
+    return (
+      <div data-testid="bottleneck-map">
+        charts
+        <button type="button" onClick={() => { onSelectNode?.("sputnik"); onSelectedEventChange?.(sample); }}>
+          select mission event
+        </button>
+      </div>
+    );
+  },
 }));
 // The Overview reads envId from the route to build the demo bridge links; the page header reads the
 // pathname to resolve its section (Overview → cyan) accent color.
@@ -67,11 +86,12 @@ describe("TelemetryOverview — thesis-led Overview", () => {
   it("drives the Overview era backdrop from the selected Bottleneck Map event (Phase 9B)", () => {
     render(<TelemetryOverview />);
     // No backdrop before any selection — the hero keeps its plain background.
-    expect(screen.queryByText(/Backdrop: illustrative/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("overview-backdrop-theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /select mission event/i }));
-    // The mission-era backdrop appears, labeled honestly as illustrative/generative.
-    expect(screen.getByText(/Backdrop: illustrative · generative/i)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /illustrative analog launch-pad/i })).toBeInTheDocument();
+    // The selected node's era backdrop appears, labeled honestly as illustrative (curated era photo or
+    // generative motif — wording varies by asset, so assert the honest framing, not a specific credit).
+    expect(screen.getByTestId("overview-backdrop-theme")).toBeInTheDocument();
+    expect(screen.getByText(/illustrative/i)).toBeInTheDocument();
   });
 
   it("does not render the serving KPI strip, the Trace-lineage CTA, or Mission Summary scaffolding", () => {
@@ -79,5 +99,39 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     expect(screen.queryByText("Promoted models")).not.toBeInTheDocument();
     expect(screen.queryByText(/Trace lineage/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Mission readiness")).not.toBeInTheDocument();
+  });
+
+  it("shows the overview hero (not a node hero) on first load", () => {
+    render(<TelemetryOverview />);
+    expect(screen.getByRole("heading", { name: "Why Launch Became A Data Problem" })).toBeInTheDocument();
+    // No node is pre-selected: the selected-node hero and its Back affordance are absent.
+    expect(screen.queryByRole("button", { name: "Back to overview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sputnik 1" })).not.toBeInTheDocument();
+  });
+
+  it("swaps the hero to the selected node and replaces the Big Numbers row", () => {
+    render(<TelemetryOverview />);
+    fireEvent.click(screen.getByRole("button", { name: /select mission event/i }));
+
+    // The hero now IS the node: title, caption, the node's KPIs, an explanation card, and the CTA.
+    expect(screen.getByRole("heading", { name: "Sputnik 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Why Launch Became A Data Problem" })).not.toBeInTheDocument();
+    expect(screen.getByText("83.6 kg")).toBeInTheDocument();
+    expect(screen.getByText("Reaching orbit at all")).toBeInTheDocument();
+    // The hero CTA anchor reads "Mission Control →" (the demo bridge link below reads "Mission Control").
+    expect(screen.getByText("Mission Control →").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/stream");
+    // The historical Big Numbers band is replaced by the node KPIs, not duplicated.
+    expect(screen.queryByText("Launch attempts")).not.toBeInTheDocument();
+  });
+
+  it("returns to the overview hero from Back to overview", () => {
+    render(<TelemetryOverview />);
+    fireEvent.click(screen.getByRole("button", { name: /select mission event/i }));
+    expect(screen.getByRole("heading", { name: "Sputnik 1" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to overview" }));
+    expect(screen.getByRole("heading", { name: "Why Launch Became A Data Problem" })).toBeInTheDocument();
+    expect(screen.getByText("Launch attempts")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sputnik 1" })).not.toBeInTheDocument();
   });
 });

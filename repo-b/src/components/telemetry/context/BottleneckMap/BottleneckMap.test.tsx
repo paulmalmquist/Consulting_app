@@ -37,23 +37,14 @@ describe("BottleneckMap rendering", () => {
     expect(screen.getByText(/makes no\s+domain-expertise claims/)).toBeInTheDocument();
   });
 
-  it("pins the Terran 1 record by default with the bottleneck relay cells", () => {
+  it("shows a non-narrative orientation strip for the default-pinned node (standalone mode)", () => {
+    // Standalone (uncontrolled) the module keeps its terran1 pin; the full story now lives in the page
+    // hero, so the map only carries a compact "Selected: …" reminder, not the explanation cards.
     render(<BottleneckMap />);
+    expect(screen.getByText(/Selected:/)).toBeInTheDocument();
     expect(screen.getByText("Terran 1: Good Luck, Have Fun")).toBeInTheDocument();
-    expect(screen.getByText("Additive manufacturing at rocket primary-structure scale")).toBeInTheDocument();
-    expect(screen.getByText("Scaling printed production to a reusable medium-heavy vehicle")).toBeInTheDocument();
-  });
-
-  it("shows the selected-event framing strip: the harder question + a real downstream link", () => {
-    render(<BottleneckMap envId="env-x" />);
-    expect(screen.getByText(/tie a printed part to its build and inspection history/i)).toBeInTheDocument();
-    const link = screen.getByText(/Factory.*NCR/).closest("a");
-    expect(link).toHaveAttribute("href", "/lab/env/env-x/telemetry/factory");
-  });
-
-  it("fails closed on the strip's downstream link when envId is absent", () => {
-    render(<BottleneckMap />);
-    expect(screen.getByText(/downstream link unavailable/i)).toBeInTheDocument();
+    // The old EventRecord relay cells are gone from the map.
+    expect(screen.queryByText("What changed · bottleneck solved")).not.toBeInTheDocument();
   });
 
   it("enters presenter mode from the button, steps with the on-screen controls, exits on Escape", () => {
