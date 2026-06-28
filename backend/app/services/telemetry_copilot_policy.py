@@ -17,8 +17,6 @@ import hashlib
 import json
 import re
 
-from app.config import OPENAI_CHAT_MODEL
-
 COPILOT_MODEL = "gpt-5"
 
 # ── null_reason vocabulary (superset of the serving-layer reasons) ─────────────
