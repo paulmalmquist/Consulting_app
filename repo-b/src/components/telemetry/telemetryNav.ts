@@ -39,10 +39,6 @@ export const TELEMETRY_NAV: TelemetryNavItem[] = [
   { slug: "replay", label: "Replay", icon: "M4 3l9 6-9 6z", group: "Operations" },
   { slug: "stargate", label: "Stargate Live", icon: "M8 1l6 3.5v7L8 15l-6-3.5v-7zM8 8l6-3.5M8 8L2 4.5M8 8v7", group: "Operations" },
   { slug: "runs", label: "Test Runs", icon: "M2 4h13v2H2zM2 8h13v2H2zM2 12h9v2H2z", group: "Operations", mobilePrimary: true },
-  // System Health consolidates Monitoring + Spike Inspector. Their standalone routes still resolve
-  // (no page deleted) — they are embedded here — but the nav presents one operational entry.
-  { slug: "system-health", label: "System Health", icon: "M2 9h3l2-5 3 10 2-5h3", group: "Operations" },
-
   // Section 3 — Models & Intelligence (how we know / can we trust it)
   { slug: "workbench", label: "Model Workbench", icon: "M6 2h4M7 2v3L3 13a1 1 0 001 1h8a1 1 0 001-1L9 5V2M5.5 9h5", group: "Models & Intelligence" },
   { slug: "model-performance", label: "Model Performance", icon: "M2 13l4-5 3 2 5-7", group: "Models & Intelligence" },
@@ -147,8 +143,7 @@ export function telemetrySectionLabel(pathname: string, envId: string): string {
 const TELEMETRY_SLUG_GROUP: Record<string, TelemetryNavGroup> = {
   // Operations
   stream: "Operations", replay: "Operations", stargate: "Operations",
-  runs: "Operations", "system-health": "Operations",
-  monitoring: "Operations", "spike-inspector": "Operations",
+  runs: "Operations", monitoring: "Operations", "spike-inspector": "Operations",
   // Models & Intelligence
   workbench: "Models & Intelligence",
   "model-performance": "Models & Intelligence", calibration: "Models & Intelligence",

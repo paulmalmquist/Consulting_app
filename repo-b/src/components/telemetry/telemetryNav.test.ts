@@ -50,7 +50,6 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
         "workbench",
         "stargate",
         "stream",
-        "system-health",
         // Phase 10 — Relativity MES Sandbox section.
         "relativity-mes",
         "relativity-mes/genealogy",
@@ -60,7 +59,7 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
       ].sort(),
     );
     // The hidden slugs must NOT appear in the nav (but their page routes still exist on disk).
-    for (const hidden of ["governance", "how-it-works", "evidence", "copilot", "data-engineering"]) {
+    for (const hidden of ["governance", "how-it-works", "evidence", "copilot", "data-engineering", "system-health"]) {
       expect(slugs).not.toContain(hidden);
     }
     expect(slugs.some((s) => s.startsWith("data-engineering/"))).toBe(false);
@@ -123,7 +122,6 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
     const cases: Array<[string, string]> = [
       [base, "Overview"],                                  // section root
       [`${base}/stream`, "Operations"],
-      [`${base}/system-health`, "Operations"],
       [`${base}/workbench`, "Models & Intelligence"],
       [`${base}/model-performance`, "Models & Intelligence"],
       [`${base}/calibration`, "Models & Intelligence"],
