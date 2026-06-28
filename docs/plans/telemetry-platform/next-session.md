@@ -1,6 +1,18 @@
 # Next Session - RS Factory Digital Thread PR 3
 
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
+
+> **Verified (2026-06-28) — AI Build & Ops Reference, authenticated prod click-through (PR #474 + screenshots):**
+> Logged into novendor.ai and walked `/lab/env/telemetry-demo/telemetry/ai-build-ops`. Evidence in
+> `docs/plans/telemetry-platform/screenshots/ai-build-ops-*.png`: nav entry sits under **Evidence &
+> Lineage**, header/eyebrow/TOC render the **green** accent (`#6ee7a0`), TOC anchors jump (`#mcp`),
+> dark-mode legible, and mobile tables fall back to readable RowCards (no overflow). The click-through
+> **caught a real bug**: `telemetryGroupForPath` used `indexOf("/telemetry")`, which matched inside the
+> env id `telemetry-demo`, so every telemetry page header fell back to Overview cyan — fixed (segment
+> match) + regression test on a telemetry-named env. Also fixed in PR #474: anchored every `.vercelignore`
+> dir pattern to root (unanchored `audit/`/`compliance/`/`notebooks/`/`artifacts/` were dropping real
+> repo-b routes from the deploy) + new `scripts/check_vercelignore_collisions.mjs` CI guard; and repointed
+> 3 architecture-map nodes off the removed System Health route (pre-existing red on main from `ecd47f50`).
 
 > **Shipped (2026-06-27) — AI Build & Operations Reference page (telemetry, static, no migration):**
 > New document-style reference at `/lab/env/[envId]/telemetry/ai-build-ops` (nav "AI Build & Ops" under
