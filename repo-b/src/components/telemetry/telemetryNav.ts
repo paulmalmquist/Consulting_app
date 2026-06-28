@@ -160,11 +160,15 @@ const TELEMETRY_SLUG_GROUP: Record<string, TelemetryNavGroup> = {
 
 /** Group owning a telemetry pathname (best-effort; defaults to Overview). */
 export function telemetryGroupForPath(pathname: string): TelemetryNavGroup {
+  // Match "/telemetry" only as a whole path segment (followed by "/" or end-of-path), NOT as a bare
+  // substring — otherwise an env id that contains "telemetry" (e.g. /lab/env/telemetry-demo/…) matches
+  // inside the env id, `rest` becomes "-demo/telemetry/…", and every page falls back to the Overview
+  // accent. The `(?=\/|$)` lookahead skips "/telemetry-demo" and lands on the real section root.
   const marker = "/telemetry";
-  const i = pathname.indexOf(marker);
-  if (i === -1) return "Overview";
+  const m = pathname.match(/\/telemetry(?=\/|$)/);
+  if (!m || m.index === undefined) return "Overview";
   // Everything after "/telemetry/" — "" at the section root, else "factory", "relativity-mes/ncr", …
-  const rest = pathname.slice(i + marker.length).replace(/^\/+/, "").replace(/[?#].*$/, "");
+  const rest = pathname.slice(m.index + marker.length).replace(/^\/+/, "").replace(/[?#].*$/, "");
   if (rest === "") return "Overview";
   if (rest.startsWith("relativity-mes")) return "Relativity MES Sandbox";
   if (rest.startsWith("data-engineering")) return "Data Engineering";

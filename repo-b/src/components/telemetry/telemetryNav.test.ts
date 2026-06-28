@@ -151,6 +151,28 @@ describe("telemetry navigation structure (7 presentation sections)", () => {
     }
   });
 
+  it("resolves the category color when the ENV ID itself contains 'telemetry' (real prod env)", () => {
+    // Regression: the prod telemetry env id is "telemetry-demo". A naive indexOf("/telemetry") matched
+    // inside "/telemetry-demo" so every page fell back to the Overview cyan accent. The section must be
+    // matched as a whole path segment, not a substring.
+    const base = "/lab/env/telemetry-demo/telemetry";
+    const cases: Array<[string, string]> = [
+      [base, "Overview"],
+      [`${base}/ai-build-ops`, "Evidence & Lineage"],
+      [`${base}/metadata`, "Evidence & Lineage"],
+      [`${base}/model-performance`, "Models & Intelligence"],
+      [`${base}/factory-ml`, "Factory & Quality"],
+      [`${base}/control-tower`, "Agent Operations"],
+      [`${base}/relativity-mes/ncr`, "Relativity MES Sandbox"],
+    ];
+    for (const [path, group] of cases) {
+      expect(telemetryGroupForPath(path)).toBe(group);
+      expect(telemetryAccentForPath(path)).toBe(TELEMETRY_NAV_GROUP_META[group as keyof typeof TELEMETRY_NAV_GROUP_META].accent);
+    }
+    // The specific failing value before the fix: green Evidence & Lineage, not Overview cyan.
+    expect(telemetryAccentForPath(`${base}/ai-build-ops`)).toBe("#6ee7a0");
+  });
+
   it("no longer surfaces any Data Engineering nav items (group hidden; routes still resolve)", () => {
     expect(TELEMETRY_NAV.filter((n) => n.group === "Data Engineering")).toHaveLength(0);
     // The nested route still builds/recognizes for deep links even though it is not in the nav.
