@@ -271,11 +271,18 @@ def _blast_block(ov: list[dict], ncrs: list[dict], recon: list[dict], geneal: li
     if not lot_edges:
         return {"rows_present": False, "null_reason": "no_suspect_lot", "lot_id": None,
                 "part_number": None, "vehicles": [], "ncrs": [], "work_orders": [], "edges": []}
-    # the suspect lot = the lot with the widest where-used (exposure)
+    # The "suspect" lot is the one with QUALITY ATTRIBUTION (an NCR raised against it), not merely the
+    # lot with the widest where-used — a common part installed everywhere has the widest spread but no
+    # defect story, which would render an empty, misleading blast radius. Rank lots by NCR count first,
+    # then by where-used; fall back to widest where-used only when no lot carries an NCR.
     by_lot: dict[str, set] = {}
     for g in lot_edges:
         by_lot.setdefault(g["lot_no"], set()).add(g.get("vehicle_serial"))
-    lot_id = max(by_lot, key=lambda k: len(by_lot[k]))
+    ncr_by_lot: dict[str, int] = {}
+    for n in ncrs:
+        if n.get("lot_no") in by_lot:
+            ncr_by_lot[n["lot_no"]] = ncr_by_lot.get(n["lot_no"], 0) + 1
+    lot_id = max(by_lot, key=lambda k: (ncr_by_lot.get(k, 0), len(by_lot[k])))
     part_number = next((g.get("part_no") for g in lot_edges if g.get("lot_no") == lot_id), None)
     veh_serials = sorted(v for v in by_lot[lot_id] if v)
     vehicles = [{"vehicle_serial": vs,
@@ -398,12 +405,17 @@ def _disconfirmation_block(recon: list[dict], ncrs: list[dict], ov: list[dict], 
         if _f(n.get("estimated_rework_cost")) > 0 and n.get("work_order_no") not in recon_excep_wo:
             findings.append({"kind": "rework_without_variance", "ref": n.get("ncr_id"),
                              "detail": "rework cost recorded but its work order is within tolerance"})
-    # 3) suspect-lot exposed vehicle that is not blocked
-    exposed = {g.get("vehicle_serial") for g in geneal if g.get("child_type") == "lot"}
+    # 3) SUSPECT-lot exposed vehicle that is not blocked. "Suspect" = a lot that actually carries an NCR
+    #    (not any tracked lot) — otherwise every vehicle with a routine lot is flagged, which is noise and
+    #    mislabels a clean vehicle as "contains a suspect lot". This narrowing is what makes VEH-DEMO-002
+    #    (has the NCR'd lot but on_track) the meaningful finding and drops the false VEH-DEMO-003.
+    suspect_lots = {n.get("lot_no") for n in ncrs if n.get("lot_no")}
+    exposed = {g.get("vehicle_serial") for g in geneal
+               if g.get("child_type") == "lot" and g.get("lot_no") in suspect_lots}
     for o in ov:
         if o.get("vehicle_serial") in exposed and o.get("readiness_state") != "blocked":
             findings.append({"kind": "exposed_not_blocked", "ref": o.get("vehicle_serial"),
-                             "detail": f"contains a suspect lot but readiness={o.get('readiness_state')}"})
+                             "detail": f"contains a suspect (NCR'd) lot but readiness={o.get('readiness_state')}"})
     return {"findings": findings, "checks_run": 3, "null_reason": None}
 
 

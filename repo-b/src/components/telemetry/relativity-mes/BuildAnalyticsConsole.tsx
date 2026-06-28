@@ -24,6 +24,9 @@ import { REL_ACCENT, RelSourceDrill, ServingStrip, SyntheticBanner, useDrill } f
 const n = (v: unknown) => Number(v ?? 0);
 const str = (r: Row, k: string) => (r[k] == null ? "—" : String(r[k]));
 const money = (v: unknown) => `$${Math.round(n(v)).toLocaleString()}`;
+// cents-precise — the reconciliation residual is an exact figure; rounding it to the dollar hides that
+// it equals the committed 'unallocated' ERP rows to the penny.
+const money2 = (v: unknown) => `$${n(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ── provenance chip — the central honesty fix ────────────────────────────────
 type Prov = "generated" | "emergent" | "identity" | "low-n" | "data-quality";
@@ -187,7 +190,7 @@ export default function BuildAnalyticsConsole() {
           {b.bridge && b.bridge.rows.length > 0 && (
             <Panel title="Cost-overrun bridge" style={{ marginBottom: 14 }} right={
               <Tag color={(b.bridge.residual_total ?? 0) === 0 ? C.dim : C.amber}>
-                {b.bridge.reconciled_pct == null ? "—" : `reconciled ${b.bridge.reconciled_pct}%`} · residual {money(b.bridge.residual_total)}
+                {b.bridge.reconciled_pct == null ? "—" : `reconciled ${b.bridge.reconciled_pct}%`} · residual {money2(b.bridge.residual_total)}
               </Tag>
             }>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}><Chip kind="identity" /></div>
@@ -221,7 +224,7 @@ export default function BuildAnalyticsConsole() {
                 const max = Math.max(1, ...b.pareto.rows.map((r) => n(r.rework_cost)));
                 return b.pareto.rows.map((r) => (
                   <button key={str(r, "cluster_label")} type="button"
-                    onClick={() => setDrill({ table: "rel_mes_nonconformance", filterKey: "defect_code", filterValue: str(r, "cluster_label").split("·")[0], title: `${str(r, "cluster_label")} — NCR rows` })}
+                    onClick={() => setDrill({ table: "rel_mes_nonconformance", filterKey: "defect_code", filterValue: str(r, "cluster_label").split("·")[0].trim(), title: `${str(r, "cluster_label")} — NCR rows` })}
                     style={{ display: "grid", gridTemplateColumns: "minmax(150px,1.4fr) 2fr minmax(90px,auto)", gap: 10, alignItems: "center", width: "100%", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: "3px 0" }}>
                     <span style={{ fontFamily: C.mono, fontSize: 11, color: C.text }}>{str(r, "cluster_label")}</span>
                     <span style={{ position: "relative", height: 14, background: C.panelHi, borderRadius: 4 }}>
@@ -277,16 +280,19 @@ export default function BuildAnalyticsConsole() {
             <TelemetryChartFrame title="MES↔ERP reconciliation" ariaLabel="Reconciliation scatter"
               caption={`Most work orders reconcile within ±${b.recon.exception_threshold_pct ?? 25}%; exceptions pop out. Threshold sensitivity: ${b.recon.threshold_sensitivity.map((s) => `${s.k}%→${s.exception_count}`).join(" · ")} (the count barely moves — the band is not what's discriminating).`}>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}><Chip kind="emergent" /></div>
-              <ScatterChart width={460} height={260} margin={{ top: 8, right: 16, bottom: 18, left: 0 }}>
-                <CartesianGrid stroke={C.border} strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="standard_cost" name="standard" stroke={C.faint} tick={{ fontSize: 9, fill: C.faint }} />
-                <YAxis type="number" dataKey="actual_cost" name="actual" stroke={C.faint} tick={{ fontSize: 9, fill: C.faint }} />
-                <ZAxis range={[40, 40]} />
-                <Tooltip contentStyle={{ background: C.panelHi, border: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }} />
-                <ReferenceLine stroke={C.dim} strokeDasharray="4 4" segment={[{ x: 0, y: 0 }, { x: 20000, y: 20000 }]} />
-                <Scatter name="reconciled" data={b.recon.rows.filter((r) => !r.is_exception)} fill={C.green} isAnimationActive={false} />
-                <Scatter name="exception" data={b.recon.rows.filter((r) => r.is_exception)} fill={C.red} isAnimationActive={false} />
-              </ScatterChart>
+              {/* fixed-width chart wrapped so it scrolls (not overflows the page) below ~460px */}
+              <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                <ScatterChart width={460} height={260} margin={{ top: 8, right: 16, bottom: 18, left: 0 }}>
+                  <CartesianGrid stroke={C.border} strokeDasharray="3 3" />
+                  <XAxis type="number" dataKey="standard_cost" name="standard" stroke={C.faint} tick={{ fontSize: 9, fill: C.faint }} />
+                  <YAxis type="number" dataKey="actual_cost" name="actual" stroke={C.faint} tick={{ fontSize: 9, fill: C.faint }} />
+                  <ZAxis range={[40, 40]} />
+                  <Tooltip contentStyle={{ background: C.panelHi, border: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 11 }} />
+                  <ReferenceLine stroke={C.dim} strokeDasharray="4 4" segment={[{ x: 0, y: 0 }, { x: 20000, y: 20000 }]} />
+                  <Scatter name="reconciled" data={b.recon.rows.filter((r) => !r.is_exception)} fill={C.green} isAnimationActive={false} />
+                  <Scatter name="exception" data={b.recon.rows.filter((r) => r.is_exception)} fill={C.red} isAnimationActive={false} />
+                </ScatterChart>
+              </div>
             </TelemetryChartFrame>
           )}
 

@@ -285,3 +285,46 @@ def test_mes_receipt_routes_served(client):
         r = client.get(f"/api/telemetry/relativity-mes/analytics/{path}")
         assert r.status_code == 200
         assert r.json()["null_reason"] is None     # committed receipts present
+
+
+# ── Phase 10 smoke-fix locks: blast anchors on the NCR'd lot; disconfirmation uses suspect lots ──
+
+def _smoke_fixture():
+    # A common lot on ALL 3 vehicles (no NCR) + the suspect lot on 2 vehicles (carries the NCR).
+    geneal = [
+        {"vehicle_serial": "VEH-DEMO-001", "child_type": "lot", "lot_no": "LOT-COMMON", "part_no": "PN-ENG-001", "work_order_no": "WO-001-ENG"},
+        {"vehicle_serial": "VEH-DEMO-002", "child_type": "lot", "lot_no": "LOT-COMMON", "part_no": "PN-ENG-001", "work_order_no": "WO-002-ENG"},
+        {"vehicle_serial": "VEH-DEMO-003", "child_type": "lot", "lot_no": "LOT-COMMON", "part_no": "PN-ENG-001", "work_order_no": "WO-003-ENG"},
+        {"vehicle_serial": "VEH-DEMO-001", "child_type": "lot", "lot_no": "LOT-7788", "part_no": "PN-TPS-SEAL", "work_order_no": "WO-001-TPS"},
+        {"vehicle_serial": "VEH-DEMO-002", "child_type": "lot", "lot_no": "LOT-7788", "part_no": "PN-TPS-SEAL", "work_order_no": "WO-002-TPS"},
+    ]
+    ncrs = [{"ncr_id": "NCR-0001", "vehicle_serial": "VEH-DEMO-001", "lot_no": "LOT-7788",
+             "work_order_no": "WO-001-TPS", "severity": "major", "status": "open", "estimated_rework_cost": 4200}]
+    recon = [{"vehicle_serial": "VEH-DEMO-001", "work_order_no": "WO-001-TPS", "variance_pct": 70,
+              "actual_cost": 16000, "standard_cost": 9400}]
+    ov = [
+        {"vehicle_serial": "VEH-DEMO-001", "readiness_state": "blocked", "open_ncr_count": 1},
+        {"vehicle_serial": "VEH-DEMO-002", "readiness_state": "on_track", "open_ncr_count": 0},
+        {"vehicle_serial": "VEH-DEMO-003", "readiness_state": "at_risk", "open_ncr_count": 0},
+    ]
+    return ov, ncrs, recon, geneal
+
+
+def test_blast_anchors_on_ncrd_lot_not_widest_where_used():
+    ov, ncrs, recon, geneal = _smoke_fixture()
+    blast = svc._blast_block(ov, ncrs, recon, geneal)
+    # LOT-COMMON spans 3 vehicles (wider) but has no NCR; the blast must show the NCR'd suspect lot.
+    assert blast["lot_id"] == "LOT-7788"
+    assert blast["part_number"] == "PN-TPS-SEAL"
+    assert len(blast["ncrs"]) == 1            # attribution column populated, not empty
+    assert len(blast["work_orders"]) == 1
+
+
+def test_disconfirmation_only_flags_suspect_lot_exposure():
+    ov, ncrs, recon, geneal = _smoke_fixture()
+    dis = svc._disconfirmation_block(recon, ncrs, ov, geneal)
+    exposed = {f["ref"] for f in dis["findings"] if f["kind"] == "exposed_not_blocked"}
+    # VEH-DEMO-002 has the NCR'd lot but is on_track → the meaningful asymmetry finding.
+    assert "VEH-DEMO-002" in exposed
+    # VEH-DEMO-003 carries only the common (non-NCR'd) lot → must NOT be flagged as "suspect".
+    assert "VEH-DEMO-003" not in exposed
