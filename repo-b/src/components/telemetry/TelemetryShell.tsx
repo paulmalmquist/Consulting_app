@@ -59,16 +59,19 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
   const renderRail = (railCollapsed: boolean, showToggle: boolean) => (
     <aside style={{ width: railCollapsed ? 64 : 224, flexShrink: 0, background: C.rail,
       borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column",
-      padding: railCollapsed ? "20px 8px" : "20px 14px", minHeight: "100%",
+      padding: railCollapsed ? "20px 8px" : "20px 14px", height: "100%",
       overflow: "hidden", transition: "width 200ms ease" }}>
       <div style={{ padding: railCollapsed ? "0 0 18px" : "0 6px 18px",
         display: "flex", justifyContent: railCollapsed ? "center" : "flex-start" }}>
         {railCollapsed ? BrandMark : Brand}
       </div>
-      <TelemetrySidebar envId={envId} collapsed={railCollapsed}
-        onNavigate={() => setDrawerOpen(false)}
-        onExpandRequest={() => setCollapsed(false)} />
-      <div style={{ marginTop: "auto", paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+      {/* Nav scrolls within the rail so the footer + collapse toggle stay docked at the bottom. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", margin: "0 -4px", padding: "0 4px" }}>
+        <TelemetrySidebar envId={envId} collapsed={railCollapsed}
+          onNavigate={() => setDrawerOpen(false)}
+          onExpandRequest={() => setCollapsed(false)} />
+      </div>
+      <div style={{ paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
         {railCollapsed ? (
           <div style={{ display: "flex", justifyContent: "center" }} title="serving · prod">
             <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
@@ -99,7 +102,11 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
 
   return (
     <div style={{ display: "flex", background: C.bg, minHeight: "100vh", fontFamily: C.sans, color: C.text }}>
-      <div className="hidden lg:flex">{renderRail(collapsed, true)}</div>
+      {/* Desktop rail is docked to the viewport (sticky, full height) so the footer + collapse toggle
+          are always reachable at the bottom without scrolling the page. */}
+      <div className="hidden lg:flex" style={{ position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start" }}>
+        {renderRail(collapsed, true)}
+      </div>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {/* mobile top header — display lives in classes so lg:hidden can win */}
