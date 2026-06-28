@@ -1,0 +1,9 @@
+@keyframes caretBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.caret {
+  animation: caretBlink 0.8s step-end infinite;
+  user-select: none;
+}

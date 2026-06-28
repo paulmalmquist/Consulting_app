@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   askCopilot, explainVerdict, getGovernance, draftReport, recordDisposition,
   type CopilotResponse, type EvidenceItem, type ToolTraceItem, type GovernanceSummary,
   type DraftReportResponse, type DispositionResult,
 } from "@/lib/telemetry/copilot-api";
 import { C, Tag, Panel, Loading } from "./primitives";
+import styles from "./Copilot.module.css";
 import { TelemetryPageHeader } from "./TelemetryPageHeader";
 
 export interface ReportContext { runKey: string; fireTick: number; channel?: string }
@@ -112,17 +113,45 @@ export function GovernanceStrip({ r }: { r: CopilotResponse }) {
   );
 }
 
-// ── Answer block (renders the markdown-ish prose simply) ───────────────────────
-function AnswerBody({ r }: { r: CopilotResponse }) {
+// ── Typewriter reveal ──────────────────────────────────────────────────────────
+// setTimeout-chain (not setInterval) so React 18 Strict Mode double-invocation
+// can't kill the animation: cleanup cancels only the pending next tick, not a
+// mid-run interval, so the second mount starts fresh and animates cleanly.
+// Lives at CopilotResult level so the timer survives sibling state updates.
+function useTypewriter(full: string | null, charsPerTick = 3, intervalMs = 18): [string, boolean] {
+  const [displayed, setDisplayed] = useState("");
+  const cancelRef = useRef(false);
+  useEffect(() => {
+    if (!full) { setDisplayed(""); return; }
+    cancelRef.current = false;
+    setDisplayed("");
+    let i = 0;
+    const tick = () => {
+      if (cancelRef.current) return;
+      i = Math.min(i + charsPerTick, full.length);
+      setDisplayed(full.slice(0, i));
+      if (i < full.length) setTimeout(tick, intervalMs);
+    };
+    const id = setTimeout(tick, intervalMs);
+    return () => { cancelRef.current = true; clearTimeout(id); };
+  }, [full, charsPerTick, intervalMs]);
+  const done = full != null && displayed.length >= full.length;
+  return [displayed, !done];
+}
+
+// ── Answer block ───────────────────────────────────────────────────────────────
+function AnswerBody({ r, displayed, typing }: { r: CopilotResponse; displayed: string; typing: boolean }) {
   const col = r.is_refusal ? C.amber : C.text;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <Tag color={sourceColor(r.answer_source)}>{r.is_refusal ? "refused" : r.answer_source}</Tag>
+        {r.model && <Tag color={C.dim}>{r.model}</Tag>}
         {!r.is_refusal && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.faint }}>assistant-generated draft — human review required</span>}
       </div>
       <p style={{ fontFamily: C.sans, fontSize: 13.5, color: col, lineHeight: 1.6, whiteSpace: "pre-wrap", margin: 0 }}>
-        {r.answer}
+        {displayed}
+        {typing && <span className={styles.caret}>▋</span>}
       </p>
     </div>
   );
@@ -193,6 +222,8 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
   const [drafting, setDrafting] = useState(false);
   const [evidenceOpened, setEvidenceOpened] = useState(0);
   const canDraft = !!reportContext && !r.is_refusal && r.evidence.length > 0;
+  // Typewriter lives here so the interval survives re-renders of this component's own state.
+  const [displayed, typing] = useTypewriter(r.answer ?? null);
 
   const onDraft = () => {
     if (!reportContext) return;
@@ -206,7 +237,7 @@ export function CopilotResult({ r, reportContext }: { r: CopilotResponse; report
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Panel title="Answer"><AnswerBody r={r} /></Panel>
+      <Panel title="Answer"><AnswerBody r={r} displayed={displayed} typing={typing} /></Panel>
       {r.evidence.length > 0 && (
         <Panel title={`Evidence (${r.evidence.length})`}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>

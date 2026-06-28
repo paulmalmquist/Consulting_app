@@ -19,7 +19,7 @@ import re
 
 from app.config import OPENAI_CHAT_MODEL
 
-COPILOT_MODEL = OPENAI_CHAT_MODEL
+COPILOT_MODEL = "gpt-5"
 
 # ── null_reason vocabulary (superset of the serving-layer reasons) ─────────────
 NULL_UNSUPPORTED = "unsupported_question"
@@ -182,7 +182,10 @@ SYSTEM_PROMPT_TEXT = (
     "5. Finish with one complete sentence that starts with 'Human review:' and names what a human "
     "should inspect next (e.g. the channel around the flagged window vs. nominal runs). Never leave "
     "it empty. This is assistant-generated draft analysis, not a final disposition.\n"
-    "6. Be terse: 3 to 6 sentences, under 120 words. No preamble, no restating the question, no JSON.\n"
+    "6. Structure the output as TWO paragraphs separated by a blank line.\n"
+    "   First paragraph — technical briefing (3 to 5 sentences, under 100 words): model name, score vs. threshold, flagged window, and the human-review sentence.\n"
+    "   Second paragraph — start with the exact label 'Plain language:' on its own line, then 1-2 sentences any non-engineer can understand: describe what the system noticed in everyday terms (no acronyms, no raw numbers), and state clearly that a human must confirm before any action is taken.\n"
+    "   No preamble, no restating the question, no JSON.\n"
     "7. Public NASA analog data — never imply proprietary or real-vehicle telemetry."
 )
 
