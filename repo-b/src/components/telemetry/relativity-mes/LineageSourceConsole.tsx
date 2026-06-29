@@ -35,13 +35,18 @@ export default function LineageSourceConsole() {
   const provenance = Object.values(serving).map((s) => s.serving_provenance).find(Boolean) ?? "seed-bootstrap";
   // dbxLive gates the Databricks panel only (its gold is still not materialized even when serving is BigQuery).
   const dbxLive = provenance === "databricks-gold";
-  const bqLive = provenance === "bigquery-gold";
+  // dataproc-gold and bigquery-gold are both the BigQuery medallion; dataproc-gold means the silver/gold
+  // transforms ran as real Dataproc Serverless PySpark jobs (the current path) rather than BQ SQL views.
+  const dataprocLive = provenance === "dataproc-gold";
+  const bqLive = provenance === "bigquery-gold" || dataprocLive;
   const goldLive = dbxLive || bqLive;
-  const medallionName = bqLive ? "BigQuery medallion (bronze → silver → gold)"
+  const medallionName = dataprocLive ? "BigQuery medallion via Dataproc PySpark (bronze → silver → gold)"
+    : bqLive ? "BigQuery medallion (bronze → silver → gold)"
     : "Databricks medallion (bronze → silver → gold_rel_*)";
-  const provText = bqLive ? "bigquery-gold (synced from the BigQuery Gold marts)"
+  const provText = dataprocLive ? "dataproc-gold (synced from the BigQuery Gold marts, built by Dataproc PySpark)"
+    : bqLive ? "bigquery-gold (synced from the BigQuery Gold marts)"
     : dbxLive ? "databricks-gold (synced from Databricks Gold)"
-    : "seed-bootstrap (deterministic gold load; a medallion backfill flips this to bigquery-gold / databricks-gold)";
+    : "seed-bootstrap (deterministic gold load; a medallion backfill flips this to dataproc-gold / databricks-gold)";
 
   return (
     <div>
@@ -56,13 +61,13 @@ export default function LineageSourceConsole() {
 
       {data && !data.null_reason && (
         <>
-          <ServingStrip meta={data} note={bqLive ? "BigQuery-gold serving" : dbxLive ? "Databricks-gold serving" : "bootstrap serving"} />
+          <ServingStrip meta={data} note={dataprocLive ? "Dataproc-gold serving" : bqLive ? "BigQuery-gold serving" : dbxLive ? "Databricks-gold serving" : "bootstrap serving"} />
 
           <Panel title="Live serving (Postgres/Lakebase) — proof of the real serving path" style={{ marginBottom: 14 }}>
             <StatGrid cols={5}>
               {Object.entries(serving).map(([t, s]) => (
                 <Stat key={t} label={t.replace(/^rel_/, "")} value={s.row_count}
-                  tone={s.serving_provenance === "bigquery-gold" || s.serving_provenance === "databricks-gold" ? C.green : REL_ACCENT} />
+                  tone={s.serving_provenance === "bigquery-gold" || s.serving_provenance === "databricks-gold" || s.serving_provenance === "dataproc-gold" ? C.green : REL_ACCENT} />
               ))}
             </StatGrid>
             <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>

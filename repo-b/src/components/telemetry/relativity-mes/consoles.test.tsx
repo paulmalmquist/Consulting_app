@@ -158,6 +158,18 @@ describe("LineageSourceConsole", () => {
     expect(screen.getAllByText(/Medallion not materialized/).length).toBeGreaterThanOrEqual(1);
   });
 
+  it("reflects Dataproc-gold serving as the BigQuery medallion built by Dataproc PySpark", async () => {
+    (lib.getLineage as Mock).mockResolvedValue({
+      ...META, serving_provenance: "dataproc-gold",
+      rows: [{ object_name: "rel_mes_vehicle", layer: "source", source_system: "MES", row_count: 3,
+        dashboard_consumers: "[]", ingest_batch_id: "rel-mes-seed-v1", source_system_layer: "rel_*" }],
+      serving: { rel_build_overview: { row_count: 3, serving_provenance: "dataproc-gold" } },
+    });
+    render(<LineageSourceConsole />);
+    expect((await screen.findAllByText(/BigQuery medallion via Dataproc PySpark/)).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/dataproc-gold \(synced from the BigQuery Gold marts, built by Dataproc PySpark\)/)).toBeTruthy();
+  });
+
   it("renders honest medallion links: BigQuery live, Databricks fail-closed", async () => {
     (lib.getLineage as Mock).mockResolvedValue({
       ...META, // serving_provenance = seed-bootstrap -> Databricks medallion not materialized
