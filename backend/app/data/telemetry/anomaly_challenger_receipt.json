@@ -1,0 +1,61 @@
+{
+  "model_kind": "anomaly",
+  "champion": {
+    "model_name": "tel_anomaly_detector",
+    "rule": "rolling-MAD K=4.0",
+    "feature_set": "baseline (residual)",
+    "metrics": {
+      "f1": 0.645297,
+      "precision": 0.556102,
+      "recall": 0.76857,
+      "f1_pointwise": 0.312953,
+      "precision_pointwise": 0.3279,
+      "recall_pointwise": 0.29931,
+      "event_recall": 0.769231,
+      "alarm_precision": 0.3279,
+      "affiliation_f1": 0.474634,
+      "affiliation_precision": 0.343198,
+      "affiliation_recall": 0.769231,
+      "affiliation_cap_d_ticks": 50,
+      "labeled_segments": 104
+    }
+  },
+  "challenger": {
+    "model_name": "tel_anomaly_pca",
+    "rule": "PCA reconstruction (n_components=3, thresh=p99.0 train err)",
+    "feature_set": "6 rolling features",
+    "metrics": {
+      "f1": 0.553142,
+      "precision": 0.893791,
+      "recall": 0.4005,
+      "f1_pointwise": 0.030281,
+      "precision_pointwise": 0.25284,
+      "recall_pointwise": 0.016105,
+      "event_recall": 0.682692,
+      "alarm_precision": 0.25284,
+      "affiliation_f1": 0.387646,
+      "affiliation_precision": 0.270128,
+      "affiliation_recall": 0.686154,
+      "affiliation_cap_d_ticks": 50,
+      "labeled_segments": 104
+    }
+  },
+  "decision": {
+    "primary_metric": "affiliation_f1",
+    "champion_affiliation_f1": 0.474634,
+    "challenger_affiliation_f1": 0.387646,
+    "champion_ahead": true,
+    "note": "Champion (rolling-MAD) vs challenger (PCA reconstruction), identical test windows + identical honest metric code. The challenger is the held comparison; the champion stays the live go/no-go model."
+  },
+  "data": {
+    "source_table": "novendor-events-prod.telemetry.gold_smap_msl_windows",
+    "raw_dataset": "smap_msl (telemanom public arrays)",
+    "test_channels": 81,
+    "test_rows": 509555,
+    "labeled_segments": 104
+  },
+  "vertex": {
+    "experiment": null,
+    "run_id": null
+  }
+}
