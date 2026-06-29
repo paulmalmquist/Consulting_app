@@ -17,7 +17,7 @@ export default function PanelShell({ title, sub, focused, dimmed, accent, childr
 }) {
   return (
     <div style={{
-      background: RS.panel,
+      background: "#000",
       border: `1px solid ${focused ? `${accent}66` : RS.line}`,
       boxShadow: focused ? `0 0 0 1px ${accent}40, 0 8px 30px rgba(0,0,0,0.35)` : "none",
       borderRadius: 6, overflow: "hidden",
