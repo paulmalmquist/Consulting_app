@@ -46,7 +46,7 @@ commands:
   - /cost
 notes:
   - Global routing lives here. Downstream docs should link back instead of repeating repo-wide dispatch tables.
-  - Use `PORTABILITY.MD` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
+  - Use `PORTABILITY.md` when a request touches client forkability, white-labeling, tenant packs, or new-client spin-up.
 ---
 
 ## Writing Style
@@ -57,7 +57,7 @@ When generating any prose — docs, comments, proposals, emails, copy, commit me
 
 `CLAUDE.md` is the canonical router for repo-local prompt behavior. It decides which downstream `agents/*.md`, `skills/*.md`, `.skills/*.md`, or selected `docs/*.md` file should own the next step.
 
-When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.MD` in view: `platform core`, `environment package`, and `client config`.
+When a request touches client portability or white-labeling, keep the three-layer split from `PORTABILITY.md` in view: `platform core`, `environment package`, and `client config`.
 
 ## Mass Deletion Protection
 
@@ -175,7 +175,7 @@ deployment docs, security/compliance docs). Full standard:
 | investment engine module, accounting engine, risk engine, compliance engine, OMS, EMS, workflow engine for investments, NAV calculation, P&L calculation, fund accounting, calculate NAV, build the investment engine, scaffold investment-engine module | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
 | NAV snapshot, P&L snapshot, PnL snapshot, position valuation snapshot, risk snapshot, performance snapshot, snapshot lifecycle, lock snapshot, release snapshot, reconstruct snapshot, snapshot reproducibility, authoritative snapshot for investment engine | `skills/winston-investment-snapshot/SKILL.md` |
 | reconciliation engine, position reconciliation, source position breaks, reconciliation breaks, reconciliation runs | `skills/winston-investment-engine-module/SKILL.md` with `docs/plans/INVESTMENT_ENGINE_PLAN.md` as reference |
-| portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.MD` as reference |
+| portability, forkability, white-labeling, tenant pack, client pack, environment package, capability pack, hardcode audit, clone Winston for a client | `agents/architect.md` with `PORTABILITY.md` as reference |
 | business-side Novendor commands | `agents/operations.md`, `agents/outreach.md`, `agents/proposals.md`, `agents/content.md`, `agents/demo.md` |
 | explicit prompt or playbook request | matching normalized skill when one exists; otherwise selected `docs/WINSTON_*PROMPT*.md` |
 
@@ -266,7 +266,7 @@ Project refs to remember:
 - Treat branding, module labels, prompts, report wrappers, email copy, URLs, and role templates as overridable unless the request is explicitly repo-internal only.
 - Prefer capability flags and environment manifests over scattered per-client conditionals in routes, components, or services.
 - New-client onboarding should trend toward `load config + bind secrets + run bootstrap`, not repo-wide source edits.
-- If a request is specifically about forkability or transferability, route planning to `agents/architect.md`; for implementation, keep the owning surface but still use `PORTABILITY.MD` as a design constraint.
+- If a request is specifically about forkability or transferability, route planning to `agents/architect.md`; for implementation, keep the owning surface but still use `PORTABILITY.md` as a design constraint.
   
 ## Database Guardrails
 
@@ -418,9 +418,9 @@ This is not optional busywork — these files contain real production data (test
 - `Sarat review this deck` -> `skills/pitch-forge-deck/SKILL.md`
 - `personalize outreach for Artemis Real Estate Partners` -> `skills/outreach-personalizer/SKILL.md`
 - `build a microsite for [firm]` -> `skills/outreach-personalizer/SKILL.md`
-- `audit Winston so it can be forked cleanly for a new client` -> `agents/architect.md` with `PORTABILITY.MD` as reference
-- `design a client pack or tenant pack model` -> `agents/architect.md` with `PORTABILITY.MD` as reference
-- `remove hardcoded Winston branding from the shared UI` -> `.skills/feature-dev/SKILL.md` with `agents/frontend.md` and `PORTABILITY.MD` as reference
+- `audit Winston so it can be forked cleanly for a new client` -> `agents/architect.md` with `PORTABILITY.md` as reference
+- `design a client pack or tenant pack model` -> `agents/architect.md` with `PORTABILITY.md` as reference
+- `remove hardcoded Winston branding from the shared UI` -> `.skills/feature-dev/SKILL.md` with `agents/frontend.md` and `PORTABILITY.md` as reference
 - `train a regime classifier on Databricks` -> `skills/historyrhymes/SKILL.md`
 - `run a backtest on the momentum strategy` -> `skills/historyrhymes/SKILL.md`
 - `summarize tel_predictions` / `pivot the telemetry verdicts by model` / `null rates and freshness for the telemetry tables` -> `skills/telemetry-data-interrogation/SKILL.md`
