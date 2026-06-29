@@ -4,6 +4,7 @@ import {
   getActiveMembership,
 } from "@/lib/server/sessionAuth";
 import { withClient } from "@/lib/server/db";
+import { isTelemetryReviewerSession } from "@/lib/server/telemetryReviewer";
 
 function rowToSummary(row: Record<string, unknown>): PlatformMembershipSummary {
   return {
@@ -95,5 +96,27 @@ export async function getActiveRichMembership(
   if (!session?.platform_user_id) return null;
   const slim = getActiveMembership(session);
   if (!slim) return null;
+  // Telemetry reviewer sessions are synthetic: there is no DB membership row, and the
+  // platform_user_id is the literal "telemetry-reviewer" — not a UUID — so the ::uuid cast
+  // in loadRichMembershipByEnvId would throw and 502 any header-building proxy the reviewer
+  // can reach (Agent Builder). Build the rich membership from the signed session instead.
+  // business_id stays null, so Agent Builder resolves the demo-scope param fallback and the
+  // reviewer never carries a real tenant.
+  if (isTelemetryReviewerSession(session)) {
+    return {
+      env_id: slim.env_id,
+      env_slug: slim.env_slug,
+      client_name: "Telemetry Demo Console",
+      role: slim.role,
+      status: slim.status,
+      auth_mode: "private",
+      is_default: slim.is_default ?? true,
+      business_id: null,
+      tenant_id: null,
+      industry: null,
+      industry_type: null,
+      workspace_template_key: null,
+    };
+  }
   return loadRichMembershipByEnvId(session.platform_user_id, slim.env_id);
 }
