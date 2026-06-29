@@ -1,7 +1,7 @@
 # Architecture — Automated Data Engineering
 
 ADE is a surfacing layer over machinery that already exists. This file maps the product
-onto real code and classifies the pieces per `PORTABILITY.MD`.
+onto real code and classifies the pieces per `PORTABILITY.md`.
 
 ## Existing fabric (reused, not rebuilt)
 
@@ -118,7 +118,7 @@ In CI and any checkout without provider tokens (the default), the three HTTP val
 resolve to `credential_pending` and make zero network calls. Tests mock `httpx.request`; no
 live call is ever made in CI.
 
-## Portability classification (`PORTABILITY.MD`)
+## Portability classification (`PORTABILITY.md`)
 
 | Layer | What |
 |---|---|

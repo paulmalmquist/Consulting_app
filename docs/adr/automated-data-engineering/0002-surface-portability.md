@@ -5,7 +5,7 @@
 - **Deciders:** Paul Malmquist (owner)
 - **Supersedes:** —
 - **Superseded by:** —
-- **Related:** `PORTABILITY.MD`, [`0001-model-access-strategy.md`](0001-model-access-strategy.md), `docs/plans/automated-data-engineering/architecture.md`
+- **Related:** `PORTABILITY.md`, [`0001-model-access-strategy.md`](0001-model-access-strategy.md), `docs/plans/automated-data-engineering/architecture.md`
 
 ## Context
 
@@ -13,7 +13,7 @@ The ADE control room debuts as a marketing demo inside the telemetry environment
 product is meant to transfer to any environment and eventually to client deployments. The
 trap is the easy build: wire it into the telemetry surface directly, pick up telemetry
 branding and assumptions, and then face a fork-and-edit job for every new mount.
-`PORTABILITY.MD` already defines the three-layer split (platform core / environment
+`PORTABILITY.md` already defines the three-layer split (platform core / environment
 package / client config); the decision is where each ADE piece sits.
 
 ## Decision

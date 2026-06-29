@@ -18,7 +18,7 @@ This folder contains all project documentation. The **Canonical Docs Map** below
 - `docs/AI_ARCHITECTURE_AND_WORKFLOWS.md` — map of the distinct AI systems and their workflows
 - `docs/REPE_ARCHITECTURE.md` — snapshot/rollup REPE platform architecture
 - `docs/adr/` — Architecture Decision Records, namespaced by subsystem (investment-engine, rs-analytics, automated-data-engineering, telemetry-lineage)
-- `PORTABILITY.MD` — the platform-core / environment-package / client-config three-layer portability contract
+- `PORTABILITY.md` — the platform-core / environment-package / client-config three-layer portability contract
 
 ### Telemetry
 - `docs/plans/telemetry-platform/architecture.md` — current telemetry platform architecture (Bronze/Silver/Gold Delta, models+gates, `tel_*` serving)
@@ -43,7 +43,7 @@ This folder contains all project documentation. The **Canonical Docs Map** below
 - `docs/SYSTEM_RULES_AUTHORITATIVE_STATE.md` — non-negotiable REPE authoritative-state lockdown invariants (enforced by lint + tests)
 - `docs/WINSTON_CODING_SESSION_INSTRUCTIONS.md` — coding-session lifecycle (PLAN vs CODE, intake gate, trivial-bypass standard)
 - `docs/AUTONOMOUS_RELIABILITY_PROTOCOL.md` — anti-hallucination / refusal protocols for autonomous runs
-- `ARCHITECTURE.md`, `AGENTS.md`, `PORTABILITY.MD` — DB/agent-workspace/portability contracts
+- `ARCHITECTURE.md`, `AGENTS.md`, `PORTABILITY.md` — DB/agent-workspace/portability contracts
 - `docs/anti-ai-style.md` — mandatory writing-style constraints CLAUDE.md binds for all prose
 - `claim_coverage_matrix.md`, `PLAN_DIVERGENCE_REVIEW.md`, `DIVERGENCE_FINDINGS_DEMO_SCRIPT.md`, `DIVERGENCE_RECEIPTS_MANIFEST.md` — the claim→proof accuracy record + divergence program (load-bearing accuracy/provenance)
 - `docs/reference/RULES.MD` — Business OS core system rules

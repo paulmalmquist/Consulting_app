@@ -55,7 +55,7 @@
       "status": "active",
       "source": "agents/architect.md",
       "owners": ["cross-repo"],
-      "paths": ["docs/", "ARCHITECTURE.md", "PORTABILITY.MD"],
+      "paths": ["docs/", "ARCHITECTURE.md", "PORTABILITY.md"],
       "intents": ["research", "architecture", "planning"],
       "triggers": ["architecture", "audit", "inspect", "review", "explain", "trace", "/research"],
       "handoff_to": [],
