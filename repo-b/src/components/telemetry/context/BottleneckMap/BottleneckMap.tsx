@@ -138,7 +138,7 @@ export default function BottleneckMap(
   const presenterAccent = presenterEvent ? eventDimension(presenterEvent, colorBy).color : RS.blue;
 
   return (
-    <div style={{ fontFamily: RS_SANS, color: RS.text }}>
+    <div style={{ fontFamily: RS_SANS, color: RS.text, background: "#000", borderRadius: 10, padding: "12px 14px" }}>
       {/* Play / Stop — a guided story walkthrough that steps through the eras (orbit proof → lower cost →
           reuse → manufacturing scale → telemetry/data operations → continue to Stargate/Evidence). The
           thesis itself lives once in the page header above. */}
