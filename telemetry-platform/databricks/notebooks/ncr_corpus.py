@@ -10,20 +10,48 @@
 # MAGIC
 # MAGIC The generator is pure stdlib and import-safe outside Databricks: the spark write section is
 # MAGIC guarded, so backend CI imports this file by path and asserts byte-identical regeneration.
+# MAGIC
+# MAGIC ===== TEACHING NOTES (plain language) =====
+# MAGIC WHAT THIS FILE DOES: An "NCR" is a Non-Conformance Report — a quality defect ticket written
+# MAGIC by a factory inspector ("Seal witness mark out of tolerance after thermal cycle..."). This
+# MAGIC file MAKES UP a realistic-looking pile of those tickets so the rest of the pipeline has
+# MAGIC something to chew on. Nothing here is a real ticket: it is generated demo text. Because it
+# MAGIC uses a fixed random SEED, it produces the EXACT same tickets every single run, on any machine.
+# MAGIC
+# MAGIC WHERE YOU SEE THIS: every downstream visual on the FactoryNcrIntelligence page
+# MAGIC (repo-b/src/components/telemetry/FactoryNcrIntelligence.tsx) is built from these tickets —
+# MAGIC the scatter plot of dots, the Pareto bars of defect families, the keyword lists, and the
+# MAGIC backlog forecast line all trace back to the text produced here. The UI labels this layer as
+# MAGIC synthetic so a viewer knows the tickets are demo data (but the models run on them are real).
+# MAGIC
+# MAGIC INPUTS -> OUTPUT: a seed number in -> a list of ~140 ticket records out (each with a defect
+# MAGIC family, workcell, severity, free-text summary, open/close dates). Written to the
+# MAGIC novendor_1.telemetry.ncr_records table inside Databricks.
+# MAGIC
+# MAGIC HOW TO READ IT: 6 "engineered" defect families have deliberately shaped weekly counts —
+# MAGIC seal/thermal is designed to RISE week over week, fastener torque to DECLINE, the rest to stay
+# MAGIC FLAT. We bake those trends in here on purpose so the clustering + forecast steps later have a
+# MAGIC real story to discover and show. The ~18 "noise" tickets are random odds-and-ends that should
+# MAGIC NOT form a tidy group — they test whether the clusterer correctly leaves outliers ungrouped.
 
 # COMMAND ----------
 import json
 import random
 from datetime import date, timedelta
 
+# SEED is the single knob that makes everything repeatable: feed the same number to Python's random
+# generator and you get the identical sequence of "random" choices forever. That is why this demo
+# corpus is byte-for-byte identical on every run (CI even asserts it).
 SEED = 20260609
-N_WEEKS = 16
+N_WEEKS = 16  # we generate 16 weeks of history
 # Fixed anchor (Monday) so the corpus is identical on every run, everywhere. Weeks are
 # [anchor - 16w, anchor); week index 0 is the oldest.
 ANCHOR = date(2026, 6, 8)
 
-# Each family: workcell pool, severity weights, median time-to-close, reopen probability, and a
-# per-week count schedule (len 16, oldest first) that encodes the intended dynamics.
+# Each family = one kind of recurring defect. For each we store: which workcells (stations) it shows
+# up in, how severe it tends to be, how long it usually takes to close, how often it reopens, and —
+# most importantly — a 16-number "weekly" schedule that says how many tickets to mint each week.
+# That weekly schedule is where we hand-author the trend each family should display in the UI.
 FAMILIES = {
     "seal_thermal": {
         "workcells": ["assembly_wc_09", "assembly_wc_12"],
@@ -99,9 +127,10 @@ FAMILIES = {
     },
 }
 
-# One-off noise topics — heterogeneous fillers outside the 6 engineered families. Whether the
-# clusterer marks them noise or groups some of them is the model's call (topics repeat across
-# weeks, so small misc clusters are a legitimate outcome, not a failure).
+# One-off noise topics — grab-bag tickets that DON'T belong to any of the 6 engineered families.
+# Their job is to be messy: a good clusterer should leave most of them ungrouped (shown as gray
+# "noise" dots on the scatter plot). If a couple of repeated topics happen to form a tiny cluster,
+# that's a legitimate model call, not a bug.
 NOISE_TOPICS = [
     ("paint_finish", "logistics_wc_01", "Paint thickness above spec on secondary structure panel."),
     ("fod", "integration_wc_05", "FOD found during closeout inspection; lockwire fragment recovered."),
@@ -128,16 +157,24 @@ SEVERITY_WEIGHTS = [0.62, 0.33, 0.05]
 
 
 def generate_corpus(seed: int = SEED) -> list[dict]:
-    """Deterministic synthetic NCR corpus. Returns records sorted by (opened_at, ncr_key)."""
-    rng = random.Random(seed)
+    """Deterministic synthetic NCR corpus. Returns records sorted by (opened_at, ncr_key).
+
+    Plain language: walk week by week, and for each defect family mint the exact number of tickets
+    its weekly schedule calls for, picking a workcell / template / severity at random (but a
+    SEEDED random, so the picks are identical every run). Then sprinkle in a little noise. The
+    result is the full pile of demo tickets the whole pipeline runs on.
+    """
+    rng = random.Random(seed)  # one seeded generator drives every "random" choice below
     records = []
     for week in range(N_WEEKS):
         week_start = ANCHOR - timedelta(weeks=N_WEEKS - week)
         for family, spec in FAMILIES.items():
+            # spec["weekly"][week] = how many tickets this family gets THIS week (the trend we baked in)
             for _ in range(spec["weekly"][week]):
                 wc = rng.choice(spec["workcells"])
                 template = rng.choice(spec["templates"])
                 opened = week_start + timedelta(days=rng.randrange(7))
+                # time-to-close: a bell-curve draw around the family's typical days, never below 1
                 ttc = max(1, round(rng.gauss(spec["ttc_median"], spec["ttc_median"] * 0.4)))
                 closed = opened + timedelta(days=ttc)
                 records.append({
@@ -165,6 +202,8 @@ def generate_corpus(seed: int = SEED) -> list[dict]:
                 "closed_at": closed.isoformat() if closed <= ANCHOR else None,
                 "reopened": rng.random() < 0.04,
             })
+    # Sort into a stable order, then hand out sequential ticket IDs (ncr_2026_00001, ...). Sorting
+    # before numbering is what keeps the IDs identical run to run — the seed alone isn't enough.
     records.sort(key=lambda r: (r["opened_at"], r["summary"]))
     for i, r in enumerate(records, start=1):
         r["ncr_key"] = f"ncr_2026_{i:05d}"
@@ -173,7 +212,8 @@ def generate_corpus(seed: int = SEED) -> list[dict]:
 
 # COMMAND ----------
 # Spark write section — only runs inside Databricks (backend CI imports this file locally and only
-# calls generate_corpus()).
+# calls generate_corpus()). "spark" only exists when this notebook runs on a Databricks cluster, so
+# we test for it: if it's missing we're being imported as a plain module and skip the table write.
 try:
     _SPARK = spark  # type: ignore[name-defined]  # noqa: F821
 except NameError:

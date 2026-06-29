@@ -6,6 +6,23 @@
 # MAGIC honestly. This is the operated-platform step: the gate is enforced against the tracking store.
 
 # COMMAND ----------
+# ===== TEACHING NOTES =====
+# WHAT THIS FILE DOES: This is the PROMOTION GATE. It reads the trained models' honest metrics (from
+#   MLflow, never hand-typed), checks them against fixed pass/fail thresholds, and decides which model
+#   becomes the "champion" (the one used live) vs which is held back. It is fail-closed: if a model
+#   doesn't clearly clear every bar, it is NOT promoted.
+# WHERE YOU SEE THIS: it drives the gate checks on the frontend "Registry Console"
+#   (repo-b/src/components/telemetry/RegistryConsole.tsx) and the champion/challenger display on the
+#   "Model Performance" page.
+# INPUTS -> OUTPUT: logged metrics in MLflow -> a champion/held-back decision per model + (if promoted)
+#   a registration into the Unity Catalog Model Registry with the alias "champion."
+# HOW TO READ THE NUMBERS:
+#   - champion = the model promoted to live use; challenger = a model that exists but did not win.
+#   - "fail-closed" = a missing or borderline metric defaults to FAIL, never to pass.
+#   - the anomaly gate uses the honest/affiliation thresholds; among passers it picks highest affiliation_f1.
+#   - the RUL gate requires beating the naive baseline by a margin, a low enough "late rate," better PHM
+#     than naive, and a passing leakage control; among passers it picks the SAFEST (lowest PHM).
+# ===========================
 import json
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -34,11 +51,15 @@ RUL_GATE = {
 }
 
 
+# Anomaly gate test: the detector must meet or beat EVERY honest threshold. One miss = held back.
 def passes_honest_gate(m: dict) -> bool:
     """Fail-closed: every declared honest threshold must be met (missing metric -> 0 -> fail)."""
     return all(float(m.get(k, 0.0)) >= thr for k, thr in HONEST_GATE.items())
 
 
+# RUL gate test: RMSE alone must NOT be able to promote a dangerous model. Each named check below is a
+# safety condition; the model passes only if ALL of them are true. Returns the per-check breakdown that
+# the Registry Console shows when explaining why a model passed or was held back.
 def rul_gate_eval(m: dict) -> dict:
     """Fail-closed RUL gate. Reads metrics logged by train_rul.py. Missing metric -> fails that check."""
     rmse = float(m.get("rmse", 1e9))
@@ -58,6 +79,8 @@ def rul_gate_eval(m: dict) -> dict:
             "rmse_ratio_vs_naive": ratio, "phm_improvement": phm_improve}
 
 # COMMAND ----------
+# Pull the most recent MLflow run for each model name. The gate reads metrics from the tracking store,
+# not from numbers passed by hand — so what gets gated is exactly what was logged during training.
 def latest_run(run_name: str):
     runs = client.search_runs([EXPERIMENT_ID], filter_string=f"tags.mlflow.runName = '{run_name}'",
                               order_by=["attributes.start_time DESC"], max_results=1)
@@ -75,6 +98,8 @@ print(json.dumps(metrics, indent=2))
 # COMMAND ----------
 # ---- Gate: anomaly (Track A). Fail-closed honest/affiliation gate; among models that CLEAR it, promote
 # the one with the highest affiliation_f1 (range-aware). Legacy F1 is reported for reference only. ----
+# Run both anomaly detectors through the gate; keep only the ones that cleared it; the champion is the
+# eligible model with the best (highest) affiliation_f1. -> this choice is the champion on Model Performance.
 anom_names = ["anomaly_baseline_mad", "anomaly_pca_recon"]
 anom_pass = {n: passes_honest_gate(metrics[n]) for n in anom_names}
 anom_eligible = [n for n in anom_names if anom_pass[n]]
@@ -91,6 +116,8 @@ anom_f1 = float(metrics[anom_winner].get("f1", 0.0))  # legacy point-adjusted �
 # ---- Gate: RUL (PR-1). PHM-/late-rate-aware + beats-naive + leakage-control, fail-closed. Among models
 # ---- that CLEAR the gate, promote the SAFEST (lowest PHM — i.e. least dangerous late behavior), then
 # ---- lowest late-rate, then lowest RMSE. RMSE alone can no longer promote a model. ----
+# Same for the RUL models: gate each one, keep the passers, and among passers promote the SAFEST
+# (lowest PHM, then lowest late-rate, then lowest RMSE). A low RMSE on its own cannot win here.
 rul_names = ["rul_linear_baseline", "rul_gbm"]
 rul_eval = {n: rul_gate_eval(metrics[n]) for n in rul_names}
 rul_eligible = [n for n in rul_names if rul_eval[n]["passed"]]
@@ -110,6 +137,8 @@ print(f"rul winner={rul_winner} rmse={rul_rmse:.4f} phm={rul_eval[rul_winner]['p
 
 # COMMAND ----------
 # Register promoted models to the Unity Catalog registry with an alias 'champion'.
+# "Registering with alias champion" = stamping this exact trained model as the live one, so downstream
+# jobs (like score_replay_feed.py) can load "@champion" and always get the promoted model.
 def register(model_name: str, run_id: str, metric_tags: dict) -> dict:
     full = f"{CATALOG}.{SCHEMA}.{model_name}"
     try:

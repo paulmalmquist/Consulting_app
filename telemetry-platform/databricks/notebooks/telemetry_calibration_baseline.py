@@ -17,6 +17,45 @@
 # MAGIC Plan: `docs/plans/03-implementation-plans/active/telemetry-calibration-layer.md`
 
 # COMMAND ----------
+# ===== TEACHING NOTES (plain language) =====
+# WHAT THIS FILE DOES:
+#   It takes a model that predicts an engine's Remaining Useful Life (RUL = how many cycles of life
+#   are left) and makes its UNCERTAINTY honest. A point prediction like "42 cycles left" is not enough;
+#   we also want an HONEST RANGE ("between 25 and 60, and we're 90% sure"). "Calibration" means making
+#   those confidence claims trustworthy: if the model says it's 90% sure the truth lands inside a range,
+#   the truth really should land inside that range about 90% of the time — no more, no less.
+#
+# WHERE YOU SEE THIS:
+#   This is the baseline evidence behind the RUL / anomaly CALIBRATION surfaces (the reliability table
+#   and the "is the model's confidence honest?" panels). It is the CHAMPION (current best, GBM) that the
+#   deep-learning challenger in telemetry_calibration_challenger_cnnlstm.py must beat.
+#
+# INPUTS -> OUTPUT:
+#   INPUT  : gold_cmapss_features (model-ready sensor features) + silver_cmapss_rul (official RUL truth).
+#   OUTPUT : an evidence JSON (metrics + a reliability table) returned via dbutils.notebook.exit — no UI,
+#            no new table, no API. The numbers feed the calibration evidence surfaces.
+#
+# HOW TO READ THE NUMBERS (jargon in one phrase each):
+#   - RMSE            : typical size of the prediction error, in cycles. Lower = more accurate.
+#   - PHM08           : NASA's asymmetric error score that punishes LATE/optimistic RUL harder than early
+#                       (predicting more life than there really is is the dangerous mistake). Lower = safer.
+#   - calibration     : making the model's stated confidence match reality (70% sure -> right ~70% of time).
+#   - PICP            : the share of truths that actually fell inside the predicted range. For a "90%"
+#                       range you want PICP near 0.90. PICP near nominal = well calibrated.
+#   - reliability     : the whole table of "we claimed X% confidence -> we actually hit Y%" across levels;
+#                       a perfectly honest model has observed == nominal on every row.
+#   - MPIW / PINAW    : how WIDE the ranges are (PINAW = width normalized so it's comparable). Narrower is
+#                       better ONLY if coverage stays honest — a huge range is trivially "right".
+#   - CRPS            : a single score blending accuracy and honest-uncertainty (lower = better).
+#   - Brier score     : the standard "is this probability honest?" yardstick for yes/no predictions —
+#                       the mean squared gap between the predicted probability and what actually happened
+#                       (0 = perfect, lower = better-calibrated). RUL here is a number not a yes/no, so we
+#                       use PICP + reliability instead; Brier is the same honest-confidence idea applied to
+#                       the anomaly (yes/no) scores on the calibration surfaces.
+#   - conformal       : the technique used here to build the honest ranges. It looks at how big the model's
+#                       errors were on a held-out CALIBRATION set, then pads each prediction by that
+#                       measured error so the range has the right coverage by construction.
+# ============================================
 import json
 import numpy as np
 import pandas as pd
@@ -34,6 +73,9 @@ def rmse(a, b):
     return float(np.sqrt(np.mean((np.asarray(a) - np.asarray(b)) ** 2)))
 
 def phm_score(y_true, y_pred):
+    # PHM08 = NASA's safety-weighted error score. Predicting MORE life than reality (late, d>0) is the
+    # dangerous mistake (you run the part past failure), so it costs more (divisor 10) than predicting
+    # too little life (early, divisor 13). Lower total = a safer, less optimistic model.
     # NASA PHM'08 asymmetric: late (pred>true => d>0) penalized harder (a=10) than early (a=13).
     d = np.asarray(y_pred) - np.asarray(y_true)
     s = np.where(d < 0, np.exp(-d / 13.0) - 1.0, np.exp(d / 10.0) - 1.0)
@@ -58,6 +100,10 @@ print("FD001 | feat cols", len(FEAT_COLS), "| train rows", len(train_all),
 # ============================================================================================
 # PART 1 — REPRODUCE the shipped benchmark (GBM on all train rows, last-cycle-per-unit eval)
 # ============================================================================================
+# First we re-fit the existing champion (a Gradient Boosting model — many small trees, each fixing the
+# last one's mistakes) and confirm we get the SAME accuracy the shipped system reports. This proves we
+# are calibrating the real deployed model, not a different one. "Last-cycle-per-unit" = score each engine
+# only at its final observed reading, which is the standard FD001 benchmark setup.
 gbm_full = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
                                      subsample=0.8, random_state=0).fit(
     train_all[FEAT_COLS].to_numpy(), train_all["y"].to_numpy())
@@ -77,6 +123,12 @@ print("  (shipped reference: RMSE ~20.32 / PHM ~1423; NOT literature-competitive
 # PART 2 — CALIBRATION via split-conformal, UNITS DISJOINT (fit / calib / internal-test)
 # Per-cycle truth exists only on the TRAIN split, so the calibrated eval lives there.
 # ============================================================================================
+# To build honest ranges we split the engines into THREE disjoint groups (no engine appears in two):
+#   fit (60%)  -> teaches the model,
+#   calib (20%)-> measures how big the model's errors really are (sets the range width),
+#   test (20%) -> never touched until the end; where we CHECK that the ranges cover the truth.
+# Splitting by engine (not by row) is what keeps the honesty check fair — the test engines are genuinely
+# unseen, so the coverage number is real, not memorized.
 units = np.sort(train_all.unit.unique())
 perm = rng.permutation(units)
 n = len(units)
@@ -109,9 +161,14 @@ print("internal-test per-cycle point metrics:",
 
 # COMMAND ----------
 # ---- Split-conformal absolute-residual intervals + calibration metrics ----
+# Core trick: look at how far off the model was on the CALIBRATION engines (the residuals = |truth -
+# prediction|). To make a "90% range", pad every prediction by the 90th-percentile residual. By
+# construction the range then covers ~90% of cases. This is what the reliability/coverage panels report.
 cal_resid = np.abs(cal_true - cal_pred)
 
 def conformal_q(level):
+    # The residual size to pad by for a given confidence level (e.g. 0.90). Picking it from the sorted
+    # calibration errors with this (m+1) rule is what makes the coverage guarantee hold on finite data.
     # finite-sample-valid split-conformal quantile of |residual|
     m = len(cal_resid)
     k = int(np.ceil((m + 1) * level))
@@ -119,6 +176,8 @@ def conformal_q(level):
     return float(np.sort(cal_resid)[k - 1])
 
 def picp(true, lo, hi):
+    # PICP = the fraction of truths that actually landed inside [lo, hi]. This is THE calibration number:
+    # for a "90%" range you want this near 0.90. It's the bar the reliability panel plots against nominal.
     return float(np.mean((true >= lo) & (true <= hi)))
 
 def crps_from_intervals(true, pred, qfun):
@@ -137,6 +196,9 @@ def crps_from_intervals(true, pred, qfun):
         tot += w
     return float(np.mean(tot / len(levels)))
 
+# For each promised confidence level, build the range, then measure: did coverage (PICP) match the
+# promise, and how wide (MPIW/PINAW) was the range? "within_pm_0.03" is the pass/fail honesty flag the
+# calibration gate reads — coverage must be within 3 points of what we promised.
 interval_metrics = {}
 rng_y = float(ite_true.max() - ite_true.min()) or 1.0
 for lvl in NOMINAL:
@@ -158,6 +220,9 @@ print("approx CRPS (interval-integrated):", round(crps, 3))
 
 # COMMAND ----------
 # ---- Reliability table (observed coverage vs nominal across levels) ----
+# This table is exactly what the RELIABILITY panel draws: for each promised level (nominal) we record the
+# coverage we actually got (observed_PICP). A perfectly honest model has observed == nominal on every row;
+# observed well below nominal = overconfident, well above = needlessly cautious (ranges too wide).
 reliability = []
 for lvl in RELIABILITY_LEVELS:
     q = conformal_q(lvl)
@@ -168,6 +233,9 @@ for r in reliability:
 
 # COMMAND ----------
 # ---- Late-prediction callout (PHM08 penalizes late/optimistic RUL harder) ----
+# Safety lens: how often, and by how much, did the model OVERESTIMATE remaining life? Late predictions
+# are the dangerous ones (you'd run a part past its real failure point). This callout surfaces that risk
+# explicitly so the calibration evidence isn't just "coverage looks fine on average".
 err = ite_pred - ite_true                      # >0 = late (predicted more life than real)
 late_frac = float(np.mean(err > 0))
 late_mean_overshoot = float(np.mean(err[err > 0])) if (err > 0).any() else 0.0
@@ -181,6 +249,8 @@ print("late-prediction callout:", late_callout)
 
 # COMMAND ----------
 # ---- Gate check ----
+# The single go/no-go: are ALL the promised confidence levels honest (coverage within 3 points)? PASS
+# here is what licenses showing these calibrated ranges on the surfaces; FAIL means recalibrate first.
 picp_gate_pass = all(interval_metrics[k]["within_pm_0.03"] for k in interval_metrics)
 print("CALIBRATION GATE (PICP within +/-0.03 at all nominal levels):", "PASS" if picp_gate_pass else "FAIL")
 

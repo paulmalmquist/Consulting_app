@@ -1,6 +1,30 @@
 """
 Gold — model-ready feature/label tables + the deterministic replay feed.
 
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES:
+  "Gold" is the last, model-ready layer of the data pipeline (bronze = raw, silver = cleaned, gold =
+  feature-engineered). It turns cleaned sensor rows into the exact columns every telemetry model trains
+  and scores on: rolling averages, spreads, min/max, and rate-of-change over a recent window of readings.
+  These derived "features" are what let a model see a trend instead of one isolated number.
+
+WHERE YOU SEE THIS:
+  This is the foundation behind the Runs, Monitoring, and Model Performance pages — every prediction
+  shown there was computed from these gold tables. gold_replay_feed specifically drives the demo REPLAY
+  (one fixed channel's history streamed back tick by tick).
+
+INPUTS -> OUTPUT:
+  INPUT  : silver_cmapss / silver_smap_msl (cleaned readings) + silver_smap_msl_labels (true anomaly
+           windows).
+  OUTPUT : gold_cmapss_features (RUL features + label), gold_smap_msl_windows (anomaly features + the
+           is_anomaly truth flag), gold_replay_feed (one channel's test sequence for the demo).
+
+HOW TO READ IT / KEY IDEA:
+  - look-ahead / leakage : the cardinal sin of time-series ML — letting a feature at time t peek at data
+    from AFTER t (the future). If that happens, the model looks brilliant in testing and fails in the
+    real world, where the future isn't available. Every rolling window below is built to NEVER look
+    forward (see NO-LOOK-AHEAD ENFORCEMENT). The RUL label is carried alongside, never fed in as an input.
+
 NO-LOOK-AHEAD ENFORCEMENT:
   Every rolling feature uses a window frame `ROWS BETWEEN n PRECEDING AND CURRENT ROW` partitioned by
   the series key and ordered by the time index. No frame ever references FOLLOWING rows, so a feature
@@ -33,11 +57,18 @@ CMAPSS_FEATURE_SENSORS = [2, 3, 4, 7, 11, 12, 15]
 
 
 def _roll(col: str, n: int, fn: str, part: str, order: str) -> str:
+    # Build one rolling-window feature in SQL. "ROWS BETWEEN n PRECEDING AND CURRENT ROW" is the
+    # no-look-ahead guarantee in code form: it only ever averages/spreads the CURRENT row and the n rows
+    # BEFORE it — never anything after. This is how a feature at time t stays a function of times <= t.
     return (f"{fn}({col}) OVER (PARTITION BY {part} ORDER BY {order} "
             f"ROWS BETWEEN {n} PRECEDING AND CURRENT ROW)")
 
 
 def cmapss_feature_sql() -> str:
+    # For each engine, turn each sensor into a small panel of trend features the RUL model can read:
+    # a 5-cycle rolling mean/std/min/max (recent level + how jittery + the recent envelope) and a
+    # rate-of-change vs the previous cycle (is it climbing or falling). These are the inputs behind the
+    # RUL predictions on the Model Performance / Runs pages.
     # Partition by (subset, split, unit): a train unit and a test unit can share (subset,unit),
     # so split MUST be in the partition or rolling features leak across the train/test boundary.
     part = "subset,split,unit"
@@ -55,6 +86,9 @@ def cmapss_feature_sql() -> str:
 
 def gold_statements() -> list:
     return [
+        # TABLE 1: gold_cmapss_features — the model-ready RUL training/scoring table. One row per
+        # (engine, cycle) with the raw informative sensors PLUS the rolling trend features above, and the
+        # rul_target label. This is the input the RUL champion/challenger notebooks read.
         f"DROP TABLE IF EXISTS {TEL}.gold_cmapss_features",
         f"""
         CREATE TABLE {TEL}.gold_cmapss_features AS
@@ -67,6 +101,11 @@ def gold_statements() -> list:
             'Gold: C-MAPSS model-ready RUL features. Rolling stats use ROWS BETWEEN 4 PRECEDING AND
              CURRENT ROW (no look-ahead). rul_target is the train label. Telemetry Platform.'""",
 
+        # TABLE 2: gold_smap_msl_windows — the anomaly-detection feature table. Each spacecraft channel
+        # reading gets a 50-step rolling mean/std/min/max + rate-of-change (so a model can tell "this
+        # value is far from its recent normal"), and an is_anomaly flag set to 1 when the reading falls
+        # inside a real NASA-labeled anomaly window. is_anomaly is the GROUND TRUTH the Monitoring /
+        # Model Performance pages score detections against.
         # SMAP/MSL: features + is_anomaly derived from labeled windows (test split only has labels).
         f"DROP TABLE IF EXISTS {TEL}.gold_smap_msl_windows",
         f"""
@@ -98,6 +137,9 @@ def gold_statements() -> list:
              AND CURRENT ROW (no look-ahead). is_anomaly is the labeled target on the test split.
              Telemetry Platform.'""",
 
+        # TABLE 3: gold_replay_feed — the demo's tape. It's just one fixed channel's (D-4) test sequence,
+        # in time order, with its features and the is_anomaly truth. The frontend replays this tick by tick
+        # so the live demo behaves identically every single run (no randomness, fully reproducible).
         # Deterministic replay feed: one fixed channel's test sequence, ordered, with features+label.
         f"DROP TABLE IF EXISTS {TEL}.gold_replay_feed",
         f"""

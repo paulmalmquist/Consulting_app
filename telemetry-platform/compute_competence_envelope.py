@@ -1,5 +1,20 @@
 """Phase 4 / Spin 5 — Pre-test competence-envelope gate (REAL data, reproducible).
 
+WHAT THIS FILE DOES (plain version): before trusting any model prediction, it checks whether the
+new input looks like the data the model was trained on. It measures that with Mahalanobis
+distance — a "how far from the training cloud" score that accounts for how the sensors normally
+move together. Inputs that sit inside the trained region get scored; ones on the edge get REVIEW;
+ones far outside get ABSTAIN (don't issue a confident prediction). Here it trains the envelope on
+one operating condition (FD001) and proves most of a different condition (FD004) falls outside it.
+WHERE YOU SEE THIS: the frontend CompetenceEnvelopeCard (in / near-boundary / out-of-envelope
+rates and the per-sample SCORE/REVIEW/ABSTAIN action).
+INPUTS -> OUTPUT: FD001 + FD004 training rows from silver_cmapss -> competence_envelope_evidence.json.
+HOW TO READ THE NUMBERS: Mahalanobis distance = distance from the training cloud accounting for
+sensor correlations (small = familiar); tau = the boundary line set from FD001's own 99th
+percentile; in/near/out rates = share of samples inside / on the edge / outside the trained
+envelope (a high FD004 "out" rate is the point — the gate caught a regime it was never trained on).
+
+
 Flips drift from a post-deployment monitoring idea into an UPSTREAM safety check: before
 scoring a unit, ask whether its inputs are inside the operating envelope the model was trained
 on. If not, abstain/REVIEW instead of issuing a confident score.
@@ -46,6 +61,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AS_OF = "2026-06-24"
 
 
+# Run a SQL query against the Databricks warehouse and return a tidy table. Plumbing only.
 def query(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     resp = w.statement_execution.execute_statement(
         statement=sql, warehouse_id=WAREHOUSE_ID, wait_timeout="50s",
@@ -94,16 +110,27 @@ def main() -> None:
     fit = fd001[~fd001.unit.isin(eval_units)]
     ev1 = fd001[fd001.unit.isin(eval_units)]
 
+    # Learn the shape of "familiar" from the FD001 fit rows (its center and how the sensors
+    # co-vary), then set the boundary line tau at the 99th percentile of those training distances —
+    # so 99% of the training data itself counts as in-envelope by construction. Anything farther
+    # than tau is treated as unfamiliar.
     scaler = StandardScaler().fit(fit[active].to_numpy())
     mean, cov_inv = fit_envelope(scaler.transform(fit[active].to_numpy()))
     d2_fit = mahalanobis_sq(scaler.transform(fit[active].to_numpy()), mean, cov_inv)
     tau = float(np.quantile(d2_fit, TAU_PCTL))
 
+    # Score two sets against that envelope: held-out FD001 (should look familiar -> mostly
+    # in-envelope) and FD004 (a different operating condition the model never saw -> should land
+    # mostly out). The in/near/out rates these produce are the two bars on the CompetenceEnvelopeCard
+    # and the proof the gate catches a regime shift BEFORE scoring.
     d2_ev1 = mahalanobis_sq(scaler.transform(ev1[active].to_numpy()), mean, cov_inv)
     d2_fd4 = mahalanobis_sq(scaler.transform(fd004[active].to_numpy()), mean, cov_inv)
     rates_fd001 = band_rates(d2_ev1, tau, K_OUT)
     rates_fd004 = band_rates(d2_fd4, tau, K_OUT)
 
+    # Pull one concrete, human-readable sample for each side of the story — a familiar in-envelope
+    # case and a far-out one — so the card can show a real example with its distance, band, and
+    # action rather than just aggregate rates.
     def example(frame: pd.DataFrame, d2: np.ndarray, pick: str) -> dict:
         # last cycle of a representative unit; pick = 'in' (FD001, low d2) or 'out' (FD004, high d2)
         last = frame.sort_values(["unit", "cycle"]).groupby("unit").tail(1)
@@ -160,6 +187,8 @@ def main() -> None:
         ],
     }
 
+    # Write the evidence twice: source-of-record copy and the frontend's imported copy. This JSON
+    # is exactly what populates the CompetenceEnvelopeCard (baked at compute time, not live).
     out_src = ROOT / "telemetry-platform" / "competence_envelope_evidence.json"
     out_fe = ROOT / "repo-b" / "src" / "lib" / "telemetry" / "competenceEnvelopeEvidence.json"
     out_src.write_text(json.dumps(artifact, indent=2), encoding="utf-8")

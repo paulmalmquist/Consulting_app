@@ -11,6 +11,25 @@
 # MAGIC for model development + retrieval, not simultaneous multi-sensor vehicle telemetry.
 
 # COMMAND ----------
+# ===== TEACHING NOTES =====
+# WHAT THIS FILE DOES: Feature engineering. It boils each of 32 spacecraft channels down to 8 summary
+#   numbers per time-window, then stitches them into one 256-number "state vector" (32 x 8 = 256) that
+#   describes the whole system at a moment. It then trains two "is this normal?" models on those vectors:
+#   PCA (baseline) and a small autoencoder-style neural net.
+# WHERE YOU SEE THIS: this is teaching/feature-engineering plumbing — its vectors and reconstruction
+#   errors back retrieval and the multi-signal anomaly attribution, not a single headline metric card.
+# INPUTS -> OUTPUT: gold_smap_msl_windows -> two Delta tables (gold_fused_state_vectors with the 256-d
+#   vectors + per-channel error attribution, and gold_fused_feature_manifest documenting every column).
+# HOW TO READ THE NUMBERS:
+#   - feature vector = a fixed-length list of numbers that represents one moment across all channels.
+#   - reconstruction error = how badly a model rebuilds a vector from its learned "normal" patterns;
+#     high error = the moment looks abnormal (same idea as the PCA detector in train_anomaly.py).
+#   - autoencoder = a neural net trained to copy its input through a narrow bottleneck; it copies normal
+#     data well and abnormal data poorly, so the copy error is the anomaly signal.
+#   - attribution = splitting that error back across the 32 channels to say WHICH sensor drove it.
+# HONEST CAVEAT (see the markdown cell above): channels are lined up by sequence progress, not by real
+#   simultaneous time — this is a NASA analog for model development, not true synchronized telemetry.
+# ===========================
 import json
 import numpy as np
 import pandas as pd
@@ -25,6 +44,9 @@ EXPERIMENT_ID = "3740651530987773"
 TEL = "novendor_1.telemetry"
 mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
 
+# B buckets = each channel's timeline is sliced into 128 equal chunks; one 256-d vector per chunk.
+# The 8 FEATURES below are the plain-language summary of each chunk: where it ended, its average, how
+# spread out it was, its low/high, its trend slope, and two "distance from normal" residual measures.
 B = 128                      # normalized buckets per channel per split -> fused vectors per split
 N_CHANNELS = 32
 FEATURES = ["value_last", "value_mean", "value_std", "value_min", "value_max",
@@ -61,6 +83,8 @@ raw = spark.sql(f"""
 print(f"candidates (adequate): {len(candidates)}; raw rows pulled: {len(raw)}")
 
 # ---- compute 8 features per (channel, split, bucket); bucket = normalized progress in [0,B) ----
+# For one channel: slice its timeline into B buckets, then summarize each bucket into the 8 numbers.
+# This is the core "turn a raw signal into model-ready features" step.
 def channel_bucket_features(df_cs: pd.DataFrame) -> pd.DataFrame:
     df = df_cs.sort_values("t").reset_index(drop=True)
     tmin, tmax = df.t.min(), df.t.max()
@@ -153,6 +177,8 @@ feat = feat[feat.chan_id.isin(selected)].reset_index(drop=True)
 
 # COMMAND ----------
 # ---- assemble fused 256-d vectors: one per (split, bucket), channels in FIXED sorted order ----
+# Glue step: for each time-bucket, lay the 32 channels' 8 features end to end in a fixed order to form
+# one 256-number vector describing the whole system at that moment. Fixed order = every vector lines up.
 def build_vectors(split: str):
     vecs, labels, anom_chans, idxs = [], [], [], []
     for b in range(B):
@@ -206,6 +232,8 @@ for ci, chan in enumerate(chan_order):
 
 # COMMAND ----------
 # ---- evaluation helper: recon error -> threshold -> P/R/F1 vs label_any_anomaly ----
+# Turn rebuild-errors into a yes/no anomaly call: set the alarm line at the 99th percentile of TRAIN
+# errors (so ~1% of normal data trips it), flag any TEST vector above it, then score precision/recall/F1.
 def evaluate(train_err, test_err, y):
     thr = float(np.percentile(train_err, PCT))
     pred = (test_err > thr).astype(int)
@@ -217,6 +245,8 @@ def evaluate(train_err, test_err, y):
     return {"threshold": thr, "precision": prec, "recall": rec, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
 
 # ---- PCA-256 baseline ----
+# PCA learns the 16 dominant patterns in normal 256-d vectors and rebuilds each vector from them; the
+# rebuild error is the anomaly score. This is the simple baseline the autoencoder below must beat.
 pca = PCA(n_components=16, random_state=0).fit(Xtr)
 def pca_err(X): return ((X - pca.inverse_transform(pca.transform(X))) ** 2).sum(axis=1)
 m_pca = evaluate(pca_err(Xtr), pca_err(Xte), yte)
@@ -231,6 +261,9 @@ with mlflow.start_run(run_name="fused_pca_256") as run:
     pca_run = run.info.run_id
 
 # ---- dense autoencoder-style bottleneck net (MLPRegressor X->X), NOT a torch/LSTM AE ----
+# The autoencoder squeezes each 256-d vector down to 16 numbers and back out to 256 (the 256->...->16->...->256
+# shape). Trained to reproduce normal data, it copies normal vectors well and abnormal ones poorly, so a
+# large copy error flags an anomaly. "X->X" = it learns to output its own input.
 ae = MLPRegressor(hidden_layer_sizes=(128, 32, 16, 32, 128), activation="relu", solver="adam",
                   alpha=1e-3, max_iter=2000, early_stopping=True, n_iter_no_change=25,
                   random_state=0).fit(Xtr, Xtr)
@@ -255,6 +288,9 @@ print("PCA", m_pca, "\nAE", m_ae)
 
 # COMMAND ----------
 # ---- per-channel attribution from AE per-feature reconstruction error ----
+# When a vector looks abnormal, this answers "which sensor is to blame?" by splitting the total rebuild
+# error back across the 32 channels and ranking the top contributors -> the per-channel attribution shown
+# alongside the anomaly so an operator can see WHICH signal drove the alarm.
 recon = ae_recon(Xte)
 sq_err = (Xte - recon) ** 2                       # (n_test, 256) per-feature squared error
 te_err_vec = ae_err(Xte)

@@ -1,6 +1,28 @@
 """
 RS Demo PR 3 mirror — UC NCR pipeline outputs -> idempotent Supabase seed SQL.
 
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES: the pipeline's results live in Databricks tables (or a local JSON file in
+fallback mode). The website can't read those directly. This script COPIES those results into the
+serving database (Supabase) tables that the website's API actually queries. It does this by writing
+a .sql file full of INSERT statements, which a human (or CI) then runs against the database.
+
+WHERE YOU SEE THIS: this is the bridge that makes the FactoryNcrIntelligence page light up. The
+page calls /api/telemetry/ncr, which reads the tel_ncr_* tables this script fills:
+  - tel_ncr_records        -> every ticket, its cluster, and its scatter-plot x/y
+  - tel_ncr_clusters       -> the cluster cards (keywords, examples, trend, status)
+  - tel_ncr_backlog_weekly -> the backlog line + 4-week forecast
+  - tel_model_runs         -> 2 rows so the Registry console can show the two models and their scores
+
+INPUTS -> OUTPUT: the pipeline result file(s) from step 15 in -> seed_ncr_serving.sql out (ready to
+apply to Supabase).
+
+KEY IDEA — "idempotent": you can run this and apply the SQL as many times as you like and the end
+state is always the same (no duplicate rows). It does that by deleting this batch's prior rows first
+and using stable, computed row IDs, so re-running overwrites cleanly instead of piling up copies.
+Every row also carries a "provenance" tag ('databricks' or 'local_fallback') so the UI can honestly
+show whether the numbers came from the real cloud run or the laptop stand-in.
+
 Reads the Factory NCR Intelligence outputs (ncr_records + ncr_points + ncr_clusters +
 ncr_backlog_weekly) from novendor_1.telemetry — or from ncr_pipeline_local_data.json when the last
 driver run used RUNTIME=local — and emits seed_ncr_serving.sql for the telemetry-demo tenant:
@@ -79,6 +101,7 @@ def _fetch_all(client, sql: str):
 
 
 def load_databricks():
+    # Read the four pipeline output tables back out of Databricks into plain Python lists/dicts.
     from _bootstrap import get_client
 
     client = get_client()
@@ -123,6 +146,7 @@ def load_databricks():
 
 
 def load_local():
+    # Same data, but read from the JSON file the local-fallback run wrote (no Databricks needed).
     data = json.loads(LOCAL_DATA_PATH.read_text(encoding="utf-8"))
     points = {p["ncr_key"]: {"umap_x": p["umap_x"], "umap_y": p["umap_y"],
                              "cluster_id": p["cluster_id"]} for p in data["points"]}
@@ -132,6 +156,8 @@ def load_local():
 
 
 def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -> None:
+    # Build the seed .sql file: a header, a DELETE of this batch's old rows, then INSERTs for every
+    # ticket, cluster, backlog week, and model run. Wrapped in BEGIN/COMMIT so it applies all-or-nothing.
     e, b, bf, pv = sql_str(ENV_ID), sql_str(BUSINESS_ID), sql_str(BATCH_ID), sql_str(provenance)
     cluster_run = exits.get("ncr_clustering", {}).get("mlflow_run_id")
     forecast_run = exits.get("ncr_backlog_forecast", {}).get("mlflow_run_id")
@@ -145,11 +171,15 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
                 else " via the bounded local fallback (no MLflow run)."))
     L.append(f"-- provenance={provenance} on every row; idempotent per batch_id='{BATCH_ID}'.")
     L.append("BEGIN;")
+    # Idempotency step: clear out this batch's previous rows so re-running can't create duplicates.
     for t in ("tel_ncr_records", "tel_ncr_clusters", "tel_ncr_backlog_weekly"):
         L.append(f"DELETE FROM {t} WHERE env_id={e} AND business_id={b} AND batch_id={bf};")
     L.append(f"DELETE FROM tel_model_runs WHERE env_id={e} AND business_id={b} "
              f"AND model_name IN ('tel_ncr_cluster', 'tel_ncr_forecast');")
 
+    # One INSERT per ticket -> tel_ncr_records. Each ticket carries its cluster_id + umap_x/umap_y,
+    # which is what the scatter plot plots. ON CONFLICT ... DO UPDATE = "if this ticket already
+    # exists, overwrite it" (the other half of idempotency).
     for r in records:
         p = points.get(r["ncr_key"], {})
         L.append(
@@ -169,6 +199,8 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
             "umap_x=EXCLUDED.umap_x, umap_y=EXCLUDED.umap_y, "
             "provenance=EXCLUDED.provenance, batch_id=EXCLUDED.batch_id;")
 
+    # One INSERT per cluster -> tel_ncr_clusters. Feeds the Pareto bars (n_records), the keyword
+    # chips, the example tickets, and the rising/declining/flat status on each cluster card.
     for c in clusters:
         L.append(
             "INSERT INTO tel_ncr_clusters (id,env_id,business_id,cluster_id,label,keywords,"
@@ -186,6 +218,8 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
             "mlflow_run_id=EXCLUDED.mlflow_run_id, provenance=EXCLUDED.provenance, "
             "batch_id=EXCLUDED.batch_id;")
 
+    # One INSERT per week -> tel_ncr_backlog_weekly. History rows draw the solid backlog line;
+    # forecast rows (fc/lo/hi) draw the projected line and its shaded uncertainty band.
     for r in backlog:
         L.append(
             "INSERT INTO tel_ncr_backlog_weekly (id,env_id,business_id,week_start,kind,opened,"
@@ -208,6 +242,8 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
         "n_docs": cexit.get("n_docs"), "n_clusters": cexit.get("n_clusters"),
         "noise_count": cexit.get("noise"), "provenance": provenance,
     }
+    # A "gate" is the pass/fail rule for shipping a model. Clustering passes only if it found at
+    # least 2 real (non-noise) groups — otherwise it didn't learn anything worth showing.
     cluster_gate = {
         "metric": "n_clusters", "threshold": 2,
         "decision": "promoted" if (cexit.get("n_clusters") or 0) >= 2 else "model_not_promoted",
@@ -218,6 +254,8 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
         ("mae", "mae_naive", "mape_pct", "mape_naive_pct", "skill_vs_naive", "backtest_folds")
     }
     forecast_metrics["provenance"] = provenance
+    # The forecast's gate: it only ships ("promoted") if it actually beat the dumb naive baseline in
+    # the backtest (skill > 0). If it didn't, it's honestly marked "model_not_promoted".
     skill = fexit.get("skill_vs_naive") or 0.0
     forecast_gate = {
         "metric": "skill_vs_naive", "threshold": 0.0,
@@ -250,6 +288,8 @@ def emit_sql(records, points, clusters, backlog, provenance: str, exits: dict) -
 
 
 def main() -> int:
+    # Decide which source to load (Databricks tables vs. local JSON) based on how step 15 ran, build
+    # the seed SQL, and report a quick row count. The result file from step 15 must exist first.
     if not RESULT_PATH.exists():
         print("ncr_pipeline_result.json missing — run 15_run_ncr_pipeline.py first")
         return 2

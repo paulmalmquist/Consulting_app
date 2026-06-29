@@ -2,6 +2,36 @@
 
 Reads from signals_raw, writes to signals_featured.
 
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES:
+  This is the "feature engineering" step. Raw market numbers (an inflation index,
+  a VIX level, a credit spread) are hard to compare because they live on totally
+  different scales. This step turns each raw number into a few standardized,
+  comparable descriptions of "how unusual is today vs. recent history":
+    - z-score : how many standard deviations today's value is from its own recent
+                average. 0 = perfectly normal, +2 = unusually high, -2 = unusually
+                low. This is the key "is this weird?" measure.
+    - delta   : the simple change in a value over the last week / last month
+                (today minus a-week-ago). Tells you direction and speed of movement.
+    - percentile : where today ranks among the last 2 years of its own values
+                (0.95 = higher than 95% of recent days = near a 2-year extreme).
+
+WHERE YOU SEE THIS:
+  Nowhere directly. These engineered features are the *inputs* that feed the next
+  two steps. The regime classifier (03) and the analog scorer (04) both read these
+  z-scores. So this file quietly shapes every regime label and "most similar past
+  period" the History Rhymes UI shows.
+
+INPUTS -> OUTPUT:
+  Reads the signals_raw table (one raw value per signal per day) ->
+  writes the signals_featured table (the same rows, now enriched with
+  zscore_1y, zscore_2y, delta_1w, delta_1m, percentile_2y, plus freshness flags).
+
+HOW TO READ THE NUMBERS:
+  z = (today's value - recent average) / recent standard deviation.
+  A standard deviation is the "typical wobble" of the signal; dividing by it puts
+  every signal on the same ruler so they can be compared and combined later.
+
 Fixes applied:
   - RANGE BETWEEN INTERVAL for date-based windows (handles gaps in monthly data)
   - CPI YoY computed from index before z-scoring
@@ -22,6 +52,11 @@ from databricks_client import DatabricksClient
 
 
 # Step 1: Compute CPI YoY from the raw CPI index
+# The raw inflation feed is a price *index* (a level like 312.4) which means
+# nothing on its own. What people actually care about is the year-over-year
+# inflation *rate*: today's index divided by the index 12 months ago, minus 1.
+# This block computes that rate and stores it back as a new 'cpi_yoy' signal so
+# the later steps z-score the inflation *rate*, not the meaningless raw level.
 CPI_YOY_SQL = """
 MERGE INTO novendor_1.historyrhymes.signals_raw AS tgt
 USING (
@@ -45,8 +80,14 @@ WHEN MATCHED THEN UPDATE SET tgt.value = src.value, tgt.source = src.source, tgt
 WHEN NOT MATCHED THEN INSERT (as_of_date, signal_name, asset_scope, value, source) VALUES (src.as_of_date, src.signal_name, src.asset_scope, src.value, src.source)
 """
 
-# Step 2: Compute features with date-based windows
+# Step 2: Compute the engineered features for every signal.
+# For each signal we walk a "rolling window" of its own recent history (1 year and
+# 2 years) and compute the average and the standard deviation over that window.
+# A z-score is then (today - rolling average) / rolling standard deviation: the
+# core "how unusual is today" number every downstream step relies on.
 # Uses RANGE BETWEEN INTERVAL which handles gaps in monthly/weekly data correctly
+# (it measures the window by calendar days, not by row count, so missing days
+# don't quietly shrink the window).
 FEATURE_SQL = """
 MERGE INTO novendor_1.historyrhymes.signals_featured AS tgt
 USING (
@@ -89,10 +130,16 @@ USING (
         signal_name,
         asset_scope,
         value,
+        -- z-score = (today - 1yr average) / 1yr standard deviation. The guard
+        -- (std > 0.0001) avoids dividing by zero for flat signals; if the signal
+        -- never wobbled, we call it "normal" (z = 0) instead of blowing up.
         CASE WHEN std_1y > 0.0001 THEN (value - mean_1y) / std_1y ELSE 0 END AS zscore_1y,
         CASE WHEN std_2y > 0.0001 THEN (value - mean_2y) / std_2y ELSE 0 END AS zscore_2y,
+        -- deltas = plain change vs. roughly a week / a month ago (direction & speed).
         value - value_1w_ago AS delta_1w,
         value - value_1m_ago AS delta_1m,
+        -- percentile = today's rank within the last 2 years of this signal
+        -- (0.95 means today is higher than 95% of the last two years' values).
         pct_rank_2y AS percentile_2y,
         TIMESTAMPDIFF(HOUR, loaded_at, current_timestamp()) AS freshness_hours,
         CASE WHEN TIMESTAMPDIFF(HOUR, loaded_at, current_timestamp()) > 24 THEN true ELSE false END AS is_stale

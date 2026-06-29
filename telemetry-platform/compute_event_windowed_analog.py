@@ -1,5 +1,21 @@
 """Spin 6 (compute) — event-windowed analog retrieval on SMAP/MSL (REAL data, reproducible).
 
+WHAT THIS FILE DOES (plain version): when an anomaly happens, it finds historical precedents —
+"when did something shaped like this happen before?". It compares two ways of searching: a naive
+whole-series similarity (cosine on summary stats, dominated by the long calm stretch) versus
+event-windowed DTW. DTW (Dynamic Time Warping) compares two signals by SHAPE even if one is
+stretched in time, applied only to the anomalous segment. The finding: DTW surfaces precedents
+that actually share the event; whole-series search mostly returns look-alikes that aren't anomalies.
+WHERE YOU SEE THIS: writes event_windowed_analog_evidence.json; the dedicated UI card is deferred
+(a parallel agent owns the telemetry frontend refactor), so this is the evidence artifact for it.
+INPUTS -> OUTPUT: labeled SMAP/MSL anomaly windows (gold_smap_msl_windows, test split) ->
+event_windowed_analog_evidence.json.
+HOW TO READ THE NUMBERS: anomalous-match rate = fraction of retrieved precedents that are
+themselves real anomalies (higher = better precedents); event-windowing lift = how much DTW beats
+the cosine baseline; top-k overlap = how much the two methods agree (low overlap means DTW finds a
+genuinely different, better set).
+
+
 The finding: whole-series similarity is dominated by the long steady-state phase and surfaces the
 wrong precedents; event-windowed DTW on the anomalous segment finds the cases that share the EVENT.
 
@@ -47,6 +63,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AS_OF = "2026-06-24"
 
 
+# Run a SQL query against the Databricks warehouse and return a tidy table. Plumbing only.
 def query_sql(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     resp = w.statement_execution.execute_statement(
         statement=sql, warehouse_id=WAREHOUSE_ID, wait_timeout="50s",
@@ -65,6 +82,9 @@ def query_sql(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=cols)
 
 
+# Boil a whole channel down to a handful of summary numbers (average, spread, range, etc.). This
+# is the INPUT to the naive cosine search — and the reason it fails: averaging over the whole
+# series drowns out the brief anomaly in the long calm baseline.
 def channel_summary(values: np.ndarray) -> np.ndarray:
     """Whole-series statistical character (steady-state dominated)."""
     v = np.asarray(values, dtype=float)
@@ -77,6 +97,8 @@ def channel_summary(values: np.ndarray) -> np.ndarray:
     ])
 
 
+# Find the start/end of each continuous stretch where the mask is true — used to locate each
+# labeled anomaly episode so we can cut a window centered on it.
 def contiguous_runs(mask: np.ndarray) -> list[tuple[int, int]]:
     runs, start = [], None
     for i, m in enumerate(mask):
@@ -89,6 +111,8 @@ def contiguous_runs(mask: np.ndarray) -> list[tuple[int, int]]:
     return runs
 
 
+# Cut a fixed-length slice centered on a point (the event). Returns None if the slice would run
+# off the ends. This fixed-length event window is what DTW compares shape-to-shape.
 def window_at(values: np.ndarray, center: int) -> np.ndarray | None:
     lo = center - L // 2
     if lo < 0 or lo + L > len(values):
@@ -114,6 +138,8 @@ def main() -> None:
     df = df.dropna(subset=["t", "value"]).sort_values(["chan_id", "t"])
     print(f"[analog] rows={len(df)} channels={df.chan_id.nunique()} anomaly_rate={df.is_anomaly.mean():.3f}")
 
+    # Walk every channel and build the two ingredients each search method needs: a whole-series
+    # summary (for cosine) and a set of fixed-length event windows tagged anomaly / normal (for DTW).
     rng = np.random.default_rng(SEED)
     summaries: dict[str, np.ndarray] = {}
     anom_windows, norm_windows = [], []   # each: dict(chan, seq(z-normed), is_anomaly)
@@ -156,6 +182,11 @@ def main() -> None:
     print(f"[analog] queries={len(queries)} pool={len(pool)} "
           f"(anom {int(pool_isa.sum())} / normal {int((pool_isa==0).sum())})")
 
+    # The head-to-head. For each anomalous query, score every candidate two ways — cosine on
+    # whole-series summaries (method A, the naive baseline) and DTW on the event window (method B) —
+    # take each method's top-K precedents, and record how many of those precedents are real
+    # anomalies (match_rate) plus how much the two top-K lists overlap. Same-channel candidates are
+    # excluded so a channel can't just retrieve itself.
     mr_a, mr_b, ov, ex = [], [], [], None
     for q in queries:
         a_scores, b_dist, valid = [], [], []
@@ -165,8 +196,8 @@ def main() -> None:
             a_scores.append(cosine(summaries[q["chan"]], summaries[c["chan"]]))
             b_dist.append(dtw_distance(q["seq"], c["seq"], band=BAND))
             valid.append(i)
-        a_top = topk_indices(np.array(a_scores), K, largest=True)
-        b_top = topk_indices(np.array(b_dist), K, largest=False)
+        a_top = topk_indices(np.array(a_scores), K, largest=True)   # cosine: higher = closer
+        b_top = topk_indices(np.array(b_dist), K, largest=False)    # DTW: lower distance = closer
         ra, rb = match_rate(a_top, pool_isa), match_rate(b_top, pool_isa)
         mr_a.append(ra); mr_b.append(rb); ov.append(overlap(a_top, b_top))
         if ex is None and pool_isa[b_top[0]] == 1 and pool_isa[a_top[0]] == 0:
@@ -176,6 +207,8 @@ def main() -> None:
                 "event_windowed_dtw_top1": {"channel": pool[b_top[0]]["chan"], "is_anomaly": int(pool_isa[b_top[0]])},
             }
 
+    # Average each method's precedent-quality across all queries; "lift" is how much better DTW is
+    # than the cosine baseline. These three numbers are the headline of the evidence artifact.
     mean_a, mean_b, mean_ov = float(np.mean(mr_a)), float(np.mean(mr_b)), float(np.mean(ov))
     lift = (mean_b - mean_a) / mean_a if mean_a > 0 else float("inf")
 
@@ -212,6 +245,8 @@ def main() -> None:
         ],
     }
 
+    # Write the evidence artifact (single copy — the UI card is deferred to a parallel agent, so
+    # there's no frontend import yet). This JSON holds the head-to-head result for that future card.
     out_src = ROOT / "telemetry-platform" / "event_windowed_analog_evidence.json"
     out_src.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
 

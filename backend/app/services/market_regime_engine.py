@@ -3,6 +3,43 @@
 Computes a composite market regime label (risk_on / risk_off / transitional / stress)
 from four asset-class signal pillars: equities, rates, credit, crypto.
 
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES:
+  This is the LIVE backend that answers "what mood is the market in right now?" for
+  the app (it sits behind the /api/market/regime endpoint). It is a scorecard, not
+  machine learning: it reads a handful of real market numbers, turns each into a
+  0-to-1 "health score," blends them into one overall score, and maps that to a
+  plain label. Like the notebooks' classifier, the rules and thresholds are
+  hand-chosen and fully transparent — nothing is "trained."
+
+  The four "pillars" are the four corners of the market it watches:
+    - equities (stocks: S&P 500 vs. its trend, the VIX fear gauge, momentum)
+    - rates    (government bond yields and the 2s10s yield-curve spread)
+    - credit   (how much extra interest risky borrowers pay = credit spreads)
+    - crypto   (Bitcoin's recent return and dominance)
+  Each pillar is scored 0.0-1.0, where 0 = bearish/stress and 1 = bullish/risk-on.
+
+WHERE YOU SEE THIS:
+  Drives the market-regime surface in the UI: the headline regime label (e.g.
+  "Risk-On") and the composite gauge (the 0-1 needle), plus the per-pillar
+  breakdown and the cross-vertical "what this means for REPE / Credit / PDS" notes.
+
+INPUTS -> OUTPUT:
+  Reads fact_market_timeseries (latest market metrics) -> writes a snapshot row to
+  public.market_regime_snapshot and returns a RegimeSnapshot object holding the
+  label, confidence, per-pillar breakdown, and implications.
+
+HOW TO READ THE NUMBERS:
+  - pillar score : 0-1 health of one asset class (1 = calm/bullish, 0 = stressed).
+  - composite    : the single blended 0-1 score = weighted average of the four
+                   pillars (equities 0.30, rates 0.25, credit 0.25, crypto 0.20).
+                   This is the gauge needle.
+  - regime label : the composite bucketed into a 4-tier name (see thresholds below).
+  - confidence   : how DECISIVE the call is = how far the composite sits from the
+                   nearest tier boundary, scaled 0-100. A score sitting right on a
+                   threshold is a coin-flip (low confidence); one deep inside a tier
+                   is a confident call. It is NOT a probability of being right.
+
 Data sources:
 - fact_market_timeseries (existing table, additive reads only)
 - public.market_regime_snapshot (new table, additive writes only)
@@ -57,7 +94,14 @@ def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 def _regime_from_composite(composite: float) -> tuple[str, float]:
-    """Return (regime_label, confidence_pct) from composite score 0–1."""
+    """Return (regime_label, confidence_pct) from composite score 0–1.
+
+    Plain language: take the single blended 0-1 score and (1) bucket it into a
+    named tier, and (2) measure how decisive that call is. Confidence here is just
+    "how far from the nearest tier boundary is the score?" — a score parked right on
+    a threshold is a near coin-flip (low confidence); one sitting deep in the middle
+    of a tier is a confident call. It is NOT the odds of being correct.
+    """
     thresholds = [
         (0.65, "risk_on"),
         (0.50, "transitional"),
@@ -147,14 +191,22 @@ def _compute_equities_score(cur) -> AssetClassSignal:
         rsi = data.get(("SPX", "rsi_14"))
         ret20 = data.get(("SPX", "return_20d"))
 
+        # Each block below turns one raw market reading into a 0-1 health score.
+        # The pattern is always the same: pick a "bad" level and a "good" level,
+        # then scale linearly between them and clamp to [0,1]. The score is then
+        # averaged with the others to get this pillar's overall score.
         if spx_close and spx_ma200:
+            # Stock price relative to its own 200-day average. Above the average
+            # (ratio > 1) = uptrend = bullish. Map 0.85x -> 0 (well below trend)
+            # and 1.15x -> 1 (well above trend).
             ratio = spx_close / spx_ma200
             s = _clamp((ratio - 0.85) / 0.30)  # 0.85 → 0, 1.15 → 1
             scores.append(s)
             signals.append({"name": "SPX vs MA200", "value": round(ratio, 4), "score": round(s, 3)})
 
         if vix:
-            # VIX 12 → 1.0 (calm), VIX 40 → 0.0 (panic)
+            # VIX is the stock-market "fear gauge." Low = calm, high = panic, so it
+            # scores INVERSELY: VIX 12 → 1.0 (calm/bullish), VIX 40 → 0.0 (panic).
             s = _clamp((40.0 - vix) / 28.0)
             scores.append(s)
             signals.append({"name": "VIX level", "value": round(vix, 2), "score": round(s, 3)})
@@ -173,10 +225,12 @@ def _compute_equities_score(cur) -> AssetClassSignal:
     except Exception:
         pass
 
+    # Pillar score = simple average of whatever signals we managed to read. If no
+    # data came back at all, fall back to a neutral 0.5 rather than a false extreme.
     composite = sum(scores) / len(scores) if scores else 0.5
     return AssetClassSignal(
         score=round(_clamp(composite), 4),
-        weight=0.30,
+        weight=0.30,  # equities carry the most weight in the final blend.
         signals=signals,
     )
 
@@ -217,6 +271,9 @@ def _compute_rates_score(cur) -> AssetClassSignal:
         us10y_ma = data.get(("US10Y", "ma_252"))
 
         if us2y and us10y:
+            # 2s10s spread = the 10-year yield minus the 2-year yield. Normally
+            # long-term yields are higher (positive spread = healthy). When it goes
+            # negative the curve is "inverted" — a classic recession warning.
             spread = us10y - us2y
             # 2s10s: +1.5 = normal/bullish, -0.5 = deeply inverted/stress
             s = _clamp((spread + 0.5) / 2.0)
@@ -282,7 +339,10 @@ def _compute_credit_score(cur) -> AssetClassSignal:
             spread = float(r["value"])
             ticker = r["ticker"]
             if ticker == "HYG_SPREAD":
-                # HY spreads: 300bps = risk-on (1.0), 800bps = stress (0.0)
+                # A credit spread is the extra interest risky borrowers pay over safe
+                # government bonds — a direct read on how nervous lenders are. Tight
+                # (low) = confident/risk-on; wide (high) = fear/stress. Scores
+                # inversely: HY 300bps = risk-on (1.0), 800bps = stress (0.0).
                 s = _clamp((800.0 - spread) / 500.0)
                 scores.append(s)
                 signals.append({
@@ -347,6 +407,8 @@ def _compute_crypto_score(cur) -> AssetClassSignal:
         btc_dom = data.get(("BTC_DOMINANCE", "pct"))
 
         if btc_ret is not None:
+            # Bitcoin's last-30-days return as a risk-appetite proxy: a strong rally
+            # signals risk-on, a deep drop signals risk-off. -30% → 0, +30% → 1.
             s = _clamp((btc_ret + 0.30) / 0.60)  # -30% → 0, +30% → 1
             scores.append(s)
             signals.append({
@@ -387,17 +449,21 @@ def compute_regime_snapshot(tenant_id: UUID | None = None) -> RegimeSnapshot:
     Returns the persisted RegimeSnapshot.
     """
     with get_cursor() as cur:
+        # Score each of the four pillars independently (each returns a 0-1 score).
         eq = _compute_equities_score(cur)
         ra = _compute_rates_score(cur)
         cr = _compute_credit_score(cur)
         cy = _compute_crypto_score(cur)
 
+        # Blend the pillars into ONE number: a weighted average where equities count
+        # most (0.30) and crypto least (0.20). This composite is the gauge needle.
         composite = (
             eq.score * eq.weight
             + ra.score * ra.weight
             + cr.score * cr.weight
             + cy.score * cy.weight
         )
+        # Bucket the composite into a named regime and measure how decisive it is.
         regime_label, confidence = _regime_from_composite(composite)
 
         signal_breakdown = {

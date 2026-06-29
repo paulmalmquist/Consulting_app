@@ -2,6 +2,43 @@
 
 Returns top-3 matches (not just top-1) with proper NULL handling.
 
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES:
+  This is the "history rhymes" step: it asks "which famous past market episode
+  looks most like today?" It represents today as a short list of z-scores (one
+  per signal — think of it as today's "fingerprint") and compares that fingerprint
+  to a stored fingerprint for each historical episode (2008 GFC, 2020 COVID crash,
+  the 2022 crypto contagion, etc.). It returns the top-3 closest matches.
+
+  How "closeness" is measured: Euclidean distance — the ordinary straight-line
+  distance between two fingerprints. For each signal it takes the difference,
+  squares it, sums them up, and takes the square root (the same Pythagoras formula
+  you'd use for distance on a map, just in more than 2 dimensions). SMALLER
+  distance = more alike. Distance is then flipped into a 0-1 similarity score where
+  higher = more similar, which is friendlier to read.
+
+  PHASE-1 CAVEAT: this is a deliberately simple proxy. The reference fingerprints
+  are hardcoded below, and distance ignores the *order* things happened in. A later
+  phase swaps in proper vector search (pgvector) and path-shape matching (DTW). So
+  treat these analogs as a useful sketch, not a precise verdict.
+
+WHERE YOU SEE THIS:
+  The top-3 results are the "most similar past periods" shown to the user in the
+  History Rhymes UI, along with bull/base/bear scenario odds and a trap flag for
+  when the underlying signals disagree too much to trust the match.
+
+INPUTS -> OUTPUT:
+  Reads today's z-scores (signals_featured) and today's regime (market_state_daily)
+  -> writes one row to history_rhymes_daily with the #1 analog, its score, the
+  #2 and #3 analogs, scenario probabilities, and a trap flag/reason.
+
+HOW TO READ THE NUMBERS:
+  - Euclidean distance : straight-line distance between today's z-score vector and
+                an episode's z-score vector. Smaller = more alike.
+  - analog_score : that distance flipped to a 0-1 similarity (higher = more similar).
+  - bull/base/bear : rough scenario odds blended from regime confidence + analog fit.
+  - trap_flag : true when signals disagree (low agreement) — "don't over-trust this."
+
 Fixes applied:
   - Top 3 analogs returned, not just 1
   - NULL dimensions excluded from both numerator and denominator
@@ -39,6 +76,8 @@ current_regime AS (
     WHERE as_of_date = (SELECT MAX(as_of_date) FROM novendor_1.historyrhymes.market_state_daily)
     LIMIT 1
 ),
+-- Today's "fingerprint": one z-score per signal, laid out as a single wide row.
+-- This is the point we measure every historical episode's distance from.
 current_vector AS (
     SELECT
         MAX(CASE WHEN signal_name = 'yield_curve_10y2y' THEN zscore_1y END) AS yc_z,
@@ -50,7 +89,11 @@ current_vector AS (
         MAX(CASE WHEN signal_name = 'btc_price_usd' THEN zscore_1y END) AS btc_z
     FROM current_state
 ),
--- Episode reference vectors (Phase 1: hardcoded; Phase 2: read from Supabase episode_signals)
+-- The stored "fingerprints" for each historical episode: the same seven z-scores
+-- (yield curve, inflation, spreads, claims, housing, vix, btc) that we use for
+-- today, hand-set to characterize each episode. NULL means "this signal didn't
+-- exist or isn't relevant for that era" (e.g. there was no Bitcoin in the 1970s).
+-- Phase 1: hardcoded here; Phase 2: read from Supabase episode_signals.
 episode_refs AS (
     SELECT * FROM (VALUES
         ('2022 Luna/3AC/FTX Crypto Contagion', -0.8, 2.1, 1.2, -0.3, -0.5, 1.8, -1.8, 'deflationary_deleveraging'),
@@ -63,12 +106,17 @@ episode_refs AS (
         ('2016 Brexit Shock', 0.5, 0.0, 0.2, -0.1, 0.1, 0.8, NULL, 'crisis')
     ) AS t(name, yc_z, cpi_z, spread_z, claims_z, housing_z, vix_z, btc_z, regime_type)
 ),
+-- Compare today against EVERY episode (CROSS JOIN = pair today with each one)
+-- and compute the straight-line (Euclidean) distance between the two fingerprints.
 distances AS (
     SELECT
         e.name,
         e.regime_type,
-        -- Euclidean distance excluding NULL dimensions from BOTH sides
-        -- dim_count tracks how many dimensions are compared
+        -- Euclidean distance = sqrt( sum of (today - episode)^2 across signals ).
+        -- We only compare a signal if BOTH sides have a value; a NULL on either
+        -- side contributes 0 (it's skipped) so missing data can't fake closeness.
+        -- dim_count (below) records how many signals actually got compared, so we
+        -- can fairly normalize the distance afterward.
         SQRT(
             COALESCE(CASE WHEN c.yc_z IS NOT NULL AND e.yc_z IS NOT NULL THEN POW(c.yc_z - e.yc_z, 2) END, 0) +
             COALESCE(CASE WHEN c.cpi_z IS NOT NULL AND e.cpi_z IS NOT NULL THEN POW(c.cpi_z - e.cpi_z, 2) END, 0) +
@@ -106,7 +154,13 @@ scored AS (
         raw_dist,
         dim_count,
         categorical_match,
-        -- Normalize distance by dimension count, then convert to similarity
+        -- Turn raw distance into a 0-1 similarity score (higher = more alike).
+        -- First normalize by how many signals were compared (so episodes matched
+        -- on more signals aren't unfairly penalized), then blend three pieces:
+        --   60% structural similarity (the normalized distance, inverted),
+        --   30% a rough "path" proxy, and
+        --   10% a categorical bonus for matching the same regime type.
+        -- This blended number is the analog_score the UI shows next to each match.
         CASE WHEN dim_count > 0
             THEN 0.6 * GREATEST(0, 1 - (raw_dist / SQRT(dim_count)) / 3.0)  -- structural similarity
                + 0.3 * GREATEST(0, 1 - raw_dist / (dim_count * 1.5))         -- path proxy
@@ -122,8 +176,11 @@ scored AS (
             END DESC
         ) AS rank
     FROM distances
-    WHERE dim_count >= 3  -- Require at least 3 overlapping dimensions
+    -- Require at least 3 signals in common before we trust a comparison; matching
+    -- on only one or two signals is too thin to call anything an "analog."
+    WHERE dim_count >= 3
 ),
+-- Keep the three closest episodes (rank 1 = best match = most similar to today).
 top3 AS (
     SELECT * FROM scored WHERE rank <= 3
 )
@@ -135,7 +192,10 @@ USING (
         'global' AS scope,
         (SELECT name FROM top3 WHERE rank = 1) AS top_analog_name,
         (SELECT ROUND(analog_score, 4) FROM top3 WHERE rank = 1) AS top_analog_score,
-        -- Scenario probs: blend regime confidence with analog score
+        -- Scenario probs (bull/base/bear): rough odds for how the next stretch could
+        -- go, nudged by today's regime and how strongly today resembles the analog.
+        -- These are illustrative, not forecasts — base is pinned near 0.50 and the
+        -- tails flex a little around it. Blend regime confidence with analog score.
         ROUND(CASE
             WHEN cr.regime_label LIKE '%tightening%' THEN 0.12 + (1 - COALESCE((SELECT analog_score FROM top3 WHERE rank = 1), 0.5)) * 0.12
             ELSE 0.22 + COALESCE((SELECT analog_score FROM top3 WHERE rank = 1), 0.5) * 0.08
@@ -146,6 +206,9 @@ USING (
             ELSE 0.18 + (1 - COALESCE((SELECT analog_score FROM top3 WHERE rank = 1), 0.5)) * 0.10
         END, 4) AS bear_prob,
         ROUND(cr.regime_confidence, 4) AS confidence_score,
+        -- Trap flag: when the underlying signals barely agree (agreement < 0.4),
+        -- raise a "don't over-trust this match" warning rather than presenting a
+        -- shaky analog as if it were solid. The UI shows this as a caution badge.
         CASE WHEN cr.signal_agreement_score < 0.4 THEN true ELSE false END AS trap_flag,
         CASE WHEN cr.signal_agreement_score < 0.4 THEN 'Low signal agreement — mixed regime' ELSE NULL END AS trap_reason,
         (SELECT name || ' (score=' || ROUND(analog_score, 2) || ')' FROM top3 WHERE rank = 1) AS key_similarity_1,

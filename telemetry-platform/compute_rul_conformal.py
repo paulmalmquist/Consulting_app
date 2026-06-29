@@ -1,5 +1,19 @@
 """Phase 2 — Conformal lower-bound RUL on C-MAPSS FD001 (REAL data, reproducible).
 
+WHAT THIS FILE DOES (plain version): it predicts how much life a jet engine has left (Remaining
+Useful Life, in cycles) and — crucially — wraps that prediction in an honest uncertainty band.
+"Conformal" is a way to size that band from the model's own past errors so the true value lands
+inside it a guaranteed fraction of the time (here, ~90%). It then turns the cautious lower edge
+of the band into a GO / REVIEW / NO_GO service decision.
+WHERE YOU SEE THIS: the RulConformalCard and the RUL Calibration page (the 80%/90% interval
+ribbons around each prediction, and the gate badges).
+INPUTS -> OUTPUT: FD001 gold features + official RUL truth -> rul_conformal_evidence.json.
+HOW TO READ THE NUMBERS: PICP = how often the truth actually fell inside the band (want ~90%, the
+"coverage" figure); PINAW = how wide the band is, normalized 0-1 (narrower is better, as long as
+coverage holds); qhat = the band half-width in cycles; the lower-bound gate = the decision made on
+the worst-case remaining life, not the rosy point estimate.
+
+
 Pulls the same Gold features + RUL truth the Databricks RUL notebook uses
 (novendor_1.telemetry.gold_cmapss_features / silver_cmapss_rul, FD001), trains the
 same GBM, then computes split-conformal prediction intervals with a unit-grouped
@@ -47,6 +61,8 @@ ROOT = Path(__file__).resolve().parents[1]
 AS_OF = "2026-06-23"  # stamped (no Date.now in repo); update on recompute
 
 
+# Run a SQL query against the Databricks warehouse and return a tidy table. Plumbing only:
+# submit, poll until done, page through chunked results.
 def query(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     resp = w.statement_execution.execute_statement(
         statement=sql, warehouse_id=WAREHOUSE_ID, wait_timeout="50s",
@@ -67,6 +83,8 @@ def query(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=cols)
 
 
+# Local shorthand: turn a remaining-life number into GO / REVIEW / NO_GO using this file's
+# thresholds (<=30 cycles must be serviced now, <=50 needs review, else clear).
 def gate(value: float) -> str:
     return _gate(value, T_NOGO, T_REVIEW)
 
@@ -94,6 +112,9 @@ def main() -> None:
     train = feat[feat.split == "train"].copy()
     test = feat[feat.split == "test"].copy()
 
+    # Carve the training engines into two groups: one to TRAIN the model, a separate one to
+    # CALIBRATE the uncertainty band. Conformal needs the calibration errors to come from data the
+    # model didn't train on, or the band would look falsely tight. No engine appears in both.
     # Unit-grouped calibration split (no unit in both fit and calibration).
     rng = np.random.default_rng(SEED)
     train_units = np.sort(train.unit.unique())
@@ -107,6 +128,9 @@ def main() -> None:
     for df in (train, test):
         df[feat_cols] = df[feat_cols].fillna(med)
 
+    # Train the actual life-prediction model (a gradient-boosted regressor) on the fit engines.
+    # RUL is capped at RUL_CAP because very-early-life predictions are flat and uninformative; we
+    # only care about getting close as failure approaches.
     Xfit = train.loc[fit_mask, feat_cols].to_numpy()
     yfit = np.minimum(train.loc[fit_mask, "rul_target"].to_numpy(), RUL_CAP)
     gbm = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
@@ -121,11 +145,17 @@ def main() -> None:
     cal = (train[train.unit.isin(cal_units)]
            .groupby("unit", group_keys=False)
            .apply(lambda g: g.sample(1, random_state=SEED)).copy())
+    # Measure how wrong the model is on the calibration engines. abs_res = size of each miss (for
+    # the symmetric band); over_pred = only the DANGEROUS misses where the model claimed MORE life
+    # than reality (those are what a safety lower-bound must guard against).
     cal_pred = np.clip(gbm.predict(cal[feat_cols].to_numpy()), 0, RUL_CAP)
     cal_y = np.minimum(cal["rul_target"].to_numpy(), RUL_CAP)
     abs_res = np.abs(cal_y - cal_pred)
     over_pred = cal_pred - cal_y          # positive => model over-predicted remaining life (unsafe)
 
+    # Convert those calibration errors into band widths via the conformal recipe. qhat sizes the
+    # symmetric ribbon (the 90% interval on the chart); q_lower sizes the one-sided safety margin
+    # subtracted to get the cautious lower bound the gate runs on.
     qhat = conformal_quantile(abs_res, ALPHA)             # two-sided half-width
     q_lower = conformal_quantile(np.clip(over_pred, 0, None), ALPHA)  # one-sided lower margin
 
@@ -135,15 +165,25 @@ def main() -> None:
     pred = np.clip(gbm.predict(test_last[feat_cols].to_numpy()), 0, RUL_CAP)
     y_true = np.minimum(test_last["rul"].to_numpy(), RUL_CAP)
 
+    # Build the bands around each test prediction. lower2/upper2 are the visible ribbon edges;
+    # lower_os is the cautious one-sided floor used for the gate.
     lower2 = np.clip(pred - qhat, 0, RUL_CAP)
     upper2 = np.clip(pred + qhat, 0, RUL_CAP)
     lower_os = np.clip(pred - q_lower, 0, RUL_CAP)
 
+    # The honesty scorecard. picp = fraction of test engines whose true life landed inside the
+    # ribbon -> this is the "coverage" number on the RUL Calibration page (want it near 90%).
+    # lb_cov = how often the cautious floor stayed safely below the truth. pinaw = average ribbon
+    # width as a fraction of the scale (narrower is better). rmse = raw point-prediction error.
     picp = float(np.mean((y_true >= lower2) & (y_true <= upper2)))
     lb_cov = float(np.mean(y_true >= lower_os))
     pinaw = float(np.mean(upper2 - lower2) / RUL_CAP)
     rmse = float(np.sqrt(np.mean((pred - y_true) ** 2)))
 
+    # The payoff of using the band: compare the verdict you'd give from the rosy point estimate vs
+    # from the cautious lower bound. "flips" counts engines the lower bound treats more strictly —
+    # i.e. cases where ignoring uncertainty would have over-cleared an engine. This disagreement is
+    # the headline story on the RulConformalCard.
     point_gate = np.array([gate(v) for v in pred])
     lb_gate = np.array([gate(v) for v in lower_os])
     order = {"GO": 0, "REVIEW": 1, "NO_GO": 2}
@@ -206,6 +246,9 @@ def main() -> None:
         ],
     }
 
+    # Write the evidence twice: a source-of-record copy and the frontend's imported copy. This
+    # JSON is exactly what fills the RulConformalCard and the RUL Calibration ribbons (baked at
+    # compute time, not fetched live).
     out_src = ROOT / "telemetry-platform" / "rul_conformal_evidence.json"
     out_fe = ROOT / "repo-b" / "src" / "lib" / "telemetry" / "rulConformalEvidence.json"
     out_src.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
