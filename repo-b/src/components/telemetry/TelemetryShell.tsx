@@ -72,19 +72,9 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
           onExpandRequest={() => setCollapsed(false)} />
       </div>
       <div style={{ paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-        {railCollapsed ? (
-          <div style={{ display: "flex", justifyContent: "center" }} title="serving · prod">
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
-              <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>serving · prod</span>
-            </div>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.faint, marginTop: 8 }}>reviewer access · auth</div>
-          </>
-        )}
+        <div style={{ display: "flex", justifyContent: railCollapsed ? "center" : "flex-start", marginBottom: 14 }} title="serving · prod">
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
+        </div>
         {showToggle && (
           <button type="button" onClick={toggleCollapsed}
             aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-pressed={railCollapsed}
