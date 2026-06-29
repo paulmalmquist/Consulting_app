@@ -1,5 +1,30 @@
 """Gemma-on-Vertex adapter — real Vertex AI endpoint call; fail-closed without config.
 
+WHAT THIS FILE DOES (in plain language)
+    This is the backend "translator" that lets the app actually talk to the private Gemma model
+    running on Google Cloud. Given a request, it builds the right web call to the deployed model,
+    signs in with ambient Google credentials, sends the text, and reads the answer back out.
+    If anything about the setup is missing or broken, it refuses safely instead of guessing.
+
+WHERE YOU SEE THIS
+    The Control Tower page uses this adapter to route SENSITIVE (ITAR-ish) triage to the private
+    Gemma tier — so that sensitive text is handled by our own model on our own cloud and never
+    sent to a public AI API.
+
+INPUTS -> OUTPUT
+    INPUT:  an AIRequest (the text to process) + which model name to report.
+    OUTPUT: a ProviderCompletion (the generated text + token usage), OR a typed failure that the
+            dispatch supervisor turns into UNAVAILABLE / DEGRADED.
+
+HOW TO READ IT
+    * Vertex AI endpoint = the deployed, callable Gemma model on Google Cloud.
+    * ":predict" = the standard URL suffix you POST to in order to get a prediction from it.
+    * ADC (Application Default Credentials) = ambient Google auth picked up from the environment;
+      no pasted API keys. We trade it for a short-lived token to authorize each call.
+    * fail-closed = if config is missing or auth fails, raise ProviderUnavailable rather than
+      return a fake answer. -> the supervisor maps that to UNAVAILABLE, and the Control Tower
+      shows its honest fail-closed state instead of a guessed result.
+
 Replaces the PR 1 stub. Calls a deployed Vertex AI endpoint (Model Garden Gemma) via the
 endpoint ``:predict`` contract, authenticating with Application Default Credentials (ADC).
 
@@ -33,6 +58,8 @@ _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 _VERTEX_TIMEOUT_S = 60.0
 
 
+# Get a temporary Google sign-in token from the ambient credentials (ADC) so we can authorize a
+# call to the endpoint. -> if no credentials are available, this raises and the caller fails closed.
 def _vertex_access_token() -> str:
     """Mint a short-lived OAuth token via Application Default Credentials. Monkeypatched in tests."""
     import google.auth
@@ -45,6 +72,9 @@ def _vertex_access_token() -> str:
     return creds.token
 
 
+# Send the text to the deployed model and return its raw JSON answer. Any HTTP error (e.g. the
+# endpoint is down or unauthorized) becomes a typed ProviderCallError -> the supervisor maps that
+# to DEGRADED rather than a guessed answer.
 def _vertex_predict(
     url: str, token: str, payload: dict[str, Any], timeout: float = _VERTEX_TIMEOUT_S
 ) -> dict[str, Any]:
@@ -62,6 +92,8 @@ def _vertex_predict(
     return resp.json()
 
 
+# Different serving containers wrap the generated text differently, so this digs the actual
+# answer string out of whichever common response shape Vertex returned (and "" if none found).
 def _extract_text(data: dict[str, Any]) -> str:
     """Pull generated text out of common Vertex prediction response shapes."""
     preds = data.get("predictions")
@@ -83,6 +115,8 @@ def _extract_text(data: dict[str, Any]) -> str:
     return ""
 
 
+# Pull token counts (how much input/output the model processed) out of the response, when the
+# endpoint reports them. -> feeds the usage/cost numbers the dispatch receipts record.
 def _extract_usage(data: dict[str, Any]) -> Usage:
     meta = data.get("metadata") or data.get("usageMetadata") or {}
     if not isinstance(meta, dict):
@@ -93,9 +127,13 @@ def _extract_usage(data: dict[str, Any]) -> Usage:
     )
 
 
+# The provider object the dispatch registry calls. Its one job: turn an AIRequest into a real
+# answer from the private Gemma endpoint, or fail closed.
 class GemmaVertexProvider:
     name = ProviderName.GEMMA_GCP
 
+    # The whole call, end to end: check config, get a token, build the URL, send the text, parse
+    # the answer. Never raises out the top — it raises only the typed fail-closed errors above.
     def complete(self, req: AIRequest, model: str) -> ProviderCompletion:
         from app.config import (
             GEMMA_VERTEX_DEDICATED_DNS,
@@ -104,9 +142,13 @@ class GemmaVertexProvider:
             GEMMA_VERTEX_PROJECT_ID,
         )
 
+        # Fail-closed gate #1: if the endpoint isn't fully wired (project/region/endpoint id all
+        # set by deploy.py), refuse. -> Control Tower shows the fail-closed "not configured" state.
         if not (GEMMA_VERTEX_PROJECT_ID and GEMMA_VERTEX_LOCATION and GEMMA_VERTEX_ENDPOINT_ID):
             raise ProviderUnavailable("GEMMA_VERTEX_* is not fully configured")
 
+        # Fail-closed gate #2: if we can't get Google credentials (no ADC in the environment),
+        # refuse rather than attempt an unauthenticated call.
         try:
             token = _vertex_access_token()
         except Exception as exc:  # noqa: BLE001 — missing/invalid ADC ⇒ fail closed
@@ -125,9 +167,13 @@ class GemmaVertexProvider:
             if GEMMA_VERTEX_DEDICATED_DNS
             else f"{GEMMA_VERTEX_LOCATION}-aiplatform.googleapis.com"
         )
+        # Final call URL = host + the endpoint's resource path + ":predict". The payload wraps the
+        # request text and an output-length cap in the shape Vertex serving expects.
         url = f"https://{host}/v1/{resource}:predict"
         payload = {"instances": [{"prompt": req.task, "max_tokens": req.max_tokens}]}
 
+        # Send it. A clean transport/timeout failure becomes a typed ProviderCallError so the
+        # supervisor reports DEGRADED — again, never a fabricated answer.
         try:
             data = _vertex_predict(url, token, payload)
         except ProviderCallError:
@@ -135,6 +181,7 @@ class GemmaVertexProvider:
         except Exception as exc:  # noqa: BLE001 — transport/timeout ⇒ typed call error
             raise ProviderCallError(f"vertex request failed: {exc}") from exc
 
+        # Success: hand back the parsed answer text + token usage for the dispatch layer to record.
         return ProviderCompletion(
             text=_extract_text(data),
             model=model or "gemma",

@@ -20,6 +20,39 @@
 # MAGIC Parent ticket: `docs/plans/03-implementation-plans/active/telemetry-trust-gate0-ticket.md`
 
 # COMMAND ----------
+# ===== TEACHING NOTES (plain language) =====
+# WHAT THIS FILE DOES:
+#   It tests a TRUST GATE that runs BEFORE the model is even allowed to judge a reading. The idea: a model
+#   is only trustworthy on inputs that look like what it was trained on. So for each new reading we ask
+#   "how far is this from the training fleet?" using MAHALANOBIS-style distance — distance that accounts
+#   for how the sensors normally move together, not just raw gaps. A reading deep inside familiar territory
+#   is one the model is competent to judge; one far outside should be flagged as "out of my depth".
+#   This notebook is the FALSIFICATION test: does that distance actually predict bigger model errors? If
+#   far-from-fleet readings really do have larger errors, the gate carries real trust information.
+#
+# WHERE YOU SEE THIS:
+#   This is the evidence behind the COMPETENCE / trust-gate surfaces (the CompetenceEnvelopeCard family) —
+#   the "is the model even in its zone of competence for this input?" check shown before a verdict.
+#
+# INPUTS -> OUTPUT:
+#   INPUT  : gold_cmapss_features (sensor features) + the frozen registered champion tel_rul_regressor.
+#   OUTPUT : an evidence JSON (distance-vs-error correlation per band + a continue/train/kill call) via
+#            dbutils.notebook.exit. No training, no new model, no UI/API/schema.
+#
+# HOW TO READ THE NUMBERS (jargon in one phrase each):
+#   - trust gate     : a check that runs BEFORE scoring to decide if the model is competent on THIS input.
+#   - Mahalanobis distance : "how unusual is this reading" measured with the sensors' normal correlations
+#                            built in, so being off in a way the sensors never normally move counts as far.
+#                            (Here approximated by z-scoring + PCA, then kNN distance in that space.)
+#   - kNN distance   : distance to the k nearest training readings — small = lots of close analogs (safe),
+#                      large = no analogs (novel, risky). The gate's "how far from the fleet" signal.
+#   - embedding      : a cleaned-up coordinate space (z-score + PCA) where distance is meaningful.
+#   - Spearman rho   : rank correlation between distance and error; >0 means farther readings tend to have
+#                      bigger errors — exactly the signal that makes the trust gate worth shipping.
+#   - bootstrap CI   : a confidence range for rho from resampling; if it stays above 0 the signal is real,
+#                      not noise. The gate's decision hinges on this excluding zero.
+#   - frozen inference : the champion is reused exactly as shipped (no retraining) so this is an honest read.
+# ============================================
 import json
 import numpy as np
 import pandas as pd
@@ -49,6 +82,10 @@ n_hold = max(1, int(round(len(all_units) * HOLDOUT_FRAC)))
 hold_units = set(rng.choice(all_units, size=n_hold, replace=False).tolist())
 fleet_units = [u for u in all_units if u not in hold_units]
 
+# Split the engines into two disjoint groups so the distance test is honest:
+#   FLEET    = the "known population" the gate measures distance against (and fits the embedding on).
+#   HELD-OUT = genuinely unseen engines we score, to ask "are the far-from-fleet ones the high-error ones?"
+# Holding engines out by id (not by row) is what makes the distance reflect real novelty, not memorization.
 # FLEET = the reference population (kNN target, embedding fit, no leakage of held-out units).
 # HELD-OUT = the evaluation windows scored for distance-vs-error.
 train = src[src.unit.isin(fleet_units)].copy()      # naming kept: 'train' = fleet reference
@@ -62,6 +99,9 @@ assert len(test) > 0 and len(train) > 0, "empty fleet or held-out — check spli
 
 # COMMAND ----------
 # ---- Frozen-inference predictions from the registered champion (NO training) ----
+# We load the SHIPPED model and just run it ("frozen inference" = reused as-is, no retraining). abs_err is
+# how wrong each prediction was — the quantity we'll check against distance. The whole gate stands or
+# falls on whether bigger distance lines up with bigger abs_err.
 model = mlflow.sklearn.load_model(MODEL_URI)
 Xtr = train[FEAT_COLS].to_numpy()
 Xte = test[FEAT_COLS].to_numpy()
@@ -77,6 +117,10 @@ print("held-out windows scored", len(test), "| held-out per-cycle RMSE", round(o
 
 # COMMAND ----------
 # ---- Cheap embedding: z-score on TRAIN stats (+ optional PCA). A feature transform, not training ----
+# Before measuring distance we put the features in a fair coordinate space: z-score (equal scale per
+# feature) then PCA (keep the few directions that carry most of the variation, drop noise). Distance in
+# THIS space is the Mahalanobis-style "how unusual is this reading" signal. It's a transform of existing
+# features fit on FLEET only — no model is trained here.
 mu = Xtr.mean(axis=0)
 sd = Xtr.std(axis=0)
 sd[sd == 0] = 1.0
@@ -98,6 +142,9 @@ print("embedding:", emb_method, "| dim", Etr.shape[1])
 
 # COMMAND ----------
 # ---- kNN distance: each HELD-OUT window -> nearest FLEET windows (L2 on the embedding) ----
+# The "how far from the fleet" number: for each unseen reading, find its k closest fleet readings and
+# average those distances. Small = the model has seen plenty like this (competent, trust it); large = no
+# close analog (novel, the gate should flag it). This knn_dist is what the competence/trust panels show.
 # Held-out units are disjoint from fleet units by the unit-level split above, so distance reflects
 # fleet novelty, not memorization. Chunk to bound memory.
 tr_units = train.unit.to_numpy()
@@ -118,13 +165,19 @@ test["nn_train_cycle"] = train["cycle"].to_numpy()[nn_train_idx]
 
 # COMMAND ----------
 # ---- Within-band Spearman rho(knn_dist, abs_err) + bootstrap CI ----
+# The core question, made into a number: within readings of SIMILAR predicted RUL (so we compare like
+# with like), does greater distance-from-fleet go with greater error? Spearman rho > 0 says yes. We
+# compute it inside RUL "bands" so the signal isn't just "low-RUL readings happen to be far AND wrong".
 def spearman(a, b):
+    # Spearman = correlation of RANKS (does b tend to rise when a rises, regardless of exact scale).
     ra = pd.Series(a).rank().to_numpy()
     rb = pd.Series(b).rank().to_numpy()
     ra -= ra.mean(); rb -= rb.mean()
     den = np.sqrt((ra**2).sum() * (rb**2).sum())
     return float((ra * rb).sum() / den) if den > 0 else 0.0
 
+# Bootstrap CI: re-sample the data many times and recompute rho each time to get a plausible range. If
+# the whole range stays above 0, the distance->error link is real signal, not a fluke of this one sample.
 def boot_ci(a, b, n=N_BOOT):
     a = np.asarray(a); b = np.asarray(b); m = len(a)
     if m < 8:
@@ -169,6 +222,9 @@ for b in per_band:
 
 # COMMAND ----------
 # ---- A/B pair discovery: similar pred RUL, different knn_dist, different abs_err ----
+# Concrete demo examples for the surface: find pairs where the model predicted ABOUT THE SAME RUL, but one
+# reading was close to the fleet (A, low distance) and one was far (B, high distance) — and show that the
+# far one had the bigger error. These are the "trust the near one, doubt the far one" stories the gate tells.
 pairs = []
 t = test.reset_index(drop=True)
 for lo, hi in BANDS:
@@ -209,6 +265,9 @@ print("A/B candidate pairs:", len(pairs))
 
 # COMMAND ----------
 # ---- Decision rule (three-way) ----
+# The verdict on whether distance carries trust info: strong, consistent positive signal -> "continue"
+# (ship the gate as-is); weak-but-real -> "train_contrastive" (the signal exists, invest in a better
+# embedding); nothing above zero -> "kill" (distance doesn't predict error here, drop the idea).
 real_bands = [b for b in per_band if b["rho"] is not None]
 pos_bands = [b for b in real_bands if b["ci95"][0] is not None and b["ci95"][0] > 0]   # CI excludes 0
 strong = [b for b in pos_bands if b["rho"] >= 0.30]

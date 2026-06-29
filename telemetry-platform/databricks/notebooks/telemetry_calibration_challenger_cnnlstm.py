@@ -17,6 +17,36 @@
 # MAGIC Pin `torch==2.2.2`, `scikit-learn==1.4.2`. Plan: `telemetry-calibration-layer.md`.
 
 # COMMAND ----------
+# ===== TEACHING NOTES (plain language) =====
+# WHAT THIS FILE DOES:
+#   This is the CHALLENGER in a "challenger-vs-champion" bake-off: a new model tries to beat the current
+#   best, and only replaces it if it clears every gate. The current champion is the GBM in
+#   telemetry_calibration_baseline.py. The challenger here is a CNN-LSTM, a deep neural net that reads
+#   each engine's sensor history two ways: the CNN (convolution) spots short patterns ACROSS sensors at a
+#   moment, and the LSTM remembers how those patterns evolve OVER TIME. Together they predict Remaining
+#   Useful Life (RUL = cycles of life left) from a 30-cycle sliding window of readings.
+#
+# WHERE YOU SEE THIS:
+#   Same RUL / anomaly CALIBRATION surfaces as the baseline. This notebook decides whether the fancier
+#   model "graduates" to champion. If it doesn't clear the gates, the GBM stays — the bar is deliberately
+#   strict so we never ship a flashier-but-less-honest model.
+#
+# INPUTS -> OUTPUT:
+#   INPUT  : silver_cmapss (raw per-cycle sensor readings, all 21 sensors) + silver_cmapss_rul (truth).
+#   OUTPUT : an evidence JSON (accuracy + honesty metrics + a graduate yes/no) via dbutils.notebook.exit.
+#            No UI, no new table, no API.
+#
+# HOW TO READ THE NUMBERS (jargon in one phrase each):
+#   - champion vs challenger : the deployed model vs a contender that only wins if it beats it on EVERY gate.
+#   - RMSE        : typical prediction error in cycles (lower = more accurate). Must beat GBM's 20.32.
+#   - PHM08       : NASA's safety score that punishes LATE/optimistic RUL harder than early (lower = safer).
+#   - PICP        : share of truths that actually fell inside the predicted range; "90%" range wants ~0.90.
+#   - calibration : making stated confidence honest (a 90% range should really contain truth ~90% of time).
+#   - MPIW/PINAW  : how WIDE the ranges are; narrower is better only if coverage stays honest.
+#   - conformal   : build honest ranges by padding predictions with the model's own measured errors.
+#   - early stopping : quit training once a held-out VALIDATION set stops improving, so the net doesn't
+#                      memorize the training data (overfit).
+# ============================================
 import json, time
 import numpy as np
 import pandas as pd
@@ -48,12 +78,18 @@ print("FD001 silver | train rows", len(train_raw), "units", train_raw.unit.nuniq
       "| test rows", len(test_raw), "units", test_raw.unit.nunique(), "| sensors", len(SENSORS))
 
 # ---- Normalization fit on TRAIN ONLY ----
+# Put every sensor on the same scale (z-score: subtract mean, divide by spread) so no single sensor
+# dominates just because its raw numbers are bigger. Crucially the mean/spread come from TRAIN ONLY —
+# letting the test data influence the scaling would be a subtle form of cheating (leakage).
 mu = train_raw[SENSORS].mean(); sd = train_raw[SENSORS].std().replace(0,1.0)
 def norm(df):
     x=df.copy(); x[SENSORS]=(x[SENSORS]-mu)/sd; return x
 train_raw = norm(train_raw); test_raw = norm(test_raw)
 
 # ---- Sliding 30-cycle windows; target = capped RUL at window's LAST cycle ----
+# The net reads a movie, not a snapshot: each training example is a 30-cycle window of sensor readings,
+# and the answer it must predict is the RUL at the LAST cycle of that window. Sliding the window forward
+# one cycle at a time turns each engine's run into many overlapping examples.
 def windows(df, has_truth=True):
     X, y, meta = [], [], []
     for u, g in df.groupby("unit"):
@@ -88,6 +124,9 @@ print("windows | fit", len(Xf), "val", len(Xv), "calib", len(Xc), "internal-test
 
 # COMMAND ----------
 # ---- CNN-LSTM (Conv1D x2 -> LSTM -> Dense) ----
+# The model in three stages: (1) two Conv1d layers scan the window for short local patterns across the
+# sensors; (2) the LSTM walks those patterns through time and keeps a running memory of the engine's
+# trajectory; (3) a small Dense head turns the final memory into one number — the predicted RUL.
 class CNNLSTM(nn.Module):
     def __init__(self, F):
         super().__init__()
@@ -109,6 +148,9 @@ def predict(m, X, bs=512):
             out.append(m(torch.tensor(X[s:s+bs])).numpy())
     return np.clip(np.concatenate(out),0,RUL_CAP)
 
+# Train the net while watching a held-out VALIDATION set. We keep the weights from the best validation
+# score and stop early if validation stops improving for `patience` epochs — that's how we avoid
+# overfitting (memorizing training data instead of learning the real degradation signal).
 def train_model(Xtr, ytr, Xval, yval, max_epochs=60, bs=256, lr=1e-3, patience=8):
     m=CNNLSTM(Xtr.shape[2]); opt=torch.optim.Adam(m.parameters(), lr=lr); loss=nn.MSELoss()
     dl=torch.utils.data.DataLoader(torch.utils.data.TensorDataset(torch.tensor(Xtr),torch.tensor(ytr)),
@@ -135,6 +177,9 @@ def train_model(Xtr, ytr, Xval, yval, max_epochs=60, bs=256, lr=1e-3, patience=8
                "patience":patience,"max_epochs":max_epochs}
 
 t0=time.time(); model, train_log = train_model(Xf,yf,Xv,yv); train_wall=round(time.time()-t0,1)
+# fit_verdict is a quick health check on training: if validation error is much worse than training error
+# the net memorized (overfit); if both are high it never learned (underfit). We don't want to crown a
+# challenger that only won by luck on an unstable training run.
 # under/overfit read: ratio of final val to final train MSE
 ratio = train_log["final_val_mse"]/max(train_log["final_train_mse"],1e-6)
 fit_verdict = ("overfit" if ratio>1.5 else "underfit" if train_log["best_val_mse"]>1500 else "reasonable")
@@ -143,6 +188,8 @@ print("train wall", train_wall, "s | fit verdict:", fit_verdict, "| val/train", 
 
 # COMMAND ----------
 # ---- LAST-CYCLE benchmark on official test set (compare to GBM 20.32 / 1423) ----
+# The head-to-head accuracy test: score each engine at its final reading and compare RMSE/PHM directly
+# against the champion GBM's 20.32 / 1423. This is the apples-to-apples number the graduation gate uses.
 Xte_all, _, meta_te = windows(test_raw, has_truth=False)
 te_df = pd.DataFrame(meta_te, columns=["unit","cycle"])
 te_df["pred"]=predict(model, Xte_all)
@@ -171,7 +218,10 @@ def conformal_band(level, pred):
     t = (1+level)/2
     ql = max(q_at(lo_res, t), 0.0); qh = max(q_at(hi_res, t), 0.0)
     return np.clip(pred-ql,0,RUL_CAP), np.clip(pred+qh,0,RUL_CAP), ql, qh
-def picp(t,lo,hi): return float(np.mean((t>=lo)&(t<=hi)))
+# Same honest-range idea as the baseline, but ASYMMETRIC: RUL errors lean one way, so we pad the bottom
+# and top of the range by DIFFERENT amounts (separate lower/upper error quantiles). This fits reality
+# better than a symmetric +/- band and still reports honest coverage on the untouched internal-test units.
+def picp(t,lo,hi): return float(np.mean((t>=lo)&(t<=hi)))  # share of truths inside the range (want ~nominal)
 ite_point={"rmse_per_cycle":rmse(yi,ite_pred),"n_windows":int(len(Xi)),"n_units":len(ite_u)}
 rng_y=float(yi.max()-yi.min()) or 1.0
 print(f"conformal calib residuals: {n_cal_resid} (calib {len(yc)} + val {len(yv)} windows, no retrain)")
@@ -190,6 +240,9 @@ for l in RELIABILITY_LEVELS:
 
 # COMMAND ----------
 # ---- GRADUATION GATE (mechanical) ----
+# The verdict, by rule (no judgment calls). The challenger replaces the champion ONLY if it is more
+# accurate (RMSE), no less safe (PHM), still honest (PICP calibrated), AND its ranges aren't wider —
+# unless it is MATERIALLY safer, the one allowed exception. Anything else: GBM stays champion.
 # Ticket 1 baseline conformal widths (MPIW) for the "narrower or defensibly similar" test:
 GBM_MPIW = {"80": 42.98, "90": 55.98}
 picp_ok = all(interval_metrics[k]["within_pm_0.03"] for k in interval_metrics)

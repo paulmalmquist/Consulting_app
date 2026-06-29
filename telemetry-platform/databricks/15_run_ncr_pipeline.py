@@ -1,15 +1,29 @@
 """
 RS Demo PR 3 driver — run the Factory NCR Intelligence pipeline.
 
-Default runtime is Databricks (the real path): auth preflight (get_client + SELECT 1), upload the
-three notebooks (ncr_corpus -> ncr_clustering -> ncr_backlog_forecast), run each as a serverless
-job, and save the combined exit payloads to ncr_pipeline_result.json for 16_mirror_ncr_serving.py.
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES: this is the ORCHESTRATOR — the conductor that runs the three pipeline stages in
+order: ncr_corpus (make the demo tickets) -> ncr_clustering (group them + lay out the scatter plot)
+-> ncr_backlog_forecast (predict the backlog). It doesn't do the ML math itself; it kicks off the
+three notebooks and collects their results into one file for the next step (16_mirror_ncr_serving.py)
+to ship to the serving database.
 
-RUNTIME=local is the bounded fallback when Databricks auth is down: the SAME deterministic corpus,
-a TF-IDF + truncated-SVD 2D projection with seeded k-means in place of the
-sentence-transformer/UMAP/HDBSCAN stack, and the same drift-vs-naive walk-forward forecast — all
-labeled provenance='local_fallback' end to end. It exists so the demo never renders an empty page;
-the Databricks run is the story.
+WHERE YOU SEE THIS: indirectly, the whole FactoryNcrIntelligence page —
+repo-b/src/components/telemetry/FactoryNcrIntelligence.tsx — exists because this script ran the
+pipeline that produced its data.
+
+TWO WAYS TO RUN:
+  - DATABRICKS (the real path, default): log in, upload the three notebooks, run each on a cloud
+    cluster, and gather the results. This is the genuine model run with sentence embeddings, UMAP,
+    HDBSCAN, and MLflow tracking — the story we actually demo.
+  - LOCAL FALLBACK (RUNTIME=local): a smaller stand-in that runs entirely on this laptop when the
+    Databricks login is down, so the demo page never shows up empty. It uses the SAME made-up tickets
+    and the SAME forecast logic, but swaps the heavy ML libraries for lighter math: TF-IDF instead of
+    neural embeddings, a plain SVD projection instead of UMAP, and k-means instead of HDBSCAN. Every
+    row it produces is stamped provenance='local_fallback' so the UI is honest about where it ran.
+
+INPUTS -> OUTPUT: nothing in (it generates its own corpus) -> ncr_pipeline_result.json (the combined
+results), plus ncr_pipeline_local_data.json in local mode.
 
 Run:  python 15_run_ncr_pipeline.py            (Databricks)
       RUNTIME=local python 15_run_ncr_pipeline.py
@@ -43,13 +57,15 @@ def _load_corpus_module():
 
 
 def run_databricks() -> int:
+    # The real path: connect to Databricks, then run the three notebooks in order on cloud clusters.
     from _bootstrap import get_client
     from _jobs import ensure_dir, upload_notebook, run_notebook_and_wait, get_notebook_output, WORKSPACE_DIR
 
     client = get_client()
-    client.execute_sql("SELECT 1")  # auth preflight (owner gate)
+    client.execute_sql("SELECT 1")  # auth preflight: a tiny query to confirm we're actually logged in
     ensure_dir(client)
 
+    # Run each notebook, wait for it to finish, and stash its JSON exit payload keyed by name.
     exits: dict[str, dict] = {}
     for name in NOTEBOOKS:
         wp = upload_notebook(client, str(HERE / "notebooks" / f"{name}.py"), f"{WORKSPACE_DIR}/{name}")
@@ -70,11 +86,18 @@ def run_databricks() -> int:
 
 # ── bounded local fallback ──────────────────────────────────────────────────────────────────────
 def _local_embed_and_cluster(records: list[dict]) -> tuple[list[dict], list[dict], dict]:
-    """TF-IDF -> truncated SVD (2D) -> seeded k-means. Honest stand-in, labeled local_fallback."""
+    """TF-IDF -> truncated SVD (2D) -> seeded k-means. Honest stand-in, labeled local_fallback.
+
+    Plain language: the laptop-only version of the clustering notebook. Instead of neural sentence
+    embeddings + UMAP + HDBSCAN, it scores words by frequency (TF-IDF), squashes that to 2D with a
+    matrix trick (SVD), and groups the dots into 6 buckets with k-means. Same SHAPE of output (dots +
+    cluster summaries), simpler math. Used only when Databricks is unreachable.
+    """
     import numpy as np
 
     docs = [r["summary"] for r in records]
-    # vocabulary over unigrams+bigrams (same tokenizer family as the notebook's c-TF-IDF)
+    # Build a vocabulary of single words + adjacent word-pairs (the same tokenizer idea the real
+    # notebook's c-TF-IDF uses), so keyword extraction below behaves consistently across both paths.
     def toks(text: str) -> list[str]:
         words = [w.strip(".,;:").lower() for w in text.split()]
         words = [w for w in words if len(w) > 2 and not w.isdigit()]
@@ -89,15 +112,19 @@ def _local_embed_and_cluster(records: list[dict]) -> tuple[list[dict], list[dict
     for i, dt in enumerate(doc_tokens):
         for t in dt:
             tf[i, vocab[t]] += 1
+    # TF-IDF weighting: common-everywhere words get downweighted, distinctive words get upweighted,
+    # then each ticket's vector is scaled to unit length so they're comparable.
     df = (tf > 0).sum(axis=0)
     tfidf = tf * np.log(len(docs) / np.maximum(df, 1))
     tfidf /= np.maximum(np.linalg.norm(tfidf, axis=1, keepdims=True), 1e-9)
 
-    # truncated SVD to 2D
+    # Squash the wide word-vectors down to 2 numbers (x, y) for plotting — the no-UMAP stand-in.
+    # -> these coords ARE the scatter-plot dots on FactoryNcrIntelligence in local-fallback mode.
     u, s, _ = np.linalg.svd(tfidf, full_matrices=False)
     coords = u[:, :2] * s[:2]
 
-    # seeded k-means (k=6) on the full tfidf space; labels mapped onto the 2D scatter
+    # k-means: pick 6 starting centers, then repeatedly assign each ticket to its nearest center and
+    # recompute the centers. The SEED makes the starting picks (and thus the groups) repeatable.
     rng = np.random.RandomState(SEED)
     k = 6
     centers = tfidf[rng.choice(len(docs), k, replace=False)]
@@ -149,6 +176,8 @@ def _local_embed_and_cluster(records: list[dict]) -> tuple[list[dict], list[dict
 
 
 def _local_forecast(records: list[dict]) -> tuple[list[dict], dict]:
+    # Laptop version of the backlog forecast notebook — identical drift-vs-naive walk-forward logic,
+    # just running locally. Produces the same history+forecast rows and the same MAE/MAPE numbers.
     import numpy as np
 
     week_starts = [ANCHOR - timedelta(weeks=N_WEEKS - w) for w in range(N_WEEKS)]
@@ -170,11 +199,13 @@ def _local_forecast(records: list[dict]) -> tuple[list[dict], dict]:
             if date.fromisoformat(r["opened_at"]) <= week_end
             and (not r["closed_at"] or date.fromisoformat(r["closed_at"]) > week_end)))
 
+    # Drift forecast: last known backlog nudged by the trailing-8-week average net flow (same as the notebook).
     def drift(t: int, h: int) -> float:
         lo = max(0, t - 8)
         net = [opened[i] - closed[i] for i in range(lo, t)]
         return backlog[t - 1] + h * (sum(net) / len(net))
 
+    # Walk-forward backtest misses: rm = drift model residuals, rn = naive baseline residuals.
     rm = [backlog[t] - drift(t, 1) for t in range(8, N_WEEKS)]
     rn = [backlog[t] - backlog[t - 1] for t in range(8, N_WEEKS)]
     abs_m, abs_n = np.abs(rm), np.abs(rn)
@@ -200,9 +231,10 @@ def _local_forecast(records: list[dict]) -> tuple[list[dict], dict]:
 
 
 def run_local() -> int:
+    # Same three stages as the Databricks path, but all in-process on this machine.
     print("[ncr] RUNTIME=local — bounded fallback (provenance='local_fallback')")
     corpus_mod = _load_corpus_module()
-    records = corpus_mod.generate_corpus()
+    records = corpus_mod.generate_corpus()  # stage 1: the identical seeded demo tickets
     points, clusters, cmeta = _local_embed_and_cluster(records)
     backlog_rows, fmetrics = _local_forecast(records)
     LOCAL_DATA_PATH.write_text(json.dumps({
@@ -224,6 +256,7 @@ def run_local() -> int:
 
 
 def main() -> int:
+    # Pick the path from the RUNTIME env var; default to the real Databricks run.
     runtime = os.environ.get("RUNTIME", "databricks").lower()
     if runtime == "local":
         return run_local()

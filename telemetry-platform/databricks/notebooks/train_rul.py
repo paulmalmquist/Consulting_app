@@ -12,6 +12,25 @@
 # MAGIC only safe to promote when it ALSO keeps late predictions low and clears the leakage control.
 
 # COMMAND ----------
+# ===== TEACHING NOTES =====
+# WHAT THIS FILE DOES: Trains models that predict RUL — Remaining Useful Life, i.e. how many cycles a
+#   jet-engine unit has left before it fails — on NASA C-MAPSS turbofan data. It trains a simple model
+#   (linear regression) and a stronger one (gradient boosting), then scores them honestly.
+# WHERE YOU SEE THIS: the metrics here feed the frontend "RUL Calibration" page and its calibration
+#   evidence (repo-b/src/components/telemetry/RulCalibration.tsx).
+# INPUTS -> OUTPUT: Gold engine features (novendor_1.telemetry.gold_cmapss_features) + the official RUL
+#   truth table -> two trained, scored, MLflow-logged regressors + per-model "model cards."
+# HOW TO READ THE NUMBERS:
+#   - RUL = cycles of safe life left before failure (higher = more life remaining).
+#   - RMSE = typical prediction error in cycles (lower is better).
+#   - PHM score = NASA's official asymmetric error score; LOWER is better, and it punishes "late"
+#     predictions harder than "early" ones (see next point) because late is the dangerous direction.
+#   - "late rate" = share of predictions that say MORE life remains than really does. That is the unsafe
+#     mode (you'd run a failing engine), so we track and cap it separately from RMSE.
+#   - naive baseline = a dumb constant guess; a real model must beat it or it isn't actually learning.
+#   - leakage control = sanity check: shuffle the answers, retrain; if score stays good, the model was
+#     cheating off leaked labels. We require it to collapse.
+# ===========================
 import json
 import numpy as np
 import pandas as pd
@@ -47,6 +66,8 @@ train = train.dropna(subset=FEAT_COLS).copy()
 train["y"] = np.minimum(train["rul_target"].to_numpy(), RUL_CAP)
 
 # Test design: one row per unit = its LAST observed cycle; truth = official RUL_FD001.
+# In plain terms: for each test engine, take its most recent snapshot and ask "how many cycles left?",
+# then compare to NASA's published answer. This last-cycle-per-unit framing is the calibration evidence.
 test_last = test.sort_values(["unit", "cycle"]).groupby("unit").tail(1).copy()
 test_last = test_last.merge(rul_truth[["unit", "rul"]], on="unit", how="inner")
 test_last["y_true"] = np.minimum(test_last["rul"].to_numpy(), RUL_CAP)
@@ -58,22 +79,30 @@ Xte, yte = test_last[FEAT_COLS].to_numpy(), test_last["y_true"].to_numpy()
 units = test_last["unit"].to_numpy()
 
 # COMMAND ----------
+# rmse = root-mean-square error: the typical size of a miss, in cycles. -> the headline error on the
+# RUL Calibration page. Lower is better.
 def rmse(a, b):
     return float(np.sqrt(np.mean((np.asarray(a, float) - np.asarray(b, float)) ** 2)))
 
+# mae = mean absolute error: average miss size in cycles (less sensitive to big outliers than RMSE).
 def mae(a, b):
     return float(np.mean(np.abs(np.asarray(a, float) - np.asarray(b, float))))
 
 def phm_score(y_true, y_pred):
     # NASA PHM'08 asymmetric score. LOWER IS BETTER. Late predictions (pred > true => d>0) penalized
     # more (a=10) than early (a=13), because over-stating remaining life is the dangerous direction.
+    # In words: it's an exam where guessing "too much life left" loses you more points than "too little,"
+    # because in the field, optimism is what gets equipment run to failure. -> this is the PHM score on
+    # the RUL Calibration evidence.
     d = np.asarray(y_pred, float) - np.asarray(y_true, float)
     s = np.where(d < 0, np.exp(-d / 13.0) - 1.0, np.exp(d / 10.0) - 1.0)
     return float(np.sum(s))
 
 def late_diagnostics(y_true, y_pred):
     """RUL 'late' = predicted RUL HIGHER than actual (model thinks more safe life remains than truth).
-    That is the dangerous failure mode. Returns a dict of late/early metrics."""
+    That is the dangerous failure mode. Returns a dict of late/early metrics.
+    -> rul_late_prediction_rate here is the 'late rate' the promotion gate caps and the RUL Calibration
+    page reports: the share of engines the model wrongly judged to have more life left than they do."""
     err = np.asarray(y_pred, float) - np.asarray(y_true, float)   # >0 late (optimistic), <0 early
     late = err > 0
     early = err < 0
@@ -87,7 +116,9 @@ def late_diagnostics(y_true, y_pred):
     }
 
 def regime_late_rates(y_true, y_pred):
-    """Late-prediction rate sliced by RUL regime (single-regime FD001 -> slice by remaining life)."""
+    """Late-prediction rate sliced by RUL regime (single-regime FD001 -> slice by remaining life).
+    Plain version: is the model especially unsafe on near-failure engines (low remaining life)? That's
+    the slice that matters most, so we break the late rate out by how much life actually remained."""
     err = np.asarray(y_pred, float) - np.asarray(y_true, float)
     out = {}
     for name, lo, hi in [("low_RUL_<50", 0, 50), ("mid_RUL_50_100", 50, 100), ("high_RUL_>=100", 100, RUL_CAP + 1)]:
@@ -101,6 +132,8 @@ def regime_late_rates(y_true, y_pred):
 # ── the MEAN baseline, then use the STRONGEST (lowest-RMSE) naive as the bar a model must beat. A simple
 # ── per-unit "linear degradation" naive is NOT well-defined here (no per-unit total-life at last cycle),
 # ── so it is intentionally omitted rather than faked.
+# Build the "dumb guess" bars: always predict the training mean, or the training median. A real model
+# has to beat the best of these or it has learned nothing. -> shown as the baseline on RUL Calibration.
 train_mean = float(ytr.mean())
 train_median = float(np.median(ytr))
 naive_preds = {
@@ -116,6 +149,9 @@ print("naive baselines", json.dumps(naive_scores), "| strongest naive:", best_na
 
 # ── NEGATIVE CONTROL (diagnostic only; never trains/influences the champion): shuffle TRAIN labels,
 # ── refit GBM. With no target leakage, performance must collapse toward naive/random.
+# Leakage sanity check: scramble the answers so features no longer match their true RUL, then retrain.
+# If the model still scores well, it was secretly reading the answer through the features (leakage); a
+# clean setup makes the scrambled model collapse to roughly the dumb-guess level.
 rng = np.random.RandomState(0)
 ytr_shuf = ytr.copy(); rng.shuffle(ytr_shuf)
 gbm_shuf = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
@@ -179,8 +215,11 @@ def model_card(model_label, m, late, regimes):
     }
 
 
+# Train one model, score it on the held-out engines, compute the safety diagnostics, and log everything
+# to MLflow so promote_models.py can later read the numbers and the RUL Calibration page can show them.
 def fit_log(model_label, run_name, estimator):
     estimator.fit(Xtr, ytr)
+    # clip predictions to the valid 0..RUL_CAP range (negative or absurdly large life is meaningless)
     pred = np.clip(estimator.predict(Xte), 0, RUL_CAP)
     m = {"rmse": rmse(yte, pred), "mae": mae(yte, pred), "phm": phm_score(yte, pred)}
     late = late_diagnostics(yte, pred)
@@ -213,6 +252,8 @@ def fit_log(model_label, run_name, estimator):
     return rid, m, late, card
 
 # COMMAND ----------
+# Train both candidates: the simple linear baseline and the stronger gradient-boosted model. The
+# promotion gate (promote_models.py) later picks the SAFEST one that clears every threshold.
 lin_run_id, m_lin, late_lin, card_lin = fit_log("linear_regression", "rul_linear_baseline", LinearRegression())
 gbm_run_id, m_gbm, late_gbm, card_gbm = fit_log(
     "gradient_boosting", "rul_gbm",

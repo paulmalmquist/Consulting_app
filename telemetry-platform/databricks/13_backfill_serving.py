@@ -1,4 +1,41 @@
 """
+===== TEACHING NOTES (plain language) =====
+WHAT THIS FILE DOES:
+  It manufactures a believable OPERATING HISTORY for the telemetry-demo tenant. A fresh demo has almost
+  nothing to show (1 run, 3 predictions, no events, no drift), which looks empty and unconvincing. This
+  script replays the REAL frozen model over REAL NASA sensor history and writes the results — predictions,
+  detected anomalies, and drift metrics — into the SERVING tables the frontend reads. Nothing is faked:
+  the scores come from the actual model rule and the anomaly labels are the actual NASA-labeled windows.
+  The ONLY invented thing is the timestamps (spread over the last ~45 days so it reads like recent
+  operation).
+
+WHERE YOU SEE THIS:
+  This is the LIVE DATA behind the frontend MONITORING and MODEL PERFORMANCE pages. Those pages call
+  /api/telemetry/* which reads tel_predictions, tel_anomaly_events, and tel_drift_metrics for the
+  telemetry-demo tenant — exactly the rows this script seeds.
+
+INPUTS -> OUTPUT:
+  INPUT  : the gold tables in novendor_1.telemetry (real NASA features + real anomaly labels) and the
+           frozen champion MAD rule.
+  OUTPUT : a committed, idempotent seed_serving_backfill.sql file. You apply it with:
+             cat telemetry-platform/databricks/seed_serving_backfill.sql | supabase db query --linked
+
+HOW TO READ IT / KEY TERMS (one phrase each):
+  - frozen rule        : the model is LOCKED to fixed parameters (here MAD_K=4.0, a fixed threshold), so
+                         re-scoring the same history always gives the same answer. A frozen rule makes the
+                         backfilled history reproducible — anyone can re-run it and get identical rows.
+  - MAD rule           : the anomaly detector — flag a reading when it deviates from its recent normal by
+                         more than K times the typical deviation. score = peak deviation / threshold;
+                         score < 1 = GO (fine), 1-2 = REVIEW, > 2 = NO_GO (anomaly).
+  - idempotent backfill: running it twice does NOT create duplicates. It tags its rows with a fixed
+                         backfill_batch_id and is_backfilled=true, and deletes only THAT batch before
+                         re-inserting — so live, real /score receipts (is_backfilled=false) are never
+                         touched and re-running is always safe.
+  - PSI (drift)        : Population Stability Index — how much the live data distribution has shifted away
+                         from the training baseline (< 0.1 stable, 0.1-0.25 watch, > 0.25 real drift).
+                         This is the drift signal on the Monitoring page.
+============================================
+
 Phase 6 — authentic operated-history backfill for the telemetry-demo tenant.
 
 Turns the thin demo (1 run, 3 predictions, empty events/drift) into a credible operated history using
@@ -41,6 +78,9 @@ D4_RUN_ID = "7e1e7a00-0000-4000-a000-000000000001"  # existing (is_backfilled=fa
 _NS = uuid.UUID("7e1e0000-0000-4000-a000-0000000000ff")  # deterministic uuid5 namespace
 
 # Frozen champion params (must match backend/app/services/telemetry_serving.py).
+# These three numbers ARE the frozen rule: a reading is anomalous if its deviation exceeds K=4 times the
+# fixed training-scale, i.e. above THRESHOLD. They're hard-coded (not recomputed) so this backfill scores
+# history with the exact same locked model the live system uses — that's what makes it reproducible.
 MAD_K = 4.0
 GLOBAL_TRAIN_SCALE = 0.033866801182436346
 THRESHOLD = MAD_K * GLOBAL_TRAIN_SCALE  # 0.135467...
@@ -52,6 +92,9 @@ N_CMAPSS = 12    # C-MAPSS units to list as ingested RUL runs
 PSI_BINS = 10
 OUT = Path(__file__).resolve().parent / "seed_serving_backfill.sql"
 
+# Turn a raw anomaly score into the traffic-light verdict shown on Monitoring: GO (looks healthy),
+# REVIEW (borderline, a human should look), NO_GO (clear anomaly). score is how many times over the
+# frozen threshold the reading's deviation was, so 1.0 is exactly at the threshold.
 # REVIEW band on the real anomaly_score (score = peak_resid / threshold).
 def verdict_for(score: float) -> str:
     if score < 1.0:
@@ -61,6 +104,9 @@ def verdict_for(score: float) -> str:
     return "NO_GO"
 
 
+# Row IDs are derived deterministically from their content (uuid5 of a fixed namespace + a key), not
+# random. Same inputs -> same IDs every run, which is what lets the backfill be re-applied without making
+# duplicate rows (the ON CONFLICT / batch-delete logic relies on stable IDs).
 def run_id_for(run_key: str) -> str:
     return str(uuid.uuid5(_NS, run_key))
 
@@ -168,6 +214,9 @@ def main() -> int:
         client.stop_warehouse()
 
     # ---- compute everything locally (real values; no fabrication) ----
+    # Everything below assembles serving ROWS from the real aggregates pulled above. The values (scores,
+    # labels, PSI) are real; we only assign synthetic timestamps spread over the last `span_days` so the
+    # history reads like recent, ongoing operation on the Monitoring timeline.
     now = datetime.now(timezone.utc)
     span_days = 45
 
@@ -198,6 +247,8 @@ def main() -> int:
         if rid is None:
             continue
         for r in rows:
+            # Score each real channel-window with the frozen rule: peak deviation / threshold -> score ->
+            # GO/REVIEW/NO_GO. One tel_predictions row per window — exactly what Model Performance reads.
             _, spacecraft, widx, wstart, wend, peak, anom_any, n = r
             peak = float(peak); wstart = int(wstart); wend = int(wend)
             score = round(peak / THRESHOLD, 6)
@@ -261,7 +312,13 @@ def main() -> int:
 
 
 def compute_psi(base_hist, win_hist, drift_ch, now, span_days):
-    """Real PSI per (channel, window) vs the train baseline. PSI = sum((c-b)*ln(c/b))."""
+    """Real PSI per (channel, window) vs the train baseline. PSI = sum((c-b)*ln(c/b)).
+
+    Plain version: bin the values into 10 buckets, compare each live window's bucket-shares (c) against
+    the training baseline's shares (b). PSI sums how different they are — near 0 means the live data still
+    looks like training (stable); larger means the world has shifted (drift). This is the drift line on
+    the Monitoring page; status is bucketed stable / watch / drift by the standard 0.1 / 0.25 thresholds.
+    """
     base = {}
     for r in base_hist:
         base.setdefault(r[0], {})[int(r[1])] = int(r[2])
@@ -328,6 +385,9 @@ def emit_sql(test_runs, channels, predictions, events, drift):
     L.append(f"-- is_backfilled=true, backfill_batch_id='{BATCH_ID}'. Live /score receipts (is_backfilled=false)")
     L.append("-- are NOT touched. Idempotent: deletes only this batch's prior rows, then re-inserts.")
     L.append("BEGIN;")
+    # This delete-then-insert, scoped to this batch_id + is_backfilled=true, is the idempotency mechanism:
+    # re-running wipes only THIS backfill's prior rows (never the live is_backfilled=false receipts) and
+    # re-inserts, so the demo data is always exactly one clean copy no matter how many times you apply it.
     # delete prior backfilled rows (FK-safe order), demo-tenant + backfill-scoped
     for t in ("tel_predictions", "tel_anomaly_events", "tel_drift_metrics",
               "tel_telemetry_channels", "tel_test_runs"):

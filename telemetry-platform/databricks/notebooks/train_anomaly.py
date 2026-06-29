@@ -7,6 +7,24 @@
 # MAGIC only; the TEST split is scored once with those frozen thresholds.
 
 # COMMAND ----------
+# ===== TEACHING NOTES =====
+# WHAT THIS FILE DOES: Trains two "anomaly detectors" (programs that flag when a sensor reading looks
+#   abnormal) on NASA SMAP/MSL spacecraft data. One is a simple rule (MAD), one is a smarter statistical
+#   model (PCA). It scores both honestly and writes the scores to MLflow (the model bookkeeping system).
+# WHERE YOU SEE THIS: the numbers logged here become the cards on the frontend "Model Performance" page
+#   (repo-b/src/components/telemetry/ModelPerformance.tsx) and the ModelEvidenceCard.
+# INPUTS -> OUTPUT: Gold feature tables (novendor_1.telemetry.gold_smap_msl_windows) -> two trained,
+#   scored, MLflow-logged detectors + a metrics summary the promotion gate later reads.
+# HOW TO READ THE NUMBERS:
+#   - MAD = Median Absolute Deviation: a robust way to measure "how far is this value from normal?"
+#   - F1 = one 0-1 score balancing recall (real anomalies caught) and precision (alarms that were right).
+#   - "point-adjusted" F1 = the flattering academic version (one hit credits a whole window). "honest"
+#     (pointwise) F1 = per-timestep truth, much harder, and what the promotion gate actually uses.
+#   - event_recall = fraction of labeled anomaly events the detector caught at all.
+#   - alarm_precision = fraction of fired alarms that landed on a real anomaly (low = noisy/false alarms).
+#   - affiliation_f1 = a range-aware F1 that rewards firing NEAR a real event without letting long
+#     windows inflate the score (proximity capped at AFFIL_CAP_D ticks).
+# ===========================
 import json
 import numpy as np
 import pandas as pd
@@ -43,6 +61,8 @@ print("train rows", len(train), "test rows", len(test),
 # COMMAND ----------
 # Point-adjusted evaluation: a labeled anomaly window counts as detected if ANY point in it is
 # flagged; flagged points outside any window are false positives. This is the telemanom convention.
+# Plain version: if you catch even one tick of a real anomaly stretch, you get credit for the WHOLE
+# stretch. Generous on purpose — it inflates the score, so it is reference-only, not the gate.
 def point_adjust(df: pd.DataFrame, pred_col: str) -> dict:
     # Work entirely in positional space (reset_index) so numpy positions and labels never diverge.
     df = df.sort_values(["chan_id", "t"]).reset_index(drop=True)
@@ -69,22 +89,28 @@ def point_adjust(df: pd.DataFrame, pred_col: str) -> dict:
     tp = int(((adj == 1) & (y == 1)).sum())
     fp = int(((adj == 1) & (y == 0)).sum())
     fn = int(((adj == 0) & (y == 1)).sum())
+    # precision = of the alarms we raised, how many were right; recall = of real anomalies, how many we
+    # caught; f1 = their balanced blend. These (point-adjusted) feed the reference-only F1 on the page.
     prec = tp / (tp + fp) if (tp + fp) else 0.0
     rec = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
     return {"precision": prec, "recall": rec, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
 
 
+# The HONEST scorer. Same predictions, but no per-window credit inflation. This is what the promotion
+# gate reads, and what the "honest F1 / event recall / alarm precision" cards on Model Performance show.
 def honest_and_affiliation(df: pd.DataFrame, pred_col: str, cap_d: int = AFFIL_CAP_D) -> dict:
     """Honest (no point-adjustment) + capped-affiliation metrics on the SAME predictions, for the gate.
     Affiliation proximity = max(0, 1 - dist/cap_d) within each channel, so long labeled windows cannot
     inflate it. Mirrors telemetry-platform/eval_honest_metrics.py."""
     df = df.sort_values(["chan_id", "t"]).reset_index(drop=True)
-    y = df["is_anomaly"].to_numpy().astype(int)
-    p = df[pred_col].to_numpy().astype(int)
+    y = df["is_anomaly"].to_numpy().astype(int)   # truth: 1 = real NASA-labeled anomaly tick
+    p = df[pred_col].to_numpy().astype(int)        # our detector: 1 = we raised an alarm this tick
+    # Straight per-tick counts (no window credit): tp = right alarms, fp = false alarms, fn = misses.
     tp = int(((p == 1) & (y == 1)).sum())
     fp = int(((p == 1) & (y == 0)).sum())
     fn = int(((p == 0) & (y == 1)).sum())
+    # -> these honest precision/recall/f1_pointwise values are the "honest F1" card on Model Performance.
     prec = tp / (tp + fp) if (tp + fp) else 0.0
     rec = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
@@ -127,11 +153,17 @@ def honest_and_affiliation(df: pd.DataFrame, pred_col: str, cap_d: int = AFFIL_C
                 pr = 0.0
             rec_prox += pr
             rec_cnt += 1
+    # affiliation precision/recall/f1: "how close did alarms land to real events, and vice versa."
+    # -> affiliation_f1 is the range-aware score the promotion gate ranks anomaly models by.
     ap = prec_prox / prec_cnt if prec_cnt else 0.0
     ar = rec_prox / rec_cnt if rec_cnt else 0.0
     af1 = 2 * ap * ar / (ap + ar) if (ap + ar) else 0.0
+    # alarm_precision = of every alarm fired, the share that hit a real anomaly tick.
+    # -> this is the "Alarm precision" card on Model Performance (low = lots of noisy false alarms).
     alarms = int((p == 1).sum())
     alarm_prec = (int(((p == 1) & (y == 1)).sum()) / alarms) if alarms else 0.0
+    # event_recall = fraction of labeled anomaly events we touched at all (caught >=1 tick of).
+    # -> this is the "Event recall" card on Model Performance.
     return {
         "f1_pointwise": f1, "precision_pointwise": prec, "recall_pointwise": rec,
         "event_recall": (seg_hit / seg_total if seg_total else 0.0), "alarm_precision": alarm_prec,
@@ -139,6 +171,8 @@ def honest_and_affiliation(df: pd.DataFrame, pred_col: str, cap_d: int = AFFIL_C
     }
 
 
+# The fail-closed check: a detector "passes" only if it clears EVERY honest threshold (a missing metric
+# counts as 0 and fails). This boolean is what promote_models.py trusts to decide champion vs held-back.
 def passes_honest_gate(m: dict) -> bool:
     """Fail-closed: every declared honest threshold must be met."""
     return all(float(m.get(k, 0.0)) >= thr for k, thr in HONEST_GATE.items())
@@ -147,6 +181,9 @@ def passes_honest_gate(m: dict) -> bool:
 # ---- BASELINE: rolling-median / MAD dynamic threshold on the raw value ----
 # Per channel: robust center = rolling median proxy (value_rmean50), spread = MAD from train residuals.
 # Threshold k chosen on TRAIN to flag ~ the train-implied rate, then frozen and applied to TEST.
+# Plain idea of MAD: measure each reading's distance from "normal," divide by the typical distance, and
+# alarm when it is more than k typical-distances out. This simple rule is the eventual CHAMPION the
+# replay demo (score_replay_feed.py) uses to flip its GO/REVIEW/NO_GO flag.
 def mad_resid(df):
     df = df.copy()
     df["resid"] = (df["value"] - df["value_rmean50"]).abs()
@@ -167,6 +204,7 @@ def baseline_flag(df):
     df["pred"] = (df["resid"].to_numpy() > BASELINE_K * s).astype(int)
     return df
 
+# Score the baseline on the held-out TEST split: both the flattering and the honest way.
 test_b = baseline_flag(test_b)
 m_base = point_adjust(test_b, "pred")            # legacy point-adjusted (reference only)
 h_base = honest_and_affiliation(test_b, "pred")  # honest + affiliation (the gate)
@@ -208,6 +246,9 @@ with mlflow.start_run(run_name="anomaly_baseline_mad") as run:
 
 # COMMAND ----------
 # ---- STRONGER: PCA reconstruction error over the rolling-feature vector ----
+# PCA = Principal Component Analysis: it learns the few patterns that explain "normal" data, then tries
+# to rebuild each reading from those patterns. Normal readings rebuild cleanly; weird ones don't — the
+# rebuild error is the anomaly score. Bigger error -> more likely an anomaly.
 FEATS = ["value", "value_rmean50", "value_rstd50", "value_rmin50", "value_rmax50", "value_roc"]
 tr = train.dropna(subset=FEATS).copy()
 te = test.dropna(subset=FEATS).copy()
@@ -248,6 +289,8 @@ with mlflow.start_run(run_name="anomaly_pca_recon") as run:
     pca_run_id = run.info.run_id
 
 # COMMAND ----------
+# Final summary handed back to the orchestrator (and ultimately surfaced on Model Performance):
+# both detectors' honest + reference metrics and whether each cleared the gate.
 result = {
     "baseline": {"run_id": baseline_run_id, **m_base, **h_base,
                  "honest_gate_pass": passes_honest_gate(h_base), "k": BASELINE_K},

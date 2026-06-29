@@ -1,5 +1,19 @@
 """Phase 3 — Regime-conditioned anomaly detection on C-MAPSS FD004 (REAL data, reproducible).
 
+WHAT THIS FILE DOES (plain version): it builds two anomaly detectors for jet-engine sensor data
+and shows that the naive one cries wolf. A "regime" is a distinct operating condition (cruise vs
+climb, etc.). The naive detector judges "normal" on one global scale, so it false-alarms every
+time the engine merely switches modes. The smart detector judges "normal relative to the current
+regime" (regime-conditioned) and stops those false alarms.
+WHERE YOU SEE THIS: the frontend RegimeAnomalyCard — per-regime false-positive bars for the
+global vs regime-conditioned detector, plus eta-squared (how much of the error is just regime).
+INPUTS -> OUTPUT: healthy FD004 sensor rows from silver_cmapss -> regime_anomaly_evidence.json.
+HOW TO READ THE NUMBERS: false-positive rate = % of KNOWN-HEALTHY rows wrongly flagged (lower is
+better); cross-regime spread = gap between worst and best regime (lower = fairer); eta-squared =
+share of the detector's error explained purely by which operating mode the engine was in (high =
+the detector is reacting to mode, not faults).
+
+
 The judgment artifact (Spin 1 + the degenerate-autoencoder fix): build the obvious global
 reconstruction-error detector, measure it on FD004's six operating conditions, find that its
 false positives are dominated by operating regime (not faults), then condition on regime and
@@ -49,6 +63,8 @@ ROOT = Path(__file__).resolve().parents[1]
 AS_OF = "2026-06-23"
 
 
+# Run a SQL query against the Databricks warehouse and hand back a tidy table. Plumbing only:
+# submit, poll until done, page through any chunked results.
 def query(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     resp = w.statement_execution.execute_statement(
         statement=sql, warehouse_id=WAREHOUSE_ID, wait_timeout="50s",
@@ -67,6 +83,10 @@ def query(w: WorkspaceClient, sql: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=cols)
 
 
+# eta-squared answers one plain question: of all the ups and downs in the detector's error, what
+# fraction is explained just by which operating mode the engine was in? Near 1 means the "anomaly"
+# score is really a regime indicator (bad); near 0 means it's reacting to genuine faults (good).
+# -> this is the "variance explained by regime" figure on the RegimeAnomalyCard.
 def eta_squared(errs: np.ndarray, regimes: np.ndarray) -> float:
     """Fraction of recon-error variance explained by regime (one-way ANOVA eta^2).
     High => recon error tracks operating regime; near 0 => it does not."""
@@ -99,11 +119,18 @@ def main() -> None:
     active = [s for s in SENSORS if df[s].std() > 1e-6]
     print(f"[regime] active sensors={len(active)} (dropped {len(SENSORS) - len(active)} constant)")
 
+    # Discover the operating regimes. We don't have mode labels, so we cluster the three
+    # operating-setting columns into six groups (FD004's known number of conditions); each row
+    # gets tagged with the regime it belongs to. This regime tag is what everything below
+    # conditions on.
     # Regimes from the operating-setting columns (six C-MAPSS conditions).
     rscaler = StandardScaler().fit(df[SETTINGS].to_numpy())
     km = KMeans(n_clusters=N_REGIMES, random_state=SEED, n_init=10).fit(rscaler.transform(df[SETTINGS].to_numpy()))
     df["regime"] = km.labels_
 
+    # Split engines (units) into a build set and a held-out test set so no engine is in both.
+    # Judging the detector only on engines it never saw is what makes the false-alarm numbers
+    # honest rather than memorized.
     # Grouped fit/eval split by unit (no unit in both — same discipline as the RUL work).
     rng = np.random.default_rng(SEED)
     units = np.sort(df.unit.unique())
@@ -116,6 +143,9 @@ def main() -> None:
     # ---- GLOBAL detector: the "single operating mode" assumption ----
     # The obvious thing that breaks: calibrate the detector on the operating condition you
     # have the most data for, then apply it everywhere (ignore that other conditions exist).
+    # Build the naive detector on ONLY the most common operating mode, learn its "normal" pattern
+    # (PCA) and an alarm line (tau_g), then apply that one-mode yardstick to every mode. The
+    # per-regime false-alarm rates this produces are the GLOBAL (red/baseline) bars on the card.
     dominant = int(pd.Series(reg_fit).value_counts().idxmax())
     dm = reg_fit == dominant
     gscaler = StandardScaler().fit(Xfit[dm])
@@ -125,6 +155,10 @@ def main() -> None:
     eg_ev = recon_error(gscaler.transform(Xev), gpca.mean_, gpca.components_)  # applied to ALL regimes
     fp_global = per_regime_rate(eg_ev, reg_ev, tau_g)
 
+    # Build the smart detector: first re-express every row relative to its own regime's normal
+    # (regime_zscore removes the mode-switch offset), THEN learn one shared "normal" pattern and
+    # alarm line. Because mode is already accounted for, leftover surprise should reflect real
+    # faults. These per-regime rates are the REGIME-CONDITIONED (improved) bars on the card.
     # ---- REGIME-CONDITIONED detector: per-regime standardization ----
     stats = regime_stats(Xfit, reg_fit)
     Zfit, Zev = regime_zscore(Xfit, reg_fit, stats), regime_zscore(Xev, reg_ev, stats)
@@ -133,6 +167,9 @@ def main() -> None:
     ez_ev = recon_error(Zev, zpca.mean_, zpca.components_)
     fp_regime = per_regime_rate(ez_ev, reg_ev, tau_z)
 
+    # Roll the per-regime bars up into the headline comparison: worst regime, average regime, and
+    # how much regime-conditioning explains away. The reduction percentages are the "X% fewer false
+    # alarms" claim shown on the card.
     worst_g, worst_z = max(fp_global.values()), max(fp_regime.values())
     mean_g, mean_z = float(np.mean(list(fp_global.values()))), float(np.mean(list(fp_regime.values())))
     eta_g, eta_z = eta_squared(eg_ev, reg_ev), eta_squared(ez_ev, reg_ev)
@@ -195,6 +232,9 @@ def main() -> None:
         ],
     }
 
+    # Write the evidence twice: a source-of-record copy here, and a copy the frontend imports
+    # directly. This JSON is exactly what populates the RegimeAnomalyCard (numbers are baked at
+    # compute time, not fetched live).
     out_src = ROOT / "telemetry-platform" / "regime_anomaly_evidence.json"
     out_fe = ROOT / "repo-b" / "src" / "lib" / "telemetry" / "regimeAnomalyEvidence.json"
     out_src.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
