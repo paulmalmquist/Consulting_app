@@ -32,14 +32,14 @@ describe("BottleneckMap — controlled selection", () => {
     expect(onSelectNode).toHaveBeenCalledWith("sputnik");
   });
 
-  it("surfaces the resolved event and shows the orientation strip for a controlled selection", () => {
+  it("surfaces the resolved event up on a controlled selection (no in-map orientation strip)", () => {
     const onSelectedEventChange = vi.fn();
     const onSelectNode = vi.fn();
     const { rerender } = render(<BottleneckMap envId="env-x" selectedId={null} onSelectNode={onSelectNode} onSelectedEventChange={onSelectedEventChange} />);
     rerender(<BottleneckMap envId="env-x" selectedId="sputnik" onSelectNode={onSelectNode} onSelectedEventChange={onSelectedEventChange} />);
     expect(onSelectedEventChange).toHaveBeenLastCalledWith(expect.objectContaining({ id: "sputnik", name: "Sputnik 1" }));
-    expect(screen.getByText(/Selected:/)).toBeInTheDocument();
-    expect(screen.getByText("Sputnik 1")).toBeInTheDocument();
+    // The selected-node story moved to the page hero — the map renders no in-chart orientation strip.
+    expect(screen.queryByText(/Selected:/)).not.toBeInTheDocument();
   });
 
   it("toggles off when the selected node is clicked again", () => {

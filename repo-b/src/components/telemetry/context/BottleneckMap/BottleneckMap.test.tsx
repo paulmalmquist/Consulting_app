@@ -37,26 +37,26 @@ describe("BottleneckMap rendering", () => {
     expect(screen.getByText(/makes no\s+domain-expertise claims/)).toBeInTheDocument();
   });
 
-  it("shows a non-narrative orientation strip for the default-pinned node (standalone mode)", () => {
-    // Standalone (uncontrolled) the module keeps its terran1 pin; the full story now lives in the page
-    // hero, so the map only carries a compact "Selected: …" reminder, not the explanation cards.
+  it("no longer renders an orientation strip or EventRecord cells — the node story lives in the page hero", () => {
+    // The Play/Stop control and the selected-node story moved to the page hero; standalone the map keeps
+    // its terran1 pin (a ring on the chart) but renders no "Selected: …" strip or explanation cards.
     render(<BottleneckMap />);
-    expect(screen.getByText(/Selected:/)).toBeInTheDocument();
-    expect(screen.getByText("Terran 1: Good Luck, Have Fun")).toBeInTheDocument();
-    // The old EventRecord relay cells are gone from the map.
+    expect(screen.queryByText(/Selected:/)).not.toBeInTheDocument();
     expect(screen.queryByText("What changed · bottleneck solved")).not.toBeInTheDocument();
+    expect(screen.getByText(/makes no\s+domain-expertise claims/)).toBeInTheDocument();
   });
 
-  it("enters presenter mode from the button, steps with the on-screen controls, exits on Escape", () => {
+  it("enters presenter mode (keyboard P), steps with the on-screen controls, exits on Escape", () => {
+    // The Play/Stop button now lives in the page hero (TelemetryOverview); the map's keyboard P still
+    // starts the walkthrough, and the PresenterBanner carries the on-screen step controls.
     render(<BottleneckMap />);
-    fireEvent.click(screen.getByRole("button", { name: "Play guided walkthrough" }));
+    fireEvent.keyDown(window, { key: "p" });
     expect(screen.getByText(/1 \/ 16/)).toBeInTheDocument();
     expect(screen.getByText(EVENTS_CHRONO[0].caption)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
     expect(screen.getByText(/2 \/ 16/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByText(/2 \/ 16/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Play guided walkthrough" })).toBeInTheDocument();
   });
 
   it("enters presenter mode on P but not while focus is in a form field", () => {

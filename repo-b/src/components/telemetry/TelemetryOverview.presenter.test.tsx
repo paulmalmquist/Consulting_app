@@ -27,7 +27,7 @@ describe("TelemetryOverview — walkthrough drives the hero", () => {
     render(<TelemetryOverview />);
 
     // Play → the hero becomes the first chronological event and the Big Numbers row is replaced.
-    fireEvent.click(screen.getByRole("button", { name: "Play guided walkthrough" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play story" }));
     expect(screen.getByRole("heading", { name: EVENTS_CHRONO[0].name })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Why Launch Became A Data Problem" })).not.toBeInTheDocument();
     expect(screen.queryByText("Launch attempts")).not.toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("TelemetryOverview — walkthrough drives the hero", () => {
 
   it("returns to overview when Back to overview is pressed mid-walkthrough", () => {
     render(<TelemetryOverview />);
-    fireEvent.click(screen.getByRole("button", { name: "Play guided walkthrough" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play story" }));
     expect(screen.getByRole("heading", { name: EVENTS_CHRONO[0].name })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back to overview" }));
