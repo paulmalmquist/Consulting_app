@@ -18,6 +18,7 @@ import { telemetryHref } from "./telemetryNav";
 import BottleneckMap from "./context/BottleneckMap/BottleneckMap";
 import LaunchEventHero from "./LaunchEventHero";
 import OverviewBackdrop from "./OverviewBackdrop";
+import PresenterToggleButton from "./PresenterToggleButton";
 import { computeBigNumbers, type BigNumber, type BigNumberAccent } from "./context/BottleneckMap/data";
 import type { DecoratedEvent } from "./context/BottleneckMap/types";
 
@@ -123,6 +124,12 @@ export default function TelemetryOverview() {
   const [selectedEvent, setSelectedEvent] = useState<DecoratedEvent | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
+  // Presenter (guided walkthrough) is owned by the map; the hero header renders the icon-only Play/Stop.
+  //   - `presenting` (mirrored up via onPresentingChange) chooses the Play vs Stop icon.
+  //   - bumping `presenterToggleSignal` flips the walkthrough on/off in the map.
+  const [presenting, setPresenting] = useState(false);
+  const [presenterToggleSignal, setPresenterToggleSignal] = useState(0);
+  const togglePresenter = () => setPresenterToggleSignal((s) => s + 1);
 
   // Back to overview: clear the hero immediately (deterministic) and signal the map to stop presenter +
   // deselect, so it cannot re-emit a presenter event back into the hero.
@@ -135,7 +142,8 @@ export default function TelemetryOverview() {
   // Two-mode hero. Overview: the thesis states the argument once (Big Numbers render below as larger
   // anchors). Selected: the hero ADAPTS to the chosen launch event (the map is the selector).
   const heading = selectedEvent ? (
-    <LaunchEventHero event={selectedEvent} envId={envId} onBack={handleBack} />
+    <LaunchEventHero event={selectedEvent} envId={envId} onBack={handleBack}
+      presenting={presenting} onTogglePresenter={togglePresenter} />
   ) : (
     <TelemetryPageHeader
       variant="hero"
@@ -148,6 +156,7 @@ export default function TelemetryOverview() {
         { text: " Problem" },
       ]}
       description="Spaceflight moves by breaking what holds it back. First, reaching orbit. Then lowering the cost. Then flying again. Then building at scale. Now the hard part is speed of judgment: reading the telemetry, trusting the model, tracing the source, and acting before delay becomes risk."
+      actions={<PresenterToggleButton presenting={presenting} onToggle={togglePresenter} />}
     />
   );
 
@@ -161,7 +170,8 @@ export default function TelemetryOverview() {
               hero, so this row is replaced rather than duplicated. */}
           {!selectedEvent && <BigNumbersBand onDrill={setDrillNum} />}
           <BottleneckMap envId={envId} onSelectedEventChange={setSelectedEvent}
-            selectedId={selectedId} onSelectNode={setSelectedId} resetSignal={resetSignal} />
+            selectedId={selectedId} onSelectNode={setSelectedId} resetSignal={resetSignal}
+            onPresentingChange={setPresenting} presenterToggleSignal={presenterToggleSignal} />
           <SourceHonestyStrip />
           {envId && <DemoBridge envId={envId} />}
           <MetricInspectorDrawer

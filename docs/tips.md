@@ -4840,3 +4840,37 @@ Turned the cosmetic `relativity_mes` BigQuery medallion (silver = `SELECT * FROM
 - **Telemetry reviewer login: `TELEMETRY_REVIEWER_ENV_ID` is the lab-env UUID, not the serving scope.** The value is used verbatim as the `/lab/env/<ENV_ID>/telemetry` route segment and as the middleware path-gate (`telemetryReviewerHome` / `telemetryReviewerAllowedPath` in `repo-b/src/lib/server/telemetryReviewer.ts`). Canonical value = the Telemetry Demo Console **env UUID `dc82d39d-9be2-49b0-a01d-c7181b13a8b6`** (the same value `telemetryReviewer.test.ts` hardcodes). Do NOT use `telemetry-demo` — that's the *serving* scope (`TELEMETRY_DEMO_ENV_ID`, used as agent-builder/telemetry query params), not a lab-env route id; the runbook's `telemetry-demo`/`localdemo` line is a local-dev example. All three vars (`USERNAME`/`PASSWORD`/`ENV_ID`) must be set or the login fail-closes (config()→null→401). On `consulting-app` (the novendor.ai Vercel project, rootDir repo-b) production auto-deploys on merge to main; env-var changes need a fresh deploy to take effect.
 - **`vercel env pull` returns blank for *sensitive* vars — it is NOT proof a var is empty.** `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEMETRY_REVIEWER_*` all pull as `""` even when set, because Vercel won't decrypt sensitive vars to a local dotenv. To verify a sensitive var's value, exercise the runtime path (e.g. `POST /api/auth/telemetry-login` with a known password → 200 vs 401), not `env pull`. Set with `printf "value" | vercel env add VAR production` (never `echo`); if the var already exists, `vercel env rm VAR production --yes` first.
 - **Synthetic sessions must skip the rich-membership DB lookup.** The telemetry reviewer session has `platform_user_id="telemetry-reviewer"` (a literal, not a UUID) and no DB membership row. `getActiveRichMembership` → `loadRichMembershipByEnvId` casts `platform_user_id::uuid` and **throws** on a non-UUID, which propagates through `buildPlatformSessionHeaders` and 502s the only header-building proxy a reviewer can reach (Agent Builder). The reviewer's `/telemetry` pages were fine because the telemetry proxy never builds platform-session headers — so this only bit once Agent Builder shipped. Fix: short-circuit `isTelemetryReviewerSession` and synthesize the membership from the signed session (`business_id: null` → Agent Builder uses the demo-scope param fallback, write tools stay disabled). Any future synthetic session needs the same guard.
+
+---
+
+## Telemetry Overview hero + Bottleneck Map polish (2026-06-29)
+
+Reusable findings from refining the Overview hero + chart interaction:
+
+- **The stray x-axis "active dot" was recharts' shared `<Tooltip>` across mismatched datasets.** The
+  `ComposedChart` data is the 70-row `YEAR_SERIES` (bars/area) but the bubbles are a separate 16-row
+  `<Scatter>`. A shared `<Tooltip>` computes one active index across series, so hovering a bubble dropped
+  an "active dot" on a stale year. Fix: remove the shared `<Tooltip>` (and set `activeDot={false}` on the
+  `Area`), and own hover on the bubbles — `onMouseEnter/Leave` on the bubble `<g>` sets a local
+  `hover={event,cx,cy}`, which drives a custom absolutely-positioned tooltip (anchored at `cx,cy` inside a
+  `position:relative` wrapper around `ResponsiveContainer`) and a `ReferenceLine` at the
+  hovered/selected event's year. One accurate mark, one tooltip — no cross-series confusion.
+- **Tooltip year-context fields:** `data.ts` `YEAR_SERIES` already has per-year `attempts`,
+  `commercialPct` (true 0–100), and `governmentPct` (= `100 - commercialPct`). Join an event to its year
+  with **`Math.floor(event.year)`** (the fractional year encodes the month; `2025.9`→2025, `2026.75`→2026
+  which is null). New exported helper `eventYearStats(event)` returns these or `null` (fail closed for
+  planned/2026+ years) — never fabricated. `MapTipBody({event})` is exported pure so the rows are unit-
+  testable without driving SVG hover.
+- **Lifting the presenter control:** the Bottleneck Map owns the step index; the Overview hero renders an
+  icon-only Play/Stop. Two thin channels mirror the existing `resetSignal` pattern — `onPresentingChange`
+  (which icon to show) and a bumped `presenterToggleSignal` counter (flip on/off, map flips
+  `setPresenterIdx(i => i===null?0:null)`). Keep keyboard P/←/→/Esc on the map.
+- **Hero-image fact marks:** the backdrop layer sits at `zIndex:0` behind the hero content (`zIndex:1`),
+  so marks added there can *never* cover the title/CTA — the foreground paints over them and they peek
+  through negative space. Read values from `event.metrics` only; guard `event.metrics?.length` (test
+  events pass partial objects). They duplicate KPI values, so component tests must use `getAllByText` for
+  those strings.
+- **y-axis labels:** recharts `YAxis` ticks don't wrap; long band labels clipped at `width:210`. Shorten
+  the band copy in `BANDS` rather than only widening, then bump `fontSize` (10→12.5) + brighter fill.
+- **Shell chrome:** removing the "serving · prod" footer dot frees the vertical space that was nudging the
+  collapse toggle below the fold; keep the toggle icon-only (`‹`/`›`) with `aria-label` only.

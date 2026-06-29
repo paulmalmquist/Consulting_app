@@ -71,22 +71,21 @@ export default function TelemetryShell({ envId, children }: { envId: string; chi
           onNavigate={() => setDrawerOpen(false)}
           onExpandRequest={() => setCollapsed(false)} />
       </div>
-      <div style={{ paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", justifyContent: railCollapsed ? "center" : "flex-start", marginBottom: 14 }} title="serving · prod">
-          <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
-        </div>
-        {showToggle && (
+      {/* Footer = the icon-only collapse toggle, docked at the bottom. No "serving · prod" status dot
+          or "Collapse" label (both removed — they nudged the toggle below the fold); the accessible
+          name lives on aria-label. Only rendered for the desktop rail (the mobile drawer needs none). */}
+      {showToggle && (
+        <div style={{ paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
           <button type="button" onClick={toggleCollapsed}
             aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-pressed={railCollapsed}
-            style={{ marginTop: 14, width: railCollapsed ? 40 : "100%", marginLeft: railCollapsed ? "auto" : 0,
+            style={{ width: railCollapsed ? 40 : "100%", marginLeft: railCollapsed ? "auto" : 0,
               marginRight: railCollapsed ? "auto" : 0, display: "flex", alignItems: "center",
-              justifyContent: "center", gap: 8, height: 36, borderRadius: 8, cursor: "pointer",
-              background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: C.mono, fontSize: 12 }}>
+              justifyContent: "center", height: 36, borderRadius: 8, cursor: "pointer",
+              background: "transparent", border: `1px solid ${C.border}`, color: C.dim }}>
             <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>{railCollapsed ? "›" : "‹"}</span>
-            {!railCollapsed && <span>Collapse</span>}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 

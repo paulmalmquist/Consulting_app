@@ -81,12 +81,13 @@ export function resolveBackdrop(e: LaunchEvent | null): EventBackdrop | null {
   return e.backdrop ?? NODE_BACKDROPS[e.id] ?? THEME_BACKDROPS[e.type] ?? null;
 }
 
+// Capability bands (y-axis). Kept concise so the larger y-axis labels read without clipping.
 export const BANDS: { y: number; label: string }[] = [
-  { y: 1, label: "Government proof of possibility" },
+  { y: 1, label: "Government proof of orbit" },
   { y: 2, label: "Operational spaceflight" },
   { y: 3, label: "Commercial launch" },
-  { y: 4, label: "Reusable fleet operations" },
-  { y: 5, label: "Autonomous, data-driven production" },
+  { y: 4, label: "Reusable fleet ops" },
+  { y: 5, label: "Autonomous production" },
 ];
 
 export const SIZE_MODES: { key: SizeModeKey; label: string; note: string }[] = [
@@ -168,6 +169,29 @@ for (let y = 1957; y <= 2026; y++) {
   });
 }
 export const FULL_WINDOW: TimeWindow = [1957, 2026];
+
+// World launch-attempt + commercial/government-share context for an event's calendar year, joined to
+// YEAR_SERIES. An event's fractional `year` encodes the month, so Math.floor() yields the calendar year
+// (2025.9 -> 2025). Fails closed (null) when that year has no cadence data — e.g. planned events in
+// 2026+ — so the tooltip never fabricates a share or attempt count. commercialPct is a true 0-100 share;
+// governmentPct is its complement (already precomputed in YEAR_SERIES).
+export interface EventYearStats {
+  year: number;
+  attempts: number;
+  commercialPct: number;
+  governmentPct: number;
+}
+export function eventYearStats(event: { year: number }): EventYearStats | null {
+  const y = Math.floor(event.year);
+  const row = YEAR_SERIES.find((p) => p.year === y);
+  if (!row || row.attempts == null || row.commercialPct == null) return null;
+  return {
+    year: y,
+    attempts: row.attempts,
+    commercialPct: row.commercialPct,
+    governmentPct: row.governmentPct ?? 100 - row.commercialPct,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Event data. Public, widely cited values; approximations marked.

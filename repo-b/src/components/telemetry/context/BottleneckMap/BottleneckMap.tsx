@@ -35,7 +35,8 @@ function decorate(e: LaunchEvent, colorBy: ColorByKey, sizeMode: SizeModeKey): D
 }
 
 export default function BottleneckMap(
-  { envId, onSelectedEventChange, selectedId: selectedIdProp, onSelectNode, resetSignal }: {
+  { envId, onSelectedEventChange, selectedId: selectedIdProp, onSelectNode, resetSignal,
+    onPresentingChange, presenterToggleSignal }: {
     envId?: string;
     /** Phase 9B: surface the selected/presented event so the Overview can drive its hero backdrop. */
     onSelectedEventChange?: (e: DecoratedEvent | null) => void;
@@ -45,6 +46,10 @@ export default function BottleneckMap(
     onSelectNode?: (id: string | null) => void;
     /** Bump this from the parent to fully reset — stops the walkthrough AND clears the selection. */
     resetSignal?: number;
+    /** Emits whether the guided walkthrough is running, so the parent can render Play vs Stop. */
+    onPresentingChange?: (presenting: boolean) => void;
+    /** Bump from the parent to toggle the walkthrough on/off (the map owns the step index). */
+    presenterToggleSignal?: number;
   } = {},
 ) {
   // Hybrid controlled/uncontrolled: when the parent passes `onSelectNode` the page owns selection (and may
@@ -55,7 +60,6 @@ export default function BottleneckMap(
   const [chipFilter, setChipFilter] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<SizeModeKey>("scale");
   const [colorBy, setColorBy] = useState<ColorByKey>("type");
-  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const [presenterIdx, setPresenterIdx] = useState<number | null>(null);
 
   const setSelected = useCallback((id: string | null) => {
@@ -82,6 +86,20 @@ export default function BottleneckMap(
   }, [resetSignal, clearAll]);
 
   const presenting = presenterIdx !== null;
+
+  // Lifted presenter control. The map owns the step index; the parent renders the icon-only Play/Stop in
+  // the hero header and drives it through two thin channels (mirrors the resetSignal pattern):
+  //   - onPresentingChange tells the parent which icon to show.
+  //   - presenterToggleSignal (a bumped counter) flips the walkthrough on/off here.
+  useEffect(() => { onPresentingChange?.(presenting); }, [presenting, onPresentingChange]);
+  const prevToggleSignal = useRef(presenterToggleSignal);
+  useEffect(() => {
+    if (presenterToggleSignal !== prevToggleSignal.current) {
+      prevToggleSignal.current = presenterToggleSignal;
+      setPresenterIdx((i) => (i === null ? 0 : null));
+    }
+  }, [presenterToggleSignal]);
+
   const presenterEvent = presenterIdx !== null ? EVENTS_CHRONO[presenterIdx] : null;
   const presenterYear = presenterEvent ? presenterEvent.year : Infinity;
   const revealedIds = useMemo<ReadonlySet<string>>(
@@ -131,7 +149,6 @@ export default function BottleneckMap(
     return () => window.removeEventListener("keydown", onKey);
   }, [presenting, selectedId, setSelected]);
 
-  const onHoverYear = useCallback((y: number | null) => setHoveredYear(y), []);
   // Clicking the already-selected node toggles back to overview.
   const onSelect = useCallback((id: string) => setSelected(selectedId === id ? null : id), [selectedId, setSelected]);
 
@@ -139,26 +156,8 @@ export default function BottleneckMap(
 
   return (
     <div style={{ fontFamily: RS_SANS, color: RS.text, background: "#000", borderRadius: 10, padding: "12px 14px" }}>
-      {/* Play / Stop — a guided story walkthrough that steps through the eras (orbit proof → lower cost →
-          reuse → manufacturing scale → telemetry/data operations → continue to Stargate/Evidence). The
-          thesis itself lives once in the page header above. */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-        <button type="button" className={styles.control}
-          aria-label={presenting ? "Stop walkthrough" : "Play guided walkthrough"}
-          aria-pressed={presenting}
-          onClick={() => setPresenterIdx(presenting ? null : 0)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: presenting ? `${RS.red}22` : `${RS.green}1f`,
-            border: `1px solid ${presenting ? RS.red : RS.green}`,
-            color: presenting ? RS.red : RS.green,
-            borderRadius: 999, padding: "8px 18px", cursor: "pointer",
-            fontFamily: RS_MONO, fontSize: 11.5, letterSpacing: 0.6, whiteSpace: "nowrap",
-          }}>
-          <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>{presenting ? "■" : "▶"}</span>
-          {presenting ? "Stop (Esc)" : "Play the story"}
-        </button>
-      </div>
+      {/* Play/Stop now lives as an icon-only control in the page hero header (lifted to TelemetryOverview);
+          the map just owns the step index. Keyboard P/←/→/Esc still drive the walkthrough. */}
 
       {/* presenter banner */}
       {presenting && presenterEvent && presenterIdx !== null && (
@@ -227,32 +226,14 @@ export default function BottleneckMap(
       <div style={{ marginTop: 12 }}>
         <MapPanel events={mapEvents} selectedId={selected?.id ?? null}
           presenting={presenting} revealedIds={revealedIds} presenterYear={presenterYear}
-          timeWindow={null} hoveredYear={hoveredYear}
+          timeWindow={null}
           sizeModeLabel={SIZE_MODES.find((m) => m.key === sizeMode)?.label ?? ""}
           focused dimmed={false}
-          onHoverYear={onHoverYear} onSelect={onSelect} />
+          onSelect={onSelect} />
       </div>
 
-      {/* Orientation strip near the chart. The full node story now lives in the page hero above; this is
-          a non-narrative reminder of what is selected plus a quick way back. Suppressed during the
-          walkthrough, where the PresenterBanner already carries the near-map context. */}
-      {selected && !presenting && (
-        <div style={{
-          marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
-          border: `1px solid ${selected.color}33`, borderLeft: `2px solid ${selected.color}`,
-          borderRadius: 8, background: `${selected.color}0a`, padding: "8px 13px",
-        }}>
-          <span style={{ fontFamily: RS_MONO, fontSize: 11, color: RS.dim }}>
-            <span style={{ color: RS.faint }}>Selected: </span>
-            <span style={{ color: RS.text }}>{selected.name}</span> · {selected.dimLabel}
-          </span>
-          <button type="button" className={styles.control} onClick={clearAll}
-            style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.dim, background: "transparent",
-              border: `1px solid ${RS.line}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
-            Back to overview
-          </button>
-        </div>
-      )}
+      {/* The selected node's full story + "Back to overview" live in the page hero above; no duplicate
+          orientation strip here. */}
 
       {/* methodology footer (verbatim; the module makes no domain-expertise claims) */}
       <div style={{ marginTop: 12, fontFamily: RS_MONO, fontSize: 9.5, color: RS.faint, lineHeight: 1.6 }}>

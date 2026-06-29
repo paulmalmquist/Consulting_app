@@ -6,9 +6,10 @@ import { vi } from "vitest";
 // event via onSelectedEventChange, so both the Overview→backdrop wiring (Phase 9B) and the new
 // selected-node hero are testable here. (The real presenter→hero path is covered in the .presenter test.)
 vi.mock("./context/BottleneckMap/BottleneckMap", () => ({
-  default: ({ onSelectedEventChange, onSelectNode }: {
+  default: ({ onSelectedEventChange, onSelectNode, onPresentingChange }: {
     onSelectedEventChange?: (e: unknown) => void;
     onSelectNode?: (id: string | null) => void;
+    onPresentingChange?: (p: boolean) => void;
   }) => {
     const sample = {
       id: "sputnik", name: "Sputnik 1", date: "1957-10-04",
@@ -26,6 +27,8 @@ vi.mock("./context/BottleneckMap/BottleneckMap", () => ({
         <button type="button" onClick={() => { onSelectNode?.("sputnik"); onSelectedEventChange?.(sample); }}>
           select mission event
         </button>
+        {/* mimic the real map reporting walkthrough state up so the hero can render Play vs Stop */}
+        <button type="button" onClick={() => onPresentingChange?.(true)}>mock start presenting</button>
       </div>
     );
   },
@@ -94,6 +97,18 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     expect(screen.getByText(/illustrative/i)).toBeInTheDocument();
   });
 
+  it("shows an icon-only Play control in the hero (no 'Play the story' text) and swaps to Stop while presenting", () => {
+    render(<TelemetryOverview />);
+    // Not presenting: an icon-only Play control with an accessible label, no visible Play/Stop text.
+    expect(screen.getByRole("button", { name: "Play story" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop story" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Play the story/i)).not.toBeInTheDocument();
+    // Map reports the walkthrough started → the control flips to Stop.
+    fireEvent.click(screen.getByRole("button", { name: /mock start presenting/i }));
+    expect(screen.getByRole("button", { name: "Stop story" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Play story" })).not.toBeInTheDocument();
+  });
+
   it("does not render the serving KPI strip, the Trace-lineage CTA, or Mission Summary scaffolding", () => {
     render(<TelemetryOverview />);
     expect(screen.queryByText("Promoted models")).not.toBeInTheDocument();
@@ -116,7 +131,8 @@ describe("TelemetryOverview — thesis-led Overview", () => {
     // The hero now IS the node: title, caption, the node's KPIs, an explanation card, and the CTA.
     expect(screen.getByRole("heading", { name: "Sputnik 1" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Why Launch Became A Data Problem" })).not.toBeInTheDocument();
-    expect(screen.getByText("83.6 kg")).toBeInTheDocument();
+    // "83.6 kg" appears in the hero KPI card AND as a faint backdrop fact mark — assert ≥1.
+    expect(screen.getAllByText("83.6 kg").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Reaching orbit at all")).toBeInTheDocument();
     // The hero CTA anchor reads "Mission Control →" (the demo bridge link below reads "Mission Control").
     expect(screen.getByText("Mission Control →").closest("a")).toHaveAttribute("href", "/lab/env/env-test/telemetry/stream");
