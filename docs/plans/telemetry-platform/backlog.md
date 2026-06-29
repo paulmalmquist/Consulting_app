@@ -3,6 +3,17 @@
 Open items, populated as tickets are cut. Each item should be specific enough that a fresh session
 can act on it without asking questions.
 
+## Done
+
+- **RUL Calibration evidence-surface redesign (2026-06-29).** Redesigned `/lab/env/[envId]/telemetry/calibration`
+  from "chart + metrics" into an inspectable ML evidence surface: CSS hero + evidence-contract strip,
+  tooltip'd clickable metric cards, a 5-step evidence artifact trail, a recharts trajectory chart with
+  hover tooltip + click-to-inspect + late-risk zone, clickable coverage rows + reliability bins, and one
+  `RulEvidenceDrawer` covering 6 drill-through kinds with provenance + specific null reasons (no fake
+  ids). Typed evidence in `lib/telemetry/rulCalibrationEvidence.ts`. Frontend-only; 12 component tests +
+  333/333 telemetry tests green. Dispatch record:
+  `docs/plans/03-implementation-plans/active/rul-calibration-evidence-surface.md`.
+
 ## Open
 
 - **Telemetry Calibration Layer — active plan (post-Gate-0 pivot).** The Telemetry Trust Layer thesis
