@@ -11,7 +11,7 @@ import {
 
 import { getModelPerformance, TELEMETRY_DEMO_BUSINESS_ID, TELEMETRY_DEMO_ENV_ID } from "@/lib/telemetry/api";
 import {
-  deriveLag, startStream, STREAM_REASON_HINT, useStreamPoll,
+  channelLabel, deriveLag, startStream, STREAM_REASON_HINT, useStreamPoll,
   type StreamChannel, type StreamEvent, type StreamLive,
 } from "@/lib/telemetry/stream";
 import { SplitGrid } from "./primitives";
@@ -56,6 +56,11 @@ function activeVerdict(events: StreamEvent[], nowS: number): { text: string; col
   return active ? { text: "NO-GO HOLD", color: RS.red } : { text: "GO", color: RS.green };
 }
 
+function fmtDuration(s: number): string {
+  if (s < 60) return `${Math.round(s)}s`;
+  return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+}
+
 function ChannelStrip({ ch, events, domain }: {
   ch: StreamChannel; events: StreamEvent[]; domain: [number, number];
 }) {
@@ -65,12 +70,28 @@ function ChannelStrip({ ch, events, domain }: {
   const vMin = vals.length ? Math.min(...vals) : 0;
   const vMax = vals.length ? Math.max(...vals) : 1;
   const pad = Math.max((vMax - vMin) * 0.15, Math.abs(vMax) * 0.002, 0.01);
+
+  // Normal corridor: prefer declared redlines; fall back to observed mid-60%.
+  const corridorLow = ch.redline_low ?? (vMin + (vMax - vMin) * 0.2);
+  const corridorHigh = ch.redline_high ?? (vMax - (vMax - vMin) * 0.2);
+  const corridorMid = (corridorLow + corridorHigh) / 2;
+
+  // Anomaly seconds in window for footer callout.
+  const winStartS = domain[0] / 1000;
+  const winEndS = domain[1] / 1000;
+  const anomalyS = chEvents.reduce((acc, e) => {
+    const s = Math.max(e.start_t, winStartS);
+    const end = Math.min(e.end_t, winEndS);
+    return acc + Math.max(0, end - s);
+  }, 0);
+  const normalS = Math.max(0, winEndS - winStartS - anomalyS);
+
   return (
     <div style={{ borderBottom: `1px solid ${RS.line}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline",
         padding: "6px 12px 0" }}>
         <span style={{ color: RS.dim, fontFamily: RS_SANS, fontSize: 11 }}>
-          {ch.channel_name}{ch.unit ? ` · ${ch.unit}` : ""}
+          {channelLabel(ch.channel_name)}{ch.unit ? ` · ${ch.unit}` : ""}
         </span>
         <span style={{ color: RS.cyan, fontFamily: RS_MONO, fontSize: 11 }}>
           {ch.latest ? ch.latest.v.toFixed(2) : "—"} {ch.unit ?? ""}
@@ -82,6 +103,13 @@ function ChannelStrip({ ch, events, domain }: {
           <YAxis domain={[vMin - pad, vMax + pad]} width={64}
             tick={{ fill: RS.faint, fontSize: 9, fontFamily: RS_MONO }}
             tickFormatter={(v: number) => v.toFixed(1)} axisLine={false} tickLine={false} />
+          {/* Normal corridor — drawn first so it sits behind anomaly regions */}
+          <ReferenceArea y1={corridorLow} y2={corridorHigh}
+            fill={RS.green} fillOpacity={0.06} stroke="none" />
+          <ReferenceLine y={corridorMid} stroke={RS.green} strokeOpacity={0.18}
+            strokeDasharray="6 4"
+            label={{ value: "normal", position: "insideTopRight", fill: RS.green,
+              fontSize: 8, fontFamily: RS_MONO, opacity: 0.5 }} />
           {ch.redline_low != null && (
             <ReferenceLine y={ch.redline_low} stroke={RS.red} strokeOpacity={0.45} strokeDasharray="4 3" />
           )}
@@ -90,12 +118,19 @@ function ChannelStrip({ ch, events, domain }: {
           )}
           {chEvents.map((e, i) => (
             <ReferenceArea key={i} x1={e.start_t * 1000} x2={e.end_t * 1000}
-              fill={RS.red} fillOpacity={0.1} stroke={RS.red} strokeOpacity={0.3} strokeDasharray="3 3" />
+              fill={RS.red} fillOpacity={0.22} stroke={RS.red} strokeOpacity={0.7} strokeDasharray="3 3"
+              label={{ value: "ANOMALY", position: "insideTopLeft", fill: RS.red,
+                fontSize: 9, fontFamily: RS_MONO }} />
           ))}
           <Line dataKey="v" stroke={RS.cyan} dot={false} strokeWidth={1.4}
             isAnimationActive={false} connectNulls={false} />
         </ComposedChart>
       </ResponsiveContainer>
+      <div style={{ padding: "2px 12px 4px", fontFamily: RS_MONO, fontSize: 9.5, color: RS.faint,
+        display: "flex", gap: 12 }}>
+        <span style={{ color: RS.green }}>normal {fmtDuration(normalS)}</span>
+        {anomalyS > 0 && <span style={{ color: RS.red }}>anomaly {fmtDuration(anomalyS)}</span>}
+      </div>
     </div>
   );
 }
@@ -264,7 +299,7 @@ export default function MissionControlStream() {
                       cursor: "pointer", color: on ? RS.cyan : RS.faint,
                       border: `1px solid ${on ? RS.cyan + "55" : RS.line}`,
                       background: on ? `${RS.cyan}14` : "transparent" }}>
-                    {name}
+                    {channelLabel(name)}
                   </button>
                 );
               })}
@@ -281,26 +316,52 @@ export default function MissionControlStream() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <RsPanel title="LIVE ANOMALY EVENTS (champion rule)">
               {live.events.length === 0 ? (
-                <div style={{ padding: 12, fontFamily: RS_MONO, fontSize: 11, color: RS.faint }}>
-                  None recorded — no NO_GO verdicts from the frozen champion on the live window.
+                <div style={{ margin: 12, padding: "10px 14px", border: `1px solid ${RS.green}`,
+                  borderRadius: 4, background: `${RS.green}12` }}>
+                  <div style={{ fontFamily: RS_MONO, fontSize: 12, fontWeight: 700, color: RS.green }}>
+                    ALL CLEAR
+                  </div>
+                  <div style={{ fontFamily: RS_MONO, fontSize: 10.5, color: RS.dim, marginTop: 3 }}>
+                    NO ANOMALY EVENTS in live window · model scoring normal
+                  </div>
                 </div>
               ) : (
                 <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {live.events.slice(0, 8).map((e, i) => (
-                    <div key={i} style={{ background: RS.panelAlt, borderRadius: 4, padding: 8,
-                      fontFamily: RS_MONO, fontSize: 11 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: RS.red }}>{e.channel_name}</span>
-                        <span style={{ color: RS.faint }}>{e.anomaly_class}</span>
+                  {live.events.slice(0, 8).map((e, i, arr) => {
+                    const windowStartS = serverMs / 1000 - WINDOW_S;
+                    const prevEndS = i === 0 ? windowStartS : arr[i - 1].end_t;
+                    const cleanS = Math.max(0, e.start_t - prevEndS);
+                    const anomalyDurS = Math.max(0, e.end_t - e.start_t);
+                    return (
+                      <div key={i} style={{ background: RS.panelAlt, borderRadius: 4, padding: 8,
+                        fontFamily: RS_MONO, fontSize: 11 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ color: RS.red }}>{channelLabel(e.channel_name)}</span>
+                          <span style={{ color: RS.faint }}>{e.anomaly_class}</span>
+                        </div>
+                        <div style={{ color: RS.dim, marginTop: 2 }}>
+                          {new Date(e.start_t * 1000).toISOString().slice(11, 19)}
+                          {" → "}
+                          {new Date(e.end_t * 1000).toISOString().slice(11, 19)} UTC
+                          {e.confidence != null ? ` · score ${e.confidence.toFixed(2)}` : ""}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, marginTop: 5, alignItems: "center" }}>
+                          {cleanS > 0 && (
+                            <span style={{ color: RS.green, border: `1px solid ${RS.green}44`,
+                              background: `${RS.green}10`, borderRadius: 3,
+                              padding: "1px 6px", fontSize: 9.5 }}>
+                              {fmtDuration(cleanS)} clean before
+                            </span>
+                          )}
+                          <span style={{ color: RS.red, border: `1px solid ${RS.red}44`,
+                            background: `${RS.red}10`, borderRadius: 3,
+                            padding: "1px 6px", fontSize: 9.5 }}>
+                            {fmtDuration(anomalyDurS)} anomaly
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ color: RS.dim }}>
-                        {new Date(e.start_t * 1000).toISOString().slice(11, 19)}
-                        {" → "}
-                        {new Date(e.end_t * 1000).toISOString().slice(11, 19)} UTC
-                        {e.confidence != null ? ` · score ${e.confidence.toFixed(2)}` : ""}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <div style={{ padding: "0 12px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

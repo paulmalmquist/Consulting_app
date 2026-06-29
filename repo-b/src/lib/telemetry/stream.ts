@@ -55,6 +55,25 @@ export const STREAM_REASON_HINT: Record<string, string> = {
   no_stream_data: "No stream data available for this environment.",
 };
 
+export const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
+  USLAB000058: "US Lab · cabin pressure",
+  USLAB000059: "US Lab · cabin temperature",
+  USLAB000062: "US Lab · ppO₂",
+  USLAB000063: "US Lab · ppN₂",
+  USLAB000064: "US Lab · ppCO₂",
+  AIRLOCK000049: "Airlock · crewlock pressure",
+  NODE3000005: "Node 3 · urine tank",
+  NODE3000008: "Node 3 · waste water tank",
+  NODE3000009: "Node 3 · clean water tank",
+  S4000001: "S4 · 1A solar array voltage",
+  S6000004: "S6 · 4B solar array voltage",
+  P4000001: "P4 · 2A solar array voltage",
+};
+
+export function channelLabel(channelName: string): string {
+  return CHANNEL_DISPLAY_NAMES[channelName] ?? channelName;
+}
+
 export interface StreamAssertion {
   job_name: string; table_name: string; assertion_name: string;
   passed: boolean; observed: string | null; threshold: string | null; run_ts: string;
