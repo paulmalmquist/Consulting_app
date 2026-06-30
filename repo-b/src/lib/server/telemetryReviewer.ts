@@ -75,7 +75,7 @@ export function buildTelemetryReviewerClaims(envId: string): {
     platform_user_id: "telemetry-reviewer",
     supabase_user_id: null,
     email: "telemetry-reviewer@local", // intentionally NOT @novendor.ai (never bootstraps admin)
-    display_name: "Telemetry Reviewer",
+    display_name: "Relativity",
     issued_at: now,
     expires_at: buildSessionExpiryTimestampSeconds(),
     platform_admin: false,

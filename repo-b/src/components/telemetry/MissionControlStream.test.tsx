@@ -131,9 +131,10 @@ describe("MissionControlStream — actionable fail-closed states (hardening)", (
     });
     render(<MissionControlStream />);
     await waitFor(() => expect(screen.queryByTestId("stream-unavailable")).toBeNull());
-    // CAPTURE source chip is shown (honest label), and the channel strip exists
+    // CAPTURE source chip is shown (honest label), and the channel strip exists — the strip now
+    // renders the friendly ISS node name (channelLabel), not the raw channel id.
     expect(screen.getByText(/CAPTURE/)).toBeInTheDocument();
-    expect(screen.getByText("USLAB000058")).toBeInTheDocument();
+    expect(screen.getAllByText(/US Lab · cabin pressure/).length).toBeGreaterThan(0);
   });
 
   it("relabels the poll control to Pause and exports the live anomaly events as CSV (8C)", async () => {
