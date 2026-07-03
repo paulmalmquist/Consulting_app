@@ -112,6 +112,16 @@ jobs:
       - name: .vercelignore collision guard
         run: node scripts/check_vercelignore_collisions.mjs
 
+      # Instruction-layer integrity: the routing registry, generated
+      # instruction-index/SKILLS_INDEX/wrappers, and routed doc paths must
+      # agree with disk. This validator existed since 2026-03 but was never
+      # CI-wired, letting the index drift silently (Story #758).
+      # NOTE: tests/instruction-routing/router.test.mjs is NOT wired yet — it
+      # additionally asserts CLAUDE.md <= 200 lines (currently ~450), which
+      # needs its own router-restructure ticket before it can gate.
+      - name: Instruction docs validation
+        run: node scripts/validate_instruction_docs.mjs
+
   frontend-quality:
     name: Frontend Lint + Typecheck + Unit
     runs-on: ubuntu-latest
