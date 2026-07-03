@@ -91,8 +91,8 @@ GOOGLE_APPLICATION_CREDENTIALS=~/.gcp-stage-sa.json \
   proxy → local backend (port 8001) → the linked Supabase with migration 10022 applied. The
   control-tower endpoints returned **200** (`gemma-tier`, `decisions`); **Gemma was not warmed**.
 - **How it was captured:** Playwright (chromium) logged in via `POST /api/auth/telemetry-login`
-  (local dev reviewer creds in `.env.local`: `TELEMETRY_REVIEWER_USERNAME=telemetry` /
-  `TELEMETRY_REVIEWER_PASSWORD=localdemo` / `TELEMETRY_REVIEWER_ENV_ID=telemetry-demo`,
+  (local dev reviewer creds in `.env.local`: `TELEMETRY_REVIEWER_USERNAME` /
+  `TELEMETRY_REVIEWER_PASSWORD` / `TELEMETRY_REVIEWER_ENV_ID` — local throwaway values, names-only here,
   `BM_SESSION_SECRET` dev value, `BOS_API_ORIGIN=http://127.0.0.1:8001`), then navigated to
   `/lab/env/telemetry-demo/telemetry/control-tower` and screenshotted full-page.
 - **Visual limitation:** an unrelated app-shell call `GET /api/auth/me` returns 500 under the scoped

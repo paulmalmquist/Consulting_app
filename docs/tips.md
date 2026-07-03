@@ -1159,9 +1159,9 @@ Set on Vercel: `echo "value" | npx vercel env add KEY production` then redeploy
 
 ### Production credentials
 
-| Credential | Value | Used for |
+| Credential | Where the value lives | Used for |
 |---|---|---|
-| `ADMIN_INVITE_CODE` | `SWvxEtVPMK_YanlB` | Login to `/admin` on paulmalmquist.com |
+| `ADMIN_INVITE_CODE` | Vercel env (production) — pull with `vercel env pull`; never store values in tracked files | Legacy `/admin` invite login (a prior value was committed here and in ENV_KEYS.md — rotation pending, Story #758) |
 
 ---
 
@@ -1541,7 +1541,7 @@ openclaw browser stop                     # quit browser
 openclaw browser start
 openclaw browser open "https://paulmalmquist.com/admin"
 openclaw browser snapshot          # find invite code input ref
-openclaw browser type <ref> "SWvxEtVPMK_YanlB"
+openclaw browser type <ref> "$ADMIN_INVITE_CODE"   # value from vercel env pull — never hardcode
 openclaw browser press Enter       # or click submit ref
 openclaw browser wait --text "Institutional Demo"
 openclaw browser screenshot        # verify admin dashboard
@@ -4886,3 +4886,11 @@ Redesign of `/lab/env/[envId]/telemetry/calibration` into an inspectable evidenc
 - **Missing provenance renders a specific reason, never a placeholder id.** When a `runId`/`table`/`artifactId` is genuinely not stored on the fixture, render `Not available — <specific reason>` via `FieldRow` (which already fails closed to "Not available"). The honesty of the page depends on never fabricating an id to fill a slot.
 - **CSS hero backdrop, no `<img>`.** Gradient wash + soft grid (`linear-gradient` background + `maskImage` fade) + ghosted SVG curves + a dark scrim, all `position:absolute; pointerEvents:none` behind `position:relative` content. No external URL, no broken-image state. (Telemetry already keeps real backdrops in `public/telemetry/backdrops/` as CSS `background-image`, never `<img>` — same principle.)
 - **Locked metric strings are load-bearing.** Tests do exact `getByText("17.33")` / `getByText("742")`. Keep the metric value as its own standalone text node and don't let another bare copy of the same string render outside a drawer (drawer bodies are unmounted when closed, so their duplicate values are safe). Don't round/rename/reorder headline metrics.
+
+## Safety-and-routing stabilization slice (2026-07-02, Story #758)
+
+- **Credential values never live in tracked files — not even "documented" ones.** This slice removed committed values from four places: the `ADMIN_INVITE_CODE` value (ENV_KEYS.md + a tips.md table + an openclaw browser snippet) and the admin password baked into `skills/chatgpt-agent-validate` and `skills/supervised-build-review-loop`. Skills that need credentials in produced prompts must pull them at generation time (`vercel env pull`) and substitute into a placeholder. `docs/reference/ENV_KEYS.md` is now a names-only index; a secret-shape guard in `scripts/check_repo_guardrails.mjs` (category `secret_shaped_doc_values`, scans docs/ skills/ .skills/ agents/ *.md, redacted findings, baseline for verified FPs) fails CI on new credential-shaped values. Both exposed values are in git history — rotation of `NOVENDOR_ADMIN_PASSWORD` and `ADMIN_INVITE_CODE` is pending Paul's approval.
+- **Skill retirement must repoint the router in the same PR.** The 2026-03 skill retirement (`e96945e3`) left 14 CLAUDE.md routes pointing at deleted skills for ~3 months (one, the wincom-cowork Outlook skill, never existed in this clone at all). Fixed by rerouting intents to surviving owners; `node scripts/validate_instruction_docs.mjs` is now a CI step (repo-guardrails job) so index drift fails PRs.
+- **`docs/instruction-index.md` and `skills/SKILLS_INDEX.md` are GENERATED** by `scripts/generate_instruction_artifacts.mjs` from `config/instruction-routing.json` + skill dirs on disk. Never hand-edit them — run `npm run generate:instructions` after changing routes or adding/removing a skill dir. The pre-existing hand-edits were exactly the drift the validator caught.
+- **`tests/instruction-routing/router.test.mjs` encodes a ≤200-line CLAUDE.md** plus a banned-strings list (retired domain, Mac paths, the removed Demo Lab backend dir). CLAUDE.md is ~450 lines, so the test stays un-wired in CI (documented in ci.yml) until a router-restructure ticket slims it. The banned-strings half passes as of this slice — keep historical annotations paraphrased, never the literal retired strings.
+- **All four Vercel projects are real** (verified `vercel project ls` 2026-07-02): `consulting-app` = the live frontend (novendor.ai, rootDir repo-b, auto-deploys from main); `repo-b` = the env-var store the credentials flow pulls from (no production URL); `backend` legacy/empty; `floyorker`. The earlier memory note "no separate repo-b project" was wrong.

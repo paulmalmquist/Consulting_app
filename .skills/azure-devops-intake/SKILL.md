@@ -29,7 +29,7 @@ when_not_to_use: "Do not use when the request is an explicit throwaway experimen
 surface_paths:
   - backend/
   - repo-b/
-  - repo-c/
+  - telemetry-platform/
   - excel-addin/
   - orchestration/
   - scripts/
@@ -108,7 +108,7 @@ Classify the request along three axes and emit the result.
   CRM/Consulting Ops · Excel Add-in · Orchestration/Codex Automation ·
   Marketing Site · CI-CD/Deployment · Design System.
 - **Risk**: Low / Medium / High.
-- **Affected repo surfaces**: `backend/` `repo-b/` `repo-c/` `excel-addin/`
+- **Affected repo surfaces**: `backend/` `repo-b/` `telemetry-platform/` `excel-addin/`
   `orchestration/` `scripts/` `docs/` `supabase/`.
 
 Valid transition → **locate**
@@ -224,7 +224,7 @@ ADO URL:       https://dev.azure.com/paulmalmquist1984/Novendor/_workitems/edit/
 [Plain-English restatement.]
 
 ## Repo Context
-Affected surfaces: [backend/ | repo-b/ | repo-c/ | excel-addin/ | orchestration/ | scripts/ | docs/ | supabase/]
+Affected surfaces: [backend/ | repo-b/ | telemetry-platform/ | excel-addin/ | orchestration/ | scripts/ | docs/ | supabase/]
 
 ## Acceptance Criteria
 ### Screen   — [visible/UI behavior, if applicable]

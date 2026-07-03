@@ -143,11 +143,11 @@ Before coding:
 9. Record the exact ChatGPT project name selected for the run.
 10. Determine the unique ChatGPT chat/thread being used for the review loop and record a stable identifier such as the visible title or other unambiguous label.
 11. When useful, use the ChatGPT GitHub extension with `consulting_app` as the repository context and record that choice in the scratchpad.
-12. Default the live-site verification target to `https://paulmalmquist.com` unless the task explicitly requires a different preview or production URL.
+12. Default the live-site verification target to `https://novendor.ai` unless the task explicitly requires a different preview or production URL.
 13. Plan to test in a fresh incognito browser session so prior auth, cache, and local state do not mask regressions.
 14. Use the default verification login unless the task says otherwise:
    - email: `info@novendor.ai`
-   - password: `winston2026!`
+   - password: the `NOVENDOR_ADMIN_PASSWORD` Vercel env var — pull at runtime (`vercel env pull`), never from a committed file
 15. Note any auth or URL override in the scratchpad before testing.
 16. Start the scratchpad.
 17. If the run may continue across handoffs, initialize `verification/loop_state/repe_supervised_loop.json` and `verification/loop_state/repe_supervised_loop.md`.
@@ -336,8 +336,8 @@ Use the repo's existing deploy workflow.
 Test the deployed result like a real user:
 
 - open a fresh incognito browser window
-- navigate to `https://paulmalmquist.com` unless the task explicitly targets another deploy URL
-- log in with `info@novendor.ai` / `winston2026!` unless the task explicitly provides different credentials
+- navigate to `https://novendor.ai` unless the task explicitly targets another deploy URL
+- log in with `info@novendor.ai` / the `NOVENDOR_ADMIN_PASSWORD` Vercel env var (pull at runtime — never from a committed file) unless the task explicitly provides different credentials
 - test the touched flows
 - test nearby regression-prone flows
 - record pass/fail, visible errors, UX gaps, data mismatches, broken states, and unauthorized or empty states

@@ -36,11 +36,16 @@ Before producing the prompt, collect these. If you can't fill in any of (1)–(4
 
 ## Login details (always include verbatim in produced prompt)
 
-`novendor.ai` uses Supabase email/password auth. Paul has chosen to include the demo-admin credentials directly in the prompt so the agent can run end-to-end without prompting — these are the same credentials documented in `docs/reference/ENV_KEYS.md` as `NOVENDOR_ADMIN_PASSWORD`.
+`novendor.ai` uses Supabase email/password auth. Paul has chosen to include the demo-admin credentials directly in the *produced prompt* so the agent can run end-to-end without prompting — but the credentials are **never stored in this file**. Pull the password at generation time and substitute it into the produced prompt:
+
+```bash
+vercel env pull /tmp/creds.env --environment production --yes   # from the linked project
+# read NOVENDOR_ADMIN_PASSWORD from the pulled file; insert into the produced prompt; delete the pull
+```
 
 - Public homepage: `https://novendor.ai`. Login entry point is the **person icon in the top-right of the header** — clicking it opens the login form. (Direct alternate: `https://novendor.ai/login`.)
 - Email: `info@novendor.ai`
-- Password: `winston2026!`
+- Password: `<NOVENDOR_ADMIN_PASSWORD — pulled at generation time, never committed>`
 - After login, the workspace home is at `/app`. If the agent sees "Application error", a blank page, or an unexpected redirect after login, tell it to stop and report — don't push past auth failures.
 - Hard limit: agent must not retry login more than twice. Failed login = stop and report.
 
@@ -58,7 +63,7 @@ Step 1 — Log in
 2. Click the person icon in the top-right of the header. The login form should open within a few seconds. If it doesn't, navigate directly to https://novendor.ai/login.
 3. Enter:
    - Email: info@novendor.ai
-   - Password: winston2026!
+   - Password: [NOVENDOR_ADMIN_PASSWORD — substituted at generation time from vercel env pull; never committed]
 4. Submit. You should land on /app or a workspace home. Confirm the page renders with navigation visible. If you see "Application error", a blank screen, or an unexpected redirect, stop and report — do not retry login more than twice.
 
 Step 2 — Navigate to the affected surface
@@ -120,4 +125,4 @@ If anything is ambiguous (multiple matching items, empty list, unexpected redire
 - Don't run the validation yourself — that defeats the purpose of independent verification. The whole point is a different agent looking with different judgment.
 - Don't make the agent's job easier by hand-waving — give it precise URLs, IDs, and observable criteria.
 - Don't chain this with `winston-post-deploy-verify` in the same session. That skill has Claude verify directly; this skill hands off to a different agent. Pick one per change.
-- Note on credentials: this skill bakes the demo-admin password (`winston2026!` for `info@novendor.ai`) into the produced prompt by Paul's explicit instruction. If the password ever rotates, update this skill's "Login details" section in one place — the produced prompts will pick it up automatically.
+- Note on credentials: the produced prompt includes the demo-admin password for `info@novendor.ai` by Paul's explicit instruction, but the value is pulled from the Vercel env (`NOVENDOR_ADMIN_PASSWORD`) at generation time and substituted into the placeholder — it is never stored in this file or anywhere tracked. If the password rotates, nothing here needs updating.

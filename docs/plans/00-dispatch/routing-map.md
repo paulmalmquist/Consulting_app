@@ -2,6 +2,11 @@
 
 When a raw idea arrives, classify it across these axes, then route to the correct plan folders.
 
+> Intake note: this map routes *plan documentation*. Work-item creation goes
+> through the CLAUDE.md Work Intake Gate (`.skills/azure-devops-intake/SKILL.md`
+> — R0/R1/R2 risk tiers, ADO Story + Session Brief for R2) — this map does not
+> replace it.
+
 ## Step 1 — Identify the environment(s)
 
 | Environment | Primary plan folder |
@@ -17,6 +22,12 @@ When a raw idea arrives, classify it across these axes, then route to the correc
 | Senior Housing | `senior-housing/` |
 | Demo Lab / RAG / Pipeline | `demo-lab/` |
 | Excel Add-in | `excel-addin/` |
+| Telemetry Platform (Relativity demo, tel_*/rel_* surfaces) | `telemetry-platform/` |
+| AI Provider Dispatch | `ai-provider-dispatch/` |
+| ADE Ops Orchestrator | `ade-ops-orchestrator/` |
+| Automated Data Engineering | `automated-data-engineering/` |
+| BigQuery schemas / events spine | `bigquery-schemas/` |
+| Investment Engine | `investment-engine/` |
 | MCP / Orchestration / AI Runtime | `mcp-orchestration-ai-runtime/` |
 | Marketing / Public site | `marketing-domain-routing/` |
 | Multiple environments / platform-wide | `01-shared-standards/` |

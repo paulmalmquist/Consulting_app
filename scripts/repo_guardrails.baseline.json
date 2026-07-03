@@ -180,5 +180,17 @@
     "repo-b/src/app/api/v1/trading/[entity]/route.ts",
     "repo-b/src/app/api/v1/trading/positions/[id]/close/route.ts",
     "repo-b/src/app/api/v1/trading/route.ts"
+  ],
+  "secret_shaped_doc_values": [
+    ".skills/idea-to-delivery/INSTALL.md::token-shaped::Cons...(14)",
+    "docs/AI_MC_dr.md::token-shaped::Cons...(14)",
+    "docs/WINSTON_CREDIT_DECISIONING_PROMPT.md::token-shaped::Cred...(23)",
+    "docs/plans/03-implementation-plans/active/telemetry-confluent-databricks-supabase-lineage.md::token-shaped::Paul...(20)",
+    "docs/receipts/marketing-redesign/wave-a/README.md::token-shaped::__In...(14)",
+    "docs/tips.md::password-literal::boot...(17)",
+    "docs/tips.md::password-literal::inpu...(28)",
+    "docs/tips.md::token-shaped::Crea...(27)",
+    "docs/tips.md::token-shaped::Envi...(21)",
+    "skills/novendor-icons-system/SKILL.md::token-shaped::RiBu...(15)"
   ]
 }
