@@ -102,12 +102,97 @@ async function collectDirectDbRouteFiles() {
   return matches.sort();
 }
 
+// Tracked instruction/knowledge surfaces must never contain credential-shaped
+// values (Story #758: an invite code and the admin password were committed in
+// docs/ and skills/). Names of env vars are fine; values are not. Findings are
+// reported redacted (first 4 chars + length), never the full token.
+const SECRET_DOC_ROOTS = ["docs", "skills", ".skills", "agents"];
+
+const KNOWN_CREDENTIAL_PATTERNS = [
+  /\bsk-[A-Za-z0-9]{20,}\b/g, // OpenAI-style
+  /\beyJ[A-Za-z0-9_-]{20,}\./g, // JWT header
+  /\bAKIA[0-9A-Z]{16}\b/g, // AWS access key
+  /\bghp_[A-Za-z0-9]{30,}\b/g, // GitHub PAT (classic)
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, // GitHub PAT (fine-grained)
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g, // Slack
+  /\bAIza[0-9A-Za-z_-]{30,}\b/g, // Google API key
+];
+
+function isEnvVarName(token) {
+  // NOVENDOR_ADMIN_PASSWORD-style names: uppercase + digits + underscores only.
+  return /^[A-Z0-9_]+$/.test(token);
+}
+
+function looksSecretShaped(token) {
+  // Mixed-case token with a digit or underscore and no separators that would
+  // mark it as a model id, URL, or path (hyphen/dot/slash/colon/@). Catches
+  // invite-code-shaped strings while passing identifiers: env var NAMES have
+  // no lowercase, and code identifiers (camelCase/snake_case/prefixed ids like
+  // dpl_/prj_/getReV2...) start with a lowercase letter.
+  if (token.length < 14) return false;
+  if (isEnvVarName(token)) return false;
+  if (/^[a-z]/.test(token)) return false;
+  return /[a-z]/.test(token) && /[A-Z]/.test(token) && /[0-9_]/.test(token);
+}
+
+function redact(token) {
+  return `${token.slice(0, 4)}…(${token.length})`;
+}
+
+async function collectSecretShapedDocValues() {
+  const findings = [];
+  for (const rootName of SECRET_DOC_ROOTS) {
+    const rootDir = path.join(ROOT, rootName);
+    let files;
+    try {
+      files = await walk(rootDir);
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      if (!file.endsWith(".md")) continue;
+      const text = await readIfExists(file);
+      const rel = normalize(path.relative(ROOT, file));
+
+      for (const pattern of KNOWN_CREDENTIAL_PATTERNS) {
+        for (const match of text.matchAll(pattern)) {
+          findings.push(`${rel}::known-credential::${redact(match[0])}`);
+        }
+      }
+
+      // Backticked mixed-entropy tokens (invite-code shaped).
+      for (const match of text.matchAll(/`([A-Za-z0-9_]{14,})`/g)) {
+        if (looksSecretShaped(match[1])) {
+          findings.push(`${rel}::token-shaped::${redact(match[1])}`);
+        }
+      }
+
+      // Password lines carrying a backticked literal that looks like an
+      // actual password value (not an env var NAME, placeholder, email,
+      // path/URL, or prose). Real passwords carry a digit or a symbol.
+      for (const line of text.split("\n")) {
+        if (!/password/i.test(line)) continue;
+        const literal = line.match(/`([^`]{6,})`/);
+        if (!literal) continue;
+        const value = literal[1];
+        if (isEnvVarName(value)) continue;
+        if (/^[<[$*]/.test(value) || /env var|vercel env|pull/i.test(line)) continue;
+        if (/[/@\s]/.test(value)) continue; // paths, URLs, emails, prose
+        if (!/[0-9]/.test(value) && !/[^A-Za-z0-9_-]/.test(value)) continue; // no digit and no symbol -> not password-shaped
+        findings.push(`${rel}::password-literal::${redact(value)}`);
+      }
+    }
+  }
+  return [...new Set(findings)].sort();
+}
+
 async function buildSnapshot() {
   return {
     schema_duplicate_prefixes: await collectSchemaDuplicatePrefixes(),
     page_local_api_base_files: await collectPageLocalApiBaseFiles(),
     global_this_server_files: await collectGlobalThisServerFiles(),
     direct_db_route_files: await collectDirectDbRouteFiles(),
+    secret_shaped_doc_values: await collectSecretShapedDocValues(),
   };
 }
 
@@ -137,6 +222,7 @@ async function main() {
     ["page_local_api_base_files", "new page-local API base usage"],
     ["global_this_server_files", "new globalThis server stores"],
     ["direct_db_route_files", "new direct DB route handlers"],
+    ["secret_shaped_doc_values", "credential-shaped values in tracked instruction/knowledge files (values belong in Vercel/Railway env stores, never in docs/skills/agents)"],
   ];
 
   let hasFailures = false;

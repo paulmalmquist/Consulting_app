@@ -19,27 +19,7 @@
     "522",
     "540"
   ],
-  "page_local_api_base_files": [
-    "repo-b/src/app/app/compliance/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/entities/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/intake/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/lineage/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/mappings/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/data-studio/schema/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/accounts/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/pain-points/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/sessions/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/systems/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/discovery/vendors/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/case-feed/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/graph/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/patterns/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/predictions/page.tsx",
-    "repo-b/src/app/lab/env/[envId]/pattern-intel/recommendations/page.tsx"
-  ],
+  "page_local_api_base_files": [],
   "global_this_server_files": [
     "repo-b/src/lib/server/eccStore.ts",
     "repo-b/src/lib/server/telemetryReviewer.ts"
@@ -180,5 +160,17 @@
     "repo-b/src/app/api/v1/trading/[entity]/route.ts",
     "repo-b/src/app/api/v1/trading/positions/[id]/close/route.ts",
     "repo-b/src/app/api/v1/trading/route.ts"
+  ],
+  "secret_shaped_doc_values": [
+    ".skills/idea-to-delivery/INSTALL.md::token-shaped::Cons…(14)",
+    "docs/AI_MC_dr.md::token-shaped::Cons…(14)",
+    "docs/WINSTON_CREDIT_DECISIONING_PROMPT.md::token-shaped::Cred…(23)",
+    "docs/plans/03-implementation-plans/active/telemetry-confluent-databricks-supabase-lineage.md::token-shaped::Paul…(20)",
+    "docs/receipts/marketing-redesign/wave-a/README.md::token-shaped::__In…(14)",
+    "docs/tips.md::password-literal::boot…(17)",
+    "docs/tips.md::password-literal::inpu…(28)",
+    "docs/tips.md::token-shaped::Crea…(27)",
+    "docs/tips.md::token-shaped::Envi…(21)",
+    "skills/novendor-icons-system/SKILL.md::token-shaped::RiBu…(15)"
   ]
 }
