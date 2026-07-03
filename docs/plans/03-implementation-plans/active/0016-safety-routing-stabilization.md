@@ -20,7 +20,9 @@ The inventory found (with command receipts):
 - `docs/reference/ENV_KEYS.md` rewritten as a **names-only index** (policy in its header); stays tracked.
 - CLAUDE.md login guidance + both skills now instruct runtime `vercel env pull`, never committed files.
 - New CI guard: `secret_shaped_doc_values` category in `scripts/check_repo_guardrails.mjs` — scans `docs/ skills/ .skills/ agents/` markdown for known credential patterns, invite-code-shaped tokens, and password literals; reports redacted (first 4 chars + length); 10 verified false positives baselined; self-tested with a seeded fixture (fails) and clean tree (passes).
-- **ROTATION PENDING PAUL'S APPROVAL** (values are in git history): `NOVENDOR_ADMIN_PASSWORD` (Supabase auth for info@novendor.ai), `ADMIN_INVITE_CODE` (Vercel env). Also flagged: unlabeled Confluent key file at repo root (per old ENV_KEYS note); `Makefile` runs DB targets with `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+- **ROTATION COMPLETE (2026-07-03, approved).** Both historically-exposed values rotated and verified end-to-end: `NOVENDOR_ADMIN_PASSWORD` (Supabase Auth for info@novendor.ai + Vercel reference copy) and `ADMIN_INVITE_CODE` (Vercel — all three targets: production, preview, development). Live smoke on novendor.ai: new code 200, old/empty 401, protected route 200. Set via the Vercel REST API after the `vercel env add` CLI proved to silently store empty values from stdin (lesson in tips.md). Redacted receipt: `docs/receipts/security/rotation-2026-07-03.md`.
+  - **Confluent key file**: identified only — `confluent)_kafka_api.json` does not exist on disk, is untracked, was never committed; `.gitignore` rule `*_api.json` covers it. No exposure, no action.
+  - **Still open** (separate follow-ups, not this slice): the Vercel-stored `SUPABASE_SERVICE_ROLE_KEY` is stale (401 — use the Supabase CLI for current keys); `Makefile` DB targets run `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
 ### Ticket 1 — router truth pass
 - Evidence table produced before editing (see the inventory's §15 Evidence Appendix; re-verified in this worktree: `repo-c` absent from HEAD tree, 9/9 spot-checked dead routes confirmed, validator exit 1).
