@@ -54,7 +54,10 @@ async function collectPageLocalApiBaseFiles() {
   const files = await walk(appDir);
   const matches = [];
   for (const file of files) {
-    if (!file.endsWith("/page.tsx")) continue;
+    // normalize() first: walk() yields backslash paths on Windows, where a
+    // "/page.tsx" suffix check silently matches nothing (and a --write-baseline
+    // run there would clobber the real entries).
+    if (!normalize(file).endsWith("/page.tsx")) continue;
     const text = await readIfExists(file);
     if (text.includes("NEXT_PUBLIC_BOS_API_URL") || text.includes("const API_BASE =")) {
       matches.push(normalize(path.relative(ROOT, file)));
@@ -136,7 +139,8 @@ function looksSecretShaped(token) {
 }
 
 function redact(token) {
-  return `${token.slice(0, 4)}…(${token.length})`;
+  // ASCII-only so baseline entries survive cross-platform tooling round-trips.
+  return `${token.slice(0, 4)}...(${token.length})`;
 }
 
 async function collectSecretShapedDocValues() {
