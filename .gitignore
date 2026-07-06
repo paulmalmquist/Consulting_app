@@ -240,3 +240,18 @@ confluent_key.json
 *_secret.json
 *_secrets.json
 secrets.json
+
+# Recurring local artifacts and root-level one-offs (Ticket 3 clean-tree, Story #762).
+# Root-anchored so they never hide legitimate source in subdirectories; verified no
+# tracked root *.zip/*.png/*.jpg exists. These are the binary/personal/scratch files
+# that repeatedly accumulate at the repo root and must never be committed.
+mlflow.db
+mlruns/
+/*.zip
+/*.png
+/*.jpg
+/*.jpeg
+# Specific strays: a scratch duplicate (the real note lives under _scratch/) and an
+# orphaned image duplicate under an otherwise-legitimate public assets dir.
+/relativity_questions_demo.md
+/repo-b/public/telemetry/vostok1.jpg
