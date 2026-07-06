@@ -43,10 +43,20 @@ The inventory found (with command receipts):
 - Every `skills/…/SKILL.md` path referenced by CLAUDE.md exists on disk (loop check, zero missing).
 - No secret value printed in any command output, commit, or doc (redaction verified).
 
+## Ticket 3 — clean-tree hygiene (2026-07-06, Story #762) — DONE
+
+Shared checkout was at detached HEAD `56376a52`, 0 ahead / 10 behind origin/main, dirty with 5 tracked-modified + 13 untracked items (10 concurrent worktrees in play). Evidence table produced before editing. Split: durable `.gitignore` + docs via this PR off main; shared-checkout in-place fixes for the manifest bug and immediate ignore protection.
+
+- **`.gitignore`** (this PR): root-anchored recurring-artifact guards — `mlflow.db`, `mlruns/`, `/*.zip`, `/*.png`, `/*.jpg`, `/*.jpeg` — plus specific strays `/relativity_questions_demo.md` and `/repo-b/public/telemetry/vostok1.jpg`. Verified no tracked root zip/png/jpg exists (globs hide zero legitimate source); `*.pdf` already covered the resume + Relativity expense receipts. All 6 junk paths now `git check-ignore`-confirmed; zero tracked files hidden.
+- **Stargate manifest**: `infra/confluent/stargate/manifest.json` had `cluster_type: STANDARD → PROTOBUF` — an export-script field bug (PROTOBUF is a schema format; cluster `lkc-gqpvvyv` is STANDARD). Reverted **only** that field in the shared checkout working tree (not this PR — the file belongs to the concurrent `feat/stargate-bridge-deploy` workstream); preserved the legitimate edits (new `anomaly.triage` subject, `connectors: []`, telemetry schema +6 proto fields).
+- **NOT swept** (concurrent workstreams, left intact): `M CLAUDE.md` / `SKILLS_INDEX.md` / `docs/tips.md` (gke-alive-demo registration on the old base — superseded by #500's generated artifacts on main), the telemetry-schema evolution, and all untracked stargate/demo/databricks assets.
+- **Ticketed, not committed**: the untracked `skills/gke-alive-demo/` and `skills/databricks-autoencoder-inspector/` (+ harness + receipts) — Story #763. They have no dangling route on main (verified), so committing them belongs to a feature-dev task that regenerates the instruction artifacts, not to tree hygiene.
+- **No user files moved or deleted.** Personal folio zip + Relativity expenses stay in place, now ignore-protected; recommend the owner relocate them out of the repo at leisure.
+
 ## Explicitly out of scope (tracked in the inventory's backlog)
 
-Ticket 3 (clean tree in the shared checkout — untracked skills, gitignore, the suspicious stargate manifest diff), Ticket 4 (next-build CI job), Tickets 5–10 (migration linter, post-deploy smoke harness, env-var census, ontology extractor, skill frontmatter normalization, graveyard wave 1), the CLAUDE.md ≤200-line restructure, the ai_gateway remount-vs-retire decision, and any credential rotation (approval-gated).
+Ticket 4 (next-build CI job), Tickets 5–10 (migration linter, post-deploy smoke harness, env-var census, ontology extractor, skill frontmatter normalization, graveyard wave 1), the CLAUDE.md ≤200-line restructure, the ai_gateway remount-vs-retire decision. Follow-ups #760 (stale service-role key) and #761 (Makefile TLS flag) remain open.
 
 ## Next session
 
-Ticket 3 + Ticket 4 (see inventory §11). Ticket 3 must run against the shared checkout `c:/Projects/Consulting_app` (its dirty tree holds the untracked routed skills), and must resolve the `infra/confluent/stargate/manifest.json` `cluster_type: STANDARD → PROTOBUF` diff before committing anything from that tree.
+Ticket 4 — add `next build` to CI (its own PR, per inventory §11). Land the two untracked skills (Story #763) via the generated-artifact flow when their owner is ready.
