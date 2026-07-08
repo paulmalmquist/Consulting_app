@@ -4950,3 +4950,23 @@ Redesign of `/lab/env/[envId]/telemetry/calibration` into an inspectable evidenc
   report is written") come back `unknown` from an honest artifact-only
   reviewer and force MAX_ITER instead of pass. Criteria belong to the
   change, not the harness; harness assertions live in the relay's own tests.
+
+## Relay guided-flow lessons (2026-07-08)
+
+- **A blanket `except Exception` around an interactive loop turns operator
+  stdin actions into fake crashes.** The relay's `run_loop` is wrapped in
+  `except Exception -> exit 6 ERROR`; an `EOFError` from `input()` at a
+  guided prompt (Ctrl+D, dropped SSH) got swallowed as an internal error
+  with no final report. Interactive prompt helpers must catch `EOFError`
+  themselves and map it to the safe default (decline), so the exception
+  never reaches a catch-all that misclassifies it. Test EOF paths.
+- **Editing a normalized view is not editing the source.** The relay let
+  operators edit normalized criteria, but the builder/reviewer prompts
+  embed the raw `plan_text`, which still held the original criteria section.
+  When you offer an edit of a derived artifact, propagate the edit back into
+  whatever the downstream actually consumes, or the two silently diverge.
+- **Refactors that unify output through one channel break stream
+  separation.** Routing every message through a single `notify()` moved
+  PR 1's stderr diagnostics to stdout. Keep a distinct error channel
+  (stderr) for failures so wrappers that separate the streams keep working;
+  add a byte-parity check against the prior version when a contract binds it.

@@ -218,6 +218,32 @@ def extract_criteria(plan_text: str) -> str | None:
     return "\n".join(lines[start:end]).strip()
 
 
+def replace_criteria_block(plan_text: str, new_block: str) -> str:
+    """Return plan_text with its criteria section replaced by `new_block`.
+
+    Used when the operator edits normalized criteria in guided mode: the
+    builder and reviewer prompts embed plan_text, so the original criteria
+    section must not linger and contradict the edit. If no criteria heading
+    is found, appends the block (should not happen post-intake)."""
+    lines = plan_text.splitlines()
+    start: int | None = None
+    level = 0
+    for i, line in enumerate(lines):
+        if CRITERIA_HEADING_RE.match(line.strip()):
+            start = i
+            level = len(HEADING_RE.match(line.strip()).group(1))  # type: ignore[union-attr]
+            break
+    if start is None:
+        return plan_text.rstrip() + "\n\n" + new_block.rstrip() + "\n"
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        m = HEADING_RE.match(lines[j].strip())
+        if m and len(m.group(1)) <= level:
+            end = j
+            break
+    return "\n".join(lines[:start] + [new_block.rstrip(), ""] + lines[end:]).rstrip() + "\n"
+
+
 def _kw_hit(kw: str, text: str) -> bool:
     """Multi-word keywords match as phrases. Short tokens need full word
     boundaries so 'ci' never fires inside 'decision' or 'db' inside

@@ -161,6 +161,52 @@ def test_fixture_loop_passes_end_to_end(tmp_repo: Path, tmp_path: Path):
     assert "RELAY_NOTE.md" in report
 
 
+def test_review_bundle_contains_run_artifacts(tmp_repo: Path, tmp_path: Path):
+    """The reviewer can verify run-level criteria: the bundle carries a
+    redacted run.json excerpt, this iteration's safety scan, the tests
+    summary, an artifact manifest, and an availability note."""
+    exit_code = run_relay(tmp_repo, tmp_path, ["--max-iterations", "2"])
+    assert exit_code == 0
+    run_dir = find_run_dir(tmp_repo)
+    bundle = run_dir / "iterations" / "01" / "review-bundle"
+    for name in (
+        "run-meta.json", "safety.json", "tests-summary.json",
+        "manifest.txt", "availability.md",
+    ):
+        assert (bundle / name).is_file(), f"missing bundle file {name}"
+
+    meta = json.loads((bundle / "run-meta.json").read_text(encoding="utf-8"))
+    assert meta["run_id"] == run_dir.name
+    assert meta["branch"].startswith("relay/")
+    assert "state" in meta
+    # Contract: run-meta is a whitelist EXCERPT, never a full run.json dump.
+    # run.json carries plan_path (absolute) and fixture at this point; a
+    # regression to a blind dump would leak them into the reviewer bundle.
+    full = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    assert "plan_path" in full and "plan_path" not in meta
+    assert "fixture" in full and "fixture" not in meta
+    ALLOWED = {
+        "run_id", "relay_version", "title", "base_ref", "base_sha", "branch",
+        "worktree", "max_iterations", "escalations", "providers",
+        "codex_model", "state",
+    }
+    assert set(meta) <= ALLOWED
+
+    assert json.loads((bundle / "safety.json").read_text(encoding="utf-8")) == []
+
+    manifest = (bundle / "manifest.txt").read_text(encoding="utf-8")
+    assert "run.json" in manifest
+    assert "plan/original-plan.md" in manifest
+    assert "iterations/01/safety.json" in manifest
+
+    prompt = (run_dir / "iterations" / "01" / "review-prompt.md").read_text(encoding="utf-8")
+    assert "Run metadata" in prompt
+    assert run_dir.name in prompt
+    assert "Artifact availability" in prompt
+    assert "final-report.md" in prompt  # availability note names post-review artifacts
+    assert "AFTER this review" in prompt
+
+
 def test_fixture_loop_max_iterations_exit_1(tmp_repo: Path, tmp_path: Path):
     # Only one iteration allowed; fixture iteration 1 says "continue".
     exit_code = run_relay(tmp_repo, tmp_path, ["--max-iterations", "1"])
@@ -338,6 +384,29 @@ def test_draft_pr_never_fires_after_safety_stop(tmp_repo: Path, tmp_path: Path):
     wt = next((tmp_path / "w7").iterdir())
     log = _git(wt, "log", "--oneline")
     assert len(log.stdout.strip().splitlines()) == 1  # seed commit only
+
+
+def test_pass_with_no_changes_prints_skip_message(tmp_repo: Path, tmp_path: Path, capsys):
+    """A PASS whose builder changed nothing still explains why no PR opened,
+    restoring the PR 1 '[pr] skipped: no changes to commit' line."""
+    # Fixture: builder writes no files, reviewer passes on iteration 1.
+    fx = tmp_path / "fx-empty"
+    (fx / "iterations" / "1").mkdir(parents=True)
+    fx.joinpath("plan.md").write_text(
+        (FIXTURE / "plan.md").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (fx / "iterations" / "1" / "review.json").write_text(verdict_json("pass"), encoding="utf-8")
+    code = main([
+        "--repo-root", str(tmp_repo), "--plan", str(fx / "plan.md"),
+        "--fixture", str(fx), "--base", "HEAD", "--draft-pr",
+        "--worktree-root", str(tmp_path / "we"), "--max-iterations", "1",
+    ])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "no changes to commit" in out
+    run_dir = find_run_dir(tmp_repo)
+    assert not (run_dir / "report" / "pr.json").exists()
+    assert not (run_dir / "report" / "MANUAL_PR.md").exists()
 
 
 def test_missing_clis_exit_3(tmp_repo: Path, tmp_path: Path, monkeypatch):

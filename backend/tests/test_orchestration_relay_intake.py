@@ -128,3 +128,27 @@ def test_safe_slug():
     assert safe_slug("Add Widget Counter!") == "add-widget-counter"
     assert safe_slug("///") == "task"
     assert len(safe_slug("a" * 100)) <= 24
+
+
+def test_replace_criteria_block_swaps_section_preserving_rest():
+    plan = (
+        "# Title\n\n## Requested work\n\nBuild the thing.\n\n"
+        "## Acceptance Criteria\n\n### Screen\n- old bullet\n\n"
+        "## Out of scope\n\n- nothing else\n"
+    )
+    new = "## Acceptance Criteria\n\n### API\n- fresh bullet\n"
+    out = intake.replace_criteria_block(plan, new)
+    assert "old bullet" not in out
+    assert "fresh bullet" in out
+    # Surrounding sections survive.
+    assert "## Requested work" in out
+    assert "Build the thing." in out
+    assert "## Out of scope" in out
+    assert "nothing else" in out
+
+
+def test_replace_criteria_block_appends_when_absent():
+    plan = "# Title\n\nNo criteria heading here.\n"
+    out = intake.replace_criteria_block(plan, "## Acceptance Criteria\n\n### API\n- x\n")
+    assert "No criteria heading here." in out
+    assert "### API" in out

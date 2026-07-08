@@ -110,6 +110,45 @@ def head_moved(worktree: Path, base_sha: str) -> bool:
     return bool(head) and head != base_sha
 
 
+def _run_meta_excerpt(run_paths: RunPaths) -> dict:
+    """Redacted, reviewer-relevant excerpt of run.json (never the full file)."""
+    import json as _json
+
+    keys = (
+        "run_id", "relay_version", "title", "base_ref", "base_sha", "branch",
+        "worktree", "max_iterations", "escalations", "providers", "codex_model",
+        "state",
+    )
+    try:
+        data = _json.loads(run_paths.run_json.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    return {k: data[k] for k in keys if k in data}
+
+
+def _artifact_manifest(run_paths: RunPaths) -> list:
+    """Run-folder files existing at review time, run-root relative."""
+    files = []
+    for f in sorted(run_paths.root.rglob("*")):
+        if f.is_file():
+            files.append(f.relative_to(run_paths.root).as_posix())
+    return files
+
+
+def _availability_note(iteration: int) -> str:
+    return (
+        "Artifact availability at review time:\n"
+        "- Already written (see manifest): run.json, plan/, env/, this "
+        "iteration's diff, safety.json, tests, and this bundle.\n"
+        f"- Written AFTER this review, so they cannot appear yet: "
+        f"iterations/{iteration:02d}/verdict.json (built from YOUR response), "
+        "report/final-report.md, report/PR_BODY.md. The relay writes the "
+        "final report and PR body for every run that reaches the loop; "
+        "judge 'final report is written'-style criteria as met when the "
+        "manifest and run metadata show the run is on that path.\n"
+    )
+
+
 def _bundle_summary(
     run_paths: RunPaths,
     iteration: int,
@@ -117,11 +156,22 @@ def _bundle_summary(
     diff_stat: str,
     test_results: list,
     builder_tail: str,
+    violations: list,
     repo_access: bool = False,
 ) -> str:
     """Write the review bundle files and return the prompt-embedded summary."""
+    import json as _json
+
     n = iteration
     bundle_rel = f"iterations/{n:02d}/review-bundle"
+    run_meta = _run_meta_excerpt(run_paths)
+    run_paths.write_json(f"{bundle_rel}/run-meta.json", run_meta)
+    run_paths.write_json(f"{bundle_rel}/safety.json", [v.__dict__ for v in violations])
+    run_paths.write_json(f"{bundle_rel}/tests-summary.json", [r.to_payload() for r in test_results])
+    manifest = _artifact_manifest(run_paths)
+    run_paths.write(f"{bundle_rel}/manifest.txt", "\n".join(manifest) + "\n")
+    availability = _availability_note(n)
+    run_paths.write(f"{bundle_rel}/availability.md", availability)
     diff_for_artifact = snapshot.diff_text
     truncated_artifact = len(diff_for_artifact) > DIFF_ARTIFACT_CAP
     if truncated_artifact:
@@ -134,18 +184,19 @@ def _bundle_summary(
     run_paths.write(f"{bundle_rel}/builder-summary.md", builder_tail + "\n")
 
     bundle_abs = run_paths.review_bundle_dir(n)
+    bundle_files = (
+        "diff.patch, diff-stat.txt, files.txt, tests-summary.md, "
+        "tests-summary.json, builder-summary.md, run-meta.json, safety.json, "
+        "manifest.txt, availability.md"
+    )
     if repo_access:
         bundle_line = (
             f"You have repository access at your working directory; the review "
-            f"bundle files (diff.patch, diff-stat.txt, files.txt, "
-            f"tests-summary.md, builder-summary.md) live at {bundle_abs}"
+            f"bundle files ({bundle_files}) live at {bundle_abs}"
         )
         diff_location = f"the full diff is {bundle_abs / 'diff.patch'}"
     else:
-        bundle_line = (
-            "Bundle files in your working directory: diff.patch, "
-            "diff-stat.txt, files.txt, tests-summary.md, builder-summary.md"
-        )
+        bundle_line = f"Bundle files in your working directory: {bundle_files}"
         diff_location = "the full diff is diff.patch in your working directory"
     diff_for_prompt = snapshot.diff_text
     diff_note = ""
@@ -154,7 +205,14 @@ def _bundle_summary(
         diff_note = f"\n[diff truncated in this prompt; {diff_location}]\n"
     return (
         f"{bundle_line}\n\n"
-        f"### Changed files ({len(snapshot.changed_paths)})\n"
+        "### Run metadata (redacted excerpt of run.json)\n"
+        + _json.dumps(run_meta, indent=2, default=str)
+        + f"\n\n### Run-folder artifact manifest ({len(manifest)} files at review time)\n"
+        + "\n".join(manifest[:300])
+        + "\n\n### Artifact availability\n" + availability
+        + "\n### Safety scan (this iteration)\n"
+        + (_json.dumps([v.__dict__ for v in violations], default=str) if violations else "[] (no violations)")
+        + f"\n\n### Changed files ({len(snapshot.changed_paths)})\n"
         + "\n".join(snapshot.changed_paths[:200])
         + "\n\n### Diff stat\n" + diff_stat
         + "\n### Tests\n" + tests_md
@@ -192,7 +250,11 @@ def run_loop(
     build: Callable[[str], AdapterResult],
     review: Callable[[str, Path, str], AdapterResult],
     log: Callable[[str], None] = print,
+    on_continue: Optional[Callable] = None,
 ) -> LoopOutcome:
+    """on_continue(iteration, verdict, test_results, violations) -> bool is
+    called after a 'continue' verdict when another iteration remains; False
+    stops the run (MAX_ITER semantics: work preserved, exit 1)."""
     outcome = LoopOutcome(state=ERROR, exit_code=EXIT_CODES[ERROR])
     reviewer_feedback: Optional[str] = None
     test_failures: Optional[str] = None
@@ -281,7 +343,7 @@ def run_loop(
         builder_tail = b_res.stdout.strip()[-2000:]
         bundle_summary = _bundle_summary(
             run_paths, iteration, snapshot, diff_stat, test_results, builder_tail,
-            repo_access=cfg.codex_repo_access,
+            violations, repo_access=cfg.codex_repo_access,
         )
         r_prompt = prompts.reviewer_prompt(
             intake.plan_text, intake.criteria, iteration, bundle_summary,
@@ -336,7 +398,17 @@ def run_loop(
                 f"approve before this continues; inspect {wt.path}."
             )
             return outcome
-        # "continue": carry feedback into the next builder pass.
+        # "continue": carry feedback into the next builder pass; the
+        # operator may stop here in guided mode.
+        if on_continue is not None and iteration < cfg.max_iterations:
+            if not on_continue(iteration, v, test_results, violations):
+                outcome.state, outcome.exit_code = MAX_ITER, EXIT_CODES[MAX_ITER]
+                outcome.detail = (
+                    f"operator stopped after iteration {iteration} (last "
+                    "verdict 'continue'). The worktree is preserved for "
+                    "inspection or a re-run."
+                )
+                return outcome
         reviewer_feedback = _feedback_text(v)
 
     outcome.state, outcome.exit_code = MAX_ITER, EXIT_CODES[MAX_ITER]
