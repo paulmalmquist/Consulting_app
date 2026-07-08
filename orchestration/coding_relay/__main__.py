@@ -2,10 +2,13 @@
 
     python -m orchestration.coding_relay --plan docs/plans/.../0016-foo.md
     python scripts/coding_relay.py --plan 0016 --max-iterations 3
+    python scripts/coding_relay.py            # guided mode on a TTY
 
-Run with no arguments for usage plus the numbered list of active plans.
-Exit codes: 0 pass, 1 max-iterations, 2 intake/preflight, 3 missing CLI,
-4 safety stop, 5 blocked/risk escalation, 6 provider/internal error.
+Run with no arguments on a TTY for the guided operator flow; without a TTY
+it prints usage plus the numbered list of active plans.
+Exit codes: 0 pass, 1 stopped on continue (max iterations or operator), 2
+intake/preflight, 3 missing CLI, 4 safety stop, 5 blocked/risk escalation,
+6 provider/internal error.
 """
 from __future__ import annotations
 
@@ -18,8 +21,6 @@ from orchestration.coding_relay import RELAY_VERSION, intake as intake_mod
 from orchestration.coding_relay.intake import IntakeError
 from orchestration.coding_relay.loop import (
     LoopConfig,
-    MAX_ITER,
-    PASS,
     collect_snapshot,
     run_loop,
 )
@@ -51,7 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--plan", help="Plan file path, or a filename prefix (e.g. 0016) in docs/plans/03-implementation-plans/active/")
     p.add_argument("--paste-file", help="Read the plan text from this file instead of --plan")
     p.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT, help=argparse.SUPPRESS)
-    p.add_argument("--yes", action="store_true", help="Accepted for forward compatibility (PR 1 is non-interactive)")
+    p.add_argument("--yes", action="store_true",
+                   help="Guided mode: accept prompts non-interactively (never bypasses hard failures)")
     p.add_argument("--max-iterations", type=int, default=3, help="Build/review iterations cap (default 3)")
     p.add_argument("--base", default="origin/main", help="Base ref for the relay worktree (default origin/main)")
     p.add_argument("--allow-stale-base", action="store_true", help="Proceed on the local base ref if git fetch fails (recorded)")
@@ -86,7 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
 def print_no_args_help(repo_root: Path) -> int:
     print("Coding Relay: give it a plan with explicit success criteria.\n")
     print("Usage:  python -m orchestration.coding_relay --plan <path|NNNN>")
-    print("        python scripts/coding_relay.py --plan <path|NNNN>\n")
+    print("        python scripts/coding_relay.py --plan <path|NNNN>")
+    print("        python scripts/coding_relay.py          (guided mode, TTY)\n")
     plans = intake_mod.list_active_plans(repo_root)
     if plans:
         print("Active plans (docs/plans/03-implementation-plans/active/):")
@@ -102,14 +105,9 @@ def print_no_args_help(repo_root: Path) -> int:
     return 2
 
 
-def do_dry_run(args, result) -> int:
-    """Strict dry run: nothing written, no worktree, no providers.
-    Capability probes only with --probe-clis."""
-    print(f"[dry-run] plan accepted: {result.title} (slug {result.slug})")
-    print("[dry-run] normalized acceptance criteria:\n")
-    print(result.criteria.to_markdown())
-    cfg = PreflightConfig(
-        repo_root=args.repo_root,
+def _preflight_config(args, result, read_only: bool = False) -> PreflightConfig:
+    return PreflightConfig(
+        repo_root=args.repo_root.resolve(),
         base_ref=args.base,
         allow_stale_base=args.allow_stale_base,
         pr_requested=not args.no_pr,
@@ -117,9 +115,22 @@ def do_dry_run(args, result) -> int:
         worktree_root=args.worktree_root,
         fixture_mode=args.fixture is not None,
         fixture_dir=args.fixture,
-        read_only=True,
+        read_only=read_only,
     )
-    checks = run_preflight(cfg)
+
+
+def _preflight_exit_code(checks) -> int:
+    failed_names = {c.name for c in checks.failures()}
+    return 3 if {"claude-cli", "codex-cli"} & failed_names else 2
+
+
+def do_dry_run(args, result) -> int:
+    """Strict dry run: nothing written, no worktree, no providers.
+    Capability probes only with --probe-clis."""
+    print(f"[dry-run] plan accepted: {result.title} (slug {result.slug})")
+    print("[dry-run] normalized acceptance criteria:\n")
+    print(result.criteria.to_markdown())
+    checks = run_preflight(_preflight_config(args, result, read_only=True))
     for c in checks.checks:
         print(f"[preflight] {c.name}: {c.status} - {c.detail}")
     wt_root = args.worktree_root or default_worktree_root(args.repo_root)
@@ -146,56 +157,30 @@ def do_dry_run(args, result) -> int:
                 print(f"[probe] {name}: not on PATH")
     # A dry run is a validation gate: mirror the real exit codes.
     if checks.failed:
-        failed_names = {c.name for c in checks.failures()}
-        code = 3 if {"claude-cli", "codex-cli"} & failed_names else 2
+        code = _preflight_exit_code(checks)
         print(f"\n[dry-run] wrote nothing, changed nothing. Preflight FAILED; a real run would exit {code}.")
         return code
     print("\n[dry-run] wrote nothing, changed nothing. Exit 0.")
     return 0
 
 
-def main(argv: list | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    parser = build_parser()
-    args = parser.parse_args(argv)
+def execute_run(args, result, ui) -> int:
+    """The shared pipeline after intake: preflight -> receipts -> worktree ->
+    loop -> finalize. `ui` supplies the operator decision points; AutoUI
+    reproduces the non-interactive policy exactly."""
     repo_root: Path = args.repo_root.resolve()
 
-    if not args.plan and not args.paste_file:
-        return print_no_args_help(repo_root)
+    # ---- PREFLIGHT (hard failures stop before any mutation, always)
+    checks = run_preflight(_preflight_config(args, result))
+    from orchestration.coding_relay.guided import render_preflight
 
-    # ---- INTAKE (exit 2 on refusal)
-    try:
-        result = intake_mod.load_plan(repo_root, args.plan, args.paste_file)
-    except IntakeError as exc:
-        print(f"[intake] REFUSED: {exc}", file=sys.stderr)
-        return 2
-    print(f"[intake] plan: {result.title}")
-    print(f"[intake] criteria: {len(result.criteria.checklist())} normalized "
-          f"(sections with content: "
-          f"{sum(1 for _, v in result.criteria.sections.items() if v) + (1 if result.criteria.general else 0)})")
-
-    if args.dry_run:
-        return do_dry_run(args, result)
-
-    # ---- PREFLIGHT
-    pf_cfg = PreflightConfig(
-        repo_root=repo_root,
-        base_ref=args.base,
-        allow_stale_base=args.allow_stale_base,
-        pr_requested=not args.no_pr,
-        plan_path=result.plan_path,
-        worktree_root=args.worktree_root,
-        fixture_mode=args.fixture is not None,
-        fixture_dir=args.fixture,
-    )
-    checks = run_preflight(pf_cfg)
-    for c in checks.checks:
-        print(f"[preflight] {c.name}: {c.status} - {c.detail}")
+    render_preflight(checks, ui.notify)
     if checks.failed:
-        failed_names = {c.name for c in checks.failures()}
-        if {"claude-cli", "codex-cli"} & failed_names:
-            return 3
-        print("[preflight] FAILED; nothing was created.", file=sys.stderr)
+        ui.error("[preflight] FAILED; nothing was created.")
+        return _preflight_exit_code(checks)
+    warns = [c for c in checks.checks if c.status == "warn"]
+    if warns and not ui.confirm_warnings(warns):
+        ui.notify("Stopped at preflight warnings. Nothing was created.")
         return 2
 
     # ---- RUN FOLDER (refuse to reuse an existing run's receipts)
@@ -205,6 +190,12 @@ def main(argv: list | None = None) -> int:
         suffix += 1
         run_id = f"{new_run_id(result.slug)}-{suffix}"
     run_paths = RunPaths(repo_root, run_id)
+
+    wt_root = args.worktree_root or default_worktree_root(repo_root)
+    if not ui.confirm_start(f"a relay worktree under {wt_root}"):
+        ui.notify("Stopped before worktree creation. Nothing was created.")
+        return 2
+
     run_paths.write("plan/original-plan.md", result.plan_text)
     run_paths.write("plan/normalized-criteria.md", result.criteria.to_markdown())
     run_paths.write_json("env/preflight.json", checks.to_payload())
@@ -232,19 +223,19 @@ def main(argv: list | None = None) -> int:
         max_iterations=args.max_iterations, escalations=escalation_flags,
         codex_model=args.codex_model, state="STARTED",
     )
-    print(f"[run] receipts: {run_paths.root}")
+    ui.notify(f"[run] receipts: {run_paths.root}")
 
     # ---- WORKTREE
     try:
         wt = create_worktree(repo_root, result.slug, args.base, args.worktree_root)
     except RuntimeError as exc:
-        print(f"[worktree] FAILED: {exc}", file=sys.stderr)
+        ui.error(f"[worktree] FAILED: {exc}")
         run_paths.update_run_json(state="ERROR", detail=str(exc), exit_code=6)
         return 6
-    print(f"[worktree] {wt.path} (branch {wt.branch}, base {wt.base_sha[:12]})")
+    ui.notify(f"[worktree] {wt.path} (branch {wt.branch}, base {wt.base_sha[:12]})")
     links = ensure_deps_links(repo_root, wt)
     for name, detail in links.items():
-        print(f"[worktree] deps {name}: {detail}")
+        ui.notify(f"[worktree] deps {name}: {detail}")
     run_paths.update_run_json(branch=wt.branch, worktree=str(wt.path), base_sha=wt.base_sha)
 
     # ---- PROVIDERS
@@ -268,7 +259,7 @@ def main(argv: list | None = None) -> int:
             claude_exe, wt.path, args.claude_permission_mode, args.claude_model, claude_caps,
         )
         if model_note:
-            print(f"[providers] {model_note}")
+            ui.notify(f"[providers] {model_note}")
         run_paths.update_run_json(
             providers="cli",
             claude_model=args.claude_model or "(cli default)",
@@ -304,21 +295,22 @@ def main(argv: list | None = None) -> int:
         primary_root=repo_root,
     )
     try:
-        outcome = run_loop(loop_cfg, result, wt, run_paths, build_fn, review_fn)
+        outcome = run_loop(
+            loop_cfg, result, wt, run_paths, build_fn, review_fn,
+            log=ui.notify, on_continue=ui.on_continue,
+        )
     except AdapterUnavailable as exc:
-        print(f"[loop] provider CLI vanished mid-run: {exc}", file=sys.stderr)
+        ui.error(f"[loop] provider CLI vanished mid-run: {exc}")
         run_paths.update_run_json(state="ERROR", exit_code=3, detail=str(exc))
         return 3
     except Exception as exc:  # noqa: BLE001 - exit-code table integrity
-        print(f"[loop] internal error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        ui.error(f"[loop] internal error: {type(exc).__name__}: {exc}")
         run_paths.update_run_json(state="ERROR", exit_code=6, detail=f"{type(exc).__name__}: {exc}")
-        print(removal_instructions(repo_root, wt))
+        ui.notify(removal_instructions(repo_root, wt))
         return 6
 
-    # ---- FINALIZE: report + PR body always. PR only on PASS, or on
-    # MAX_ITER with --draft-pr. Never after a safety stop, block, or error:
-    # pushing a diff the scanner flagged (e.g. secrets) would defeat the
-    # whole safety layer, and --no-pr always wins.
+    # ---- FINALIZE: report + PR body always. The PR decision belongs to the
+    # ui policy, which can never allow it after SAFETY_STOP/BLOCKED/ERROR.
     snapshot = collect_snapshot(wt.path, wt.base_sha)
     last_verdict = outcome.verdicts[-1] if outcome.verdicts else None
     summary = RunSummary(
@@ -353,26 +345,33 @@ def main(argv: list | None = None) -> int:
         iterations_run=outcome.iterations_run,
     )
 
-    do_pr = (not args.no_pr) and (
-        outcome.state == PASS or (args.draft_pr and outcome.state == MAX_ITER)
-    )
-    if do_pr and outcome.state == PASS and last_verdict and not last_verdict.should_open_pr:
-        # The reviewer passed the work but explicitly voted against a PR
-        # (e.g. needs a human sign-off first). Honor it unless forced.
-        if not args.draft_pr:
-            do_pr = False
-            print("[pr] skipped: reviewer set should_open_pr=false (pass --draft-pr to override)")
-    if do_pr and snapshot.changed_paths:
+    # Compact outcome block (all modes).
+    if last_verdict:
+        counts = {"met": 0, "unmet": 0, "unknown": 0, "not_applicable": 0}
+        for c in last_verdict.criteria_status:
+            counts[c.get("status", "unknown")] = counts.get(c.get("status", "unknown"), 0) + 1
+        ui.notify(
+            f"[outcome] criteria: {counts['met']} met / {counts['unmet']} unmet / "
+            f"{counts['unknown']} unknown / {counts['not_applicable']} n/a "
+            f"(of {len(result.criteria.checklist())} normalized)"
+        )
+        for flag in last_verdict.risk_flags[:5]:
+            ui.notify(f"[outcome] risk flag: {flag[:160]}")
+
+    want_pr = ui.decide_pr(outcome.state, last_verdict)
+    if want_pr and not snapshot.changed_paths:
+        ui.notify("[pr] skipped: no changes to commit")
+    if want_pr and snapshot.changed_paths:
         committed, commit_detail = pr_mod.commit_all(wt.path, result.slug, run_id, result.title)
         if committed:
             pushed, push_detail = pr_mod.push(wt.path, wt.branch)
-            print(f"[pr] {push_detail}")
+            ui.notify(f"[pr] {push_detail}")
             if pushed:
                 ok, pr_detail = pr_mod.create_draft_pr(
                     wt.path, wt.branch, result.title, run_paths.report_dir / "PR_BODY.md",
                 )
                 if ok:
-                    print(f"[pr] draft PR: {pr_detail}")
+                    ui.notify(f"[pr] draft PR: {pr_detail}")
                     run_paths.write_json("report/pr.json", {"url": pr_detail, "draft": True})
                 else:
                     run_paths.write(
@@ -382,7 +381,7 @@ def main(argv: list | None = None) -> int:
                             run_paths.report_dir / "PR_BODY.md", pr_detail,
                         ),
                     )
-                    print(f"[pr] fell back to MANUAL_PR.md: {pr_detail}")
+                    ui.notify(f"[pr] fell back to MANUAL_PR.md: {pr_detail}")
             else:
                 run_paths.write(
                     "report/MANUAL_PR.md",
@@ -391,16 +390,46 @@ def main(argv: list | None = None) -> int:
                         run_paths.report_dir / "PR_BODY.md", push_detail,
                     ),
                 )
-                print(f"[pr] fell back to MANUAL_PR.md: {push_detail}")
+                ui.notify(f"[pr] fell back to MANUAL_PR.md: {push_detail}")
         else:
-            print(f"[pr] skipped: {commit_detail}")
-    elif do_pr:
-        print("[pr] skipped: no changes to commit")
+            ui.notify(f"[pr] skipped: {commit_detail}")
 
-    print(f"\n[done] {outcome.state} (exit {outcome.exit_code}). {outcome.detail}")
-    print(f"[done] final report: {run_paths.report_dir / 'final-report.md'}")
-    print(removal_instructions(repo_root, wt))
+    ui.notify(f"\n[done] {outcome.state} (exit {outcome.exit_code}). {outcome.detail}")
+    ui.notify(f"[done] final report: {run_paths.report_dir / 'final-report.md'}")
+    ui.notify(removal_instructions(repo_root, wt))
     return outcome.exit_code
+
+
+def main(argv: list | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    repo_root: Path = args.repo_root.resolve()
+
+    from orchestration.coding_relay import guided
+
+    if not args.plan and not args.paste_file:
+        if guided.stdin_is_tty() and not args.dry_run:
+            return guided.run_guided(args)
+        return print_no_args_help(repo_root)
+
+    # ---- INTAKE (exit 2 on refusal)
+    try:
+        result = intake_mod.load_plan(repo_root, args.plan, args.paste_file)
+    except IntakeError as exc:
+        print(f"[intake] REFUSED: {exc}", file=sys.stderr)
+        return 2
+    print(f"[intake] plan: {result.title}")
+    print(f"[intake] criteria: {len(result.criteria.checklist())} normalized "
+          f"(sections with content: "
+          f"{sum(1 for _, v in result.criteria.sections.items() if v) + (1 if result.criteria.general else 0)})")
+
+    if args.dry_run:
+        return do_dry_run(args, result)
+
+    from orchestration.coding_relay.guided import AutoUI
+
+    return execute_run(args, result, AutoUI(args))
 
 
 if __name__ == "__main__":

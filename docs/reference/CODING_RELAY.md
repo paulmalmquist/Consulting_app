@@ -12,13 +12,15 @@ deploys.
 ## Launch
 
 ```
+python scripts/coding_relay.py                            # guided mode (TTY)
 python -m orchestration.coding_relay --plan <path|NNNN>   # from repo root
 python scripts/coding_relay.py --plan <path|NNNN>         # from anywhere
 make relay ARGS="--plan 0016"                             # POSIX shells
 ```
 
-Run with no arguments to get usage plus a numbered list of the active plans
-in `docs/plans/03-implementation-plans/active/`.
+With no arguments on a terminal the relay enters guided mode (next
+section). Without a TTY it prints usage plus the numbered active-plan
+list.
 
 ## Required CLIs
 
@@ -59,6 +61,45 @@ Provide the plan by path (`--plan docs/plans/.../0016-foo.md`), by active-dir
 prefix (`--plan 0016`), or as pasted text saved to a file
 (`--paste-file my-task.md`).
 
+## Guided mode
+
+Launch with no arguments on a TTY and the relay walks you through the whole
+run:
+
+1. Pick a plan from the numbered active-plan menu, or `[p]` paste plan text
+   (finish with a line containing only `END`), `[f]` give a file path,
+   `[q]` quit.
+2. Preview the normalized acceptance criteria, then answer
+   `Use these criteria? [Y/e/n]`. `e` writes the criteria to a temp file and
+   opens `$EDITOR` (or waits for you to edit the printed path); the edited
+   file is re-parsed and previewed again. An edit that produces no valid
+   criteria aborts with the fill-in template.
+3. Read the compact preflight table (`OK/WARN/FAIL name detail`). Hard
+   failures stop before anything is created, always. Warnings ask
+   `Continue with warnings? [y/N]`.
+4. Approve worktree creation, then watch each iteration: safety status,
+   test results, verdict, unmet-criteria count, required next steps, risk
+   flags. On a `continue` verdict you choose
+   `Continue to next iteration? [Y/n]`; declining preserves the worktree
+   and exits 1, same as hitting max iterations.
+5. On the final outcome the PR offer follows the safety policy below.
+
+`--yes` makes guided mode non-blocking: criteria accepted, warnings
+proceeded past (matching the non-interactive path), iterations continue,
+and the PR decision falls back to the flag policy. It never bypasses hard
+preflight failures; those stop before any prompt exists.
+
+## PR offers by outcome
+
+| Outcome | Guided prompt | Non-interactive |
+|---|---|---|
+| PASS | `Open draft PR now? [Y/n]` (default No when the reviewer set `should_open_pr: false`) | PR unless `--no-pr` or reviewer veto (`--draft-pr` overrides the veto) |
+| MAX_ITER / operator stop | `Open draft PR anyway as operator override? [y/N]` (`--draft-pr` answers yes) | PR only with `--draft-pr` |
+| SAFETY_STOP, BLOCKED, RISK, ERROR | never offered | never created |
+
+`--no-pr` wins everywhere. The MANUAL_PR.md fallback covers gh/push
+failures in every case that reaches the PR step.
+
 ## How Claude and Codex divide the work
 
 Claude is the only writer. Each iteration it runs as
@@ -67,9 +108,13 @@ pinned to the worktree, receives the plan, the normalized criteria, prior
 reviewer feedback, and failing-test excerpts, and edits files.
 
 Codex never edits and, by default, never sees the repo. After each build
-pass the relay assembles a review bundle (diff, changed-file list, test
-summary, builder summary) under
-`iterations/NN/review-bundle/` and runs
+pass the relay assembles a review bundle under `iterations/NN/review-bundle/`
+(diff, changed-file list, test summaries, builder summary, a redacted
+`run-meta.json` excerpt of run.json, this iteration's `safety.json`, a
+manifest of every run-folder artifact existing at review time, and an
+availability note naming the artifacts that can only exist after the
+review, like the final report and PR body). That lets the reviewer verify
+run-level criteria honestly instead of returning `unknown`. It then runs
 `codex exec --cd <bundle-dir> --skip-git-repo-check -m <model>
 -c model_reasoning_effort=<effort> -`. Codex must answer with one JSON
 verdict: `pass`, `continue`, `blocked`, or `risk_escalation`, plus
@@ -92,7 +137,7 @@ is never treated as approval.
 | Exit | Meaning |
 |---|---|
 | 0 | PASS: every criterion met or not applicable, no risk flags |
-| 1 | Max iterations reached (default 3, `--max-iterations`); worktree kept |
+| 1 | Stopped on a continue verdict: max iterations (default 3) reached, or the operator declined to continue; worktree kept |
 | 2 | Intake or preflight refusal (missing criteria, bad plan, failed fetch) |
 | 3 | `claude` or `codex` CLI missing |
 | 4 | Safety stop (see hard stops below) |
@@ -237,8 +282,6 @@ Five things to verify by hand on your first live relay run:
 
 ## Known limitations (PR 1)
 
-- Non-interactive: no guided menu flow yet; `--yes` is accepted as a no-op
-  for forward compatibility. Run with no args to see the plan list.
 - Test inference covers the four basic suite groups only.
 - Escalations (exit 5) have no generic approve-and-continue flag; a human
   finishes by hand or re-runs (`--allow-relay-self-edit` and

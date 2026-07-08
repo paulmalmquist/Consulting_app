@@ -1,6 +1,6 @@
 # 0016 - Coding Relay (Claude implements, Codex reviews, receipts + draft PR)
 
-- Status: PR 1 (runnable spine) implemented; follow-up tickets below are open
+- Status: PR 1 (runnable spine) and PR 2 (guided flow + review-bundle run artifacts) implemented; remaining follow-ups below
 - Date: 2026-07-07
 - ADO: Story #765 under Feature #764 (Coding Relay) under Epic #359 (Orchestration: Codex + Agent Workflows)
 - Risk: Medium (orchestration governance surface; no schema, auth, or prod changes)
@@ -104,18 +104,55 @@ confirmed ones were fixed before the PR:
 | 12 | Secrets redacted in every receipt; decoy verdicts rejected | PASS | planted `ghp_...` swept across the run folder; 4 decoy tests |
 | 13 | Ruff clean; all relay tests green | PASS | 78 passed locally (61 unit + 17 E2E); ruff clean on package + tests |
 
+## PR 2 (guided flow) - delivered
+
+- ADO Story #766 under Feature #764. Guided terminal flow in
+  `orchestration/coding_relay/guided.py`: active-plan menu (paste/file/quit),
+  criteria preview with confirm/edit/abort via `$EDITOR`, compact preflight
+  table with warnings confirmation (default No), start approval,
+  per-iteration summaries with continue prompts, and outcome-gated PR
+  offers (PASS default Yes, honoring a reviewer `should_open_pr` veto;
+  MAX_ITER operator override default No; never after stop/block/error).
+- Operator declining a continue prompt = MAX_ITER semantics (exit 1,
+  worktree kept, report written).
+- `AutoUI` reproduces the PR 1 non-interactive policy exactly; `--yes`
+  makes guided mode non-blocking and never bypasses hard failures.
+- Review bundle now carries `run-meta.json` (redacted run.json excerpt),
+  the iteration's `safety.json`, `tests-summary.json`, an artifact
+  manifest, and an availability note, so run-level criteria are judgeable
+  (closes the plan-0017 reviewer suggestion).
+- Tests: 113 relay tests total (28 guided, providers unit tests covering
+  the artifact-only command contract, bundle-content assertions).
+
+## PR 2 adversarial review (2026-07-08)
+
+A multi-agent review of the guided-flow diff confirmed 8 findings (3 real
+correctness bugs, 4 test-coverage gaps on contract points, 1 output-parity
+regression). All fixed before the PR:
+
+- EOF at a guided prompt (Ctrl+D, dropped stdin) was swallowed by the loop's
+  blanket except as an internal ERROR (exit 6, no report). Fixed: `_ask`
+  treats EOF as decline, so operator termination is the safe MAX_ITER path.
+- Criteria edited in guided mode were not propagated to `plan_text`, so the
+  builder/reviewer prompts carried the stale original criteria. Fixed:
+  `intake.replace_criteria_block` splices the edit over the plan section.
+- Output parity with PR 1: FAIL preflight rows now print full multi-line
+  detail (remediation hints), the `[pr] skipped: no changes to commit` line
+  is restored, and failure messages route through a `ui.error` stderr
+  channel. Policy and exit codes were already byte-identical.
+- Added coverage: warn-decline stop E2E, decide_pr flag matrix (--yes /
+  --draft-pr at PASS and MAX_ITER, veto override), --yes non-blocking E2E,
+  --yes-never-bypasses-hard-failure, worktree-kept on operator stop,
+  run-meta whitelist boundary (not a full run.json dump), EOF-at-continue
+  E2E, and answer-exhaustion assertions so prompt-sequence drift fails loud.
+
 ## Follow-up tickets (open)
 
-- Guided interactive flow: numbered plan menu, paste mode, criteria
-  confirm/edit screen, per-iteration continue prompts, final PR offer.
 - Cockpit UI: read-only viewer over `.orchestration/runs/` (self-contained
   HTML status page per run). The `run.json` state schema from PR 1 is the
   data contract.
 - Broader test inference: Playwright/e2e, AI-eval suites, migration/schema
   verification classes.
-- Review-bundle completeness (reviewer-suggested, plan 0017): include
-  `run.json` and the iteration's `safety.json` in the bundle so run-level
-  criteria are judgeable.
 - PR polish: `scripts/winston/merge_gate.ps1` integration, richer evidence
   linking, approve-and-continue flag for escalations.
 - Optional: routed skill wrapper so the relay is discoverable through the
