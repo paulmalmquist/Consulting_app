@@ -220,6 +220,21 @@ how the E2E tests exercise the loop.
 - Stale worktree path collision: remove the old worktree (command above) or
   pass a different `--worktree-root`.
 
+## First real run checklist
+
+Five things to verify by hand on your first live relay run:
+
+1. The builder edited only the relay worktree; the primary checkout stayed
+   clean (`git status` in both).
+2. The reviewer stayed artifact-only: no `--codex-repo-access`, no repo-access
+   escalation in `run.json`.
+3. The safety scanner ran on every iteration before any PR step
+   (`iterations/NN/safety.json` exists for each pass).
+4. The verdict came from the structured JSON (`iterations/NN/verdict.json`),
+   not from prose in the review output.
+5. The run folder tells the whole story: plan, prompts, diff, tests, safety,
+   verdict, final report, PR body.
+
 ## Known limitations (PR 1)
 
 - Non-interactive: no guided menu flow yet; `--yes` is accepted as a no-op

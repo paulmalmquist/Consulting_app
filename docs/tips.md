@@ -4936,3 +4936,17 @@ Redesign of `/lab/env/[envId]/telemetry/calibration` into an inspectable evidenc
   hand-edit the table. Register new routed surfaces in the JSON, or skip the
   registry when the thing is a tool with a reference doc rather than a
   skill/agent.
+
+## Coding Relay first live run (2026-07-07)
+
+- **Codex default sandbox works on Windows from a plain directory.** The
+  relay's artifact-review invocation (`codex exec --cd <bundle-dir>
+  --skip-git-repo-check ... -`) ran clean (exit 0) with NO
+  `--dangerously-bypass-approvals-and-sandbox`; the 1312 bypass retry never
+  fired. The prototype's bypass flag was only ever needed for repo-rooted
+  review with file exploration. Prefer the sandboxed artifact posture.
+- **Write relay acceptance criteria the reviewer can judge from the diff.**
+  Criteria that describe the run itself ("run folder is created", "final
+  report is written") come back `unknown` from an honest artifact-only
+  reviewer and force MAX_ITER instead of pass. Criteria belong to the
+  change, not the harness; harness assertions live in the relay's own tests.

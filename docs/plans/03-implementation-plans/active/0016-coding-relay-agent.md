@@ -113,6 +113,9 @@ confirmed ones were fixed before the PR:
   data contract.
 - Broader test inference: Playwright/e2e, AI-eval suites, migration/schema
   verification classes.
+- Review-bundle completeness (reviewer-suggested, plan 0017): include
+  `run.json` and the iteration's `safety.json` in the bundle so run-level
+  criteria are judgeable.
 - PR polish: `scripts/winston/merge_gate.ps1` integration, richer evidence
   linking, approve-and-continue flag for escalations.
 - Optional: routed skill wrapper so the relay is discoverable through the
@@ -121,13 +124,13 @@ confirmed ones were fixed before the PR:
 ## Honest caveats
 
 - PR 1 is non-interactive; `--yes` is a forward-compatibility no-op.
-- The reviewer's default sandbox behavior on Windows may require the bypass
-  retry (still pointed only at the bundle dir); first real CLI run should
-  confirm which path executes and record it in `review-meta.json`.
-- A real (token-spending) end-to-end run with live `claude`/`codex` CLIs was
-  not part of the test suite; the loop is proven by fixture providers and by
-  the CLIs' own `--help` probes. Run one small real task before relying on
-  it for daily work.
+- First live run completed 2026-07-07 (plan 0017, run
+  `20260707-214554-relay-smoke-docs-tweak`, draft PR #509): full loop worked
+  with real CLIs; Codex default sandbox succeeded on Windows from the bundle
+  dir (adapter `relay_reviewer`, no 1312 bypass retry). The run ended
+  MAX_ITER because the smoke plan's criteria described the run itself,
+  which the reviewer cannot verify from its bundle; that honesty is by
+  design. Write criteria the reviewer can judge from the diff.
 - Out-of-worktree containment is diff-based plus the Claude CLI's own
   edit scoping; `--claude-permission-mode bypassPermissions` weakens it and
   is recorded as an escalation, not blocked.
