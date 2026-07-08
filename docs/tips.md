@@ -4970,3 +4970,27 @@ Redesign of `/lab/env/[envId]/telemetry/calibration` into an inspectable evidenc
   PR 1's stderr diagnostics to stdout. Keep a distinct error channel
   (stderr) for failures so wrappers that separate the streams keep working;
   add a byte-parity check against the prior version when a contract binds it.
+
+## Relay guided-flow live smoke (2026-07-08)
+
+- **The PR 2 review bundle closed the run-level `unknown` gap.** In the first
+  live run (pre-bundle-improvement) the reviewer marked run-folder-exists /
+  final-report-written criteria `unknown` and forced MAX_ITER. After adding
+  `run-meta.json`/`safety.json`/`tests-summary.json`/`manifest.txt` to the
+  bundle, the reviewer now marks those `met` and cites the artifact by name.
+  Provenance criteria ("Claude built it", "Codex reviewed it") still come
+  back `unknown` - the bundle proves `providers: cli` but not which model
+  played which role - so avoid AI-role-provenance bullets in relay plans, or
+  expect a permanent unknown.
+- **The relay builder will happily write docs describing features that don't
+  exist yet.** On a docs task it drafted a checklist asserting the bundle
+  "includes a primary-checkout git status snapshot" - a plausible but
+  unbuilt artifact. The artifact-only reviewer caught it (marked the matching
+  criterion unknown because the snapshot wasn't in the bundle). Lesson: on
+  MAX_ITER, read the diff before adopting; a correct-looking docs change can
+  still assert a non-existent capability.
+- **Guided mode needs a real TTY** (`stdin.isatty()`); to smoke it
+  programmatically, call `guided.run_guided(args, input_fn)` directly with a
+  scripted `input_fn` and let `print_fn` default to `safe_print`. Passing the
+  builtin `print` reintroduces the cp1252 `UnicodeEncodeError` that
+  `safe_print` exists to prevent - that is a harness bug, not a relay bug.

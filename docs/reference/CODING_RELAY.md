@@ -280,6 +280,36 @@ Five things to verify by hand on your first live relay run:
 5. The run folder tells the whole story: plan, prompts, diff, tests, safety,
    verdict, final report, PR body.
 
+## Guided live smoke checklist
+
+The safest first live run after installing the relay. It exercises every
+checkpoint without risking a real diff.
+
+1. Pick a docs-only plan (a small `docs/**` change with concrete acceptance
+   criteria). Nothing under `backend/`, `repo-b/`, `.github/`, or DB schema.
+2. Launch guided mode (`python scripts/coding_relay.py`) and inspect the
+   normalized criteria preview. Every criterion should have a stable id
+   (S/A/D/B/T/R/G) and read the way you would judge it by hand. If anything
+   is vague, edit before accepting.
+3. Confirm the preflight table. Read every `WARN` line before answering
+   `Continue with warnings?`. A `FAIL` stops before the worktree exists;
+   fix the environment, do not paper over it.
+4. Watch the run folder fill in under `.orchestration/runs/<run_id>/`.
+   Pre-review artifacts: `plan/normalized-criteria.md`,
+   `iterations/01/safety.json`, `iterations/01/tests/summary.json`, and the
+   review bundle (`run-meta.json`, `safety.json`, `tests-summary.json`,
+   `manifest.txt`, `availability.md`). Post-review artifacts land after the
+   reviewer returns: `iterations/01/verdict.json`, `report/final-report.md`,
+   and `report/PR_BODY.md` (or `MANUAL_PR.md`) - this ordering matches the
+   bundle's `availability.md`. Any skipped suite is honestly recorded as
+   SKIPPED with the manual command, not silently dropped.
+5. Only accept the draft PR offer when the verdict is `pass`, or when you
+   are intentionally exercising the MAX_ITER operator override
+   (`--draft-pr`). On any safety stop, block, or error, decline the PR and
+   read the receipts by hand. Write acceptance criteria the reviewer can
+   judge from the diff and bundle; run-level or provenance criteria the
+   bundle cannot evidence come back `unknown` and hold the run at MAX_ITER.
+
 ## Known limitations (PR 1)
 
 - Test inference covers the four basic suite groups only.
