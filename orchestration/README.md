@@ -90,3 +90,20 @@ python3 scripts/codex_orchestrator.py merge-gate --branch-a feature/<idA>/<inten
 python3 scripts/codex_orchestrator.py log show --session-id <uuid>
 python3 scripts/codex_orchestrator.py log verify-chain
 ```
+
+## Coding Relay
+
+`orchestration/coding_relay/` is a separate tool on the same substrate: a
+bounded build/review loop where the Claude CLI implements inside a throwaway
+worktree and the Codex CLI audits each pass from an artifact bundle,
+returning a structured JSON verdict per acceptance criterion. Plans without
+explicit success criteria are refused. Receipts land under
+`.orchestration/runs/<run_id>/`; on pass it opens a draft PR (never merges).
+
+```bash
+python -m orchestration.coding_relay --plan <path|NNNN>   # repo root
+python scripts/coding_relay.py --plan 0016 --dry-run      # anywhere
+```
+
+Full reference: `docs/reference/CODING_RELAY.md`. Tests:
+`backend/tests/test_orchestration_relay_*.py`.

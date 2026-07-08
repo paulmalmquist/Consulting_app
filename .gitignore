@@ -95,6 +95,7 @@ trainingkey.txt
 .orchestration/logs/*.json
 .orchestration/logs/*.jsonl
 .orchestration/sessions/*.json
+.orchestration/runs/
 claw-code-main/
 # OS files
 .DS_Store

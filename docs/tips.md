@@ -4910,3 +4910,29 @@ Redesign of `/lab/env/[envId]/telemetry/calibration` into an inspectable evidenc
 - **Root-anchor artifact ignores to avoid hiding real source.** `/*.png`, `/*.jpg`, `/*.zip` (leading slash) match only the repo root, where genuine one-offs pile up, and never a subdirectory asset like `repo-b/public/**/*.jpg`. Before adding any glob, prove it hides nothing tracked: `git ls-files | git check-ignore --stdin --verbose` must return no legit path, and `git ls-files ':(glob)*.png'` (etc.) at root must be empty. `*.pdf` was already ignored, so the resume + Relativity expense receipts were safe; the gaps were `mlflow.db`, root images, and `*.zip`.
 - **Verify a Confluent manifest's `cluster_type` before trusting an export diff.** `infra/confluent/stargate/manifest.json` showed `cluster_type: STANDARD → PROTOBUF`; PROTOBUF is a *schema format*, never a cluster type (valid: BASIC/STANDARD/ENTERPRISE/DEDICATED/FREIGHT). It was an export-script field mix-up. Revert **only** that field — the same diff's other hunks (a new `*.triage` subject, `connectors: []`, and the paired schema evolution) were legitimate. Reverting the whole file with `git checkout --` would have destroyed real workstream edits; surgically edit the one field instead.
 - **Untracked skills routed only in an uncommitted `M CLAUDE.md` are NOT dangling on main.** Confirm with `git grep -l <skill> origin/main -- CLAUDE.md config/instruction-routing.json` before deciding to commit vs ticket. If main doesn't route them, ticket them for a proper generated-artifact landing (skill body + `npm run generate:instructions` + route in `config/instruction-routing.json`) rather than committing bodies whose index edits live in someone else's workstream.
+
+## Coding Relay + agent-loop testing patterns (2026-07-07)
+
+- **Coding Relay exists**: `python scripts/coding_relay.py --plan <path|NNNN>`
+  runs a bounded Claude-builds/Codex-reviews loop with receipts under
+  `.orchestration/runs/<run_id>/` and draft-PR-only output. Reference:
+  `docs/reference/CODING_RELAY.md`. Codex reviews from an artifact bundle by
+  default (no repo access); `--codex-repo-access` is a recorded escalation.
+- **Test agent loops without spending tokens**: inject providers as
+  callables and drive them from a fixture dir
+  (`orchestration/coding_relay/fixtures.py` + `fixtures/demo/`). The fake
+  builder copies `iterations/N/files/**` into a tmp git repo's worktree; the
+  fake reviewer returns `iterations/N/review.json` verbatim. The whole loop,
+  safety scanner, redaction, and exit codes are then testable in pytest
+  (`backend/tests/test_orchestration_relay_loop_fixture.py`).
+- **Do not assume `backend/.venv` exists.** The Windows dev box runs backend
+  tests with the system PATH interpreter; CI installs requirements into
+  system Python too. Tooling that wraps backend tests must resolve the
+  interpreter with a fallback chain (worktree venv, primary venv, PATH) and
+  record which one ran, instead of hard-coding `.venv/bin/python` like the
+  Makefile targets do.
+- **`docs/instruction-index.md` is generated** from
+  `config/instruction-routing.json` (`npm run generate:instructions`); never
+  hand-edit the table. Register new routed surfaces in the JSON, or skip the
+  registry when the thing is a tool with a reference doc rather than a
+  skill/agent.
