@@ -138,6 +138,9 @@ orchestration\:validate: ## Validate orchestration contracts + tests
 orchestration\:verify-logs: ## Verify orchestration log hash chain
 	python3 scripts/codex_orchestrator.py log verify-chain
 
+relay: ## Coding Relay: Claude builds, Codex reviews (docs/reference/CODING_RELAY.md)
+	python scripts/coding_relay.py $(ARGS)
+
 # ── Help ──────────────────────────────────────────────────────────
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_:/-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
