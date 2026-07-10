@@ -1,0 +1,71 @@
+{
+  "workstreams": [
+    {
+      "workstream_id": "SUS-T1",
+      "title": "Contracts",
+      "depends_on": [],
+      "owned_paths": ["backend/app/services/sus_contracts.py"],
+      "read_only_paths": [],
+      "forbidden_paths": ["orchestration/coding_relay/"],
+      "acceptance_criteria": [
+        "Define the shared sustainability metric contract types",
+        "Every metric carries a source-kind field"
+      ],
+      "required_tests": ["python -m pytest backend/tests/test_sus_contracts.py -q"],
+      "risk": "medium",
+      "builder_model": "fable",
+      "reviewer_model": "sol",
+      "is_shared_contract": true
+    },
+    {
+      "workstream_id": "SUS-T4",
+      "title": "Factor registry",
+      "depends_on": ["SUS-T1"],
+      "owned_paths": ["backend/app/services/sus_factors.py"],
+      "read_only_paths": ["backend/app/services/sus_contracts.py"],
+      "forbidden_paths": ["orchestration/coding_relay/"],
+      "acceptance_criteria": [
+        "Register emission factors keyed by activity",
+        "Unknown factors fail closed with a null reason"
+      ],
+      "required_tests": ["python -m pytest backend/tests/test_sus_factors.py -q"],
+      "risk": "low",
+      "builder_model": "fable",
+      "reviewer_model": "sol"
+    },
+    {
+      "workstream_id": "SUS-T5",
+      "title": "Seed generator",
+      "depends_on": ["SUS-T1"],
+      "owned_paths": ["backend/app/services/sus_seed.py"],
+      "read_only_paths": ["backend/app/services/sus_contracts.py"],
+      "forbidden_paths": ["orchestration/coding_relay/"],
+      "acceptance_criteria": [
+        "Generate a deterministic seed dataset from the contract",
+        "The generator is reproducible across seeds"
+      ],
+      "required_tests": ["python -m pytest backend/tests/test_sus_seed.py -q"],
+      "risk": "low",
+      "builder_model": "sol",
+      "reviewer_model": "fable"
+    },
+    {
+      "workstream_id": "SUS-T7",
+      "title": "Ledger migration",
+      "depends_on": ["SUS-T4", "SUS-T5"],
+      "owned_paths": ["repo-b/db/schema/900_sus_ledger.sql"],
+      "read_only_paths": [],
+      "forbidden_paths": ["orchestration/coding_relay/"],
+      "acceptance_criteria": [
+        "Create the sustainability ledger table with tenant isolation",
+        "The migration is idempotent"
+      ],
+      "required_tests": [],
+      "risk": "high",
+      "builder_model": "fable",
+      "reviewer_model": "sol",
+      "migration": true,
+      "migration_order": 1
+    }
+  ]
+}
