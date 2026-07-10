@@ -28,8 +28,15 @@ from app.schemas.re_sustainability import (
     SusUtilityMonthly,
     SusUtilityMonthlyInput,
 )
+from app.schemas.re_sustainability_authoritative import (
+    SusAuthoritativeContextResponse,
+    SusAuthoritativeEvidenceResponse,
+    SusAuthoritativeMetricResponse,
+    SusAuthoritativeStateResponse,
+)
 from app.services import (
     re_sustainability,
+    re_sustainability_authoritative,
     re_sustainability_ingestion,
     re_sustainability_projection,
     re_sustainability_reporting,
@@ -247,6 +254,116 @@ def run_sustainability_projection(body: SusScenarioRunRequest):
 def get_projection(projection_run_id: UUID):
     try:
         return re_sustainability_projection.get_projection(projection_run_id=projection_run_id)
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/authoritative/overview", response_model=SusAuthoritativeStateResponse)
+def get_authoritative_overview(
+    business_id: str = Query(...),
+    env_id: str = Query(...),
+    entity_scope: str = Query(...),
+    period_key: str = Query(...),
+    metric_family: str = Query(...),
+    snapshot_version: str | None = Query(None),
+):
+    try:
+        return re_sustainability_authoritative.get_authoritative_state(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            snapshot_version=snapshot_version,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/authoritative/metric/{metric_key}", response_model=SusAuthoritativeMetricResponse)
+def get_authoritative_metric(
+    metric_key: str,
+    business_id: str = Query(...),
+    env_id: str = Query(...),
+    entity_scope: str = Query(...),
+    period_key: str = Query(...),
+    metric_family: str = Query(...),
+    snapshot_version: str | None = Query(None),
+):
+    try:
+        return re_sustainability_authoritative.get_metric(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            metric_key=metric_key,
+            snapshot_version=snapshot_version,
+        )
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/authoritative/metric/{metric_key}/evidence", response_model=SusAuthoritativeEvidenceResponse)
+def get_authoritative_metric_evidence(
+    metric_key: str,
+    business_id: str = Query(...),
+    env_id: str = Query(...),
+    entity_scope: str = Query(...),
+    period_key: str = Query(...),
+    metric_family: str = Query(...),
+    snapshot_version: str | None = Query(None),
+):
+    try:
+        state = re_sustainability_authoritative.get_authoritative_state(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            snapshot_version=snapshot_version,
+        )
+        filtered = [e for e in state.get("evidence", []) if e.get("metric_key") == metric_key]
+        return {"evidence": filtered}
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/authoritative/context", response_model=SusAuthoritativeContextResponse)
+def get_authoritative_context(
+    business_id: str = Query(...),
+    env_id: str = Query(...),
+    entity_scope: str = Query(...),
+    period_key: str = Query(...),
+    metric_family: str = Query(...),
+    snapshot_version: str | None = Query(None),
+):
+    try:
+        state = re_sustainability_authoritative.get_authoritative_state(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            snapshot_version=snapshot_version,
+        )
+        metrics = [
+            {
+                "metric_key": m["metric_key"],
+                "value": m.get("value"),
+                "unit": m.get("unit"),
+                "null_reason": m.get("null_reason"),
+            }
+            for m in state.get("metrics", [])
+        ]
+        return {
+            "scope": state.get("entity_scope"),
+            "period_key": state.get("period_key"),
+            "snapshot_version": state.get("snapshot_version"),
+            "trust_status": state.get("trust_status"),
+            "null_reason": state.get("null_reason"),
+            "metrics": metrics,
+        }
     except Exception as exc:
         raise _to_http(exc)
 
