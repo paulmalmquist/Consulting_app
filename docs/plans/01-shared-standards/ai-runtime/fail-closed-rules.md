@@ -30,6 +30,13 @@ An invented answer that looks right is worse than an honest null. The user acts 
 ### 6. AI answer exceeds declared scope
 - If the environment's `ai-behavior.md` defines a scope limit (e.g. "fund-level only, not investor-level") → refuse investor-level questions with a clear scope declaration
 
+### 7. Sustainability metrics without a certified basis
+- If a computed emission (e.g. tCO2e) would require an emission factor and no approved factor exists for this activity, factor-set version, and reporting period → return null with `null_reason: "emission_factor_missing"`
+- If a metric key requested from the sustainability reader is not registered in the unified metric registry → return null with `null_reason: "metric_definition_missing"`
+- If the value or report would require an external assurance the platform does not hold (v1 is internal decision-support only, not an assured or published disclosure) → return null with `null_reason: "out_of_certified_scope"`
+- A missing source record for an (asset, period) already maps to the existing `data_not_ingested`; a missing released authoritative snapshot for a released (asset, period) already maps to the existing `snapshot_unavailable`. No new tokens are introduced for those two cases.
+- NEVER fabricate an emission factor, invent a metric definition, or claim an assured or published value
+
 ## Null reason vocabulary
 
 Standard null_reasons across all environments:
@@ -56,6 +63,9 @@ Standard null_reasons across all environments:
 | `privacy_forbidden` | Provider's max privacy is below the request's privacy (AI Provider Dispatch) |
 | `no_eligible_provider` | No provider can serve this mode/risk/privacy (AI Provider Dispatch) |
 | `fallback_disabled` | Chosen provider unavailable and per-request fallback was not enabled (AI Provider Dispatch) |
+| `emission_factor_missing` | No approved emission factor exists for this activity, factor-set version, and reporting period (Sustainability) |
+| `metric_definition_missing` | The requested metric key is not registered in the unified metric registry (Sustainability) |
+| `out_of_certified_scope` | The value or report would require an external assurance the platform does not hold; v1 is internal decision-support only (Sustainability) |
 
 ## Rule for eval coverage
 
