@@ -6,6 +6,11 @@
 - Scope: Repo inventory + plan for extending the existing REPE sustainability capability into a governed Business OS surface.
 - Owning surface: `agents/bos-domain.md`; implementation via `.skills/feature-dev/SKILL.md`.
 
+## Ticket status
+
+- T1: done (2026-07-10). Deliverable: `docs/adr/sustainability/0001-brownfield-extension.md`. That ADR records the capability inventory in section 1 with file paths, freezes v1 as a standalone Business OS environment (not embedded in `SustainabilityWorkspace.tsx`, not wrapped in `RepeWorkspaceShell` or `DomainWorkspaceShell`), freezes the scope boundary between the existing REPE-embedded pages (kept as-is) and the new standalone environment (net-new UI, reusing existing backend services and schema), and resolves or defers each of the five open questions in section 10 below. Resolves Open Question 5 (first demo environment) to "dedicated standalone BOS environment". Open Question 4 (certification level) is frozen to "internal decision-support only". Open Questions 1, 2, and 3 are deferred to specific downstream tickets (T7, T6, T11).
+- T2 through T12: not started.
+
 This document is planning only. No production code, SQL migration, workflow, deploy config, or secret is created or modified by this run. Every proposed table, endpoint, or component name marked "proposed" is a proposal pending later implementation, not a promise the file exists.
 
 Any statement in this plan about carbon frameworks (GHG Protocol, GRESB, SFDR, TCFD, PCAF, SBTi) or specific emission-factor sets is treated as **an assumption requiring later source verification** - the relay did not fetch or validate external standards content in this run.
