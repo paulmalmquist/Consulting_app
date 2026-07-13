@@ -60,10 +60,10 @@ def safe_print(text: str = "") -> None:
 
 # ---------------------------------------------------------------- plan menu
 
-def plan_menu_entries(repo_root: Path) -> list:
+def plan_menu_entries(repo_root: Path, plan_dir: str | None = None) -> list:
     """(path, title, status) per active plan; robust to unparseable files."""
     entries = []
-    for path in intake_mod.list_active_plans(repo_root):
+    for path in intake_mod.list_active_plans(repo_root, plan_dir):
         title, status = "", ""
         try:
             for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:40]:

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from orchestration.coding_relay import prompts, safety, test_runner, verdict as verdict_mod
+from orchestration.coding_relay.config import RelayConfig, default_config, venv_rel_from
 from orchestration.coding_relay.intake import IntakeResult
 from orchestration.coding_relay.providers import AdapterResult
 from orchestration.coding_relay.runs import RunPaths
@@ -50,6 +51,7 @@ class LoopConfig:
     codex_max_effort: str = "medium"
     codex_repo_access: bool = False  # changes bundle wording only
     primary_root: Optional[Path] = None  # for venv resolution
+    relay_config: RelayConfig = field(default_factory=default_config)
 
 
 @dataclass
@@ -290,6 +292,8 @@ def run_loop(
             wt.path, snapshot, intake.plan_text,
             allow_migrations=cfg.allow_migrations,
             allow_relay_self_edit=cfg.allow_relay_self_edit,
+            migration_prefixes=cfg.relay_config.migration_prefixes,
+            auth_prefixes=cfg.relay_config.auth_prefixes,
         )
         if head_moved(wt.path, wt.base_sha):
             violations.append(
@@ -321,8 +325,10 @@ def run_loop(
         # ---- TEST
         test_results: list = []
         if cfg.run_tests and snapshot.changed_paths:
-            py, py_desc = test_runner.resolve_python(wt.path, cfg.primary_root)
-            suites = test_runner.infer_suites(snapshot.changed_paths, py)
+            py, py_desc = test_runner.resolve_python(
+                wt.path, cfg.primary_root, venv_rel_from(cfg.relay_config),
+            )
+            suites = test_runner.infer_suites(snapshot.changed_paths, py, cfg.relay_config)
             if suites:
                 log(f"[iteration {iteration}] TEST ({len(suites)} suites)")
             test_results = test_runner.run_suites(

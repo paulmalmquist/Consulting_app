@@ -37,6 +37,10 @@ class PreflightConfig:
     fixture_mode: bool = False  # fixture runs skip the CLI checks
     fixture_dir: Path | None = None  # validated before any mutation
     read_only: bool = False  # strict --dry-run: no fetch, no write probes
+    # Relative path of the backend virtualenv to probe (from RelayConfig's
+    # dep_links). Defaults to this repo's backend venv. A repo without a
+    # Python backend can point this elsewhere or ignore the resulting warning.
+    venv_rel: str = "backend/.venv"
 
 
 @dataclass
@@ -178,12 +182,12 @@ def run_preflight(cfg: PreflightConfig) -> PreflightResult:
     for name in ("node", "npm"):
         r.add(f"{name}", OK if shutil.which(name) else WARN,
               shutil.which(name) or f"{name} not on PATH; frontend suites will be skipped honestly")
-    venv = root / "backend" / ".venv"
+    venv = root / cfg.venv_rel
     r.add(
         "backend-venv",
         OK if venv.is_dir() else WARN,
         str(venv) if venv.is_dir() else
-        "backend/.venv not found; backend suites use the PATH interpreter (recorded)",
+        f"{cfg.venv_rel} not found; backend suites use the PATH interpreter (recorded)",
     )
 
     # Plan path (when given as a file).

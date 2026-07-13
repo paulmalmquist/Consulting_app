@@ -161,20 +161,23 @@ class IntakeResult:
     criteria: AcceptanceCriteria = field(repr=False, default=None)  # type: ignore[assignment]
 
 
-def list_active_plans(repo_root: Path) -> list[Path]:
-    active = repo_root / ACTIVE_PLANS_REL
+def list_active_plans(repo_root: Path, plan_dir: str | Path | None = None) -> list[Path]:
+    active = repo_root / (plan_dir if plan_dir is not None else ACTIVE_PLANS_REL)
     if not active.is_dir():
         return []
     return sorted(p for p in active.glob("*.md") if p.is_file())
 
 
-def resolve_plan_path(repo_root: Path, plan_arg: str) -> Path:
-    """Resolve --plan as a path, or as a filename prefix in the active dir."""
+def resolve_plan_path(
+    repo_root: Path, plan_arg: str, plan_dir: str | Path | None = None
+) -> Path:
+    """Resolve --plan as a path, or as a filename prefix in the plans dir."""
+    rel = plan_dir if plan_dir is not None else ACTIVE_PLANS_REL
     direct = Path(plan_arg)
     for candidate in (direct, repo_root / plan_arg):
         if candidate.is_file():
             return candidate.resolve()
-    matches = [p for p in list_active_plans(repo_root) if p.name.startswith(plan_arg)]
+    matches = [p for p in list_active_plans(repo_root, rel) if p.name.startswith(plan_arg)]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
@@ -182,7 +185,7 @@ def resolve_plan_path(repo_root: Path, plan_arg: str) -> Path:
         raise IntakeError(f"--plan {plan_arg!r} is ambiguous in the active plans dir: {names}")
     raise IntakeError(
         f"--plan {plan_arg!r} is neither a file nor a unique prefix in "
-        f"{ACTIVE_PLANS_REL}. Run with no arguments to list active plans."
+        f"{rel}. Run with no arguments to list active plans."
     )
 
 
@@ -308,6 +311,7 @@ def load_plan(
     repo_root: Path,
     plan_arg: str | None,
     paste_file: str | None,
+    plan_dir: str | Path | None = None,
 ) -> IntakeResult:
     """Load and validate the plan from --plan or --paste-file."""
     from orchestration.coding_relay.runs import safe_slug
@@ -322,7 +326,7 @@ def load_plan(
         plan_text = p.read_text(encoding="utf-8", errors="replace")
         fallback = p.stem
     elif plan_arg:
-        plan_path = resolve_plan_path(repo_root, plan_arg)
+        plan_path = resolve_plan_path(repo_root, plan_arg, plan_dir)
         plan_text = plan_path.read_text(encoding="utf-8", errors="replace")
         fallback = plan_path.stem
     else:

@@ -67,7 +67,13 @@ def scan(
     plan_text: str,
     allow_migrations: bool = False,
     allow_relay_self_edit: bool = False,
+    migration_prefixes: tuple | list | None = None,
+    auth_prefixes: tuple | list | None = None,
 ) -> list:
+    # Fall back to this repo's constants when a caller passes no config, so
+    # existing call sites keep byte-identical behavior.
+    mig_prefixes = tuple(migration_prefixes) if migration_prefixes is not None else DB_MIGRATION_PREFIXES
+    surf_prefixes = tuple(auth_prefixes) if auth_prefixes is not None else AUTH_SURFACE_PREFIXES
     violations: list = []
     paths = [p.replace("\\", "/") for p in snapshot.changed_paths]
 
@@ -118,7 +124,7 @@ def scan(
         )
 
     # db_migration (stop unless --allow-migrations).
-    db_paths = [p for p in paths if p.startswith(DB_MIGRATION_PREFIXES) or "/migrations/" in p]
+    db_paths = [p for p in paths if p.startswith(mig_prefixes) or "/migrations/" in p]
     if db_paths and not allow_migrations:
         violations.append(
             Violation(
@@ -165,7 +171,7 @@ def scan(
     # auth_security (escalate).
     auth = [
         p for p in paths
-        if p.startswith(AUTH_SURFACE_PREFIXES) and AUTH_PATH_RE.search(p)
+        if p.startswith(surf_prefixes) and AUTH_PATH_RE.search(p)
     ]
     if auth:
         violations.append(

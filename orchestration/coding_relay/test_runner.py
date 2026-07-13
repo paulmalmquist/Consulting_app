@@ -60,14 +60,17 @@ class SuiteResult:
         }
 
 
-def resolve_python(worktree: Path, primary_root: Path | None) -> tuple[str | None, str]:
+def resolve_python(
+    worktree: Path, primary_root: Path | None, venv_rel: str = "backend/.venv"
+) -> tuple[str | None, str]:
     """Prefer a backend venv (worktree, then primary checkout), else PATH.
-    Returns (interpreter or None, description)."""
+    Returns (interpreter or None, description). `venv_rel` is the venv path
+    relative to a checkout root, from RelayConfig's dep_links."""
     candidates = []
     for root in (worktree, primary_root):
         if root is None:
             continue
-        venv = root / "backend" / ".venv"
+        venv = root / venv_rel
         candidates.append(venv / "Scripts" / "python.exe")
         candidates.append(venv / "bin" / "python")
     for c in candidates:
@@ -79,29 +82,51 @@ def resolve_python(worktree: Path, primary_root: Path | None) -> tuple[str | Non
     return None, "no python interpreter available"
 
 
-def infer_suites(changed_paths: list, python_exe: str | None) -> list:
-    """Changed paths -> suites, matching CI's canonical commands.
+def infer_suites(changed_paths: list, python_exe: str | None, config=None) -> list:
+    """Changed paths -> suites, driven by `config.test_suites`.
 
-    When no interpreter was resolved, python suites keep an empty command[0]
-    so run_suites SKIPS them honestly instead of failing with a bogus 127.
+    Each rule fires when any changed path starts with its `when_touched`
+    prefix (or any prefix in `when_touched_any`). The `{py}` placeholder in a
+    command is replaced with the resolved interpreter; when none was resolved
+    the slot is left empty so run_suites SKIPS python suites honestly instead
+    of failing with a bogus 127.
+
+    `config` defaults to the built-in RelayConfig, so callers that pass only
+    (changed_paths, python_exe) get this repo's canonical, CI-matching
+    suites unchanged.
     """
+    from orchestration.coding_relay.config import PY_PLACEHOLDER, default_config
+
+    if config is None:
+        config = default_config()
     paths = [p.replace("\\", "/") for p in changed_paths]
     py = python_exe or ""
-    suites: list = []
 
     def touched(prefix: str) -> bool:
         return any(p.startswith(prefix) for p in paths)
 
-    if touched("backend/"):
-        suites.append(Suite("backend-ruff", "backend", [py, "-m", "ruff", "check", "app", "tests"], 600, "python"))
-        suites.append(Suite("backend-pytest", "backend", [py, "-m", "pytest", "tests", "-q"], 1800, "python"))
-    if touched("repo-b/"):
-        for name, script in (("frontend-lint", "lint"), ("frontend-typecheck", "typecheck"), ("frontend-unit", "test:unit")):
-            suites.append(Suite(name, "repo-b", ["npm", "run", script], 900, "npm"))
-    if touched("rs_factory_seed/"):
-        suites.append(Suite("rs-factory-pytest", "rs_factory_seed", [py, "-m", "pytest", "tests", "-q"], 900, "python"))
-    if touched("backend/") or touched("repo-b/") or touched("verification/"):
-        suites.append(Suite("repe-lint", ".", [py, "-m", "verification.lint.no_legacy_repe_reads", "--json"], 300, "python"))
+    def rule_fires(rule: dict) -> bool:
+        prefixes = rule.get("when_touched_any")
+        if prefixes is not None:
+            return any(touched(prefix) for prefix in prefixes)
+        return touched(rule["when_touched"])
+
+    def resolve_cmd(cmd: list) -> list:
+        return [py if part == PY_PLACEHOLDER else part for part in cmd]
+
+    suites: list = []
+    for rule in config.test_suites:
+        if not rule_fires(rule):
+            continue
+        suites.append(
+            Suite(
+                rule["name"],
+                rule["cwd"],
+                resolve_cmd(rule["cmd"]),
+                rule["timeout"],
+                rule["runner"],
+            )
+        )
     return suites
 
 

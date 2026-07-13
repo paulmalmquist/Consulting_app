@@ -310,6 +310,55 @@ checkpoint without risking a real diff.
    judge from the diff and bundle; run-level or provenance criteria the
    bundle cannot evidence come back `unknown` and hold the run at MAX_ITER.
 
+## Using it in another repository
+
+The relay ships defaults that describe THIS repo. A checkout with no config
+file behaves exactly as it always has. To run it somewhere else, drop a
+`relay.config.json` at that repo's root and the relay reads its layout from
+there instead.
+
+```
+python -m orchestration.coding_relay --init-config    # writes a starter file
+python -m orchestration.coding_relay --init-config --force   # overwrite
+```
+
+Copy `orchestration/coding_relay/` into the target repo, run `--init-config`,
+then edit the six keys:
+
+| Key | What it names | Default (this repo) |
+|---|---|---|
+| `plan_dir` | Where active plans live, for `--plan NNNN` and the guided menu | `docs/plans/03-implementation-plans/active` |
+| `base_ref` | Branch the relay worktree is cut from | `origin/main` |
+| `test_suites` | Changed-path -> test-command rules (below) | repo-b npm suites, backend ruff+pytest, rs_factory_seed pytest, the repe lint |
+| `migration_prefixes` | Paths that require `--allow-migrations` | `supabase/`, `repo-b/db/schema/`, `migrations/` |
+| `auth_prefixes` | Paths whose edits escalate as an auth surface | `backend/`, `repo-b/` |
+| `dep_links` | Dirs junctioned into the worktree so suites can run | `repo-b/node_modules`, `backend/.venv` |
+
+A `test_suites` rule fires when any changed path starts with `when_touched`
+(or any prefix in `when_touched_any`). `{py}` in a command is replaced with
+the resolved interpreter; when none resolves, that suite is SKIPPED honestly
+rather than reported as passing.
+
+```json
+{
+  "plan_dir": "planning/tickets",
+  "base_ref": "origin/develop",
+  "test_suites": [
+    {"when_touched": "web/", "name": "web-test", "cwd": "web",
+     "cmd": ["npm", "test"], "timeout": 600, "runner": "npm"},
+    {"when_touched": "api/", "name": "api-pytest", "cwd": "api",
+     "cmd": ["{py}", "-m", "pytest", "-q"], "timeout": 900, "runner": "python"}
+  ],
+  "migration_prefixes": ["db/migrate/"],
+  "dep_links": ["web/node_modules"]
+}
+```
+
+An unknown key, or a malformed file, fails loudly with the offending name. A
+config that cannot be read is never silently ignored. The `claude` and `codex`
+CLIs still have to be installed and authenticated in that environment, and the
+plan still needs an acceptance-criteria heading.
+
 ## Known limitations (PR 1)
 
 - Test inference covers the four basic suite groups only.
