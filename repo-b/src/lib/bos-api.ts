@@ -7176,6 +7176,67 @@ export function getReV2SustainabilityReport(
   return bosFetch(`/api/re/v2/sustainability/funds/${fundId}/reports/${reportKey}`, { params });
 }
 
+// Sustainability — governed authoritative reader (T5)
+export type SusAuthoritativeMetricItem = {
+  metric_key: string;
+  value: number | null;
+  unit: string | null;
+  null_reason: string | null;
+  trust_status: string | null;
+};
+
+export type SusAuthoritativeEvidenceItem = {
+  metric_key: string;
+  source_table: string | null;
+  source_row_ref: string | null;
+  emission_factor_set_id: string | null;
+  ingestion_run_id: string | null;
+  formula_id: string | null;
+};
+
+export type SusAuthoritativeStateResponse = {
+  entity_scope: string | null;
+  period_key: string | null;
+  requested_period_key: string | null;
+  period_exact: boolean | null;
+  state_origin: string | null;
+  snapshot_version: string | null;
+  promotion_state: string | null;
+  trust_status: string | null;
+  null_reason: string | null;
+  metrics: SusAuthoritativeMetricItem[];
+  evidence: SusAuthoritativeEvidenceItem[];
+};
+
+export type SusAuthoritativeEvidenceResponse = {
+  evidence: SusAuthoritativeEvidenceItem[];
+};
+
+export type SusAuthoritativeQueryParams = {
+  business_id: string;
+  env_id: string;
+  entity_scope: string;
+  period_key: string;
+  metric_family: string;
+  snapshot_version?: string;
+};
+
+export function getSusAuthoritativeOverview(
+  params: SusAuthoritativeQueryParams
+): Promise<SusAuthoritativeStateResponse> {
+  return bosFetch("/api/re/v2/sustainability/authoritative/overview", { params });
+}
+
+export function getSusAuthoritativeMetricEvidence(
+  metricKey: string,
+  params: SusAuthoritativeQueryParams
+): Promise<SusAuthoritativeEvidenceResponse> {
+  return bosFetch(
+    `/api/re/v2/sustainability/authoritative/metric/${metricKey}/evidence`,
+    { params }
+  );
+}
+
 // ── RE V2 Types ──────────────────────────────────────────────────────────────
 
 export type ReV2Investment = {
