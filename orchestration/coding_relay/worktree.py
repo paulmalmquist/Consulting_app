@@ -101,11 +101,18 @@ def link_junction(target: Path, link: Path) -> tuple[bool, str]:
         return False, f"{type(exc).__name__}: {exc}"
 
 
-def ensure_deps_links(repo_root: Path, wt: RelayWorktree) -> dict[str, str]:
+def ensure_deps_links(
+    repo_root: Path, wt: RelayWorktree, dep_links: tuple | list | None = None
+) -> dict[str, str]:
     """Junction heavyweight dependency dirs from the primary checkout into the
-    worktree so test suites can run there. Returns {name: detail}."""
+    worktree so test suites can run there. Returns {name: detail}.
+
+    `dep_links` defaults to this repo's dirs; a downstream repo passes its own
+    from RelayConfig.dep_links.
+    """
+    links = dep_links if dep_links is not None else ("repo-b/node_modules", "backend/.venv")
     results: dict[str, str] = {}
-    for rel in ("repo-b/node_modules", "backend/.venv"):
+    for rel in links:
         target = repo_root / rel
         link = wt.path / rel
         ok, detail = link_junction(target, link)

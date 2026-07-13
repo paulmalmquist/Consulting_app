@@ -18,6 +18,12 @@ import sys
 from pathlib import Path
 
 from orchestration.coding_relay import RELAY_VERSION, intake as intake_mod
+from orchestration.coding_relay.config import (
+    CONFIG_FILENAME,
+    load_config,
+    venv_rel_from,
+    write_starter_config,
+)
 from orchestration.coding_relay.intake import IntakeError
 from orchestration.coding_relay.loop import (
     LoopConfig,
@@ -55,7 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--yes", action="store_true",
                    help="Guided mode: accept prompts non-interactively (never bypasses hard failures)")
     p.add_argument("--max-iterations", type=int, default=3, help="Build/review iterations cap (default 3)")
-    p.add_argument("--base", default="origin/main", help="Base ref for the relay worktree (default origin/main)")
+    p.add_argument("--base", default=None,
+                   help="Base ref for the relay worktree (default: relay.config.json base_ref, else origin/main)")
+    p.add_argument("--init-config", action="store_true",
+                   help=f"Write a starter {CONFIG_FILENAME} (the defaults) to the repo root and exit")
+    p.add_argument("--force", action="store_true",
+                   help=f"With --init-config: overwrite an existing {CONFIG_FILENAME}")
     p.add_argument("--allow-stale-base", action="store_true", help="Proceed on the local base ref if git fetch fails (recorded)")
     p.add_argument("--worktree-root", type=Path, help="Directory for relay worktrees (default: sibling <repo>_relay)")
     p.add_argument("--claude-model", help="Builder model; passed only if the installed CLI advertises --model")
@@ -85,14 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def print_no_args_help(repo_root: Path) -> int:
+def print_no_args_help(repo_root: Path, plan_dir: str = "docs/plans/03-implementation-plans/active") -> int:
     print("Coding Relay: give it a plan with explicit success criteria.\n")
     print("Usage:  python -m orchestration.coding_relay --plan <path|NNNN>")
     print("        python scripts/coding_relay.py --plan <path|NNNN>")
     print("        python scripts/coding_relay.py          (guided mode, TTY)\n")
-    plans = intake_mod.list_active_plans(repo_root)
+    plans = intake_mod.list_active_plans(repo_root, plan_dir)
     if plans:
-        print("Active plans (docs/plans/03-implementation-plans/active/):")
+        print(f"Active plans ({plan_dir}/):")
         for i, p in enumerate(plans, 1):
             print(f"  {i:2d}. {p.name}")
         print("\nExample:")
@@ -105,7 +116,21 @@ def print_no_args_help(repo_root: Path) -> int:
     return 2
 
 
+def _relay_config(args):
+    """The repo's RelayConfig. Present on args after main() loads it; this
+    fallback covers direct callers of execute_run/run_guided (the guided
+    tests build args with parse_args and skip main())."""
+    cfg = getattr(args, "relay_config", None)
+    if cfg is None:
+        cfg = load_config(args.repo_root.resolve())
+        args.relay_config = cfg
+    if getattr(args, "base", None) is None:
+        args.base = cfg.base_ref
+    return cfg
+
+
 def _preflight_config(args, result, read_only: bool = False) -> PreflightConfig:
+    cfg = _relay_config(args)
     return PreflightConfig(
         repo_root=args.repo_root.resolve(),
         base_ref=args.base,
@@ -116,6 +141,7 @@ def _preflight_config(args, result, read_only: bool = False) -> PreflightConfig:
         fixture_mode=args.fixture is not None,
         fixture_dir=args.fixture,
         read_only=read_only,
+        venv_rel=venv_rel_from(cfg),
     )
 
 
@@ -233,7 +259,7 @@ def execute_run(args, result, ui) -> int:
         run_paths.update_run_json(state="ERROR", detail=str(exc), exit_code=6)
         return 6
     ui.notify(f"[worktree] {wt.path} (branch {wt.branch}, base {wt.base_sha[:12]})")
-    links = ensure_deps_links(repo_root, wt)
+    links = ensure_deps_links(repo_root, wt, _relay_config(args).dep_links)
     for name, detail in links.items():
         ui.notify(f"[worktree] deps {name}: {detail}")
     run_paths.update_run_json(branch=wt.branch, worktree=str(wt.path), base_sha=wt.base_sha)
@@ -293,6 +319,7 @@ def execute_run(args, result, ui) -> int:
         codex_max_effort=args.codex_max_effort,
         codex_repo_access=args.codex_repo_access,
         primary_root=repo_root,
+        relay_config=_relay_config(args),
     )
     try:
         outcome = run_loop(
@@ -406,16 +433,37 @@ def main(argv: list | None = None) -> int:
     args = parser.parse_args(argv)
     repo_root: Path = args.repo_root.resolve()
 
+    if args.init_config:
+        try:
+            path = write_starter_config(repo_root, force=args.force)
+        except FileExistsError as exc:
+            print(f"[init-config] {exc}", file=sys.stderr)
+            return 2
+        print(f"[init-config] wrote {path}")
+        return 0
+
+    # Load the repo's config once. base_ref falls back to the config value
+    # (itself origin/main by default) when the operator did not pass --base.
+    try:
+        args.relay_config = load_config(repo_root)
+    except ValueError as exc:
+        print(f"[config] {exc}", file=sys.stderr)
+        return 2
+    if args.base is None:
+        args.base = args.relay_config.base_ref
+
     from orchestration.coding_relay import guided
 
     if not args.plan and not args.paste_file:
         if guided.stdin_is_tty() and not args.dry_run:
             return guided.run_guided(args)
-        return print_no_args_help(repo_root)
+        return print_no_args_help(repo_root, args.relay_config.plan_dir)
 
     # ---- INTAKE (exit 2 on refusal)
     try:
-        result = intake_mod.load_plan(repo_root, args.plan, args.paste_file)
+        result = intake_mod.load_plan(
+            repo_root, args.plan, args.paste_file, args.relay_config.plan_dir
+        )
     except IntakeError as exc:
         print(f"[intake] REFUSED: {exc}", file=sys.stderr)
         return 2
