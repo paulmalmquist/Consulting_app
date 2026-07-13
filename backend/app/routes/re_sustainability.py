@@ -32,6 +32,7 @@ from app.schemas.re_sustainability_authoritative import (
     SusAuthoritativeContextResponse,
     SusAuthoritativeEvidenceResponse,
     SusAuthoritativeMetricResponse,
+    SusAuthoritativeReportResponse,
     SusAuthoritativeStateResponse,
 )
 from app.services import (
@@ -39,6 +40,7 @@ from app.services import (
     re_sustainability_authoritative,
     re_sustainability_ingestion,
     re_sustainability_projection,
+    re_sustainability_report,
     re_sustainability_reporting,
 )
 
@@ -364,6 +366,28 @@ def get_authoritative_context(
             "null_reason": state.get("null_reason"),
             "metrics": metrics,
         }
+    except Exception as exc:
+        raise _to_http(exc)
+
+
+@router.get("/authoritative/report", response_model=SusAuthoritativeReportResponse)
+def get_authoritative_report(
+    business_id: str = Query(...),
+    env_id: str = Query(...),
+    entity_scope: str = Query(...),
+    period_key: str = Query(...),
+    metric_family: str = Query(...),
+    snapshot_version: str | None = Query(None),
+):
+    try:
+        return re_sustainability_report.build_governed_report(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            snapshot_version=snapshot_version,
+        )
     except Exception as exc:
         raise _to_http(exc)
 

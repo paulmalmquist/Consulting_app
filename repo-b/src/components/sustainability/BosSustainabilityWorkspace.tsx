@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import {
   getSusAuthoritativeOverview,
+  getSusAuthoritativeReport,
   type SusAuthoritativeStateResponse,
   type SusAuthoritativeMetricItem,
   type SusAuthoritativeQueryParams,
+  type SusAuthoritativeReportResponse,
 } from "@/lib/bos-api";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StateCard } from "@/components/ui/StateCard";
@@ -149,6 +151,95 @@ function MetricTile({
   );
 }
 
+function ReportView({
+  report,
+}: {
+  report: SusAuthoritativeReportResponse;
+}) {
+  const snapshot = report.snapshot_version ?? "—";
+  const promotion = report.promotion_state ?? "unknown";
+  const trust = report.trust_status ?? "unknown";
+  if (report.null_reason === "snapshot_unavailable") {
+    return (
+      <div
+        data-testid="bos-sus-report-unavailable"
+        className="rounded-xl border border-bm-warning/40 bg-bm-warning/10 p-6"
+      >
+        <h3 className="text-base font-display font-semibold text-bm-text">
+          Report unavailable
+        </h3>
+        <p className="mt-1 text-sm text-bm-warning">
+          null_reason: {report.null_reason}
+        </p>
+        <p className="mt-2 text-xs text-bm-muted2">
+          The governed reader reports no released snapshot for this scope. The
+          report shows no totals; nothing is substituted.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div
+      data-testid="bos-sus-report-view"
+      className="flex flex-col gap-3 rounded-xl border border-bm-border/50 bg-bm-surface/20 p-6"
+    >
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-bm-muted2">
+          Report snapshot
+        </span>
+        <span
+          data-testid="bos-sus-report-snapshot-version"
+          className="font-mono text-bm-text"
+        >
+          {snapshot}
+        </span>
+        <span
+          data-testid="bos-sus-report-promotion-state"
+          className="rounded-full border border-bm-border/40 bg-bm-surface2/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted"
+        >
+          promotion: {promotion}
+        </span>
+        <span
+          data-testid="bos-sus-report-trust-status"
+          className="rounded-full border border-bm-border/40 bg-bm-surface2/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted"
+        >
+          trust: {trust}
+        </span>
+      </div>
+      <ul
+        data-testid="bos-sus-report-metric-list"
+        className="flex flex-col divide-y divide-bm-border/40"
+      >
+        {report.metrics.map((m) => {
+          const label = METRIC_LABELS[m.metric_key] ?? m.metric_key;
+          const isNull = m.value === null || m.value === undefined;
+          return (
+            <li
+              key={m.metric_key}
+              data-testid={`bos-sus-report-metric-${m.metric_key}`}
+              className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm"
+            >
+              <span className="text-bm-muted2">{label}</span>
+              {isNull ? (
+                <span
+                  data-testid={`bos-sus-report-metric-null-reason-${m.metric_key}`}
+                  className="font-mono text-xs text-bm-warning"
+                >
+                  null_reason: {m.null_reason ?? "unavailable"}
+                </span>
+              ) : (
+                <span className="font-mono text-bm-text">
+                  {formatMetricValue(m)}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function BosSustainabilityWorkspace({
   query,
 }: BosSustainabilityWorkspaceProps = {}) {
@@ -156,6 +247,10 @@ export default function BosSustainabilityWorkspace({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [openMetric, setOpenMetric] = useState<SusAuthoritativeMetricItem | null>(null);
+  const [reportOpen, setReportOpen] = useState<boolean>(false);
+  const [report, setReport] = useState<SusAuthoritativeReportResponse | null>(null);
+  const [reportLoading, setReportLoading] = useState<boolean>(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const resolvedQuery: SusAuthoritativeQueryParams = { ...DEFAULT_QUERY, ...(query ?? {}) };
 
@@ -191,14 +286,69 @@ export default function BosSustainabilityWorkspace({
   return (
     <div className="min-h-screen w-full bg-bm-bg text-bm-text">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-8">
-        <header className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">
-            Sustainability
-          </h1>
-          <p className="text-sm text-bm-muted2">
-            Governed sustainability metrics. Every value comes from an authoritative snapshot; missing values render their null_reason.
-          </p>
+        <header className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
+                Sustainability
+              </h1>
+              <p className="text-sm text-bm-muted2">
+                Governed sustainability metrics. Every value comes from an authoritative snapshot; missing values render their null_reason.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="bos-sus-open-report"
+              onClick={() => {
+                setReportOpen(true);
+                setReportError(null);
+                setReportLoading(true);
+                setReport(null);
+                getSusAuthoritativeReport(resolvedQuery)
+                  .then((res) => {
+                    setReport(res);
+                  })
+                  .catch((err: unknown) => {
+                    setReportError(err instanceof Error ? err.message : String(err));
+                  })
+                  .finally(() => setReportLoading(false));
+              }}
+              className="rounded-lg border border-bm-border/50 bg-bm-surface2/60 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-bm-text hover:border-bm-border"
+            >
+              Report
+            </button>
+          </div>
         </header>
+
+        {reportOpen && (
+          <section
+            data-testid="bos-sus-report-section"
+            className="flex flex-col gap-2"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold tracking-tight">
+                Governed report
+              </h2>
+              <button
+                type="button"
+                data-testid="bos-sus-close-report"
+                onClick={() => setReportOpen(false)}
+                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2 hover:text-bm-text"
+              >
+                Close
+              </button>
+            </div>
+            {reportLoading && <StateCard state="loading" />}
+            {!reportLoading && reportError && (
+              <StateCard
+                state="error"
+                title="Could not load governed report"
+                message={reportError}
+              />
+            )}
+            {!reportLoading && !reportError && report && <ReportView report={report} />}
+          </section>
+        )}
 
         {loading && <StateCard state="loading" />}
 

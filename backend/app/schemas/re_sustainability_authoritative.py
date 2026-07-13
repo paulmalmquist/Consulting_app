@@ -63,3 +63,19 @@ class SusAuthoritativeContextResponse(BaseModel):
     trust_status: Optional[str] = None
     null_reason: Optional[str] = None
     metrics: list[SusAuthoritativeContextMetricItem] = []
+
+
+class SusAuthoritativeReportResponse(BaseModel):
+    entity_scope: Optional[str] = None
+    period_key: Optional[str] = None
+    requested_period_key: Optional[str] = None
+    period_exact: Optional[bool] = None
+    metric_family: Optional[str] = None
+    state_origin: Optional[str] = None
+    snapshot_version: Optional[str] = None
+    promotion_state: Optional[str] = None
+    trust_status: Optional[str] = None
+    null_reason: Optional[str] = None
+    metrics: list[SusAuthoritativeMetricItem] = []
+    evidence: list[SusAuthoritativeEvidenceItem] = []
+    generated_at: Optional[str] = None
