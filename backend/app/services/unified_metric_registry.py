@@ -38,11 +38,21 @@ _SERVICE_MAP: dict[str, Any] | None = None
 def _get_service_map() -> dict[str, Any]:
     global _SERVICE_MAP
     if _SERVICE_MAP is None:
+        from app.services import re_sustainability_authoritative as _sus_auth
         from app.services.re_env_portfolio import get_portfolio_kpis
         from app.services.re_fund_metrics import get_fund_metrics
+
+        def _sustainability_authoritative(**kwargs: Any) -> dict[str, Any]:
+            # Route every governed sustainability metric through the T4
+            # authoritative-state reader. Attribute lookup on the module (not a
+            # captured reference) is deliberate so tests can monkeypatch
+            # ``re_sustainability_authoritative.get_metric`` and see the result.
+            return _sus_auth.get_metric(**kwargs)
+
         _SERVICE_MAP = {
             "portfolio_kpis": get_portfolio_kpis,
             "fund_metrics": get_fund_metrics,
+            "sustainability_authoritative": _sustainability_authoritative,
         }
     return _SERVICE_MAP
 
