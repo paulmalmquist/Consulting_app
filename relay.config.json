@@ -1,0 +1,76 @@
+{
+  "plan_dir": "docs/plans/03-implementation-plans/active",
+  "base_ref": "origin/main",
+  "migration_prefixes": [
+    "supabase/",
+    "repo-b/db/schema/",
+    "migrations/"
+  ],
+  "auth_prefixes": [
+    "backend/",
+    "repo-b/"
+  ],
+  "dep_links": [
+    "repo-b/node_modules",
+    "backend/.venv"
+  ],
+  "test_suites": [
+    {
+      "when_touched": "backend/",
+      "name": "backend-ruff",
+      "cwd": "backend",
+      "cmd": ["{py}", "-m", "ruff", "check", "app", "tests"],
+      "timeout": 600,
+      "runner": "python"
+    },
+    {
+      "when_touched": "backend/",
+      "name": "backend-pytest-scoped",
+      "cwd": "backend",
+      "cmd": ["{py}", "-m", "pytest", "tests", "-q", "-p", "no:randomly",
+              "-k", "sustainability or relay_coordinator or orchestration_relay"],
+      "timeout": 900,
+      "runner": "python"
+    },
+    {
+      "when_touched": "repo-b/",
+      "name": "frontend-lint",
+      "cwd": "repo-b",
+      "cmd": ["npm", "run", "lint"],
+      "timeout": 900,
+      "runner": "npm"
+    },
+    {
+      "when_touched": "repo-b/",
+      "name": "frontend-typecheck",
+      "cwd": "repo-b",
+      "cmd": ["npm", "run", "typecheck"],
+      "timeout": 900,
+      "runner": "npm"
+    },
+    {
+      "when_touched": "repo-b/",
+      "name": "frontend-unit",
+      "cwd": "repo-b",
+      "cmd": ["npm", "run", "test:unit"],
+      "timeout": 900,
+      "runner": "npm"
+    },
+    {
+      "when_touched": "rs_factory_seed/",
+      "name": "rs-factory-pytest",
+      "cwd": "rs_factory_seed",
+      "cmd": ["{py}", "-m", "pytest", "tests", "-q"],
+      "timeout": 900,
+      "runner": "python"
+    },
+    {
+      "when_touched_any": ["backend/", "repo-b/", "verification/"],
+      "name": "repe-lint",
+      "cwd": ".",
+      "cmd": ["{py}", "-m", "verification.lint.no_legacy_repe_reads", "--json"],
+      "timeout": 300,
+      "runner": "python"
+    }
+  ]
+}
