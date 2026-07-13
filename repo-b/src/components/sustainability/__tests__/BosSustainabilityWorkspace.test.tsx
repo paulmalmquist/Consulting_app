@@ -1,20 +1,28 @@
 import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import BosSustainabilityWorkspace from "@/components/sustainability/BosSustainabilityWorkspace";
-import type { SusAuthoritativeStateResponse } from "@/lib/bos-api";
+import type {
+  SusAuthoritativeReportResponse,
+  SusAuthoritativeStateResponse,
+} from "@/lib/bos-api";
 
 vi.mock("@/lib/bos-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/bos-api")>("@/lib/bos-api");
   return {
     ...actual,
     getSusAuthoritativeOverview: vi.fn(),
+    getSusAuthoritativeReport: vi.fn(),
   };
 });
 
-import { getSusAuthoritativeOverview } from "@/lib/bos-api";
+import {
+  getSusAuthoritativeOverview,
+  getSusAuthoritativeReport,
+} from "@/lib/bos-api";
 
 const mocked = getSusAuthoritativeOverview as unknown as ReturnType<typeof vi.fn>;
+const mockedReport = getSusAuthoritativeReport as unknown as ReturnType<typeof vi.fn>;
 
 const RELEASED_PAYLOAD: SusAuthoritativeStateResponse = {
   entity_scope: "portfolio",
@@ -73,9 +81,48 @@ const NULL_METRIC_PAYLOAD: SusAuthoritativeStateResponse = {
   evidence: [],
 };
 
+const REPORT_RELEASED: SusAuthoritativeReportResponse = {
+  entity_scope: "portfolio",
+  period_key: "2026Q1",
+  requested_period_key: "2026Q1",
+  period_exact: true,
+  metric_family: "ghg",
+  state_origin: "authoritative",
+  snapshot_version: "sv-abc-123",
+  promotion_state: "released",
+  trust_status: "trusted",
+  null_reason: null,
+  metrics: RELEASED_PAYLOAD.metrics,
+  evidence: [],
+  generated_at: "2026-07-13T18:00:00Z",
+};
+
+const REPORT_UNAVAILABLE: SusAuthoritativeReportResponse = {
+  entity_scope: "portfolio",
+  period_key: "2026Q1",
+  requested_period_key: "2026Q1",
+  period_exact: false,
+  metric_family: "ghg",
+  state_origin: "authoritative",
+  snapshot_version: null,
+  promotion_state: null,
+  trust_status: "missing_source",
+  null_reason: "snapshot_unavailable",
+  metrics: [],
+  evidence: [],
+  generated_at: "2026-07-13T18:00:00Z",
+};
+
+const REPORT_WITH_NULL_METRIC: SusAuthoritativeReportResponse = {
+  ...REPORT_RELEASED,
+  snapshot_version: "sv-xyz-789",
+  metrics: NULL_METRIC_PAYLOAD.metrics,
+};
+
 describe("BosSustainabilityWorkspace", () => {
   beforeEach(() => {
     mocked.mockReset();
+    mockedReport.mockReset();
   });
 
   it("renders a card per metric plus snapshot version and trust status for a released snapshot", async () => {
@@ -120,5 +167,54 @@ describe("BosSustainabilityWorkspace", () => {
     expect(nullTile).toHaveTextContent("out_of_scope_requires_scope3_ingestion");
     expect(nullTile.textContent).not.toMatch(/(^|\s)0(\s|$)/);
     expect(screen.queryByTestId("bos-sus-metric-scope3_tco2e")).toBeNull();
+  });
+
+  it("opens the governed report and shows the same snapshot_version the dashboard shows", async () => {
+    mocked.mockResolvedValueOnce(RELEASED_PAYLOAD);
+    mockedReport.mockResolvedValueOnce(REPORT_RELEASED);
+
+    render(<BosSustainabilityWorkspace />);
+    await screen.findByTestId("bos-sus-metric-grid");
+
+    fireEvent.click(screen.getByTestId("bos-sus-open-report"));
+
+    const view = await screen.findByTestId("bos-sus-report-view");
+    expect(view).toBeInTheDocument();
+    expect(screen.getByTestId("bos-sus-report-snapshot-version")).toHaveTextContent("sv-abc-123");
+    expect(screen.getByTestId("bos-sus-report-trust-status")).toHaveTextContent("trust: trusted");
+    expect(screen.getByTestId("bos-sus-report-promotion-state")).toHaveTextContent(
+      "promotion: released"
+    );
+    // Report snapshot_version matches the dashboard governance header.
+    expect(screen.getByTestId("bos-sus-snapshot-version")).toHaveTextContent("sv-abc-123");
+  });
+
+  it("renders a null metric's null_reason in the report, matching the dashboard", async () => {
+    mocked.mockResolvedValueOnce(NULL_METRIC_PAYLOAD);
+    mockedReport.mockResolvedValueOnce(REPORT_WITH_NULL_METRIC);
+
+    render(<BosSustainabilityWorkspace />);
+    await screen.findByTestId("bos-sus-metric-null-scope3_tco2e");
+
+    fireEvent.click(screen.getByTestId("bos-sus-open-report"));
+
+    const row = await screen.findByTestId("bos-sus-report-metric-null-reason-scope3_tco2e");
+    expect(row).toHaveTextContent("out_of_scope_requires_scope3_ingestion");
+    expect(row.textContent).not.toMatch(/(^|\s)0(\s|$)/);
+  });
+
+  it("renders explicit unavailable state and no totals when the report snapshot is unavailable", async () => {
+    mocked.mockResolvedValueOnce(RELEASED_PAYLOAD);
+    mockedReport.mockResolvedValueOnce(REPORT_UNAVAILABLE);
+
+    render(<BosSustainabilityWorkspace />);
+    await screen.findByTestId("bos-sus-metric-grid");
+
+    fireEvent.click(screen.getByTestId("bos-sus-open-report"));
+
+    const banner = await screen.findByTestId("bos-sus-report-unavailable");
+    expect(banner).toHaveTextContent("snapshot_unavailable");
+    expect(screen.queryByTestId("bos-sus-report-view")).toBeNull();
+    expect(screen.queryByTestId("bos-sus-report-metric-list")).toBeNull();
   });
 });

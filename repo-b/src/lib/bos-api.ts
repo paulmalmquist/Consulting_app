@@ -7237,6 +7237,28 @@ export function getSusAuthoritativeMetricEvidence(
   );
 }
 
+export type SusAuthoritativeReportResponse = {
+  entity_scope: string | null;
+  period_key: string | null;
+  requested_period_key: string | null;
+  period_exact: boolean | null;
+  metric_family: string | null;
+  state_origin: string | null;
+  snapshot_version: string | null;
+  promotion_state: string | null;
+  trust_status: string | null;
+  null_reason: string | null;
+  metrics: SusAuthoritativeMetricItem[];
+  evidence: SusAuthoritativeEvidenceItem[];
+  generated_at: string | null;
+};
+
+export function getSusAuthoritativeReport(
+  params: SusAuthoritativeQueryParams
+): Promise<SusAuthoritativeReportResponse> {
+  return bosFetch("/api/re/v2/sustainability/authoritative/report", { params });
+}
+
 // ── RE V2 Types ──────────────────────────────────────────────────────────────
 
 export type ReV2Investment = {
