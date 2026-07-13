@@ -38,16 +38,34 @@ def build_governed_report(
     Every metric value comes from the T4 authoritative reader. The service
     does not read any ``sus_*`` table directly and does not compute totals.
     """
-    state = re_sustainability_authoritative.get_authoritative_state(
-        business_id=business_id,
-        env_id=env_id,
-        entity_scope=entity_scope,
-        period_key=period_key,
-        metric_family=metric_family,
-        snapshot_version=snapshot_version,
-    )
-
     generated_at = datetime.now(timezone.utc).isoformat()
+
+    try:
+        state = re_sustainability_authoritative.get_authoritative_state(
+            business_id=business_id,
+            env_id=env_id,
+            entity_scope=entity_scope,
+            period_key=period_key,
+            metric_family=metric_family,
+            snapshot_version=snapshot_version,
+        )
+    except Exception:
+        # Fail closed: never fabricate a value if the governed reader raises.
+        return {
+            "entity_scope": entity_scope,
+            "period_key": period_key,
+            "requested_period_key": period_key,
+            "period_exact": False,
+            "metric_family": metric_family,
+            "state_origin": "authoritative",
+            "snapshot_version": None,
+            "promotion_state": None,
+            "trust_status": "missing_source",
+            "null_reason": re_sustainability_authoritative.SNAPSHOT_UNAVAILABLE,
+            "metrics": [],
+            "evidence": [],
+            "generated_at": generated_at,
+        }
 
     if state.get("null_reason") == re_sustainability_authoritative.SNAPSHOT_UNAVAILABLE:
         return {
