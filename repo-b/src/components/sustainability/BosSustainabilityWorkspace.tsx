@@ -9,6 +9,7 @@ import {
 } from "@/lib/bos-api";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StateCard } from "@/components/ui/StateCard";
+import SustainabilityEvidenceDrawer from "@/components/sustainability/SustainabilityEvidenceDrawer";
 
 const METRIC_LABELS: Record<string, string> = {
   scope1_tco2e: "Scope 1 (tCO2e)",
@@ -95,41 +96,56 @@ function GovernanceHeader({ state }: { state: SusAuthoritativeStateResponse }) {
   );
 }
 
-function MetricTile({ item }: { item: SusAuthoritativeMetricItem }) {
+function MetricTile({
+  item,
+  onOpen,
+}: {
+  item: SusAuthoritativeMetricItem;
+  onOpen: (item: SusAuthoritativeMetricItem) => void;
+}) {
   const label = METRIC_LABELS[item.metric_key] ?? item.metric_key;
-  if (item.value === null || item.value === undefined) {
-    const reason = item.null_reason ?? "unavailable";
-    return (
-      <div
-        data-testid={`bos-sus-metric-null-${item.metric_key}`}
-        className="rounded-xl border border-bm-warning/30 bg-bm-warning/8 p-4"
-      >
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
-          {label}
-        </p>
-        <p className="mt-2 font-mono text-xs text-bm-warning" data-testid={`bos-sus-metric-null-reason-${item.metric_key}`}>
-          null_reason: {reason}
-        </p>
-        {item.trust_status && (
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
-            trust: {item.trust_status}
-          </p>
-        )}
-      </div>
-    );
-  }
+  const isNull = item.value === null || item.value === undefined;
+  const testId = isNull
+    ? `bos-sus-metric-null-${item.metric_key}`
+    : `bos-sus-metric-${item.metric_key}`;
+  const className = isNull
+    ? "w-full text-left rounded-xl border border-bm-warning/30 bg-bm-warning/8 p-4 hover:border-bm-warning/60 focus:outline-none focus:ring-2 focus:ring-bm-warning/40"
+    : "w-full text-left rounded-xl border border-bm-border/50 bg-bm-surface/20 p-4 hover:border-bm-border focus:outline-none focus:ring-2 focus:ring-bm-border";
   return (
-    <div
-      data-testid={`bos-sus-metric-${item.metric_key}`}
-      className="rounded-xl border border-bm-border/50 bg-bm-surface/20 p-4"
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={() => onOpen(item)}
+      className={className}
     >
-      <MetricCard label={label} value={formatMetricValue(item)} />
-      {item.trust_status && (
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
-          trust: {item.trust_status}
-        </p>
+      {isNull ? (
+        <>
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-bm-muted2">
+            {label}
+          </p>
+          <p
+            className="mt-2 font-mono text-xs text-bm-warning"
+            data-testid={`bos-sus-metric-null-reason-${item.metric_key}`}
+          >
+            null_reason: {item.null_reason ?? "unavailable"}
+          </p>
+          {item.trust_status && (
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+              trust: {item.trust_status}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <MetricCard label={label} value={formatMetricValue(item)} />
+          {item.trust_status && (
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bm-muted2">
+              trust: {item.trust_status}
+            </p>
+          )}
+        </>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -139,6 +155,7 @@ export default function BosSustainabilityWorkspace({
   const [state, setState] = useState<SusAuthoritativeStateResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [openMetric, setOpenMetric] = useState<SusAuthoritativeMetricItem | null>(null);
 
   const resolvedQuery: SusAuthoritativeQueryParams = { ...DEFAULT_QUERY, ...(query ?? {}) };
 
@@ -193,6 +210,20 @@ export default function BosSustainabilityWorkspace({
           />
         )}
 
+        <SustainabilityEvidenceDrawer
+          open={openMetric !== null}
+          onClose={() => setOpenMetric(null)}
+          metric={openMetric}
+          governance={{
+            snapshot_version: state?.snapshot_version ?? null,
+            promotion_state: state?.promotion_state ?? null,
+            trust_status: state?.trust_status ?? null,
+            period_exact: state?.period_exact ?? null,
+          }}
+          query={resolvedQuery}
+          metricLabel={openMetric ? METRIC_LABELS[openMetric.metric_key] ?? openMetric.metric_key : undefined}
+        />
+
         {!loading && !error && state && (
           <>
             {state.null_reason === "snapshot_unavailable" ? (
@@ -231,7 +262,7 @@ export default function BosSustainabilityWorkspace({
                     className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
                   >
                     {state.metrics.map((m) => (
-                      <MetricTile key={m.metric_key} item={m} />
+                      <MetricTile key={m.metric_key} item={m} onOpen={setOpenMetric} />
                     ))}
                   </div>
                 )}
