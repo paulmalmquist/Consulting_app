@@ -67,6 +67,12 @@ class MetricResult:
     query_hash: str | None = None
     latency_ms: float | None = None
     sql_used: str | None = None   # populated ONLY for debug endpoint
+    # Governed-source metadata (populated by strategies that read authoritative
+    # snapshots — e.g. the sustainability service branch). Defaults keep every
+    # existing strategy and _empty_result unchanged.
+    null_reason: str | None = None
+    trust_status: str | None = None
+    snapshot_version: str | None = None
 
 
 @dataclass
@@ -378,6 +384,35 @@ def _execute_service_strategy(
                 results.append(_empty_result(c, query_hash, "service"))
             continue
 
+        if svc_key == "sustainability_authoritative":
+            # Governed sustainability metrics resolve through the T4
+            # authoritative-state reader — one call per metric. Each call is
+            # wrapped so a raised reader still fails closed to _empty_result
+            # (never a fabricated number).
+            period_key = query.quarter or _current_quarter()
+            entity_scope = (query.entity_type or "portfolio").lower()
+            for c in batch:
+                try:
+                    payload = fn(
+                        business_id=query.business_id,
+                        env_id=query.env_id or query.business_id,
+                        entity_scope=entity_scope,
+                        period_key=period_key,
+                        metric_family=c.metric_family or "sustainability",
+                        metric_key=c.metric_key,
+                    )
+                except Exception as e:
+                    log.warning(
+                        "Sustainability service call failed for %s: %s",
+                        c.metric_key, e,
+                    )
+                    results.append(_empty_result(c, query_hash, "service"))
+                    continue
+                results.append(
+                    _build_sustainability_result(c, payload, query, query_hash),
+                )
+            continue
+
         try:
             if svc_key == "portfolio_kpis":
                 raw = fn(
@@ -455,6 +490,36 @@ def _normalize_service_output(
         ))
 
     return results
+
+
+def _build_sustainability_result(
+    contract: MetricContract,
+    payload: dict,
+    query: MetricQuery,
+    query_hash: str,
+) -> MetricResult:
+    """Map a T4 authoritative-reader payload into a MetricResult.
+
+    Carries ``null_reason`` verbatim so the copilot reports the reason instead
+    of substituting zero. ``unit`` falls back to the contract's declared unit
+    only when the reader itself returned no unit (e.g. missing snapshot).
+    """
+    payload = payload or {}
+    return MetricResult(
+        metric_key=contract.metric_key,
+        display_name=contract.display_name,
+        metric_family=contract.metric_family,
+        value=_format_value(payload.get("value")),
+        unit=payload.get("unit") or contract.unit,
+        format_hint=contract.format_hint_fe,
+        polarity=contract.polarity,
+        quarter=query.quarter,
+        source="service",
+        query_hash=query_hash,
+        null_reason=payload.get("null_reason"),
+        trust_status=payload.get("trust_status"),
+        snapshot_version=payload.get("snapshot_version"),
+    )
 
 
 # ── Main entry point ─────────────────────────────────────────────────
