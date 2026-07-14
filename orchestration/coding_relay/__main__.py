@@ -286,10 +286,42 @@ def execute_run(args, result, ui) -> int:
         )
         if model_note:
             ui.notify(f"[providers] {model_note}")
+        # Only record a builder model the run can PROVE it used: the flag was
+        # requested AND the installed CLI advertises --model (so it was
+        # actually applied). Otherwise record null + cli_default_unreported;
+        # a fabricated attribution would silently poison the routing evidence.
+        claude_flag_supported = "--model" in claude_caps.flags
+        if args.claude_model and claude_flag_supported:
+            builder_model_recorded = args.claude_model
+            builder_model_resolution = "cli_flag_passed"
+        else:
+            builder_model_recorded = None
+            builder_model_resolution = "cli_default_unreported"
+        # Reviewer: same rule as builder — proof-only recording. We only stamp
+        # a claim when the flag was actually applied on the argv (which the
+        # per-iteration review-meta.json also captures, and telemetry re-verifies
+        # from there). Anything weaker is null + resolution marker, never a
+        # guessed name. `args.codex_model` is preserved separately as the
+        # *requested* value so provenance is not lost.
+        codex_flag_supported = bool(
+            {"-m", "--model"} & (codex_caps.flags if codex_caps else set())
+        )
+        if args.codex_model and codex_flag_supported:
+            reviewer_model_recorded = args.codex_model
+            reviewer_model_resolution = "cli_flag_passed"
+        else:
+            reviewer_model_recorded = None
+            reviewer_model_resolution = "cli_default_unreported"
         run_paths.update_run_json(
             providers="cli",
-            claude_model=args.claude_model or "(cli default)",
+            claude_model=builder_model_recorded,
+            claude_model_resolution=builder_model_resolution,
             claude_model_note=model_note or "",
+            codex_model=reviewer_model_recorded,
+            codex_model_requested=args.codex_model,
+            codex_model_resolution=reviewer_model_resolution,
+            codex_effort=args.codex_effort,
+            codex_max_effort=args.codex_max_effort,
         )
 
         def build_fn(prompt: str):
@@ -371,6 +403,17 @@ def execute_run(args, result, ui) -> int:
         state=outcome.state, exit_code=outcome.exit_code, detail=outcome.detail,
         iterations_run=outcome.iterations_run,
     )
+
+    # ---- TELEMETRY: append one honest row derived from the just-written
+    # run folder. Failure to emit must never fail the run itself.
+    try:
+        from orchestration.relay_coordinator import telemetry as _tel
+
+        _row = _tel.build_row_from_run_folder(run_paths.root)
+        if _row:
+            _tel.emit_row(repo_root / _tel.TELEMETRY_RELPATH, _row)
+    except Exception as _exc:  # noqa: BLE001
+        ui.notify(f"[telemetry] skipped: {type(_exc).__name__}: {_exc}")
 
     # Compact outcome block (all modes).
     if last_verdict:
