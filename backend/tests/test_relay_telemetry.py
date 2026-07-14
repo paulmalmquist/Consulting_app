@@ -369,3 +369,65 @@ def test_safety_stop_is_not_counted_as_a_rejection(tmp_path):
     assert row["runs"] == 2
     assert row["rejection_rate"] == 0.5, "safety stop must not inflate rejection rate"
     assert row["safety_stop_rate"] == 0.5
+
+
+# --- the report must not silently lie ------------------------------------
+
+def test_report_row_columns_line_up_with_the_header():
+    """Every header has a value under it, in the right place.
+
+    A report whose columns are misaligned is worse than no report: it reads as
+    authoritative while attributing one metric's number to another. That is how
+    a `safety_stop_rate` of 2.7 (an impossible rate) can appear, when what is
+    actually being printed under that header is the mean-iterations figure.
+
+    This pins the header and the row renderer to the same width, so adding a
+    column to one without the other fails loudly instead of shifting every
+    number after it one place to the left.
+    """
+    agg = [{
+        "builder_model": "(unreported)",
+        "task_class": "unclassified",
+        "runs": 10,
+        "pass_rate": 0.1,
+        "rejection_rate": 0.3,
+        "safety_stop_rate": 0.1,
+        "mean_iterations": 2.7,
+        "first_pass_test_rate": 0.667,
+        "mean_review_findings": 3.1,
+        "mean_elapsed_s": 927.88,
+    }]
+
+    out = tel.format_report(agg).strip().splitlines()
+    header, row = out[0].split(" | "), out[1].split(" | ")
+
+    assert len(row) == len(header), (
+        f"row has {len(row)} values for {len(header)} headers -- columns are shifted"
+    )
+
+    cells = dict(zip(header, row))
+    # Each value must appear under its OWN header, not its neighbour's.
+    assert cells["safety_stop_rate"] == "0.1"
+    assert cells["mean_iterations"] == "2.7"
+    assert cells["rejection_rate"] == "0.3"
+    assert cells["mean_elapsed_s"] == "927.88"
+
+    # Rates are rates. A value > 1.0 under a rate column means misalignment.
+    for col in ("pass_rate", "rejection_rate", "safety_stop_rate"):
+        assert 0.0 <= float(cells[col]) <= 1.0, f"{col}={cells[col]} is not a rate"
+
+
+def test_report_alignment_holds_when_first_pass_rate_is_missing():
+    """The n/a substitution must not consume the wrong slot."""
+    agg = [{
+        "builder_model": "fable", "task_class": "foundation", "runs": 1,
+        "pass_rate": 1.0, "rejection_rate": 0.0, "safety_stop_rate": 0.0,
+        "mean_iterations": 1.0, "first_pass_test_rate": None,
+        "mean_review_findings": 0.0, "mean_elapsed_s": 12.5,
+    }]
+    out = tel.format_report(agg).strip().splitlines()
+    header, row = out[0].split(" | "), out[1].split(" | ")
+    assert len(row) == len(header)
+    cells = dict(zip(header, row))
+    assert cells["first_pass_test_rate"] == "n/a"
+    assert cells["mean_elapsed_s"] == "12.5"

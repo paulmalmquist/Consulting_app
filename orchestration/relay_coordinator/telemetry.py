@@ -446,7 +446,8 @@ def format_report(agg: list[dict]) -> str:
         fpr = r["first_pass_test_rate"]
         lines.append(" | ".join(str(v) for v in (
             r["builder_model"], r["task_class"], r["runs"],
-            r["pass_rate"], r["rejection_rate"], r["mean_iterations"],
+            r["pass_rate"], r["rejection_rate"], r["safety_stop_rate"],
+            r["mean_iterations"],
             "n/a" if fpr is None else fpr,
             r["mean_review_findings"], r["mean_elapsed_s"],
         )))
