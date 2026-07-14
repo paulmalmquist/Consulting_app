@@ -2,6 +2,7 @@ export const workspaceTemplateRegistry = {
   generic: { label: "Generic Workspace", openPath: null },
   trading_platform: { label: "Trading Platform", openPath: "markets" },
   repe_workspace: { label: "REPE Workspace", openPath: "re" },
+  sustainability_workspace: { label: "Sustainability Workspace", openPath: "sustainability" },
   pds_enterprise: { label: "PDS Enterprise OS", openPath: "pds" },
   ecc_command: { label: "Executive Command Center", openPath: "ecc" },
   credit_risk_hub: { label: "Credit Risk Hub", openPath: "credit" },
