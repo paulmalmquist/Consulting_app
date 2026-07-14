@@ -370,12 +370,25 @@ def test_report_service_contains_no_sql() -> None:
 
 
 def test_only_authoritative_reader_touches_sus_authoritative_tables() -> None:
-    """No other governed service may SELECT from sus_authoritative_* tables."""
+    """No other governed service may SELECT from sus_authoritative_* tables.
+
+    The T13a materialization/release path (``re_sustainability_snapshot_writer``)
+    is the sanctioned writer — it INSERTs draft rows and UPDATEs the promotion
+    lifecycle, and reads its own draft rows only for the release gate. Every
+    other ``re_sustainability*`` service must still be blocked from touching
+    these tables.
+    """
     services = _services_dir()
     offenders: list[tuple[str, str]] = []
 
+    # Whitelist: the reader (SELECT-only) and the writer (INSERT/UPDATE + gate
+    # read) are the two governed surfaces allowed to name these tables.
+    allowed = {
+        "re_sustainability_authoritative.py",
+        "re_sustainability_snapshot_writer.py",
+    }
     for py in services.glob("re_sustainability*.py"):
-        if py.name == "re_sustainability_authoritative.py":
+        if py.name in allowed:
             continue
         text = py.read_text(encoding="utf-8")
         for table in (
@@ -387,9 +400,22 @@ def test_only_authoritative_reader_touches_sus_authoritative_tables() -> None:
                 offenders.append((py.name, table))
 
     assert not offenders, (
-        "Only re_sustainability_authoritative may read sus_authoritative_* "
-        f"tables; offenders: {offenders}"
+        "Only re_sustainability_authoritative (reader) and "
+        "re_sustainability_snapshot_writer (writer/release gate) may reference "
+        f"sus_authoritative_* tables; offenders: {offenders}"
     )
+
+    # The writer must not SELECT payload columns — its only reads are the
+    # release-gate lookups (metric_key/value_numeric/null_reason + evidence
+    # metric_key) and the current promotion_state before transitioning. Any
+    # other SELECT would drift into reader territory.
+    writer_text = (services / "re_sustainability_snapshot_writer.py").read_text(
+        encoding="utf-8",
+    )
+    assert "INSERT INTO sus_authoritative_snapshots" in writer_text
+    assert "INSERT INTO sus_authoritative_metric_value" in writer_text
+    assert "INSERT INTO sus_authoritative_evidence" in writer_text
+    assert "UPDATE sus_authoritative_snapshots" in writer_text
 
     # And the reader itself really does own the SELECTs.
     reader_text = (services / "re_sustainability_authoritative.py").read_text(
