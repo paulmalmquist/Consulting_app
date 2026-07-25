@@ -137,4 +137,4 @@ All suggestion-generating tasks (feature-radar, demo-ideas, site-improvements, c
 ---
 
 *Last updated: 2026-03-22 by morning-ops-digest. Manual edits are fine but will be overwritten on next run.*
-- **Winston eval novendor (smoke)** - pass: 3 pass / 0 fail · [2026-07-24_0600](./docs/ai-testing/reports/2026-07-24_0600_novendor.md)  _updated 2026-07-24_0600 UTC_
+- **Winston eval novendor (smoke)** - pass: 3 pass / 0 fail · [2026-07-25_0555](./docs/ai-testing/reports/2026-07-25_0555_novendor.md)  _updated 2026-07-25_0555 UTC_
